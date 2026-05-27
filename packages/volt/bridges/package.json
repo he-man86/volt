@@ -1,0 +1,16 @@
+{
+  "name": "@opencode-ai/volt-bridges",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IDE bridges (Beckhoff TwinCAT) that the MCP server talks to. C# binary.",
+  "type": "module",
+  "scripts": {
+    "build": "bash ./build-bridges.sh",
+    "test": "vitest run",
+    "test:cs": "dotnet test beckhoff/BeckhoffBridge.sln",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}

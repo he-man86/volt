@@ -1,0 +1,196 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Structured Text",
+  "scopeName": "source.structured-text",
+  "fileTypes": ["st"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numeric-literals" },
+    { "include": "#structural-keywords" },
+    { "include": "#var-section-keywords" },
+    { "include": "#control-flow-keywords" },
+    { "include": "#modifier-keywords" },
+    { "include": "#logical-operators" },
+    { "include": "#type-keywords" },
+    { "include": "#constants" },
+    { "include": "#operators" },
+    { "include": "#punctuation" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.structured-text",
+          "begin": "//",
+          "end": "$",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.structured-text" } }
+        },
+        {
+          "comment": "Our Volt convention — (* folder: X *) annotates intra-FB folder for METHOD/ACTION/PROPERTY. Highlighted distinctly so it's visible as load-bearing metadata.",
+          "name": "comment.block.metadata.folder.structured-text",
+          "match": "\\(\\*\\s*folder\\s*:\\s*[^*]+\\*\\)",
+          "captures": { "0": { "name": "meta.annotation.folder.structured-text" } }
+        },
+        {
+          "name": "comment.block.structured-text",
+          "begin": "\\(\\*",
+          "end": "\\*\\)",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.begin.structured-text" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.comment.end.structured-text" } },
+          "patterns": [
+            {
+              "comment": "ST supports nested block comments — match inner pairs so we don't close on the outer too early.",
+              "name": "comment.block.nested.structured-text",
+              "begin": "\\(\\*",
+              "end": "\\*\\)"
+            }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "comment": "Single-quoted string (ST standard); '' is an escaped quote.",
+          "name": "string.quoted.single.structured-text",
+          "begin": "'",
+          "end": "'",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.structured-text" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.structured-text" } },
+          "patterns": [
+            { "name": "constant.character.escape.structured-text", "match": "''" },
+            { "name": "constant.character.escape.structured-text", "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?" }
+          ]
+        },
+        {
+          "comment": "Double-quoted WSTRING (CODESYS / TwinCAT); \"\" is an escaped quote.",
+          "name": "string.quoted.double.structured-text",
+          "begin": "\"",
+          "end": "\"",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.structured-text" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.structured-text" } },
+          "patterns": [
+            { "name": "constant.character.escape.structured-text", "match": "\"\"" },
+            { "name": "constant.character.escape.structured-text", "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?" }
+          ]
+        }
+      ]
+    },
+    "numeric-literals": {
+      "patterns": [
+        {
+          "comment": "Typed literal: INT#42, REAL#3.14, BOOL#TRUE, TIME#10s, etc.",
+          "name": "constant.numeric.typed.structured-text",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(#)([0-9A-Fa-f_.+\\-eE]+|[A-Za-z0-9_]+)\\b",
+          "captures": {
+            "1": { "name": "storage.type.literal-prefix.structured-text" },
+            "2": { "name": "punctuation.separator.literal.structured-text" },
+            "3": { "name": "constant.numeric.value.structured-text" }
+          }
+        },
+        {
+          "comment": "Based literal: 16#FF, 2#1010, 8#777",
+          "name": "constant.numeric.based.structured-text",
+          "match": "\\b(?:2|8|10|16)#[0-9A-Fa-f_]+\\b"
+        },
+        {
+          "comment": "Time / duration: T#10s, TIME#100ms, DT#2025-01-01-12:00:00, etc.",
+          "name": "constant.numeric.duration.structured-text",
+          "match": "\\b(?:T|TIME|TOD|TIME_OF_DAY|D|DATE|DT|DATE_AND_TIME|LTIME|LDT|LTOD|LDATE)#[0-9A-Za-z_:.\\-]+"
+        },
+        {
+          "comment": "Real / floating point",
+          "name": "constant.numeric.float.structured-text",
+          "match": "\\b[0-9][0-9_]*\\.[0-9_]+(?:[eE][+\\-]?[0-9_]+)?\\b"
+        },
+        {
+          "comment": "Integer (with optional digit separators)",
+          "name": "constant.numeric.integer.structured-text",
+          "match": "\\b[0-9][0-9_]*\\b"
+        }
+      ]
+    },
+    "structural-keywords": {
+      "comment": "Block-level declarations — what defines the file's structure.",
+      "match": "(?i)\\b(FUNCTION_BLOCK|END_FUNCTION_BLOCK|FUNCTION|END_FUNCTION|PROGRAM|END_PROGRAM|METHOD|END_METHOD|ACTION|END_ACTION|PROPERTY|END_PROPERTY|END_GET|END_SET|INTERFACE|END_INTERFACE|TYPE|END_TYPE|STRUCT|END_STRUCT|UNION|END_UNION|NAMESPACE|END_NAMESPACE|GET|SET)\\b",
+      "name": "keyword.declaration.structural.structured-text"
+    },
+    "var-section-keywords": {
+      "match": "(?i)\\b(VAR|VAR_INPUT|VAR_OUTPUT|VAR_IN_OUT|VAR_TEMP|VAR_STAT|VAR_INST|VAR_EXTERNAL|VAR_GLOBAL|VAR_CONFIG|VAR_ACCESS|END_VAR)\\b",
+      "name": "keyword.declaration.variable-section.structured-text"
+    },
+    "modifier-keywords": {
+      "match": "(?i)\\b(CONSTANT|RETAIN|NON_RETAIN|PERSISTENT|PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT|OVERRIDE|READ_ONLY|READ_WRITE|EXTENDS|IMPLEMENTS|ARRAY|OF|REFERENCE|POINTER|TO|AT|WITH|USING|FROM)\\b",
+      "name": "storage.modifier.structured-text"
+    },
+    "control-flow-keywords": {
+      "match": "(?i)\\b(IF|THEN|ELSIF|ELSE|END_IF|CASE|END_CASE|FOR|BY|DO|END_FOR|WHILE|END_WHILE|REPEAT|UNTIL|END_REPEAT|RETURN|EXIT|CONTINUE|JMP)\\b",
+      "name": "keyword.control.structured-text"
+    },
+    "logical-operators": {
+      "match": "(?i)\\b(AND|AND_THEN|OR|OR_ELSE|NOT|XOR|MOD)\\b",
+      "name": "keyword.operator.logical.structured-text"
+    },
+    "type-keywords": {
+      "comment": "Built-in IEC 61131-3 types and their TwinCAT/CODESYS aliases.",
+      "match": "(?i)\\b(BOOL|BYTE|WORD|DWORD|LWORD|SINT|USINT|INT|UINT|DINT|UDINT|LINT|ULINT|REAL|LREAL|TIME|LTIME|DATE|LDATE|TIME_OF_DAY|TOD|LTOD|DATE_AND_TIME|DT|LDT|STRING|WSTRING|CHAR|WCHAR|ANY|ANY_NUM|ANY_INT|ANY_REAL|ANY_BIT|ANY_DATE|ANY_STRING)\\b",
+      "name": "support.type.builtin.structured-text"
+    },
+    "constants": {
+      "match": "(?i)\\b(TRUE|FALSE|NULL|THIS|SUPER)\\b",
+      "name": "constant.language.structured-text"
+    },
+    "operators": {
+      "patterns": [
+        {
+          "comment": "Assignment + reference assignment",
+          "match": ":=|=>",
+          "name": "keyword.operator.assignment.structured-text"
+        },
+        {
+          "comment": "Comparison",
+          "match": "<>|<=|>=|<|>|=",
+          "name": "keyword.operator.comparison.structured-text"
+        },
+        {
+          "comment": "Arithmetic",
+          "match": "\\*\\*|[+\\-*/]",
+          "name": "keyword.operator.arithmetic.structured-text"
+        },
+        {
+          "comment": "Bitwise / address-of",
+          "match": "&|\\^",
+          "name": "keyword.operator.other.structured-text"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        { "match": ":", "name": "punctuation.separator.type.structured-text" },
+        { "match": ";", "name": "punctuation.terminator.statement.structured-text" },
+        { "match": ",", "name": "punctuation.separator.delimiter.structured-text" },
+        { "match": "\\.", "name": "punctuation.accessor.structured-text" },
+        { "match": "\\(", "name": "punctuation.section.parens.begin.structured-text" },
+        { "match": "\\)", "name": "punctuation.section.parens.end.structured-text" },
+        { "match": "\\[", "name": "punctuation.section.brackets.begin.structured-text" },
+        { "match": "\\]", "name": "punctuation.section.brackets.end.structured-text" }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "comment": "Function / method call: identifier immediately followed by '('",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": { "1": { "name": "entity.name.function.structured-text" } }
+        },
+        {
+          "comment": "Plain identifier (variable, type, field reference, etc.)",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b",
+          "name": "variable.other.structured-text"
+        }
+      ]
+    }
+  }
+}
