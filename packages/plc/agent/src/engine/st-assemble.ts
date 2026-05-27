@@ -7,11 +7,11 @@
  * association is implicit from the file name — `POUs/FB_Motor.st`
  * contains everything related to `FB_Motor`.
  *
- * This format is exactly what `@plcassist/st-lsp`'s parser expects,
+ * This format is exactly what `@opencode-ai/plc-lsp-st`'s parser expects,
  * which is why we don't ship our own parser — the LSP package owns
  * structural parsing for the whole project.
  *
- *   import { parseSource } from "@plcassist/st-lsp";
+ *   import { parseSource } from "@opencode-ai/plc-lsp-st";
  *
  * Assembly is one-way (no parser logic here); it complements parseSource
  * for the bridge → workspace direction.

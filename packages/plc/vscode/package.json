@@ -1,5 +1,5 @@
 {
-  "name": "plcassist-vscode",
+  "name": "@opencode-ai/plc-vscode",
   "displayName": "PLC Assist",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
   "version": "0.0.1",

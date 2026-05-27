@@ -10,7 +10,7 @@
  * all just read the binding.
  */
 import { resolve } from "node:path";
-import { detectVendor, installCorpus, type DetectedVendor } from "@plcassist/st-lsp";
+import { detectVendor, installCorpus, type DetectedVendor } from "@opencode-ai/plc-lsp-st";
 import { BridgeClient } from "../bridge/client.js";
 import { configExists, loadConfig, saveConfig, workspacePaths } from "./config.js";
 import { ensureGitignore, ensureSnapshotRepo } from "./snapshot.js";

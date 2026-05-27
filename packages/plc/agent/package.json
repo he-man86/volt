@@ -1,5 +1,5 @@
 {
-  "name": "@plcassist/agent",
+  "name": "@opencode-ai/plc-agent",
   "version": "0.0.0",
   "private": true,
   "description": "PLC Assist agent — `plc` CLI (init/import/export/status/compile) on top of a vendor bridge, plus an MCP server (`plc-mcp`) exposing the same surface to AI clients.",
@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@plcassist/st-lsp": "^0.0.0",
+    "@opencode-ai/plc-lsp-st": "workspace:*",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 {
-  "name": "@plcassist/bridges",
+  "name": "@opencode-ai/plc-bridges",
   "version": "0.0.0",
   "private": true,
   "description": "IDE bridges (Beckhoff TwinCAT) that the MCP server talks to. C# binary.",

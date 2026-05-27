@@ -8,7 +8,7 @@
  * order, GET/SET correctness) and the round-trip itself.
  */
 import { describe, expect, it } from "vitest";
-import { parseSource } from "@plcassist/st-lsp";
+import { parseSource } from "@opencode-ai/plc-lsp-st";
 import { assemblePou } from "./st-assemble.js";
 
 describe("assemblePou", () => {
@@ -143,7 +143,7 @@ describe("assemblePou", () => {
 		expect(assemblePou({ kind: "interface", declaration: "INTERFACE IX" })).toContain("END_INTERFACE");
 	});
 
-	it("output parses cleanly through @plcassist/st-lsp (full round-trip: method + action + property)", () => {
+	it("output parses cleanly through @opencode-ai/plc-lsp-st (full round-trip: method + action + property)", () => {
 		const src = assemblePou({
 			kind: "function_block",
 			declaration: "FUNCTION_BLOCK FB_RT\nVAR _state : INT; END_VAR",

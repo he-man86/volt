@@ -4,7 +4,7 @@
  * Each workspace file represents one POU (FUNCTION_BLOCK / PROGRAM /
  * FUNCTION). Its children (METHOD / ACTION / PROPERTY) appear as
  * top-level sibling declarations AFTER the outer END_X — parent
- * association is implicit from the filename. The `@plcassist/st-lsp`
+ * association is implicit from the filename. The `@opencode-ai/plc-lsp-st`
  * parser already understands this format; this module just walks the
  * AST and slices decl/impl text out of the original source using the
  * AST node spans.
@@ -16,7 +16,7 @@
  * we slice the raw source from the end of the declaration zone up to
  * (but excluding) the closer keyword.
  */
-import { parseSource } from "@plcassist/st-lsp";
+import { parseSource } from "@opencode-ai/plc-lsp-st";
 import type {
 	Action,
 	FunctionBlock,
@@ -25,7 +25,7 @@ import type {
 	Program,
 	Property,
 	PropertyAccessor,
-} from "@plcassist/st-lsp";
+} from "@opencode-ai/plc-lsp-st";
 import { FOLDER_COMMENT_RE, type ChildKind } from "./st-assemble.js";
 
 export interface ParsedFile {

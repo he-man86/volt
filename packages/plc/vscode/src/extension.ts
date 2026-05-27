@@ -44,7 +44,7 @@ interface PlcLanguage {
 const PLC_LANGUAGES: PlcLanguage[] = [
 	{
 		languageId: "structured-text",
-		lspPackage: "@plcassist/st-lsp",
+		lspPackage: "@opencode-ai/plc-lsp-st",
 		displayName: "Structured Text",
 		configKey: "plcassist.structuredText.lspServer",
 		settingsRoot: "plcassist.structuredText",
