@@ -15,6 +15,12 @@ import {
 } from "./_shared.js";
 
 export function registerVoltInit(server: McpServer): void {
+	// @ts-expect-error TS2589 — MCP SDK 1.29.0's registerTool generic
+	// (`OutputArgs extends ZodRawShapeCompat | AnySchema` with no
+	// default) blows up TypeScript's instantiation depth on this one
+	// call site (the other 4 tools with the same pattern don't trip
+	// it). Unique to volt_init; cause not pinpointed. Revisit if SDK
+	// ships a `registerTool` overload with `OutputArgs = undefined`.
 	server.registerTool(
 		"volt_init",
 		{
