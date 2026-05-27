@@ -754,6 +754,70 @@
         "vite-plugin-solid": "catalog:",
       },
     },
+    "packages/volt-agent": {
+      "name": "@opencode-ai/volt-agent",
+      "version": "1.15.11",
+      "bin": {
+        "volt": "./dist/cli/bin.js",
+        "volt-mcp": "./dist/tools/bin.js",
+      },
+      "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@opencode-ai/volt-lsp-st": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/volt-bridges": {
+      "name": "@opencode-ai/volt-bridges",
+      "version": "1.15.11",
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/volt-lsp-st": {
+      "name": "@opencode-ai/volt-lsp-st",
+      "version": "1.15.11",
+      "bin": {
+        "volt-lsp-st": "./dist/bin.js",
+      },
+      "dependencies": {
+        "vscode-languageserver-protocol": "^3.17.5",
+        "vscode-languageserver-textdocument": "^1.0.12",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/volt-vscode": {
+      "name": "@opencode-ai/volt-vscode",
+      "version": "1.15.11",
+      "dependencies": {
+        "vscode-languageclient": "^9.0.1",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/node": "catalog:",
+        "@types/vscode": "^1.80.0",
+        "@typescript/native-preview": "catalog:",
+        "@vscode/vsce": "^3.0.0",
+        "typescript": "catalog:",
+      },
+    },
     "packages/volt-web": {
       "name": "@opencode-ai/volt-web",
       "version": "1.15.11",
@@ -785,70 +849,6 @@
         "@astrojs/check": "0.9.6",
         "@tsconfig/node22": "catalog:",
         "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/volt/agent": {
-      "name": "@opencode-ai/volt-agent",
-      "version": "1.15.11",
-      "bin": {
-        "volt": "./dist/cli/bin.js",
-        "volt-mcp": "./dist/tools/bin.js",
-      },
-      "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.29.0",
-        "@opencode-ai/volt-lsp-st": "workspace:*",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/bun": "catalog:",
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/volt/bridges": {
-      "name": "@opencode-ai/volt-bridges",
-      "version": "1.15.11",
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/bun": "catalog:",
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/volt/lsp-st": {
-      "name": "@opencode-ai/volt-lsp-st",
-      "version": "1.15.11",
-      "bin": {
-        "volt-lsp-st": "./dist/bin.js",
-      },
-      "dependencies": {
-        "vscode-languageserver-protocol": "^3.17.5",
-        "vscode-languageserver-textdocument": "^1.0.12",
-      },
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/bun": "catalog:",
-        "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/volt/vscode": {
-      "name": "@opencode-ai/volt-vscode",
-      "version": "1.15.11",
-      "dependencies": {
-        "vscode-languageclient": "^9.0.1",
-      },
-      "devDependencies": {
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "@types/vscode": "^1.80.0",
-        "@typescript/native-preview": "catalog:",
-        "@vscode/vsce": "^3.0.0",
         "typescript": "catalog:",
       },
     },
@@ -1788,13 +1788,13 @@
 
     "@opencode-ai/ui": ["@opencode-ai/ui@workspace:packages/ui"],
 
-    "@opencode-ai/volt-agent": ["@opencode-ai/volt-agent@workspace:packages/volt/agent"],
+    "@opencode-ai/volt-agent": ["@opencode-ai/volt-agent@workspace:packages/volt-agent"],
 
-    "@opencode-ai/volt-bridges": ["@opencode-ai/volt-bridges@workspace:packages/volt/bridges"],
+    "@opencode-ai/volt-bridges": ["@opencode-ai/volt-bridges@workspace:packages/volt-bridges"],
 
-    "@opencode-ai/volt-lsp-st": ["@opencode-ai/volt-lsp-st@workspace:packages/volt/lsp-st"],
+    "@opencode-ai/volt-lsp-st": ["@opencode-ai/volt-lsp-st@workspace:packages/volt-lsp-st"],
 
-    "@opencode-ai/volt-vscode": ["@opencode-ai/volt-vscode@workspace:packages/volt/vscode"],
+    "@opencode-ai/volt-vscode": ["@opencode-ai/volt-vscode@workspace:packages/volt-vscode"],
 
     "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
 

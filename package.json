@@ -27,8 +27,7 @@
       "packages/console/*",
       "packages/stats/*",
       "packages/sdk/js",
-      "packages/slack",
-      "packages/volt/*"
+      "packages/slack"
     ],
     "catalog": {
       "@effect/opentelemetry": "4.0.0-beta.66",
