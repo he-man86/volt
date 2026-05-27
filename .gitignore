@@ -30,3 +30,6 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Local junction to shared Claude memory dir (see project-shared-memory-junctions)
+/memory
