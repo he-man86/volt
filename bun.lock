@@ -754,6 +754,22 @@
         "vite-plugin-solid": "catalog:",
       },
     },
+    "packages/volt-web": {
+      "name": "@opencode-ai/volt-web",
+      "version": "1.15.11",
+      "dependencies": {
+        "@astrojs/cloudflare": "12.6.3",
+        "@astrojs/solid-js": "5.1.0",
+        "astro": "5.7.13",
+        "solid-js": "catalog:",
+      },
+      "devDependencies": {
+        "@astrojs/check": "0.9.6",
+        "@tsconfig/node22": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/volt/agent": {
       "name": "@opencode-ai/volt-agent",
       "version": "1.15.11",
@@ -1761,6 +1777,8 @@
     "@opencode-ai/volt-lsp-st": ["@opencode-ai/volt-lsp-st@workspace:packages/volt/lsp-st"],
 
     "@opencode-ai/volt-vscode": ["@opencode-ai/volt-vscode@workspace:packages/volt/vscode"],
+
+    "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
 
     "@opencode-ai/web": ["@opencode-ai/web@workspace:packages/web"],
 

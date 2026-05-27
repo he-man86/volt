@@ -1,0 +1,26 @@
+---
+import "../styles/global.css"
+
+interface Props {
+  title?: string
+  description?: string
+}
+
+const {
+  title = "Volt — AI coding agent for PLC Structured Text",
+  description = "Volt writes production-ready IEC 61131-3 code that compiles in your CODESYS / TwinCAT IDE.",
+} = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

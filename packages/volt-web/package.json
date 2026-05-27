@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode-ai/volt-web",
+  "version": "1.15.11",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
+  "description": "Volt marketing site — AI coding agent for PLC Structured Text. Public-facing pages, signup, pricing, docs entry point.",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "12.6.3",
+    "@astrojs/solid-js": "5.1.0",
+    "astro": "5.7.13",
+    "solid-js": "catalog:"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.6",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}
