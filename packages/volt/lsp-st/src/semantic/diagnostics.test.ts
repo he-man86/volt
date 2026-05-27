@@ -2,7 +2,7 @@
  * Unit tests for `computeSemanticDiagnostics`. One describe per check.
  * Fixtures use the parser directly — no LSP layer involved.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "../parser/parser.js";
 import { buildSymbolTable } from "./symbol-table.js";
 import { computeSemanticDiagnostics } from "./diagnostics.js";

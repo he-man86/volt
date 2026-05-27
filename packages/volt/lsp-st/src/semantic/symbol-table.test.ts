@@ -3,7 +3,7 @@
  * right symbols at the right scope, that nested scopes are linked,
  * and that case-insensitive lookup behaves correctly.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "../parser/parser.js";
 import {
 	buildSymbolTable,

@@ -5,7 +5,7 @@
  * of the lookup API, not the correctness of every entry. Spot-checks
  * cover the high-value categories (data types, pragmas, lifecycle).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { lookup, lookupAll, allEntries, renderHover } from "./index.js";
 
 describe("reference lookup", () => {

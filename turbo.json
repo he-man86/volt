@@ -39,6 +39,18 @@
       "dependsOn": ["^build"],
       "outputs": [".artifacts/unit/junit.xml"],
       "passThroughEnv": ["*"]
+    },
+    "@opencode-ai/volt-agent#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@opencode-ai/volt-lsp-st#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@opencode-ai/volt-bridges#test": {
+      "dependsOn": [],
+      "outputs": []
     }
   }
 }

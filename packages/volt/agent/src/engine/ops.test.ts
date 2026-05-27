@@ -13,7 +13,7 @@
  * format the @opencode-ai/volt-lsp-st parser already speaks. The bridge
  * wire shape is unchanged (still per-child ops).
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

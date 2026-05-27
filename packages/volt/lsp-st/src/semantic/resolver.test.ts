@@ -2,7 +2,7 @@
  * Resolver tests: lookup() walks parent scopes; scanReferencesInBody
  * finds identifier occurrences with call-site / member-access flags.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "../parser/parser.js";
 import type { FunctionBlock } from "../parser/ast.js";
 import { buildSymbolTable, lookupLocal, type Scope } from "./symbol-table.js";

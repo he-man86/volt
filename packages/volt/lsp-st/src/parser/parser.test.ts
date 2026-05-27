@@ -7,7 +7,7 @@
  * For error-recovery tests, we parse intentionally-broken source
  * and assert specific errors were recorded.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "./parser.js";
 import type {
 	ArrayType,

@@ -1,17 +1,29 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@opencode-ai/volt-bridges",
-  "version": "0.0.0",
+  "version": "1.15.11",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
   "description": "IDE bridges (Beckhoff TwinCAT) that the MCP server talks to. C# binary.",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bash ./build-bridges.sh",
-    "test": "vitest run",
+    "test": "bun test",
     "test:cs": "dotnet test beckhoff/BeckhoffBridge.sln",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "vitest": "^2.1.0"
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
   }
 }

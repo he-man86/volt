@@ -6,7 +6,7 @@
  * Skipped if the build artifact isn't present — vitest can run in a
  * pre-build state. Locally `npm run build` first.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";

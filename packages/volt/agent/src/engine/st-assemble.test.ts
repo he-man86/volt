@@ -7,7 +7,7 @@
  * both the visible format (children OUTSIDE END_FUNCTION_BLOCK, stable
  * order, GET/SET correctness) and the round-trip itself.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "@opencode-ai/volt-lsp-st";
 import { assemblePou } from "./st-assemble.js";
 

@@ -1,9 +1,13 @@
 {
-  "extends": "../tsconfig.base.json",
+  "$schema": "https://json.schemastore.org/tsconfig.json",
+  "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2022"],
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node", "bun"]
   },
   "include": ["*.ts"]
 }

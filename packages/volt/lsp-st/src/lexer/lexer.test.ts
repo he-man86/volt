@@ -11,7 +11,7 @@
  *   9. The `METHOD PROTECTED FINAL Execute` regression family — these
  *      are real header lines from the April 2026 incident.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { lex } from "./lexer.js";
 import type { Keyword, Token } from "./tokens.js";
 

@@ -1,10 +1,18 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@opencode-ai/volt-lsp-st",
-  "version": "0.0.0",
+  "version": "1.15.11",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
   "description": "TypeScript-native Language Server for IEC 61131-3 Structured Text. Navigation + diagnostics + completion + hover + signature help + semantic tokens, driven by an embedded CODESYS language reference. Type-checking and code-gen remain the IDE's job.",
   "type": "module",
-  "main": "./dist/index.js",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "bin": {
     "volt-lsp-st": "./dist/bin.js"
   },
@@ -13,14 +21,17 @@
     "docs"
   ],
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
   },
   "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "vitest": "^2.1.0"
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "^3.17.5",

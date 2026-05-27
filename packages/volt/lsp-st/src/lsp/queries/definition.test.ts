@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { Workspace } from "../workspace.js";
 import { definition } from "./definition.js";
 import { offsetFromPosition } from "../position.js";

@@ -2,7 +2,7 @@
  * Bundled tests for Phase-4 queries: hover, workspace/symbol,
  * call hierarchy, type hierarchy.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { Workspace } from "../workspace.js";
 import { hover } from "./hover.js";
 import { workspaceSymbol } from "./workspace-symbol.js";

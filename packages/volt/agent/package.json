@@ -1,7 +1,13 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@opencode-ai/volt-agent",
-  "version": "0.0.0",
+  "version": "1.15.11",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
   "description": "Volt agent — `volt` CLI (init/import/export/status/compile) on top of a vendor bridge, plus an MCP server (`volt-mcp`) exposing the same surface to AI clients.",
   "type": "module",
   "bin": {
@@ -12,22 +18,25 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "conformance": "tsc -b && node dist/cli/conformance.js",
-    "conformance:drift": "tsc -b && node dist/cli/conformance-drift.js",
-    "conformance:errors": "tsc -b && node dist/cli/conformance-errors.js",
-    "conformance:mcp": "tsc -b && node dist/tools/conformance.js"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test",
+    "conformance": "tsc && node dist/cli/conformance.js",
+    "conformance:drift": "tsc && node dist/cli/conformance-drift.js",
+    "conformance:errors": "tsc && node dist/cli/conformance-errors.js",
+    "conformance:mcp": "tsc && node dist/tools/conformance.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@opencode-ai/volt-lsp-st": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "vitest": "^2.1.0"
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
   }
 }

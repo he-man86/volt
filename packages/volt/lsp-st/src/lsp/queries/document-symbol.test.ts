@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { parseSource } from "../../parser/parser.js";
 import { buildDocumentSymbols } from "./document-symbol.js";
 import { LspSymbolKind } from "../types.js";

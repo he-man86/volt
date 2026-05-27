@@ -2,7 +2,7 @@
  * Tests for `volt-lsp-st init`. Runs in a temp dir per test so
  * file-system side-effects don't bleed.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { mkdtemp, mkdir, readFile, writeFile, readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

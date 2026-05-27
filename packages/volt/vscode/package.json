@@ -1,11 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@opencode-ai/volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "0.0.1",
+  "version": "1.15.11",
   "publisher": "volt",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anomalyco/opencode"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -227,17 +232,20 @@
     ]
   },
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsgo --noEmit",
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "@types/vscode": "^1.80.0",
-    "@vscode/vsce": "^3.0.0"
+    "@typescript/native-preview": "catalog:",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "catalog:"
   }
 }

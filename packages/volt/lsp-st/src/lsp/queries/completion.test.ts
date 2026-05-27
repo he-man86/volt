@@ -1,7 +1,7 @@
 /**
  * Unit tests for `textDocument/completion` and `completionItem/resolve`.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { Workspace } from "../workspace.js";
 import { completion, resolveCompletion } from "./completion.js";
 

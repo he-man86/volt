@@ -5,7 +5,7 @@
  * type at index N is `TOKEN_TYPES[N]`). Each test extracts decoded
  * token-type strings from the raw integer array.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { Workspace } from "../workspace.js";
 import { semanticTokens, TOKEN_TYPES } from "./semantic-tokens.js";
 
