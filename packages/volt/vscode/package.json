@@ -236,6 +236,7 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "@types/vscode": "^1.80.0",
     "@vscode/vsce": "^3.0.0"
   }
