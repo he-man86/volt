@@ -1,18 +1,18 @@
 # @opencode-ai/volt-agent
 
-The `plc` CLI: a git-shaped verb surface that synchronizes a normal folder of `.st` files with a live PLC IDE project, via a vendor-agnostic bridge daemon.
+The `volt` CLI: a git-shaped verb surface that synchronizes a normal folder of `.st` files with a live PLC IDE project, via a vendor-agnostic bridge daemon.
 
 ```
-plc init                  Bind this folder to the IDE project the bridge has open;
+volt init                  Bind this folder to the IDE project the bridge has open;
                           also installs the CODESYS reference corpus + CLAUDE.md
                           pointer so AI sessions in this folder know the language
-plc pull                  Pull IDE state into the workspace                   (= git fetch + merge)
-plc push                  Push workspace state to the IDE                     (= git push; refuses on drift)
-plc status                Show what differs between IDE, snapshot, workspace  (= git status)
-plc compile               Ask the IDE to build, print diagnostics
-plc grant <capability>    Issue a capability lease so AI clients can use      (sudo-style)
+volt pull                  Pull IDE state into the workspace                   (= git fetch + merge)
+volt push                  Push workspace state to the IDE                     (= git push; refuses on drift)
+volt status                Show what differs between IDE, snapshot, workspace  (= git status)
+volt compile               Ask the IDE to build, print diagnostics
+volt grant <capability>    Issue a capability lease so AI clients can use      (sudo-style)
                           elevated parameters (e.g. push-force)
-plc revoke <capability>   Kill an active capability lease before it expires
+volt revoke <capability>   Kill an active capability lease before it expires
 ```
 
 Verbs are deliberately named after git/hg — `incoming` / `outgoing`, `--dry-run`, `--porcelain`, `--force-with-lease` — so the model is self-documenting for anyone with VCS muscle memory.
@@ -22,19 +22,19 @@ Verbs are deliberately named after git/hg — `incoming` / `outgoing`, `--dry-ru
 The bridge is the only thing that talks to the IDE. The CLI is the only thing that talks to the bridge. Files on disk in your workspace are normal `.st` files — your editor (VS Code, opencode, Claude, whatever) edits them like any other source file.
 
 ```
-  user / AI editor              plc CLI                   vendor bridge              IDE
+  user / AI editor              volt CLI                  vendor bridge              IDE
   ────────────────              ───────                   ─────────────              ───
-  edit POUs/FB_X.st     ───▶  plc push     ──▶  POST /push (atomic batch    ───▶  COM
-  read POUs/FB_X.st     ◀───  plc pull     ◀──    with ifVersion guards)
-                              plc status   ──▶  GET /refs
-                              plc compile  ──▶  POST /compile               ───▶  vendor build
+  edit POUs/FB_X.st     ───▶  volt push     ──▶  POST /push (atomic batch    ───▶  COM
+  read POUs/FB_X.st     ◀───  volt pull     ◀──    with ifVersion guards)
+                              volt status   ──▶  GET /refs
+                              volt compile  ──▶  POST /compile               ───▶  vendor build
 ```
 
 The bridge never sees a git operation. The CLI never speaks COM. Clean split.
 
 ## Workspace anatomy
 
-After `plc init`, your folder contains:
+After `volt init`, your folder contains:
 
 ```
 my-workspace/
@@ -62,46 +62,46 @@ The `docs/codesys-reference/` + `CLAUDE.md` pair makes AI sessions (Claude Code,
 
 ```bash
 mkdir motor-controller && cd motor-controller
-plc init                # binds to whatever project the bridge has open
-plc pull                # populates the folder from the IDE
+volt init                # binds to whatever project the bridge has open
+volt pull                # populates the folder from the IDE
 # ... edit POUs/FB_Motor.st in your editor of choice
-plc push                # pushes back to the IDE
-plc compile             # build + diagnostics
+volt push                # pushes back to the IDE
+volt compile             # build + diagnostics
 ```
 
 ### With git for history + remote backup
 
 ```bash
-git init && plc init && plc pull
+git init && volt init && volt pull
 git add -A && git commit -m "initial pull"
 git remote add origin git@github.com:you/motor-controller.git
 git push -u origin main
 
 # work loop
-plc pull                # pull any IDE changes the engineer made
+volt pull                # pull any IDE changes the engineer made
 # ... edit
-plc push                # push edits to the IDE
+volt push                # push edits to the IDE
 git add -A && git commit -m "tuned ramp" && git push
 ```
 
 ## Drift protection
 
-`plc push` refuses if the IDE has changed since your last `plc pull` — same guard that prevents `git push` from clobbering an upstream you haven't fetched. Recovery is `plc pull` followed by `plc push`. If you really want to overwrite the engineer's work:
+`volt push` refuses if the IDE has changed since your last `volt pull` — same guard that prevents `git push` from clobbering an upstream you haven't fetched. Recovery is `volt pull` followed by `volt push`. If you really want to overwrite the engineer's work:
 
-- `plc push --force` — bypasses drift unconditionally
-- `plc push --force-with-lease=<projectVersion>` — bypasses drift only if the bridge is still exactly at `<projectVersion>` (= what you last saw via `plc status`). Refuses if anyone else moved the bridge after you observed it. Safer.
+- `volt push --force` — bypasses drift unconditionally
+- `volt push --force-with-lease=<projectVersion>` — bypasses drift only if the bridge is still exactly at `<projectVersion>` (= what you last saw via `volt status`). Refuses if anyone else moved the bridge after you observed it. Safer.
 
 ```
-$ plc push
+$ volt push
 drift detected: IDE has changed since last pull.
   local snapshot:  ca0a5402760c998b
   bridge current:  e0d91d928d025d18
-run `plc pull` to bring in IDE changes, or `plc push --force` to push anyway.
+run `volt pull` to bring in IDE changes, or `volt push --force` to push anyway.
 
-$ plc pull
+$ volt pull
 pulled: 3 file(s), removed: 0 file(s).
 
-$ plc push
+$ volt push
 pushed. snapshot now @ 1f8a3d2e4b51
 ```
 
@@ -110,7 +110,7 @@ pushed. snapshot now @ 1f8a3d2e4b51
 Some operations make sense for a human at a terminal but are risky for an AI to invoke autonomously — `force` is the canonical example. The MCP `volt_push` tool exposes a `force` parameter to the AI, but it's **gated on a filesystem capability lease** the human grants via the CLI:
 
 ```bash
-$ plc grant push-force --ttl 5m --once
+$ volt grant push-force --ttl 5m --once
 granted: push-force for 5m (one-shot)
 expires: 2026-05-25T20:32:00.000Z (4m 59s remaining)
 lease:   .volt/auth/push-force.lease
@@ -124,7 +124,7 @@ Why a filesystem lease (and not a conversational "yes, do it"):
 - Auto-expires (5m default, 24h max) — latent capability doesn't accumulate
 - `--once` consumes on first use — standard "I'm approving exactly one operation"
 
-There is **no `plc_grant` MCP tool** and there must never be one — that would defeat the whole separation.
+There is **no `volt_grant` MCP tool** and there must never be one — that would defeat the whole separation.
 
 ## Git-inspired flags
 
@@ -188,7 +188,7 @@ src/
     ├── status.ts              status verb (--porcelain)
     ├── compile.ts             compile verb
     ├── grant.ts               grant + revoke verbs (CLI-only; sudo-style lease issue)
-    ├── bin.ts                 `plc` executable — argv parse, call cli/index, exit
+    ├── bin.ts                 `volt` executable — argv parse, call cli/index, exit
     └── conformance.ts         THE BRIDGE CONTRACT — every vendor bridge must pass this
 ```
 
@@ -207,7 +207,7 @@ node dist/cli/bin.js push
 node dist/cli/bin.js status
 node dist/cli/bin.js compile
 
-# After `npm install` registers the bin: just `plc init`, etc.
+# After `npm install` registers the bin: just `volt init`, etc.
 ```
 
 ## AI integration (MCP)
@@ -223,7 +223,7 @@ Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_conf
 ```json
 {
   "mcpServers": {
-    "plc": {
+    "volt": {
       "command": "node",
       "args": ["/abs/path/to/packages/volt-agent/dist/tools/bin.js"],
       "env": {
@@ -257,11 +257,11 @@ Five endpoints. The CLI maps to three of them; the other two are introspection.
 
 | Endpoint | Used by | Shape |
 |---|---|---|
-| `GET /health` | `plc init`, error hints | liveness + project identifiers |
-| `GET /refs` | `plc status`, `plc push` | project version + per-item versions (cheap) |
-| `POST /fetch` | `plc pull` | items changed since the client's known versions |
-| `POST /push` | `plc push` | atomic batch of 11 primitive ops with `ifVersion` guards |
-| `POST /compile` | `plc compile` | build + normalized diagnostics |
+| `GET /health` | `volt init`, error hints | liveness + project identifiers |
+| `GET /refs` | `volt status`, `volt push` | project version + per-item versions (cheap) |
+| `POST /fetch` | `volt pull` | items changed since the client's known versions |
+| `POST /push` | `volt push` | atomic batch of 11 primitive ops with `ifVersion` guards |
+| `POST /compile` | `volt compile` | build + normalized diagnostics |
 
 The bridge does ZERO diff/merge/VCS logic. CODESYS, TIA, and any future bridge implement the same five endpoints — domain reasoning stays here.
 
@@ -273,7 +273,7 @@ The Beckhoff bridge is the first implementation; CODESYS (IronPython) and TIA Po
 src/cli/conformance.ts
 ```
 
-It runs the live `plc` CLI through scenarios covering every endpoint and every primitive op — POU/child/accessor create/update/delete/rename/move, atomic batch validation, drift detection, conflict recovery, multi-POU batches. Assertions reference only protocol behavior (item presence, folder layout, response shapes) — never vendor-specific defaults. Point it at any bridge port and any IDE-with-a-project-open; it works.
+It runs the live `volt` CLI through scenarios covering every endpoint and every primitive op — POU/child/accessor create/update/delete/rename/move, atomic batch validation, drift detection, conflict recovery, multi-POU batches. Assertions reference only protocol behavior (item presence, folder layout, response shapes) — never vendor-specific defaults. Point it at any bridge port and any IDE-with-a-project-open; it works.
 
 ```bash
 # Run against any bridge implementation
@@ -285,11 +285,11 @@ npm run conformance:mcp                                # MCP tool conformance (i
 
 The four suites cover complementary surfaces:
 - **`src/cli/conformance.ts`** — AI-side actions: create/update/delete/rename/move POUs, children, accessors; atomic batches; the CLI's drift-rejection behaviour.
-- **`src/cli/conformance-drift.ts`** — Engineer-side actions simulated via direct `/push`: what happens when the engineer creates/deletes/renames/moves/edits things in the IDE between AI sessions, and does `plc pull` reflect it. Includes a full round-trip (`AI push → engineer edit → AI pull → AI push`), the git-inspired flag suite (`--dry-run`, `--porcelain`, `--force-with-lease`), and the capability-lease flow (`plc grant` / `plc revoke`).
+- **`src/cli/conformance-drift.ts`** — Engineer-side actions simulated via direct `/push`: what happens when the engineer creates/deletes/renames/moves/edits things in the IDE between AI sessions, and does `volt pull` reflect it. Includes a full round-trip (`AI push → engineer edit → AI pull → AI push`), the git-inspired flag suite (`--dry-run`, `--porcelain`, `--force-with-lease`), and the capability-lease flow (`volt grant` / `volt revoke`).
 - **`src/cli/conformance-errors.ts`** — Negative paths: ordering mistakes (push before init etc.), bridge unreachable, mismatched binding, the reconcile case (drift + dirty), and the no-op (`nothing to push`). Each scenario asserts the error message is friendly enough to be actionable, not just "Cannot read property of undefined."
 - **`src/tools/conformance.ts`** — MCP wiring: tool registration, schemas, structured response shapes including the `incoming` / `outgoing` / `availableCapabilities` / `nextAction` / `summary` fields the AI relies on. Covers the AI-side `dryRun` parameter and the asymmetric-force enforcement (M08: `force` without a lease MUST be refused with `status: force_unauthorized` and the engine must not be invoked).
 
-**A new bridge is "done" when it passes the conformance suite.** That's the contract — not a TS interface, not a doc, the test pack itself. If conformance goes green against your bridge, the `plc` CLI, the MCP server, and any future client will work against it without changes on their side.
+**A new bridge is "done" when it passes the conformance suite.** That's the contract — not a TS interface, not a doc, the test pack itself. If conformance goes green against your bridge, the `volt` CLI, the MCP server, and any future client will work against it without changes on their side.
 
 ## Determinism (important)
 
@@ -299,13 +299,13 @@ The four suites cover complementary surfaces:
 - a fixed epoch date (1970-01-01)
 - the parent commit SHA (itself deterministic recursively)
 
-So same IDE state → same snapshot commit SHA on every machine, every restart. This drives the no-churn shortcut in `plc pull` ("nothing changed, don't touch the workspace").
+So same IDE state → same snapshot commit SHA on every machine, every restart. This drives the no-churn shortcut in `volt pull` ("nothing changed, don't touch the workspace").
 
 If you change the workspace materialization format (file layout, assembler output, child ordering, `.gitattributes` contents), every snapshot SHA changes too. Treat the materialization format as part of the wire contract — bump deliberately.
 
 ## Push semantics
 
-Each `plc push` produces a SINGLE `bridge.pushBatch` call containing one op per changed top-level POU (plus child/accessor ops as needed). The bridge validates ALL ops' `ifVersion` before applying ANY — atomic. On any conflict, the whole batch is rejected and `plc push` reports the bridge's conflict info on stderr, exit 2.
+Each `volt push` produces a SINGLE `bridge.pushBatch` call containing one op per changed top-level POU (plus child/accessor ops as needed). The bridge validates ALL ops' `ifVersion` before applying ANY — atomic. On any conflict, the whole batch is rejected and `volt push` reports the bridge's conflict info on stderr, exit 2.
 
 ## Tests
 

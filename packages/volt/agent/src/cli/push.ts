@@ -1,5 +1,5 @@
 /**
- * `plc push` verb — push workspace state to the IDE.
+ * `volt push` verb — push workspace state to the IDE.
  *
  * Exit code 2 is reserved for "the push DIDN'T happen because of
  * drift or bridge rejection" — distinct from "1 = something errored."
@@ -44,7 +44,7 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 					`  expected:  ${r.expectedProjectVersion}\n` +
 					`  current:   ${r.bridgeProjectVersion}\n\n` +
 					`Someone (or another client) changed the bridge AFTER you observed it. ` +
-					`Re-run \`plc status\` to see what's new, then retry — use the bridge's ` +
+					`Re-run \`volt status\` to see what's new, then retry — use the bridge's ` +
 					`current projectVersion as your new lease.\n`,
 			);
 			const c = r.incoming;
@@ -71,7 +71,7 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 				for (const n of c.removed) process.stderr.write(`  [IDE] - ${n}\n`);
 			}
 			process.stderr.write(
-				`\nrun \`plc pull\` to bring in IDE changes, or \`plc push --force\` to push anyway ` +
+				`\nrun \`volt pull\` to bring in IDE changes, or \`volt push --force\` to push anyway ` +
 					`(force does NOT delete the engineer's items — it bypasses the version guard and ` +
 					`reconciles your workspace with the bridge afterwards).\n`,
 			);

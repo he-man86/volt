@@ -8,7 +8,7 @@
  *
  * All commits use a FIXED author/committer + epoch date so the same
  * bridge state always produces the same commit SHA. Determinism is
- * load-bearing: it drives the no-churn skip in `plc import` ("nothing
+ * load-bearing: it drives the no-churn skip in `volt import` ("nothing
  * changed, don't touch the workspace") and lets us compare snapshots
  * across machines / restarts / time.
  */

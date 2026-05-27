@@ -1,5 +1,5 @@
 /**
- * `plc status` — answer the three questions that matter before
+ * `volt status` — answer the three questions that matter before
  * running `pull` or `push`:
  *
  *   1. Has the IDE changed since our last pull? (which items?)
@@ -55,14 +55,14 @@ export interface CapabilityGrant {
 export type NextAction = "init" | "pull" | "push" | "reconcile" | null;
 
 export interface StatusResult {
-	/** True if we have a snapshot at all (false on fresh `plc init`). */
+	/** True if we have a snapshot at all (false on fresh `volt init`). */
 	initialized: boolean;
 	/** Bridge says: have the IDE's items changed since our last import? */
 	ideDrifted: boolean;
 	/** Workspace files differ from the last imported snapshot? */
 	workspaceDirty: boolean;
 	/**
-	 * What `plc pull` would bring INTO the workspace from the bridge
+	 * What `volt pull` would bring INTO the workspace from the bridge
 	 * (= `hg incoming` / git's `HEAD..@{u}`). Engineer-side changes
 	 * since our last pull: which POUs they added / removed / modified.
 	 */
@@ -70,7 +70,7 @@ export interface StatusResult {
 	/** Paths the user/AI added/edited/deleted in the workspace vs the snapshot. */
 	dirtyPaths: string[];
 	/**
-	 * What `plc push` would send TO the bridge from the workspace
+	 * What `volt push` would send TO the bridge from the workspace
 	 * (= `hg outgoing` / git's `@{u}..HEAD`). Same shape as `incoming`
 	 * — so consumers can render both directions identically and AI
 	 * callers can preview both before running either verb.
@@ -79,8 +79,8 @@ export interface StatusResult {
 	/**
 	 * Set only when `ideDrifted` is true. True means the workspace
 	 * already matches what the bridge has — drift is "self-caused"
-	 * (most likely a previous `plc push` succeeded on the bridge but
-	 * died before the snapshot receipt was saved). Running `plc pull`
+	 * (most likely a previous `volt push` succeeded on the bridge but
+	 * died before the snapshot receipt was saved). Running `volt pull`
 	 * in this case is a content no-op; it just refreshes the snapshot.
 	 *
 	 * Costs one /fetch round-trip, so only computed when drift is
@@ -97,7 +97,7 @@ export interface StatusResult {
 	summary: string;
 	/**
 	 * Currently-active capability leases the human has granted via
-	 * `plc grant`. AI clients check this BEFORE calling elevated
+	 * `volt grant`. AI clients check this BEFORE calling elevated
 	 * parameters (e.g. `volt_push({ force: true })`) so they can
 	 * tell the human "I can do that now" vs "you need to grant me
 	 * the capability first" without trial-and-error round trips.
@@ -133,7 +133,7 @@ export async function runStatus(
 			bridgeProjectVersion: refs.projectVersion,
 			snapshotProjectVersion: undefined,
 			nextAction: "init",
-			summary: "Workspace not initialized — run plc init to bind it to the IDE project.",
+			summary: "Workspace not initialized — run volt init to bind it to the IDE project.",
 			availableCapabilities: [],
 		};
 	}
@@ -152,7 +152,7 @@ export async function runStatus(
 			bridgeProjectVersion: refs.projectVersion,
 			snapshotProjectVersion: undefined,
 			nextAction: "pull",
-			summary: "Workspace bound but never pulled — run plc pull to populate.",
+			summary: "Workspace bound but never pulled — run volt pull to populate.",
 			availableCapabilities: collectCapabilities(root),
 		};
 	}
@@ -224,27 +224,27 @@ function recommend(
 				nextAction: "pull",
 				summary:
 					`IDE reports ${formatCounts(incoming)} but workspace already matches — ` +
-					`probably a previous plc push landed without saving its receipt. ` +
-					`Run plc pull to refresh the snapshot (content no-op).`,
+					`probably a previous volt push landed without saving its receipt. ` +
+					`Run volt pull to refresh the snapshot (content no-op).`,
 			};
 		}
 		return {
 			nextAction: "pull",
-			summary: `IDE has ${formatCounts(incoming)} — run plc pull.`,
+			summary: `IDE has ${formatCounts(incoming)} — run volt pull.`,
 		};
 	}
 	if (!ideDrifted && workspaceDirty) {
 		return {
 			nextAction: "push",
-			summary: `Workspace has ${dirtyCount} change(s) — run plc push.`,
+			summary: `Workspace has ${dirtyCount} change(s) — run volt push.`,
 		};
 	}
 	return {
 		nextAction: "reconcile",
 		summary:
 			`Both sides changed: IDE has ${formatCounts(incoming)}, workspace has ${dirtyCount} change(s). ` +
-			`Run plc pull first to absorb IDE changes (use --force if you want to drop your workspace edits), ` +
-			`then plc push.`,
+			`Run volt pull first to absorb IDE changes (use --force if you want to drop your workspace edits), ` +
+			`then volt push.`,
 	};
 }
 

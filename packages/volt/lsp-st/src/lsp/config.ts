@@ -107,7 +107,7 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
  * falls back to `DEFAULT_RESOLVED_CONFIG`.
  *
  * `vendor: "auto"` resolves to `"codesys"` here as a deterministic
- * default — the agent's `plc init` writes the detected vendor into
+ * default — the agent's `volt init` writes the detected vendor into
  * `.volt/config.json` and the client passes the resolved value,
  * so this default only fires when no project context is available.
  */

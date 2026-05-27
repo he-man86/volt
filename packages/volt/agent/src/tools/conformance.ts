@@ -89,7 +89,7 @@ async function cleanupTestPous(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-	console.log("plc MCP e2e\n");
+	console.log("volt MCP e2e\n");
 	console.log(`  bridge:    http://127.0.0.1:${BRIDGE_PORT}`);
 	console.log(`  MCP entry: ${MCP_SERVER}`);
 
@@ -350,7 +350,7 @@ async function runScenarios(client: Client, workspace: string): Promise<void> {
 		);
 
 		// 8a. force without lease: REFUSED with status=force_unauthorized,
-		// stable hint pointing at `plc grant push-force`. The bridge MUST
+		// stable hint pointing at `volt grant push-force`. The bridge MUST
 		// not have aiLeaseTest yet.
 		const noLeaseAttempt = await client.callTool({
 			name: "volt_push",
@@ -367,7 +367,7 @@ async function runScenarios(client: Client, workspace: string): Promise<void> {
 		);
 		assert(
 			typeof noLeaseData?.hint === "string" &&
-				(noLeaseData!.hint as string).includes("plc grant push-force"),
+				(noLeaseData!.hint as string).includes("volt grant push-force"),
 			"force_unauthorized hint shows the exact CLI command",
 			String(noLeaseData?.hint),
 		);

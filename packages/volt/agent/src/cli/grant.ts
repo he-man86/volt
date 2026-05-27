@@ -1,5 +1,5 @@
 /**
- * `plc grant <capability> [--ttl <duration>] [--once]` — issue a
+ * `volt grant <capability> [--ttl <duration>] [--once]` — issue a
  * capability lease so AI clients can use elevated parameters that are
  * gated behind it (currently: `push-force`).
  *
@@ -22,7 +22,7 @@ export const grant: VerbFn = async ({ workspace, flags }) => {
 	const positional = readPositional(flags);
 	if (positional === undefined) {
 		process.stderr.write(
-			`usage: plc grant <capability> [--ttl <duration>] [--once]\n\n` +
+			`usage: volt grant <capability> [--ttl <duration>] [--once]\n\n` +
 				`Known capabilities:\n${KNOWN_CAPABILITIES.map((c) => `  - ${c}`).join("\n")}\n`,
 		);
 		return 1;
@@ -36,7 +36,7 @@ export const grant: VerbFn = async ({ workspace, flags }) => {
 	}
 	if (!configExists(workspace)) {
 		process.stderr.write(
-			`workspace is not initialized — run \`plc init\` first.\n`,
+			`workspace is not initialized — run \`volt init\` first.\n`,
 		);
 		return 1;
 	}
@@ -66,7 +66,7 @@ export const grant: VerbFn = async ({ workspace, flags }) => {
 };
 
 /**
- * `plc revoke <capability>` — manually revoke a lease before it
+ * `volt revoke <capability>` — manually revoke a lease before it
  * expires. Standard sudo-style "kill the credential" — used when you
  * change your mind, or as a safety net before walking away from the
  * terminal.
@@ -74,7 +74,7 @@ export const grant: VerbFn = async ({ workspace, flags }) => {
 export const revoke: VerbFn = async ({ workspace, flags }) => {
 	const positional = readPositional(flags);
 	if (positional === undefined) {
-		process.stderr.write(`usage: plc revoke <capability>\n`);
+		process.stderr.write(`usage: volt revoke <capability>\n`);
 		return 1;
 	}
 	if (!isKnownCapability(positional)) {

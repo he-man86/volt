@@ -3,7 +3,7 @@
  *
  * Round-trip with the LSP parser is the load-bearing property: anything
  * we assemble must parse back into the same structural shape so
- * `plc import → plc export` is a no-op when nothing changed. We assert
+ * `volt import → volt export` is a no-op when nothing changed. We assert
  * both the visible format (children OUTSIDE END_FUNCTION_BLOCK, stable
  * order, GET/SET correctness) and the round-trip itself.
  */

@@ -265,14 +265,14 @@ function registerCommands(context: vscode.ExtensionContext): void {
 				}
 			}
 			const installed = await vscode.window.showWarningMessage(
-				"CODESYS reference not found in this workspace. Run `plc init` to install it?",
-				"Run plc init",
+				"CODESYS reference not found in this workspace. Run `volt init` to install it?",
+				"Run volt init",
 				"Cancel",
 			);
-			if (installed === "Run plc init") {
-				const term = vscode.window.createTerminal("plc init");
+			if (installed === "Run volt init") {
+				const term = vscode.window.createTerminal("volt init");
 				term.show();
-				term.sendText("plc init");
+				term.sendText("volt init");
 			}
 		}),
 	);

@@ -86,7 +86,7 @@ Diagnostic flags: `reservedKeyword`, `doubleUnderscore`, `consecutiveUnderscores
 
 - `Volt: Restart Language Server` — restart all PLC LSP clients
 - `Volt: Show Structured Text Output` — open the LSP output channel
-- `Volt: Open CODESYS Language Reference` — open the local corpus (offers to run `plc init` if missing)
+- `Volt: Open CODESYS Language Reference` — open the local corpus (offers to run `volt init` if missing)
 
 ## Status bar
 

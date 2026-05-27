@@ -24,7 +24,7 @@ const VERBS: Record<string, VerbFn> = {
 	revoke,
 };
 
-export const HELP = `plc <verb> [flags]
+export const HELP = `volt <verb> [flags]
 
 Verbs:
   init                          Bind this workspace folder to the IDE project the bridge has open.
@@ -42,7 +42,7 @@ Flags:
   --workspace DIR                Workspace root (default current working directory)
   --force                        init: repoint; pull: discard local edits; push: bypass drift check
   --force-with-lease=<version>   push only: like --force, but only if the bridge is still at
-                                 <version> (= what you saw via plc status). Refuses if the bridge
+                                 <version> (= what you saw via volt status). Refuses if the bridge
                                  has moved further. Safer than --force. Same idea as
                                  \`git push --force-with-lease\`.
   --dry-run / -n                 push / pull: compute what would happen and print the preview,
@@ -58,12 +58,12 @@ Flags:
   --full                         compile only — full rebuild instead of incremental
 
 A typical session:
-  plc init                    # once per workspace
-  plc pull                    # pull current IDE state
+  volt init                   # once per workspace
+  volt pull                   # pull current IDE state
   # ... edit .st files with your editor / AI of choice
-  plc status                  # see what changed
-  plc push                    # push edits back to the IDE
-  plc compile                 # build and read diagnostics`;
+  volt status                 # see what changed
+  volt push                   # push edits back to the IDE
+  volt compile                # build and read diagnostics`;
 
 // Single-char short flags map to their long-form key (git-style: `-n`
 // is the same as `--dry-run`). Keep this list short on purpose — git
@@ -82,7 +82,7 @@ export function parseArgs(argv: readonly string[]): { verb: string; flags: Flags
 		const isShort = arg.startsWith("-") && !arg.startsWith("--") && arg.length === 2;
 		if (!isLong && !isShort) {
 			// First non-flag arg after the verb becomes the positional
-			// (e.g. `plc grant push-force` → flags._positional = "push-force").
+			// (e.g. `volt grant push-force` → flags._positional = "push-force").
 			// Verbs that don't take a positional just ignore the field.
 			if (flags["_positional"] === undefined) flags["_positional"] = arg;
 			continue;

@@ -13,15 +13,15 @@
  * pollute the next. Test POUs (FB_NEG_*) are cleaned up at the end.
  *
  * Scenarios (9):
- *   N01 — plc push before any `plc init`
- *   N02 — plc push after init but before import
- *   N03 — plc pull before init
- *   N04 — plc status before init (graceful, exit 0)
+ *   N01 — volt push before any `volt init`
+ *   N02 — volt push after init but before import
+ *   N03 — volt pull before init
+ *   N04 — volt status before init (graceful, exit 0)
  *   N05 — bridge unreachable (every verb fails with friendly message)
- *   N06 — plc init on workspace bound to a different project
+ *   N06 — volt init on workspace bound to a different project
  *         (refused without --force; succeeds with --force)
  *   N07 — drift + workspace dirty: status flags reconcile
- *   N08 — plc push with nothing changed: nothing_to_push
+ *   N08 — volt push with nothing changed: nothing_to_push
  *   N09 — `.gitignore` auto-write: new file on bare init, appended
  *         to existing file without clobbering user entries
  *
@@ -76,11 +76,11 @@ function assert(cond: boolean, msg: string, err?: string): void {
 
 interface CliResult { stdout: string; stderr: string; code: number; }
 
-function plc(workspace: string, ...args: string[]): CliResult {
-	return plcAt(BRIDGE_PORT, workspace, ...args);
+function volt(workspace: string, ...args: string[]): CliResult {
+	return voltAt(BRIDGE_PORT, workspace, ...args);
 }
 
-function plcAt(port: number, workspace: string, ...args: string[]): CliResult {
+function voltAt(port: number, workspace: string, ...args: string[]): CliResult {
 	const r = spawnSync(
 		"node",
 		[CLI_PATH, ...args, "--workspace", workspace, "--port", String(port)],
@@ -129,7 +129,7 @@ async function cleanupAllTestPous(): Promise<void> {
 // ─── Scenarios ────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	console.log("plc negative-path conformance suite\n");
+	console.log("volt negative-path conformance suite\n");
 	console.log("  Exercises the failure modes the CLI promises to handle gracefully.\n");
 	console.log(`  bridge: http://127.0.0.1:${BRIDGE_PORT}`);
 	console.log(`  CLI:    ${CLI_PATH}`);
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	const rootTmp = mkdtempSync(join(tmpdir(), "plc-neg-"));
+	const rootTmp = mkdtempSync(join(tmpdir(), "volt-neg-"));
 
 	try {
 		await runAllScenarios(rootTmp);
@@ -166,57 +166,57 @@ async function main(): Promise<void> {
 
 async function runAllScenarios(rootTmp: string): Promise<void> {
 	// ─── N01: export before init ─────────────────────────────────────
-	section("N01 — plc push before any `plc init`: friendly error, exit 1");
+	section("N01 — volt push before any `volt init`: friendly error, exit 1");
 	{
 		const ws = freshWorkspace(rootTmp, "n01");
-		const r = plc(ws, "push");
+		const r = volt(ws, "push");
 		assert(r.code === 1, "exit code 1 (not a crash, not 2)");
 		assert(
 			r.stderr.toLowerCase().includes("no volt workspace") ||
-				r.stderr.includes("plc init"),
-			"stderr explains the missing workspace and points at plc init",
+				r.stderr.includes("volt init"),
+			"stderr explains the missing workspace and points at volt init",
 			r.stderr.trim(),
 		);
 	}
 
 	// ─── N02: export after init but before import ────────────────────
-	section("N02 — plc push after init but before import: friendly error");
+	section("N02 — volt push after init but before import: friendly error");
 	{
 		const ws = freshWorkspace(rootTmp, "n02");
-		assert(plc(ws, "init").code === 0, "intermediate init succeeds");
-		const r = plc(ws, "push");
+		assert(volt(ws, "init").code === 0, "intermediate init succeeds");
+		const r = volt(ws, "push");
 		assert(r.code === 1, "exit code 1");
 		assert(
 			r.stderr.toLowerCase().includes("no snapshot") ||
-				r.stderr.includes("plc pull"),
+				r.stderr.includes("volt pull"),
 			"stderr tells the user to import first",
 			r.stderr.trim(),
 		);
 	}
 
 	// ─── N03: import before init ─────────────────────────────────────
-	section("N03 — plc pull before init: friendly error");
+	section("N03 — volt pull before init: friendly error");
 	{
 		const ws = freshWorkspace(rootTmp, "n03");
-		const r = plc(ws, "pull");
+		const r = volt(ws, "pull");
 		assert(r.code === 1, "exit code 1");
 		assert(
 			r.stderr.toLowerCase().includes("no volt workspace") ||
-				r.stderr.includes("plc init"),
+				r.stderr.includes("volt init"),
 			"stderr explains the missing workspace",
 			r.stderr.trim(),
 		);
 	}
 
 	// ─── N04: status before init (graceful) ──────────────────────────
-	section("N04 — plc status before init: graceful, exit 0");
+	section("N04 — volt status before init: graceful, exit 0");
 	{
 		const ws = freshWorkspace(rootTmp, "n04");
-		const r = plc(ws, "status");
+		const r = volt(ws, "status");
 		assert(r.code === 0, "exit 0 (status never throws)");
 		assert(
 			r.stdout.toLowerCase().includes("not initialized") ||
-				r.stdout.includes("plc init"),
+				r.stdout.includes("volt init"),
 			"stdout tells the user to init",
 			r.stdout.trim(),
 		);
@@ -230,11 +230,11 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 		// snapshot exist) using the real bridge, so the subsequent calls
 		// against UNREACHABLE_PORT actually exercise the network failure
 		// path instead of failing earlier on "no snapshot".
-		assert(plc(ws, "init").code === 0, "intermediate init via real bridge");
-		assert(plc(ws, "pull").code === 0, "intermediate pull via real bridge");
+		assert(volt(ws, "init").code === 0, "intermediate init via real bridge");
+		assert(volt(ws, "pull").code === 0, "intermediate pull via real bridge");
 
 		for (const verb of ["init", "pull", "push", "status", "compile"]) {
-			const r = plcAt(UNREACHABLE_PORT, ws, verb);
+			const r = voltAt(UNREACHABLE_PORT, ws, verb);
 			assert(r.code === 1, `${verb}: exit 1`);
 			assert(
 				r.stderr.toLowerCase().includes("bridge unreachable") ||
@@ -247,7 +247,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 	}
 
 	// ─── N06: init on mismatched binding ─────────────────────────────
-	section("N06 — plc init on a workspace bound to a different project");
+	section("N06 — volt init on a workspace bound to a different project");
 	{
 		const ws = freshWorkspace(rootTmp, "n06");
 		// Fake an existing binding to a different project.
@@ -267,7 +267,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 			"utf-8",
 		);
 
-		const refused = plc(ws, "init");
+		const refused = volt(ws, "init");
 		assert(refused.code === 1, "refused: exit 1");
 		assert(
 			refused.stderr.toLowerCase().includes("already bound"),
@@ -280,7 +280,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 		);
 
 		// With --force, the repoint succeeds.
-		const forced = plc(ws, "init", "--force");
+		const forced = volt(ws, "init", "--force");
 		assert(forced.code === 0, "init --force succeeds at repointing");
 	}
 
@@ -297,8 +297,8 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 			`FUNCTION_BLOCK ${TEST_PREFIX}TARGET\nVAR_INPUT\nEND_VAR\nVAR\nEND_VAR\n`,
 		);
 
-		assert(plc(ws, "init").code === 0, "init");
-		assert(plc(ws, "pull").code === 0, "pull");
+		assert(volt(ws, "init").code === 0, "init");
+		assert(volt(ws, "pull").code === 0, "pull");
 
 		// Engineer drifts (adds a new POU).
 		await engCreatePou(
@@ -313,7 +313,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 			"utf-8",
 		);
 
-		const r = plc(ws, "status");
+		const r = volt(ws, "status");
 		assert(r.code === 0, "status exit 0");
 		assert(
 			r.stdout.toLowerCase().includes("both sides changed") ||
@@ -334,13 +334,13 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 	}
 
 	// ─── N08: nothing to push ──────────────────────────────────────
-	section("N08 — plc push with no changes: nothing_to_push, exit 0");
+	section("N08 — volt push with no changes: nothing_to_push, exit 0");
 	{
 		const ws = freshWorkspace(rootTmp, "n08");
-		assert(plc(ws, "init").code === 0, "init");
-		assert(plc(ws, "pull").code === 0, "pull");
+		assert(volt(ws, "init").code === 0, "init");
+		assert(volt(ws, "pull").code === 0, "pull");
 
-		const r = plc(ws, "push");
+		const r = volt(ws, "push");
 		assert(r.code === 0, "exit 0");
 		assert(
 			r.stdout.toLowerCase().includes("nothing to push"),
@@ -352,9 +352,9 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 	// ─── N09: .gitignore auto-write ──────────────────────────────────
 	section("N09 — .gitignore: created if absent, appended if present, preserves user entries");
 	{
-		// Case A: no .gitignore beforehand → plc init creates one with our entry.
+		// Case A: no .gitignore beforehand → volt init creates one with our entry.
 		const wsA = freshWorkspace(rootTmp, "n09a");
-		assert(plc(wsA, "init").code === 0, "case A: init");
+		assert(volt(wsA, "init").code === 0, "case A: init");
 		const gitignoreA = join(wsA, ".gitignore");
 		assert(existsSync(gitignoreA), "case A: .gitignore created");
 		const contentA = readFileSync(gitignoreA, "utf-8");
@@ -364,7 +364,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 		const wsB = freshWorkspace(rootTmp, "n09b");
 		const userIgnores = "node_modules/\n*.log\nmy-secret.txt\n";
 		writeFileSync(join(wsB, ".gitignore"), userIgnores, "utf-8");
-		assert(plc(wsB, "init").code === 0, "case B: init on workspace with existing .gitignore");
+		assert(volt(wsB, "init").code === 0, "case B: init on workspace with existing .gitignore");
 		const contentB = readFileSync(join(wsB, ".gitignore"), "utf-8");
 		assert(contentB.includes("node_modules/"), "case B: user's existing entries preserved");
 		assert(contentB.includes("my-secret.txt"), "case B: all user entries preserved");
@@ -372,7 +372,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 
 		// Case C: .gitignore already has our entry → no-op (idempotent).
 		const sizeBeforeReInit = contentB.length;
-		assert(plc(wsB, "init").code === 0, "case C: re-init");
+		assert(volt(wsB, "init").code === 0, "case C: re-init");
 		const contentC = readFileSync(join(wsB, ".gitignore"), "utf-8");
 		assert(
 			contentC.length === sizeBeforeReInit,
@@ -380,11 +380,11 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 			`expected length ${sizeBeforeReInit}, got ${contentC.length}`,
 		);
 
-		// Case D: user deleted .gitignore after init → plc pull re-creates it.
+		// Case D: user deleted .gitignore after init → volt pull re-creates it.
 		rmSync(gitignoreA);
 		assert(!existsSync(gitignoreA), "case D: .gitignore deleted by user");
-		assert(plc(wsA, "pull").code === 0, "case D: import");
-		assert(existsSync(gitignoreA), "case D: .gitignore restored by plc pull");
+		assert(volt(wsA, "pull").code === 0, "case D: import");
+		assert(existsSync(gitignoreA), "case D: .gitignore restored by volt pull");
 	}
 }
 

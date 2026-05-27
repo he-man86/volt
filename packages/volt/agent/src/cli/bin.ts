@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * `plc` — process entry point. All real work is in `cli/`.
+ * `volt` — process entry point. All real work is in `cli/`.
  *
  * Five flat verbs (init, import, export, status, compile). See the
- * cli/ directory or run `plc help` for details.
+ * cli/ directory or run `volt help` for details.
  *
  * Exit codes:
  *   0   success

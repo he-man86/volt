@@ -2,7 +2,7 @@
 /**
  * Bridge conformance suite — THE CONTRACT EVERY BRIDGE MUST PASS.
  *
- * Drives the full stack — `plc` CLI + bridge + live IDE — through
+ * Drives the full stack — `volt` CLI + bridge + live IDE — through
  * every realistic scenario the CLI is built to handle. By passing
  * this suite, a bridge implementation (Beckhoff today, CODESYS /
  * TIA Portal next) proves it correctly speaks every endpoint of the
@@ -19,8 +19,8 @@
  *
  * Scenarios (16):
  *   Workspace lifecycle:
- *     S01 — `plc init` binds workspace to the IDE project (GET /health)
- *     S02 — `plc pull` populates the workspace                (POST /fetch)
+ *     S01 — `volt init` binds workspace to the IDE project (GET /health)
+ *     S02 — `volt pull` populates the workspace                (POST /fetch)
  *     S03 — AI creates a top-level FB at root and exports        (POST /push: createPou)
  *     S04 — AI creates a top-level FB inside a new folder        (POST /push: createPou + auto-folder)
  *     S05 — AI updates an FB's declaration                       (POST /push: updatePou)
@@ -33,9 +33,9 @@
  *     S12 — AI moves an FB between folders                       (POST /push: movePou)
  *
  *   Drift + status (GET /refs + atomic ifVersion):
- *     S13 — Engineer drift: `plc status` reports IDE drift
- *     S14 — Engineer drift: `plc push` refused, `plc pull` recovers
- *     S15 — `plc push --force` overrides drift
+ *     S13 — Engineer drift: `volt status` reports IDE drift
+ *     S14 — Engineer drift: `volt push` refused, `volt pull` recovers
+ *     S15 — `volt push --force` overrides drift
  *     S16 — Multi-POU export in one batch (atomic, all-or-nothing)
  *
  * Property scenarios intentionally OUT — separate known issue.
@@ -67,7 +67,7 @@ const TEST_PREFIX = "FB_E2E_";
 const bridge = new BridgeClient({ port: BRIDGE_PORT });
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
-// Compiled `plc` bin lives alongside this script at dist/cli/bin.js.
+// Compiled `volt` bin lives alongside this script at dist/cli/bin.js.
 const CLI_PATH = resolve(THIS_DIR, "bin.js");
 
 let pass = 0;
@@ -97,7 +97,7 @@ function assert(cond: boolean, msg: string, err?: string): void {
 
 interface CliResult { stdout: string; stderr: string; code: number; }
 
-function plc(workspace: string, ...args: string[]): CliResult {
+function volt(workspace: string, ...args: string[]): CliResult {
 	const r = spawnSync("node", [CLI_PATH, ...args, "--workspace", workspace, "--port", String(BRIDGE_PORT)], {
 		encoding: "utf-8",
 		env: { ...process.env, VOLT_BRIDGE_PORT: String(BRIDGE_PORT) },
@@ -220,7 +220,7 @@ async function cleanupAllTestPous(): Promise<void> {
 // ─── scenarios ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-	console.log("plc bridge conformance suite (no property scenarios)\n");
+	console.log("volt bridge conformance suite (no property scenarios)\n");
 	console.log("  Any bridge that passes this suite is interchangeable from a client's perspective.\n");
 	console.log(`  bridge: http://127.0.0.1:${BRIDGE_PORT}`);
 	console.log(`  CLI:    ${CLI_PATH}`);
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
 		await cleanupAllTestPous();
 	}
 
-	const rootTmp = mkdtempSync(join(tmpdir(), "plc-e2e-"));
+	const rootTmp = mkdtempSync(join(tmpdir(), "volt-e2e-"));
 	const workspace = join(rootTmp, "workspace");
 	mkdirSync(workspace, { recursive: true });
 
@@ -268,10 +268,10 @@ async function main(): Promise<void> {
 
 async function runAllScenarios(ws: string): Promise<void> {
 	// ─── S01: init ───────────────────────────────────────────────────
-	section("S01 — `plc init` binds workspace to the IDE project");
+	section("S01 — `volt init` binds workspace to the IDE project");
 	{
-		const r = plc(ws, "init");
-		assert(r.code === 0, "plc init exit 0", r.stderr.trim());
+		const r = volt(ws, "init");
+		assert(r.code === 0, "volt init exit 0", r.stderr.trim());
 		assert(existsSync(join(ws, ".volt", "config.json")), ".volt/config.json exists");
 		assert(existsSync(join(ws, ".volt", "snapshot")), ".volt/snapshot/ exists");
 		const cfg = JSON.parse(readFileSync(join(ws, ".volt", "config.json"), "utf-8"));
@@ -279,15 +279,15 @@ async function runAllScenarios(ws: string): Promise<void> {
 	}
 
 	// ─── S02: first import populates the workspace ──────────────────
-	section("S02 — `plc pull` populates the workspace");
+	section("S02 — `volt pull` populates the workspace");
 	{
 		// Capture what /refs says is on the bridge — vendor-neutral way
 		// to know what the import should produce.
 		const refsBefore = await bridge.getRefs();
 		const expectedItemCount = Object.keys(refsBefore.items).length;
 
-		const r = plc(ws, "pull");
-		assert(r.code === 0, "plc pull exit 0", r.stderr.trim());
+		const r = volt(ws, "pull");
+		assert(r.code === 0, "volt pull exit 0", r.stderr.trim());
 
 		// `.gitattributes` is always written (universal — pins .st to LF).
 		assert(existsSync(join(ws, ".gitattributes")), ".gitattributes was written");
@@ -312,8 +312,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	section("S03 — AI creates top-level FB at root and exports");
 	{
 		writeFileEnsuringDir(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA));
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		assert(await bridgeHasPou(`${TEST_PREFIX}A`), `bridge has ${TEST_PREFIX}A`);
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		assert(fb?.declaration?.includes("FUNCTION_BLOCK FB_E2E_A") === true, "declaration round-tripped");
@@ -326,8 +326,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 			join(ws, "POUs", `${TEST_PREFIX}B.st`),
 			buildFb({ name: `${TEST_PREFIX}B` }),
 		);
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}B`);
 		assert(fb !== undefined, `bridge has ${TEST_PREFIX}B`);
 		assert(fb?.folder === "POUs", `${TEST_PREFIX}B is in POUs/, got ${fb?.folder ?? "<root>"}`);
@@ -338,8 +338,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		fbA.varInputs = "    x : INT;\n    y : INT;";
 		writeFileSync(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA), "utf-8");
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		assert(fb?.declaration?.includes("y : INT") === true, "new VAR_INPUT y landed on bridge");
 	}
@@ -349,8 +349,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		fbA.impl = "x := x + 1;";
 		writeFileSync(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA), "utf-8");
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		assert(fb?.implementation?.includes("x := x + 1") === true, "implementation landed");
 	}
@@ -360,8 +360,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		fbA.methods = [{ name: "DoThing", ret: "BOOL", body: "DoThing := TRUE;" }];
 		writeFileSync(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA), "utf-8");
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		const m = fb?.children?.find((c) => c.name === "DoThing");
 		assert(m !== undefined, "DoThing method exists on bridge");
@@ -373,8 +373,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		fbA.actions = [{ name: "Step", body: "" }];
 		writeFileSync(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA), "utf-8");
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		const a = fb?.children?.find((c) => c.name === "Step");
 		assert(a !== undefined, "Step action exists on bridge");
@@ -385,8 +385,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		fbA.methods = [];
 		writeFileSync(join(ws, `${TEST_PREFIX}A.st`), buildFb(fbA), "utf-8");
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(`${TEST_PREFIX}A`);
 		const m = fb?.children?.find((c) => c.name === "DoThing");
 		assert(m === undefined, "DoThing is gone from bridge");
@@ -396,8 +396,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 	section("S10 — AI deletes a top-level FB");
 	{
 		rmSync(join(ws, "POUs", `${TEST_PREFIX}B.st`));
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		assert(!(await bridgeHasPou(`${TEST_PREFIX}B`)), `${TEST_PREFIX}B is gone from bridge`);
 	}
 
@@ -413,8 +413,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 		fbA.name = newName;
 		writeFileSync(join(ws, `${newName}.st`), buildFb(fbA), "utf-8");
 		rmSync(join(ws, `${TEST_PREFIX}A.st`));
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0", r.stderr.trim());
 		assert(await bridgeHasPou(newName), `bridge has ${newName}`);
 		assert(!(await bridgeHasPou(`${TEST_PREFIX}A`)), `${TEST_PREFIX}A is gone`);
 	}
@@ -429,14 +429,14 @@ async function runAllScenarios(ws: string): Promise<void> {
 			readFileSync(join(ws, `${newName}.st`), "utf-8"),
 		);
 		rmSync(join(ws, `${newName}.st`));
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0 (movePou)", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0 (movePou)", r.stderr.trim());
 		const fb = await bridgeReadPou(newName);
 		assert(fb?.folder === "Drives", `bridge reports folder=Drives, got ${fb?.folder ?? "<root>"}`);
 	}
 
-	// ─── S13: engineer drift + plc status ────────────────────────────
-	section("S13 — Engineer drift: `plc status` reports IDE drift");
+	// ─── S13: engineer drift + volt status ────────────────────────────
+	section("S13 — Engineer drift: `volt status` reports IDE drift");
 	{
 		const newName = `${TEST_PREFIX}RENAMED`;
 		const refs = await bridge.getRefs();
@@ -455,14 +455,14 @@ async function runAllScenarios(ws: string): Promise<void> {
 				],
 			});
 		}
-		const r = plc(ws, "status");
-		assert(r.code === 0, "plc status exit 0", r.stderr.trim());
-		assert(r.stdout.includes("IDE has") && r.stdout.includes("run plc pull"), "status reports IDE drift");
+		const r = volt(ws, "status");
+		assert(r.code === 0, "volt status exit 0", r.stderr.trim());
+		assert(r.stdout.includes("IDE has") && r.stdout.includes("run volt pull"), "status reports IDE drift");
 		assert(r.stdout.includes(`[IDE] M ${newName}`), `status lists ${newName} as IDE-side modified`);
 	}
 
 	// ─── S14: export refused on drift; import recovers ───────────────
-	section("S14 — Engineer drift: `plc push` refused; `plc pull` recovers");
+	section("S14 — Engineer drift: `volt push` refused; `volt pull` recovers");
 	{
 		// Make a local edit too, so we have something to lose if export
 		// were to barrel through.
@@ -472,34 +472,34 @@ async function runAllScenarios(ws: string): Promise<void> {
 			`FUNCTION_BLOCK ${newName}\n// AI's parallel edit\nVAR_INPUT\nEND_VAR\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n`,
 			"utf-8",
 		);
-		const refused = plc(ws, "push");
-		assert(refused.code === 2, "plc push exits 2 on drift");
+		const refused = volt(ws, "push");
+		assert(refused.code === 2, "volt push exits 2 on drift");
 		assert(
 			refused.stderr.includes("drift detected"),
 			"stderr explains drift",
 			refused.stderr.trim(),
 		);
 
-		// `plc pull` should refuse too because we have local edits.
-		const importBlocked = plc(ws, "pull");
+		// `volt pull` should refuse too because we have local edits.
+		const importBlocked = volt(ws, "pull");
 		assert(
 			importBlocked.code !== 0,
-			"plc pull refuses while workspace is dirty",
+			"volt pull refuses while workspace is dirty",
 			importBlocked.stdout.trim() || importBlocked.stderr.trim(),
 		);
 
 		// Discard local edits with --force, then import succeeds.
-		const importForced = plc(ws, "pull", "--force");
-		assert(importForced.code === 0, "plc pull --force succeeds", importForced.stderr.trim());
+		const importForced = volt(ws, "pull", "--force");
+		assert(importForced.code === 0, "volt pull --force succeeds", importForced.stderr.trim());
 
 		// Now status should be clean and IDE in sync.
-		const st = plc(ws, "status");
+		const st = volt(ws, "status");
 		assert(st.code === 0, "post-recovery status exit 0");
 		assert(st.stdout.includes("All in sync"), "post-recovery: status reports all in sync");
 	}
 
 	// ─── S15: export --force overrides drift ─────────────────────────
-	section("S15 — `plc push --force` overrides drift");
+	section("S15 — `volt push --force` overrides drift");
 	{
 		const newName = `${TEST_PREFIX}RENAMED`;
 		// Simulate engineer drift again
@@ -524,8 +524,8 @@ async function runAllScenarios(ws: string): Promise<void> {
 			`FUNCTION_BLOCK ${newName}\n// AI wins via --force\nVAR_INPUT\nEND_VAR\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n`,
 			"utf-8",
 		);
-		const r = plc(ws, "push", "--force");
-		assert(r.code === 0, "plc push --force exit 0", r.stderr.trim());
+		const r = volt(ws, "push", "--force");
+		assert(r.code === 0, "volt push --force exit 0", r.stderr.trim());
 		const fb = await bridgeReadPou(newName);
 		assert(
 			fb?.declaration?.includes("AI wins via --force") === true,
@@ -538,15 +538,15 @@ async function runAllScenarios(ws: string): Promise<void> {
 	{
 		// Re-sync; --force because S15's local edit may still be in the
 		// workspace and we want a clean baseline.
-		plc(ws, "pull", "--force");
+		volt(ws, "pull", "--force");
 		for (const n of ["MULTI1", "MULTI2", "MULTI3"]) {
 			writeFileEnsuringDir(
 				join(ws, `${TEST_PREFIX}${n}.st`),
 				`FUNCTION_BLOCK ${TEST_PREFIX}${n}\nVAR_INPUT\nEND_VAR\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n`,
 			);
 		}
-		const r = plc(ws, "push");
-		assert(r.code === 0, "plc push exit 0 for multi-create", r.stderr.trim());
+		const r = volt(ws, "push");
+		assert(r.code === 0, "volt push exit 0 for multi-create", r.stderr.trim());
 		assert(await bridgeHasPou(`${TEST_PREFIX}MULTI1`), "MULTI1 exists");
 		assert(await bridgeHasPou(`${TEST_PREFIX}MULTI2`), "MULTI2 exists");
 		assert(await bridgeHasPou(`${TEST_PREFIX}MULTI3`), "MULTI3 exists");

@@ -1,5 +1,5 @@
 /**
- * `plc status` verb — show what differs between IDE, snapshot, and workspace.
+ * `volt status` verb — show what differs between IDE, snapshot, and workspace.
  *
  * Default output is shaped like `git status`: a one-line summary, then
  * a per-item breakdown labelled with the VCS-standard direction terms.
@@ -46,14 +46,14 @@ export const status: VerbFn = async ({ workspace, bridge, flags }) => {
 	console.log("");
 
 	if (hasChanges(r.incoming)) {
-		console.log("incoming — would land in workspace on plc pull:");
+		console.log("incoming — would land in workspace on volt pull:");
 		for (const name of r.incoming.added) console.log(`  [IDE] + ${name}  (engineer created)`);
 		for (const name of r.incoming.modified) console.log(`  [IDE] M ${name}  (engineer edited)`);
 		for (const name of r.incoming.removed) console.log(`  [IDE] - ${name}  (engineer deleted)`);
 	}
 	if (r.workspaceDirty) {
 		if (hasChanges(r.incoming)) console.log("");
-		console.log("outgoing — would be sent to bridge on plc push:");
+		console.log("outgoing — would be sent to bridge on volt push:");
 		for (const name of r.outgoing.added) console.log(`  [WS]  + ${name}  (you created)`);
 		for (const name of r.outgoing.modified) console.log(`  [WS]  M ${name}  (you edited)`);
 		for (const name of r.outgoing.removed) console.log(`  [WS]  - ${name}  (you deleted)`);

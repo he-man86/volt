@@ -8,9 +8,9 @@
  *   --version      Print version.
  *
  * Note: corpus installation (CODESYS reference docs + CLAUDE.md
- * pointer) is wired into `plc init` in the volt-agent package
+ * pointer) is wired into `volt init` in the volt-agent package
  * — not exposed as a standalone subcommand here. The `runInit` helper
- * in `src/init.ts` is the library function `plc init` calls.
+ * in `src/init.ts` is the library function `volt init` calls.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

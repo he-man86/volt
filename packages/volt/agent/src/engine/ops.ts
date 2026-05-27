@@ -1,5 +1,5 @@
 /**
- * Workspace ↔ bridge translation. Called by `plc import` and `plc export`
+ * Workspace ↔ bridge translation. Called by `volt import` and `volt export`
  * (in `import.ts` / `export.ts`); not used directly by the CLI surface.
  *
  * Workspace layout: ONE FILE PER POU. The file contains the outer POU
@@ -77,7 +77,7 @@ export interface SyncOptions {
 	 * Skip the cache short-circuit AND the per-item incremental-fetch
 	 * optimization. Forces a full re-materialization from bridge state.
 	 *
-	 * Required after `plc export --force` adopts bridge state: at that
+	 * Required after `volt export --force` adopts bridge state: at that
 	 * point `state.projectVersion` already equals `refs.projectVersion`
 	 * (we just synced them), so the normal sync would no-op — leaving
 	 * the snapshot tree out of sync with `state.items`. With this flag,
@@ -222,9 +222,9 @@ function bridgeChildToAssemble(c: AIChildInfo): AssembleChild {
  * workspace that's been flagged as drifted.
  *
  * Returns true when the workspace's current files would assemble to
- * EXACTLY what the bridge currently has — i.e. a `plc import` would
+ * EXACTLY what the bridge currently has — i.e. a `volt import` would
  * be a content no-op (it'd only update the snapshot's recorded
- * version). Most common case: a previous `plc export` succeeded on
+ * version). Most common case: a previous `volt export` succeeded on
  * the bridge but the process died before `saveState` persisted the
  * receipt, leaving the snapshot stale-but-correct.
  *
@@ -279,7 +279,7 @@ export async function applyPushToBridge(
 ): Promise<{ accepted: true; commitSha: string } | { accepted: false; reason: string }> {
 	const state = loadState(repoPath);
 	if (state === undefined) {
-		return { accepted: false, reason: "no snapshot to diff against — run `plc import` once first" };
+		return { accepted: false, reason: "no snapshot to diff against — run `volt import` once first" };
 	}
 
 	const newTreeEntries = listTree(repoPath, newCommitSha);

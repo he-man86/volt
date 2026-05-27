@@ -1,12 +1,12 @@
 /**
- * `plc init` — bind a workspace folder to the IDE project the bridge
+ * `volt init` — bind a workspace folder to the IDE project the bridge
  * has open. Writes `<workspace>/.volt/config.json` and creates an
  * empty snapshot bare repo. Idempotent: re-running on an already-init'd
  * workspace verifies the binding still matches the bridge's project
  * and rewrites the config (a no-op when nothing changed).
  *
  * The user runs this once per workspace dir, NOT once per session.
- * After `init`, `plc import` / `plc export` / `plc status` / `plc compile`
+ * After `init`, `volt import` / `volt export` / `volt status` / `volt compile`
  * all just read the binding.
  */
 import { resolve } from "node:path";
@@ -52,7 +52,7 @@ export async function runInit(
 	const health = await bridge.getHealth();
 	if (health.projectName === undefined || health.plcProjectName === undefined) {
 		throw new Error(
-			"bridge has no project loaded — open a PLC project in the IDE before running `plc init`",
+			"bridge has no project loaded — open a PLC project in the IDE before running `volt init`",
 		);
 	}
 
@@ -132,7 +132,7 @@ async function tryDetectVendor(
 
 /**
  * Install (or refresh) the CODESYS reference corpus + CLAUDE.md
- * pointer in the workspace. Failures are non-fatal — `plc init`
+ * pointer in the workspace. Failures are non-fatal — `volt init`
  * should still succeed when the corpus is unavailable (e.g. when
  * the LSP package is not installed in the workspace).
  */
@@ -145,7 +145,7 @@ async function tryInstallCorpus(
 			targetDir: root,
 			update,
 			log: () => {
-				/* silenced; plc init formats its own output */
+				/* silenced; volt init formats its own output */
 			},
 		});
 		return {

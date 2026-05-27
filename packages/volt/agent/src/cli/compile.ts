@@ -1,5 +1,5 @@
 /**
- * `plc compile` verb — ask the IDE to build, print diagnostics.
+ * `volt compile` verb — ask the IDE to build, print diagnostics.
  *
  * Exit code 2 = build had errors. Exit code 0 = success (warnings ok).
  * The CLI prints a JSON summary so it's pipeable into tools that want

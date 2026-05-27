@@ -2,7 +2,7 @@
  * The "snapshot" is a hidden bare git repo at
  * `<workspace>/.volt/snapshot/` whose HEAD always equals "what the
  * IDE had at the time of our last successful import or export." It is
- * the ONLY thing `plc export` diffs against — without it, we couldn't
+ * the ONLY thing `volt export` diffs against — without it, we couldn't
  * tell what the user changed since the last sync.
  *
  * This module owns EVERYTHING about the snapshot:
@@ -215,7 +215,7 @@ export interface ChangeSet {
 }
 
 /**
- * "What `plc import` would bring INTO the workspace" — modeled on
+ * "What `volt import` would bring INTO the workspace" — modeled on
  * Mercurial's `hg incoming` semantic and git's `@{u}..HEAD` log: the
  * delta from our last-known bridge state (snapshotItems) to the
  * bridge's current state (bridgeItems).
@@ -267,7 +267,7 @@ export function hasChanges(c: ChangeSet): boolean {
  */
 export function ensureGitignore(workspaceRoot: string): void {
 	const path = join(workspaceRoot, ".gitignore");
-	const block = "# plc local state — workspace-local snapshot + config\n/.volt/\n";
+	const block = "# volt local state — workspace-local snapshot + config\n/.volt/\n";
 
 	if (!existsSync(path)) {
 		writeFileSync(path, block, "utf-8");
@@ -288,7 +288,7 @@ export function ensureGitignore(workspaceRoot: string): void {
 
 /**
  * Hash every workspace file into the snapshot bare repo and return the
- * tree SHA. Used by `plc export` (to build a commit to diff against
+ * tree SHA. Used by `volt export` (to build a commit to diff against
  * snapshot HEAD) and by `detectWorkspaceDirty` (which only needs the
  * per-file blob shas, but this packages the same work).
  */
@@ -307,8 +307,8 @@ export function buildWorkspaceTreeSha(workspaceRoot: string, snapshotPath: strin
  * in HEAD but missing from the workspace (the user deleted them) —
  * because re-importing would re-create them, they're "dirty" too.
  *
- * Single source of truth for "what would `plc import` overwrite?" /
- * "what does `plc status` show as M?" — used by both verbs.
+ * Single source of truth for "what would `volt import` overwrite?" /
+ * "what does `volt status` show as M?" — used by both verbs.
  */
 export function detectWorkspaceDirty(
 	snapshotPath: string,
@@ -337,7 +337,7 @@ export function detectWorkspaceDirty(
 }
 
 /**
- * "What `plc export` would push TO the bridge" — symmetric counterpart
+ * "What `volt export` would push TO the bridge" — symmetric counterpart
  * to `computeIncoming`. Modeled on Mercurial's `hg outgoing` semantic
  * and git's `HEAD..@{u}` log: the delta from snapshot HEAD (= bridge's
  * last-known state) to the current workspace tree.

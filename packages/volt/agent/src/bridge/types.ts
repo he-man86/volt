@@ -22,7 +22,7 @@
 // ─── Health ─────────────────────────────────────────────────────────────────
 
 /**
- * GET /health — bridge liveness + the stable identifiers `plc init`
+ * GET /health — bridge liveness + the stable identifiers `volt init`
  * binds a workspace to. Every bridge MUST set `platform`, `projectName`,
  * `plcProjectName` to identifiers that are stable across content edits
  * (adds, deletes, renames of POUs) — those three together are the
@@ -181,7 +181,7 @@ export interface FetchResponse {
 // Primitive op set. Each op corresponds to ONE COM/API operation on the
 // target IDE — no diff logic, no type-detection branching, no enumeration
 // happens inside the bridge. The "what changed?" reasoning is the
-// CLIENT's job (the `plc export` verb computes it by diffing the
+// CLIENT's job (the `volt export` verb computes it by diffing the
 // workspace tree against the last-imported snapshot; an AI/CLI can
 // compute it however it wants).
 //

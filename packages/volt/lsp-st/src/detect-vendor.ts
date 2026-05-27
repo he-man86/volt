@@ -7,7 +7,7 @@
  * base globally).
  *
  * Called from:
- *   - `plc init` (volt-agent) — to write the detected vendor into
+ *   - `volt init` (volt-agent) — to write the detected vendor into
  *     `.volt/config.json`
  *   - VS Code extension — to resolve `volt.structuredText.vendor: "auto"`
  */

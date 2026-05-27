@@ -9,7 +9,7 @@
  * force-push and a human wants to delegate it without retyping the
  * command themselves.
  *
- * Solution: capability LEASES. The human runs `plc grant <capability>
+ * Solution: capability LEASES. The human runs `volt grant <capability>
  * [--ttl <duration>] [--once]` from their terminal. That writes a
  * lease file to `.volt/auth/<capability>.lease` containing a
  * random nonce, an expiry timestamp, and a one-shot flag. The MCP
@@ -52,7 +52,7 @@ import { workspacePaths } from "./config.js";
 /**
  * Capabilities AI clients may receive via lease. Adding a new entry
  * here is the single point that authorizes a new elevated parameter
- * for AI use. The CLI's `plc grant` verb validates against this list.
+ * for AI use. The CLI's `volt grant` verb validates against this list.
  *
  * `push-force` covers `volt_push({ force: true })` — bypassing the
  * drift refusal and adopting the bridge's current per-item versions.
@@ -184,7 +184,7 @@ export function consumeLeaseIfOneShot(
 }
 
 /**
- * Manually revoke a lease. Used by `plc revoke <capability>` and as a
+ * Manually revoke a lease. Used by `volt revoke <capability>` and as a
  * safety net (e.g. workspace-bind change clears stale auth).
  */
 export function revokeLease(workspaceRoot: string, capability: Capability): boolean {

@@ -3,7 +3,7 @@
  * project on a specific bridge. Stored as JSON at
  * `<workspace>/.volt/config.json`.
  *
- * The binding is created by `plc init`, read by every other `plc` verb,
+ * The binding is created by `volt init`, read by every other `volt` verb,
  * and is the one source of truth for "which IDE project does this
  * workspace talk to?" — no environment variables, no implicit cwd
  * detection beyond looking up the `.volt/` directory.
@@ -28,7 +28,7 @@ export interface WorkspaceConfig {
 		/** PLC-project-within-solution name (e.g. TwinCAT's `Untitled2`). */
 		plcProjectName: string;
 	};
-	/** ISO timestamp of `plc init`. Informational. */
+	/** ISO timestamp of `volt init`. Informational. */
 	linkedAt: string;
 }
 
@@ -45,7 +45,7 @@ export interface WorkspacePaths {
 	 * Absolute path to the per-capability lease directory
 	 * (`.volt/auth/`). Each granted capability is one
 	 * `<capability>.lease` file. Sudo-style: humans write via the
-	 * `plc grant` verb; the MCP tool checks for the file before
+	 * `volt grant` verb; the MCP tool checks for the file before
 	 * exposing the elevated parameter to the AI.
 	 */
 	authDir: string;
@@ -71,7 +71,7 @@ export function loadConfig(workspaceRoot: string): WorkspaceConfig {
 	const { configPath, root } = workspacePaths(workspaceRoot);
 	if (!existsSync(configPath)) {
 		throw new Error(
-			`no volt workspace at ${root} (missing .volt/config.json) — run \`plc init\` first`,
+			`no volt workspace at ${root} (missing .volt/config.json) — run \`volt init\` first`,
 		);
 	}
 	const parsed = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<WorkspaceConfig>;

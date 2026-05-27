@@ -62,7 +62,7 @@ export interface AssemblePou {
 
 /**
  * Assemble a POU + children into one workspace `.st` file. Deterministic
- * (same input → same bytes) — drives the no-churn skip in `plc import`.
+ * (same input → same bytes) — drives the no-churn skip in `volt import`.
  *
  *   FUNCTION_BLOCK FB_X
  *   VAR ... END_VAR

@@ -33,7 +33,7 @@ import type {
 export interface Remote {
 	/**
 	 * Liveness + stable project identifiers (platform/projectName/
-	 * plcProjectName) — `plc init` writes them into the workspace's
+	 * plcProjectName) — `volt init` writes them into the workspace's
 	 * config so subsequent verbs know which IDE project to talk to.
 	 * Cheap; no COM walk required.
 	 */

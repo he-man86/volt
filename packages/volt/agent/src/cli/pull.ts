@@ -1,5 +1,5 @@
 /**
- * `plc pull` verb — pull IDE state into the workspace.
+ * `volt pull` verb — pull IDE state into the workspace.
  *
  * Supports `--dry-run` / `-n` to preview the incoming ChangeSet
  * without writing anything (modeled on `git fetch --dry-run`).

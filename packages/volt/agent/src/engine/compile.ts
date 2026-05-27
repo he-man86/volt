@@ -1,10 +1,10 @@
 /**
- * `plc compile` — ask the IDE to build, return diagnostics.
+ * `volt compile` — ask the IDE to build, return diagnostics.
  *
  * Pure passthrough to the bridge's /compile endpoint plus a small
  * "format for humans" helper. Doesn't touch workspace state — it's
  * a read-only query you can run at any time, even on a dirty
- * workspace or right after `plc export`.
+ * workspace or right after `volt export`.
  */
 import { BridgeClient } from "../bridge/client.js";
 import type { BridgeDiagnostic, CompileResponse } from "../bridge/types.js";

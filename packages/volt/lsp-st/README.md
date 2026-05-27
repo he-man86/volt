@@ -178,9 +178,9 @@ End-to-end tests spawn the built binary and exercise each advertised capability 
 
 End-to-end tests spawn the built binary and exercise each advertised capability via real LSP traffic. They skip if `dist/bin.js` is missing — run `npm run build` first.
 
-## Corpus install (called from `plc init`)
+## Corpus install (called from `volt init`)
 
-The package exports an `installCorpus()` helper consumed by `volt-agent`'s `plc init` command. When a user runs `plc init` in a PLC workspace, the corpus + a CLAUDE.md pointer is copied into that workspace so any AI session there can read the language reference proactively.
+The package exports an `installCorpus()` helper consumed by `volt-agent`'s `volt init` command. When a user runs `volt init` in a PLC workspace, the corpus + a CLAUDE.md pointer is copied into that workspace so any AI session there can read the language reference proactively.
 
 ```ts
 import { installCorpus } from "@opencode-ai/volt-lsp-st";

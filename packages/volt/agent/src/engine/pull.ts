@@ -1,5 +1,5 @@
 /**
- * `plc pull` — bridge → workspace.
+ * `volt pull` — bridge → workspace.
  *
  * Pulls the IDE's current state from the bridge, materializes it into
  * the hidden snapshot bare repo, then writes the snapshot's files out
@@ -13,7 +13,7 @@
  *
  * A future v2 can add a real 3-way merge with conflict markers, using
  * the snapshot HEAD as base. For now, the user's escape hatches are
- * `plc push` first (apply your edits) or `--force` (drop them).
+ * `volt push` first (apply your edits) or `--force` (drop them).
  */
 import { resolve } from "node:path";
 import { BridgeClient } from "../bridge/client.js";
@@ -55,8 +55,8 @@ export interface PullResult {
 	/** True if no IDE-side changes since the last pull — nothing to do. */
 	upToDate: boolean;
 	/**
-	 * Per-item preview of what `plc pull` would bring in. Present on
-	 * every real pull AND on `--dry-run`. Mirrors `plc status`'s
+	 * Per-item preview of what `volt pull` would bring in. Present on
+	 * every real pull AND on `--dry-run`. Mirrors `volt status`'s
 	 * `incoming` field so the same shape works in either reporter.
 	 */
 	incoming: ChangeSet;
@@ -96,7 +96,7 @@ export async function runPull(
 			throw new Error(
 				`workspace has uncommitted edits that would be overwritten by pull:\n${dirty
 					.map((p) => `  - ${p}`)
-					.join("\n")}\n\nrun \`plc push\` first to send them to the IDE, or \`plc pull --force\` to discard.`,
+					.join("\n")}\n\nrun \`volt push\` first to send them to the IDE, or \`volt pull --force\` to discard.`,
 			);
 		}
 	}

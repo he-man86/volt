@@ -1,5 +1,5 @@
 /**
- * `plc push` — workspace → bridge.
+ * `volt push` — workspace → bridge.
  *
  * Hashes the current workspace files into the hidden snapshot bare
  * repo, builds a synthetic commit on top of snapshot HEAD with that
@@ -10,7 +10,7 @@
  * Drift policy: before computing the diff we check the bridge's
  * current `/refs.projectVersion` against the snapshot's recorded one.
  * If they differ, the IDE has changed underneath us — refuse with a
- * clear "run `plc pull` first" message unless `--force`. This is
+ * clear "run `volt pull` first" message unless `--force`. This is
  * the single behavior that prevents the AI from silently overwriting
  * the engineer's work.
  *
@@ -21,7 +21,7 @@
  *   successful force-push, this verb RECONCILES: it pulls the
  *   bridge's post-push state (which is "your edits + everything the
  *   engineer added") into both the snapshot and the workspace. That
- *   way the next `plc status` shows the truth — workspace, snapshot,
+ *   way the next `volt status` shows the truth — workspace, snapshot,
  *   and bridge all agree — instead of falsely claiming "in sync"
  *   while the workspace silently lacks engineer-added items.
  */
@@ -58,7 +58,7 @@ export interface PushOptions {
 	 * --force-with-lease=<refname>:<expect>` — the lease holds when
 	 * what we see matches what we expected to see, and fails the moment
 	 * someone else moved the bridge further than what the caller last
-	 * observed (e.g. via `plc status`).
+	 * observed (e.g. via `volt status`).
 	 */
 	forceWithLease?: string;
 	/**
@@ -148,7 +148,7 @@ export async function runPush(
 	const state = loadState(paths.snapshotPath);
 	if (state === undefined) {
 		throw new Error(
-			`no snapshot to diff against — run \`plc pull\` once before \`plc push\``,
+			`no snapshot to diff against — run \`volt pull\` once before \`volt push\``,
 		);
 	}
 
@@ -262,10 +262,10 @@ export async function runPush(
 	//
 	// Why this exists: when --force adopts bridge state, our `state.items`
 	// gains entries (e.g. shouldstay the engineer added) but the snapshot
-	// TREE and the workspace don't have those files. Subsequent `plc
+	// TREE and the workspace don't have those files. Subsequent `volt
 	// status` then falsely reports "in sync" because it compares items
 	// without checking that the tree actually contains them — and
-	// `plc pull` is a no-op because projectVersion already matches.
+	// `volt pull` is a no-op because projectVersion already matches.
 	// Net effect: the workspace silently lacks engineer-added items
 	// and the system keeps lying that everything's fine.
 	//
