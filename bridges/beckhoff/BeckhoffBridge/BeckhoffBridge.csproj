@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net8.0-windows because TwinCAT XAE is Windows-only and the COM
+         interop we do (Type.GetTypeFromProgID, dynamic DTE/SysManager
+         access) is annotated as Windows-only in .NET 8. The -windows
+         TFM tells the compiler this is the platform target, silencing
+         CA1416 platform-availability warnings across the codebase. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>BeckhoffBridge</RootNamespace>
+    <AssemblyName>BeckhoffBridge</AssemblyName>
+    <!--
+      COM interop is used via dynamic/late-binding so no compile-time
+      COM references are needed. TwinCAT XAE must be installed on the
+      target machine which registers the required COM servers (EnvDTE,
+      TCatSysManagerLib).
+    -->
+
+    <!-- Single-file publish: dotnet publish -c Release -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- Trimming disabled: COM interop uses dynamic/late-binding which the trimmer breaks -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Single source of truth for bridge version — shared with frontend and other bridges -->
+    <EmbeddedResource Include="..\..\version.json" Link="version.json" LogicalName="version.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Expose internals to the test assembly so we can unit-test internal classes
+         (CodeHelper, BridgeException, etc.) without making them public. -->
+    <InternalsVisibleTo Include="BeckhoffBridge.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,242 @@
+{
+  "name": "plcassist-vscode",
+  "displayName": "PLC Assist",
+  "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
+  "version": "0.0.1",
+  "publisher": "plcassist",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:structured-text"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "structured-text",
+        "aliases": [
+          "Structured Text",
+          "ST",
+          "IEC 61131-3"
+        ],
+        "extensions": [
+          ".st"
+        ],
+        "configuration": "./languages/structured-text/language-configuration.json",
+        "icon": {
+          "light": "./icons/st.svg",
+          "dark":  "./icons/st.svg"
+        }
+      },
+      {
+        "id": "plc-fbd",
+        "aliases": [
+          "Function Block Diagram",
+          "FBD",
+          "IEC 61131-3 FBD"
+        ],
+        "filenamePatterns": [
+          "**/*.fbd.xml"
+        ],
+        "icon": {
+          "light": "./icons/fbd.svg",
+          "dark":  "./icons/fbd.svg"
+        }
+      },
+      {
+        "id": "plc-ld",
+        "aliases": [
+          "Ladder Diagram",
+          "LD",
+          "IEC 61131-3 LD"
+        ],
+        "filenamePatterns": [
+          "**/*.ld.xml"
+        ],
+        "icon": {
+          "light": "./icons/ld.svg",
+          "dark":  "./icons/ld.svg"
+        }
+      },
+      {
+        "id": "plc-sfc",
+        "aliases": [
+          "Sequential Function Chart",
+          "SFC",
+          "IEC 61131-3 SFC"
+        ],
+        "filenamePatterns": [
+          "**/*.sfc.xml"
+        ],
+        "icon": {
+          "light": "./icons/sfc.svg",
+          "dark":  "./icons/sfc.svg"
+        }
+      },
+      {
+        "id": "plc-cfc",
+        "aliases": [
+          "Continuous Function Chart",
+          "CFC",
+          "IEC 61131-3 CFC"
+        ],
+        "filenamePatterns": [
+          "**/*.cfc.xml"
+        ],
+        "icon": {
+          "light": "./icons/cfc.svg",
+          "dark":  "./icons/cfc.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "structured-text",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "plcassist-icons",
+        "label": "PLC Assist Icons",
+        "path": "./icons/plcassist-icons.json"
+      }
+    ],
+    "configuration": {
+      "title": "PLC Assist",
+      "properties": {
+        "plcassist.structuredText.lspServer": {
+          "type": "string",
+          "default": "",
+          "description": "Override the path to the plcassist-st-lsp bin. When empty (default), the extension auto-discovers it via Node module resolution from the workspace."
+        },
+        "plcassist.structuredText.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "LSP trace level for debugging."
+        },
+        "plcassist.structuredText.vendor": {
+          "type": "string",
+          "enum": ["codesys", "twincat", "auto"],
+          "default": "auto",
+          "description": "Which vendor's ST dialect this project targets. `auto` scans the workspace for vendor signals (.TcPOU, Tc-prefix pragmas → twincat; .project, OSCAT → codesys). Affects hover/completion filtering and the wrong-vendor-pragma diagnostic."
+        },
+        "plcassist.structuredText.hover.showSource": {
+          "type": "boolean",
+          "default": true,
+          "description": "Append the CODESYS documentation source URL to hover content."
+        },
+        "plcassist.structuredText.completion.snippetSupport": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use snippet expansions for completion items (e.g., pragmas with placeholder values)."
+        },
+        "plcassist.structuredText.diagnostics.reservedKeyword": {
+          "type": "boolean",
+          "default": true,
+          "description": "Flag identifiers that collide with CODESYS reserved keywords."
+        },
+        "plcassist.structuredText.diagnostics.doubleUnderscore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Flag identifiers starting with __ (reserved for system-generated names)."
+        },
+        "plcassist.structuredText.diagnostics.consecutiveUnderscores": {
+          "type": "boolean",
+          "default": true,
+          "description": "Flag identifiers containing multiple consecutive underscores."
+        },
+        "plcassist.structuredText.diagnostics.duplicateDeclaration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Flag two declarations with the same name in the same scope."
+        },
+        "plcassist.structuredText.diagnostics.unresolvedIdentifier": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn on identifiers in bodies that don't resolve in any reachable scope. Can false-positive on library-imported symbols."
+        },
+        "plcassist.structuredText.diagnostics.unknownPragma": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn on pragma names not in either vendor's catalog."
+        },
+        "plcassist.structuredText.diagnostics.wrongVendorPragma": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when a pragma is known but belongs to the OTHER vendor (e.g. {attribute 'TcRpcEnable'} in a CODESYS project). Includes equivalent suggestion when available."
+        },
+        "plcassist.structuredText.diagnostics.pragmaMissingCompanion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Error when a pragma is missing its required companion (e.g., instance-path requires reflection)."
+        },
+        "plcassist.structuredText.diagnostics.pragmaConflict": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn on mutually-exclusive pragmas applied to the same target."
+        },
+        "plcassist.structuredText.diagnostics.fbLifecycleSignature": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate FB_Init / FB_Reinit / FB_Exit signatures."
+        },
+        "plcassist.structuredText.diagnostics.shadowingDeclaration": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inform when a declaration shadows a same-name symbol in an outer scope."
+        },
+        "plcassist.structuredText.diagnostics.initSlotCollision": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot."
+        },
+        "plcassist.structuredText.diagnostics.conversionSourceMismatch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when a type-conversion function (e.g. INT_TO_DINT) is called with an argument whose declared type doesn't match the function's expected source type. Includes a suggested replacement (e.g. STRING_TO_DINT)."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "plcassist.restart",
+        "title": "PLC Assist: Restart Language Server"
+      },
+      {
+        "command": "plcassist.structured-text.showOutput",
+        "title": "PLC Assist: Show Structured Text Output"
+      },
+      {
+        "command": "plcassist.openReference",
+        "title": "PLC Assist: Open CODESYS Language Reference"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^3.0.0"
+  }
+}

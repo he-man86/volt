@@ -1,0 +1,1820 @@
+﻿{
+    "text":  "Reference: Programming",
+    "url":  "_cds_f_reference_programming.html",
+    "children":  [
+                     {
+                         "text":  "Programming Languages and Editors",
+                         "url":  "_cds_struct_reference_programming_languages_and_editors.html",
+                         "children":  [
+                                          {
+                                              "text":  "Declaration Editor",
+                                              "url":  "_cds_edt_declaration_editor.html"
+                                          },
+                                          {
+                                              "text":  "Common Functions in Graphical Editors",
+                                              "url":  "_cds_common_functionalities_in_grafic_editors.html"
+                                          },
+                                          {
+                                              "text":  "Structured Text and Extended Structured Text (ExST)",
+                                              "url":  "_cds_st_f_language.html",
+                                              "children":  [
+                                                               {
+                                                                   "text":  "ST Editor",
+                                                                   "url":  "_cds_edt_st_editor.html"
+                                                               },
+                                                               {
+                                                                   "text":  "ST Editor in Online Mode",
+                                                                   "url":  "_cds_st_editor_in_online_mode.html"
+                                                               },
+                                                               {
+                                                                   "text":  "ST Expressions",
+                                                                   "url":  "_cds_st_expressions.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Assignments",
+                                                                   "url":  "_cds_st_f_assignments.html",
+                                                                   "children":  [
+                                                                                    {
+                                                                                        "text":  "ST Assignment Operator",
+                                                                                        "url":  "_cds_st_operator_assignment.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ST Assignment Operator for Outputs",
+                                                                                        "url":  "_cds_st_operator_output_assignment.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ExST Assignment: S=",
+                                                                                        "url":  "_cds_exst_operator_s.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ExST Assignment: R=",
+                                                                                        "url":  "_cds_exst_operator_r.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ExST Assignment as An Expression",
+                                                                                        "url":  "_cds_exst_operator_expression.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "Assignment Operator: REF=",
+                                                                                        "url":  "_cds_ref_assignment.html"
+                                                                                    }
+                                                                                ]
+                                                               },
+                                                               {
+                                                                   "text":  "Statements",
+                                                                   "url":  "_cds_st_f_instructions.html",
+                                                                   "children":  [
+                                                                                    {
+                                                                                        "text":  "IF",
+                                                                                        "url":  "_cds_st_instruction_if.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "FOR",
+                                                                                        "url":  "_cds_st_instruction_for.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "CASE",
+                                                                                        "url":  "_cds_st_instruction_case.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "WHILE",
+                                                                                        "url":  "_cds_st_instruction_while.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "REPEAT",
+                                                                                        "url":  "_cds_st_instruction_repeat.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "RETURN",
+                                                                                        "url":  "_cds_st_instruction_return.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "JMP",
+                                                                                        "url":  "_cds_st_instruction_jmp.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "EXIT",
+                                                                                        "url":  "_cds_st_instruction_exit.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "CONTINUE",
+                                                                                        "url":  "_cds_exst_instruction_continue.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ST Function Block Call",
+                                                                                        "url":  "_cds_st_fb_call.html"
+                                                                                    },
+                                                                                    {
+                                                                                        "text":  "ST Comments",
+                                                                                        "url":  "_cds_st_comment.html"
+                                                                                    }
+                                                                                ]
+                                                               }
+                                                           ]
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Variables",
+                         "url":  "_cds_struct_reference_variable_types.html",
+                         "children":  [
+                                          {
+                                              "text":  "VAR",
+                                              "url":  "_cds_vartypes_var.html"
+                                          },
+                                          {
+                                              "text":  "VAR_INPUT",
+                                              "url":  "_cds_vartypes_var_input.html"
+                                          },
+                                          {
+                                              "text":  "VAR_OUTPUT",
+                                              "url":  "_cds_vartypes_var_output.html"
+                                          },
+                                          {
+                                              "text":  "VAR_IN_OUT",
+                                              "url":  "_cds_vartypes_var_in_out.html"
+                                          },
+                                          {
+                                              "text":  "VAR_GLOBAL",
+                                              "url":  "_cds_vartypes_var_global.html"
+                                          },
+                                          {
+                                              "text":  "VAR_TEMP",
+                                              "url":  "_cds_vartypes_var_temp.html"
+                                          },
+                                          {
+                                              "text":  "VAR_STAT",
+                                              "url":  "_cds_vartypes_var_stat.html"
+                                          },
+                                          {
+                                              "text":  "VAR_EXTERNAL",
+                                              "url":  "_cds_vartypes_var_external.html"
+                                          },
+                                          {
+                                              "text":  "VAR_INST",
+                                              "url":  "_cds_vartypes_var_inst.html"
+                                          },
+                                          {
+                                              "text":  "VAR_CONFIG",
+                                              "url":  "_cds_vartypes_var_config.html"
+                                          },
+                                          {
+                                              "text":  "CONSTANT",
+                                              "url":  "_cds_vartypes_constant.html"
+                                          },
+                                          {
+                                              "text":  "VAR_GENERIC CONSTANT",
+                                              "url":  "_cds_vartypes_var_generic_constant.html"
+                                          },
+                                          {
+                                              "text":  "PERSISTENT",
+                                              "url":  "_cds_var_persistent.html"
+                                          },
+                                          {
+                                              "text":  "RETAIN",
+                                              "url":  "_cds_var_retain.html"
+                                          },
+                                          {
+                                              "text":  "SUPER",
+                                              "url":  "_cds_pointer_super.html"
+                                          },
+                                          {
+                                              "text":  "THIS",
+                                              "url":  "_cds_pointer_this.html"
+                                          },
+                                          {
+                                              "text":  "Implicit Enumeration",
+                                              "url":  "_cds_datatype_implicit_enumeration.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Operators",
+                         "url":  "_cds_struct_reference_operators.html",
+                         "children":  [
+                                          {
+                                              "text":  "ADD",
+                                              "url":  "_cds_operator_add.html"
+                                          },
+                                          {
+                                              "text":  "MUL",
+                                              "url":  "_cds_operator_mul.html"
+                                          },
+                                          {
+                                              "text":  "SUB",
+                                              "url":  "_cds_operator_sub.html"
+                                          },
+                                          {
+                                              "text":  "DIV",
+                                              "url":  "_cds_operator_div.html"
+                                          },
+                                          {
+                                              "text":  "MOD",
+                                              "url":  "_cds_operator_mod.html"
+                                          },
+                                          {
+                                              "text":  "MOVE",
+                                              "url":  "_cds_operator_move.html"
+                                          },
+                                          {
+                                              "text":  "INDEXOF",
+                                              "url":  "_cds_operator_indexof.html"
+                                          },
+                                          {
+                                              "text":  "SIZEOF",
+                                              "url":  "_cds_operator_sizeof.html"
+                                          },
+                                          {
+                                              "text":  "XSIZEOF",
+                                              "url":  "_cds_operator_xsizeof.html"
+                                          },
+                                          {
+                                              "text":  "NOT",
+                                              "url":  "_cds_operator_not.html"
+                                          },
+                                          {
+                                              "text":  "AND",
+                                              "url":  "_cds_operator_and.html"
+                                          },
+                                          {
+                                              "text":  "OR",
+                                              "url":  "_cds_operator_or.html"
+                                          },
+                                          {
+                                              "text":  "XOR",
+                                              "url":  "_cds_operator_xor.html"
+                                          },
+                                          {
+                                              "text":  "AND_THEN",
+                                              "url":  "_cds_operator_and_then.html"
+                                          },
+                                          {
+                                              "text":  "OR_ELSE",
+                                              "url":  "_cds_operator_or_else.html"
+                                          },
+                                          {
+                                              "text":  "SHL",
+                                              "url":  "_cds_operator_shl.html"
+                                          },
+                                          {
+                                              "text":  "SHR",
+                                              "url":  "_cds_operator_shr.html"
+                                          },
+                                          {
+                                              "text":  "ROL",
+                                              "url":  "_cds_operator_rol.html"
+                                          },
+                                          {
+                                              "text":  "ROR",
+                                              "url":  "_cds_operator_ror.html"
+                                          },
+                                          {
+                                              "text":  "SEL",
+                                              "url":  "_cds_operator_sel.html"
+                                          },
+                                          {
+                                              "text":  "MAX",
+                                              "url":  "_cds_operator_max.html"
+                                          },
+                                          {
+                                              "text":  "MIN",
+                                              "url":  "_cds_operator_min.html"
+                                          },
+                                          {
+                                              "text":  "LIMIT",
+                                              "url":  "_cds_operator_limit.html"
+                                          },
+                                          {
+                                              "text":  "MUX",
+                                              "url":  "_cds_operator_mux.html"
+                                          },
+                                          {
+                                              "text":  "GT",
+                                              "url":  "_cds_operator_gt.html"
+                                          },
+                                          {
+                                              "text":  "LT",
+                                              "url":  "_cds_operator_lt.html"
+                                          },
+                                          {
+                                              "text":  "LE",
+                                              "url":  "_cds_operator_le.html"
+                                          },
+                                          {
+                                              "text":  "GE",
+                                              "url":  "_cds_operator_ge.html"
+                                          },
+                                          {
+                                              "text":  "EQ",
+                                              "url":  "_cds_operator_eq.html"
+                                          },
+                                          {
+                                              "text":  "NE",
+                                              "url":  "_cds_operator_ne.html"
+                                          },
+                                          {
+                                              "text":  "ADR",
+                                              "url":  "_cds_operator_adr.html"
+                                          },
+                                          {
+                                              "text":  "Content Operator",
+                                              "url":  "_cds_operator_content_operator.html"
+                                          },
+                                          {
+                                              "text":  "BITADR",
+                                              "url":  "_cds_operator_bitadr.html"
+                                          },
+                                          {
+                                              "text":  "CAL",
+                                              "url":  "_cds_operator_cal.html"
+                                          },
+                                          {
+                                              "text":  "ABS",
+                                              "url":  "_cds_operator_abs.html"
+                                          },
+                                          {
+                                              "text":  "SQRT",
+                                              "url":  "_cds_operator_sqrt.html"
+                                          },
+                                          {
+                                              "text":  "LN",
+                                              "url":  "_cds_operator_ln.html"
+                                          },
+                                          {
+                                              "text":  "LOG",
+                                              "url":  "_cds_operator_log.html"
+                                          },
+                                          {
+                                              "text":  "EXP",
+                                              "url":  "_cds_operator_exp.html"
+                                          },
+                                          {
+                                              "text":  "EXPT",
+                                              "url":  "_cds_operator_expt.html"
+                                          },
+                                          {
+                                              "text":  "SIN",
+                                              "url":  "_cds_operator_sin.html"
+                                          },
+                                          {
+                                              "text":  "COS",
+                                              "url":  "_cds_operator_cos.html"
+                                          },
+                                          {
+                                              "text":  "TAN",
+                                              "url":  "_cds_operator_tan.html"
+                                          },
+                                          {
+                                              "text":  "ASIN",
+                                              "url":  "_cds_operator_asin.html"
+                                          },
+                                          {
+                                              "text":  "ACOS",
+                                              "url":  "_cds_operator_acos.html"
+                                          },
+                                          {
+                                              "text":  "ATAN",
+                                              "url":  "_cds_operator_atan.html"
+                                          },
+                                          {
+                                              "text":  "__DELETE",
+                                              "url":  "_cds_operator_delete.html"
+                                          },
+                                          {
+                                              "text":  "__ISVALIDREF",
+                                              "url":  "_cds_operator_isvalidref.html"
+                                          },
+                                          {
+                                              "text":  "__NEW",
+                                              "url":  "_cds_operator_new.html"
+                                          },
+                                          {
+                                              "text":  "__QUERYINTERFACE",
+                                              "url":  "_cds_operator_queryinterface.html"
+                                          },
+                                          {
+                                              "text":  "__QUERYPOINTER",
+                                              "url":  "_cds_operator_querypointer.html"
+                                          },
+                                          {
+                                              "text":  "__TRY, __CATCH, __FINALLY, __ENDTRY",
+                                              "url":  "_cds_operator_try_catch_finally_endtry.html"
+                                          },
+                                          {
+                                              "text":  "__VARINFO",
+                                              "url":  "_cds_operator_varinfo.html"
+                                          },
+                                          {
+                                              "text":  "__CURRENTTASK",
+                                              "url":  "_cds_operator_currenttask.html"
+                                          },
+                                          {
+                                              "text":  "__COMPARE_AND_SWAP",
+                                              "url":  "_cds_operator_compare_and_swap.html"
+                                          },
+                                          {
+                                              "text":  "__XADD",
+                                              "url":  "_cds_operator_xadd.html"
+                                          },
+                                          {
+                                              "text":  "__POSITION",
+                                              "url":  "_cds_operator_position.html"
+                                          },
+                                          {
+                                              "text":  "__POUNAME",
+                                              "url":  "_cds_operator_pouname.html"
+                                          },
+                                          {
+                                              "text":  "TEST_AND_SET",
+                                              "url":  "_cds_operator_test_and_set.html"
+                                          },
+                                          {
+                                              "text":  "Global Namespace",
+                                              "url":  "_cds_operator_namespace_global.html"
+                                          },
+                                          {
+                                              "text":  "Namespace for Global Variable Lists",
+                                              "url":  "_cds_operator_namespace_gvl.html"
+                                          },
+                                          {
+                                              "text":  "Library Namespace",
+                                              "url":  "_cds_operator_namespace_lib.html"
+                                          },
+                                          {
+                                              "text":  "Enumeration Namespace",
+                                              "url":  "_cds_operator_namespace_enum.html"
+                                          },
+                                          {
+                                              "text":  "__POOL",
+                                              "url":  "_cds_operator_pool.html"
+                                          },
+                                          {
+                                              "text":  "INI",
+                                              "url":  "_cds_operator_ini.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Operators for type conversion",
+                         "url":  "_cds_conversion_operators.html",
+                         "children":  [
+                                          {
+                                              "text":  "Overloading conversion",
+                                              "url":  "_cds_operator_to_xxx.html"
+                                          },
+                                          {
+                                              "text":  "BOOL",
+                                              "url":  "_cds_operator_bool_to.html"
+                                          },
+                                          {
+                                              "text":  "Integer",
+                                              "url":  "_cds_operator_convert_integer.html"
+                                          },
+                                          {
+                                              "text":  "REAL, LREAL",
+                                              "url":  "_cds_operator_real_to.html"
+                                          },
+                                          {
+                                              "text":  "STRING, WSTRING",
+                                              "url":  "_cds_operator_string_to.html"
+                                          },
+                                          {
+                                              "text":  "TIME, LTIME",
+                                              "url":  "_cds_operator_time_to.html"
+                                          },
+                                          {
+                                              "text":  "DATE, DT, TOD, LDATE, LDT, LTOD",
+                                              "url":  "_cds_operator_date_to.html"
+                                          },
+                                          {
+                                              "text":  "TRUNC",
+                                              "url":  "_cds_operator_trunc.html"
+                                          },
+                                          {
+                                              "text":  "TRUNC_INT",
+                                              "url":  "_cds_operator_trunc_int.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Operands",
+                         "url":  "_cds_struct_reference_operands.html",
+                         "children":  [
+                                          {
+                                              "text":  "BOOL",
+                                              "url":  "_cds_operands_constant_bool.html"
+                                          },
+                                          {
+                                              "text":  "Constant: Numeric",
+                                              "url":  "_cds_operands_constant_integer.html"
+                                          },
+                                          {
+                                              "text":  "Constant: REAL, LREAL",
+                                              "url":  "_cds_operands_constant_real.html"
+                                          },
+                                          {
+                                              "text":  "String",
+                                              "url":  "_cds_operands_constant_string.html"
+                                          },
+                                          {
+                                              "text":  "UTF8# String",
+                                              "url":  "_cds_operands_constant_string_utf8.html"
+                                          },
+                                          {
+                                              "text":  "Character",
+                                              "url":  "_cds_operands_constant_character.html"
+                                          },
+                                          {
+                                              "text":  "Constant: TIME, LTIME",
+                                              "url":  "_cds_operands_constant_time.html"
+                                          },
+                                          {
+                                              "text":  "Constants: Date and Time",
+                                              "url":  "_cds_operands_constant_date.html"
+                                          },
+                                          {
+                                              "text":  "Constant: Typed Literal",
+                                              "url":  "_cds_operands_constant_typedliterals.html"
+                                          },
+                                          {
+                                              "text":  "Access to Variables in Arrays, Structures, and Blocks",
+                                              "url":  "_cds_operands_variables_accessing_variables.html"
+                                          },
+                                          {
+                                              "text":  "Bit Access in Variables",
+                                              "url":  "_cds_operands_variables_accessing_bits.html"
+                                          },
+                                          {
+                                              "text":  "Partial Variable Access",
+                                              "url":  "_cds_partial_access.html"
+                                          },
+                                          {
+                                              "text":  "Addresses",
+                                              "url":  "_cds_operands_addresses.html"
+                                          },
+                                          {
+                                              "text":  "Functions",
+                                              "url":  "_cds_operands_functions.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Data Types",
+                         "url":  "_cds_reference_datatypes.html",
+                         "children":  [
+                                          {
+                                              "text":  "BOOL",
+                                              "url":  "_cds_datatype_bool.html"
+                                          },
+                                          {
+                                              "text":  "Integer",
+                                              "url":  "_cds_datatype_integer.html"
+                                          },
+                                          {
+                                              "text":  "REAL, LREAL",
+                                              "url":  "_cds_datatype_real.html"
+                                          },
+                                          {
+                                              "text":  "STRING",
+                                              "url":  "_cds_datatype_string.html"
+                                          },
+                                          {
+                                              "text":  "TIME, LTIME",
+                                              "url":  "_cds_datatype_time.html"
+                                          },
+                                          {
+                                              "text":  "DATE",
+                                              "url":  "_cds_datatype_date_and_time_of_day.html"
+                                          },
+                                          {
+                                              "text":  "ANY, ANY_\u0026lt;type\u0026gt;",
+                                              "url":  "_cds_datatype_any.html"
+                                          },
+                                          {
+                                              "text":  "WSTRING",
+                                              "url":  "_cds_datatype_wstring.html"
+                                          },
+                                          {
+                                              "text":  "BIT",
+                                              "url":  "_cds_datatype_bit.html"
+                                          },
+                                          {
+                                              "text":  "__UXINT, __XINT, __XWORD",
+                                              "url":  "_cds_datatype_uxint_xword.html"
+                                          },
+                                          {
+                                              "text":  "POINTER TO",
+                                              "url":  "_cds_datatype_pointer.html"
+                                          },
+                                          {
+                                              "text":  "REFERENCE TO",
+                                              "url":  "_cds_datatype_reference.html"
+                                          },
+                                          {
+                                              "text":  "ARRAY OF",
+                                              "url":  "_cds_datatype_array.html"
+                                          },
+                                          {
+                                              "text":  "DUT: TYPE",
+                                              "url":  "_cds_datatype_type.html",
+                                              "children":  [
+                                                               {
+                                                                   "text":  "STRUCT",
+                                                                   "url":  "_cds_datatype_structure.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Enum",
+                                                                   "url":  "_cds_datatype_enum.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Enum with Text List Support",
+                                                                   "url":  "_cds_declare_enum_with_text_support.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Implicit Enumeration",
+                                                                   "url":  "_cds_datatype_implicit_enumeration-1118500.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Alias",
+                                                                   "url":  "_cds_datatype_alias.html"
+                                                               },
+                                                               {
+                                                                   "text":  "UNION",
+                                                                   "url":  "_cds_datatype_union.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Subranges",
+                                                                   "url":  "_cds_datatype_subint.html"
+                                                               }
+                                                           ]
+                                          },
+                                          {
+                                              "text":  "__VECTOR",
+                                              "url":  "_cds_data_type_vector.html"
+                                          },
+                                          {
+                                              "text":  "VERSION",
+                                              "url":  "_cds_datatype_version.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Pragmas",
+                         "url":  "_cds_struct_reference_pragmas.html",
+                         "children":  [
+                                          {
+                                              "text":  "Message Pragmas",
+                                              "url":  "_cds_pragma_message.html"
+                                          },
+                                          {
+                                              "text":  "Attribute pragmas",
+                                              "url":  "_cds_f_pragmas_attribute.html",
+                                              "children":  [
+                                                               {
+                                                                   "text":  "Effects on symbols",
+                                                                   "url":  "_cds_pragma_consequences_to_symbols.html"
+                                                               },
+                                                               {
+                                                                   "text":  "Custom attribute",
+                                                                   "url":  "_cds_user_defined_attributes.html"
+                                                               },
+                                                               {
+                                                                   "text":  "call_after_global_init_slot",
+                                                                   "url":  "_cds_pragma_attribute_call_after_global_init_slot.html"
+                                                               },
+                                                               {
+                                                                   "text":  "call_after_init",
+                                                                   "url":  "_cds_pragma_attribute_call_after_init.html"
+                                                               },
+                                                               {
+                                                                   "text":  "call_after_online_change_slot",
+                                                                   "url":  "_cds_pragma_attribute_call_after_online_change_slot.html"
+                                                               },
+                                                               {
+                                                                   "text":  "call_before_global_exit_slot",
+                                                                   "url":  "_cds_pragma_attribute_call_before_global_exit_slot.html"
+                                                               },
+                                                               {
+                                                                   "text":  "call_on_type_change",
+                                                                   "url":  "_cds_pragma_attribute_call_on_type_change.html"
+                                                               },
+                                                               {
+                                                                   "text":  "conditionalshow",
+                                                                   "url":  "_cds_pragma_attribute_conditionalshow.html"
+                                                               },
+                                                               {
+                                                                   "text":  "conditionalshow_all_locals",
+                                                                   "url":  "_cds_pragma_attribute_conditionalshow_all_locals.html"
+                                                               },
+                                                               {
+                                                                   "text":  "const_replaced, const_non_replaced",
+                                                                   "url":  "_cds_pragma_attribute_const_replaced_non.html"
+                                                               },
+                                                               {
+                                                                   "text":  "dataflow",
+                                                                   "url":  "_cds_pragma_attribute_dataflow.html"
+                                                               },
+                                                               {
+                                                                   "text":  "displaymode",
+                                                                   "url":  "_cds_pragma_attribute_displaymode.html"
+                                                               },
+                                                               {
+                                                                   "text":  "enable_dynamic_creation",
+                                                                   "url":  "_cds_pragma_attribute_enable_dynamic_creation.html"
+                                                               },
+                                                               {
+                                                                   "text":  "estimated-stack-usage",
+                                                                   "url":  "_cds_pragma_attribute_estimated_stack_usage.html"
+                                                               },
+                                                               {
+                                                                   "text":  "ExpandFully",
+                                                                   "url":  "_cds_pragma_attribute_expandfully.html"
+                                                               },
+                                                               {
+                                                                   "text":  "global_init_slot",
+                                                                   "url":  "_cds_pragma_attribute_global_init_slot.html"
+                                                               },
+                                                               {
+                                                                   "text":  "hide",
+                                                                   "url":  "_cds_pragma_attribute_hide.html"
+                                                               },
+                                                               {
+                                                                   "text":  "hide_all_locals",
+                                                                   "url":  "_cds_pragma_attribute_hide_all_locals.html"
+                                                               },
+                                                               {
+                                                                   "text":  "implicit-parameter",
+                                                                   "url":  "_cds_pragma_attribute_implicit-parameter.html"
+                                                               },
+                                                               {
+                                                                   "text":  "initialize_on_call",
+                                                                   "url":  "_cds_pragma_attribute_initialize_on_call.html"
+                                                               },
+                                                               {
+                                                                   "text":  "init_namespace",
+                                                                   "url":  "_cds_pragma_attribute_init_namespace.html"
+                                                               },
+                                                               {
+                                                                   "text":  "init_on_onlchange",
+                                                                   "url":  "_cds_pragma_attribute_init_on_onlchange.html"
+                                                               },
+                                                               {
+                                                                   "text":  "instance-path",
+                                                                   "url":  "_cds_pragma_attribute_instance_path.html"
+                                                               },
+                                                               {
+                                                                   "text":  "io_function_block, io_function_block_mapping",
+                                                                   "url":  "_cds_pragma_attribute_io_function_block_mapping.html"
+                                                               },
+                                                               {
+                                                                   "text":  "is_connected",
+                                                                   "url":  "_cds_pragma_attribute_is_connected.html"
+                                                               },
+                                                               {
+                                                                   "text":  "linkalways",
+                                                                   "url":  "_cds_pragma_attribute_linkalways.html"
+                                                               },
+                                                               {
+                                                                   "text":  "monitoring",
+                                                                   "url":  "_cds_pragma_attribute_monitoring.html"
+                                                               },
+                                                               {
+                                                                   "text":  "monitoring_display",
+                                                                   "url":  "_cds_pragma_attribute_monitoring_display.html"
+                                                               },
+                                                               {
+                                                                   "text":  "monitoring_encoding",
+                                                                   "url":  "_cds_pragma_attribute_monitoring_encoding.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no_assign, no_assign_warning",
+                                                                   "url":  "_cds_pragma_attribute_no_assign.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no_check",
+                                                                   "url":  "_cds_pragma_attribute_no_check.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no_copy",
+                                                                   "url":  "_cds_pragma_attribute_no_copy.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no-exit",
+                                                                   "url":  "_cds_pragma_attribute_no_exit.html"
+                                                               },
+                                                               {
+                                                                   "text":  "noinit",
+                                                                   "url":  "_cds_pragma_attribute_noinit.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no_instance_in_retain",
+                                                                   "url":  "_cds_pragma_attribute_no_instance_in_retain.html"
+                                                               },
+                                                               {
+                                                                   "text":  "no_virtual_actions",
+                                                                   "url":  "_cds_pragma_attribute_no_virtual_actions.html"
+                                                               },
+                                                               {
+                                                                   "text":  "obsolete",
+                                                                   "url":  "_cds_pragma_attribute_obsolete.html"
+                                                               },
+                                                               {
+                                                                   "text":  "pingroup",
+                                                                   "url":  "_cds_pragma_attribute_pingroup.html"
+                                                               },
+                                                               {
+                                                                   "text":  "pin_presentation_order_inputs, pin_presentation_order_outputs",
+                                                                   "url":  "_cds_pragma_attribute_pin_presentation_order.html"
+                                                               },
+                                                               {
+                                                                   "text":  "pack_mode",
+                                                                   "url":  "_cds_pragma_attribute_pack_mode.html"
+                                                               },
+                                                               {
+                                                                   "text":  "ProcessValue",
+                                                                   "url":  "_cds_pragma_attribute_processvalue.html"
+                                                               },
+                                                               {
+                                                                   "text":  "qualified_only",
+                                                                   "url":  "_cds_pragma_attribute_qualified_only.html"
+                                                               },
+                                                               {
+                                                                   "text":  "reflection",
+                                                                   "url":  "_cds_pragma_attribute_reflection.html"
+                                                               },
+                                                               {
+                                                                   "text":  "subsequent",
+                                                                   "url":  "_cds_pragma_attribute_subsequent.html"
+                                                               },
+                                                               {
+                                                                   "text":  "to_string",
+                                                                   "url":  "_cds_pragma_attribute_to_string.html"
+                                                               },
+                                                               {
+                                                                   "text":  "suppress_warning",
+                                                                   "url":  "_cds_pragma_attribute_suppress_warning.html"
+                                                               },
+                                                               {
+                                                                   "text":  "warning disable , warning restore",
+                                                                   "url":  "_cds_pragma_attribute_warning_disable.html"
+                                                               }
+                                                           ]
+                                          },
+                                          {
+                                              "text":  "Conditional Pragmas",
+                                              "url":  "_cds_pragma_conditional.html"
+                                          },
+                                          {
+                                              "text":  "Region Pragma",
+                                              "url":  "_cds_pragma_region.html"
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Identifier Designation",
+                         "url":  "_cds_identifiers.html",
+                         "children":  [
+                                          {
+                                              "text":  "Rules",
+                                              "url":  "_cds_rules.html"
+                                          },
+                                          {
+                                              "text":  "Recommendations",
+                                              "url":  "_cds_recommendation.html",
+                                              "children":  [
+                                                               {
+                                                                   "text":  "For variables",
+                                                                   "url":  "_cds_identifiers_variables.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For variables in libraries",
+                                                                   "url":  "_cds_identifiers_var_v3_library.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For DUTs",
+                                                                   "url":  "_cds_identifiers_dut.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For DUTs in V3 libraries",
+                                                                   "url":  "_cds_identifiers_dut_v3_library.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For POUs",
+                                                                   "url":  "_cds_identifiers_pous.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For V3 library blocks",
+                                                                   "url":  "_cds_identifiers_pou_v3_library.html"
+                                                               },
+                                                               {
+                                                                   "text":  "For visualizations",
+                                                                   "url":  "_cds_identifiers_visu.html"
+                                                               }
+                                                           ]
+                                          }
+                                      ]
+                     },
+                     {
+                         "text":  "Shadowing Rules",
+                         "url":  "_cds_shadowing_rules.html"
+                     },
+                     {
+                         "text":  "Keywords",
+                         "url":  "_cds_keywords.html"
+                     },
+                     {
+                         "text":  "Method: FB_Init, FB_Reinit, FB_Exit",
+                         "url":  "_cds_method_fb_init_fb_reinit.html"
+                     },
+                     {
+                         "text":  "Global Init Slots",
+                         "url":  "_cds_global_init_slots.html"
+                     },
+                     {
+                         "text":  "Error Messages and Warnings",
+                         "url":  "_cds_struct_reference_errors.html",
+                         "children":  [
+                                          {
+                                              "text":  "C0001",
+                                              "url":  "_cds_error_c0001.html"
+                                          },
+                                          {
+                                              "text":  "C0002",
+                                              "url":  "_cds_error_c0002.html"
+                                          },
+                                          {
+                                              "text":  "C0003",
+                                              "url":  "_cds_error_c0003.html"
+                                          },
+                                          {
+                                              "text":  "C0004",
+                                              "url":  "_cds_error_c0004.html"
+                                          },
+                                          {
+                                              "text":  "C0005",
+                                              "url":  "_cds_error_c0005.html"
+                                          },
+                                          {
+                                              "text":  "C0006",
+                                              "url":  "_cds_error_c0006.html"
+                                          },
+                                          {
+                                              "text":  "C0007",
+                                              "url":  "_cds_error_c0007.html"
+                                          },
+                                          {
+                                              "text":  "C0008",
+                                              "url":  "_cds_error_c0008.html"
+                                          },
+                                          {
+                                              "text":  "C0009",
+                                              "url":  "_cds_error_c0009.html"
+                                          },
+                                          {
+                                              "text":  "C0010",
+                                              "url":  "_cds_error_c0010.html"
+                                          },
+                                          {
+                                              "text":  "C0011",
+                                              "url":  "_cds_error_c0011.html"
+                                          },
+                                          {
+                                              "text":  "C0013",
+                                              "url":  "_cds_error_c0013.html"
+                                          },
+                                          {
+                                              "text":  "C0015",
+                                              "url":  "_cds_error_c0015.html"
+                                          },
+                                          {
+                                              "text":  "C0018",
+                                              "url":  "_cds_error_c0018.html"
+                                          },
+                                          {
+                                              "text":  "C0020",
+                                              "url":  "_cds_error_c0020.html"
+                                          },
+                                          {
+                                              "text":  "C0022",
+                                              "url":  "_cds_error_c0022.html"
+                                          },
+                                          {
+                                              "text":  "C0023",
+                                              "url":  "_cds_error_c0023.html"
+                                          },
+                                          {
+                                              "text":  "C0026",
+                                              "url":  "_cds_error_c0026.html"
+                                          },
+                                          {
+                                              "text":  "C0027",
+                                              "url":  "_cds_error_c0027.html"
+                                          },
+                                          {
+                                              "text":  "C0030",
+                                              "url":  "_cds_error_c0030.html"
+                                          },
+                                          {
+                                              "text":  "C0031",
+                                              "url":  "_cds_error_c0031.html"
+                                          },
+                                          {
+                                              "text":  "C0032",
+                                              "url":  "_cds_error_c0032.html"
+                                          },
+                                          {
+                                              "text":  "C0033",
+                                              "url":  "_cds_error_c0033.html"
+                                          },
+                                          {
+                                              "text":  "C0035",
+                                              "url":  "_cds_error_c0035.html"
+                                          },
+                                          {
+                                              "text":  "C0036",
+                                              "url":  "_cds_error_c0036.html"
+                                          },
+                                          {
+                                              "text":  "C0037",
+                                              "url":  "_cds_error_c0037.html"
+                                          },
+                                          {
+                                              "text":  "C0038",
+                                              "url":  "_cds_error_c0038.html"
+                                          },
+                                          {
+                                              "text":  "C0039",
+                                              "url":  "_cds_error_c0039.html"
+                                          },
+                                          {
+                                              "text":  "C0040",
+                                              "url":  "_cds_error_c0040.html"
+                                          },
+                                          {
+                                              "text":  "C0041",
+                                              "url":  "_cds_error_c0041.html"
+                                          },
+                                          {
+                                              "text":  "C0042",
+                                              "url":  "_cds_error_c0042.html"
+                                          },
+                                          {
+                                              "text":  "C0043",
+                                              "url":  "_cds_error_c0043.html"
+                                          },
+                                          {
+                                              "text":  "C0044",
+                                              "url":  "_cds_error_c0044.html"
+                                          },
+                                          {
+                                              "text":  "C0045",
+                                              "url":  "_cds_error_c0045.html"
+                                          },
+                                          {
+                                              "text":  "C0046",
+                                              "url":  "_cds_error_c0046.html"
+                                          },
+                                          {
+                                              "text":  "C0047",
+                                              "url":  "_cds_error_c0047.html"
+                                          },
+                                          {
+                                              "text":  "C0048",
+                                              "url":  "_cds_error_c0048.html"
+                                          },
+                                          {
+                                              "text":  "C0049",
+                                              "url":  "_cds_error_c0049.html"
+                                          },
+                                          {
+                                              "text":  "C0050",
+                                              "url":  "_cds_error_c0050.html"
+                                          },
+                                          {
+                                              "text":  "C0051",
+                                              "url":  "_cds_error_c0051.html"
+                                          },
+                                          {
+                                              "text":  "C0053",
+                                              "url":  "_cds_error_c0053.html"
+                                          },
+                                          {
+                                              "text":  "C0061",
+                                              "url":  "_cds_error_c0061.html"
+                                          },
+                                          {
+                                              "text":  "C0062",
+                                              "url":  "_cds_error_c0062.html"
+                                          },
+                                          {
+                                              "text":  "C0064",
+                                              "url":  "_cds_error_c0064.html"
+                                          },
+                                          {
+                                              "text":  "C0065",
+                                              "url":  "_cds_error_c0065.html"
+                                          },
+                                          {
+                                              "text":  "C0066",
+                                              "url":  "_cds_error_c0066.html"
+                                          },
+                                          {
+                                              "text":  "C0068",
+                                              "url":  "_cds_error_c0068.html"
+                                          },
+                                          {
+                                              "text":  "C0069",
+                                              "url":  "_cds_error_c0069.html"
+                                          },
+                                          {
+                                              "text":  "C0070",
+                                              "url":  "_cds_error_c0070.html"
+                                          },
+                                          {
+                                              "text":  "C0072",
+                                              "url":  "_cds_error_c0072.html"
+                                          },
+                                          {
+                                              "text":  "C0074",
+                                              "url":  "_cds_error_c0074.html"
+                                          },
+                                          {
+                                              "text":  "C0075",
+                                              "url":  "_cds_error_c0075.html"
+                                          },
+                                          {
+                                              "text":  "C0076",
+                                              "url":  "_cds_error_c0076.html"
+                                          },
+                                          {
+                                              "text":  "C0077",
+                                              "url":  "_cds_error_c0077.html"
+                                          },
+                                          {
+                                              "text":  "C0078",
+                                              "url":  "_cds_error_c0078.html"
+                                          },
+                                          {
+                                              "text":  "C0080",
+                                              "url":  "_cds_error_c0080.html"
+                                          },
+                                          {
+                                              "text":  "C0081",
+                                              "url":  "_cds_error_c0081.html"
+                                          },
+                                          {
+                                              "text":  "C0082",
+                                              "url":  "_cds_error_c0082.html"
+                                          },
+                                          {
+                                              "text":  "C0084",
+                                              "url":  "_cds_error_c0084.html"
+                                          },
+                                          {
+                                              "text":  "C0085",
+                                              "url":  "_cds_error_c0085.html"
+                                          },
+                                          {
+                                              "text":  "C0086",
+                                              "url":  "_cds_error_c0086.html"
+                                          },
+                                          {
+                                              "text":  "C0087",
+                                              "url":  "_cds_error_c0087.html"
+                                          },
+                                          {
+                                              "text":  "C0089",
+                                              "url":  "_cds_error_c0089.html"
+                                          },
+                                          {
+                                              "text":  "C0090",
+                                              "url":  "_cds_error_c0090.html"
+                                          },
+                                          {
+                                              "text":  "C0091",
+                                              "url":  "_cds_error_c0091.html"
+                                          },
+                                          {
+                                              "text":  "C0094",
+                                              "url":  "_cds_error_c0094.html"
+                                          },
+                                          {
+                                              "text":  "C0096",
+                                              "url":  "_cds_error_c0096.html"
+                                          },
+                                          {
+                                              "text":  "C0097",
+                                              "url":  "_cds_error_c0097.html"
+                                          },
+                                          {
+                                              "text":  "C0098",
+                                              "url":  "_cds_error_c0098.html"
+                                          },
+                                          {
+                                              "text":  "C0099",
+                                              "url":  "_cds_error_c0099.html"
+                                          },
+                                          {
+                                              "text":  "C0101",
+                                              "url":  "_cds_error_c0101.html"
+                                          },
+                                          {
+                                              "text":  "C0102",
+                                              "url":  "_cds_error_c0102.html"
+                                          },
+                                          {
+                                              "text":  "C0103",
+                                              "url":  "_cds_error_c0103.html"
+                                          },
+                                          {
+                                              "text":  "C0104",
+                                              "url":  "_cds_error_c0104.html"
+                                          },
+                                          {
+                                              "text":  "C0106",
+                                              "url":  "_cds_error_c0106.html"
+                                          },
+                                          {
+                                              "text":  "C0114",
+                                              "url":  "_cds_error_c0114.html"
+                                          },
+                                          {
+                                              "text":  "C0115",
+                                              "url":  "_cds_error_c0115.html"
+                                          },
+                                          {
+                                              "text":  "C0116",
+                                              "url":  "_cds_error_c0116.html"
+                                          },
+                                          {
+                                              "text":  "C0117",
+                                              "url":  "_cds_error_c0117.html"
+                                          },
+                                          {
+                                              "text":  "C0118",
+                                              "url":  "_cds_error_c0118.html"
+                                          },
+                                          {
+                                              "text":  "C0119",
+                                              "url":  "_cds_error_c0119.html"
+                                          },
+                                          {
+                                              "text":  "C0120",
+                                              "url":  "_cds_error_c0120.html"
+                                          },
+                                          {
+                                              "text":  "C0122",
+                                              "url":  "_cds_error_c0122.html"
+                                          },
+                                          {
+                                              "text":  "C0124",
+                                              "url":  "_cds_error_c0124.html"
+                                          },
+                                          {
+                                              "text":  "C0125",
+                                              "url":  "_cds_error_c0125.html"
+                                          },
+                                          {
+                                              "text":  "C0126",
+                                              "url":  "_cds_error_c0126.html"
+                                          },
+                                          {
+                                              "text":  "C0130",
+                                              "url":  "_cds_error_c0130.html"
+                                          },
+                                          {
+                                              "text":  "C0131",
+                                              "url":  "_cds_error_c0131.html"
+                                          },
+                                          {
+                                              "text":  "C0132",
+                                              "url":  "_cds_error_c0132.html"
+                                          },
+                                          {
+                                              "text":  "C0136",
+                                              "url":  "_cds_error_c0136.html"
+                                          },
+                                          {
+                                              "text":  "C0138",
+                                              "url":  "_cds_error_c0138.html"
+                                          },
+                                          {
+                                              "text":  "C0139",
+                                              "url":  "_cds_error_c0139.html"
+                                          },
+                                          {
+                                              "text":  "C0140",
+                                              "url":  "_cds_error_c0140.html"
+                                          },
+                                          {
+                                              "text":  "C0141",
+                                              "url":  "_cds_error_c0141.html"
+                                          },
+                                          {
+                                              "text":  "C0142",
+                                              "url":  "_cds_error_c0142.html"
+                                          },
+                                          {
+                                              "text":  "C0143",
+                                              "url":  "_cds_error_c0143.html"
+                                          },
+                                          {
+                                              "text":  "C0144",
+                                              "url":  "_cds_error_c0144.html"
+                                          },
+                                          {
+                                              "text":  "C0145",
+                                              "url":  "_cds_error_c0145.html"
+                                          },
+                                          {
+                                              "text":  "C0149",
+                                              "url":  "_cds_error_c0149.html"
+                                          },
+                                          {
+                                              "text":  "C0161",
+                                              "url":  "_cds_error_c0161.html"
+                                          },
+                                          {
+                                              "text":  "C0162",
+                                              "url":  "_cds_error_c0162.html"
+                                          },
+                                          {
+                                              "text":  "C0164",
+                                              "url":  "_cds_error_c0164.html"
+                                          },
+                                          {
+                                              "text":  "C0165",
+                                              "url":  "_cds_error_c0165.html"
+                                          },
+                                          {
+                                              "text":  "C0168",
+                                              "url":  "_cds_error_c0168.html"
+                                          },
+                                          {
+                                              "text":  "C0169",
+                                              "url":  "_cds_error_c0169.html"
+                                          },
+                                          {
+                                              "text":  "C0173",
+                                              "url":  "_cds_error_c0173.html"
+                                          },
+                                          {
+                                              "text":  "C0174",
+                                              "url":  "_cds_error_c0174.html"
+                                          },
+                                          {
+                                              "text":  "C0175",
+                                              "url":  "_cds_error_c0175.html"
+                                          },
+                                          {
+                                              "text":  "C0177",
+                                              "url":  "_cds_error_c0177.html"
+                                          },
+                                          {
+                                              "text":  "C0178",
+                                              "url":  "_cds_error_c0178.html"
+                                          },
+                                          {
+                                              "text":  "C0179",
+                                              "url":  "_cds_error_c0179.html"
+                                          },
+                                          {
+                                              "text":  "C0180",
+                                              "url":  "_cds_error_c0180.html"
+                                          },
+                                          {
+                                              "text":  "C0182",
+                                              "url":  "_cds_error_c0182.html"
+                                          },
+                                          {
+                                              "text":  "C0183",
+                                              "url":  "_cds_error_c0183.html"
+                                          },
+                                          {
+                                              "text":  "C0185",
+                                              "url":  "_cds_error_c0185.html"
+                                          },
+                                          {
+                                              "text":  "C0186",
+                                              "url":  "_cds_error_c0186.html"
+                                          },
+                                          {
+                                              "text":  "C0187",
+                                              "url":  "_cds_error_c0187.html"
+                                          },
+                                          {
+                                              "text":  "C0188",
+                                              "url":  "_cds_error_c0188.html"
+                                          },
+                                          {
+                                              "text":  "C0189",
+                                              "url":  "_cds_error_c0189.html"
+                                          },
+                                          {
+                                              "text":  "C0190",
+                                              "url":  "_cds_error_c0190.html"
+                                          },
+                                          {
+                                              "text":  "C0191",
+                                              "url":  "_cds_error_c0191.html"
+                                          },
+                                          {
+                                              "text":  "C0195",
+                                              "url":  "_cds_error_c0195.html"
+                                          },
+                                          {
+                                              "text":  "C0196",
+                                              "url":  "_cds_error_c0196.html"
+                                          },
+                                          {
+                                              "text":  "C0197",
+                                              "url":  "_cds_error_c0197.html"
+                                          },
+                                          {
+                                              "text":  "C0198",
+                                              "url":  "_cds_error_c0198.html"
+                                          },
+                                          {
+                                              "text":  "C0199",
+                                              "url":  "_cds_error_c0199.html"
+                                          },
+                                          {
+                                              "text":  "C0201",
+                                              "url":  "_cds_error_c0201.html"
+                                          },
+                                          {
+                                              "text":  "C0203",
+                                              "url":  "_cds_error_c0203.html"
+                                          },
+                                          {
+                                              "text":  "C0204",
+                                              "url":  "_cds_error_c0204.html"
+                                          },
+                                          {
+                                              "text":  "C0205",
+                                              "url":  "_cds_error_c0205.html"
+                                          },
+                                          {
+                                              "text":  "C0206",
+                                              "url":  "_cds_error_c0206.html"
+                                          },
+                                          {
+                                              "text":  "C0207",
+                                              "url":  "_cds_error_c0207.html"
+                                          },
+                                          {
+                                              "text":  "C0208",
+                                              "url":  "_cds_error_c0208.html"
+                                          },
+                                          {
+                                              "text":  "C0209",
+                                              "url":  "_cds_error_c0209.html"
+                                          },
+                                          {
+                                              "text":  "C0211",
+                                              "url":  "_cds_error_c0211.html"
+                                          },
+                                          {
+                                              "text":  "C0212",
+                                              "url":  "_cds_error_c0212.html"
+                                          },
+                                          {
+                                              "text":  "C0213",
+                                              "url":  "_cds_error_c0213.html"
+                                          },
+                                          {
+                                              "text":  "C0215",
+                                              "url":  "_cds_error_c0215.html"
+                                          },
+                                          {
+                                              "text":  "C0216",
+                                              "url":  "_cds_error_c0216.html"
+                                          },
+                                          {
+                                              "text":  "C0217",
+                                              "url":  "_cds_error_c0217.html"
+                                          },
+                                          {
+                                              "text":  "C0218",
+                                              "url":  "_cds_error_c0218.html"
+                                          },
+                                          {
+                                              "text":  "C0219",
+                                              "url":  "_cds_error_c0219.html"
+                                          },
+                                          {
+                                              "text":  "C0221",
+                                              "url":  "_cds_error_c0221.html"
+                                          },
+                                          {
+                                              "text":  "C0222",
+                                              "url":  "_cds_error_c0222.html"
+                                          },
+                                          {
+                                              "text":  "C0224",
+                                              "url":  "_cds_error_c0224.html"
+                                          },
+                                          {
+                                              "text":  "C0225",
+                                              "url":  "_cds_error_c0225.html"
+                                          },
+                                          {
+                                              "text":  "C0227",
+                                              "url":  "_cds_error_c0227.html"
+                                          },
+                                          {
+                                              "text":  "C0228",
+                                              "url":  "_cds_error_c0228.html"
+                                          },
+                                          {
+                                              "text":  "C0230",
+                                              "url":  "_cds_error_c0230.html"
+                                          },
+                                          {
+                                              "text":  "C0232",
+                                              "url":  "_cds_error_c0232.html"
+                                          },
+                                          {
+                                              "text":  "C0233",
+                                              "url":  "_cds_error_c0233.html"
+                                          },
+                                          {
+                                              "text":  "C0234",
+                                              "url":  "_cds_error_c0234.html"
+                                          },
+                                          {
+                                              "text":  "C0235",
+                                              "url":  "_cds_error_c0235.html"
+                                          },
+                                          {
+                                              "text":  "C0236",
+                                              "url":  "_cds_error_c0236.html"
+                                          },
+                                          {
+                                              "text":  "C0237",
+                                              "url":  "_cds_error_c0237.html"
+                                          },
+                                          {
+                                              "text":  "C0238",
+                                              "url":  "_cds_error_c0238.html"
+                                          },
+                                          {
+                                              "text":  "C0239",
+                                              "url":  "_cds_error_c0239.html"
+                                          },
+                                          {
+                                              "text":  "C0240",
+                                              "url":  "_cds_error_c0240.html"
+                                          },
+                                          {
+                                              "text":  "C0241",
+                                              "url":  "_cds_error_c0241.html"
+                                          },
+                                          {
+                                              "text":  "C0242",
+                                              "url":  "_cds_error_c0242.html"
+                                          },
+                                          {
+                                              "text":  "C0243",
+                                              "url":  "_cds_error_c0243.html"
+                                          },
+                                          {
+                                              "text":  "C0266",
+                                              "url":  "_cds_error_c0266.html"
+                                          },
+                                          {
+                                              "text":  "C0269",
+                                              "url":  "_cds_error_c0269.html"
+                                          },
+                                          {
+                                              "text":  "C0298",
+                                              "url":  "_cds_error_c0298.html"
+                                          },
+                                          {
+                                              "text":  "C0316",
+                                              "url":  "_cds_error_c0316.html"
+                                          },
+                                          {
+                                              "text":  "C0319",
+                                              "url":  "_cds_error_c0319.html"
+                                          },
+                                          {
+                                              "text":  "C0344",
+                                              "url":  "_cds_error_c0344.html"
+                                          },
+                                          {
+                                              "text":  "C0351",
+                                              "url":  "_cds_error_c0351.html"
+                                          },
+                                          {
+                                              "text":  "C0354",
+                                              "url":  "_cds_error_c0354.html"
+                                          },
+                                          {
+                                              "text":  "C0355",
+                                              "url":  "_cds_error_c0355.html"
+                                          },
+                                          {
+                                              "text":  "C0357",
+                                              "url":  "_cds_error_c0357.html"
+                                          },
+                                          {
+                                              "text":  "C0371",
+                                              "url":  "_cds_error_c0371.html"
+                                          },
+                                          {
+                                              "text":  "C0373",
+                                              "url":  "_cds_error_c0373.html"
+                                          },
+                                          {
+                                              "text":  "C0380",
+                                              "url":  "_cds_error_c0380.html"
+                                          },
+                                          {
+                                              "text":  "C0398",
+                                              "url":  "_cds_error_c0398.html"
+                                          },
+                                          {
+                                              "text":  "C0406",
+                                              "url":  "_cds_error_c0406.html"
+                                          },
+                                          {
+                                              "text":  "C0415",
+                                              "url":  "_cds_error_c0415.html"
+                                          },
+                                          {
+                                              "text":  "C0421",
+                                              "url":  "_cds_error_c0421.html"
+                                          },
+                                          {
+                                              "text":  "C0426",
+                                              "url":  "_cds_error_c0426.html"
+                                          },
+                                          {
+                                              "text":  "C0441",
+                                              "url":  "_cds_error_c0441.html"
+                                          },
+                                          {
+                                              "text":  "C0454",
+                                              "url":  "_cds_error_c0008-2040066.html"
+                                          },
+                                          {
+                                              "text":  "C0456",
+                                              "url":  "_cds_error_c0456.html"
+                                          },
+                                          {
+                                              "text":  "C0508",
+                                              "url":  "_cds_error_c0508.html"
+                                          },
+                                          {
+                                              "text":  "C0509",
+                                              "url":  "_cds_error_c0509.html"
+                                          },
+                                          {
+                                              "text":  "C0511",
+                                              "url":  "_cds_error_c0511.html"
+                                          },
+                                          {
+                                              "text":  "C0513",
+                                              "url":  "_cds_error_c0513.html"
+                                          },
+                                          {
+                                              "text":  "C0514",
+                                              "url":  "_cds_error_c0514.html"
+                                          },
+                                          {
+                                              "text":  "C0515",
+                                              "url":  "_cds_error_c0515.html"
+                                          },
+                                          {
+                                              "text":  "C0516",
+                                              "url":  "_cds_error_c0516.html"
+                                          },
+                                          {
+                                              "text":  "C0517",
+                                              "url":  "_cds_error_c0517.html"
+                                          },
+                                          {
+                                              "text":  "C0525",
+                                              "url":  "_cds_error_c0525.html"
+                                          },
+                                          {
+                                              "text":  "C0526",
+                                              "url":  "_cds_error_c0526.html"
+                                          },
+                                          {
+                                              "text":  "C0533",
+                                              "url":  "_cds_error_c0533.html"
+                                          },
+                                          {
+                                              "text":  "C0540",
+                                              "url":  "_cds_error_c0540.html"
+                                          },
+                                          {
+                                              "text":  "C0541",
+                                              "url":  "_cds_error_c0541.html"
+                                          },
+                                          {
+                                              "text":  "C0542",
+                                              "url":  "_cds_error_c0542.html"
+                                          },
+                                          {
+                                              "text":  "C0543",
+                                              "url":  "_cds_error_c0543.html"
+                                          },
+                                          {
+                                              "text":  "C0549",
+                                              "url":  "_cds_error_c0549.html"
+                                          },
+                                          {
+                                              "text":  "C0550",
+                                              "url":  "_cds_error_c0550.html"
+                                          },
+                                          {
+                                              "text":  "C0554",
+                                              "url":  "_cds_error_c0554.html"
+                                          },
+                                          {
+                                              "text":  "C0555",
+                                              "url":  "_cds_error_c0555.html"
+                                          },
+                                          {
+                                              "text":  "C0561",
+                                              "url":  "_cds_error_c0561.html"
+                                          },
+                                          {
+                                              "text":  "C0564",
+                                              "url":  "_cds_error_c0564.html"
+                                          },
+                                          {
+                                              "text":  "C0565",
+                                              "url":  "_cds_error_c0565.html"
+                                          },
+                                          {
+                                              "text":  "C0566",
+                                              "url":  "_cds_error_c0566.html"
+                                          },
+                                          {
+                                              "text":  "C0567",
+                                              "url":  "_cds_error_c0567.html"
+                                          },
+                                          {
+                                              "text":  "C0568",
+                                              "url":  "_cds_error_c0568.html"
+                                          },
+                                          {
+                                              "text":  "C0569",
+                                              "url":  "_cds_error_c0569.html"
+                                          },
+                                          {
+                                              "text":  "C0571",
+                                              "url":  "_cds_error_c0571.html"
+                                          },
+                                          {
+                                              "text":  "C0572",
+                                              "url":  "_cds_error_c0572.html"
+                                          },
+                                          {
+                                              "text":  "C0573",
+                                              "url":  "_cds_error_c0573.html"
+                                          },
+                                          {
+                                              "text":  "C0576",
+                                              "url":  "_cds_error_c0576.html"
+                                          },
+                                          {
+                                              "text":  "C0579",
+                                              "url":  "_cds_error_c0579.html"
+                                          },
+                                          {
+                                              "text":  "C0581",
+                                              "url":  "_cds_error_c0581.html"
+                                          },
+                                          {
+                                              "text":  "C0582",
+                                              "url":  "_cds_error_c0582.html"
+                                          },
+                                          {
+                                              "text":  "C0583",
+                                              "url":  "_cds_error_c0583.html"
+                                          },
+                                          {
+                                              "text":  "C0584",
+                                              "url":  "_cds_warning_c0584.html"
+                                          },
+                                          {
+                                              "text":  "C0585",
+                                              "url":  "_cds_error_c0585.html"
+                                          },
+                                          {
+                                              "text":  "C0586",
+                                              "url":  "_cds_error_c0586.html"
+                                          },
+                                          {
+                                              "text":  "C0587",
+                                              "url":  "_cds_error_c0587.html"
+                                          }
+                                      ]
+                     }
+                 ]
+}

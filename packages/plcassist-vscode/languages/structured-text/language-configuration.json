@@ -1,0 +1,30 @@
+{
+  "comments": {
+    "lineComment": "//",
+    "blockComment": ["(*", "*)"]
+  },
+  "brackets": [
+    ["(", ")"],
+    ["[", "]"]
+  ],
+  "autoClosingPairs": [
+    { "open": "(", "close": ")" },
+    { "open": "[", "close": "]" },
+    { "open": "(*", "close": "*)" },
+    { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] }
+  ],
+  "surroundingPairs": [
+    ["(", ")"],
+    ["[", "]"],
+    ["'", "'"],
+    ["\"", "\""]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(?:FUNCTION_BLOCK|FUNCTION|PROGRAM|INTERFACE|METHOD|ACTION|PROPERTY|TYPE|VAR_GLOBAL|VAR(?:_INPUT|_OUTPUT|_IN_OUT|_TEMP|_STAT|_INST|_EXTERNAL|_CONFIG|_ACCESS)?|STRUCT|UNION|IF|CASE|FOR|WHILE|REPEAT|GET|SET|NAMESPACE)\\b",
+      "end": "^\\s*END_(?:FUNCTION_BLOCK|FUNCTION|PROGRAM|INTERFACE|METHOD|ACTION|PROPERTY|TYPE|VAR|STRUCT|UNION|IF|CASE|FOR|WHILE|REPEAT|GET|SET|NAMESPACE)\\b"
+    }
+  },
+  "wordPattern": "[A-Za-z_][A-Za-z0-9_]*"
+}

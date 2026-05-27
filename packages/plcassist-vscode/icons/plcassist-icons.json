@@ -1,0 +1,25 @@
+{
+  "iconDefinitions": {
+    "_file":             { "iconPath": "./generic-file.svg" },
+    "_folder":           { "iconPath": "./generic-folder.svg" },
+    "_folder_open":      { "iconPath": "./generic-folder-open.svg" },
+    "_st":               { "iconPath": "./st.svg" },
+    "_fbd":              { "iconPath": "./fbd.svg" },
+    "_ld":               { "iconPath": "./ld.svg" },
+    "_sfc":              { "iconPath": "./sfc.svg" },
+    "_cfc":              { "iconPath": "./cfc.svg" }
+  },
+  "file":           "_file",
+  "folder":         "_folder",
+  "folderExpanded": "_folder_open",
+  "fileExtensions": {
+    "st": "_st"
+  },
+  "languageIds": {
+    "structured-text": "_st",
+    "plc-fbd":         "_fbd",
+    "plc-ld":          "_ld",
+    "plc-sfc":         "_sfc",
+    "plc-cfc":         "_cfc"
+  }
+}
