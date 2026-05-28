@@ -604,3 +604,36 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_impl
   "tcWarnings": 0,
 }
 `;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) duplicate_declaration LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspWarnings": 0,
+  "name": "duplicate_declaration",
+  "tcErrors": 1,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unresolved_identifier_in_body LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspWarnings": 2,
+  "name": "unresolved_identifier_in_body",
+  "tcErrors": 2,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "pragma_conflict_hide_plus_monitoring",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
