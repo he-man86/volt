@@ -1,20 +1,20 @@
 /**
- * `volt compile` — ask the IDE to build, return diagnostics.
+ * `volt build` — ask the IDE to build, return diagnostics.
  *
- * Pure passthrough to the bridge's /compile endpoint plus a small
+ * Pure passthrough to the bridge's /build endpoint plus a small
  * "format for humans" helper. Doesn't touch workspace state — it's
  * a read-only query you can run at any time, even on a dirty
- * workspace or right after `volt export`.
+ * workspace or right after `volt push`.
  */
 import { BridgeClient } from "../bridge/client.js";
-import type { BridgeDiagnostic, CompileResponse } from "../bridge/types.js";
+import type { BridgeDiagnostic, BuildResponse } from "../bridge/types.js";
 
-export interface CompileOptions {
+export interface BuildOptions {
 	/** Full rebuild instead of incremental. Slower but catches stale-incremental issues. */
 	full?: boolean;
 }
 
-export interface CompileSummary {
+export interface BuildSummary {
 	success: boolean;
 	durationMs: number;
 	errors: number;
@@ -22,11 +22,11 @@ export interface CompileSummary {
 	diagnostics: BridgeDiagnostic[];
 }
 
-export async function runCompile(
+export async function runBuild(
 	bridge: BridgeClient,
-	opts: CompileOptions = {},
-): Promise<CompileSummary> {
-	const result: CompileResponse = await bridge.compile({
+	opts: BuildOptions = {},
+): Promise<BuildSummary> {
+	const result: BuildResponse = await bridge.build({
 		buildType: opts.full === true ? "full" : "incremental",
 	});
 	return {

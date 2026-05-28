@@ -8,7 +8,7 @@ using System.Threading;
 namespace BeckhoffBridge.Handlers;
 
 /// <summary>
-/// POST /compile — Compile the TwinCAT project via DTE.Solution.SolutionBuild
+/// POST /build — Build the TwinCAT project via DTE.Solution.SolutionBuild
 /// and emit diagnostics in the cross-bridge canonical shape.
 ///
 /// Response shape (must match CODESYS / TIA bridges):
@@ -29,11 +29,11 @@ namespace BeckhoffBridge.Handlers;
 /// for 'ToolWindows'`). This is the single source of truth on this
 /// platform — no fallbacks, no alternative paths that could mask a bug.
 /// </summary>
-internal sealed class CompileHandler
+internal sealed class BuildHandler
 {
 	private readonly BeckhoffConnection _connection;
 
-	public CompileHandler(BeckhoffConnection connection)
+	public BuildHandler(BeckhoffConnection connection)
 	{
 		_connection = connection;
 	}
@@ -58,7 +58,7 @@ internal sealed class CompileHandler
 			// disk before the compiler reads them. Without this, builds can
 			// produce ghost errors / phantom passes against stale source.
 			try { dte.Documents.SaveAll(); }
-			catch (Exception ex) { Log.Warn($"[Compile] Documents.SaveAll failed - build may use stale on-disk code: {ex.Message}"); }
+			catch (Exception ex) { Log.Warn($"[Build] Documents.SaveAll failed - build may use stale on-disk code: {ex.Message}"); }
 
 			// Clear the Build pane so we only parse output from THIS build.
 			// Without this, the regex picks up stale diagnostics from earlier
@@ -182,7 +182,7 @@ internal sealed class CompileHandler
 		}
 		catch (Exception ex)
 		{
-			Log.Warn($"[Compile] Output pane unreachable: {ex.Message}");
+			Log.Warn($"[Build] Output pane unreachable: {ex.Message}");
 		}
 		return sb.ToString();
 	}

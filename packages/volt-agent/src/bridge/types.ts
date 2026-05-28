@@ -12,7 +12,7 @@
  *   POST /fetch      → only the items that changed since the client's known versions
  *   POST /push       → atomic batch with per-item ifVersion guards (optimistic
  *                       concurrency); rejects the whole batch on any conflict
- *   POST /compile    → build + diagnostics
+ *   POST /build      → build + diagnostics
  *
  * Bridges compute SHA-1 content fingerprints per item and per project.
  * No domain logic on the wire — just primitive item access with
@@ -50,9 +50,9 @@ export interface HealthResponse {
 	projectDirty?: boolean;
 }
 
-// ─── Compile ────────────────────────────────────────────────────────────────
+// ─── Build ──────────────────────────────────────────────────────────────────
 
-export interface CompileRequest {
+export interface BuildRequest {
 	buildType: "incremental" | "full";
 }
 
@@ -80,7 +80,7 @@ export interface BridgeDiagnostic {
 	section: "decl" | "impl" | null;
 }
 
-export interface CompileResponse {
+export interface BuildResponse {
 	/** True iff the build completed with zero failed projects. */
 	success: boolean;
 	/** Build wall time in milliseconds. */

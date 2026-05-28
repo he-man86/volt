@@ -32,16 +32,18 @@ describe("init: fresh install", () => {
 		expect(files.sort()).toEqual(["00-index.md", "07-pragmas.md", "11-fb-lifecycle.md"]);
 	});
 
-	it("creates CLAUDE.md when none exists", async () => {
+	it("creates SKILL.md at .claude/skills/st-reference/ when none exists", async () => {
 		const { tmpDir, sourceDir } = await makeFixture();
 		const target = join(tmpDir, "project");
 		await mkdir(target, { recursive: true });
 
 		const result = await runInit({ targetDir: target, sourceDir, version: "9.9.9", log: () => {} });
 
-		expect(result.claudeMdAction).toBe("created");
-		const content = await readFile(result.claudeMdPath, "utf-8");
-		expect(content).toContain("## CODESYS Structured Text reference");
+		expect(result.skillAction).toBe("created");
+		expect(result.skillPath).toBe(join(target, ".claude/skills/st-reference/SKILL.md"));
+		const content = await readFile(result.skillPath, "utf-8");
+		expect(content).toContain("name: st-reference");
+		expect(content).toContain("description:");
 		expect(content).toContain("docs/codesys-reference/");
 		expect(content).toContain("07-pragmas.md");
 	});
@@ -58,53 +60,24 @@ describe("init: fresh install", () => {
 	});
 });
 
-describe("init: existing CLAUDE.md", () => {
-	it("appends section when CLAUDE.md exists without it", async () => {
+describe("init: existing SKILL.md", () => {
+	it("overwrites existing SKILL.md on --update with canonical template", async () => {
 		const { tmpDir, sourceDir } = await makeFixture();
 		const target = join(tmpDir, "project");
-		await mkdir(target, { recursive: true });
+		await mkdir(join(target, ".claude/skills/st-reference"), { recursive: true });
 		await writeFile(
-			join(target, "CLAUDE.md"),
-			"# My Project\n\nSome existing content.\n",
+			join(target, ".claude/skills/st-reference/SKILL.md"),
+			"---\nname: st-reference\ndescription: old\n---\n\nstale content\n",
 			"utf-8",
 		);
 
-		const result = await runInit({ targetDir: target, sourceDir, version: "9.9.9", log: () => {} });
+		const result = await runInit({ targetDir: target, sourceDir, version: "9.9.9", update: true, log: () => {} });
 
-		expect(result.claudeMdAction).toBe("appended");
-		const content = await readFile(result.claudeMdPath, "utf-8");
-		expect(content).toContain("# My Project");
-		expect(content).toContain("Some existing content");
-		expect(content).toContain("## CODESYS Structured Text reference");
-	});
-
-	it("replaces existing CODESYS section without nuking unrelated content", async () => {
-		const { tmpDir, sourceDir } = await makeFixture();
-		const target = join(tmpDir, "project");
-		await mkdir(target, { recursive: true });
-		await writeFile(
-			join(target, "CLAUDE.md"),
-			`# My Project
-
-## CODESYS Structured Text reference
-
-old content that should be replaced
-
-## Other Section
-
-unrelated content that must survive
-`,
-			"utf-8",
-		);
-
-		await runInit({ targetDir: target, sourceDir, version: "9.9.9", update: true, log: () => {} });
-
-		const content = await readFile(join(target, "CLAUDE.md"), "utf-8");
-		expect(content).toContain("# My Project");
-		expect(content).toContain("## Other Section");
-		expect(content).toContain("unrelated content that must survive");
-		expect(content).not.toContain("old content that should be replaced");
-		expect(content).toContain("07-pragmas.md");
+		expect(result.skillAction).toBe("updated");
+		const content = await readFile(result.skillPath, "utf-8");
+		expect(content).not.toContain("stale content");
+		expect(content).toContain("name: st-reference");
+		expect(content).toContain("FB_Init");
 	});
 });
 
@@ -118,7 +91,7 @@ describe("init: idempotency", () => {
 		const result2 = await runInit({ targetDir: target, sourceDir, version: "2.0.0", log: () => {} });
 
 		expect(result2.filesCopied).toBe(0);
-		expect(result2.claudeMdAction).toBe("unchanged");
+		expect(result2.skillAction).toBe("unchanged");
 		// Version marker still at 1.0.0, not bumped.
 		const marker = await readFile(result2.versionMarkerPath, "utf-8");
 		expect(marker.trim()).toBe("1.0.0");
@@ -143,6 +116,7 @@ describe("init: idempotency", () => {
 		});
 
 		expect(result2.filesCopied).toBe(4);
+		expect(result2.skillAction).toBe("updated");
 		const refreshed = await readFile(join(result2.docsDir, "00-index.md"), "utf-8");
 		expect(refreshed).toContain("v2");
 		const marker = await readFile(result2.versionMarkerPath, "utf-8");

@@ -70,20 +70,32 @@ The package ships a `volt-lsp-st` binary that speaks LSP over stdio.
 
 This package is consumed by the `@opencode-ai/volt-vscode` extension, which spawns it as a language server. No standalone configuration needed — install the extension and `.st` files light up.
 
-## Using with opencode
+## Using with opencode (and Claude Code)
 
-[opencode](https://opencode.ai) is an AI coding agent that talks to LSP servers to give the LLM real-time code intelligence (diagnostics, hover, navigation). Add an entry to your `opencode.jsonc`:
+[opencode](https://opencode.ai) is an AI coding agent that talks to LSP servers for real-time code intelligence. There are two integration layers:
+
+### 1. Reactive intelligence — LSP
+
+Add an entry to your `opencode.jsonc`:
 
 ```jsonc
 {
   "lsp": {
     "volt-st": {
-      "command": ["volt-lsp-st", "--stdio"],
-      "extensions": [".st"]
+      "command": ["node", "node_modules/@opencode-ai/volt-lsp-st/dist/bin.js", "--stdio"],
+      "extensions": [".st", ".iecst", ".exp"]
     }
   }
 }
 ```
+
+In a monorepo workspace consuming this package directly, point at the workspace path instead:
+
+```jsonc
+"command": ["node", "packages/volt-lsp-st/dist/bin.js", "--stdio"]
+```
+
+Why absolute paths and not bare `["volt-lsp-st", "--stdio"]`: on Windows, bun does not create `node_modules/.bin` symlinks for private workspace packages, so the bare bin name does not resolve. Absolute paths work the same on every platform.
 
 opencode will then automatically start the server when you open a `.st` file. The AI in your opencode session receives:
 
@@ -92,6 +104,17 @@ opencode will then automatically start the server when you open a `.st` file. Th
 - Go-to-definition, find-references, document/workspace symbols, call hierarchy
 
 opencode does not consume completion / semantic tokens / signature help (the LLM proposes code directly), so those features — when shipped in later phases — are inert for opencode and active for VS Code.
+
+### 2. Proactive knowledge — Skill
+
+Running `volt init` (from `@opencode-ai/volt-agent`) in a workspace installs:
+
+- `docs/codesys-reference/` — the language reference corpus
+- `.claude/skills/st-reference/SKILL.md` — an [agent skill](https://opencode.ai/docs/skills/) that points to the corpus
+
+Both opencode and Claude Code discover skills from `.claude/skills/`. The skill is loaded on-demand (lazy, token-efficient) when the agent decides it needs language details — pragma semantics, FB lifecycle, shadowing rules, etc. The agent invokes it via `skill({ name: "st-reference" })`.
+
+This is the future-proof pattern that scales to multiple LSPs: each LSP package ships its own SKILL.md. Adding a new language reference doesn't bloat the always-loaded context — only the skill descriptions appear there, and full content loads only when relevant.
 
 ## Using with other LSP clients
 

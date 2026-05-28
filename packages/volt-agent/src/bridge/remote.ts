@@ -8,7 +8,7 @@
  *   - getRefs()      — "what does the IDE have, and at what versions?" (no content)
  *   - fetchChanges() — "given my known versions, what's new?" (only deltas)
  *   - pushBatch()    — atomic batch with per-item optimistic concurrency
- *   - compile()      — build the project
+ *   - build()        — build the project
  *
  * Bridges implement content versioning (sha1 of declaration + implementation
  * + recursive children) but no other "intelligence" — no diff computation,
@@ -20,8 +20,8 @@
  * frameworks," not "stdlib only."
  */
 import type {
-	CompileRequest,
-	CompileResponse,
+	BuildRequest,
+	BuildResponse,
 	FetchRequest,
 	FetchResponse,
 	HealthResponse,
@@ -64,5 +64,5 @@ export interface Remote {
 	pushBatch(req: PushRequest): Promise<PushResponse>;
 
 	/** Build the project and return diagnostics. */
-	compile(req: CompileRequest): Promise<CompileResponse>;
+	build(req: BuildRequest): Promise<BuildResponse>;
 }

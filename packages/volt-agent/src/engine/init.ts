@@ -6,7 +6,7 @@
  * and rewrites the config (a no-op when nothing changed).
  *
  * The user runs this once per workspace dir, NOT once per session.
- * After `init`, `volt import` / `volt export` / `volt status` / `volt compile`
+ * After `init`, `volt pull` / `volt push` / `volt status` / `volt build`
  * all just read the binding.
  */
 import { resolve } from "node:path";
@@ -34,7 +34,7 @@ export interface InitResult {
 	/** Corpus installation outcome — `undefined` if the install was skipped. */
 	corpus?: {
 		filesCopied: number;
-		claudeMdAction: "created" | "appended" | "unchanged";
+		skillAction: "created" | "updated" | "unchanged";
 	};
 	/** Detected vendor, or undefined if no signal found (caller falls back to platform default). */
 	detectedVendor?: DetectedVendor;
@@ -131,10 +131,10 @@ async function tryDetectVendor(
 }
 
 /**
- * Install (or refresh) the CODESYS reference corpus + CLAUDE.md
- * pointer in the workspace. Failures are non-fatal — `volt init`
- * should still succeed when the corpus is unavailable (e.g. when
- * the LSP package is not installed in the workspace).
+ * Install (or refresh) the CODESYS reference corpus + SKILL.md in
+ * the workspace. Failures are non-fatal — `volt init` should still
+ * succeed when the corpus is unavailable (e.g. when the LSP package
+ * is not installed in the workspace).
  */
 async function tryInstallCorpus(
 	root: string,
@@ -150,7 +150,7 @@ async function tryInstallCorpus(
 		});
 		return {
 			filesCopied: r.filesCopied,
-			claudeMdAction: r.claudeMdAction,
+			skillAction: r.skillAction,
 		};
 	} catch (err) {
 		// Surface as a warning, don't fail the init.

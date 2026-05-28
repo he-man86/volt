@@ -11,7 +11,7 @@ namespace BeckhoffBridge;
 ///
 /// Standalone console app that attaches to a running TwinCAT XAE instance
 /// (Visual Studio or TcXaeShell) and exposes an HTTP JSON API on
-/// 127.0.0.1:&lt;port&gt;. The MCP server talks to it directly — no relay,
+/// 127.0.0.1:&lt;port&gt;. The `volt` CLI talks to it directly — no relay,
 /// no cloud, no telemetry.
 ///
 /// Must run as STA thread because TwinCAT Automation Interface is COM-based.

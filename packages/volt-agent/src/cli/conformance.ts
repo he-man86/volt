@@ -7,7 +7,7 @@
  * this suite, a bridge implementation (Beckhoff today, CODESYS /
  * TIA Portal next) proves it correctly speaks every endpoint of the
  * HTTP wire protocol AND that its behavior matches the assumptions
- * the CLI / MCP / any other client makes.
+ * the CLI / any other client makes.
  *
  * Self-contained: creates every test FB from scratch, cleans up at
  * end, so it always runs against an empty (or any) project without

@@ -8,27 +8,25 @@
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "Volt agent — `volt` CLI (init/import/export/status/compile) on top of a vendor bridge, plus an MCP server (`volt-mcp`) exposing the same surface to AI clients.",
+  "description": "Volt agent — `volt` CLI (init/pull/push/status/build) on top of a vendor bridge. AI clients invoke via shell (the opencode/Claude Code way) — no MCP server in the loop.",
   "type": "module",
   "bin": {
-    "volt": "./dist/cli/bin.js",
-    "volt-mcp": "./dist/tools/bin.js"
+    "volt": "./dist/cli/bin.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsc",
+    "prepare": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "conformance": "tsc && node dist/cli/conformance.js",
     "conformance:drift": "tsc && node dist/cli/conformance-drift.js",
-    "conformance:errors": "tsc && node dist/cli/conformance-errors.js",
-    "conformance:mcp": "tsc && node dist/tools/conformance.js"
+    "conformance:errors": "tsc && node dist/cli/conformance-errors.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@opencode-ai/volt-lsp-st": "workspace:*",
     "zod": "^3.25.76"
   },

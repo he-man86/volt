@@ -41,14 +41,6 @@ export interface WorkspacePaths {
 	configPath: string;
 	/** Absolute path to the hidden snapshot bare git repo. */
 	snapshotPath: string;
-	/**
-	 * Absolute path to the per-capability lease directory
-	 * (`.volt/auth/`). Each granted capability is one
-	 * `<capability>.lease` file. Sudo-style: humans write via the
-	 * `volt grant` verb; the MCP tool checks for the file before
-	 * exposing the elevated parameter to the AI.
-	 */
-	authDir: string;
 }
 
 export function workspacePaths(workspaceRoot: string): WorkspacePaths {
@@ -59,7 +51,6 @@ export function workspacePaths(workspaceRoot: string): WorkspacePaths {
 		stateDir,
 		configPath: join(stateDir, "config.json"),
 		snapshotPath: join(stateDir, "snapshot"),
-		authDir: join(stateDir, "auth"),
 	};
 }
 

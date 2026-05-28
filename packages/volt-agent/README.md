@@ -4,15 +4,12 @@ The `volt` CLI: a git-shaped verb surface that synchronizes a normal folder of `
 
 ```
 volt init                  Bind this folder to the IDE project the bridge has open;
-                          also installs the CODESYS reference corpus + CLAUDE.md
-                          pointer so AI sessions in this folder know the language
+                          also installs the CODESYS reference corpus + a SKILL.md so
+                          AI sessions (opencode, Claude Code) auto-discover the language
 volt pull                  Pull IDE state into the workspace                   (= git fetch + merge)
 volt push                  Push workspace state to the IDE                     (= git push; refuses on drift)
 volt status                Show what differs between IDE, snapshot, workspace  (= git status)
-volt compile               Ask the IDE to build, print diagnostics
-volt grant <capability>    Issue a capability lease so AI clients can use      (sudo-style)
-                          elevated parameters (e.g. push-force)
-volt revoke <capability>   Kill an active capability lease before it expires
+volt build                 Ask the IDE to build, print diagnostics
 ```
 
 Verbs are deliberately named after git/hg — `incoming` / `outgoing`, `--dry-run`, `--porcelain`, `--force-with-lease` — so the model is self-documenting for anyone with VCS muscle memory.
@@ -27,7 +24,7 @@ The bridge is the only thing that talks to the IDE. The CLI is the only thing th
   edit POUs/FB_X.st     ───▶  volt push     ──▶  POST /push (atomic batch    ───▶  COM
   read POUs/FB_X.st     ◀───  volt pull     ◀──    with ifVersion guards)
                               volt status   ──▶  GET /refs
-                              volt compile  ──▶  POST /compile               ───▶  vendor build
+                              volt build    ──▶  POST /build                 ───▶  vendor build
 ```
 
 The bridge never sees a git operation. The CLI never speaks COM. Clean split.
@@ -38,21 +35,21 @@ After `volt init`, your folder contains:
 
 ```
 my-workspace/
-├── POUs/                       # your `.st` files, mirroring the IDE's tree
+├── POUs/                                       # your `.st` files, mirroring the IDE's tree
 │   └── PLC_PRG.st
-├── docs/codesys-reference/     # local mirror of the CODESYS ST language reference
-│   ├── 00-index.md             #   AI sessions read these to learn the language
+├── docs/codesys-reference/                     # local mirror of the CODESYS ST language reference
+│   ├── 00-index.md                             #   AI sessions read these on demand
 │   └── ... (13 sections)
-├── CLAUDE.md                   # auto-pointer for AI sessions to the reference
-├── .gitattributes              # auto-created; pins .st to LF for clean diffs
-├── .volt-lsp-st-version   # records which corpus version is installed
-└── .volt/                 # Volt's internal state — invisible to your editor
-    ├── config.json             #   workspace ↔ IDE binding (platform, project name, bridge port)
-    ├── snapshot/               #   bare git repo: HEAD = last-pulled IDE state
-    └── auth/                   #   capability leases for AI-elevated ops (see below)
+├── .claude/skills/st-reference/SKILL.md        # discovery shim — opencode + Claude Code load
+│                                               #   this when working on .st files
+├── .gitattributes                              # auto-created; pins .st to LF for clean diffs
+├── .volt-lsp-st-version                        # records which corpus version is installed
+└── .volt/                                      # Volt's internal state — invisible to your editor
+    ├── config.json                             #   workspace ↔ IDE binding (platform, project name, port)
+    └── snapshot/                               #   bare git repo: HEAD = last-pulled IDE state
 ```
 
-The `docs/codesys-reference/` + `CLAUDE.md` pair makes AI sessions (Claude Code, opencode, etc.) in this workspace authoritative on CODESYS ST. Without them, the AI relies on pretraining alone — usable for simple OOP, unreliable on pragmas / lifecycle / init slots / shadowing.
+The `docs/codesys-reference/` + SKILL.md pair makes AI sessions in this workspace authoritative on CODESYS ST. Without them, the AI relies on pretraining alone — usable for simple OOP, unreliable on pragmas / lifecycle / init slots / shadowing. opencode discovers `.claude/skills/` automatically (same universal location Claude Code uses).
 
 `.volt/` is ours. Your own `.git/` (if you `git init` the workspace yourself) is yours. They don't touch each other.
 
@@ -66,7 +63,7 @@ volt init                # binds to whatever project the bridge has open
 volt pull                # populates the folder from the IDE
 # ... edit POUs/FB_Motor.st in your editor of choice
 volt push                # pushes back to the IDE
-volt compile             # build + diagnostics
+volt build               # build + diagnostics
 ```
 
 ### With git for history + remote backup
@@ -105,27 +102,6 @@ $ volt push
 pushed. snapshot now @ 1f8a3d2e4b51
 ```
 
-## AI-elevated operations (capability leases)
-
-Some operations make sense for a human at a terminal but are risky for an AI to invoke autonomously — `force` is the canonical example. The MCP `volt_push` tool exposes a `force` parameter to the AI, but it's **gated on a filesystem capability lease** the human grants via the CLI:
-
-```bash
-$ volt grant push-force --ttl 5m --once
-granted: push-force for 5m (one-shot)
-expires: 2026-05-25T20:32:00.000Z (4m 59s remaining)
-lease:   .volt/auth/push-force.lease
-```
-
-The AI then sees `availableCapabilities: [{ capability: "push-force", oneShot: true, ... }]` in its next `volt_status` response and can call `volt_push({ force: true })`. On success with a one-shot lease, the lease is consumed; the next force attempt fails until the human grants again. Without an active lease, AI's `force: true` is rejected with `status: "force_unauthorized"` and the exact CLI command the human must run.
-
-Why a filesystem lease (and not a conversational "yes, do it"):
-- Lease lives on disk, not in chat — prompt-injected "user approved" doesn't matter
-- Lease originates from the CLI — a channel the AI cannot reach over MCP
-- Auto-expires (5m default, 24h max) — latent capability doesn't accumulate
-- `--once` consumes on first use — standard "I'm approving exactly one operation"
-
-There is **no `volt_grant` MCP tool** and there must never be one — that would defeat the whole separation.
-
 ## Git-inspired flags
 
 | Verb | Flag | Models | Behavior |
@@ -133,18 +109,52 @@ There is **no `volt_grant` MCP tool** and there must never be one — that would
 | `status` | `--porcelain` | `git status --porcelain` | One line per item, stable codes `iA`/`iM`/`iD` (incoming) and `oA`/`oM`/`oD` (outgoing). Empty stdout = clean. |
 | `push` | `--dry-run` / `-n` | `git push --dry-run` | Compute outgoing ChangeSet, print preview, don't touch bridge/snapshot/workspace. |
 | `push` | `--force-with-lease=<v>` | `git push --force-with-lease` | Bypass drift only if bridge is still at `<v>`. Stale → refused. |
-| `push` | `--force` | `git push --force` | Bypass drift unconditionally (human-side; gated for AI via capability lease). |
+| `push` | `--force` | `git push --force` | Bypass drift unconditionally. |
 | `pull` | `--dry-run` / `-n` | `git fetch --dry-run` | Compute incoming ChangeSet, print preview, don't touch snapshot/workspace. |
 | `pull` | `--force` | (no direct git analogue) | Discard local edits that conflict with the pull. |
+| `build` | `--full` | (no direct git analogue) | Full rebuild instead of incremental. |
+
+## AI integration (opencode / Claude Code)
+
+`volt` is **CLI-only** — no MCP server. AI agents drive it through the host's shell tool, the same way they drive `git`. This mirrors opencode's own pattern (opencode has no dedicated git MCP either; everything goes through `bash`).
+
+Why no MCP: opencode/Claude Code permission rules match on tool name, not arguments — a single `volt_push` MCP tool with a `force: boolean` arg can't be differentially gated. With CLI invocation, opencode's existing `permission.bash` pattern matching handles `"volt push": "ask"`, `"volt push --force": "ask"`, etc. — same UX users already know for git.
+
+Recommended opencode permission block (`.opencode/opencode.jsonc`):
+
+```jsonc
+"permission": {
+  "bash": {
+    "*": "allow",
+    "volt push*": "ask",
+    "volt pull*": "ask",
+    "volt init*": "ask"
+  }
+}
+```
+
+`volt status` and `volt build` are read-only — left under the default `allow`.
+
+### Structured output for AI parsing
+
+CLI verbs support flags that make stdout AI-parseable without prose:
+
+| Verb | Flag | Output shape |
+|---|---|---|
+| `status` | `--porcelain` | one line per item, stable codes |
+| `push` | `--dry-run` | preview of what would push; exit 0 means safe |
+| `build` | (default) | JSON summary on stdout with `success`, `errors`, `warnings`, `diagnostics` |
+
+The AI runs `volt status --porcelain` (or `volt push --dry-run`) first, parses the output, and decides whether to ask the human to approve the real action.
 
 ## Layout
 
-Three layers, cleanly separated. **Engine** is pure logic; **tools** and **cli** are two thin UI surfaces over the same engine; **scripts** are process entry points.
+Two layers, cleanly separated. **Engine** is pure logic; **cli** is the thin UI surface over the engine; **scripts** are process entry points.
 
 ```
 src/
 ├── bridge/                  Vendor-agnostic HTTP client + wire types
-│   ├── client.ts              BridgeClient — POSTs to /health, /refs, /fetch, /push, /compile
+│   ├── client.ts              BridgeClient — POSTs to /health, /refs, /fetch, /push, /build
 │   ├── remote.ts              the 5-method interface every bridge satisfies
 │   ├── types.ts               wire shapes
 │   └── test-bridge.ts         in-process bridge stub for unit tests
@@ -153,31 +163,15 @@ src/
 │   ├── config.ts              .volt/config.json — workspace binding
 │   ├── snapshot.ts            .volt/snapshot/ — hidden bare repo for diff;
 │   │                          ChangeSet type + computeIncoming/Outgoing
-│   ├── lease.ts               .volt/auth/ — capability leases (sudo-style gate
-│   │                          for AI-elevated ops). KNOWN_CAPABILITIES is the
-│   │                          single chokepoint for new elevated parameters.
 │   ├── git-cmds.ts            thin wrappers around `git` plumbing
 │   ├── ops.ts                 bridge↔snapshot translation + diff→ops
 │   ├── ops.test.ts            unit tests against TestBridge
-│   ├── init.ts                runInit  — bind workspace
+│   ├── init.ts                runInit — bind workspace
 │   ├── pull.ts                runPull — bridge → workspace (supports dryRun)
 │   ├── push.ts                runPush — workspace → bridge (supports force,
 │   │                          forceWithLease, dryRun)
-│   ├── status.ts              runStatus — diff IDE / snapshot / workspace;
-│   │                          surfaces incoming, outgoing, availableCapabilities
-│   └── compile.ts             runCompile — bridge.compile + diagnostic formatter
-│
-├── tools/                   MCP tools — one file per tool, plus the executable
-│   ├── _shared.ts             commonArgs schema, safeRun, jsonContent / errorContent helpers
-│   ├── index.ts               buildServer() — registers all 5 tools
-│   ├── volt_init.ts            registerVoltInit
-│   ├── volt_pull.ts            registerVoltPull (exposes dryRun)
-│   ├── volt_push.ts            registerVoltPush (exposes force + dryRun;
-│   │                          force gated on push-force lease)
-│   ├── volt_status.ts          registerVoltStatus (surfaces availableCapabilities)
-│   ├── volt_compile.ts         registerVoltCompile
-│   ├── bin.ts                 `volt-mcp` executable — buildServer + stdio transport
-│   └── conformance.ts         MCP server conformance (covers the tool-wiring layer)
+│   ├── status.ts              runStatus — diff IDE / snapshot / workspace
+│   └── build.ts               runBuild — bridge.build + diagnostic formatter
 │
 └── cli/                     CLI verbs — one file per verb, plus the executable
     ├── _shared.ts             argv flag helpers, safeVerb wrapper
@@ -186,74 +180,32 @@ src/
     ├── pull.ts                pull verb
     ├── push.ts                push verb (--force, --force-with-lease, --dry-run/-n)
     ├── status.ts              status verb (--porcelain)
-    ├── compile.ts             compile verb
-    ├── grant.ts               grant + revoke verbs (CLI-only; sudo-style lease issue)
+    ├── build.ts               build verb (--full)
     ├── bin.ts                 `volt` executable — argv parse, call cli/index, exit
     └── conformance.ts         THE BRIDGE CONTRACT — every vendor bridge must pass this
 ```
 
-**Pattern per verb:** one engine function (pure), one tool wrapper (MCP I/O — zod schema, JSON content blocks), one CLI wrapper (argv flags, stdout/stderr, exit code). Adding a 6th sync verb = add three small files, no edits to dispatchers beyond a one-line register call.
+**Pattern per verb:** one engine function (pure), one CLI wrapper (argv flags, stdout/stderr, exit code). Adding a 6th sync verb = add two small files, no edits to dispatchers beyond a one-line register call.
 
 ## Running
 
 ```bash
 # Build
-npm run build
+bun run build
 
 # Single-shot invocations
 node dist/cli/bin.js init
 node dist/cli/bin.js pull
 node dist/cli/bin.js push
 node dist/cli/bin.js status
-node dist/cli/bin.js compile
+node dist/cli/bin.js build
 
-# After `npm install` registers the bin: just `volt init`, etc.
+# After `bun install` registers the bin: just `volt init`, etc.
 ```
-
-## AI integration (MCP)
-
-`volt-mcp` is the same verb surface as the CLI, exposed as an MCP server over stdio. Any MCP client (Claude Desktop, opencode, Cursor, custom) can drive the workspace.
-
-Tool names mirror the CLI: `volt_init`, `volt_pull`, `volt_push`, `volt_status`, `volt_compile`. Inputs mirror the flags. Outputs are structured JSON so the AI can reason about `drift_detected` / `rejected` / `nothing_to_push` / `force_unauthorized` / `would_push` (dry-run) without parsing prose.
-
-`volt_status` returns `incoming` and `outgoing` ChangeSets (same shape as `hg incoming` / `hg outgoing`) plus `availableCapabilities` so the AI can see which elevated parameters the human has granted, without trial-and-error.
-
-Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
-
-```json
-{
-  "mcpServers": {
-    "volt": {
-      "command": "node",
-      "args": ["/abs/path/to/packages/volt-agent/dist/tools/bin.js"],
-      "env": {
-        "VOLT_WORKSPACE": "/abs/path/to/your/workspace",
-        "VOLT_BRIDGE_PORT": "8555"
-      }
-    }
-  }
-}
-```
-
-`VOLT_WORKSPACE` is optional — tools accept a `workspace` arg per call too, in case you want one MCP server to serve multiple projects. Same for `VOLT_BRIDGE_PORT` / `port`.
-
-Flags:
-
-| Flag | Default | Applies to | Purpose |
-|---|---|---|---|
-| `--port N` | `8555` (env `VOLT_BRIDGE_PORT`) | all | bridge port |
-| `--workspace DIR` | cwd | all | workspace root |
-| `--force` | off | `init`, `pull`, `push` | init: repoint; pull: discard local edits; push: bypass drift (AI must hold a `push-force` lease) |
-| `--force-with-lease=<v>` | off | `push` | safer force: only succeeds if bridge is still at `<v>` |
-| `--dry-run` / `-n` | off | `push`, `pull` | preview without writing |
-| `--porcelain` | off | `status` | machine-readable per-item output |
-| `--ttl <duration>` | `5m` | `grant` | how long the lease lives (e.g. `30s`, `5m`, `1h`; max 24h) |
-| `--once` | off | `grant` | lease is consumed on first successful use |
-| `--full` | off | `compile` | full rebuild instead of incremental |
 
 ## Bridge protocol
 
-Five endpoints. The CLI maps to three of them; the other two are introspection.
+Five endpoints. The CLI maps to all of them.
 
 | Endpoint | Used by | Shape |
 |---|---|---|
@@ -261,7 +213,7 @@ Five endpoints. The CLI maps to three of them; the other two are introspection.
 | `GET /refs` | `volt status`, `volt push` | project version + per-item versions (cheap) |
 | `POST /fetch` | `volt pull` | items changed since the client's known versions |
 | `POST /push` | `volt push` | atomic batch of 11 primitive ops with `ifVersion` guards |
-| `POST /compile` | `volt compile` | build + normalized diagnostics |
+| `POST /build` | `volt build` | build + normalized diagnostics |
 
 The bridge does ZERO diff/merge/VCS logic. CODESYS, TIA, and any future bridge implement the same five endpoints — domain reasoning stays here.
 
@@ -277,19 +229,17 @@ It runs the live `volt` CLI through scenarios covering every endpoint and every 
 
 ```bash
 # Run against any bridge implementation
-VOLT_BRIDGE_PORT=8555 npm run conformance         # CLI / wire conformance
-npm run conformance:drift                              # Engineer-drift workflows + git-inspired flags + lease flow
-npm run conformance:errors                             # Failure-mode / negative paths
-npm run conformance:mcp                                # MCP tool conformance (incl. dry-run + force-gating)
+VOLT_BRIDGE_PORT=8555 bun run conformance         # CLI / wire conformance
+bun run conformance:drift                          # Engineer-drift workflows + git-inspired flags
+bun run conformance:errors                         # Failure-mode / negative paths
 ```
 
-The four suites cover complementary surfaces:
+The three suites cover complementary surfaces:
 - **`src/cli/conformance.ts`** — AI-side actions: create/update/delete/rename/move POUs, children, accessors; atomic batches; the CLI's drift-rejection behaviour.
-- **`src/cli/conformance-drift.ts`** — Engineer-side actions simulated via direct `/push`: what happens when the engineer creates/deletes/renames/moves/edits things in the IDE between AI sessions, and does `volt pull` reflect it. Includes a full round-trip (`AI push → engineer edit → AI pull → AI push`), the git-inspired flag suite (`--dry-run`, `--porcelain`, `--force-with-lease`), and the capability-lease flow (`volt grant` / `volt revoke`).
+- **`src/cli/conformance-drift.ts`** — Engineer-side actions simulated via direct `/push`: what happens when the engineer creates/deletes/renames/moves/edits things in the IDE between AI sessions, and does `volt pull` reflect it. Includes a full round-trip (`AI push → engineer edit → AI pull → AI push`) and the git-inspired flag suite (`--dry-run`, `--porcelain`, `--force-with-lease`).
 - **`src/cli/conformance-errors.ts`** — Negative paths: ordering mistakes (push before init etc.), bridge unreachable, mismatched binding, the reconcile case (drift + dirty), and the no-op (`nothing to push`). Each scenario asserts the error message is friendly enough to be actionable, not just "Cannot read property of undefined."
-- **`src/tools/conformance.ts`** — MCP wiring: tool registration, schemas, structured response shapes including the `incoming` / `outgoing` / `availableCapabilities` / `nextAction` / `summary` fields the AI relies on. Covers the AI-side `dryRun` parameter and the asymmetric-force enforcement (M08: `force` without a lease MUST be refused with `status: force_unauthorized` and the engine must not be invoked).
 
-**A new bridge is "done" when it passes the conformance suite.** That's the contract — not a TS interface, not a doc, the test pack itself. If conformance goes green against your bridge, the `volt` CLI, the MCP server, and any future client will work against it without changes on their side.
+**A new bridge is "done" when it passes the conformance suite.** That's the contract — not a TS interface, not a doc, the test pack itself. If conformance goes green against your bridge, the `volt` CLI and any AI client driving it via shell will work against it without changes on their side.
 
 ## Determinism (important)
 
@@ -310,9 +260,8 @@ Each `volt push` produces a SINGLE `bridge.pushBatch` call containing one op per
 ## Tests
 
 ```bash
-npm test                                            # unit tests (vitest, against TestBridge)
+bun test                                            # unit tests (bun:test, against TestBridge)
 node dist/cli/conformance.js                        # live CLI conformance (requires bridge + IDE)
-node dist/tools/conformance.js                      # live MCP conformance (requires bridge + IDE)
 ```
 
-The C# bridge has its own xUnit suite at `bridges/beckhoff/BeckhoffBridge.Tests/`. C# tests + TS unit tests + CLI conformance + MCP conformance all run independently of each other — failures in one don't mask the others.
+The C# bridge has its own xUnit suite at `bridges/beckhoff/BeckhoffBridge.Tests/`. C# tests + TS unit tests + CLI conformance all run independently of each other — failures in one don't mask the others.

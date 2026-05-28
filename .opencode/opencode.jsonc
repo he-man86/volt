@@ -1,8 +1,28 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {},
-  "permission": {},
-  "mcp": {},
+  "permission": {
+    // volt CLI permissions — mirrors opencode's git pattern (gate
+    // destructive verbs via bash, leave read-only ones unrestricted).
+    // Modifying ops require human approval per call in the opencode UI.
+    "bash": {
+      "*": "allow",
+      "volt init*": "ask",
+      "volt pull*": "ask",
+      "volt push*": "ask",
+    },
+  },
+  "lsp": {
+    "volt-st": {
+      "enabled": true,
+      // Absolute path via `node` — bun on Windows does not create
+      // node_modules/.bin symlinks for private workspace packages,
+      // so the bare bin name `volt-lsp-st` does not resolve.
+      // Paths are relative to opencode's working directory (repo root).
+      "command": ["node", "packages/volt-lsp-st/dist/bin.js", "--stdio"],
+      "extensions": [".st", ".iecst", ".exp"],
+    },
+  },
   "tools": {
     "github-triage": false,
     "github-pr-search": false,

@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "IDE bridges (Beckhoff TwinCAT) that the MCP server talks to. C# binary.",
+  "description": "IDE bridges (Beckhoff TwinCAT, more vendors coming) that the `volt` CLI talks to over loopback HTTP. C# binary.",
   "type": "module",
   "files": [
     "dist"

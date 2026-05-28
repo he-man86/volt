@@ -13,7 +13,7 @@ namespace BeckhoffBridge;
 
 /// <summary>
 /// HTTP server that routes requests to the appropriate handler.
-/// Uses TcpListener for plain HTTP. Loopback-only; the MCP server
+/// Uses TcpListener for plain HTTP. Loopback-only; the `volt` CLI
 /// connects directly to 127.0.0.1.
 /// </summary>
 internal sealed class HttpBridge
@@ -36,7 +36,7 @@ internal sealed class HttpBridge
 	private readonly RefsHandler _refs;
 	private readonly FetchHandler _fetch;
 	private readonly PushHandler _push;
-	private readonly CompileHandler _compile;
+	private readonly BuildHandler _build;
 	private readonly DebugHandler _debug;
 	// SetHandler / CreateHandler / UpdateHandler / RenameHandler / DeleteHandler
 	// / GetHandler still exist as internal helpers called by PushHandler and
@@ -54,7 +54,7 @@ internal sealed class HttpBridge
 		_refs = new RefsHandler(connection);
 		_fetch = new FetchHandler(connection);
 		_push = new PushHandler(connection);
-		_compile = new CompileHandler(connection);
+		_build = new BuildHandler(connection);
 		_debug = new DebugHandler(connection);
 	}
 
@@ -266,7 +266,7 @@ internal sealed class HttpBridge
 				"/refs"    => _connection.RunOnStaThread(() => _refs.Handle()),
 				"/fetch"   => _connection.RunOnStaThread(() => _fetch.Handle(body ?? new JsonObject())),
 				"/push"    => _connection.RunOnStaThread(() => _push.Handle(body ?? new JsonObject())),
-				"/compile" => _connection.RunOnStaThread(() => _compile.Handle(body ?? new JsonObject())),
+				"/build"   => _connection.RunOnStaThread(() => _build.Handle(body ?? new JsonObject())),
 				"/debug"   => _connection.RunOnStaThread(() => _debug.Handle(body ?? new JsonObject())),
 				_ => null,
 			};
@@ -310,7 +310,7 @@ internal sealed class HttpBridge
 	{
 		return path switch
 		{
-			"/compile" => "Compile",
+			"/build" => "Build",
 			"/refs" => "Refs",
 			"/fetch" => "Fetch",
 			"/push" => $"Push ({(body?["ops"] as JsonArray)?.Count ?? 0} ops)",

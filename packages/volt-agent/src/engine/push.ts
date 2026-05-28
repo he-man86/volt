@@ -111,7 +111,7 @@ export type PushResult =
 			bridgeProjectVersion: string;
 			/**
 			 * What the IDE has that we don't (= `hg incoming` /
-			 * `HEAD..@{u}`). Caller decides whether to volt_pull
+			 * `HEAD..@{u}`). Caller decides whether to volt pull
 			 * (absorb) or have the human force-push (override).
 			 */
 			incoming: ChangeSet;

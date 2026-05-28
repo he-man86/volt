@@ -233,7 +233,7 @@ async function runAllScenarios(rootTmp: string): Promise<void> {
 		assert(volt(ws, "init").code === 0, "intermediate init via real bridge");
 		assert(volt(ws, "pull").code === 0, "intermediate pull via real bridge");
 
-		for (const verb of ["init", "pull", "push", "status", "compile"]) {
+		for (const verb of ["init", "pull", "push", "status", "build"]) {
 			const r = voltAt(UNREACHABLE_PORT, ws, verb);
 			assert(r.code === 1, `${verb}: exit 1`);
 			assert(

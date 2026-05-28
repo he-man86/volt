@@ -1,6 +1,6 @@
 /**
  * In-process bridge stub for tests. Simulates the live bridge protocol
- * (getRefs / fetchChanges / pushBatch / compile) over an in-memory item
+ * (getRefs / fetchChanges / pushBatch / build) over an in-memory item
  * map, with content-fingerprint versioning that matches the production
  * shape (sha1-of-content, recursive over children).
  *
@@ -12,8 +12,8 @@ import { createHash } from "node:crypto";
 import type {
 	AIChildInfo,
 	AIGetResult,
-	CompileRequest,
-	CompileResponse,
+	BuildRequest,
+	BuildResponse,
 	FetchRequest,
 	FetchResponse,
 	HealthResponse,
@@ -27,8 +27,8 @@ import type { Remote } from "./remote.js";
 
 export interface TestBridgeOptions {
 	initialItems?: AIGetResult[];
-	/** Per-call override for compile. Default: ok with no diagnostics. */
-	compile?: (req: CompileRequest) => Promise<CompileResponse>;
+	/** Per-call override for build. Default: ok with no diagnostics. */
+	build?: (req: BuildRequest) => Promise<BuildResponse>;
 	/** Override the health response — defaults to a synthetic "beckhoff/test-project". */
 	health?: Partial<HealthResponse>;
 }
@@ -36,16 +36,16 @@ export interface TestBridgeOptions {
 export class TestBridge implements Remote {
 	items = new Map<string, AIGetResult>();
 	pushCalls: PushRequest[] = [];
-	compileCalls: CompileRequest[] = [];
-	private readonly compileImpl: NonNullable<TestBridgeOptions["compile"]>;
+	buildCalls: BuildRequest[] = [];
+	private readonly buildImpl: NonNullable<TestBridgeOptions["build"]>;
 	private readonly healthOverride: Partial<HealthResponse>;
 
 	constructor(opts: TestBridgeOptions = {}) {
 		for (const item of opts.initialItems ?? []) {
 			this.items.set(item.name, item);
 		}
-		this.compileImpl =
-			opts.compile ?? (async () => ({ success: true, duration: 0, errors: 0, warnings: 0, diagnostics: [] }));
+		this.buildImpl =
+			opts.build ?? (async () => ({ success: true, duration: 0, errors: 0, warnings: 0, diagnostics: [] }));
 		this.healthOverride = opts.health ?? {};
 	}
 
@@ -183,9 +183,9 @@ export class TestBridge implements Remote {
 		};
 	}
 
-	async compile(req: CompileRequest): Promise<CompileResponse> {
-		this.compileCalls.push(req);
-		return this.compileImpl(req);
+	async build(req: BuildRequest): Promise<BuildResponse> {
+		this.buildCalls.push(req);
+		return this.buildImpl(req);
 	}
 
 	// ─── Test helpers ──────────────────────────────────────────────────

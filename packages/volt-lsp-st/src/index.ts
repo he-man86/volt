@@ -6,7 +6,7 @@ export * from "./parser/ast.js";
 export { parse, parseSource } from "./parser/parser.js";
 
 // Init helper for callers that want to install the CODESYS reference
-// corpus + CLAUDE.md pointer (used by `volt init` in volt-agent).
+// corpus + SKILL.md (used by `volt init` in volt-agent).
 export { runInit as installCorpus } from "./init.js";
 export type { InitOptions as InstallCorpusOptions, InitResult as InstallCorpusResult } from "./init.js";
 

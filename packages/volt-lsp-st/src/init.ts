@@ -1,16 +1,23 @@
 /**
  * `volt-lsp-st init` — copy the CODESYS reference corpus into a
- * user's project and add a CLAUDE.md pointer so any AI session in that
- * project knows where to find authoritative ST language docs.
+ * user's project and install a SKILL.md so any AI session in that
+ * project (opencode, Claude Code) auto-discovers the ST language
+ * reference via the native skill mechanism.
  *
  * Why this exists: the LSP gives AI sessions reactive intelligence
  * (hover/diagnostics) but proactive knowledge — "when should I use
  * FB_Init?" — only flows through the markdown corpus, which only
  * exists in the LSP package's own repo by default. `init` distributes
- * the corpus to consuming projects so every AI session can `Read` it.
+ * the corpus to consuming projects and registers it as a skill so
+ * every AI session can lazy-load it on demand.
  *
- * Idempotent. Re-running with --update refreshes the corpus while
- * preserving any user-added CLAUDE.md content.
+ * Why `.claude/skills/` and not `.opencode/skills/`: per opencode's
+ * docs, `.claude/skills/` is the universal location — both opencode
+ * and Claude Code discover skills from there. `.opencode/skills/`
+ * would be opencode-only.
+ *
+ * Idempotent. Re-running with --update refreshes the corpus and
+ * rewrites SKILL.md from the canonical template.
  */
 import { mkdir, readdir, readFile, writeFile, stat, copyFile } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
@@ -21,27 +28,49 @@ const SOURCE_DOCS_DIR = join(PKG_DIR, "docs", "codesys-reference");
 
 const VERSION_MARKER = ".volt-lsp-st-version";
 const REFERENCE_REL_PATH = "docs/codesys-reference";
+const SKILL_REL_PATH = ".claude/skills/st-reference/SKILL.md";
 
-const CLAUDE_MD_SECTION = `## CODESYS Structured Text reference
+const SKILL_MD_TEMPLATE = `---
+name: st-reference
+description: IEC 61131-3 Structured Text reference for CODESYS and TwinCAT 3 — pragmas, FB lifecycle, shadowing, init slots, error catalog. Load when writing or reviewing .st files.
+license: MIT
+metadata:
+  language: structured-text
+  source-package: "@opencode-ai/volt-lsp-st"
+  installed-by: "volt-lsp-st init"
+---
 
-A local mirror of the CODESYS ST language reference lives at:
-**\`${REFERENCE_REL_PATH}/\`**
+## Purpose
 
-Installed by \`volt-lsp-st init\`. Run \`volt-lsp-st init --update\` to refresh.
+Authoritative CODESYS / TwinCAT 3 Structured Text language reference, installed into this workspace by \`volt-lsp-st init\` (run via \`volt init\`). Use when writing or reviewing \`.st\` files.
 
-When writing or reviewing ST code, **read the relevant section first** — especially:
-- \`${REFERENCE_REL_PATH}/07-pragmas.md\` — every pragma and what it silently changes
-- \`${REFERENCE_REL_PATH}/09-shadowing.md\` — name-resolution search order
-- \`${REFERENCE_REL_PATH}/11-fb-lifecycle.md\` — \`FB_Init\` / \`FB_Reinit\` / \`FB_Exit\` rules
-- \`${REFERENCE_REL_PATH}/12-global-init-slots.md\` — init slot table
+## Where the docs live
+
+\`\`\`
+${REFERENCE_REL_PATH}/
+\`\`\`
 
 Start at \`${REFERENCE_REL_PATH}/00-index.md\` for the full table of contents.
+
+## Files to read first
+
+Pretraining is unreliable for ST — vendor-specific pragmas, lifecycle slots, and shadowing rules are easy to get wrong from memory. Always check the reference before guessing:
+
+- \`${REFERENCE_REL_PATH}/07-pragmas.md\` — pragmas that silently change behavior
+- \`${REFERENCE_REL_PATH}/09-shadowing.md\` — name-resolution search order
+- \`${REFERENCE_REL_PATH}/11-fb-lifecycle.md\` — \`FB_Init\` / \`FB_Reinit\` / \`FB_Exit\` rules
+- \`${REFERENCE_REL_PATH}/12-global-init-slots.md\` — global init slot ordering
+- \`${REFERENCE_REL_PATH}/13-error-messages.md\` — compiler error catalog
+
+Use the Read tool to pull only the section you need.
+
+## Updates
+
+Run \`volt-lsp-st init --update\` (or \`volt init --force\`) to refresh the corpus when the LSP package version changes.
 `;
 
-const CLAUDE_MD_SECTION_HEADER = "## CODESYS Structured Text reference";
-
 export interface InitOptions {
-	/** Target project root (will receive `docs/codesys-reference/` + CLAUDE.md). */
+	/** Target project root (will receive `docs/codesys-reference/` + `.claude/skills/st-reference/SKILL.md`). */
 	targetDir: string;
 	/** Refresh an existing install. If false (default), reuses existing docs. */
 	update?: boolean;
@@ -55,10 +84,10 @@ export interface InitOptions {
 
 export interface InitResult {
 	docsDir: string;
-	claudeMdPath: string;
+	skillPath: string;
 	versionMarkerPath: string;
 	filesCopied: number;
-	claudeMdAction: "created" | "appended" | "unchanged";
+	skillAction: "created" | "updated" | "unchanged";
 }
 
 export async function runInit(opts: InitOptions): Promise<InitResult> {
@@ -66,7 +95,7 @@ export async function runInit(opts: InitOptions): Promise<InitResult> {
 	const sourceDir = opts.sourceDir ?? SOURCE_DOCS_DIR;
 	const targetDir = resolve(opts.targetDir);
 	const destDocsDir = join(targetDir, REFERENCE_REL_PATH);
-	const claudeMdPath = join(targetDir, "CLAUDE.md");
+	const skillPath = join(targetDir, SKILL_REL_PATH);
 	const versionMarkerPath = join(targetDir, VERSION_MARKER);
 
 	// Sanity-check source corpus exists.
@@ -87,10 +116,10 @@ export async function runInit(opts: InitOptions): Promise<InitResult> {
 			`Use --update to refresh.`);
 		return {
 			docsDir: destDocsDir,
-			claudeMdPath,
+			skillPath,
 			versionMarkerPath,
 			filesCopied: 0,
-			claudeMdAction: "unchanged",
+			skillAction: "unchanged",
 		};
 	}
 
@@ -106,55 +135,30 @@ export async function runInit(opts: InitOptions): Promise<InitResult> {
 		filesCopied++;
 	}
 
-	// Manage CLAUDE.md.
-	const existing = await readMaybe(claudeMdPath);
-	let action: InitResult["claudeMdAction"];
-	if (existing === undefined) {
-		const header = `# Project\n\n`;
-		await writeFile(claudeMdPath, header + CLAUDE_MD_SECTION + "\n", "utf-8");
-		action = "created";
-	} else if (existing.includes(CLAUDE_MD_SECTION_HEADER)) {
-		// Section already present — replace it to ensure it reflects the
-		// current canonical text.
-		const updated = replaceClaudeMdSection(existing);
-		await writeFile(claudeMdPath, updated, "utf-8");
-		action = "appended";
-	} else {
-		const sep = existing.endsWith("\n") ? "\n" : "\n\n";
-		await writeFile(claudeMdPath, existing + sep + CLAUDE_MD_SECTION + "\n", "utf-8");
-		action = "appended";
-	}
+	// Write SKILL.md. Always rewrite from the canonical template so
+	// content stays in sync with the package version. The skill body
+	// is fully ours — users who want custom guidance should put it in
+	// their own AGENTS.md or in a separate skill.
+	const existingSkill = await readMaybe(skillPath);
+	await mkdir(dirname(skillPath), { recursive: true });
+	await writeFile(skillPath, SKILL_MD_TEMPLATE, "utf-8");
+	const skillAction: InitResult["skillAction"] = existingSkill === undefined ? "created" : "updated";
 
 	// Write version marker.
 	const version = opts.version ?? (await readPackageVersion());
 	await writeFile(versionMarkerPath, version + "\n", "utf-8");
 
 	log(`Installed CODESYS reference at ${destDocsDir} (${filesCopied} files)`);
-	log(`Updated ${claudeMdPath}`);
+	log(`${skillAction === "created" ? "Created" : "Updated"} ${skillPath}`);
 	log(`Wrote version marker ${versionMarkerPath} = ${version}`);
 
 	return {
 		docsDir: destDocsDir,
-		claudeMdPath,
+		skillPath,
 		versionMarkerPath,
 		filesCopied,
-		claudeMdAction: action,
+		skillAction,
 	};
-}
-
-/**
- * Replace the existing `## CODESYS Structured Text reference` section
- * with the current canonical text, preserving everything else in the
- * file. A "section" is the header line through the next `## ` (or EOF).
- */
-function replaceClaudeMdSection(text: string): string {
-	const startIdx = text.indexOf(CLAUDE_MD_SECTION_HEADER);
-	if (startIdx === -1) return text + "\n" + CLAUDE_MD_SECTION + "\n";
-	// Find the next top-level `## ` after the header (skip the header itself).
-	const afterHeader = startIdx + CLAUDE_MD_SECTION_HEADER.length;
-	const nextHeaderIdx = text.indexOf("\n## ", afterHeader);
-	const endIdx = nextHeaderIdx === -1 ? text.length : nextHeaderIdx + 1;
-	return text.slice(0, startIdx) + CLAUDE_MD_SECTION + (endIdx < text.length ? "\n" + text.slice(endIdx) : "\n");
 }
 
 async function readMaybe(path: string): Promise<string | undefined> {

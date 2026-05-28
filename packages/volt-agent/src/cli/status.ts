@@ -59,15 +59,6 @@ export const status: VerbFn = async ({ workspace, bridge, flags }) => {
 		for (const name of r.outgoing.removed) console.log(`  [WS]  - ${name}  (you deleted)`);
 	}
 
-	if (r.availableCapabilities.length > 0) {
-		console.log("");
-		console.log("active capability leases (AI can use these elevated parameters):");
-		for (const cap of r.availableCapabilities) {
-			const oneShot = cap.oneShot ? " (one-shot)" : "";
-			console.log(`  [AUTH] ${cap.capability}  expires in ${cap.expiresInSeconds}s${oneShot}`);
-		}
-	}
-
 	console.log("");
 	console.log(`snapshot projectVersion: ${r.snapshotProjectVersion ?? "<none>"}`);
 	console.log(`bridge   projectVersion: ${r.bridgeProjectVersion}`);

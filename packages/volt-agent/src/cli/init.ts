@@ -16,9 +16,9 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 	if (r.corpus !== undefined) {
 		if (r.corpus.filesCopied > 0) {
 			console.log(
-				`Language reference: installed ${r.corpus.filesCopied} files; CLAUDE.md ${r.corpus.claudeMdAction}.`,
+				`Language reference: installed ${r.corpus.filesCopied} files; SKILL.md ${r.corpus.skillAction}.`,
 			);
-		} else if (r.corpus.claudeMdAction === "unchanged") {
+		} else if (r.corpus.skillAction === "unchanged") {
 			// Idempotent re-run — already present.
 		}
 	}

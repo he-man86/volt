@@ -7,10 +7,11 @@
  *   --stdio        Run as an LSP server over stdio (LSP 3.17).
  *   --version      Print version.
  *
- * Note: corpus installation (CODESYS reference docs + CLAUDE.md
- * pointer) is wired into `volt init` in the volt-agent package
- * — not exposed as a standalone subcommand here. The `runInit` helper
- * in `src/init.ts` is the library function `volt init` calls.
+ * Note: corpus installation (CODESYS reference docs + SKILL.md at
+ * `.claude/skills/st-reference/`) is wired into `volt init` in the
+ * volt-agent package — not exposed as a standalone subcommand here.
+ * The `runInit` helper in `src/init.ts` is the library function
+ * `volt init` calls.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

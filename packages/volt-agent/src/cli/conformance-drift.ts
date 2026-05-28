@@ -794,77 +794,7 @@ async function runAllScenarios(ws: string): Promise<void> {
 			);
 		}
 
-		// 14d. capability lease (sudo-style) — AI's force is gated on a
-		// `push-force` lease the human grants via `volt grant`. We exercise
-		// the CLI grant verb directly (the MCP path is covered separately
-		// in the MCP conformance suite).
-		{
-			// Make sure no lease is hanging around from another scenario.
-			volt(ws, "revoke", "push-force");
-
-			// status with no leases: availableCapabilities empty, no
-			// [AUTH] block in the human-readable output.
-			const noLease = volt(ws, "status");
-			assert(noLease.code === 0, "status exit 0 with no lease");
-			assert(
-				!noLease.stdout.includes("[AUTH]"),
-				"status omits [AUTH] block when no leases are active",
-				noLease.stdout.trim(),
-			);
-
-			// grant push-force: lease file exists, status surfaces it.
-			const g = volt(ws, "grant", "push-force", "--ttl", "1m", "--once");
-			assert(g.code === 0, "volt grant push-force exit 0", g.stderr.trim());
-			assert(
-				g.stdout.includes("granted: push-force"),
-				"grant stdout confirms the capability",
-				g.stdout.trim(),
-			);
-			const leaseFile = join(ws, ".volt/auth/push-force.lease");
-			assert(existsSync(leaseFile), "lease file written to .volt/auth/");
-
-			const withLease = volt(ws, "status");
-			assert(
-				withLease.stdout.includes("[AUTH] push-force") &&
-					withLease.stdout.includes("(one-shot)"),
-				"status surfaces active push-force lease (with one-shot tag)",
-				withLease.stdout.trim(),
-			);
-
-			// revoke kills it; status drops the [AUTH] line.
-			const rv = volt(ws, "revoke", "push-force");
-			assert(rv.code === 0, "volt revoke exit 0");
-			assert(rv.stdout.includes("revoked: push-force"), "revoke confirms");
-			assert(!existsSync(leaseFile), "lease file gone after revoke");
-
-			const cleanAgain = volt(ws, "status");
-			assert(
-				!cleanAgain.stdout.includes("[AUTH]"),
-				"status omits [AUTH] block after revoke",
-				cleanAgain.stdout.trim(),
-			);
-
-			// Unknown capability is rejected with a helpful list.
-			const bad = volt(ws, "grant", "make-coffee");
-			assert(bad.code === 1, "grant unknown capability exits 1");
-			assert(
-				bad.stderr.includes("unknown capability") &&
-					bad.stderr.includes("push-force"),
-				"unknown capability error lists known caps",
-				bad.stderr.trim(),
-			);
-
-			// Malformed --ttl is rejected.
-			const badTtl = volt(ws, "grant", "push-force", "--ttl", "notaduration");
-			assert(badTtl.code === 1, "grant with bad --ttl exits 1");
-			assert(
-				badTtl.stderr.includes("unrecognized duration"),
-				"bad ttl error explains the format",
-				badTtl.stderr.trim(),
-			);
-		}
-
-		// 14e. --force-with-lease: holds when current bridge version matches,
+		// 14d. --force-with-lease: holds when current bridge version matches,
 		// refuses (status=lease_stale, exit 2) when the bridge moved further.
 		{
 			// Read current bridge version. The bridge already moved from

@@ -18,7 +18,6 @@
 import { resolve } from "node:path";
 import { BridgeClient } from "../bridge/client.js";
 import { configExists, loadConfig, workspacePaths } from "./config.js";
-import { listActiveLeases, type Capability } from "./lease.js";
 import { workspaceMatchesBridge } from "./ops.js";
 import {
 	computeIncoming,
@@ -29,18 +28,6 @@ import {
 	loadState,
 	type ChangeSet,
 } from "./snapshot.js";
-
-/**
- * Active capability lease as surfaced in `StatusResult`. Lets the AI
- * see which elevated parameters it can use right now without having
- * to try-and-fail. Maps 1:1 to a file in `.volt/auth/`.
- */
-export interface CapabilityGrant {
-	capability: Capability;
-	expiresAt: string;
-	expiresInSeconds: number;
-	oneShot: boolean;
-}
 
 /**
  * Recommendation for the consumer's next action. Computed from the
@@ -95,15 +82,6 @@ export interface StatusResult {
 	nextAction: NextAction;
 	/** One-line human-readable summary suitable for direct display. */
 	summary: string;
-	/**
-	 * Currently-active capability leases the human has granted via
-	 * `volt grant`. AI clients check this BEFORE calling elevated
-	 * parameters (e.g. `volt_push({ force: true })`) so they can
-	 * tell the human "I can do that now" vs "you need to grant me
-	 * the capability first" without trial-and-error round trips.
-	 * Empty when no capability is granted.
-	 */
-	availableCapabilities: CapabilityGrant[];
 }
 
 export async function runStatus(
@@ -115,7 +93,7 @@ export async function runStatus(
 
 	// Status must never throw on a missing workspace — it's a query,
 	// not a mutation. Return initialized:false so the caller (CLI / AI)
-	// can decide whether to run volt_init or bail.
+	// can decide whether to run volt init or bail.
 	const hasConfig = configExists(root);
 	if (hasConfig) loadConfig(root); // throws only on malformed config
 
@@ -134,7 +112,6 @@ export async function runStatus(
 			snapshotProjectVersion: undefined,
 			nextAction: "init",
 			summary: "Workspace not initialized — run volt init to bind it to the IDE project.",
-			availableCapabilities: [],
 		};
 	}
 
@@ -153,7 +130,6 @@ export async function runStatus(
 			snapshotProjectVersion: undefined,
 			nextAction: "pull",
 			summary: "Workspace bound but never pulled — run volt pull to populate.",
-			availableCapabilities: collectCapabilities(root),
 		};
 	}
 
@@ -193,19 +169,7 @@ export async function runStatus(
 		snapshotProjectVersion: state.projectVersion,
 		nextAction,
 		summary,
-		availableCapabilities: collectCapabilities(root),
 	};
-}
-
-function collectCapabilities(workspaceRoot: string): CapabilityGrant[] {
-	const leases = listActiveLeases(workspaceRoot);
-	const now = Date.now();
-	return leases.map((l) => ({
-		capability: l.capability,
-		expiresAt: l.expiresAt,
-		expiresInSeconds: Math.max(0, Math.round((Date.parse(l.expiresAt) - now) / 1000)),
-		oneShot: l.oneShot,
-	}));
 }
 
 function recommend(

@@ -11,17 +11,14 @@ import { init } from "./init.js";
 import { pullVerb } from "./pull.js";
 import { pushVerb } from "./push.js";
 import { status } from "./status.js";
-import { compile } from "./compile.js";
-import { grant, revoke } from "./grant.js";
+import { build } from "./build.js";
 
 const VERBS: Record<string, VerbFn> = {
 	init,
 	pull: pullVerb,
 	push: pushVerb,
 	status,
-	compile,
-	grant,
-	revoke,
+	build,
 };
 
 export const HELP = `volt <verb> [flags]
@@ -31,10 +28,7 @@ Verbs:
   pull                          Pull IDE state into the workspace (= git fetch + merge).
   push                          Push workspace state to the IDE. Refuses on IDE drift unless --force.
   status                        Show what differs between IDE, snapshot, and workspace.
-  compile [--full]              Ask the IDE to build the project. Returns diagnostics.
-  grant <capability> [flags]    Issue a capability lease so AI clients can use elevated parameters
-                                (currently: push-force). Sudo-style: --ttl <duration>, --once.
-  revoke <capability>           Kill an active capability lease before it expires.
+  build [--full]                Ask the IDE to build the project. Returns diagnostics.
   help                          Show this list.
 
 Flags:
@@ -52,10 +46,7 @@ Flags:
                                  Format: <dir><code> <name> where dir is i (incoming) or o
                                  (outgoing) and code is A / M / D. Inspired by \`git status
                                  --porcelain\`.
-  --ttl <duration>               grant only: how long the lease lives (e.g. 30s, 5m, 1h).
-                                 Default 5m. Max 24h.
-  --once                         grant only: lease is consumed on first successful use.
-  --full                         compile only — full rebuild instead of incremental
+  --full                         build only — full rebuild instead of incremental
 
 A typical session:
   volt init                   # once per workspace
@@ -63,7 +54,7 @@ A typical session:
   # ... edit .st files with your editor / AI of choice
   volt status                 # see what changed
   volt push                   # push edits back to the IDE
-  volt compile                # build and read diagnostics`;
+  volt build                  # build and read diagnostics`;
 
 // Single-char short flags map to their long-form key (git-style: `-n`
 // is the same as `--dry-run`). Keep this list short on purpose — git
@@ -81,8 +72,7 @@ export function parseArgs(argv: readonly string[]): { verb: string; flags: Flags
 		const isLong = arg.startsWith("--") && arg.length > 2;
 		const isShort = arg.startsWith("-") && !arg.startsWith("--") && arg.length === 2;
 		if (!isLong && !isShort) {
-			// First non-flag arg after the verb becomes the positional
-			// (e.g. `volt grant push-force` → flags._positional = "push-force").
+			// First non-flag arg after the verb becomes the positional.
 			// Verbs that don't take a positional just ignore the field.
 			if (flags["_positional"] === undefined) flags["_positional"] = arg;
 			continue;

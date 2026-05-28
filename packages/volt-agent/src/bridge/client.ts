@@ -1,6 +1,6 @@
 /**
  * BridgeClient — talks to a local bridge daemon (Beckhoff, CODESYS, TIA, …)
- * on the user's machine. The MCP server doesn't know or care which one;
+ * on the user's machine. The `volt` CLI doesn't know or care which one;
  * it depends on the `Remote` interface, and any bridge that satisfies that
  * interface plugs in.
  *
@@ -11,7 +11,7 @@
  *   - `/refs`    — current refs (project version + per-item versions)
  *   - `/fetch`   — pull only items the client doesn't already have
  *   - `/push`    — atomic batch with per-item ifVersion guards
- *   - `/compile` — build + diagnostics
+ *   - `/build`   — build + diagnostics
  *
  * Error shape: bridges return `{ error: { code, message } }` on non-2xx
  * status. We parse that and throw `BridgeError` so tools can distinguish
@@ -20,8 +20,8 @@
 
 import { request as httpRequest } from "node:http";
 import type {
-	CompileRequest,
-	CompileResponse,
+	BuildRequest,
+	BuildResponse,
 	FetchRequest,
 	FetchResponse,
 	HealthResponse,
@@ -76,8 +76,8 @@ export class BridgeClient implements Remote {
 		return this.post<PushResponse>("/push", req);
 	}
 
-	async compile(req: CompileRequest): Promise<CompileResponse> {
-		return this.post<CompileResponse>("/compile", req);
+	async build(req: BuildRequest): Promise<BuildResponse> {
+		return this.post<BuildResponse>("/build", req);
 	}
 
 	private async get<T>(path: string): Promise<T> {
