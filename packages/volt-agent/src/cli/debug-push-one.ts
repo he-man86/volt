@@ -32,16 +32,21 @@ const KIND_EXT: Record<string, string> = {
 };
 
 async function main(): Promise<void> {
-	const target = process.argv[2] ?? "warning_message";
-	const test = ALL_TESTS.find((t) => t.name === target);
-	if (test === undefined) {
-		console.error(`unknown test: ${target}. Known: ${ALL_TESTS.map((t) => t.name).join(", ")}`);
-		process.exit(1);
-	}
+	const args = process.argv.slice(2);
+	const targets = args.length > 0 ? args : ["warning_message"];
+	const tests = targets.map((name) => {
+		const t = ALL_TESTS.find((x) => x.name === name);
+		if (t === undefined) {
+			console.error(`unknown test: ${name}. Known: ${ALL_TESTS.map((x) => x.name).join(", ")}`);
+			process.exit(1);
+		}
+		return t;
+	});
 
 	const bridge = new BridgeClient({ port: BRIDGE_PORT });
 	const h = await bridge.getHealth();
 	console.log(`bridge ${h.version} → ${h.platform}/${h.projectName}/${h.plcProjectName}`);
+	console.log(`pushing ${tests.length} test(s): ${tests.map((t) => t.name).join(", ")}\n`);
 
 	const rootTmp = mkdtempSync(join(tmpdir(), "volt-debug-push-"));
 	const ws = join(rootTmp, "ws");
@@ -51,27 +56,32 @@ async function main(): Promise<void> {
 	run(volt(ws, "init"));
 	run(volt(ws, "pull"));
 
-	const ext = KIND_EXT[test.kind]!;
-	writeFileSync(join(ws, `${test.pouName}.${ext}`), test.source, "utf-8");
+	// Write each test source.
+	for (const t of tests) {
+		const ext = KIND_EXT[t.kind]!;
+		writeFileSync(join(ws, `${t.pouName}.${ext}`), t.source, "utf-8");
+	}
 
-	// PLC_PRG already exists in TC (every project has one). After
-	// `volt pull` it sits somewhere under workspace — typically
-	// `POUs/PLC_PRG.st`. We must OVERWRITE that file, not write a
-	// second copy at root — otherwise push sees a new orphan POU
-	// instead of an update to the existing one, and TC's PLC_PRG
-	// stays empty.
+	// Combined PLC_PRG — same mega-instantiation shape as the recorder
+	// uses, so debug push reproduces batch behavior on a subset of tests.
 	const plcPrgPath = findExistingFile(ws, "PLC_PRG.st") ?? join(ws, "PLC_PRG.st");
 	console.log(`PLC_PRG path in workspace: ${plcPrgPath}`);
+	const varLines: string[] = [];
+	const bodyLines: string[] = [];
+	for (const t of tests) {
+		if (t.plcPrgVar !== undefined) varLines.push(`\t${t.plcPrgVar}`);
+		if (t.plcPrgBody !== undefined) bodyLines.push(t.plcPrgBody);
+	}
 	const plcPrg = `PROGRAM PLC_PRG
 VAR
-	${test.plcPrgVar ?? ""}
+${varLines.join("\n")}
 END_VAR
-${test.plcPrgBody ?? ""}
+${bodyLines.join("\n")}
 END_PROGRAM
 `;
 	writeFileSync(plcPrgPath, plcPrg, "utf-8");
 
-	console.log(`\npushing ${test.pouName} + PLC_PRG instantiation…`);
+	console.log(`\npushing ${tests.length} POU(s) + combined PLC_PRG…`);
 	run(volt(ws, "push", "--force"));
 
 	console.log(`\nrunning build…`);
@@ -88,11 +98,12 @@ END_PROGRAM
 	}
 
 	console.log(`\n──── LEAVING POUs IN TC FOR MANUAL INSPECTION ────`);
-	console.log(`Open TwinCAT and verify:`);
-	console.log(`  1. ${test.pouName} appears in the project tree`);
-	console.log(`  2. PLC_PRG content shows the instantiation (${test.plcPrgVar ?? "—"})`);
-	console.log(`  3. Build → Build Solution in TC menu — what shows in Output → Build pane?`);
-	console.log(`Copy that pane text and report back.`);
+	console.log(`Open TwinCAT and verify each:`);
+	for (const t of tests) {
+		console.log(`  • ${t.pouName} (instantiated as: ${t.plcPrgVar ?? "—"})`);
+	}
+	console.log(`Build → Build Solution in TC menu — what shows in Output → Build pane?`);
+	console.log(`Copy the relevant lines and report back.`);
 	console.log(`\nTo clean up later: re-run \`bun run record:language\` (sweeps LANG_* leftovers).`);
 }
 

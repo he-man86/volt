@@ -172,6 +172,22 @@ internal sealed class BuildHandler
 			Log.Ide($"[Build] {unmatchedSamples.Count} unmatched samples (up to 10):");
 			foreach (var s in unmatchedSamples) Log.Ide($"[Build]   | {s}");
 		}
+		// Full pane dump to temp file for diagnosing batch-fidelity
+		// issues (errors that solo-push surfaces but disappear in bulk).
+		// Filename includes a timestamp so multiple consecutive builds
+		// each get their own file — no overwrite, easy to compare.
+		try
+		{
+			var dumpPath = System.IO.Path.Combine(
+				System.IO.Path.GetTempPath(),
+				$"volt-beckhoff-build-pane-{DateTime.Now:HHmmss}.txt");
+			System.IO.File.WriteAllText(dumpPath, paneText);
+			Log.Ide($"[Build] full pane dumped to {dumpPath}");
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Build] pane dump failed: {ex.Message}");
+		}
 		return diagnostics;
 	}
 
