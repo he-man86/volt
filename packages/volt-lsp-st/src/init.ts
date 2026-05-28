@@ -16,6 +16,16 @@
  * and Claude Code discover skills from there. `.opencode/skills/`
  * would be opencode-only.
  *
+ * Workspace layout (everything stays under one folder):
+ *
+ *   .claude/skills/st-reference/
+ *     ├─ SKILL.md                       ← skill manifest
+ *     ├─ .volt-lsp-st-version           ← version marker
+ *     └─ codesys-reference/             ← corpus
+ *        ├─ 00-index.md
+ *        ├─ 07-pragmas.md
+ *        └─ ...
+ *
  * Idempotent. Re-running with --update refreshes the corpus and
  * rewrites SKILL.md from the canonical template.
  */
@@ -26,9 +36,12 @@ import { fileURLToPath } from "node:url";
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE_DOCS_DIR = join(PKG_DIR, "docs", "codesys-reference");
 
-const VERSION_MARKER = ".volt-lsp-st-version";
-const REFERENCE_REL_PATH = "docs/codesys-reference";
-const SKILL_REL_PATH = ".claude/skills/st-reference/SKILL.md";
+const SKILL_DIR_REL = ".claude/skills/st-reference";
+const SKILL_REL_PATH = `${SKILL_DIR_REL}/SKILL.md`;
+const REFERENCE_REL_PATH = `${SKILL_DIR_REL}/codesys-reference`;
+const VERSION_MARKER_REL_PATH = `${SKILL_DIR_REL}/.volt-lsp-st-version`;
+// Path SKILL.md uses to reference its sibling corpus folder.
+const REFERENCE_REL_FROM_SKILL = "codesys-reference";
 
 const SKILL_MD_TEMPLATE = `---
 name: st-reference
@@ -47,20 +60,22 @@ Authoritative CODESYS / TwinCAT 3 Structured Text language reference, installed 
 ## Where the docs live
 
 \`\`\`
-${REFERENCE_REL_PATH}/
+${REFERENCE_REL_FROM_SKILL}/
 \`\`\`
 
-Start at \`${REFERENCE_REL_PATH}/00-index.md\` for the full table of contents.
+(sibling folder of this SKILL.md — full path \`${REFERENCE_REL_PATH}/\`)
+
+Start at \`${REFERENCE_REL_FROM_SKILL}/00-index.md\` for the full table of contents.
 
 ## Files to read first
 
 Pretraining is unreliable for ST — vendor-specific pragmas, lifecycle slots, and shadowing rules are easy to get wrong from memory. Always check the reference before guessing:
 
-- \`${REFERENCE_REL_PATH}/07-pragmas.md\` — pragmas that silently change behavior
-- \`${REFERENCE_REL_PATH}/09-shadowing.md\` — name-resolution search order
-- \`${REFERENCE_REL_PATH}/11-fb-lifecycle.md\` — \`FB_Init\` / \`FB_Reinit\` / \`FB_Exit\` rules
-- \`${REFERENCE_REL_PATH}/12-global-init-slots.md\` — global init slot ordering
-- \`${REFERENCE_REL_PATH}/13-error-messages.md\` — compiler error catalog
+- \`${REFERENCE_REL_FROM_SKILL}/07-pragmas.md\` — pragmas that silently change behavior
+- \`${REFERENCE_REL_FROM_SKILL}/09-shadowing.md\` — name-resolution search order
+- \`${REFERENCE_REL_FROM_SKILL}/11-fb-lifecycle.md\` — \`FB_Init\` / \`FB_Reinit\` / \`FB_Exit\` rules
+- \`${REFERENCE_REL_FROM_SKILL}/12-global-init-slots.md\` — global init slot ordering
+- \`${REFERENCE_REL_FROM_SKILL}/13-error-messages.md\` — compiler error catalog
 
 Use the Read tool to pull only the section you need.
 
@@ -70,7 +85,7 @@ Run \`volt-lsp-st init --update\` (or \`volt init --force\`) to refresh the corp
 `;
 
 export interface InitOptions {
-	/** Target project root (will receive `docs/codesys-reference/` + `.claude/skills/st-reference/SKILL.md`). */
+	/** Target project root (everything lands under `.claude/skills/st-reference/`). */
 	targetDir: string;
 	/** Refresh an existing install. If false (default), reuses existing docs. */
 	update?: boolean;
@@ -96,7 +111,7 @@ export async function runInit(opts: InitOptions): Promise<InitResult> {
 	const targetDir = resolve(opts.targetDir);
 	const destDocsDir = join(targetDir, REFERENCE_REL_PATH);
 	const skillPath = join(targetDir, SKILL_REL_PATH);
-	const versionMarkerPath = join(targetDir, VERSION_MARKER);
+	const versionMarkerPath = join(targetDir, VERSION_MARKER_REL_PATH);
 
 	// Sanity-check source corpus exists.
 	try {

@@ -44,7 +44,7 @@ describe("init: fresh install", () => {
 		const content = await readFile(result.skillPath, "utf-8");
 		expect(content).toContain("name: st-reference");
 		expect(content).toContain("description:");
-		expect(content).toContain("docs/codesys-reference/");
+		expect(content).toContain(".claude/skills/st-reference/codesys-reference/");
 		expect(content).toContain("07-pragmas.md");
 	});
 
