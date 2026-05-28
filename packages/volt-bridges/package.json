@@ -17,7 +17,7 @@
     "build": "bash ./build-bridges.sh",
     "test": "bun test",
     "test:cs": "dotnet test beckhoff/BeckhoffBridge.sln",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

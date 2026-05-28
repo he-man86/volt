@@ -321,6 +321,40 @@ internal sealed class BeckhoffConnection
 	}
 
 	/// <summary>
+	/// Get the TwinCAT System Manager root — the parent of TIPC (PLC),
+	/// TIID (I/O Devices), TINC (Motion / NC), and other top-level subtrees.
+	/// Used by the discovery endpoints (/tree, /debug with path) to reach
+	/// items outside the PLC source-code tree — drives, NC axes, IO
+	/// devices, etc. — purely for type-code documentation; volt-agent
+	/// itself only syncs PLC source.
+	///
+	/// Strategy: probe a list of known top-level subtree paths and return
+	/// a synthetic parent node that exposes them as children. ITcSysManager
+	/// doesn't expose a single "root" via LookupTreeItem (empty string
+	/// throws on many versions), so we enumerate the well-known subtrees
+	/// instead — same approach TwinCAT's own UI uses to populate Solution
+	/// Explorer's left rail.
+	/// </summary>
+	public List<dynamic> GetSystemRoots()
+	{
+		if (_sysManager == null) throw new InvalidOperationException("Not connected");
+		// Well-known top-level subtree paths in TwinCAT 3:
+		//   TIPC = PLC, TIID = I/O Devices, TINC = NC (Motion),
+		//   TICC = CNC, TISC = Safety, TIRC = Real-Time, TIRT = Routes,
+		//   TIRR = Run-Time, TIAC = Analytics, TIAE = AE (TC/BSD)
+		// We probe each — missing subtrees just throw (TwinCAT installs
+		// vary by license), so we collect only what's actually present.
+		var roots = new List<dynamic>();
+		string[] knownPaths = { "TIPC", "TIID", "TINC", "TICC", "TISC", "TIRC", "TIRT", "TIRR", "TIAC", "TIAE" };
+		foreach (var path in knownPaths)
+		{
+			try { roots.Add(_sysManager.LookupTreeItem(path)); }
+			catch { /* subtree not present in this license — skip */ }
+		}
+		return roots;
+	}
+
+	/// <summary>
 	/// Get the PLC project root tree item (NestedProject if available).
 	/// This is the correct root for CRUD operations on POUs, GVLs, DUTs.
 	/// </summary>

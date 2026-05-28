@@ -1,0 +1,9 @@
+# C# / .NET build outputs — bin/ and obj/ trees explode with each build.
+# Keep them local; ship via build-bridges.sh into dist/ instead.
+**/bin/
+**/obj/
+
+# .NET tooling caches
+*.user
+*.suo
+.vs/

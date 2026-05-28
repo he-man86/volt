@@ -57,12 +57,30 @@ internal sealed class DebugHandler
 	{
 		if (!_connection.IsConnected) throw BridgeException.NotConnected();
 
-		var name = body["name"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("Missing 'name' field");
+		var name = body["name"]?.GetValue<string>();
+		var path = body["path"]?.GetValue<string>();
+		if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(path))
+			throw BridgeException.BadRequest("Provide either 'name' (PLC-tree search) or 'path' (LookupTreeItem, e.g. 'TIID^Device 1^Box 1')");
 
-		var item = _connection.FindItemOrThrow(name, "item");
+		// `path` wins when both are given — it's the more specific selector
+		// (LookupTreeItem-addressable items live anywhere in the TwinCAT
+		// system tree, not just the PLC subtree FindItemOrThrow walks).
+		dynamic item;
+		if (!string.IsNullOrEmpty(path))
+		{
+			try { item = _connection.LookupTreeItem(path); }
+			catch (Exception ex) { throw BridgeException.NotFound("tree item", $"{path} ({ex.Message})"); }
+		}
+		else
+		{
+			item = _connection.FindItemOrThrow(name!, "item");
+		}
 
-		var result = new Dictionary<string, object?> { ["name"] = name };
+		var result = new Dictionary<string, object?>
+		{
+			["name"] = name ?? TryReadName(item),
+			["path"] = path,
+		};
 
 		// CLR type (always System.__ComObject for COM proxies, but useful sanity)
 		try { result["clrType"] = ((object)item).GetType().FullName; }
@@ -136,5 +154,10 @@ internal sealed class DebugHandler
 	private static object? SafeValue(object? value)
 	{
 		return value;
+	}
+
+	private static string TryReadName(dynamic item)
+	{
+		try { return (string)item.Name; } catch { return "<unknown>"; }
 	}
 }

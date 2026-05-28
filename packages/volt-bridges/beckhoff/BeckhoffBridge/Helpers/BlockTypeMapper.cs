@@ -39,11 +39,31 @@ namespace BeckhoffBridge.Helpers;
 ///   655 = Interface Property Set          [inherited — needs sample (Set on interface property)]
 ///   657 = Library                         [verified by name — "Tc2_Standard", "Tc3_Module", "Tc2_System" → 657]
 ///
-/// Known gaps: 607, 616, 619-620, 622-653, 656, 658+. Likely visualizations,
-/// image pools, recipes, task calls, persistent vars, NWLs, alarm
-/// configurations, etc. <see cref="ToNodeType"/> warns once per unmapped
-/// code so they surface in bridge.log — /debug them when they appear,
-/// then add to this map.
+/// Known gaps within the PLC tree (600-range): 607, 616, 619-620, 622-653,
+/// 656, 658+. Likely visualizations, image pools, recipes, task calls,
+/// persistent vars, NWLs, alarm configurations, etc.
+///
+/// System-tree type codes (outside the 600-range — surfaced via /tree
+/// endpoint, ITcSysManager.LookupTreeItem paths). volt-agent's CRUD
+/// surface stays inside the PLC tree (POU/DUT/GVL/Interface), so these
+/// codes are documented for discovery / completeness, not for routing:
+///   0   = SYSTEM root container                  [verified — TwinCAT root]
+///   1   = Sub-task (child of Tasks)              [verified — PlcTask under Tasks]
+///   14  = PLC root                               [verified — TIPC]
+///   16  = Tasks container                        [verified — TwinCAT system tasks]
+///   17  = I/O Devices container                  [verified — TIID]
+///   19  = MOTION / NC                            [verified — TINC and its inner MOTION node]
+///   31  = Routes                                 [verified — TIRT]
+///   56  = PLC Project (within TIPC)              [verified — PlcSample_BasicPlcElements]
+///   57  = PLC Project Instance                   [verified — PlcSample_BasicPlcElements Instance]
+///   200 = CAM                                    [verified by name — "CAM"]
+///   505 = SAFETY                                 [verified — TISC]
+///
+/// <see cref="ToNodeType"/> warns once per unmapped code so they surface
+/// in bridge.log — /debug them when they appear, then add to this map.
+/// Use /tree (no args = walks all system subtrees; { path: "TIID" } = a
+/// specific subtree) to enumerate everything reachable from
+/// ITcSysManager and watch for codes not yet listed above.
 /// </summary>
 internal static class BlockTypeMapper
 {

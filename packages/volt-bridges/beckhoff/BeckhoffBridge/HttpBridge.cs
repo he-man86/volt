@@ -38,6 +38,7 @@ internal sealed class HttpBridge
 	private readonly PushHandler _push;
 	private readonly BuildHandler _build;
 	private readonly DebugHandler _debug;
+	private readonly TreeHandler _tree;
 	// SetHandler / CreateHandler / UpdateHandler / RenameHandler / DeleteHandler
 	// / GetHandler still exist as internal helpers called by PushHandler and
 	// FetchHandler — they're no longer wired to HTTP routes directly.
@@ -56,6 +57,7 @@ internal sealed class HttpBridge
 		_push = new PushHandler(connection);
 		_build = new BuildHandler(connection);
 		_debug = new DebugHandler(connection);
+		_tree = new TreeHandler(connection);
 	}
 
 	/// <summary>Start listening for requests.</summary>
@@ -268,6 +270,7 @@ internal sealed class HttpBridge
 				"/push"    => _connection.RunOnStaThread(() => _push.Handle(body ?? new JsonObject())),
 				"/build"   => _connection.RunOnStaThread(() => _build.Handle(body ?? new JsonObject())),
 				"/debug"   => _connection.RunOnStaThread(() => _debug.Handle(body ?? new JsonObject())),
+				"/tree"    => _connection.RunOnStaThread(() => _tree.Handle(body ?? new JsonObject())),
 				_ => null,
 			};
 
@@ -314,7 +317,8 @@ internal sealed class HttpBridge
 			"/refs" => "Refs",
 			"/fetch" => "Fetch",
 			"/push" => $"Push ({(body?["ops"] as JsonArray)?.Count ?? 0} ops)",
-			"/debug" => $"Debug {body?["name"]?.GetValue<string>()}",
+			"/debug" => $"Debug {body?["name"]?.GetValue<string>() ?? body?["path"]?.GetValue<string>()}",
+			"/tree" => $"Tree {body?["path"]?.GetValue<string>() ?? "(all roots)"}",
 			_ => null,
 		};
 	}
