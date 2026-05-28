@@ -620,6 +620,182 @@ END_FUNCTION_BLOCK
 `,
 	},
 
+	// ─── More variable + POU attributes (batch 3) ────────────────────
+
+	{
+		name: "instance_path_with_reflection",
+		pouName: "FB_LANG_instance_path_with_reflection",
+		kind: "function_block",
+		feature: "{attribute 'instance-path'} STRING var inside a {attribute 'reflection'} FB",
+		fromDoc: "07-pragmas.md#instance-path",
+		expectTcAccepts: true,
+		note: "Compound attribute setup: instance-path requires reflection on the FB + noinit on the STRING.",
+		plcPrgVar: "fb_ipr : FB_LANG_instance_path_with_reflection;",
+		plcPrgBody: "fb_ipr();",
+		source:
+`{attribute 'reflection'}
+FUNCTION_BLOCK FB_LANG_instance_path_with_reflection
+VAR
+	{attribute 'instance-path'}
+	{attribute 'noinit'}
+	sMyPath : STRING(255);
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "displaymode_bin",
+		pouName: "FB_LANG_displaymode_bin",
+		kind: "function_block",
+		feature: "{attribute 'displaymode' := 'bin'} variant value",
+		fromDoc: "07-pragmas.md#displaymode",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_dmb : FB_LANG_displaymode_bin;",
+		plcPrgBody: "fb_dmb.iBits := 2#1010;",
+		source:
+`FUNCTION_BLOCK FB_LANG_displaymode_bin
+VAR
+	{attribute 'displaymode' := 'bin'}
+	iBits : BYTE;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "displaymode_dec",
+		pouName: "FB_LANG_displaymode_dec",
+		kind: "function_block",
+		feature: "{attribute 'displaymode' := 'dec'} variant value (the default, made explicit)",
+		fromDoc: "07-pragmas.md#displaymode",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_dmd : FB_LANG_displaymode_dec;",
+		plcPrgBody: "fb_dmd.iDec := 42;",
+		source:
+`FUNCTION_BLOCK FB_LANG_displaymode_dec
+VAR
+	{attribute 'displaymode' := 'dec'}
+	iDec : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "displaymode_invalid_value",
+		pouName: "FB_LANG_displaymode_invalid_value",
+		kind: "function_block",
+		feature: "{attribute 'displaymode' := 'xyz'} invalid value — should warn",
+		fromDoc: "07-pragmas.md#displaymode",
+		expectTcAccepts: true,
+		note: "Only valid values are bin/binary/dec/decimal/hex/hexadecimal. TC may silently ignore; LSP could validate the value enum.",
+		plcPrgVar: "fb_dmi : FB_LANG_displaymode_invalid_value;",
+		plcPrgBody: "fb_dmi.iVal := 1;",
+		source:
+`FUNCTION_BLOCK FB_LANG_displaymode_invalid_value
+VAR
+	{attribute 'displaymode' := 'xyz'}
+	iVal : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "suppress_warning_multi",
+		pouName: "FB_LANG_suppress_warning_multi",
+		kind: "function_block",
+		feature: "{attribute 'suppress_warning' := '<id1>','<id2>'} with multiple warning IDs",
+		fromDoc: "07-pragmas.md#suppress_warning",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_swm : FB_LANG_suppress_warning_multi;",
+		plcPrgBody: "fb_swm();",
+		source:
+`{attribute 'suppress_warning' := '0125','0033'}
+FUNCTION_BLOCK FB_LANG_suppress_warning_multi
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "no_init_aliases",
+		pouName: "FB_LANG_no_init_aliases",
+		kind: "function_block",
+		feature: "noinit / no_init / no-init — all three alias forms",
+		fromDoc: "07-pragmas.md#noinit",
+		expectTcAccepts: true,
+		note: "Per docs, three spellings of the same attribute. TC + LSP must accept all three identically.",
+		plcPrgVar: "fb_nia : FB_LANG_no_init_aliases;",
+		plcPrgBody: "fb_nia.iA := fb_nia.iA + 1;",
+		source:
+`FUNCTION_BLOCK FB_LANG_no_init_aliases
+VAR
+	{attribute 'noinit'}
+	iA : INT;
+	{attribute 'no_init'}
+	iB : INT;
+	{attribute 'no-init'}
+	iC : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "linkalways_with_unused_pou",
+		pouName: "FB_LANG_linkalways_with_unused_pou",
+		kind: "function_block",
+		feature: "{attribute 'linkalways'} on an FB that PLC_PRG doesn't call",
+		fromDoc: "07-pragmas.md#linkalways",
+		expectTcAccepts: true,
+		note: "The whole point of linkalways: force compile even when uncalled. PLC_PRG entry intentionally absent.",
+		plcPrgVar: undefined,
+		plcPrgBody: undefined,
+		source:
+`{attribute 'linkalways'}
+FUNCTION_BLOCK FB_LANG_linkalways_with_unused_pou
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	// ─── Region pragma — folding-only, no semantic effect ─────────────
+
+	{
+		name: "region_basic",
+		pouName: "FB_LANG_region_basic",
+		kind: "function_block",
+		feature: "{region 'name'} / {end_region} pair — source folding only",
+		fromDoc: "07-pragmas.md#region-pragma",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_rb : FB_LANG_region_basic;",
+		plcPrgBody: "fb_rb();",
+		source:
+`FUNCTION_BLOCK FB_LANG_region_basic
+VAR
+	{region 'state'}
+	iCounter : INT;
+	iTotal : INT;
+	{end_region}
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
 	// ─── Negative: message pragma {error} should make TC fail build ──
 
 	{

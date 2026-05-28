@@ -286,6 +286,94 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) text_message LS
 }
 `;
 
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) instance_path_with_reflection LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "instance_path_with_reflection",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) displaymode_bin LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "displaymode_bin",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) displaymode_dec LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "displaymode_dec",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) displaymode_invalid_value LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "displaymode_invalid_value",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) suppress_warning_multi LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "suppress_warning_multi",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) no_init_aliases LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "no_init_aliases",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) linkalways_with_unused_pou LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "linkalways_with_unused_pou",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) region_basic LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "region_basic",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) error_message LSP diagnostics agree with TwinCAT 1`] = `
 {
   "agreementOnPassFail": false,
