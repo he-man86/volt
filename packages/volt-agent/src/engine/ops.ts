@@ -74,15 +74,17 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
 
 /**
  * Extension per POU kind. Extension communicates what's IN the file:
- *  - `.st`   — ST source (POU body + optional children inline). Also
- *              used for Interfaces today — `.itf` is on the roadmap
- *              once st-parse.ts learns to slice INTERFACE AST nodes
- *              (which have no body / VAR sections, unlike POUs).
+ *  - `.st`   — ST source (POU body + optional children inline)
  *  - `.gvl`  — Global Variable List (pure declarations)
- *  - `.dut`  — Data Unit Type (struct / union / enum / alias declaration)
+ *  - `.dut`  — Data Unit Type (struct / union / enum / alias)
+ *  - `.itf`  — Interface declaration + method/property signatures.
+ *              Pull works; push round-trip is a known TODO — st-parse.ts
+ *              currently rejects INTERFACE as outer kind (different AST
+ *              shape: nested methods/properties, no body/varSections).
+ *              Edit interfaces in TwinCAT for now; pull picks up changes.
  *
- * All three (.st/.gvl/.dut) contain ST grammar so volt-vscode registers
- * them under one language id. The kind hint helps humans and bridges
+ * All four extensions contain ST grammar so volt-vscode registers them
+ * under one language id. The kind hint helps humans and bridges
  * round-trip the file to the correct IDE item type without re-inferring
  * from content every time.
  *
@@ -94,7 +96,7 @@ const KIND_EXT: Record<CreatePouOp["kind"], string> = {
 	function_block: "st",
 	function: "st",
 	program: "st",
-	interface: "st",
+	interface: "itf",
 	gvl: "gvl",
 	structure: "dut",
 	union: "dut",
@@ -103,7 +105,7 @@ const KIND_EXT: Record<CreatePouOp["kind"], string> = {
 };
 
 /** Every extension this workspace recognizes as ST-content. */
-const POU_EXTENSIONS = [".st", ".gvl", ".dut"] as const;
+const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf"] as const;
 
 export interface SyncOptions {
 	/**
@@ -171,7 +173,7 @@ export async function syncFromBridge(
 
 	const gitattributesSha = writeBlob(
 		repoPath,
-		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n",
+		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n*.itf text eol=lf\n",
 	);
 	entries.set(".gitattributes", { path: ".gitattributes", sha: gitattributesSha });
 
