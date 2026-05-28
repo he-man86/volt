@@ -77,11 +77,9 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
  *  - `.st`   — ST source (POU body + optional children inline)
  *  - `.gvl`  — Global Variable List (pure declarations)
  *  - `.dut`  — Data Unit Type (struct / union / enum / alias)
- *  - `.itf`  — Interface declaration + method/property signatures.
- *              Pull works; push round-trip is a known TODO — st-parse.ts
- *              currently rejects INTERFACE as outer kind (different AST
- *              shape: nested methods/properties, no body/varSections).
- *              Edit interfaces in TwinCAT for now; pull picks up changes.
+ *  - `.itf`  — Interface declaration + method/property signatures
+ *              (full pull + push round-trip via parseInterfaceFile in
+ *              st-parse.ts).
  *
  * For POU kinds with a body (function_block / function / program), the
  * BODY LANGUAGE wins over this default — see LANG_EXT. So FB with FBD
