@@ -611,6 +611,10 @@ function parseTypeDecl(c: Cursor): TypeDecl | undefined {
 	const colon = c.expectPunct(":", "after TYPE name");
 	if (colon === undefined) return undefined;
 	const body = parseDutBody(c);
+	// TwinCAT-idiomatic optional `;` after the body (engineers C-style
+	// terminate the enum/struct/alias before END_TYPE). Spec-permissive
+	// for aliases (always required), tolerated by TC for the others.
+	c.eatPunct(";");
 	const endType = c.expectKeyword("END_TYPE", "after TYPE body");
 	const endSpan = endType?.span ?? body?.span ?? start.span;
 	if (body === undefined) {
