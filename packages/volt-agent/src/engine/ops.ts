@@ -125,6 +125,20 @@ const LANG_EXT: Record<string, string> = {
 /** Every extension this workspace recognizes as a POU file. */
 const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf", ".fbd", ".ld", ".sfc", ".cfc"] as const;
 
+/**
+ * Graphical body extensions. The bridge serializes these as placeholder
+ * text (real FBD/LD/SFC/CFC bodies are XML/binary, not parseable ST), so
+ * any push from a graphical file would either fail at parseFile or
+ * round-trip the placeholder back as garbage. Until a graphical LSP +
+ * unmasked bridge content arrive, treat them as PULL-ONLY: present in
+ * the workspace for inspection / git history, filtered out of push.
+ */
+const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
+
+function isGraphicalPath(path: string): boolean {
+	return GRAPHICAL_EXTENSIONS.some((e) => path.endsWith(e));
+}
+
 export interface SyncOptions {
 	/**
 	 * Skip the cache short-circuit AND the per-item incremental-fetch
@@ -387,6 +401,11 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	for (const entry of entries) {
 		const name = pouNameFromPath(entry.path);
 		if (name === undefined) continue;
+		// Graphical POUs (.fbd/.ld/.sfc/.cfc) are pull-only — their content
+		// is a placeholder, not parseable. Edit them in TwinCAT; volt pull
+		// picks up the changes. Filter from the push map so they don't
+		// trigger spurious diffs or parser crashes.
+		if (isGraphicalPath(entry.path)) continue;
 		const segs = entry.path.split("/");
 		const folder = segs.slice(0, -1).join("/");
 		out.set(name, { name, folder, entry });
