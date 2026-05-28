@@ -203,7 +203,11 @@ function sliceInterfaceMethod(src: string, method: InterfaceMethod): string {
  * body" — which is exactly what an interface property's Get/Set is.
  */
 function parseInterfacePropertyUnit(src: string, prop: InterfaceProperty): ParsedChild {
-	const declaration = src.slice(prop.span.start, declHeaderEnd(src, prop.span, /\bGET\b|\bSET\b|\bEND_PROPERTY\b/i)).trimEnd();
+	// Interface property syntax keeps GET / SET tokens INSIDE the
+	// declaration line (e.g. `PROPERTY State : INT GET`) — there's no
+	// separate END_GET / END_SET block to slice off, just END_PROPERTY
+	// at the bottom. So the declaration is everything up to END_PROPERTY.
+	const declaration = src.slice(prop.span.start, declHeaderEnd(src, prop.span, /\bEND_PROPERTY\b/i)).trimEnd();
 	const out: ParsedChild = {
 		kind: "property",
 		name: prop.name.text,
