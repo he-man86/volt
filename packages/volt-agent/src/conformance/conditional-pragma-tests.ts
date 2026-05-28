@@ -116,6 +116,33 @@ END_METHOD
 	},
 
 	{
+		name: "conditional_orphan_else",
+		pouName: "FB_LANG_conditional_orphan_else",
+		kind: "function_block",
+		feature: "Bare {ELSE} / {END_IF} without any preceding {IF} — orphan structure",
+		fromDoc: "07-pragmas.md#conditional-pragmas",
+		expectTcAccepts: false,
+		note: "Both TC and LSP should flag the orphan {ELSE} (LSP's orphanConditionalPragma check mirrors TC's 'Unexpected Pragma' error). Pure structural check — no compile-time predicate evaluation needed.",
+		plcPrgVar: "fb_coe : FB_LANG_conditional_orphan_else;",
+		plcPrgBody: "fb_coe.Run();",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditional_orphan_else
+VAR
+	iCounter : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Run
+iCounter := 1;
+{ELSE}
+iCounter := 2;
+{END_IF}
+END_METHOD
+`,
+	},
+
+	{
 		name: "conditional_undefine_after_define",
 		pouName: "FB_LANG_conditional_undefine_after_define",
 		kind: "function_block",

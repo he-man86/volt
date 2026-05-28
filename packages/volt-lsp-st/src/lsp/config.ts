@@ -51,6 +51,15 @@ export interface DiagnosticConfig {
 	 * would be silly (the user wrote them on purpose), so default ON.
 	 */
 	messagePragmas: boolean;
+	/**
+	 * Flag orphan conditional-compile pragmas — `{ELSE}` / `{ELSIF}` /
+	 * `{END_IF}` that appear without a matching `{IF}` earlier in the
+	 * source. TC raises "Unexpected Pragma: 'ELSE' found without
+	 * matching 'if'" for the same case. Doesn't model the full
+	 * preprocessor (no compile-time define evaluation, no branch
+	 * stripping) — just the structural balance.
+	 */
+	orphanConditionalPragma: boolean;
 }
 
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
@@ -68,6 +77,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	initSlotCollision: true,
 	conversionSourceMismatch: true,
 	messagePragmas: true,
+	orphanConditionalPragma: true,
 };
 
 /**

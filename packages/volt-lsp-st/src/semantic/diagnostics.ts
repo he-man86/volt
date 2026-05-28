@@ -305,6 +305,45 @@ function analyzePragmas(
 		pragmas.push({ token: tok, directive, attributeName, slotValue: value, messageText });
 	}
 
+	// −1. Orphan conditional-compile pragmas. Track {IF} depth as we
+	// walk pragmas in source order; emit a diagnostic when an
+	// {ELSE} / {ELSIF} / {END_IF} appears with depth 0. Matches TC's
+	// "Unexpected Pragma: 'ELSE' found without matching 'if'" error.
+	// Stays structural — no compile-time predicate evaluation, no
+	// branch stripping — but the balance check is enough for the
+	// common authoring mistake (typo, missed close brace).
+	if (cfg.orphanConditionalPragma) {
+		let ifDepth = 0;
+		for (const pr of pragmas) {
+			const dir = pr.directive.toLowerCase();
+			if (dir === "if") {
+				ifDepth++;
+			} else if (dir === "end_if") {
+				if (ifDepth === 0) {
+					out.push({
+						severity: "error",
+						span: pr.token.span,
+						source: "volt-lsp-st",
+						code: "orphan-conditional-pragma",
+						message: `Unexpected pragma '${pr.directive}' without a matching '{IF}'.`,
+					});
+				} else {
+					ifDepth--;
+				}
+			} else if (dir === "else" || dir === "elsif") {
+				if (ifDepth === 0) {
+					out.push({
+						severity: "error",
+						span: pr.token.span,
+						source: "volt-lsp-st",
+						code: "orphan-conditional-pragma",
+						message: `Unexpected pragma '${pr.directive}' without a matching '{IF}'.`,
+					});
+				}
+			}
+		}
+	}
+
 	for (const pr of pragmas) {
 		// 0. Message pragmas — mirror the author's compile-time message
 		//    channel as an LSP diagnostic of matching severity. Matches

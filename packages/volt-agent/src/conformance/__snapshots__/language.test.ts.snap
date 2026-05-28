@@ -958,6 +958,25 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_els
 }
 `;
 
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_orphan_else LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
+    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+  ],
+  "lspWarnings": 0,
+  "name": "conditional_orphan_else",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_undefine_after_define LSP diagnostics agree with TwinCAT 1`] = `
 {
   "agreementOnPassFail": false,
