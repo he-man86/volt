@@ -2,14 +2,17 @@
  * Workspace ↔ bridge translation. Called by `volt import` and `volt export`
  * (in `import.ts` / `export.ts`); not used directly by the CLI surface.
  *
- * Workspace layout: ONE FILE PER POU. The file contains the outer POU
- * (FUNCTION_BLOCK / PROGRAM / FUNCTION / INTERFACE) followed by its
- * children (METHOD / ACTION / PROPERTY) as TOP-LEVEL SIBLINGS — the
- * format the `@opencode-ai/volt-lsp-st` parser already speaks. Parent
- * association is implicit from the file name (`POUs/FB_Motor.st`
- * contains everything related to `FB_Motor`). The bridge protocol
- * stays per-child; this module owns the round-trip via `st-assemble.ts`
- * (write side) and `parseSource` from `@opencode-ai/volt-lsp-st` (read side).
+ * Workspace layout: ONE FILE PER POU, extension picked by kind/language
+ * (see `pou-files.ts` — `.st`/`.gvl`/`.dut`/`.itf` for ST-grammar
+ * content, `.fbd`/`.ld`/`.sfc`/`.cfc` for graphical bodies). The file
+ * contains the outer POU (FUNCTION_BLOCK / PROGRAM / FUNCTION /
+ * INTERFACE) followed by its children (METHOD / ACTION / PROPERTY) as
+ * TOP-LEVEL SIBLINGS — the format the `@opencode-ai/volt-lsp-st` parser
+ * already speaks. Parent association is implicit from the file name
+ * (`POUs/FB_Motor.st` contains everything related to `FB_Motor`). The
+ * bridge protocol stays per-child; this module owns the round-trip via
+ * `st-assemble.ts` (write side) and `parseSource` from
+ * `@opencode-ai/volt-lsp-st` (read side).
  *
  * Two directions:
  *
@@ -21,7 +24,7 @@
  *
  *   applyPushToBridge: snapshot commit → bridge.pushBatch
  *     Diffs the workspace tree against the prior snapshot tree at the
- *     FILE level (every `.st` file is one POU). For each POU that
+ *     FILE level (every POU file — see `POU_EXTENSIONS` — is one POU). For each POU that
  *     changed, PARSES both versions with the LSP and emits per-child
  *     primitive ops.
  *
@@ -128,7 +131,7 @@ export async function syncFromBridge(
 				entries.set(entry.path, { path: entry.path, sha: entry.sha, mode: entry.mode });
 				continue;
 			}
-			const name = pouNameFromPath(entry.path);
+			const name = nameFromPouPath(entry.path);
 			if (name === undefined) continue;
 			if (fetchResp.removed.includes(name)) continue;
 			if (fetchResp.changed.some((c) => c.name === name)) continue;
@@ -171,16 +174,10 @@ export async function syncFromBridge(
 /** Materialize a bridge item into a single workspace file (path + content). */
 function materializeItem(item: AIGetResult): { path: string; content: string } {
 	const folder = item.folder ?? "";
-	// The bridge sends the vendor-neutral kind string authoritatively.
-	// Trust it. No text-inference fallback — that path masked the
-	// original bug where a GVL with a header comment got misclassified
-	// as a function_block (declaration text starts with `(*`, not
-	// VAR_GLOBAL, so inferPouKind defaulted to function_block, wrapped
-	// with END_FUNCTION_BLOCK, and saved as .st). If kind is missing
-	// the bridge has a bug — fail loudly instead of guessing.
-	if (item.kind === undefined) {
-		throw new Error(`bridge response missing kind for "${item.name}" — bridge needs upgrade`);
-	}
+	// Trust bridge's vendor-neutral kind. No text-inference fallback:
+	// a previous fallback that re-derived kind from declaration text
+	// silently misclassified GVLs whose first line was a comment as
+	// function_block, wrapping them with END_FUNCTION_BLOCK.
 	const kind = asPouKind(item.kind);
 	if (kind === undefined) {
 		throw new Error(`unsupported kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
@@ -279,7 +276,7 @@ export async function workspaceMatchesBridge(
 		if (normalizeLineEndings(content) !== wsContent) return false;
 	}
 
-	// Workspace must not have any extra .st files beyond what the
+	// Workspace must not have any extra POU files beyond what the
 	// bridge has — anything else is a workspace-side addition that
 	// would mean the workspace is AHEAD of the bridge, not in-sync.
 	for (const wsPath of wsByPath.keys()) {
@@ -293,9 +290,10 @@ export async function workspaceMatchesBridge(
 
 /**
  * Translate the diff between two snapshot commits into a list of
- * primitive bridge ops. Per-POU, parse-driven: every `.st` file is one
- * POU, so the file-level diff maps directly to POU events; per-child
- * changes come from running the LSP parser on each file.
+ * primitive bridge ops. Per-POU, parse-driven: every POU file (see
+ * `POU_EXTENSIONS`) is one POU, so the file-level diff maps directly
+ * to POU events; per-child changes come from running the LSP parser
+ * on each file.
  */
 export async function applyPushToBridge(
 	repoPath: string,
@@ -328,7 +326,7 @@ export async function applyPushToBridge(
 
 	const newFolders: Record<string, string> = {};
 	for (const entry of newTreeEntries) {
-		const name = pouNameFromPath(entry.path);
+		const name = nameFromPouPath(entry.path);
 		if (name === undefined) continue;
 		const segs = entry.path.split("/");
 		newFolders[name] = segs.slice(0, -1).join("/");
@@ -353,7 +351,7 @@ interface PouFile {
 function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	const out = new Map<string, PouFile>();
 	for (const entry of entries) {
-		const name = pouNameFromPath(entry.path);
+		const name = nameFromPouPath(entry.path);
 		if (name === undefined) continue;
 		// Graphical POUs (.fbd/.ld/.sfc/.cfc) are pull-only — their content
 		// is a placeholder, not parseable. Edit them in TwinCAT; volt pull
@@ -642,10 +640,6 @@ function diffAccessor(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-
-// Re-export the shared helper under the local name historically used
-// inside ops.ts. New callers should import directly from ./pou-files.js.
-const pouNameFromPath = nameFromPouPath;
 
 function inferPouKind(declaration: string): CreatePouOp["kind"] {
 	const head = declaration.trimStart().toUpperCase();

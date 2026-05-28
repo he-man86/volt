@@ -25,8 +25,19 @@ import type {
 } from "./types.js";
 import type { Remote } from "./remote.js";
 
+/**
+ * Test-fixture shape — looser than the strict wire `AIGetResult` so
+ * fixtures don't have to repeat `kind`/`implementation` on every item.
+ * TestBridge normalizes each fixture via `withInferredKind` before
+ * storing, producing a valid AIGetResult at runtime.
+ */
+export type TestBridgeItem = Omit<AIGetResult, "kind" | "implementation"> & {
+	kind?: string;
+	implementation?: string;
+};
+
 export interface TestBridgeOptions {
-	initialItems?: AIGetResult[];
+	initialItems?: TestBridgeItem[];
 	/** Per-call override for build. Default: ok with no diagnostics. */
 	build?: (req: BuildRequest) => Promise<BuildResponse>;
 	/** Override the health response — defaults to a synthetic "beckhoff/test-project". */
@@ -64,10 +75,13 @@ export class TestBridge implements Remote {
 
 	async getRefs(): Promise<RefsResponse> {
 		const versions = this.computeVersions();
+		const kinds: Record<string, string> = {};
+		for (const [name, item] of this.items) kinds[name] = item.kind;
 		return {
 			projectVersion: hashMap(versions),
 			structureVersion: hashStructure(versions),
 			items: versions,
+			kinds,
 		};
 	}
 
@@ -191,7 +205,7 @@ export class TestBridge implements Remote {
 	// ─── Test helpers ──────────────────────────────────────────────────
 
 	/** Add or replace an item to simulate engineer-side IDE edits. */
-	mutate(name: string, item: AIGetResult | undefined): void {
+	mutate(name: string, item: TestBridgeItem | undefined): void {
 		if (item === undefined) this.items.delete(name);
 		else this.items.set(name, withInferredKind({ ...item, name }));
 	}
@@ -361,10 +375,15 @@ function affectedPouName(op: PushOp): string | undefined {
 // every test fixture to repeat itself. This is fixture-side
 // normalization, NOT an engine fallback.
 
-function withInferredKind(item: AIGetResult): AIGetResult {
-	if (item.kind !== undefined) return item;
-	const kind = inferKindFromDeclaration(item.declaration ?? "");
-	return kind === undefined ? item : { ...item, kind };
+function withInferredKind(item: TestBridgeItem): AIGetResult {
+	const kind = item.kind ?? inferKindFromDeclaration(item.declaration);
+	if (kind === undefined) {
+		throw new Error(
+			`TestBridge fixture "${item.name}": cannot infer kind from declaration; ` +
+				`set fixture's "kind" field explicitly.`,
+		);
+	}
+	return { ...item, kind };
 }
 
 function inferKindFromDeclaration(decl: string): string | undefined {

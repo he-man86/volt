@@ -136,8 +136,9 @@ export interface AIGetResult {
 	 * code to this canonical vocabulary, so clients never need
 	 * vendor-specific knowledge to route an item.
 	 */
-	kind?: string;
-	declaration?: string;
+	kind: string;
+	declaration: string;
+	/** Absent for declaration-only items (DUTs, GVLs, interfaces). */
 	implementation?: string;
 	/**
 	 * Language of `implementation` (ST / FBD / LD / SFC / CFC / UNKNOWN).

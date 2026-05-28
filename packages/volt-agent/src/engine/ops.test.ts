@@ -125,6 +125,77 @@ describe("syncFromBridge", () => {
 		expect(content).toContain("END_FUNCTION_BLOCK");
 	});
 
+	it("routes by kind: GVL → .gvl, DUT → .dut, interface → .itf (no .st fallback)", async () => {
+		const bridge = new TestBridge({
+			initialItems: [
+				{
+					name: "GVL_Globals",
+					folder: "GVLs",
+					declaration: "{attribute 'qualified_only'}\nVAR_GLOBAL\n  gFoo : INT;\nEND_VAR",
+				},
+				{
+					name: "DUT_State",
+					folder: "DUTs",
+					declaration: "TYPE DUT_State :\nSTRUCT\n  x : INT;\nEND_STRUCT\nEND_TYPE",
+				},
+				{
+					name: "I_Mover",
+					folder: "Interfaces",
+					declaration: "INTERFACE I_Mover",
+				},
+			],
+		});
+
+		const commitSha = await syncFromBridge(repoPath, bridge);
+		const paths = listTree(repoPath, commitSha).map((e) => e.path);
+
+		expect(paths).toContain("GVLs/GVL_Globals.gvl");
+		expect(paths).toContain("DUTs/DUT_State.dut");
+		expect(paths).toContain("Interfaces/I_Mover.itf");
+		// Regression guard: GVL should not be wrapped with END_FUNCTION_BLOCK
+		// (the bug that motivated the vendor-neutral `kind` refactor).
+		const gvlBlob = listTree(repoPath, commitSha).find((e) => e.path === "GVLs/GVL_Globals.gvl")!;
+		const gvlContent = readBlob(repoPath, gvlBlob.sha);
+		expect(gvlContent).toContain("VAR_GLOBAL");
+		expect(gvlContent).not.toContain("END_FUNCTION_BLOCK");
+	});
+
+	it("routes graphical POU bodies (FBD/LD/SFC/CFC) to their own extensions", async () => {
+		const bridge = new TestBridge({
+			initialItems: [
+				{
+					name: "FB_Graph",
+					kind: "function_block",
+					folder: "POUs",
+					declaration: "FUNCTION_BLOCK FB_Graph\nVAR END_VAR",
+					implementation: "<graphical-body-placeholder>",
+					language: "FBD",
+				},
+			],
+		});
+
+		const commitSha = await syncFromBridge(repoPath, bridge);
+		const paths = listTree(repoPath, commitSha).map((e) => e.path);
+
+		expect(paths).toContain("POUs/FB_Graph.fbd");
+		expect(paths).not.toContain("POUs/FB_Graph.st");
+	});
+
+	it("throws loudly when bridge returns a kind the materializer doesn't recognize", async () => {
+		const bridge = new TestBridge({
+			initialItems: [
+				{
+					name: "MysteryItem",
+					kind: "wormhole_block",
+					folder: "POUs",
+					declaration: "FUNCTION_BLOCK MysteryItem\nVAR END_VAR",
+				},
+			],
+		});
+
+		await expect(syncFromBridge(repoPath, bridge)).rejects.toThrow(/unsupported kind "wormhole_block"/);
+	});
+
 	it("is deterministic: same bridge state → same commit SHA across separate sync calls", async () => {
 		const makeBridge = () =>
 			new TestBridge({

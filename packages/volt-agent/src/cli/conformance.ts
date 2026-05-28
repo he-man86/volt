@@ -181,7 +181,7 @@ async function listTestPous(): Promise<string[]> {
 /** Recursively walk a directory and return every POU file's relative path
  *  (any of .st/.gvl/.dut/.itf/.fbd/.ld/.sfc/.cfc — single source of truth
  *  is pou-files.ts/POU_EXTENSIONS). */
-async function listWorkspaceStFiles(workspaceRoot: string): Promise<string[]> {
+async function listWorkspacePouFiles(workspaceRoot: string): Promise<string[]> {
 	const { readdirSync, statSync } = await import("node:fs");
 	const { resolve, relative, sep } = await import("node:path");
 	const { isPouPath } = await import("../engine/pou-files.js");
@@ -292,16 +292,17 @@ async function runAllScenarios(ws: string): Promise<void> {
 		const r = volt(ws, "pull");
 		assert(r.code === 0, "volt pull exit 0", r.stderr.trim());
 
-		// `.gitattributes` is always written (universal — pins .st to LF).
+		// `.gitattributes` is always written (universal — pins every POU
+		// extension to LF; see POU_EXTENSIONS).
 		assert(existsSync(join(ws, ".gitattributes")), ".gitattributes was written");
 
-		// Every item reported by /refs should have a corresponding .st
+		// Every item reported by /refs should have a corresponding POU
 		// file SOMEWHERE in the workspace tree. We don't care about the
 		// folder layout (vendor-specific) — just that the file exists.
-		const wsFiles = await listWorkspaceStFiles(ws);
+		const wsFiles = await listWorkspacePouFiles(ws);
 		assert(
 			wsFiles.length >= expectedItemCount,
-			`workspace has ≥${expectedItemCount} .st file(s) after import (one per bridge item)`,
+			`workspace has ≥${expectedItemCount} POU file(s) after import (one per bridge item)`,
 			`bridge has ${expectedItemCount} item(s); workspace has ${wsFiles.length} file(s)`,
 		);
 	}

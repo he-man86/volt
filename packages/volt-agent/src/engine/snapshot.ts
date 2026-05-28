@@ -96,7 +96,7 @@ export function saveState(snapshotPath: string, state: RepoState): void {
 
 /**
  * Walk the workspace tree and return one entry per tracked file (every
- * `.st` file plus `.gitattributes`), with paths normalized to forward
+ * POU file — see `POU_EXTENSIONS` — plus `.gitattributes`), with paths normalized to forward
  * slashes. The caller is responsible for hashing each content into the
  * snapshot bare repo to obtain its blob SHA — this function just
  * enumerates and reads.
@@ -344,9 +344,9 @@ export function detectWorkspaceDirty(
  * and git's `HEAD..@{u}` log: the delta from snapshot HEAD (= bridge's
  * last-known state) to the current workspace tree.
  *
- * One `.st` file = one top-level POU; the POU name is the basename.
- * Added/removed/modified follow the same rules as git's
- * `--name-status` against HEAD.
+ * One POU file (see `POU_EXTENSIONS`) = one top-level POU; the POU
+ * name is the basename. Added/removed/modified follow the same rules
+ * as git's `--name-status` against HEAD.
  */
 export function computeOutgoing(
 	snapshotPath: string,
