@@ -36,27 +36,26 @@ export interface PragmaTest {
 	fromDoc: string;
 	/** Whether TwinCAT is expected to accept this code (no errors). */
 	expectTcAccepts: boolean;
+	/**
+	 * VAR section snippet for PLC_PRG (e.g. `"fb : FB_LANG_hide_var;"`).
+	 * TwinCAT only analyzes code reachable from the program entry point —
+	 * without an instantiation in PLC_PRG, the test POU is dead code and
+	 * the compiler doesn't generate diagnostics for it. Required for
+	 * function_block / function tests.
+	 */
+	plcPrgVar?: string;
+	/** PLC_PRG body snippet — e.g. `"fb();"` — that exercises the instantiation. */
+	plcPrgBody?: string;
 	/** Optional human note explaining why we expect what we expect. */
 	note?: string;
 }
 
 export const PRAGMA_TESTS: readonly PragmaTest[] = [
-	// ─── Positive: attributes TC + LSP both should accept ─────────────
-
-	{
-		name: "qualified_only",
-		pouName: "GVL_LANG_qualified_only",
-		kind: "gvl",
-		feature: "{attribute 'qualified_only'} on a GVL forces gvl-qualified access",
-		fromDoc: "07-pragmas.md#qualified_only",
-		expectTcAccepts: true,
-		source:
-`{attribute 'qualified_only'}
-VAR_GLOBAL
-	gFoo : INT := 42;
-END_VAR
-`,
-	},
+	// NOTE: GVL push is currently a known limitation in volt-agent's
+	// st-parse (architecture: GVLs are vendor-controlled, pull-only).
+	// GVL-specific pragma tests (qualified_only, etc.) are tracked
+	// separately — they need a bridge-direct push path or a lift of
+	// the parseFile restriction. Catalog below covers FB pragmas only.
 
 	{
 		name: "hide_var",
@@ -65,6 +64,8 @@ END_VAR
 		feature: "{attribute 'hide'} on a variable hides it from online monitoring",
 		fromDoc: "07-pragmas.md#hide",
 		expectTcAccepts: true,
+		plcPrgVar: "fb_hide : FB_LANG_hide_var;",
+		plcPrgBody: "fb_hide.iSecret := 1;\nfb_hide.iVisible := 2;",
 		source:
 `FUNCTION_BLOCK FB_LANG_hide_var
 VAR
@@ -84,6 +85,8 @@ END_FUNCTION_BLOCK
 		feature: "{attribute 'call_after_init'} on a method runs after FB instantiation",
 		fromDoc: "07-pragmas.md#call_after_init",
 		expectTcAccepts: true,
+		plcPrgVar: "fb_cai : FB_LANG_call_after_init;",
+		plcPrgBody: "fb_cai();",
 		source:
 `FUNCTION_BLOCK FB_LANG_call_after_init
 VAR
@@ -110,6 +113,8 @@ END_METHOD
 		feature: "{warning 'msg'} pragma emits a TC warning (C0373), not an error",
 		fromDoc: "07-pragmas.md#message-pragmas",
 		expectTcAccepts: true,
+		plcPrgVar: "fb_warn : FB_LANG_warning_message;",
+		plcPrgBody: "fb_warn();",
 		note: "TC should accept (build succeeds) but emit a warning diagnostic.",
 		source:
 `FUNCTION_BLOCK FB_LANG_warning_message
@@ -135,6 +140,8 @@ END_FUNCTION_BLOCK
 		feature: "Typo in attribute name — TC ignores, LSP should warn",
 		fromDoc: "07-pragmas.md#attribute-pragma-catalog",
 		expectTcAccepts: true,
+		plcPrgVar: "fb_unk : FB_LANG_unknown_attribute_typo;",
+		plcPrgBody: "fb_unk.iX := 1;",
 		note: "TC silently ignores unknown attributes; LSP `unknownPragma` warning is the value-add.",
 		source:
 `FUNCTION_BLOCK FB_LANG_unknown_attribute_typo

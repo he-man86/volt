@@ -193,8 +193,15 @@ async function recordOne(
 	test: PragmaTest,
 ): Promise<RecordedEntry> {
 	const ext = KIND_EXT[test.kind];
-	const filePath = join(workspace, `${test.pouName}.${ext}`);
-	writeFileSync(filePath, test.source, "utf-8");
+	const testFilePath = join(workspace, `${test.pouName}.${ext}`);
+	writeFileSync(testFilePath, test.source, "utf-8");
+
+	// Wire the test POU into PLC_PRG so TwinCAT actually compiles
+	// it — TC only analyzes code reachable from the program entry
+	// point. Without this, every test would report 0 errors / 0
+	// warnings regardless of the actual code.
+	const plcPrgPath = join(workspace, "PLC_PRG.st");
+	writeFileSync(plcPrgPath, buildPlcPrg(test), "utf-8");
 
 	// --force: bypass drift detection. The recorder calls bridge.pushBatch
 	// deletePou directly between tests (it owns the bridge state), so
@@ -202,31 +209,36 @@ async function recordOne(
 	// deletion. --force reconciles instead of refusing.
 	const pushRes = volt(workspace, "push", "--force");
 	if (pushRes.code !== 0) {
-		try { rmSync(filePath); } catch { /* ignore */ }
+		try { rmSync(testFilePath); } catch { /* ignore */ }
+		try { rmSync(plcPrgPath); } catch { /* ignore */ }
 		throw new Error(`volt push failed: ${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
 	}
 
-	const buildRes = await bridge.build({ buildType: "incremental" });
+	const buildRes = await bridge.build({ buildType: "full" });
 
-	// Filter diagnostics to those scoped to this POU (or unscoped).
-	// Object names take the form "FB_LANG_x", "FB_LANG_x.AfterInit",
-	// "FB_LANG_x.AfterInit.impl" etc. Match on prefix.
+	// Filter diagnostics to those scoped to this POU (or unscoped) —
+	// exclude PLC_PRG and unrelated POUs. Object names take the form
+	// "FB_LANG_x", "FB_LANG_x.AfterInit", "FB_LANG_x.AfterInit.impl".
 	const scoped = buildRes.diagnostics.filter(
 		(d) => d.object === null || d.object === test.pouName || d.object.startsWith(`${test.pouName}.`),
 	);
 
-	// Clean up: remove file AND delete from bridge so the next test
-	// starts with a clean slate.
-	try { rmSync(filePath); } catch { /* ignore */ }
+	// Clean up: restore PLC_PRG to its empty default (don't delete —
+	// TC always has one) and delete the test POU from the bridge so
+	// the next test starts with a clean slate.
+	writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
+	const restoreRes = volt(workspace, "push", "--force");
+	if (restoreRes.code !== 0) {
+		console.log(`    (warn) failed to restore PLC_PRG: ${restoreRes.stderr.trim()}`);
+	}
+	try { rmSync(testFilePath); } catch { /* ignore */ }
+
 	const refs = await bridge.getRefs();
 	const ifVersion = refs.items[test.pouName];
 	if (ifVersion !== undefined) {
 		await bridge.pushBatch({ ops: [{ op: "deletePou", name: test.pouName, ifVersion }] });
 	}
 
-	// Per-test buildSuccess = no errors SCOPED to this POU. The whole
-	// project may have errors from other POUs (default PLC_PRG, etc.)
-	// — those aren't this test's concern.
 	const scopedHasError = scoped.some((d) => d.severity === "error");
 
 	return {
@@ -234,6 +246,25 @@ async function recordOne(
 		durationMs: buildRes.duration,
 		diagnostics: scoped,
 	};
+}
+
+const BARE_PLC_PRG = `PROGRAM PLC_PRG
+VAR
+END_VAR
+
+END_PROGRAM
+`;
+
+function buildPlcPrg(test: PragmaTest): string {
+	const varBlock = test.plcPrgVar !== undefined ? `\t${test.plcPrgVar}` : "";
+	const body = test.plcPrgBody ?? "";
+	return `PROGRAM PLC_PRG
+VAR
+${varBlock}
+END_VAR
+${body}
+END_PROGRAM
+`;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
