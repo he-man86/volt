@@ -373,3 +373,91 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_reinit_with_
   "tcWarnings": 0,
 }
 `;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) identifier_double_underscore LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspWarnings": 0,
+  "name": "identifier_double_underscore",
+  "tcErrors": 5,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) identifier_consecutive_underscores LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspWarnings": 0,
+  "name": "identifier_consecutive_underscores",
+  "tcErrors": 5,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_slot_default_50000 LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "init_slot_default_50000",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_slot_reserved_alarm_manager LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "init_slot_reserved_alarm_manager",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_slot_reserved_device_object LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "init_slot_reserved_device_object",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_slot_user_early LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "init_slot_user_early",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) shadowing_method_local_shadows_member LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_member",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) shadowing_method_param_shadows_member LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "shadowing_method_param_shadows_member",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
