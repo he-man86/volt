@@ -77,8 +77,10 @@ describe("language conformance: pragmas (LSP vs recorded TwinCAT)", () => {
 					name: test.name,
 					tcErrors: tc.diagnostics.filter((d) => d.severity === "error").length,
 					tcWarnings: tc.diagnostics.filter((d) => d.severity === "warning").length,
+					tcMessages: tc.diagnostics.map((d) => `[${d.severity}] ${d.message}`),
 					lspErrors: lspDiags.filter((d) => d.severity === "error").length,
 					lspWarnings: lspDiags.filter((d) => d.severity === "warning").length,
+					lspMessages: lspDiags.map((d) => `[${d.severity}] ${d.message}`),
 					agreementOnPassFail: lspHasError === tcHasError,
 				}).toMatchSnapshot();
 			});

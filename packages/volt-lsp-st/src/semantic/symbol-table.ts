@@ -175,45 +175,63 @@ export function buildSymbolTable(
 			? (file as SymbolTableInput).parseResult
 			: (file as ParseResult);
 		const uri = isInput ? (file as SymbolTableInput).uri : "";
+		// Track the most recent FB/PROGRAM/INTERFACE scope IN THIS FILE so
+		// standalone methods / actions / properties that follow it can be
+		// parented to it. This matches the workspace-file layout: one
+		// outer POU per file, followed by its members as top-level
+		// siblings after END_FUNCTION_BLOCK. Without this, method bodies
+		// that reference FB member vars would surface as
+		// "unresolvedIdentifier" diagnostics — the symbol table walked
+		// from method scope straight to project, skipping the FB.
+		let currentMemberHost: Scope | undefined;
 		for (const unit of parseResult.units) {
-			ingestTopLevel(project, unit, uri);
+			const newScope = ingestTopLevel(project, unit, uri, currentMemberHost);
+			if (
+				unit.kind === "function_block" ||
+				unit.kind === "program" ||
+				unit.kind === "interface"
+			) {
+				currentMemberHost = newScope;
+			}
+			// FUNCTION resets the member host — standalone members after
+			// a function are unusual and we don't claim them.
+			if (unit.kind === "function") currentMemberHost = undefined;
 		}
 	}
 	return project;
 }
 
-function ingestTopLevel(project: Scope, unit: TopLevel, uri: string): void {
+function ingestTopLevel(
+	project: Scope,
+	unit: TopLevel,
+	uri: string,
+	memberHost?: Scope,
+): Scope | undefined {
 	switch (unit.kind) {
 		case "function_block":
-			ingestFunctionBlock(project, unit, uri);
-			break;
+			return ingestFunctionBlock(project, unit, uri);
 		case "program":
-			ingestProgram(project, unit, uri);
-			break;
+			return ingestProgram(project, unit, uri);
 		case "function":
-			ingestFunction(project, unit, uri);
-			break;
+			return ingestFunction(project, unit, uri);
 		case "method":
-			ingestStandaloneMethod(project, unit, uri);
-			break;
+			return ingestStandaloneMethod(project, unit, uri, memberHost);
 		case "action":
-			ingestStandaloneAction(project, unit, uri);
-			break;
+			return ingestStandaloneAction(project, unit, uri, memberHost);
 		case "property":
-			ingestStandaloneProperty(project, unit, uri);
-			break;
+			ingestStandaloneProperty(project, unit, uri, memberHost);
+			return undefined;
 		case "interface":
-			ingestInterface(project, unit, uri);
-			break;
+			return ingestInterface(project, unit, uri);
 		case "type_decl":
 			ingestTypeDecl(project, unit, uri);
-			break;
+			return undefined;
 		case "global_var_list":
 			ingestGlobalVarList(project, unit, uri);
-			break;
+			return undefined;
 		case "namespace":
 			ingestNamespace(project, unit, uri);
-			break;
+			return undefined;
 	}
 }
 
@@ -257,7 +275,7 @@ function ingestNamespace(
 	}
 }
 
-function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): void {
+function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): Scope {
 	const fbScope: Scope = {
 		kind: "pou",
 		name: fb.name.text,
@@ -277,9 +295,10 @@ function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): vo
 		ast: fb,
 	});
 	ingestVarSections(fbScope, fb.varSections, uri);
+	return fbScope;
 }
 
-function ingestProgram(project: Scope, prg: Program, uri: string): void {
+function ingestProgram(project: Scope, prg: Program, uri: string): Scope {
 	const scope: Scope = {
 		kind: "pou",
 		name: prg.name.text,
@@ -299,9 +318,10 @@ function ingestProgram(project: Scope, prg: Program, uri: string): void {
 		ast: prg,
 	});
 	ingestVarSections(scope, prg.varSections, uri);
+	return scope;
 }
 
-function ingestFunction(project: Scope, fn: FunctionAST, uri: string): void {
+function ingestFunction(project: Scope, fn: FunctionAST, uri: string): Scope {
 	const scope: Scope = {
 		kind: "pou",
 		name: fn.name.text,
@@ -322,62 +342,87 @@ function ingestFunction(project: Scope, fn: FunctionAST, uri: string): void {
 		ast: fn,
 	});
 	ingestVarSections(scope, fn.varSections, uri);
+	return scope;
 }
 
-function ingestStandaloneMethod(project: Scope, m: Method, uri: string): void {
-	// Method as a file-level unit (the materialized-workspace case
-	// where each FB child is its own file). The method becomes a
-	// symbol in the project scope at the file's top level.
+function ingestStandaloneMethod(
+	project: Scope,
+	m: Method,
+	uri: string,
+	memberHost?: Scope,
+): Scope {
+	// Workspace-layout convention: METHODs after END_FUNCTION_BLOCK
+	// belong to the preceding FB/PROGRAM. Parent the method scope to
+	// that FB so the method body can resolve FB member vars; define
+	// the method symbol on the FB scope (not project) so cross-method
+	// calls and `fbInst.MethodName` lookups find it. Falls back to
+	// project parenting only when a method legitimately stands alone
+	// (single-method file with no prior POU — rare, mostly tests).
+	const host = memberHost ?? project;
 	const scope: Scope = {
 		kind: "method",
 		name: m.name.text,
-		parent: project,
+		parent: host,
 		symbols: new Map(),
 		children: [],
 		span: m.span,
 	};
-	project.children.push(scope);
-	defineSymbol(project, {
+	host.children.push(scope);
+	defineSymbol(host, {
 		kind: "method",
 		name: m.name.text,
 		span: m.name.span,
 		declarationSpan: m.span,
-		owner: project,
+		owner: host,
 		uri,
 		...(m.returnType !== undefined ? { typeExpr: m.returnType } : {}),
 		ast: m,
 	});
 	ingestVarSections(scope, m.varSections, uri, /* asParams */ true);
+	return scope;
 }
 
-function ingestStandaloneAction(project: Scope, a: Action, uri: string): void {
+function ingestStandaloneAction(
+	project: Scope,
+	a: Action,
+	uri: string,
+	memberHost?: Scope,
+): Scope {
+	const host = memberHost ?? project;
 	const scope: Scope = {
 		kind: "method",
 		name: a.name.text,
-		parent: project,
+		parent: host,
 		symbols: new Map(),
 		children: [],
 		span: a.span,
 	};
-	project.children.push(scope);
-	defineSymbol(project, {
+	host.children.push(scope);
+	defineSymbol(host, {
 		kind: "action",
 		name: a.name.text,
 		span: a.name.span,
 		declarationSpan: a.span,
-		owner: project,
+		owner: host,
 		uri,
 		ast: a,
 	});
+	return scope;
 }
 
-function ingestStandaloneProperty(project: Scope, p: Property, uri: string): void {
-	defineSymbol(project, {
+function ingestStandaloneProperty(
+	project: Scope,
+	p: Property,
+	uri: string,
+	memberHost?: Scope,
+): void {
+	const host = memberHost ?? project;
+	defineSymbol(host, {
 		kind: "property",
 		name: p.name.text,
 		span: p.name.span,
 		declarationSpan: p.span,
-		owner: project,
+		owner: host,
 		uri,
 		typeExpr: p.dataType,
 		ast: p,
@@ -388,7 +433,7 @@ function ingestStandaloneProperty(project: Scope, p: Property, uri: string): voi
 	// child files.
 }
 
-function ingestInterface(project: Scope, iface: Interface, uri: string): void {
+function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {
 	const ifaceScope: Scope = {
 		kind: "interface",
 		name: iface.name.text,
@@ -431,6 +476,7 @@ function ingestInterface(project: Scope, iface: Interface, uri: string): void {
 			ast: p,
 		});
 	}
+	return ifaceScope;
 }
 
 function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string): void {
