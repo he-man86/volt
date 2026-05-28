@@ -772,6 +772,163 @@ END_FUNCTION_BLOCK
 `,
 	},
 
+	// ─── More attribute pragmas (batch 4) ───────────────────────────
+
+	{
+		name: "conditionalshow_all_locals",
+		pouName: "FB_LANG_conditionalshow_all_locals",
+		kind: "function_block",
+		feature: "{attribute 'conditionalshow_all_locals' := '<text>'} — FB-level locals hide",
+		fromDoc: "07-pragmas.md#conditionalshow_all_locals",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_csal : FB_LANG_conditionalshow_all_locals;",
+		plcPrgBody: "fb_csal();",
+		source:
+`{attribute 'conditionalshow_all_locals' := 'maintainer_only'}
+FUNCTION_BLOCK FB_LANG_conditionalshow_all_locals
+VAR
+	iA : INT;
+	iB : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "pin_presentation_order",
+		pouName: "FB_LANG_pin_presentation_order",
+		kind: "function_block",
+		feature: "{attribute 'pin_presentation_order_inputs' := '...'} reorders FBD/LD pins",
+		fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_ppo : FB_LANG_pin_presentation_order;",
+		plcPrgBody: "fb_ppo(iB := 1, iA := 2);",
+		source:
+`{attribute 'pin_presentation_order_inputs' := 'iB,iA'}
+FUNCTION_BLOCK FB_LANG_pin_presentation_order
+VAR_INPUT
+	iA : INT;
+	iB : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "estimated_stack_usage",
+		pouName: "FB_LANG_estimated_stack_usage",
+		kind: "function_block",
+		feature: "{attribute 'estimated-stack-usage' := '<bytes>'} on a recursive method",
+		fromDoc: "07-pragmas.md#estimated-stack-usage",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_esu : FB_LANG_estimated_stack_usage;",
+		plcPrgBody: "fb_esu.Recurse(iN := 5);",
+		source:
+`FUNCTION_BLOCK FB_LANG_estimated_stack_usage
+VAR
+	iResult : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'estimated-stack-usage' := '128'}
+METHOD Recurse
+VAR_INPUT
+	iN : INT;
+END_VAR
+iResult := iN;
+END_METHOD
+`,
+	},
+
+	{
+		name: "no_virtual_actions",
+		pouName: "FB_LANG_no_virtual_actions",
+		kind: "function_block",
+		feature: "{attribute 'no_virtual_actions'} prevents SFC action overrides in subclasses",
+		fromDoc: "07-pragmas.md#no_virtual_actions",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_nva : FB_LANG_no_virtual_actions;",
+		plcPrgBody: "fb_nva();",
+		source:
+`{attribute 'no_virtual_actions'}
+FUNCTION_BLOCK FB_LANG_no_virtual_actions
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "io_function_block",
+		pouName: "FB_LANG_io_function_block",
+		kind: "function_block",
+		feature: "{attribute 'io_function_block'} marks FB as I/O-channel eligible",
+		fromDoc: "07-pragmas.md#io_function_block-io_function_block_mapping",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_iofb : FB_LANG_io_function_block;",
+		plcPrgBody: "fb_iofb();",
+		source:
+`{attribute 'io_function_block'}
+FUNCTION_BLOCK FB_LANG_io_function_block
+VAR_INPUT
+	{attribute 'io_function_block_mapping'}
+	iChannel : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "call_after_global_init_slot",
+		pouName: "FB_LANG_call_after_global_init_slot",
+		kind: "function_block",
+		feature: "{attribute 'call_after_global_init_slot' := '<slot>'} on a method",
+		fromDoc: "07-pragmas.md#call_after_global_init_slot",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cagis : FB_LANG_call_after_global_init_slot;",
+		plcPrgBody: "fb_cagis();",
+		source:
+`FUNCTION_BLOCK FB_LANG_call_after_global_init_slot
+VAR
+	iCount : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'call_after_global_init_slot' := '50000'}
+METHOD AfterGlobalInit
+iCount := 1;
+END_METHOD
+`,
+	},
+
+	{
+		name: "warning_disable_restore",
+		pouName: "FB_LANG_warning_disable_restore",
+		kind: "function_block",
+		feature: "{warning disable <id>} / {warning restore <id>} pair around a code block",
+		fromDoc: "07-pragmas.md#warning-disable-warning-restore",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_wdr : FB_LANG_warning_disable_restore;",
+		plcPrgBody: "fb_wdr();",
+		source:
+`FUNCTION_BLOCK FB_LANG_warning_disable_restore
+VAR
+	iVar : INT;
+END_VAR
+{warning disable C0125}
+iVar := iVar + 1;
+{warning restore C0125}
+END_FUNCTION_BLOCK
+`,
+	},
+
 	// ─── Region pragma — folding-only, no semantic effect ─────────────
 
 	{
