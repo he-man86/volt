@@ -26,6 +26,7 @@ import { spawnSync } from "node:child_process";
 import {
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
@@ -85,23 +86,10 @@ async function main(): Promise<void> {
 	console.log(`  bridge: ${health.version}  IDE: ${health.ideName}/${health.ideVersion}`);
 	console.log(`  project: ${health.projectName}/${health.plcProjectName}\n`);
 
-	// Warn (don't refuse) on non-LANG_* POUs. TwinCAT projects ship
-	// with a default `PLC_PRG`, libraries may bring others — none of
-	// them collide with our LANG_* test names, and per-test diagnostic
-	// filtering scopes the build result so they don't pollute. Refuse
-	// only when an EXISTING POU shares a name with one we'd push (true
-	// collision risk).
+	// Pre-flight cleanup: sweep all LANG_* leftovers (from previous
+	// interrupted runs or the debug-push-one helper). We own the
+	// LANG_* namespace; any item with that prefix is ours to remove.
 	const refs = await bridge.getRefs();
-	const collisions = PRAGMA_TESTS.filter((t) => refs.items[t.pouName] !== undefined).map(
-		(t) => t.pouName,
-	);
-	if (collisions.length > 0) {
-		console.error(
-			`pre-flight: project already has POU(s) that collide with tests: ${collisions.join(", ")}`,
-		);
-		console.error("Delete them in TwinCAT and re-run.");
-		process.exit(1);
-	}
 	const nonTestItems = Object.keys(refs.items).filter((n) => !LANG_PREFIX_RE.test(n));
 	if (nonTestItems.length > 0) {
 		console.log(`  (project has ${nonTestItems.length} pre-existing POU(s) — ignored: ${nonTestItems.join(", ")})`);
@@ -110,6 +98,16 @@ async function main(): Promise<void> {
 	if (leftovers.length > 0) {
 		console.log(`  (cleaning ${leftovers.length} LANG_* leftover(s) before recording)`);
 		await cleanupItems(bridge, leftovers);
+	}
+	// Collision check on any NON-LANG_* POU that matches a test name —
+	// shouldn't happen given the FB_LANG_* prefix convention, but a
+	// safety net.
+	const refsAfter = await bridge.getRefs();
+	const collisions = PRAGMA_TESTS.filter((t) => refsAfter.items[t.pouName] !== undefined).map((t) => t.pouName);
+	if (collisions.length > 0) {
+		console.error(`pre-flight: name collision with non-LANG_* POU(s): ${collisions.join(", ")}`);
+		console.error("Rename the test POU in pragma-tests.ts to avoid the conflict.");
+		process.exit(1);
 	}
 
 	// ─── Workspace setup ───────────────────────────────────────────────
@@ -198,9 +196,13 @@ async function recordOne(
 
 	// Wire the test POU into PLC_PRG so TwinCAT actually compiles
 	// it — TC only analyzes code reachable from the program entry
-	// point. Without this, every test would report 0 errors / 0
-	// warnings regardless of the actual code.
-	const plcPrgPath = join(workspace, "PLC_PRG.st");
+	// point. CRITICAL: must overwrite PLC_PRG at its EXISTING
+	// workspace path (typically POUs/PLC_PRG.st). Writing a fresh
+	// file at root creates a ghost POU that volt push silently no-ops
+	// on (name collides with existing POU at a different path), and
+	// TC's real PLC_PRG stays empty — meaning the test FB is dead
+	// code and the compiler emits no diagnostics for it.
+	const plcPrgPath = findExistingFile(workspace, "PLC_PRG.st") ?? join(workspace, "PLC_PRG.st");
 	writeFileSync(plcPrgPath, buildPlcPrg(test), "utf-8");
 
 	// --force: bypass drift detection. The recorder calls bridge.pushBatch
@@ -254,6 +256,25 @@ END_VAR
 
 END_PROGRAM
 `;
+
+/** Walk the workspace for a file with the given basename. Skip .volt/. */
+function findExistingFile(root: string, basename: string): string | undefined {
+	let found: string | undefined;
+	function walk(dir: string): void {
+		if (found !== undefined) return;
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			if (entry.name === ".volt" || entry.name === ".git") continue;
+			const full = join(dir, entry.name);
+			if (entry.isDirectory()) walk(full);
+			else if (entry.isFile() && entry.name === basename) {
+				found = full;
+				return;
+			}
+		}
+	}
+	walk(root);
+	return found;
+}
 
 function buildPlcPrg(test: PragmaTest): string {
 	const varBlock = test.plcPrgVar !== undefined ? `\t${test.plcPrgVar}` : "";
