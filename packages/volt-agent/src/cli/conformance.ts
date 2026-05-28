@@ -178,10 +178,13 @@ async function listTestPous(): Promise<string[]> {
 	return (await bridgeFetch()).filter((i) => i.name.startsWith(TEST_PREFIX)).map((i) => i.name);
 }
 
-/** Recursively walk a directory and return every `.st` file's relative path. */
+/** Recursively walk a directory and return every POU file's relative path
+ *  (any of .st/.gvl/.dut/.itf/.fbd/.ld/.sfc/.cfc — single source of truth
+ *  is pou-files.ts/POU_EXTENSIONS). */
 async function listWorkspaceStFiles(workspaceRoot: string): Promise<string[]> {
 	const { readdirSync, statSync } = await import("node:fs");
 	const { resolve, relative, sep } = await import("node:path");
+	const { isPouPath } = await import("../engine/pou-files.js");
 	const rootAbs = resolve(workspaceRoot);
 	const out: string[] = [];
 	function walk(dir: string): void {
@@ -190,7 +193,7 @@ async function listWorkspaceStFiles(workspaceRoot: string): Promise<string[]> {
 			const abs = join(dir, name);
 			const st = statSync(abs);
 			if (st.isDirectory()) walk(abs);
-			else if (st.isFile() && name.endsWith(".st")) {
+			else if (st.isFile() && isPouPath(name)) {
 				out.push(relative(rootAbs, abs).split(sep).join("/"));
 			}
 		}
