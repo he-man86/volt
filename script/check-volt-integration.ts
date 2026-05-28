@@ -81,6 +81,20 @@ check("volt-lsp-st --version exits 0", () => {
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
 });
+check("volt CLI wrapper runs (script/volt[.cmd])", () => {
+	const wrapper = process.platform === "win32"
+		? join(REPO_ROOT, "script/volt.cmd")
+		: join(REPO_ROOT, "script/volt");
+	if (!existsSync(wrapper)) return "wrapper missing";
+	const r = spawnSync(wrapper, ["help"], {
+		encoding: "utf-8",
+		timeout: 15_000,
+		shell: process.platform === "win32",
+	});
+	if (r.status !== 0) return `exit ${r.status}: ${(r.stderr || r.stdout).trim().slice(0, 200)}`;
+	if (!r.stdout.includes("volt <verb>")) return "unexpected output (HELP signature missing)";
+	return true;
+});
 
 console.log("\nDocumentation corpus");
 check("CODESYS reference corpus index", () =>
@@ -105,12 +119,26 @@ if (failed > 0) {
 	process.exit(1);
 }
 
+console.log("\nOne-time PATH setup (so bare `volt` works in shells / opencode bash / VS Code terminal):");
+if (process.platform === "win32") {
+	console.log("  PowerShell (this session only):");
+	console.log(`    $env:Path = "${join(REPO_ROOT, "script")};$env:Path"`);
+	console.log("  PowerShell (permanent, current user):");
+	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "script")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
+} else {
+	console.log("  Bash / zsh (this session only):");
+	console.log(`    export PATH="${join(REPO_ROOT, "script")}:$PATH"`);
+	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
+	console.log(`    export PATH="${join(REPO_ROOT, "script")}:$PATH"`);
+}
+
 console.log("\nManual verification — opencode (this repo):");
-console.log("  1. Open a .st file → expect 'Starting LSP: volt-st' in opencode logs.");
-console.log("  2. Press Tab to switch primary agents → 'volt' should be selectable.");
-console.log("  3. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
+console.log("  1. From repo root: bun dev   # starts the opencode TUI");
+console.log("  2. Open a .st file → expect 'Starting LSP: volt-st' in opencode logs.");
+console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
+console.log("  4. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init) opencode prompts for approval per call.");
-console.log("  4. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
+console.log("  5. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
 console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
 console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");
 console.log("  2. Open a .st file → expect 'Volt: Status' + 'Volt: Push' status bar buttons (right).");
