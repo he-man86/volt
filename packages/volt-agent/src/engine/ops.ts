@@ -83,14 +83,13 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
  *              shape: nested methods/properties, no body/varSections).
  *              Edit interfaces in TwinCAT for now; pull picks up changes.
  *
- * All four extensions contain ST grammar so volt-vscode registers them
- * under one language id. The kind hint helps humans and bridges
- * round-trip the file to the correct IDE item type without re-inferring
- * from content every time.
+ * For POU kinds with a body (function_block / function / program), the
+ * BODY LANGUAGE wins over this default — see LANG_EXT. So FB with FBD
+ * body lands at `.fbd` even though KIND_EXT["function_block"] = "st".
  *
- * Graphical body languages (FBD / LD / SFC / CFC) get their own
- * extensions in a future PR — the bridge will report `language` per
- * item and the materializer will pick the matching ext.
+ * All ST-grammar extensions (.st/.gvl/.dut/.itf) share volt-vscode's
+ * structured-text language registration. Graphical body extensions
+ * (.fbd/.ld/.sfc/.cfc) have their own language ids in volt-vscode.
  */
 const KIND_EXT: Record<CreatePouOp["kind"], string> = {
 	function_block: "st",
@@ -104,8 +103,29 @@ const KIND_EXT: Record<CreatePouOp["kind"], string> = {
 	alias: "dut",
 };
 
-/** Every extension this workspace recognizes as ST-content. */
-const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf"] as const;
+/**
+ * Extension per body language. Applies only to POU kinds with a body
+ * (function_block, function, program). Bridge sends `language` per item
+ * in /fetch; we map that to a file extension so an FBD POU lands at
+ * `.fbd`, an LD POU at `.ld`, etc.
+ *
+ * Graphical bodies are currently masked with a placeholder by the
+ * bridge (the real graphical content is binary / XML), so the file
+ * round-trip is informational — the placeholder shows there IS a POU
+ * of that language at that location. Push of graphical POUs will fail
+ * at parseFile until a graphical LSP exists and the bridge unmasks.
+ */
+const LANG_EXT: Record<string, string> = {
+	ST: "st",
+	FBD: "fbd",
+	LD: "ld",
+	SFC: "sfc",
+	CFC: "cfc",
+	UNKNOWN: "st",
+};
+
+/** Every extension this workspace recognizes as a POU file. */
+const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf", ".fbd", ".ld", ".sfc", ".cfc"] as const;
 
 export interface SyncOptions {
 	/**
@@ -173,7 +193,7 @@ export async function syncFromBridge(
 
 	const gitattributesSha = writeBlob(
 		repoPath,
-		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n*.itf text eol=lf\n",
+		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n*.itf text eol=lf\n*.fbd text eol=lf\n*.ld text eol=lf\n*.sfc text eol=lf\n*.cfc text eol=lf\n",
 	);
 	entries.set(".gitattributes", { path: ".gitattributes", sha: gitattributesSha });
 
@@ -199,7 +219,7 @@ export async function syncFromBridge(
 function materializeItem(item: AIGetResult): { path: string; content: string } {
 	const folder = item.folder ?? "";
 	const kind = inferPouKind(item.declaration ?? "");
-	const ext = KIND_EXT[kind] ?? "st";
+	const ext = pickExtension(kind, item.language);
 	const path = joinPath(folder, `${item.name}.${ext}`);
 
 	if (!COMPOSITE_KINDS.has(kind)) {
@@ -661,6 +681,25 @@ function pouNameFromPath(path: string): string | undefined {
 		}
 	}
 	return undefined;
+}
+
+/**
+ * Choose the file extension for an item.
+ *
+ * Logic:
+ *  1. Interface always → `.itf` (no body language applies).
+ *  2. Pure-declaration kinds (gvl / dut variants) → KIND_EXT.
+ *  3. POU body kinds (FB / function / program) → LANG_EXT[language]
+ *     when bridge reports a body language; else KIND_EXT (`.st`).
+ */
+function pickExtension(kind: CreatePouOp["kind"], language?: string): string {
+	if (kind === "interface") return KIND_EXT[kind];
+	if (!COMPOSITE_KINDS.has(kind)) return KIND_EXT[kind] ?? "st";
+	// POU body — prefer language-driven extension if bridge tells us.
+	if (language !== undefined && LANG_EXT[language] !== undefined) {
+		return LANG_EXT[language]!;
+	}
+	return KIND_EXT[kind] ?? "st";
 }
 
 function inferPouKind(declaration: string): CreatePouOp["kind"] {

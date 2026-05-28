@@ -50,6 +50,9 @@
           "FBD",
           "IEC 61131-3 FBD"
         ],
+        "extensions": [
+          ".fbd"
+        ],
         "filenamePatterns": [
           "**/*.fbd.xml"
         ],
@@ -64,6 +67,9 @@
           "Ladder Diagram",
           "LD",
           "IEC 61131-3 LD"
+        ],
+        "extensions": [
+          ".ld"
         ],
         "filenamePatterns": [
           "**/*.ld.xml"
@@ -80,6 +86,9 @@
           "SFC",
           "IEC 61131-3 SFC"
         ],
+        "extensions": [
+          ".sfc"
+        ],
         "filenamePatterns": [
           "**/*.sfc.xml"
         ],
@@ -94,6 +103,9 @@
           "Continuous Function Chart",
           "CFC",
           "IEC 61131-3 CFC"
+        ],
+        "extensions": [
+          ".cfc"
         ],
         "filenamePatterns": [
           "**/*.cfc.xml"
