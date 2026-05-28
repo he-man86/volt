@@ -21,6 +21,9 @@ import type {
 	Action,
 	FunctionBlock,
 	Function as FunctionAST,
+	Interface,
+	InterfaceMethod,
+	InterfaceProperty,
 	Method,
 	Program,
 	Property,
@@ -67,16 +70,25 @@ export function parseFile(src: string, expectedName: string): ParsedFile {
 	if (
 		outer.kind !== "function_block" &&
 		outer.kind !== "program" &&
-		outer.kind !== "function"
+		outer.kind !== "function" &&
+		outer.kind !== "interface"
 	) {
 		throw new Error(
-			`parseFile(${expectedName}): first declaration must be FUNCTION_BLOCK / PROGRAM / FUNCTION, got ${outer.kind}`,
+			`parseFile(${expectedName}): first declaration must be FUNCTION_BLOCK / PROGRAM / FUNCTION / INTERFACE, got ${outer.kind}`,
 		);
 	}
 	if (outer.name.text !== expectedName) {
 		throw new Error(
 			`parseFile: expected POU "${expectedName}" but file declares "${outer.name.text}"`,
 		);
+	}
+
+	// Interfaces have a different AST shape: nested methods/properties
+	// arrays on the Interface node, no body, no varSections at the outer
+	// level. The slicing helpers below assume POU shape (body + varSections),
+	// so interface gets its own parser branch.
+	if (outer.kind === "interface") {
+		return parseInterfaceFile(src, outer);
 	}
 
 	const pouDecl = sliceDeclaration(src, outer);
@@ -111,6 +123,104 @@ export function parseFile(src: string, expectedName: string): ParsedFile {
 		}
 	}
 	return { pou: { declaration: pouDecl, implementation: pouImpl }, children };
+}
+
+// ─── Interface branch ─────────────────────────────────────────────────
+
+/**
+ * Interfaces aren't POUs: no body, no outer VAR sections, and their
+ * methods/properties live as nested arrays on the Interface node
+ * rather than sibling top-level units. We slice them out by hand.
+ *
+ * Wire model mapping:
+ *  - pou.declaration = the INTERFACE wrapper text (INTERFACE Name
+ *    [EXTENDS X] up to where the first child begins, or up to
+ *    END_INTERFACE when childless). Trailing newlines trimmed.
+ *  - pou.implementation = "" (interfaces never have a body).
+ *  - children: one ParsedChild per InterfaceMethod / InterfaceProperty.
+ *    For methods, implementation = "" (signatures only). For properties,
+ *    hasGetter / hasSetter map to empty getter/setter objects so the
+ *    bridge knows to create the accessor (empty body = signature).
+ */
+function parseInterfaceFile(src: string, outer: Interface): ParsedFile {
+	const wrapperEnd = firstInterfaceChildStart(outer) ?? findEndInterface(src, outer);
+	const pouDecl = src.slice(outer.span.start, wrapperEnd).trimEnd();
+
+	const children = new Map<string, ParsedChild>();
+	for (const method of outer.methods) {
+		const decl = sliceInterfaceMethod(src, method);
+		children.set(method.name.text, {
+			kind: "method",
+			name: method.name.text,
+			declaration: stripFolderAnnotation(decl),
+			implementation: "",
+			...maybeFolder(decl),
+		});
+	}
+	for (const prop of outer.properties) {
+		children.set(prop.name.text, parseInterfacePropertyUnit(src, prop));
+	}
+
+	return { pou: { declaration: pouDecl, implementation: "" }, children };
+}
+
+/** Earliest start offset across an interface's method + property arrays. */
+function firstInterfaceChildStart(outer: Interface): number | undefined {
+	let earliest: number | undefined;
+	for (const m of outer.methods) {
+		if (earliest === undefined || m.span.start < earliest) earliest = m.span.start;
+	}
+	for (const p of outer.properties) {
+		if (earliest === undefined || p.span.start < earliest) earliest = p.span.start;
+	}
+	return earliest;
+}
+
+/** Find the END_INTERFACE position within a childless interface span. */
+function findEndInterface(src: string, outer: Interface): number {
+	const text = src.slice(outer.span.start, outer.span.end);
+	const m = text.match(/\bEND_INTERFACE\b/i);
+	return m && m.index !== undefined ? outer.span.start + m.index : outer.span.end;
+}
+
+/**
+ * Slice an interface method signature: METHOD Name : Type [+ VAR sections],
+ * up to END_METHOD. No body, so we slice through varSections (if any) and
+ * trim. The slice always stops short of END_METHOD so the bridge can
+ * regenerate the wrapper.
+ */
+function sliceInterfaceMethod(src: string, method: InterfaceMethod): string {
+	const endIdx = method.varSections.length > 0
+		? method.varSections[method.varSections.length - 1]!.span.end
+		: declHeaderEnd(src, method.span, /\bEND_METHOD\b/i);
+	return src.slice(method.span.start, endIdx).trimEnd();
+}
+
+/**
+ * Interface property → ParsedChild with empty Get/Set accessors. The
+ * bridge wire shape uses empty strings (not undefined) for accessor
+ * declaration/implementation to signal "create this accessor with no
+ * body" — which is exactly what an interface property's Get/Set is.
+ */
+function parseInterfacePropertyUnit(src: string, prop: InterfaceProperty): ParsedChild {
+	const declaration = src.slice(prop.span.start, declHeaderEnd(src, prop.span, /\bGET\b|\bSET\b|\bEND_PROPERTY\b/i)).trimEnd();
+	const out: ParsedChild = {
+		kind: "property",
+		name: prop.name.text,
+		declaration: stripFolderAnnotation(declaration),
+		implementation: "",
+		...maybeFolder(declaration),
+	};
+	if (prop.hasGetter) out.getter = { declaration: "", implementation: "" };
+	if (prop.hasSetter) out.setter = { declaration: "", implementation: "" };
+	return out;
+}
+
+/** Find the first match of a keyword regex within a span; returns its absolute offset. */
+function declHeaderEnd(src: string, span: { start: number; end: number }, keywordRe: RegExp): number {
+	const text = src.slice(span.start, span.end);
+	const m = text.match(keywordRe);
+	return m && m.index !== undefined ? span.start + m.index : span.end;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
