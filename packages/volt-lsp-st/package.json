@@ -11,7 +11,10 @@
   "description": "TypeScript-native Language Server for IEC 61131-3 Structured Text. Navigation + diagnostics + completion + hover + signature help + semantic tokens, driven by an embedded CODESYS language reference. Type-checking and code-gen remain the IDE's job.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "bin": {
     "volt-lsp-st": "./dist/bin.js"

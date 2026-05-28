@@ -25,7 +25,7 @@
     "conformance": "tsc && node dist/cli/conformance.js",
     "conformance:drift": "tsc && node dist/cli/conformance-drift.js",
     "conformance:errors": "tsc && node dist/cli/conformance-errors.js",
-    "record:language": "tsc && node dist/cli/record-language.js"
+    "record:language": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/cli/record-language.js"
   },
   "dependencies": {
     "@opencode-ai/volt-lsp-st": "workspace:*",

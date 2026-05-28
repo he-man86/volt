@@ -85,15 +85,26 @@ async function main(): Promise<void> {
 	console.log(`  bridge: ${health.version}  IDE: ${health.ideName}/${health.ideVersion}`);
 	console.log(`  project: ${health.projectName}/${health.plcProjectName}\n`);
 
-	// Verify project is empty (or only has leftover LANG_* items).
+	// Warn (don't refuse) on non-LANG_* POUs. TwinCAT projects ship
+	// with a default `PLC_PRG`, libraries may bring others — none of
+	// them collide with our LANG_* test names, and per-test diagnostic
+	// filtering scopes the build result so they don't pollute. Refuse
+	// only when an EXISTING POU shares a name with one we'd push (true
+	// collision risk).
 	const refs = await bridge.getRefs();
+	const collisions = PRAGMA_TESTS.filter((t) => refs.items[t.pouName] !== undefined).map(
+		(t) => t.pouName,
+	);
+	if (collisions.length > 0) {
+		console.error(
+			`pre-flight: project already has POU(s) that collide with tests: ${collisions.join(", ")}`,
+		);
+		console.error("Delete them in TwinCAT and re-run.");
+		process.exit(1);
+	}
 	const nonTestItems = Object.keys(refs.items).filter((n) => !LANG_PREFIX_RE.test(n));
 	if (nonTestItems.length > 0) {
-		console.error(
-			`pre-flight: project contains ${nonTestItems.length} non-test POU(s): ${nonTestItems.join(", ")}`,
-		);
-		console.error("Recorder requires an EMPTY project (or one with only LANG_* leftovers).");
-		process.exit(1);
+		console.log(`  (project has ${nonTestItems.length} pre-existing POU(s) — ignored: ${nonTestItems.join(", ")})`);
 	}
 	const leftovers = Object.keys(refs.items).filter((n) => LANG_PREFIX_RE.test(n));
 	if (leftovers.length > 0) {
@@ -111,6 +122,14 @@ async function main(): Promise<void> {
 	const initRes = volt(workspace, "init");
 	if (initRes.code !== 0) {
 		console.error(`volt init failed:\n${initRes.stderr}`);
+		process.exit(1);
+	}
+	// Seed the snapshot — `volt push` refuses to run against a workspace
+	// that's never been pulled. The pull is fast (project is otherwise
+	// empty or near-empty).
+	const pullRes = volt(workspace, "pull");
+	if (pullRes.code !== 0) {
+		console.error(`volt pull failed:\n${pullRes.stderr}`);
 		process.exit(1);
 	}
 
@@ -177,9 +196,12 @@ async function recordOne(
 	const filePath = join(workspace, `${test.pouName}.${ext}`);
 	writeFileSync(filePath, test.source, "utf-8");
 
-	const pushRes = volt(workspace, "push");
+	// --force: bypass drift detection. The recorder calls bridge.pushBatch
+	// deletePou directly between tests (it owns the bridge state), so
+	// each cycle the workspace snapshot is "behind" the bridge by one
+	// deletion. --force reconciles instead of refusing.
+	const pushRes = volt(workspace, "push", "--force");
 	if (pushRes.code !== 0) {
-		// Clean the file so the next test doesn't re-push it.
 		try { rmSync(filePath); } catch { /* ignore */ }
 		throw new Error(`volt push failed: ${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
 	}
@@ -202,8 +224,13 @@ async function recordOne(
 		await bridge.pushBatch({ ops: [{ op: "deletePou", name: test.pouName, ifVersion }] });
 	}
 
+	// Per-test buildSuccess = no errors SCOPED to this POU. The whole
+	// project may have errors from other POUs (default PLC_PRG, etc.)
+	// — those aren't this test's concern.
+	const scopedHasError = scoped.some((d) => d.severity === "error");
+
 	return {
-		buildSuccess: buildRes.success,
+		buildSuccess: !scopedHasError,
 		durationMs: buildRes.duration,
 		diagnostics: scoped,
 	};
