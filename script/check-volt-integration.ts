@@ -88,6 +88,16 @@ check("CODESYS reference corpus index", () =>
 		|| "corpus missing in packages/volt-lsp-st/docs/"
 );
 
+console.log("\nVS Code extension");
+check("volt-vscode extension entry compiled", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))
+		|| "not built — run: bun --filter '@opencode-ai/volt-vscode' run build"
+);
+check("volt-vscode CLI integration compiled", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/cli.js"))
+		|| "cli.ts not built — run the extension's build"
+);
+
 console.log("\n" + "-".repeat(40));
 console.log(`${passed} passed, ${failed} failed.`);
 
@@ -95,9 +105,14 @@ if (failed > 0) {
 	process.exit(1);
 }
 
-console.log("\nManual verification (run inside opencode):");
+console.log("\nManual verification — opencode (this repo):");
 console.log("  1. Open a .st file → expect 'Starting LSP: volt-st' in opencode logs.");
 console.log("  2. Press Tab to switch primary agents → 'volt' should be selectable.");
 console.log("  3. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init) opencode prompts for approval per call.");
 console.log("  4. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
+console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
+console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");
+console.log("  2. Open a .st file → expect 'Volt: Status' + 'Volt: Push' status bar buttons (right).");
+console.log("  3. Cmd/Ctrl+Shift+P → 'Volt: Build' → JSON appears in 'Volt' terminal, diagnostics in Problems panel.");
+console.log("  4. Cmd/Ctrl+Shift+P → 'Volt: Push' → quick-pick (normal vs force); force opens modal warning.");

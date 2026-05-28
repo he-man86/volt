@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "Volt agent — `volt` CLI (init/pull/push/status/build) on top of a vendor bridge. AI clients invoke via shell (the opencode/Claude Code way) — no MCP server in the loop.",
+  "description": "Volt user-agent — the `volt` CLI (init/pull/push/status/build) that runs on the developer's machine and talks to a vendor bridge (Beckhoff today, CODESYS/TIA next) over loopback HTTP. AI clients drive it via shell, the same way they drive `git`.",
   "type": "module",
   "bin": {
     "volt": "./dist/cli/bin.js"

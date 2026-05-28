@@ -197,8 +197,9 @@ export function removeFilesFromWorkspace(workspaceRoot: string, paths: readonly 
  *
  * Computed purely from `/refs.items` versus the saved `state.items` —
  * no extra protocol calls, no extra persisted state. The values let
- * the CLI / MCP / AI tell at a glance "engineer added X, deleted Y,
- * modified Z" without having to fetch the items themselves.
+ * the CLI (and any AI parsing CLI output) tell at a glance "engineer
+ * added X, deleted Y, modified Z" without having to fetch the items
+ * themselves.
  */
 /**
  * Per-item delta in the standard git/hg shape: added / removed /

@@ -40,9 +40,8 @@ export async function runBuild(
 
 /**
  * Render a diagnostics list as a markdown-flavoured string grouped by
- * affected object. Used by both the CLI (for stdout) and the MCP tool
- * (for the human-readable `summary` field alongside the structured
- * diagnostics).
+ * affected object. Used by the CLI for human-readable stdout alongside
+ * the structured JSON diagnostics array.
  */
 export function formatDiagnostics(diagnostics: readonly BridgeDiagnostic[]): string {
 	if (diagnostics.length === 0) return "";

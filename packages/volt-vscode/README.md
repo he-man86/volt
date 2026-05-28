@@ -1,12 +1,14 @@
 # @opencode-ai/volt-vscode
 
-VS Code extension that gives PLC source files (`.st` today, more vendors and languages later) syntax highlighting + full language intelligence backed by an embedded CODESYS reference corpus.
+VS Code extension that gives PLC source files (`.st` today, more vendors and languages later) syntax highlighting, full language intelligence backed by an embedded CODESYS reference corpus, AND buttons / commands for the `volt` CLI so workspace ↔ IDE sync is one click away.
 
-Two layers, both useful on their own:
+Three layers, each useful on its own:
 
 1. **TextMate grammar** — works the moment the extension is installed. Highlights keywords, types, strings, comments, numeric literals (including based `16#FF`, typed `INT#42`, and duration `T#10s`). No process required.
 
 2. **Language server** — spawned by the extension when a `.st` file is opened. Delivers hover (with CODESYS docs inline), goto-definition, references, document/workspace symbols, call hierarchy, type hierarchy, completion + signature help, 11 diagnostic checks, semantic tokens, folding ranges, document highlight, selection ranges, and code actions. The server lives in `@opencode-ai/volt-lsp-st`; the extension finds it via Node module resolution from the workspace.
+
+3. **CLI integration** — status bar buttons + command palette entries that drive the `volt` CLI. `volt status` and `volt push` are status-bar one-clicks; `volt pull` / `volt build` / `volt init` live in the command palette. `volt push --force` opens a modal confirmation. `volt build` parses its JSON output into VS Code's Problems panel so build errors show inline as red squigglies.
 
 ## Install (development / local use)
 
@@ -60,8 +62,10 @@ The extension activates per language id; one LSP client is started per registere
 
 ```
 packages/volt-vscode/
-├── package.json                          extension manifest (languages, grammars, settings)
-├── src/extension.ts                      LSP client lifecycle, server-path resolution
+├── package.json                          extension manifest (languages, grammars, settings, commands)
+├── src/
+│   ├── extension.ts                      activate/deactivate + LSP client lifecycle
+│   └── cli.ts                            volt CLI integration (commands, status bar, build diagnostics)
 └── languages/
     └── structured-text/
         ├── language-configuration.json   brackets, comments, folding markers
@@ -84,13 +88,40 @@ Diagnostic flags: `reservedKeyword`, `doubleUnderscore`, `consecutiveUnderscores
 
 ## Commands
 
+LSP control:
 - `Volt: Restart Language Server` — restart all PLC LSP clients
 - `Volt: Show Structured Text Output` — open the LSP output channel
 - `Volt: Open CODESYS Language Reference` — open the local corpus (offers to run `volt init` if missing)
 
+CLI shortcuts (all run in the integrated terminal named "Volt"):
+- `Volt: Status` — `volt status` (read-only drift check)
+- `Volt: Pull (bridge → workspace)` — `volt pull`
+- `Volt: Push (workspace → bridge)` — quick-pick between normal and `--force`; force-push opens a modal confirmation
+- `Volt: Build (writes diagnostics to Problems panel)` — runs `volt build`, parses JSON output, populates VS Code's Problems panel + maps errors to `.st` files inline
+- `Volt: Init Workspace` — `volt init`
+
 ## Status bar
 
-Right-side status item shows LSP health: `$(check)` running, `$(sync~spin)` starting, `$(error)` failed, `$(warning)` not found. Click to open the output channel.
+Three items, right-aligned:
+- `$(check) Structured Text` — LSP health (running / starting / failed / not found). Click → opens output channel.
+- `$(git-pull-request) Volt: Status` — runs `volt status`.
+- `$(cloud-upload) Volt: Push` — opens push quick-pick (normal vs force).
+
+## CLI requirements
+
+The CLI integration assumes the `volt` binary is on `PATH`. `bun install` populates `node_modules/.bin/volt` automatically from the `@opencode-ai/volt-agent` workspace package. For non-standard installs, override via:
+
+```json
+{
+  "volt.cli.path": "/abs/path/to/volt"
+}
+```
+
+## Build diagnostics → Problems panel
+
+`Volt: Build` captures `volt build`'s JSON output (the CLI emits `{ success, errors, warnings, diagnostics: [...] }` on stdout), parses each diagnostic, maps it to the corresponding `POUs/<name>.st` file in the workspace, and pushes it into a `volt-build` `DiagnosticCollection`. Errors show as red squigglies inline + entries in the Problems panel; warnings show as yellow. The collection clears on the next build so stale errors don't accumulate.
+
+If a diagnostic can't be mapped to a file (e.g. project-level errors with no `object` field), it's dropped silently — better to lose one than to pin it to the wrong file.
 
 ## Status
 

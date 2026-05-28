@@ -1,9 +1,15 @@
 /**
- * `volt build` verb — ask the IDE to build, print diagnostics.
+ * `volt build` verb — ask the IDE to build, print diagnostics as JSON.
  *
  * Exit code 2 = build had errors. Exit code 0 = success (warnings ok).
- * The CLI prints a JSON summary so it's pipeable into tools that want
- * to parse the diagnostics (e.g. shell scripts that fail CI on warnings).
+ *
+ * Output: a single JSON object on stdout. Structured `diagnostics` array
+ * (BridgeDiagnostic[]) lets consumers — terminal humans reading the
+ * pretty-printed JSON, AI agents parsing it, the VS Code extension
+ * mapping into Problems panel — all branch on the same shape without
+ * parsing prose. Pretty-printed (2-space indent) so terminal output
+ * stays readable; an extra `summary` field gives a markdown render of
+ * the diagnostics for humans who want to skim past the JSON noise.
  */
 import { formatDiagnostics, runBuild } from "../engine/build.js";
 import { flagBool, type VerbFn } from "./_shared.js";
@@ -15,7 +21,8 @@ export const build: VerbFn = async ({ bridge, flags }) => {
 		duration_ms: r.durationMs,
 		errors: r.errors,
 		warnings: r.warnings,
-		...(r.diagnostics.length > 0 && { diagnostics: formatDiagnostics(r.diagnostics) }),
+		diagnostics: r.diagnostics,
+		...(r.diagnostics.length > 0 && { summary: formatDiagnostics(r.diagnostics) }),
 	};
 	console.log(JSON.stringify(summary, null, 2));
 	return r.errors > 0 ? 2 : 0;

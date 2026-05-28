@@ -213,21 +213,59 @@
           "type": "boolean",
           "default": true,
           "description": "Warn when a type-conversion function (e.g. INT_TO_DINT) is called with an argument whose declared type doesn't match the function's expected source type. Includes a suggested replacement (e.g. STRING_TO_DINT)."
+        },
+        "volt.cli.path": {
+          "type": "string",
+          "default": "",
+          "description": "Override path to the `volt` CLI binary. When empty (default), the extension assumes `volt` is on PATH (populated by `bun install` via the workspace's node_modules/.bin)."
         }
       }
     },
     "commands": [
       {
         "command": "volt.restart",
-        "title": "Volt: Restart Language Server"
+        "title": "Volt: Restart Language Server",
+        "category": "Volt"
       },
       {
         "command": "volt.structured-text.showOutput",
-        "title": "Volt: Show Structured Text Output"
+        "title": "Volt: Show Structured Text Output",
+        "category": "Volt"
       },
       {
         "command": "volt.openReference",
-        "title": "Volt: Open CODESYS Language Reference"
+        "title": "Volt: Open CODESYS Language Reference",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.cli.status",
+        "title": "Volt: Status",
+        "category": "Volt",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "volt.cli.pull",
+        "title": "Volt: Pull (bridge → workspace)",
+        "category": "Volt",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "volt.cli.push",
+        "title": "Volt: Push (workspace → bridge)",
+        "category": "Volt",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "volt.cli.build",
+        "title": "Volt: Build (writes diagnostics to Problems panel)",
+        "category": "Volt",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "volt.cli.init",
+        "title": "Volt: Init Workspace",
+        "category": "Volt",
+        "icon": "$(zap)"
       }
     ]
   },

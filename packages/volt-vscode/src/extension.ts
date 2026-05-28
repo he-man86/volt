@@ -8,12 +8,14 @@
  *      `languages/<name>/` and register it in package.json.
  *   2. Add an entry here pointing at the corresponding LSP server.
  *
- * The extension does three jobs:
- *   1. Spawn the LSP server(s)
+ * The extension does four jobs:
+ *   1. Spawn the LSP server(s) for real-time intelligence (this file)
  *   2. Forward VS Code workspace settings as LSP `initializationOptions`
  *      so users can tune diagnostics + hover + completion behavior
- *   3. Expose user-facing commands (restart, show output, open the
- *      local CODESYS reference docs)
+ *   3. Expose user-facing commands for the LSP (restart, show output,
+ *      open the local CODESYS reference docs)
+ *   4. Drive the `volt` CLI from VS Code — buttons + commands + build
+ *      diagnostics into the Problems panel (see ./cli.ts)
  *
  * Syntax highlighting comes from the TextMate grammar and works
  * without the LSP running. The LSP adds hover, navigation,
@@ -29,6 +31,7 @@ import {
 	type ServerOptions,
 	TransportKind,
 } from "vscode-languageclient/node";
+import { registerCli } from "./cli.js";
 
 interface PlcLanguage {
 	languageId: string;
@@ -62,6 +65,7 @@ const clients = new Map<string, ClientState>();
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	registerCommands(context);
+	registerCli(context);
 	for (const lang of PLC_LANGUAGES) {
 		await startLanguageClient(context, lang);
 	}
