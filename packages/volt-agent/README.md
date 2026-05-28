@@ -1,6 +1,18 @@
 # @opencode-ai/volt-agent
 
-The `volt` CLI: a git-shaped verb surface that synchronizes a normal folder of `.st` files with a live PLC IDE project, via a vendor-agnostic bridge daemon.
+The `volt` CLI: a git-shaped verb surface that synchronizes a normal folder of PLC source files with a live PLC IDE project, via a vendor-agnostic bridge daemon.
+
+Workspace files map 1:1 to IDE items via extension:
+
+| Extension | Item kind | LSP language |
+|---|---|---|
+| `.st` | POU body in Structured Text (FB, Function, Program) | structured-text |
+| `.gvl` | Global Variable List | structured-text |
+| `.dut` | Data Unit Type (struct / enum / union / alias) | structured-text |
+| `.itf` | Interface declaration + method/property signatures | structured-text |
+| `.fbd` / `.ld` / `.sfc` / `.cfc` | POU body in graphical language (pull-only) | plc-fbd / plc-ld / plc-sfc / plc-cfc |
+
+The structured-text extensions all share one LSP (volt-lsp-st), so hover/completion/navigation work uniformly across `.st`/`.gvl`/`.dut`/`.itf`. Graphical extensions are pull-only — the bridge serializes a placeholder body for inspection; edit graphical POUs in TwinCAT.
 
 ```
 volt init                  Bind this folder to the IDE project the bridge has open;
@@ -16,7 +28,7 @@ Verbs are deliberately named after git/hg — `incoming` / `outgoing`, `--dry-ru
 
 ## Mental model
 
-The bridge is the only thing that talks to the IDE. The CLI is the only thing that talks to the bridge. Files on disk in your workspace are normal `.st` files — your editor (VS Code, opencode, Claude, whatever) edits them like any other source file.
+The bridge is the only thing that talks to the IDE. The CLI is the only thing that talks to the bridge. Files on disk in your workspace are normal source files (.st / .gvl / .dut / .itf for ST-grammar content; .fbd / .ld / .sfc / .cfc for graphical) — your editor (VS Code, opencode, Claude, whatever) edits them like any other source file.
 
 ```
   user / AI editor              volt CLI                  vendor bridge              IDE
