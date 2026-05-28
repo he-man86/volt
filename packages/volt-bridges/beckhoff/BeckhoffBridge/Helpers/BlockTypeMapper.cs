@@ -46,8 +46,8 @@ namespace BeckhoffBridge.Helpers;
 ///   650 = Task call reference             [verified — "MAIN" entry under PlcTask]
 ///   652 = External Types                  [verified — "External Types"]
 ///   653 = TMC file (TwinCAT Module Class) [verified — "PlcSample_BasicPlcElements.tmc"]
-///   654 = Interface Property Get          [inherited — Property children skipped in /tree to avoid COM crash on interface properties]
-///   655 = Interface Property Set          [inherited — same as 654]
+///   654 = Interface Property Get          [verified — Get accessor on Prop of ITF (via shallow probe)]
+///   655 = Interface Property Set          [verified — Set accessor on Prop of ITF (via shallow probe)]
 ///   657 = Library                         [verified by name — "CmpBitmapPool", "RecipeManagement", "Tc2_Standard", "Tc2_System", "Tc3_Module" → 657]
 ///
 /// Remaining PLC-tree gaps (600-range): 607, 616, 622-624, 626-627, 629-630,

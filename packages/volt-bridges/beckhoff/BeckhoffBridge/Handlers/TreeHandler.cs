@@ -107,11 +107,45 @@ internal sealed class TreeHandler
 			["nodeType"] = nodeType,
 		};
 
-		// Skip property recursion (Get/Set children crash on interface properties).
-		// Detection: subtype 611 = Property, 612 = InterfaceProperty.
+		// Properties get a SHALLOW probe instead of full recursion. Their
+		// children (Get/Set accessors) are well-known leaves that don't
+		// have meaningful sub-trees themselves, AND recursing into
+		// interface property accessors historically crashed COM. The
+		// shallow probe lists accessor name + ItemType per child without
+		// reading bodies — gives us the codes (613/614/654/655) for
+		// documentation purposes without risk.
 		if (itemType == BlockTypeMapper.PropertySubType || itemType == BlockTypeMapper.InterfacePropertySubType)
 		{
-			result["children"] = "<skipped — property accessors handled separately>";
+			var accessors = new List<object>();
+			try
+			{
+				int accCount = (int)node.ChildCount;
+				for (int i = 1; i <= accCount; i++)
+				{
+					try
+					{
+						dynamic acc = node.Child[i];
+						int accType = -1;
+						try { accType = BeckhoffConnection.GetItemType(acc); } catch { }
+						string accName = "<unknown>";
+						try { accName = (string)acc.Name; } catch { }
+						string accNodeType = BlockTypeMapper.ToNodeType(accType);
+						if (accNodeType == "unknown" && accType >= 0 && !ctx.UnmappedCodes.Contains(accType))
+							ctx.UnmappedCodes.Add(accType);
+						accessors.Add(new { name = accName, itemType = accType, nodeType = accNodeType });
+						ctx.NodeCount++;
+					}
+					catch (Exception ex)
+					{
+						accessors.Add(new { index = i, error = ex.Message });
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				result["accessorEnumError"] = ex.Message;
+			}
+			if (accessors.Count > 0) result["accessors"] = accessors;
 			return result;
 		}
 
