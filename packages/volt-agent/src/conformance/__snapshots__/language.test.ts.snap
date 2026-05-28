@@ -30,8 +30,10 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) warning_message
 {
   "agreementOnPassFail": true,
   "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
+  "lspMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "lspWarnings": 1,
   "name": "warning_message",
   "tcErrors": 0,
   "tcMessages": [
@@ -320,7 +322,9 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) info_message LS
 {
   "agreementOnPassFail": true,
   "lspErrors": 0,
-  "lspMessages": [],
+  "lspMessages": [
+    "[information] this is a deliberate test info",
+  ],
   "lspWarnings": 0,
   "name": "info_message",
   "tcErrors": 0,
@@ -333,7 +337,9 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) text_message LS
 {
   "agreementOnPassFail": true,
   "lspErrors": 0,
-  "lspMessages": [],
+  "lspMessages": [
+    "[hint] this is a deliberate test text",
+  ],
   "lspWarnings": 0,
   "name": "text_message",
   "tcErrors": 0,
@@ -450,9 +456,11 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) region_basic LS
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) error_message LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] this is a deliberate test error",
+  ],
   "lspWarnings": 0,
   "name": "error_message",
   "tcErrors": 1,

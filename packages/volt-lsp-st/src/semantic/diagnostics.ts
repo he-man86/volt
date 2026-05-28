@@ -295,16 +295,42 @@ function analyzePragmas(
 		directive: string;
 		attributeName?: string;
 		slotValue?: string;
+		messageText?: string;
 	}> = [];
 
 	for (const tok of tokens) {
 		if (tok.kind !== "pragma") continue;
-		const { directive, attributeName, value } = parsePragmaText(tok.text);
+		const { directive, attributeName, value, messageText } = parsePragmaText(tok.text);
 		if (directive === undefined) continue;
-		pragmas.push({ token: tok, directive, attributeName, slotValue: value });
+		pragmas.push({ token: tok, directive, attributeName, slotValue: value, messageText });
 	}
 
 	for (const pr of pragmas) {
+		// 0. Message pragmas — mirror the author's compile-time message
+		//    channel as an LSP diagnostic of matching severity. Matches
+		//    what the IDE compiler shows (TC emits these into the Build
+		//    output pane with the same severity). Source-emitted on
+		//    purpose; surface them by default.
+		if (cfg.messagePragmas && pr.messageText !== undefined) {
+			const dir = pr.directive.toLowerCase();
+			const severityMap: Record<string, DiagnosticItem["severity"] | undefined> = {
+				error: "error",
+				warning: "warning",
+				info: "information",
+				text: "hint",
+			};
+			const severity = severityMap[dir];
+			if (severity !== undefined) {
+				out.push({
+					severity,
+					span: pr.token.span,
+					source: "volt-lsp-st",
+					code: `message-pragma-${dir}`,
+					message: pr.messageText,
+				});
+			}
+		}
+
 		// 1. Unknown pragma vs. wrong-vendor pragma.
 		// If the name resolves in the active vendor's catalog → silent.
 		// If it resolves in the OTHER vendor's catalog → wrong-vendor warning.
@@ -674,13 +700,17 @@ function parsePragmaText(text: string): {
 	directive?: string;
 	attributeName?: string;
 	value?: string;
+	/** For message pragmas (`text`/`info`/`warning`/`error`), the quoted message text. */
+	messageText?: string;
 } {
 	const m = /^\{\s*(\S+)/.exec(text);
 	if (m === null) return {};
 	const directive = m[1];
 	let attributeName: string | undefined;
 	let value: string | undefined;
-	if (directive?.toLowerCase() === "attribute") {
+	let messageText: string | undefined;
+	const dirLower = directive?.toLowerCase();
+	if (dirLower === "attribute") {
 		// {attribute 'name'}            → name only
 		// {attribute 'name' := 'value'} → name + value
 		const mAttr = /^\{\s*attribute\s+'([^']+)'(?:\s*:=\s*'([^']*)')?/i.exec(text);
@@ -688,6 +718,10 @@ function parsePragmaText(text: string): {
 			attributeName = mAttr[1];
 			value = mAttr[2];
 		}
+	} else if (dirLower === "text" || dirLower === "info" || dirLower === "warning" || dirLower === "error") {
+		// {warning 'message body'} — extract the quoted body.
+		const mMsg = /^\{\s*\S+\s+'([^']*)'/i.exec(text);
+		if (mMsg !== null) messageText = mMsg[1];
 	}
-	return { directive, attributeName, value };
+	return { directive, attributeName, value, messageText };
 }

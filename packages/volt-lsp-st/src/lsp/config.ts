@@ -42,6 +42,15 @@ export interface DiagnosticConfig {
 	initSlotCollision: boolean;
 	/** `<X>_TO_<Y>(arg)` where arg's declared type isn't compatible with `<X>`. Warning. */
 	conversionSourceMismatch: boolean;
+	/**
+	 * Surface message pragmas — `{text}` / `{info}` / `{warning}` /
+	 * `{error}` — as LSP diagnostics with the corresponding severity.
+	 * These pragmas are explicit author-emitted markers (compile-time
+	 * message channel); mirroring them in the LSP gives the same
+	 * red/yellow squiggle the IDE compiler shows. Off-by-default
+	 * would be silly (the user wrote them on purpose), so default ON.
+	 */
+	messagePragmas: boolean;
 }
 
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
@@ -58,6 +67,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	shadowingDeclaration: true,
 	initSlotCollision: true,
 	conversionSourceMismatch: true,
+	messagePragmas: true,
 };
 
 /**
