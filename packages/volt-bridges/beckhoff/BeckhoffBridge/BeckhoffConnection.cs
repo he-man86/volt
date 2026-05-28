@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using BeckhoffBridge.Helpers;
 
 namespace BeckhoffBridge;
 
@@ -298,7 +299,23 @@ internal sealed class BeckhoffConnection
 				string childName = child.Name;
 
 				if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase))
-					return child;
+				{
+					// Only return real CRUD items (POU/GVL/DUT/Interface).
+					// PlcTask child entries (TaskCallReference, subType 650)
+					// share names with the programs they call — if a program
+					// "PLC_PRG" was removed but the task still references that
+					// name, the call-ref child has Name="PLC_PRG" and used to
+					// be returned here, causing createPou to falsely error
+					// "ALREADY_EXISTS" and updatePou to crash on a COM object
+					// that has no DeclarationText property. Same problem for
+					// Tasks (621), Libraries (657), TmcFile (653), etc. that
+					// happen to share a name with a real CRUD item.
+					int itemType = GetItemType(child);
+					if (BlockTypeMapper.IsTopLevelCrud(itemType))
+						return child;
+					// Fall through: continue walking — maybe the real CRUD
+					// item lives deeper.
+				}
 
 				// Skip recursion into properties — their children (Get/Set) are never
 				// the items we search for, and interface properties crash COM.
@@ -505,7 +522,20 @@ internal sealed class BeckhoffConnection
 				string path = string.IsNullOrEmpty(prefix) ? childName : $"{prefix}^{childName}";
 
 				if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase))
-					return path;
+				{
+					// Same filter as FindItemByName: only top-level CRUD items
+					// (POU/GVL/DUT/Interface). Tasks call references (650) and
+					// other PlcTask children commonly share names with the
+					// programs they reference — without this filter a deleted
+					// program POU + still-present task-call-ref would route
+					// here and return a path that, when handed to
+					// LookupTreeItem, resolves to the call-ref COM object
+					// instead of the missing program.
+					int itemType = GetItemType(child);
+					if (BlockTypeMapper.IsTopLevelCrud(itemType))
+						return path;
+					// Fall through and keep walking.
+				}
 
 				// Skip recursion into properties — their children are Get/Set accessors,
 				// never the items we search for. Interface property children crash COM.

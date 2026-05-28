@@ -154,6 +154,138 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unknown_attribu
 }
 `;
 
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) enable_dynamic_creation LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "enable_dynamic_creation",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) const_replaced LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "const_replaced",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) const_non_replaced LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "const_non_replaced",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) global_init_slot LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "global_init_slot",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) monitoring_display LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "monitoring_display",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) monitoring_encoding LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "monitoring_encoding",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) subsequent LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "subsequent",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) suppress_warning LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "suppress_warning",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditionalshow LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "conditionalshow",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) pingroup LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "pingroup",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) info_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "info_message",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) text_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "text_message",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) error_message LSP diagnostics agree with TwinCAT 1`] = `
 {
   "agreementOnPassFail": false,
@@ -161,6 +293,83 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) error_message L
   "lspWarnings": 0,
   "name": "error_message",
   "tcErrors": 1,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_init_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "fb_init_canonical",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_reinit_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "fb_reinit_canonical",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_exit_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 1,
+  "name": "fb_exit_canonical",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_init_wrong_return_type LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 1,
+  "lspWarnings": 1,
+  "name": "fb_init_wrong_return_type",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_init_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 1,
+  "lspWarnings": 1,
+  "name": "fb_init_missing_bInCopyCode",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_exit_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 1,
+  "lspWarnings": 1,
+  "name": "fb_exit_missing_bInCopyCode",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_reinit_with_params LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 1,
+  "lspWarnings": 1,
+  "name": "fb_reinit_with_params",
+  "tcErrors": 0,
   "tcWarnings": 0,
 }
 `;

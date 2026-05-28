@@ -24,7 +24,7 @@ import {
 	parseSource,
 	DEFAULT_DIAGNOSTIC_CONFIG,
 } from "@opencode-ai/volt-lsp-st";
-import { PRAGMA_TESTS } from "./pragma-tests.js";
+import { ALL_TESTS } from "./index.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 
 interface ExpectedTc {
@@ -47,7 +47,7 @@ describe("language conformance: pragmas (LSP vs recorded TwinCAT)", () => {
 		return;
 	}
 
-	for (const test of PRAGMA_TESTS) {
+	for (const test of ALL_TESTS) {
 		describe(test.name, () => {
 			it("has recorded ground truth", () => {
 				expect(expected.tests[test.name]).toBeDefined();

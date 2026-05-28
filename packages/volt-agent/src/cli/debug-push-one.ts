@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BridgeClient } from "../bridge/client.js";
-import { PRAGMA_TESTS } from "../conformance/pragma-tests.js";
+import { ALL_TESTS } from "../conformance/index.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -33,9 +33,9 @@ const KIND_EXT: Record<string, string> = {
 
 async function main(): Promise<void> {
 	const target = process.argv[2] ?? "warning_message";
-	const test = PRAGMA_TESTS.find((t) => t.name === target);
+	const test = ALL_TESTS.find((t) => t.name === target);
 	if (test === undefined) {
-		console.error(`unknown test: ${target}. Known: ${PRAGMA_TESTS.map((t) => t.name).join(", ")}`);
+		console.error(`unknown test: ${target}. Known: ${ALL_TESTS.map((t) => t.name).join(", ")}`);
 		process.exit(1);
 	}
 

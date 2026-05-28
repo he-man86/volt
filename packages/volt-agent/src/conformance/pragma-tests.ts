@@ -21,7 +21,7 @@
  *   to the test cases that need updating.
  */
 
-export interface PragmaTest {
+export interface LanguageTest {
 	/** Unique slug; identifies the test in reports and the expected-tc.json map. */
 	name: string;
 	/** TwinCAT POU name as it appears in the project tree. Must start with `LANG_` prefix-aware identifier (FB_LANG_*, GVL_LANG_*, DUT_LANG_*) for cleanup. */
@@ -50,7 +50,11 @@ export interface PragmaTest {
 	note?: string;
 }
 
-export const PRAGMA_TESTS: readonly PragmaTest[] = [
+export const PRAGMA_TESTS: readonly LanguageTest[] = [
+	// ========================================================================
+	// Category: 07-pragmas.md — attribute pragmas + message pragmas
+	// ========================================================================
+
 	// NOTE: GVL push is currently a known limitation in volt-agent's
 	// st-parse (architecture: GVLs are vendor-controlled, pull-only).
 	// GVL-specific pragma tests (qualified_only, etc.) are tracked
@@ -357,6 +361,261 @@ VAR
 	iX : INT;
 END_VAR
 
+END_FUNCTION_BLOCK
+`,
+	},
+
+	// ─── More variable + POU attributes (batch 2) ────────────────────
+
+	{
+		name: "enable_dynamic_creation",
+		pouName: "FB_LANG_enable_dynamic_creation",
+		kind: "function_block",
+		feature: "{attribute 'enable_dynamic_creation'} required for __NEW operator on FB",
+		fromDoc: "07-pragmas.md#enable_dynamic_creation",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_edc : FB_LANG_enable_dynamic_creation;",
+		plcPrgBody: "fb_edc();",
+		source:
+`{attribute 'enable_dynamic_creation'}
+FUNCTION_BLOCK FB_LANG_enable_dynamic_creation
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "const_replaced",
+		pouName: "FB_LANG_const_replaced",
+		kind: "function_block",
+		feature: "{attribute 'const_replaced'} forces a constant to be inlined",
+		fromDoc: "07-pragmas.md#const_replaced--const_non_replaced",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cr : FB_LANG_const_replaced;",
+		plcPrgBody: "fb_cr();",
+		source:
+`FUNCTION_BLOCK FB_LANG_const_replaced
+VAR CONSTANT
+	{attribute 'const_replaced'}
+	C_MAX : INT := 100;
+END_VAR
+VAR
+	iLocal : INT;
+END_VAR
+iLocal := C_MAX;
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "const_non_replaced",
+		pouName: "FB_LANG_const_non_replaced",
+		kind: "function_block",
+		feature: "{attribute 'const_non_replaced'} keeps a constant as a symbol",
+		fromDoc: "07-pragmas.md#const_replaced--const_non_replaced",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cnr : FB_LANG_const_non_replaced;",
+		plcPrgBody: "fb_cnr();",
+		source:
+`FUNCTION_BLOCK FB_LANG_const_non_replaced
+VAR CONSTANT
+	{attribute 'const_non_replaced'}
+	C_LIMIT : INT := 200;
+END_VAR
+VAR
+	iLocal : INT;
+END_VAR
+iLocal := C_LIMIT;
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "global_init_slot",
+		pouName: "FB_LANG_global_init_slot",
+		kind: "function_block",
+		feature: "{attribute 'global_init_slot' := '49000'} overrides init order",
+		fromDoc: "07-pragmas.md#global_init_slot",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_gis : FB_LANG_global_init_slot;",
+		plcPrgBody: "fb_gis();",
+		source:
+`{attribute 'global_init_slot' := '49000'}
+FUNCTION_BLOCK FB_LANG_global_init_slot
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "monitoring_display",
+		pouName: "FB_LANG_monitoring_display",
+		kind: "function_block",
+		feature: "{attribute 'monitoring_display' := '<member>'} shows member in monitor",
+		fromDoc: "07-pragmas.md#monitoring_display",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_md : FB_LANG_monitoring_display;",
+		plcPrgBody: "fb_md.iStatus := 1;",
+		source:
+`{attribute 'monitoring_display' := 'iStatus'}
+FUNCTION_BLOCK FB_LANG_monitoring_display
+VAR
+	iStatus : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "monitoring_encoding",
+		pouName: "FB_LANG_monitoring_encoding",
+		kind: "function_block",
+		feature: "{attribute 'monitoring_encoding' := 'UTF8'} marks a STRING as UTF-8",
+		fromDoc: "07-pragmas.md#monitoring_encoding",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_me : FB_LANG_monitoring_encoding;",
+		plcPrgBody: "fb_me.sValue := 'hello';",
+		source:
+`FUNCTION_BLOCK FB_LANG_monitoring_encoding
+VAR
+	{attribute 'monitoring_encoding' := 'UTF8'}
+	sValue : STRING;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "subsequent",
+		pouName: "FB_LANG_subsequent",
+		kind: "function_block",
+		feature: "{attribute 'subsequent'} allocates VAR section contiguously",
+		fromDoc: "07-pragmas.md#subsequent",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_sub : FB_LANG_subsequent;",
+		plcPrgBody: "fb_sub.iA := 1; fb_sub.iB := 2;",
+		source:
+`FUNCTION_BLOCK FB_LANG_subsequent
+{attribute 'subsequent'}
+VAR
+	iA : INT;
+	iB : INT;
+	iC : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "suppress_warning",
+		pouName: "FB_LANG_suppress_warning",
+		kind: "function_block",
+		feature: "{attribute 'suppress_warning' := '<id>'} hides specific TC warnings within the POU",
+		fromDoc: "07-pragmas.md#suppress_warning",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_sw : FB_LANG_suppress_warning;",
+		plcPrgBody: "fb_sw();",
+		source:
+`{attribute 'suppress_warning' := '0125'}
+FUNCTION_BLOCK FB_LANG_suppress_warning
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "conditionalshow",
+		pouName: "FB_LANG_conditionalshow",
+		kind: "function_block",
+		feature: "{attribute 'conditionalshow' := '<text>'} hides identifiers conditionally",
+		fromDoc: "07-pragmas.md#conditionalshow",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cs : FB_LANG_conditionalshow;",
+		plcPrgBody: "fb_cs.iHidden := 1;",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditionalshow
+VAR
+	{attribute 'conditionalshow' := 'maintainer_only'}
+	iHidden : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "pingroup",
+		pouName: "FB_LANG_pingroup",
+		kind: "function_block",
+		feature: "{attribute 'pingroup' := '<name>'} groups FB pins in graphical editors",
+		fromDoc: "07-pragmas.md#pingroup",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_pg : FB_LANG_pingroup;",
+		plcPrgBody: "fb_pg(iInputA := 1, iInputB := 2);",
+		source:
+`FUNCTION_BLOCK FB_LANG_pingroup
+VAR_INPUT
+	{attribute 'pingroup' := 'control'}
+	iInputA : INT;
+	{attribute 'pingroup' := 'control'}
+	iInputB : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	// ─── Additional message pragmas: positive emission cases ──────────
+
+	{
+		name: "info_message",
+		pouName: "FB_LANG_info_message",
+		kind: "function_block",
+		feature: "{info 'msg'} emits a TC informational message (filterable)",
+		fromDoc: "07-pragmas.md#message-pragmas",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_info : FB_LANG_info_message;",
+		plcPrgBody: "fb_info();",
+		note: "TC should accept and emit an info-level diagnostic.",
+		source:
+`FUNCTION_BLOCK FB_LANG_info_message
+VAR
+	iVar : INT;
+END_VAR
+{info 'this is a deliberate test info'}
+iVar := iVar + 1;
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "text_message",
+		pouName: "FB_LANG_text_message",
+		kind: "function_block",
+		feature: "{text 'msg'} emits a TC plain-text message (no severity)",
+		fromDoc: "07-pragmas.md#message-pragmas",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_text : FB_LANG_text_message;",
+		plcPrgBody: "fb_text();",
+		source:
+`FUNCTION_BLOCK FB_LANG_text_message
+VAR
+	iVar : INT;
+END_VAR
+{text 'this is a deliberate test text'}
+iVar := iVar + 1;
 END_FUNCTION_BLOCK
 `,
 	},
