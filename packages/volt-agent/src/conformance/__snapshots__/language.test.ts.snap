@@ -33,6 +33,116 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) warning_message
 }
 `;
 
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) noinit LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "noinit",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_on_onlchange LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "init_on_onlchange",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) displaymode_hex LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "displaymode_hex",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) no_copy LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "no_copy",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) linkalways LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "linkalways",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) no_check LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "no_check",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) no_instance_in_retain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "no_instance_in_retain",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) hide_all_locals LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "hide_all_locals",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) no_assign LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "no_assign",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) reflection LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "reflection",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unknown_attribute_typo LSP diagnostics agree with TwinCAT 1`] = `
 {
   "agreementOnPassFail": true,
@@ -40,6 +150,17 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unknown_attribu
   "lspWarnings": 1,
   "name": "unknown_attribute_typo",
   "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) error_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspWarnings": 0,
+  "name": "error_message",
+  "tcErrors": 1,
   "tcWarnings": 0,
 }
 `;
