@@ -344,8 +344,19 @@ END_METHOD`);
 });
 
 describe("diagnostics: init-slot collision", () => {
-	it("warns when 50000 collides with the default user-POU slot", () => {
+	it("does NOT warn for the user-default slot 50000 (intent, not collision)", () => {
+		// 50000 IS the user-default. Picking it explicitly is a no-op
+		// equivalent to omitting the pragma — warning would be noisy
+		// and actionless. (Updated 2026-05-28 after the conformance
+		// harness flagged this as a false positive.)
 		const { diags } = setup(`{attribute 'global_init_slot' := '50000'}
+FUNCTION_BLOCK FB_X
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "init-slot-collision")).toHaveLength(0);
+	});
+
+	it("warns when a slot collides with a vendor-reserved slot (30000 = Alarm Manager)", () => {
+		const { diags } = setup(`{attribute 'global_init_slot' := '30000'}
 FUNCTION_BLOCK FB_X
 END_FUNCTION_BLOCK`);
 		const warns = diags.filter((d) => d.code === "init-slot-collision");

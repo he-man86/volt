@@ -26,6 +26,14 @@ export interface InitSlot {
 	owner: string;
 	pou: string;
 	purpose: string;
+	/**
+	 * True for the slots CODESYS *expects* user code to live in (the
+	 * GVL default 49990 and the POU default 50000). Picking these
+	 * isn't a collision — it's the documented intent. The diagnostic
+	 * filters defaults out before warning, so picking 50000 explicitly
+	 * is a no-op equivalent to omitting the pragma.
+	 */
+	isUserDefault?: boolean;
 }
 
 export const RESERVED_INIT_SLOTS: ReadonlyArray<InitSlot> = [
@@ -50,8 +58,8 @@ export const RESERVED_INIT_SLOTS: ReadonlyArray<InitSlot> = [
 	{ slot: 40100, owner: "DeviceObject", pou: "IoConfig_Forces_Reset", purpose: "Force vars for I/O mapping" },
 	{ slot: 49980, owner: "Compiler", pou: "All VAR_STAT", purpose: "Initialize VAR_STAT variables" },
 	{ slot: 49985, owner: "Compiler", pou: "__MemManDefinition", purpose: "Dynamic memory management (must precede normal GVLs)" },
-	{ slot: 49990, owner: "Compiler", pou: "All GVLs", purpose: "DEFAULT slot for global variable lists" },
-	{ slot: 50000, owner: "Compiler", pou: "Default slot", purpose: "DEFAULT slot for user POUs (programs, FBs)" },
+	{ slot: 49990, owner: "Compiler", pou: "All GVLs", purpose: "DEFAULT slot for global variable lists", isUserDefault: true },
+	{ slot: 50000, owner: "Compiler", pou: "Default slot", purpose: "DEFAULT slot for user POUs (programs, FBs)", isUserDefault: true },
 	{ slot: 50000, owner: "VisualObject", pou: "Visu__VisualManager__GVL__0", purpose: "Visu init" },
 	{ slot: 50500, owner: "VisualObject", pou: "__VisuInitInstantiation_GVL", purpose: "Visu init" },
 	{ slot: 51000, owner: "VisualObject", pou: "Visu__VisualManager__CommonGVL", purpose: "Visu init" },
@@ -73,11 +81,19 @@ export const GVL_DEFAULT_SLOT = 49990;
 export const POU_DEFAULT_SLOT = 50000;
 
 /**
- * Look up reserved slots overlapping with a user-provided slot value.
- * Returns all owners using that exact slot (multiple are common).
+ * Look up *vendor-reserved* slots overlapping with a user-provided slot
+ * value. Returns an empty array when the slot is a user-default (49990
+ * or 50000): picking a default isn't a collision, it's the documented
+ * intent, even when vendor subsystems also happen to live in the same
+ * slot. Suppressing the warning entirely there avoids flagging every
+ * project that explicitly sets the default — which would be noisy and
+ * actionless (you'd get the same vendor co-occupation by omitting the
+ * pragma altogether).
  */
 export function getReservationsAtSlot(slot: number): readonly InitSlot[] {
-	return RESERVED_INIT_SLOTS.filter((s) => s.slot === slot);
+	const all = RESERVED_INIT_SLOTS.filter((s) => s.slot === slot);
+	if (all.some((s) => s.isUserDefault === true)) return [];
+	return all;
 }
 
 export const INIT_SLOTS_SOURCE = {

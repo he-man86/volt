@@ -608,10 +608,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) init_slot_defau
 {
   "agreementOnPassFail": true,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] Slot 50000 is reserved by CODESYS (Compiler: DEFAULT slot for user POUs (programs, FBs)). Pick a unique slot.",
-  ],
-  "lspWarnings": 1,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "init_slot_default_50000",
   "tcErrors": 0,
   "tcMessages": [],
