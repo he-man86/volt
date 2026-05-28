@@ -683,14 +683,32 @@ internal sealed class BeckhoffConnection
 	/// </summary>
 	public static string ComputeItemVersion(dynamic item)
 	{
-		var sb = new StringBuilder();
-		AppendItemContent(sb, item);
-		return ShortSha1(sb.ToString());
+		string topName = "?";
+		try { topName = (string)item.Name; } catch { }
+		Log.Ide($"[hash] start: {topName}");
+		try
+		{
+			var sb = new StringBuilder();
+			AppendItemContent(sb, item, topName);
+			var v = ShortSha1(sb.ToString());
+			Log.Ide($"[hash] done:  {topName} -> {v}");
+			return v;
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[hash] FAILED on {topName}: {ex.Message}");
+			throw;
+		}
 	}
 
-	private static void AppendItemContent(StringBuilder sb, dynamic item)
+	private static void AppendItemContent(StringBuilder sb, dynamic item, string crumb)
 	{
+		// Per-item COM reads. Logged BEFORE the call so a TwinCAT crash
+		// leaves a clear "we were reading X" trail in bridge.log — the
+		// last [hash] line before silence is the offending item.
+		Log.Ide($"[hash]   read decl: {crumb}");
 		sb.Append("d=").Append(ReadDeclaration(item)).Append('\0');
+		Log.Ide($"[hash]   read impl: {crumb}");
 		sb.Append("i=").Append(ReadImplementation(item)).Append('\0');
 
 		// Walk children sorted by name for stability.
@@ -698,6 +716,7 @@ internal sealed class BeckhoffConnection
 		try
 		{
 			int count = (int)item.ChildCount;
+			Log.Ide($"[hash]   children of {crumb}: {count}");
 			for (int i = 1; i <= count; i++)
 			{
 				try
@@ -706,20 +725,60 @@ internal sealed class BeckhoffConnection
 					string name = (string)child.Name;
 					named.Add((name, child));
 				}
-				catch { /* skip inaccessible */ }
+				catch (Exception ex) { Log.Warn($"[hash]   skip child {i} of {crumb}: {ex.Message}"); }
 			}
 		}
-		catch { /* no children */ }
+		catch (Exception ex) { Log.Warn($"[hash]   ChildCount failed on {crumb}: {ex.Message}"); }
+
+		// Compute parent-type ONCE before iterating children. Each per-child
+		// ItemSubType / GetItemType call is a COM round-trip that runs at
+		// ~13s when the channel is degraded (e.g. after touching an
+		// interface property accessor). Reading once + reusing avoids
+		// compounding the slowdown across N children.
+		int thisType = 0;
+		try { thisType = GetItemType(item); } catch (Exception ex) { Log.Warn($"[hash]   GetItemType failed on {crumb}: {ex.Message}"); }
 
 		named.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
 		sb.Append("c[\0");
 		foreach (var (name, child) in named)
 		{
 			sb.Append(" n=").Append(name).Append('\0');
-			AppendItemContent(sb, child);
+			AppendChildContent(sb, thisType, child, $"{crumb}.{name}");
 			sb.Append(" --\0");
 		}
 		sb.Append("]\0");
+	}
+
+	/// <summary>
+	/// Recurse into a child item, but apply guards for known TwinCAT COM
+	/// fragility based on the PARENT type (passed in pre-computed):
+	///   1. Parent is InterfaceProperty (612): Get/Set accessor children
+	///      HAVE NO BODY. Reading `ImplementationText` on them hangs the
+	///      COM channel for ~13s and trips an RPC-unavailable error
+	///      (verified live via instrumented hash walk against
+	///      TC3_PlcSample_BasicPlcElements). Emit a stable placeholder
+	///      so the hash changes on signature changes but skip the
+	///      crash-prone COM call.
+	/// </summary>
+	private static void AppendChildContent(StringBuilder sb, int parentType, dynamic child, string crumb)
+	{
+		if (parentType == 612 /* InterfaceProperty */)
+		{
+			// Interface property accessor (Get / Set). They are signatures
+			// — no body, no addressable declaration text either. Reading
+			// EITHER DeclarationText or ImplementationText via COM hangs
+			// the channel for ~13s per call and trips RPC-unavailable.
+			// Hash by accessor name only (Get vs Set is the only thing
+			// that varies); presence already comes through the parent's
+			// hasGetter / hasSetter on the wire.
+			Log.Ide($"[hash]   skip accessor (interface): {crumb}");
+			sb.Append("d=<interface-accessor>\0");
+			sb.Append("i=<interface-accessor-no-body>\0");
+			sb.Append("c[]\0");
+			return;
+		}
+
+		AppendItemContent(sb, child, crumb);
 	}
 
 	/// <summary>
