@@ -32,7 +32,10 @@
           "IEC 61131-3"
         ],
         "extensions": [
-          ".st"
+          ".st",
+          ".dut",
+          ".gvl",
+          ".itf"
         ],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {
