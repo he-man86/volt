@@ -30,9 +30,10 @@ namespace BeckhoffBridge.Helpers;
 ///   610 = Interface Method                [verified — METH on ITF]
 ///   611 = Property                        [verified — output]
 ///   612 = Interface Property              [verified — Prop on ITF]
-///   613 = Property Get                    [inherited — needs sample (Get accessor on FB property)]
-///   614 = Property Set                    [inherited — needs sample (Set accessor on FB property)]
+///   613 = Property Get                    [verified — Get accessor of POU.Prop (via shallow probe)]
+///   614 = Property Set                    [verified — Set accessor of POU.Prop (via shallow probe)]
 ///   615 = Global Variable List (GVL)      [verified — GVL_Basic]
+///   616 = Transition (SFC TRANS)          [verified — TRANS under POU (SFC POU)]
 ///   617 = Library Manager                 [verified by name — "References" → 617]
 ///   618 = Interface                       [verified — ITF]
 ///   619 = Visualization                   [verified — "Visualization"]
@@ -50,7 +51,7 @@ namespace BeckhoffBridge.Helpers;
 ///   655 = Interface Property Set          [verified — Set accessor on Prop of ITF (via shallow probe)]
 ///   657 = Library                         [verified by name — "CmpBitmapPool", "RecipeManagement", "Tc2_Standard", "Tc2_System", "Tc3_Module" → 657]
 ///
-/// Remaining PLC-tree gaps (600-range): 607, 616, 622-624, 626-627, 629-630,
+/// Remaining PLC-tree gaps (600-range): 607, 622-624, 626-627, 629-630,
 /// 634-649, 651, 656, 658+. Likely persistent vars, NWLs, alarm configurations,
 /// trace, etc. Probe via /tree as new project content appears.
 ///
@@ -99,6 +100,7 @@ internal static class BlockTypeMapper
 	public const int InterfacePropertyGetSubType = 654;
 	public const int InterfacePropertySetSubType = 655;
 	public const int LibrarySubType = 657;
+	public const int TransitionSubType = 616; // SFC transition (TRANS child of an SFC POU)
 
 	// System-tree codes (outside the 600-range, discovered via /tree). Not
 	// part of volt-agent's CRUD surface — kept here only so ToNodeType
@@ -184,6 +186,7 @@ internal static class BlockTypeMapper
 			GvlSubType => "gvl",
 			LibraryManagerSubType => "library_manager",
 			InterfaceSubType => "interface",
+			TransitionSubType => "transition",
 			TaskSubType => "task",
 			LibrarySubType => "library",
 			// System-tree codes — discovered via /tree, not in volt-agent's
