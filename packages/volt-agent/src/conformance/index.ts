@@ -11,6 +11,7 @@ import { LIFECYCLE_TESTS } from "./lifecycle-tests.js";
 import { IDENTIFIER_TESTS } from "./identifier-tests.js";
 import { INIT_SLOT_TESTS } from "./init-slot-tests.js";
 import { SHADOWING_TESTS } from "./shadowing-tests.js";
+import { CONVERSION_TESTS } from "./conversion-tests.js";
 
 export type { LanguageTest } from "./pragma-tests.js";
 
@@ -20,4 +21,5 @@ export const ALL_TESTS = [
 	...IDENTIFIER_TESTS,
 	...INIT_SLOT_TESTS,
 	...SHADOWING_TESTS,
+	...CONVERSION_TESTS,
 ];

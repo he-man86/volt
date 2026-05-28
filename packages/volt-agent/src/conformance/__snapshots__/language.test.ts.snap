@@ -461,3 +461,58 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) shadowing_metho
   "tcWarnings": 0,
 }
 `;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_int_to_real_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 3,
+  "name": "conversion_int_to_real_valid",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_real_to_int_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 3,
+  "name": "conversion_real_to_int_valid",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_int_to_real_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspWarnings": 3,
+  "name": "conversion_int_to_real_wrong_source",
+  "tcErrors": 1,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_dint_to_int_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspWarnings": 3,
+  "name": "conversion_dint_to_int_wrong_source",
+  "tcErrors": 0,
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_implicit_dint_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspWarnings": 2,
+  "name": "conversion_implicit_dint_to_int",
+  "tcErrors": 1,
+  "tcWarnings": 0,
+}
+`;
