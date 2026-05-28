@@ -18,30 +18,41 @@ namespace BeckhoffBridge.Helpers;
 /// misclassification. Use <see cref="BeckhoffConnection.GetItemType"/>.
 ///
 /// Codes (verification status from probing TwinCAT XAE 15.0 via /debug):
-///   601 = Folder                          [verified — POUs/DUTs/GVLs/VISUs/SumComparison]
-///   602 = Program (PRG)                   [verified — PLC_PRG, MAIN]
+///   600 = NestedProject root              [verified — PlcSample_BasicPlcElements Project]
+///   601 = Folder                          [verified — POUs/DUTs/GVLs/Drives/SumComparison]
+///   602 = Program (PRG)                   [verified — PLC_PRG, MAIN, SumComparison]
 ///   603 = Function (FC)                   [verified — F_SumComparison_ST/FBD, CheckBounds, CheckDivDInt, CheckPointer]
 ///   604 = Function Block (FB)             [verified — FB_RateLimiter, FB_Sample, FB_StateMachine]
 ///   605 = Enumeration (DUT)               [verified — E_StateMachine]
 ///   606 = Struct (DUT)                    [verified — ST_Sample]
 ///   608 = Action                          [verified — action1]
 ///   609 = Method                          [verified — Reset, Update, Execute]
-///   610 = Interface Method                [inherited — needs sample (method on an interface)]
+///   610 = Interface Method                [verified — METH on ITF]
 ///   611 = Property                        [verified — output]
-///   612 = Interface Property              [inherited — needs sample (property on an interface)]
+///   612 = Interface Property              [verified — Prop on ITF]
 ///   613 = Property Get                    [inherited — needs sample (Get accessor on FB property)]
 ///   614 = Property Set                    [inherited — needs sample (Set accessor on FB property)]
 ///   615 = Global Variable List (GVL)      [verified — GVL_Basic]
 ///   617 = Library Manager                 [verified by name — "References" → 617]
 ///   618 = Interface                       [verified — ITF]
+///   619 = Visualization                   [verified — "Visualization"]
+///   620 = Visualization Manager           [verified — "Visualization Manager"]
 ///   621 = Task                            [verified by name — "PlcTask" → 621]
-///   654 = Interface Property Get          [inherited — needs sample (Get on interface property)]
-///   655 = Interface Property Set          [inherited — needs sample (Set on interface property)]
-///   657 = Library                         [verified by name — "Tc2_Standard", "Tc3_Module", "Tc2_System" → 657]
+///   625 = GlobalTextList                  [verified — "GlobalTextList"]
+///   628 = ImagePool                       [verified — "ImagePool", "ImagePool_1"]
+///   631 = Class Diagram (UML)             [verified — "Class Diagram"]
+///   632 = RecipeManager                   [verified — "RecipeManager"]
+///   633 = Recipes container               [verified — "Recipes" under RecipeManager]
+///   650 = Task call reference             [verified — "MAIN" entry under PlcTask]
+///   652 = External Types                  [verified — "External Types"]
+///   653 = TMC file (TwinCAT Module Class) [verified — "PlcSample_BasicPlcElements.tmc"]
+///   654 = Interface Property Get          [inherited — Property children skipped in /tree to avoid COM crash on interface properties]
+///   655 = Interface Property Set          [inherited — same as 654]
+///   657 = Library                         [verified by name — "CmpBitmapPool", "RecipeManagement", "Tc2_Standard", "Tc2_System", "Tc3_Module" → 657]
 ///
-/// Known gaps within the PLC tree (600-range): 607, 616, 619-620, 622-653,
-/// 656, 658+. Likely visualizations, image pools, recipes, task calls,
-/// persistent vars, NWLs, alarm configurations, etc.
+/// Remaining PLC-tree gaps (600-range): 607, 616, 622-624, 626-627, 629-630,
+/// 634-649, 651, 656, 658+. Likely persistent vars, NWLs, alarm configurations,
+/// trace, etc. Probe via /tree as new project content appears.
 ///
 /// System-tree type codes (outside the 600-range — surfaced via /tree
 /// endpoint, ITcSysManager.LookupTreeItem paths). volt-agent's CRUD
@@ -88,6 +99,39 @@ internal static class BlockTypeMapper
 	public const int InterfacePropertyGetSubType = 654;
 	public const int InterfacePropertySetSubType = 655;
 	public const int LibrarySubType = 657;
+
+	// System-tree codes (outside the 600-range, discovered via /tree). Not
+	// part of volt-agent's CRUD surface — kept here only so ToNodeType
+	// produces friendly names for /tree + /debug responses instead of
+	// "unknown". Adding a code here does NOT make it routable through
+	// IsTopLevelCrud (which still gates RefsHandler / PushHandler).
+	public const int SystemRoot = 0;
+	public const int SubTaskSystem = 1;
+	public const int PlcRoot = 14;
+	public const int TasksContainer = 16;
+	public const int DevicesContainer = 17;
+	public const int MotionRoot = 19;
+	public const int RoutesRoot = 31;
+	public const int PlcProjectContainer = 56;
+	public const int PlcProjectInstance = 57;
+	public const int CamRoot = 200;
+	public const int SafetyRoot = 505;
+
+	// In-NestedProject support items (discovered via /tree with the
+	// NestedProject root). All filtered out of /refs by IsTopLevelCrud —
+	// kept here for friendly /tree / /debug output and so the
+	// unmapped-code warning loop doesn't spam bridge.log.
+	public const int NestedProjectRoot = 600;
+	public const int Visualization = 619;
+	public const int VisualizationManager = 620;
+	public const int GlobalTextList = 625;
+	public const int ImagePool = 628;
+	public const int ClassDiagram = 631;
+	public const int RecipeManager = 632;
+	public const int RecipesContainer = 633;
+	public const int TaskCallReference = 650;
+	public const int ExternalTypes = 652;
+	public const int TmcFile = 653;
 
 	/// <summary>
 	/// Convert a CODESYS-style POU type to a TwinCAT CreateChild subType.
@@ -142,6 +186,31 @@ internal static class BlockTypeMapper
 			InterfaceSubType => "interface",
 			TaskSubType => "task",
 			LibrarySubType => "library",
+			// System-tree codes — discovered via /tree, not in volt-agent's
+			// CRUD scope but named for inspection / log clarity.
+			SystemRoot => "system_root",
+			SubTaskSystem => "system_subtask",
+			PlcRoot => "plc_root",
+			TasksContainer => "tasks_container",
+			DevicesContainer => "devices_container",
+			MotionRoot => "motion_root",
+			RoutesRoot => "routes_root",
+			PlcProjectContainer => "plc_project_container",
+			PlcProjectInstance => "plc_project_instance",
+			CamRoot => "cam_root",
+			SafetyRoot => "safety_root",
+			// In-NestedProject support items (discovered via /tree).
+			NestedProjectRoot => "nested_project_root",
+			Visualization => "visualization",
+			VisualizationManager => "visualization_manager",
+			GlobalTextList => "global_text_list",
+			ImagePool => "image_pool",
+			ClassDiagram => "class_diagram",
+			RecipeManager => "recipe_manager",
+			RecipesContainer => "recipes_container",
+			TaskCallReference => "task_call_reference",
+			ExternalTypes => "external_types",
+			TmcFile => "tmc_file",
 			_ => null,
 		};
 		if (mapped != null) return mapped;

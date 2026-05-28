@@ -351,6 +351,17 @@ internal sealed class BeckhoffConnection
 			try { roots.Add(_sysManager.LookupTreeItem(path)); }
 			catch { /* subtree not present in this license — skip */ }
 		}
+		// Also expose the PLC NestedProject — it's a parallel COM view that
+		// LookupTreeItem doesn't reach. Most of what humans care about lives
+		// here: POUs, DUTs, GVLs, Interfaces, Visualizations, Recipe Manager,
+		// Image Pools, plus their nested method/property/action children.
+		// Without this, /tree misses ~everything code-shaped.
+		try
+		{
+			var nested = GetPlcProjectRoot();
+			if (nested != null) roots.Add(nested);
+		}
+		catch { /* no PLC project bound — skip */ }
 		return roots;
 	}
 
