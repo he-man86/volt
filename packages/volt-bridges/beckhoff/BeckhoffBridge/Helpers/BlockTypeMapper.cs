@@ -18,31 +18,32 @@ namespace BeckhoffBridge.Helpers;
 /// misclassification. Use <see cref="BeckhoffConnection.GetItemType"/>.
 ///
 /// Codes (verification status from probing TwinCAT XAE 15.0 via /debug):
-///   601 = Folder                          [verified — POUs/DUTs/GVLs/VISUs/folder1]
-///   602 = Program (PRG)                   [verified — PLC_PRG]
-///   603 = Function (FC)                   [inherited from old Volt repo]
-///   604 = Function Block (FB)             [verified — FB_RateLimiter]
-///   605 = Enumeration (DUT)               [inherited]
-///   606 = Struct (DUT)                    [inherited]
+///   601 = Folder                          [verified — POUs/DUTs/GVLs/VISUs/SumComparison]
+///   602 = Program (PRG)                   [verified — PLC_PRG, MAIN]
+///   603 = Function (FC)                   [verified — F_SumComparison_ST/FBD, CheckBounds, CheckDivDInt, CheckPointer]
+///   604 = Function Block (FB)             [verified — FB_RateLimiter, FB_Sample, FB_StateMachine]
+///   605 = Enumeration (DUT)               [verified — E_StateMachine]
+///   606 = Struct (DUT)                    [verified — ST_Sample]
 ///   608 = Action                          [verified — action1]
-///   609 = Method                          [verified — Reset, Update]
-///   610 = Interface Method                [inherited]
+///   609 = Method                          [verified — Reset, Update, Execute]
+///   610 = Interface Method                [inherited — needs sample (method on an interface)]
 ///   611 = Property                        [verified — output]
-///   612 = Interface Property              [inherited]
-///   613 = Property Get                    [inherited]
-///   614 = Property Set                    [inherited]
-///   615 = Global Variable List (GVL)      [inherited]
+///   612 = Interface Property              [inherited — needs sample (property on an interface)]
+///   613 = Property Get                    [inherited — needs sample (Get accessor on FB property)]
+///   614 = Property Set                    [inherited — needs sample (Set accessor on FB property)]
+///   615 = Global Variable List (GVL)      [verified — GVL_Basic]
 ///   617 = Library Manager                 [verified by name — "References" → 617]
-///   618 = Interface                       [inherited]
+///   618 = Interface                       [verified — ITF]
 ///   621 = Task                            [verified by name — "PlcTask" → 621]
-///   654 = Interface Property Get          [inherited]
-///   655 = Interface Property Set          [inherited]
-///   657 = Library                         [verified by name — "Tc2_Standard" → 657]
+///   654 = Interface Property Get          [inherited — needs sample (Get on interface property)]
+///   655 = Interface Property Set          [inherited — needs sample (Set on interface property)]
+///   657 = Library                         [verified by name — "Tc2_Standard", "Tc3_Module", "Tc2_System" → 657]
 ///
 /// Known gaps: 607, 616, 619-620, 622-653, 656, 658+. Likely visualizations,
-/// image pools, recipes, task calls, etc. <see cref="ToNodeType"/> warns once
-/// per unmapped code so they surface in bridge.log — /debug them when they
-/// appear, then add to this map.
+/// image pools, recipes, task calls, persistent vars, NWLs, alarm
+/// configurations, etc. <see cref="ToNodeType"/> warns once per unmapped
+/// code so they surface in bridge.log — /debug them when they appear,
+/// then add to this map.
 /// </summary>
 internal static class BlockTypeMapper
 {
