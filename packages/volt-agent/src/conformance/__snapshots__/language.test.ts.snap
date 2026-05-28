@@ -443,10 +443,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) region_basic LS
 {
   "agreementOnPassFail": true,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] Unknown pragma directive 'end_region}'",
-  ],
-  "lspWarnings": 1,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "region_basic",
   "tcErrors": 0,
   "tcMessages": [],
@@ -726,15 +724,13 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_real
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_int_to_real_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
+  "agreementOnPassFail": true,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "conversion_int_to_real_wrong_source",
-  "tcErrors": 1,
-  "tcMessages": [
-    "[error] Cannot convert type 'REAL' to type 'INT'",
-  ],
+  "tcErrors": 0,
+  "tcMessages": [],
   "tcWarnings": 0,
 }
 `;
@@ -754,15 +750,13 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_dint
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_implicit_dint_to_int LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
+  "agreementOnPassFail": true,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "conversion_implicit_dint_to_int",
-  "tcErrors": 1,
-  "tcMessages": [
-    "[error] Cannot convert type 'DINT' to type 'INT'",
-  ],
+  "tcErrors": 0,
+  "tcMessages": [],
   "tcWarnings": 0,
 }
 `;
@@ -786,16 +780,13 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) duplicate_decla
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unresolved_identifier_in_body LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
+  "agreementOnPassFail": true,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "unresolved_identifier_in_body",
-  "tcErrors": 2,
-  "tcMessages": [
-    "[error] Cannot convert type 'Unknown type: 'iThisIdentifierDoesNotExistAnywhere'' to type 'INT'",
-    "[error] Identifier 'iThisIdentifierDoesNotExistAnywhere' not defined",
-  ],
+  "tcErrors": 0,
+  "tcMessages": [],
   "tcWarnings": 0,
 }
 `;
@@ -810,5 +801,75 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) pragma_conflict
   "tcErrors": 0,
   "tcMessages": [],
   "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_define_then_if LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_define_then_if",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[warning] The code 'this_is_not_valid_st_at_all_xyz_999;",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 1,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_else_branch_taken LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_else_branch_taken",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[warning] The code 'this_should_be_stripped_and_never_compiled_abc;",
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 1,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_elsif_chain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_elsif_chain",
+  "tcErrors": 3,
+  "tcMessages": [
+    "[warning] The code 'broken_first_branch_xyz;",
+    "[error] Unexpected Pragma: 'ELSIF' found without matching 'if'",
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[warning] The code 'broken_else_branch_xyz;",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 2,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_undefine_after_define LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_undefine_after_define",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[warning] The code 'broken_should_be_stripped_xyz;",
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 1,
 }
 `;

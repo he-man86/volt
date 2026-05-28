@@ -1,0 +1,146 @@
+/**
+ * Conditional-pragma conformance tests.
+ *
+ * Source: 07-pragmas.md (§ Conditional pragmas).
+ *
+ * **Discovery from the first round of recordings:** TwinCAT does NOT
+ * accept `{define}` / `{IF defined(...)}` / `{ELSIF}` / `{ELSE}` /
+ * `{END_IF}` written inside a standalone METHOD body (the workspace-
+ * file shape we push). The compiler emits "Unexpected Pragma: 'ELSE'
+ * found without matching 'if'" for every test, meaning the `{IF}`
+ * isn't even being recognized as opening an IF block. May be a method-
+ * scope restriction, may require defines at project level (Build →
+ * Compiler-Defines), or may need a different syntax form than the
+ * docs describe.
+ *
+ * `expectTcAccepts: false` captures this reality. The tests still
+ * exercise the LSP side — they expose the LSP pragma tokenizer bug
+ * that joined the closing `}` to bodyless directives (`{ELSE}` →
+ * directive "ELSE}"), which is fixed in the same change as this
+ * catalog.
+ *
+ * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
+ */
+import type { LanguageTest } from "./pragma-tests.js";
+
+export const CONDITIONAL_PRAGMA_TESTS: readonly LanguageTest[] = [
+	// ========================================================================
+	// Category: 07-pragmas.md (§ Conditional pragmas)
+	// ========================================================================
+
+	{
+		name: "conditional_define_then_if",
+		pouName: "FB_LANG_conditional_define_then_if",
+		kind: "function_block",
+		feature: "{define X} followed by {IF defined(X)} — IF branch selected",
+		fromDoc: "07-pragmas.md#conditional-pragmas",
+		expectTcAccepts: false,
+		note: "{define} establishes a compile-time flag; {IF defined(X)} should compile its body. The ELSE branch contains deliberately-broken text that the preprocessor must strip; if TC errors here it means the preprocessor isn't active.",
+		plcPrgVar: "fb_cdti : FB_LANG_conditional_define_then_if;",
+		plcPrgBody: "fb_cdti.Run();",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditional_define_then_if
+VAR
+	iCounter : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Run
+{define MY_FLAG}
+{IF defined (MY_FLAG)}
+iCounter := 42;
+{ELSE}
+this_is_not_valid_st_at_all_xyz_999;
+{END_IF}
+END_METHOD
+`,
+	},
+
+	{
+		name: "conditional_else_branch_taken",
+		pouName: "FB_LANG_conditional_else_branch_taken",
+		kind: "function_block",
+		feature: "{IF defined(X)} with X NOT defined — ELSE branch taken",
+		fromDoc: "07-pragmas.md#conditional-pragmas",
+		expectTcAccepts: false,
+		note: "Without a {define}, the IF branch should be stripped and ELSE compiled. IF branch contains gibberish that should never reach the compiler.",
+		plcPrgVar: "fb_cebt : FB_LANG_conditional_else_branch_taken;",
+		plcPrgBody: "fb_cebt.Run();",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditional_else_branch_taken
+VAR
+	iCounter : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Run
+{IF defined (NEVER_DEFINED_FLAG_XYZ_999)}
+this_should_be_stripped_and_never_compiled_abc;
+{ELSE}
+iCounter := 1;
+{END_IF}
+END_METHOD
+`,
+	},
+
+	{
+		name: "conditional_elsif_chain",
+		pouName: "FB_LANG_conditional_elsif_chain",
+		kind: "function_block",
+		feature: "{IF}/{ELSIF}/{ELSE}/{END_IF} chain — middle branch selected",
+		fromDoc: "07-pragmas.md#conditional-pragmas",
+		expectTcAccepts: false,
+		plcPrgVar: "fb_cec : FB_LANG_conditional_elsif_chain;",
+		plcPrgBody: "fb_cec.Run();",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditional_elsif_chain
+VAR
+	iCounter : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Run
+{define PICK_MIDDLE}
+{IF defined (NEVER)}
+broken_first_branch_xyz;
+{ELSIF defined (PICK_MIDDLE)}
+iCounter := 2;
+{ELSE}
+broken_else_branch_xyz;
+{END_IF}
+END_METHOD
+`,
+	},
+
+	{
+		name: "conditional_undefine_after_define",
+		pouName: "FB_LANG_conditional_undefine_after_define",
+		kind: "function_block",
+		feature: "{define X} ... {undefine X} ... {IF defined(X)} — IF should be false",
+		fromDoc: "07-pragmas.md#conditional-pragmas",
+		expectTcAccepts: false,
+		plcPrgVar: "fb_cuad : FB_LANG_conditional_undefine_after_define;",
+		plcPrgBody: "fb_cuad.Run();",
+		source:
+`FUNCTION_BLOCK FB_LANG_conditional_undefine_after_define
+VAR
+	iCounter : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Run
+{define TEMP_FLAG}
+{undefine TEMP_FLAG}
+{IF defined (TEMP_FLAG)}
+broken_should_be_stripped_xyz;
+{ELSE}
+iCounter := 3;
+{END_IF}
+END_METHOD
+`,
+	},
+];

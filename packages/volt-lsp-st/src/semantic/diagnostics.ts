@@ -703,7 +703,10 @@ function parsePragmaText(text: string): {
 	/** For message pragmas (`text`/`info`/`warning`/`error`), the quoted message text. */
 	messageText?: string;
 } {
-	const m = /^\{\s*(\S+)/.exec(text);
+	// Directive = first word after `{`, terminated by whitespace OR `}`
+	// (handles bodyless pragmas like `{ELSE}` and `{END_IF}` where
+	// `\S+` would otherwise greedily consume the closing brace).
+	const m = /^\{\s*([^\s}]+)/.exec(text);
 	if (m === null) return {};
 	const directive = m[1];
 	let attributeName: string | undefined;

@@ -13,6 +13,7 @@ import { INIT_SLOT_TESTS } from "./init-slot-tests.js";
 import { SHADOWING_TESTS } from "./shadowing-tests.js";
 import { CONVERSION_TESTS } from "./conversion-tests.js";
 import { SEMANTIC_TESTS } from "./semantic-tests.js";
+import { CONDITIONAL_PRAGMA_TESTS } from "./conditional-pragma-tests.js";
 
 export type { LanguageTest } from "./pragma-tests.js";
 
@@ -24,4 +25,5 @@ export const ALL_TESTS = [
 	...SHADOWING_TESTS,
 	...CONVERSION_TESTS,
 	...SEMANTIC_TESTS,
+	...CONDITIONAL_PRAGMA_TESTS,
 ];
