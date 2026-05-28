@@ -45,8 +45,8 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "Body references an identifier that doesn't exist anywhere",
 		fromDoc: "09-shadowing.md",
-		expectTcAccepts: true,
-		note: "LSP unresolvedIdentifier check is library-blind by default (warning). Earlier small-batch run showed TC errors; full 69-test batch reports clean. Same batch-sensitivity issue as the conversion tests — TC's per-POU error scoping loses diagnostics under load.",
+		expectTcAccepts: false,
+		note: "LSP unresolvedIdentifier check is library-blind by default (warning). Earlier small-batch run showed TC errors; full 69-test batch reports clean. Same bridge-scanner batch-fidelity issue as the conversion tests.",
 		plcPrgVar: "fb_ur : FB_LANG_unresolved_identifier_in_body;",
 		plcPrgBody: "fb_ur.Compute();",
 		source:
