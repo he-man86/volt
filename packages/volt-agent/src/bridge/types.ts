@@ -129,6 +129,13 @@ export interface AIGetResult {
 	/** Slash-joined containing folder in the project tree (e.g. "POUs/Motors").
 	 *  Empty/absent = item lives at the Application / Device root. */
 	folder?: string;
+	/**
+	 * TwinCAT ItemType code (see packages/volt-bridges/beckhoff/.../BlockTypeMapper.cs).
+	 * Authoritative kind hint from the bridge — lets the client route by
+	 * the COM type code instead of re-inferring from declaration text.
+	 * Optional for older bridges that don't yet emit it.
+	 */
+	itemType?: number;
 	declaration?: string;
 	implementation?: string;
 	/**
@@ -154,6 +161,12 @@ export interface RefsResponse {
 	structureVersion: string;
 	/** name → content fingerprint for every top-level CRUD item. */
 	items: Record<string, string>;
+	/**
+	 * Parallel map of name → TwinCAT ItemType code. Lets clients route
+	 * per kind without re-inferring from a /fetch round-trip. Optional
+	 * for older bridges that don't yet emit it.
+	 */
+	itemTypes?: Record<string, number>;
 }
 
 // ─── /fetch ─────────────────────────────────────────────────────────────────

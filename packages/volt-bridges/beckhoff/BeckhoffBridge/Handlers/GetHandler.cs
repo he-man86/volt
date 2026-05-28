@@ -50,7 +50,7 @@ internal sealed class GetHandler
 		string declaration = BeckhoffConnection.ReadDeclaration(item);
 		var header = CodeHelper.ParseCodeHeader(declaration);
 
-		return header.Type switch
+		var result = header.Type switch
 		{
 			"function_block" or "function" or "program" => GetPou(connection, name, item, declaration),
 			"gvl" => GetGvl(connection, name, declaration),
@@ -58,6 +58,13 @@ internal sealed class GetHandler
 			"interface" => GetInterface(connection, name, item, declaration),
 			_ => throw BridgeException.BadRequest($"Unknown type detected from header: {header.Type}"),
 		};
+
+		// Annotate with the COM ItemType so clients can branch on the
+		// authoritative type code rather than re-inferring from the
+		// declaration header. Additive — existing fields unchanged.
+		try { result["itemType"] = BeckhoffConnection.GetItemType(item); }
+		catch { /* leave field absent on read failure */ }
+		return result;
 	}
 
 	private static Dictionary<string, object?> GetPou(BeckhoffConnection connection, string name, dynamic item, string declaration)

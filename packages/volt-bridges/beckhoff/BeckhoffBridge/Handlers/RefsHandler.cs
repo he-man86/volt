@@ -34,18 +34,24 @@ internal sealed class RefsHandler
 		if (!_connection.IsConnected) throw BridgeException.NotConnected();
 
 		var itemVersions = new Dictionary<string, string>();
+		var itemTypes = new Dictionary<string, int>();
 		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, itemVersions);
+		CollectVersions(root, itemVersions, itemTypes);
 
 		return new Dictionary<string, object?>
 		{
 			["projectVersion"] = BeckhoffConnection.ComputeProjectVersion(itemVersions),
 			["structureVersion"] = BeckhoffConnection.ComputeStructureVersion(itemVersions),
 			["items"] = itemVersions,
+			// Per-item TwinCAT type code, parallel to `items`. Lets clients
+			// route per kind (e.g. extension picking, future per-type
+			// content handling) without re-inferring from declaration text.
+			// Additive — old clients ignore the field.
+			["itemTypes"] = itemTypes,
 		};
 	}
 
-	private void CollectVersions(dynamic node, Dictionary<string, string> versions)
+	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, int> types)
 	{
 		int count;
 		try { count = (int)node.ChildCount; }
@@ -66,7 +72,7 @@ internal sealed class RefsHandler
 			if (itemType == BlockTypeMapper.FolderSubType)
 			{
 				// Recurse to find code items inside.
-				CollectVersions(child, versions);
+				CollectVersions(child, versions, types);
 				continue;
 			}
 
@@ -79,6 +85,7 @@ internal sealed class RefsHandler
 			try
 			{
 				versions[name] = BeckhoffConnection.ComputeItemVersion(child);
+				types[name] = itemType;
 			}
 			catch
 			{
