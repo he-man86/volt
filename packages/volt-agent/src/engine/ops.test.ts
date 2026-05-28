@@ -193,7 +193,7 @@ describe("syncFromBridge", () => {
 			],
 		});
 
-		await expect(syncFromBridge(repoPath, bridge)).rejects.toThrow(/unsupported kind "wormhole_block"/);
+		await expect(syncFromBridge(repoPath, bridge)).rejects.toThrow(/unknown kind "wormhole_block"/);
 	});
 
 	it("is deterministic: same bridge state → same commit SHA across separate sync calls", async () => {

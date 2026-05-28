@@ -177,10 +177,17 @@ function materializeItem(item: AIGetResult): { path: string; content: string } {
 	// Trust bridge's vendor-neutral kind. No text-inference fallback:
 	// a previous fallback that re-derived kind from declaration text
 	// silently misclassified GVLs whose first line was a comment as
-	// function_block, wrapping them with END_FUNCTION_BLOCK.
+	// function_block, wrapping them with END_FUNCTION_BLOCK. The
+	// undefined check below catches outdated bridges that don't yet
+	// emit `kind` — TS types alone can't enforce JSON wire fields.
+	if (item.kind === undefined || item.kind === null) {
+		throw new Error(
+			`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it (volt bridge stop && volt bridge start)`,
+		);
+	}
 	const kind = asPouKind(item.kind);
 	if (kind === undefined) {
-		throw new Error(`unsupported kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
+		throw new Error(`bridge sent unknown kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
 	}
 	const ext = pickExtension(kind, item.language);
 	const path = joinPath(folder, `${item.name}.${ext}`);
