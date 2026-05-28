@@ -218,8 +218,8 @@ function parseAliasBody(c: Cursor): AliasBody | undefined {
 		init = bodySpanFromTokens(tokens, assign.span);
 	}
 
-	// Note: the trailing `;` (and the optional one for struct/union/enum)
-	// is consumed at the parseTypeDecl level — single source of truth.
+	// Some DUT alias declarations terminate the alias with `;` before END_TYPE.
+	c.eatPunct(";");
 
 	const endSpan = init?.span ?? target.span;
 	return {
