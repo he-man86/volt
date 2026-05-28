@@ -34,24 +34,26 @@ internal sealed class RefsHandler
 		if (!_connection.IsConnected) throw BridgeException.NotConnected();
 
 		var itemVersions = new Dictionary<string, string>();
-		var itemTypes = new Dictionary<string, int>();
+		var itemKinds = new Dictionary<string, string>();
 		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, itemVersions, itemTypes);
+		CollectVersions(root, itemVersions, itemKinds);
 
 		return new Dictionary<string, object?>
 		{
 			["projectVersion"] = BeckhoffConnection.ComputeProjectVersion(itemVersions),
 			["structureVersion"] = BeckhoffConnection.ComputeStructureVersion(itemVersions),
 			["items"] = itemVersions,
-			// Per-item TwinCAT type code, parallel to `items`. Lets clients
-			// route per kind (e.g. extension picking, future per-type
-			// content handling) without re-inferring from declaration text.
-			// Additive — old clients ignore the field.
-			["itemTypes"] = itemTypes,
+			// Per-item vendor-neutral kind string ("function_block", "gvl",
+			// "interface", etc.), parallel to `items`. Lets clients route
+			// per kind (extension picking, future per-type content
+			// handling) without re-inferring from declaration text. Every
+			// bridge implementation translates its native type code to
+			// this same canonical vocabulary.
+			["kinds"] = itemKinds,
 		};
 	}
 
-	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, int> types)
+	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, string> kinds)
 	{
 		int count;
 		try { count = (int)node.ChildCount; }
@@ -72,7 +74,7 @@ internal sealed class RefsHandler
 			if (itemType == BlockTypeMapper.FolderSubType)
 			{
 				// Recurse to find code items inside.
-				CollectVersions(child, versions, types);
+				CollectVersions(child, versions, kinds);
 				continue;
 			}
 
@@ -85,7 +87,7 @@ internal sealed class RefsHandler
 			try
 			{
 				versions[name] = BeckhoffConnection.ComputeItemVersion(child);
-				types[name] = itemType;
+				kinds[name] = BlockTypeMapper.ToNodeType(itemType);
 			}
 			catch
 			{

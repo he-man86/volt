@@ -76,6 +76,7 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
 // truth shared with snapshot.ts, pull.ts, and any future caller.
 import {
 	POU_EXTENSIONS,
+	asPouKind,
 	gitattributesContent,
 	isGraphicalPath,
 	nameFromPouPath,
@@ -170,12 +171,20 @@ export async function syncFromBridge(
 /** Materialize a bridge item into a single workspace file (path + content). */
 function materializeItem(item: AIGetResult): { path: string; content: string } {
 	const folder = item.folder ?? "";
-	const kind = inferPouKind(item.declaration ?? "");
-	// Prefer the bridge's authoritative itemType when present (lets us
-	// route a TwinCAT 618 / 615 / 605 directly to .itf / .gvl / .dut
-	// without re-inferring from declaration text). Falls back to the
-	// text-based kind for older bridges or items without itemType.
-	void item.itemType; // reserved for future itemType-based routing
+	// The bridge sends the vendor-neutral kind string authoritatively.
+	// Trust it. No text-inference fallback — that path masked the
+	// original bug where a GVL with a header comment got misclassified
+	// as a function_block (declaration text starts with `(*`, not
+	// VAR_GLOBAL, so inferPouKind defaulted to function_block, wrapped
+	// with END_FUNCTION_BLOCK, and saved as .st). If kind is missing
+	// the bridge has a bug — fail loudly instead of guessing.
+	if (item.kind === undefined) {
+		throw new Error(`bridge response missing kind for "${item.name}" — bridge needs upgrade`);
+	}
+	const kind = asPouKind(item.kind);
+	if (kind === undefined) {
+		throw new Error(`unsupported kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
+	}
 	const ext = pickExtension(kind, item.language);
 	const path = joinPath(folder, `${item.name}.${ext}`);
 

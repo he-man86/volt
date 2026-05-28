@@ -130,12 +130,13 @@ export interface AIGetResult {
 	 *  Empty/absent = item lives at the Application / Device root. */
 	folder?: string;
 	/**
-	 * TwinCAT ItemType code (see packages/volt-bridges/beckhoff/.../BlockTypeMapper.cs).
-	 * Authoritative kind hint from the bridge — lets the client route by
-	 * the COM type code instead of re-inferring from declaration text.
-	 * Optional for older bridges that don't yet emit it.
+	 * Vendor-neutral kind string ("function_block" / "function" /
+	 * "program" / "gvl" / "structure" / "enumeration" / "interface" /
+	 * etc.). Every bridge implementation translates its native type
+	 * code to this canonical vocabulary, so clients never need
+	 * vendor-specific knowledge to route an item.
 	 */
-	itemType?: number;
+	kind?: string;
 	declaration?: string;
 	implementation?: string;
 	/**
@@ -162,11 +163,12 @@ export interface RefsResponse {
 	/** name → content fingerprint for every top-level CRUD item. */
 	items: Record<string, string>;
 	/**
-	 * Parallel map of name → TwinCAT ItemType code. Lets clients route
-	 * per kind without re-inferring from a /fetch round-trip. Optional
-	 * for older bridges that don't yet emit it.
+	 * Parallel map of name → vendor-neutral kind string. Lets clients
+	 * route per kind without re-inferring from a /fetch round-trip.
+	 * Every bridge translates its native type codes to this canonical
+	 * vocabulary, so clients stay vendor-agnostic.
 	 */
-	itemTypes?: Record<string, number>;
+	kinds?: Record<string, string>;
 }
 
 // ─── /fetch ─────────────────────────────────────────────────────────────────

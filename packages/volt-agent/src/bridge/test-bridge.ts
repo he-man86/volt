@@ -42,7 +42,7 @@ export class TestBridge implements Remote {
 
 	constructor(opts: TestBridgeOptions = {}) {
 		for (const item of opts.initialItems ?? []) {
-			this.items.set(item.name, item);
+			this.items.set(item.name, withInferredKind(item));
 		}
 		this.buildImpl =
 			opts.build ?? (async () => ({ success: true, duration: 0, errors: 0, warnings: 0, diagnostics: [] }));
@@ -193,7 +193,7 @@ export class TestBridge implements Remote {
 	/** Add or replace an item to simulate engineer-side IDE edits. */
 	mutate(name: string, item: AIGetResult | undefined): void {
 		if (item === undefined) this.items.delete(name);
-		else this.items.set(name, { ...item, name });
+		else this.items.set(name, withInferredKind({ ...item, name }));
 	}
 
 	private applyOp(op: PushOp): void {
@@ -202,6 +202,7 @@ export class TestBridge implements Remote {
 			case "createPou": {
 				const created: AIGetResult = {
 					name: op.name,
+					kind: op.kind,
 					...(op.folder !== undefined && { folder: op.folder }),
 					declaration: op.declaration,
 					...(op.implementation !== undefined && { implementation: op.implementation }),
@@ -349,6 +350,40 @@ function affectedPouName(op: PushOp): string | undefined {
 		default:
 			return undefined;
 	}
+}
+
+// ─── Test-side kind inference ──────────────────────────────────────────
+//
+// A real bridge reads `kind` from the IDE's COM metadata. TestBridge has
+// no IDE — its source of truth is the declaration text the fixture
+// author wrote. Inferring kind from that text at injection time keeps
+// the wire shape strict (engine always sees `kind` set) without forcing
+// every test fixture to repeat itself. This is fixture-side
+// normalization, NOT an engine fallback.
+
+function withInferredKind(item: AIGetResult): AIGetResult {
+	if (item.kind !== undefined) return item;
+	const kind = inferKindFromDeclaration(item.declaration ?? "");
+	return kind === undefined ? item : { ...item, kind };
+}
+
+function inferKindFromDeclaration(decl: string): string | undefined {
+	// Strip comments / attributes / leading whitespace before matching.
+	const stripped = decl
+		.replace(/\(\*[\s\S]*?\*\)/g, "")
+		.replace(/\/\/[^\n]*/g, "")
+		.replace(/\{[^}]*\}/g, "")
+		.trim();
+	if (/^FUNCTION_BLOCK\b/i.test(stripped)) return "function_block";
+	if (/^FUNCTION\b/i.test(stripped)) return "function";
+	if (/^PROGRAM\b/i.test(stripped)) return "program";
+	if (/^INTERFACE\b/i.test(stripped)) return "interface";
+	if (/\bVAR_GLOBAL\b/i.test(stripped)) return "gvl";
+	if (/^TYPE\b[\s\S]*?:\s*STRUCT\b/i.test(stripped)) return "structure";
+	if (/^TYPE\b[\s\S]*?:\s*\(/i.test(stripped)) return "enumeration";
+	if (/^TYPE\b[\s\S]*?:\s*UNION\b/i.test(stripped)) return "union";
+	if (/^TYPE\b/i.test(stripped)) return "alias";
+	return undefined;
 }
 
 // ─── Hashing (deterministic, matches production shape conceptually) ────

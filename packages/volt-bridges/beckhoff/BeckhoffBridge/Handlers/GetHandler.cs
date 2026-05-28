@@ -59,10 +59,15 @@ internal sealed class GetHandler
 			_ => throw BridgeException.BadRequest($"Unknown type detected from header: {header.Type}"),
 		};
 
-		// Annotate with the COM ItemType so clients can branch on the
-		// authoritative type code rather than re-inferring from the
-		// declaration header. Additive — existing fields unchanged.
-		try { result["itemType"] = BeckhoffConnection.GetItemType(item); }
+		// Vendor-neutral kind string — the canonical name every bridge
+		// (Beckhoff today, CODESYS / TIA next) translates its native
+		// type code to. Clients branch on this without knowing anything
+		// about TwinCAT ItemType codes specifically.
+		try
+		{
+			int code = BeckhoffConnection.GetItemType(item);
+			result["kind"] = BlockTypeMapper.ToNodeType(code);
+		}
 		catch { /* leave field absent on read failure */ }
 		return result;
 	}

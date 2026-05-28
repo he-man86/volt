@@ -94,6 +94,32 @@ export function gitattributesContent(): string {
 	return POU_EXTENSIONS.map((e) => `*${e} text eol=lf`).join("\n") + "\n";
 }
 
+/**
+ * Validate a bridge-supplied `kind` string against the set of POU kinds
+ * the materializer knows how to handle. Returns the string typed as
+ * CreatePouOp["kind"] when valid, undefined otherwise — the caller
+ * should fail loudly on undefined (the wire shape is strict: every
+ * item the bridge returns must have a recognized kind).
+ *
+ * The canonical kind vocabulary is shared with the C# bridge's
+ * BlockTypeMapper.ToNodeType — vendor-agnostic by design.
+ */
+const KNOWN_KINDS: ReadonlySet<CreatePouOp["kind"]> = new Set([
+	"function_block",
+	"function",
+	"program",
+	"interface",
+	"gvl",
+	"structure",
+	"union",
+	"enumeration",
+	"alias",
+]);
+
+export function asPouKind(kind: string): CreatePouOp["kind"] | undefined {
+	return (KNOWN_KINDS as ReadonlySet<string>).has(kind) ? (kind as CreatePouOp["kind"]) : undefined;
+}
+
 /** Tracked-path check: POU files + our own .gitattributes are ours. */
 export function isTrackedPath(relPath: string): boolean {
 	return isPouPath(relPath) || relPath === ".gitattributes";
