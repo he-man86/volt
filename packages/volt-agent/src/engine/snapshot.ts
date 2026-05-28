@@ -33,6 +33,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { buildTree, initBareRepo, isRepo, listTree, writeBlob } from "./git-cmds.js";
+import { isTrackedPath, nameFromPouPath } from "./pou-files.js";
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -362,16 +363,17 @@ export function computeOutgoing(
 	const removed = new Set<string>();
 
 	for (const [path, content] of wsByPath) {
-		if (!path.endsWith(".st")) continue;
-		const name = nameFromStPath(path);
+		const name = nameFromPouPath(path);
+		if (name === undefined) continue;
 		const wsSha = writeBlob(snapshotPath, content);
 		const headSha = headByPath.get(path);
 		if (headSha === undefined) added.add(name);
 		else if (headSha !== wsSha) modified.add(name);
 	}
 	for (const path of headByPath.keys()) {
-		if (!path.endsWith(".st")) continue;
-		if (!wsByPath.has(path)) removed.add(nameFromStPath(path));
+		const name = nameFromPouPath(path);
+		if (name === undefined) continue;
+		if (!wsByPath.has(path)) removed.add(name);
 	}
 
 	return {
@@ -381,15 +383,7 @@ export function computeOutgoing(
 	};
 }
 
-function nameFromStPath(relPath: string): string {
-	const slash = relPath.lastIndexOf("/");
-	const base = slash >= 0 ? relPath.slice(slash + 1) : relPath;
-	return base.endsWith(".st") ? base.slice(0, -".st".length) : base;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-/** True if `relPath` is a file we own — `.st` source or our `.gitattributes`. */
-function isTrackedPath(relPath: string): boolean {
-	return relPath.endsWith(".st") || relPath === ".gitattributes";
-}
+// nameFromPouPath / isTrackedPath live in ./pou-files.js — single source
+// of truth for what counts as a workspace POU file.

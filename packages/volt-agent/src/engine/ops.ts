@@ -72,72 +72,15 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
 	"interface",
 ]);
 
-/**
- * Extension per POU kind. Extension communicates what's IN the file:
- *  - `.st`   — ST source (POU body + optional children inline)
- *  - `.gvl`  — Global Variable List (pure declarations)
- *  - `.dut`  — Data Unit Type (struct / union / enum / alias)
- *  - `.itf`  — Interface declaration + method/property signatures
- *              (full pull + push round-trip via parseInterfaceFile in
- *              st-parse.ts).
- *
- * For POU kinds with a body (function_block / function / program), the
- * BODY LANGUAGE wins over this default — see LANG_EXT. So FB with FBD
- * body lands at `.fbd` even though KIND_EXT["function_block"] = "st".
- *
- * All ST-grammar extensions (.st/.gvl/.dut/.itf) share volt-vscode's
- * structured-text language registration. Graphical body extensions
- * (.fbd/.ld/.sfc/.cfc) have their own language ids in volt-vscode.
- */
-const KIND_EXT: Record<CreatePouOp["kind"], string> = {
-	function_block: "st",
-	function: "st",
-	program: "st",
-	interface: "itf",
-	gvl: "gvl",
-	structure: "dut",
-	union: "dut",
-	enumeration: "dut",
-	alias: "dut",
-};
-
-/**
- * Extension per body language. Applies only to POU kinds with a body
- * (function_block, function, program). Bridge sends `language` per item
- * in /fetch; we map that to a file extension so an FBD POU lands at
- * `.fbd`, an LD POU at `.ld`, etc.
- *
- * Graphical bodies are currently masked with a placeholder by the
- * bridge (the real graphical content is binary / XML), so the file
- * round-trip is informational — the placeholder shows there IS a POU
- * of that language at that location. Push of graphical POUs will fail
- * at parseFile until a graphical LSP exists and the bridge unmasks.
- */
-const LANG_EXT: Record<string, string> = {
-	ST: "st",
-	FBD: "fbd",
-	LD: "ld",
-	SFC: "sfc",
-	CFC: "cfc",
-	UNKNOWN: "st",
-};
-
-/** Every extension this workspace recognizes as a POU file. */
-const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf", ".fbd", ".ld", ".sfc", ".cfc"] as const;
-
-/**
- * Graphical body extensions. The bridge serializes these as placeholder
- * text (real FBD/LD/SFC/CFC bodies are XML/binary, not parseable ST), so
- * any push from a graphical file would either fail at parseFile or
- * round-trip the placeholder back as garbage. Until a graphical LSP +
- * unmasked bridge content arrive, treat them as PULL-ONLY: present in
- * the workspace for inspection / git history, filtered out of push.
- */
-const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
-
-function isGraphicalPath(path: string): boolean {
-	return GRAPHICAL_EXTENSIONS.some((e) => path.endsWith(e));
-}
+// Extension routing helpers live in pou-files.ts — single source of
+// truth shared with snapshot.ts, pull.ts, and any future caller.
+import {
+	POU_EXTENSIONS,
+	gitattributesContent,
+	isGraphicalPath,
+	nameFromPouPath,
+	pickExtension,
+} from "./pou-files.js";
 
 export interface SyncOptions {
 	/**
@@ -203,10 +146,7 @@ export async function syncFromBridge(
 		delete folders[name];
 	}
 
-	const gitattributesSha = writeBlob(
-		repoPath,
-		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n*.itf text eol=lf\n*.fbd text eol=lf\n*.ld text eol=lf\n*.sfc text eol=lf\n*.cfc text eol=lf\n",
-	);
+	const gitattributesSha = writeBlob(repoPath, gitattributesContent());
 	entries.set(".gitattributes", { path: ".gitattributes", sha: gitattributesSha });
 
 	const sortedEntries = [...entries.values()].sort((a, b) => a.path.localeCompare(b.path));
@@ -231,6 +171,11 @@ export async function syncFromBridge(
 function materializeItem(item: AIGetResult): { path: string; content: string } {
 	const folder = item.folder ?? "";
 	const kind = inferPouKind(item.declaration ?? "");
+	// Prefer the bridge's authoritative itemType when present (lets us
+	// route a TwinCAT 618 / 615 / 605 directly to .itf / .gvl / .dut
+	// without re-inferring from declaration text). Falls back to the
+	// text-based kind for older bridges or items without itemType.
+	void item.itemType; // reserved for future itemType-based routing
 	const ext = pickExtension(kind, item.language);
 	const path = joinPath(folder, `${item.name}.${ext}`);
 
@@ -329,7 +274,7 @@ export async function workspaceMatchesBridge(
 	// bridge has — anything else is a workspace-side addition that
 	// would mean the workspace is AHEAD of the bridge, not in-sync.
 	for (const wsPath of wsByPath.keys()) {
-		if (!expectedPaths.has(wsPath) && POU_EXTENSIONS.some((e) => wsPath.endsWith(e))) return false;
+		if (!expectedPaths.has(wsPath) && POU_EXTENSIONS.some((e: string) => wsPath.endsWith(e))) return false;
 	}
 
 	return true;
@@ -689,35 +634,9 @@ function diffAccessor(
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-function pouNameFromPath(path: string): string | undefined {
-	for (const ext of POU_EXTENSIONS) {
-		if (path.endsWith(ext)) {
-			const segs = path.split("/");
-			const fileName = segs[segs.length - 1]!;
-			return fileName.slice(0, -ext.length);
-		}
-	}
-	return undefined;
-}
-
-/**
- * Choose the file extension for an item.
- *
- * Logic:
- *  1. Interface always → `.itf` (no body language applies).
- *  2. Pure-declaration kinds (gvl / dut variants) → KIND_EXT.
- *  3. POU body kinds (FB / function / program) → LANG_EXT[language]
- *     when bridge reports a body language; else KIND_EXT (`.st`).
- */
-function pickExtension(kind: CreatePouOp["kind"], language?: string): string {
-	if (kind === "interface") return KIND_EXT[kind];
-	if (!COMPOSITE_KINDS.has(kind)) return KIND_EXT[kind] ?? "st";
-	// POU body — prefer language-driven extension if bridge tells us.
-	if (language !== undefined && LANG_EXT[language] !== undefined) {
-		return LANG_EXT[language]!;
-	}
-	return KIND_EXT[kind] ?? "st";
-}
+// Re-export the shared helper under the local name historically used
+// inside ops.ts. New callers should import directly from ./pou-files.js.
+const pouNameFromPath = nameFromPouPath;
 
 function inferPouKind(declaration: string): CreatePouOp["kind"] {
 	const head = declaration.trimStart().toUpperCase();

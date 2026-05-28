@@ -20,6 +20,7 @@ import { BridgeClient } from "../bridge/client.js";
 import { syncFromBridge } from "./ops.js";
 import { listTree, readBlobBytes } from "./git-cmds.js";
 import { loadConfig, workspacePaths } from "./config.js";
+import { isTrackedPath } from "./pou-files.js";
 import {
 	computeIncoming,
 	detectWorkspaceDirty,
@@ -141,7 +142,7 @@ export async function runPull(
 	const removed: string[] = [];
 	for (const p of prePaths) {
 		if (newPaths.has(p)) continue;
-		if (p.endsWith(".st") || p === ".gitattributes") removed.push(p);
+		if (isTrackedPath(p)) removed.push(p);
 	}
 	removeFilesFromWorkspace(root, removed);
 
