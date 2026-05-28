@@ -72,6 +72,39 @@ const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
 	"interface",
 ]);
 
+/**
+ * Extension per POU kind. Extension communicates what's IN the file:
+ *  - `.st`   — ST source (POU body + optional children inline). Also
+ *              used for Interfaces today — `.itf` is on the roadmap
+ *              once st-parse.ts learns to slice INTERFACE AST nodes
+ *              (which have no body / VAR sections, unlike POUs).
+ *  - `.gvl`  — Global Variable List (pure declarations)
+ *  - `.dut`  — Data Unit Type (struct / union / enum / alias declaration)
+ *
+ * All three (.st/.gvl/.dut) contain ST grammar so volt-vscode registers
+ * them under one language id. The kind hint helps humans and bridges
+ * round-trip the file to the correct IDE item type without re-inferring
+ * from content every time.
+ *
+ * Graphical body languages (FBD / LD / SFC / CFC) get their own
+ * extensions in a future PR — the bridge will report `language` per
+ * item and the materializer will pick the matching ext.
+ */
+const KIND_EXT: Record<CreatePouOp["kind"], string> = {
+	function_block: "st",
+	function: "st",
+	program: "st",
+	interface: "st",
+	gvl: "gvl",
+	structure: "dut",
+	union: "dut",
+	enumeration: "dut",
+	alias: "dut",
+};
+
+/** Every extension this workspace recognizes as ST-content. */
+const POU_EXTENSIONS = [".st", ".gvl", ".dut"] as const;
+
 export interface SyncOptions {
 	/**
 	 * Skip the cache short-circuit AND the per-item incremental-fetch
@@ -136,7 +169,10 @@ export async function syncFromBridge(
 		delete folders[name];
 	}
 
-	const gitattributesSha = writeBlob(repoPath, "*.st text eol=lf\n");
+	const gitattributesSha = writeBlob(
+		repoPath,
+		"*.st text eol=lf\n*.gvl text eol=lf\n*.dut text eol=lf\n",
+	);
 	entries.set(".gitattributes", { path: ".gitattributes", sha: gitattributesSha });
 
 	const sortedEntries = [...entries.values()].sort((a, b) => a.path.localeCompare(b.path));
@@ -160,8 +196,9 @@ export async function syncFromBridge(
 /** Materialize a bridge item into a single workspace file (path + content). */
 function materializeItem(item: AIGetResult): { path: string; content: string } {
 	const folder = item.folder ?? "";
-	const path = joinPath(folder, `${item.name}.st`);
 	const kind = inferPouKind(item.declaration ?? "");
+	const ext = KIND_EXT[kind] ?? "st";
+	const path = joinPath(folder, `${item.name}.${ext}`);
 
 	if (!COMPOSITE_KINDS.has(kind)) {
 		// Simple POU (GVL, DUT, alias): one declaration block, no wrapper,
@@ -258,7 +295,7 @@ export async function workspaceMatchesBridge(
 	// bridge has — anything else is a workspace-side addition that
 	// would mean the workspace is AHEAD of the bridge, not in-sync.
 	for (const wsPath of wsByPath.keys()) {
-		if (!expectedPaths.has(wsPath) && wsPath.endsWith(".st")) return false;
+		if (!expectedPaths.has(wsPath) && POU_EXTENSIONS.some((e) => wsPath.endsWith(e))) return false;
 	}
 
 	return true;
@@ -614,10 +651,14 @@ function diffAccessor(
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function pouNameFromPath(path: string): string | undefined {
-	if (!path.endsWith(".st")) return undefined;
-	const segs = path.split("/");
-	const fileName = segs[segs.length - 1]!;
-	return fileName.slice(0, -".st".length);
+	for (const ext of POU_EXTENSIONS) {
+		if (path.endsWith(ext)) {
+			const segs = path.split("/");
+			const fileName = segs[segs.length - 1]!;
+			return fileName.slice(0, -ext.length);
+		}
+	}
+	return undefined;
 }
 
 function inferPouKind(declaration: string): CreatePouOp["kind"] {
