@@ -1,0 +1,6 @@
+{
+  "$schema": "./expected-tc.schema.json",
+  "_doc": "TwinCAT compiler ground truth, recorded by `bun run record:language` against a live bridge. Each entry maps a test name from pragma-tests.ts to TC's response. Refresh by re-running the recorder after editing the catalog. Empty `tests` object means nothing has been recorded yet — the conformance test will skip all entries with a one-time setup message.",
+  "recorded": null,
+  "tests": {}
+}

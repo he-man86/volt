@@ -13,3 +13,13 @@ export type { InitOptions as InstallCorpusOptions, InitResult as InstallCorpusRe
 // Vendor auto-detection from a workspace directory.
 export { detectVendor } from "./detect-vendor.js";
 export type { DetectedVendor } from "./detect-vendor.js";
+
+// Semantic diagnostics — exposed so downstream packages (volt-agent's
+// language-conformance harness) can compute the same diagnostics the
+// live LSP server emits, without spawning a subprocess.
+export { computeSemanticDiagnostics } from "./semantic/diagnostics.js";
+export type { DiagnosticItem, DiagnosticsArgs } from "./semantic/diagnostics.js";
+export { buildSymbolTable } from "./semantic/symbol-table.js";
+export type { Scope, SymbolTableInput } from "./semantic/symbol-table.js";
+export { DEFAULT_DIAGNOSTIC_CONFIG } from "./lsp/config.js";
+export type { DiagnosticConfig } from "./lsp/config.js";
