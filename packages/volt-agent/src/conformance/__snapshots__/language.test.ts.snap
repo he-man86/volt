@@ -328,7 +328,9 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) info_message LS
   "lspWarnings": 0,
   "name": "info_message",
   "tcErrors": 0,
-  "tcMessages": [],
+  "tcMessages": [
+    "[info] this is a deliberate test info",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -343,7 +345,9 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) text_message LS
   "lspWarnings": 0,
   "name": "text_message",
   "tcErrors": 0,
-  "tcMessages": [],
+  "tcMessages": [
+    "[info] this is a deliberate test text",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -618,30 +622,34 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_init_wrong_r
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_init_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
+  "agreementOnPassFail": true,
   "lspErrors": 1,
   "lspMessages": [
     "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
   ],
   "lspWarnings": 0,
   "name": "fb_init_missing_bInCopyCode",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] An 'FB_Init'-Method of a functionblock or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL.",
+  ],
   "tcWarnings": 0,
 }
 `;
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) fb_exit_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
+  "agreementOnPassFail": true,
   "lspErrors": 1,
   "lspMessages": [
     "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
   ],
   "lspWarnings": 0,
   "name": "fb_exit_missing_bInCopyCode",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] An 'FB_Exit'-Method of a functionblock or struct needs an input 'bInCopyCode' of type BOOL.",
+  ],
   "tcWarnings": 0,
 }
 `;

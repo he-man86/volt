@@ -119,16 +119,41 @@ internal sealed class BuildHandler
 		var paneText = GetBuildPaneText(dte);
 		if (string.IsNullOrWhiteSpace(paneText)) return diagnostics;
 
+		// Diagnostic logging — written to bridge log so we can audit
+		// what TC actually wrote vs what the regex picked up. Key when
+		// a conformance recording is missing diagnostics that a solo
+		// push surfaces ("batch-fidelity issue"). Trimmed line counts:
+		// total lines, lines that matched the regex, lines that didn't
+		// — quick triage of "is the pane content arriving" vs "is the
+		// regex too narrow".
+		var totalLines = 0;
+		var nonEmptyLines = 0;
+		var matchedLines = 0;
+		var unmatchedSamples = new List<string>();
+
 		foreach (var rawLine in paneText.Split('\n'))
 		{
+			totalLines++;
 			var line = rawLine.Trim();
 			if (line.Length == 0) continue;
+			nonEmptyLines++;
 			var match = LinePattern.Match(line);
-			if (!match.Success) continue;
+			if (!match.Success)
+			{
+				if (unmatchedSamples.Count < 10) unmatchedSamples.Add(line);
+				continue;
+			}
+			matchedLines++;
 
 			string filePath = match.Groups[1].Value.Trim();
-			int lineNum = int.TryParse(match.Groups[2].Value, out int ln) ? ln : 0;
+			// Group 2 is optional now (line number — absent for some
+			// structural errors). Defaults to 0 = "unknown line".
+			int lineNum = 0;
+			if (match.Groups[2].Success) int.TryParse(match.Groups[2].Value, out lineNum);
+			// Map TC's `message` severity to `info` on the wire — same
+			// thing the BridgeDiagnostic shape uses ("info" not "message").
 			string severity = match.Groups[3].Value.ToLowerInvariant();
+			if (severity == "message") severity = "info";
 			string message = match.Groups[4].Value.Trim();
 
 			diagnostics.Add(new Dictionary<string, object?>
@@ -140,12 +165,35 @@ internal sealed class BuildHandler
 				["section"] = DetectSection(filePath),
 			});
 		}
+
+		Log.Ide($"[Build] pane: {paneText.Length} chars, {totalLines} lines, {nonEmptyLines} non-empty, {matchedLines} matched-regex, {diagnostics.Count} diagnostics");
+		if (unmatchedSamples.Count > 0)
+		{
+			Log.Ide($"[Build] {unmatchedSamples.Count} unmatched samples (up to 10):");
+			foreach (var s in unmatchedSamples) Log.Ide($"[Build]   | {s}");
+		}
 		return diagnostics;
 	}
 
-	/// <summary>"path\file.TcPOU(line) : error|warning: message"</summary>
+	/// <summary>
+	/// Match TwinCAT build pane lines in the canonical shapes:
+	///   "path\file.TcPOU(line) : error|warning|message: text"
+	///   "path\file.TcPOU;Obj.Method : error|warning|message: text"  (no line — structural / signature errors)
+	///   "path\file.TcPOU : error|warning|message: text"             (no line, no nested object)
+	///
+	/// The `(line)` group is OPTIONAL because TC writes line-numberless
+	/// errors for declaration-level issues (e.g. "An 'FB_Init'-Method
+	/// of a functionblock needs two inputs 'bInitRetains' and
+	/// 'bInCopyCode' of type BOOL"). Without this, lifecycle errors
+	/// silently dropped — surfaced via the conformance harness.
+	///
+	/// `message` is a TC-specific severity used for `{info}` / `{text}`
+	/// pragma output (and possibly other channels). Maps to LSP-side
+	/// `info` severity in DetectSection… no, in the BuildResponse
+	/// shape it stays as `"message"`; clients can choose how to map.
+	/// </summary>
 	private static readonly Regex LinePattern = new(
-		@"^(.+?)\((\d+)\)\s*:\s*(error|warning)\s*:\s*(.+)$",
+		@"^(.+?)(?:\((\d+)\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
 		RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
 	/// <summary>
