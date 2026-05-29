@@ -903,13 +903,15 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_real
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_int_to_real_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": true,
+  "agreementOnPassFail": false,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "conversion_int_to_real_wrong_source",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'REAL' to type 'INT'",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -929,13 +931,15 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_dint
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_implicit_dint_to_int LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": true,
+  "agreementOnPassFail": false,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "conversion_implicit_dint_to_int",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'DINT' to type 'INT'",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -959,13 +963,16 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) duplicate_decla
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) unresolved_identifier_in_body LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": true,
+  "agreementOnPassFail": false,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "unresolved_identifier_in_body",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iThisIdentifierDoesNotExistAnywhere'' to type 'INT'",
+    "[error] Identifier 'iThisIdentifierDoesNotExistAnywhere' not defined",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -1113,13 +1120,15 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_arithmetic_i
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_modulo_on_real LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": true,
+  "agreementOnPassFail": false,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "op_modulo_on_real",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] 'MOD' is not defined for 'REAL'",
+  ],
   "tcWarnings": 0,
 }
 `;
@@ -1178,13 +1187,15 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_shift_left L
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_arithmetic_bool_plus_int LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": true,
+  "agreementOnPassFail": false,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "op_arithmetic_bool_plus_int",
-  "tcErrors": 0,
-  "tcMessages": [],
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
+  ],
   "tcWarnings": 0,
 }
 `;

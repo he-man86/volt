@@ -25,7 +25,8 @@ export const IDENTIFIER_TESTS: readonly LanguageTest[] = [
 		feature: "Identifier prefixed with __ (system-reserved per docs)",
 		fromDoc: "08-identifiers.md#hard-rules",
 		expectTcAccepts: false,
-		note: "DISCOVERY: TC enforces this strictly — errors out the build with multiple diagnostics. Catalog initially assumed silent acceptance; conformance run corrected the expectation.",
+		recordIsolated: true,
+		note: "DISCOVERY: TC enforces this strictly — errors out the build with multiple diagnostics. Catalog initially assumed silent acceptance; conformance run corrected the expectation. Marked recordIsolated: this test produces PARSE errors that, in mega-batch, would block semantic analysis on OTHER tests (their errors silently disappear from the pane).",
 		plcPrgVar: "fb_du : FB_LANG_identifier_double_underscore;",
 		plcPrgBody: "fb_du();",
 		source:
@@ -45,7 +46,8 @@ END_FUNCTION_BLOCK
 		feature: "Identifier with __ in the middle (consecutive underscores)",
 		fromDoc: "08-identifiers.md#hard-rules",
 		expectTcAccepts: false,
-		note: "DISCOVERY: TC enforces docs §2 strictly — errors out. Catalog initially assumed silent acceptance; conformance run corrected the expectation.",
+		recordIsolated: true,
+		note: "DISCOVERY: TC enforces docs §2 strictly — errors out. Same recordIsolated reason as the double-underscore test: parse errors here would short-circuit TC semantic analysis on the rest of the batch.",
 		plcPrgVar: "fb_cu : FB_LANG_identifier_consecutive_underscores;",
 		plcPrgBody: "fb_cu();",
 		source:

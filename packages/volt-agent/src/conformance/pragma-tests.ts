@@ -46,6 +46,22 @@ export interface LanguageTest {
 	plcPrgVar?: string;
 	/** PLC_PRG body snippet — e.g. `"fb();"` — that exercises the instantiation. */
 	plcPrgBody?: string;
+	/**
+	 * Force per-test isolated recording (the recorder pushes this test
+	 * alone, builds, captures, cleans, before moving on — no other
+	 * test POUs present in the project). Use for tests that:
+	 *   - produce PARSE errors (TC short-circuits semantic analysis on
+	 *     the whole project once any POU has parse errors, so errors
+	 *     in OTHER tests get silently dropped from the build pane when
+	 *     such a test is part of the mega-batch)
+	 *   - produce so many errors that the pane buffer overflows
+	 *
+	 * Trade-off: each isolated test costs an extra full push+build
+	 * cycle (~2-3s) instead of being amortized across the mega-batch.
+	 * Default false — only set when conformance evidence shows the
+	 * test loses fidelity in batch mode.
+	 */
+	recordIsolated?: boolean;
 	/** Optional human note explaining why we expect what we expect. */
 	note?: string;
 }

@@ -151,34 +151,37 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 
-	// Write every test source + the mega-PLC_PRG.
-	for (const t of valid) {
-		const ext = KIND_EXT[t.kind];
-		writeFileSync(join(workspace, `${t.pouName}.${ext}`), t.source, "utf-8");
-	}
+	// Split into isolated-recording vs batch tests. Isolated tests are
+	// those marked recordIsolated:true in the catalog — typically tests
+	// that produce PARSE errors (which short-circuit TC's semantic
+	// analysis on the whole project, so other tests' errors would
+	// silently disappear from the build pane in mega-batch mode).
+	const isolated = valid.filter((t) => t.recordIsolated === true);
+	const batch = valid.filter((t) => t.recordIsolated !== true);
+	console.log(`  ${isolated.length} isolated test(s), ${batch.length} batch test(s)`);
+
 	const plcPrgPath = findExistingFile(workspace, "PLC_PRG.st") ?? join(workspace, "PLC_PRG.st");
-	writeFileSync(plcPrgPath, megaPlc, "utf-8");
-
-	// ─── ONE push, ONE build ───────────────────────────────────────────
-	console.log(`  pushing ${valid.length} test(s) + combined PLC_PRG…`);
-	const pushRes = volt(workspace, "push", "--force");
-	if (pushRes.code !== 0) {
-		console.error(`batch push failed:\n${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
-		await cleanupItems(bridge, valid.map((t) => t.pouName));
-		try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
-		process.exit(1);
-	}
-
-	console.log(`  building TC project…`);
-	const buildRes = await bridge.build({ buildType: "full" });
-	console.log(
-		`  build: success=${buildRes.success} duration=${buildRes.duration}ms ` +
-			`total-diagnostics=${buildRes.diagnostics.length}`,
-	);
-
-	// ─── Bucket per test ───────────────────────────────────────────────
 	const recorded: Record<string, RecordedEntry> = {};
-	for (const t of valid) {
+
+	// ─── Isolated recordings: one push+build cycle per test ────────────
+	for (const t of isolated) {
+		const ext = KIND_EXT[t.kind];
+		const testFilePath = join(workspace, `${t.pouName}.${ext}`);
+		writeFileSync(testFilePath, t.source, "utf-8");
+		writeFileSync(plcPrgPath, buildMegaPlcPrg([t]), "utf-8");
+
+		const pushRes = volt(workspace, "push", "--force");
+		if (pushRes.code !== 0) {
+			console.log(`  ✗ ${t.name.padEnd(30)} push failed: ${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
+			recorded[t.name] = { buildSuccess: false, durationMs: 0, diagnostics: [] };
+			// Try cleanup before next iteration.
+			try { rmSync(testFilePath); } catch { /* ignore */ }
+			writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
+			volt(workspace, "push", "--force"); // best-effort reset
+			continue;
+		}
+
+		const buildRes = await bridge.build({ buildType: "full" });
 		const scoped = buildRes.diagnostics.filter(
 			(d) => d.object === t.pouName || (d.object !== null && d.object.startsWith(`${t.pouName}.`)),
 		);
@@ -186,12 +189,62 @@ async function main(): Promise<void> {
 		const errCount = scoped.filter((d) => d.severity === "error").length;
 		const warnCount = scoped.filter((d) => d.severity === "warning").length;
 		const okMark = !hasError ? "✓" : "✗";
-		console.log(`  ${okMark} ${t.name.padEnd(30)} errors=${errCount} warnings=${warnCount}`);
+		console.log(`  ${okMark} ${t.name.padEnd(30)} (isolated) errors=${errCount} warnings=${warnCount}`);
 		recorded[t.name] = {
 			buildSuccess: !hasError,
 			durationMs: buildRes.duration,
 			diagnostics: scoped,
 		};
+
+		// Reset for next iteration: clear the file + bare PLC_PRG + push.
+		try { rmSync(testFilePath); } catch { /* ignore */ }
+		writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
+		const resetRes = volt(workspace, "push", "--force");
+		if (resetRes.code !== 0) {
+			console.log(`    (warn) isolated reset failed for ${t.name}: ${resetRes.stderr.trim()}`);
+			await cleanupItems(bridge, [t.pouName]);
+		}
+	}
+
+	// ─── Batch recording: all remaining tests in one push+build ────────
+	if (batch.length > 0) {
+		for (const t of batch) {
+			const ext = KIND_EXT[t.kind];
+			writeFileSync(join(workspace, `${t.pouName}.${ext}`), t.source, "utf-8");
+		}
+		writeFileSync(plcPrgPath, buildMegaPlcPrg(batch), "utf-8");
+
+		console.log(`  pushing ${batch.length} batch test(s) + combined PLC_PRG…`);
+		const pushRes = volt(workspace, "push", "--force");
+		if (pushRes.code !== 0) {
+			console.error(`batch push failed:\n${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
+			await cleanupItems(bridge, batch.map((t) => t.pouName));
+			try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
+			process.exit(1);
+		}
+
+		console.log(`  building TC project…`);
+		const buildRes = await bridge.build({ buildType: "full" });
+		console.log(
+			`  build: success=${buildRes.success} duration=${buildRes.duration}ms ` +
+				`total-diagnostics=${buildRes.diagnostics.length}`,
+		);
+
+		for (const t of batch) {
+			const scoped = buildRes.diagnostics.filter(
+				(d) => d.object === t.pouName || (d.object !== null && d.object.startsWith(`${t.pouName}.`)),
+			);
+			const hasError = scoped.some((d) => d.severity === "error");
+			const errCount = scoped.filter((d) => d.severity === "error").length;
+			const warnCount = scoped.filter((d) => d.severity === "warning").length;
+			const okMark = !hasError ? "✓" : "✗";
+			console.log(`  ${okMark} ${t.name.padEnd(30)} errors=${errCount} warnings=${warnCount}`);
+			recorded[t.name] = {
+				buildSuccess: !hasError,
+				durationMs: buildRes.duration,
+				diagnostics: scoped,
+			};
+		}
 	}
 
 	// ─── Teardown ──────────────────────────────────────────────────────
