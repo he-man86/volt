@@ -80,6 +80,18 @@ export interface DiagnosticConfig {
 	 * Mirrors TC's error on missing interface members.
 	 */
 	missingInterfaceImplementation: boolean;
+	/**
+	 * Flag simple binary expressions `<id> <op> <id>` (inside an
+	 * assignment) where the operator doesn't accept those operand
+	 * types. Covers `MOD` on non-integer types and arithmetic
+	 * mixing BOOL with numeric. Mirrors TC's
+	 * `'MOD' is not defined for 'REAL'` and
+	 * `Cannot convert type 'BOOL' to type 'INT'` errors.
+	 *
+	 * Same minimalism as assignmentTypeMismatch — only the
+	 * `lhs := id op id ;` shape; anything more complex is skipped.
+	 */
+	binaryOperatorTypeMismatch: boolean;
 }
 
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
@@ -100,6 +112,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	orphanConditionalPragma: true,
 	assignmentTypeMismatch: true,
 	missingInterfaceImplementation: true,
+	binaryOperatorTypeMismatch: true,
 };
 
 /**

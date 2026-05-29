@@ -1124,9 +1124,11 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_arithmetic_i
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_modulo_on_real LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+  ],
   "lspWarnings": 0,
   "name": "op_modulo_on_real",
   "tcErrors": 1,
@@ -1191,9 +1193,11 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_shift_left L
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_arithmetic_bool_plus_int LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+  ],
   "lspWarnings": 0,
   "name": "op_arithmetic_bool_plus_int",
   "tcErrors": 1,
