@@ -17,6 +17,7 @@ import { CONDITIONAL_PRAGMA_TESTS } from "./conditional-pragma-tests.js";
 import { OPERATOR_TESTS } from "./operator-tests.js";
 import { LITERAL_TESTS } from "./literal-tests.js";
 import { INTERFACE_TESTS } from "./interface-tests.js";
+import { OOP_TESTS } from "./oop-tests.js";
 
 export type { LanguageTest } from "./pragma-tests.js";
 
@@ -32,4 +33,5 @@ export const ALL_TESTS = [
 	...OPERATOR_TESTS,
 	...LITERAL_TESTS,
 	...INTERFACE_TESTS,
+	...OOP_TESTS,
 ];
