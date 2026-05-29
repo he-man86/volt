@@ -38,7 +38,8 @@ import { CONVERSION_TESTS } from "../conformance/conversion-tests.js";
 import { SEMANTIC_TESTS } from "../conformance/semantic-tests.js";
 import { CONDITIONAL_PRAGMA_TESTS } from "../conformance/conditional-pragma-tests.js";
 import { OPERATOR_TESTS } from "../conformance/operator-tests.js";
-import { LITERAL_TESTS } from "../conformance/literal-tests.js";
+// LITERAL_TESTS pending fresh recording — see conformance/index.ts.
+// import { LITERAL_TESTS } from "../conformance/literal-tests.js";
 import type { LanguageTest } from "../conformance/index.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 
@@ -65,7 +66,7 @@ const CATEGORIES: CategoryGroup[] = [
 	{ name: "semantic", tests: SEMANTIC_TESTS },
 	{ name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },
 	{ name: "operator", tests: OPERATOR_TESTS },
-	{ name: "literal", tests: LITERAL_TESTS },
+	// { name: "literal", tests: LITERAL_TESTS },  // pending recording
 ];
 
 function runLsp(source: string): Array<{ severity: string }> {

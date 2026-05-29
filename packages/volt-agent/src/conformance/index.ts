@@ -15,7 +15,11 @@ import { CONVERSION_TESTS } from "./conversion-tests.js";
 import { SEMANTIC_TESTS } from "./semantic-tests.js";
 import { CONDITIONAL_PRAGMA_TESTS } from "./conditional-pragma-tests.js";
 import { OPERATOR_TESTS } from "./operator-tests.js";
-import { LITERAL_TESTS } from "./literal-tests.js";
+// LITERAL_TESTS catalog exists but is NOT registered yet — needs a
+// fresh recording against a live bridge once the TC crash situation
+// is fully stable. Re-enable by re-adding to the spread below and
+// running `bun run record:language`. See literal-tests.ts header.
+// import { LITERAL_TESTS } from "./literal-tests.js";
 
 export type { LanguageTest } from "./pragma-tests.js";
 
@@ -29,5 +33,4 @@ export const ALL_TESTS = [
 	...SEMANTIC_TESTS,
 	...CONDITIONAL_PRAGMA_TESTS,
 	...OPERATOR_TESTS,
-	...LITERAL_TESTS,
 ];
