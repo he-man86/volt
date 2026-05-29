@@ -206,18 +206,62 @@ async function main(): Promise<void> {
 		}
 	}
 
-	// ─── Batch recording: all remaining tests in one push+build ────────
+	// ─── Batch recording: chunked pushes + ONE build ───────────────────
+	// Each volt push is a single HTTP /push call to the bridge, which
+	// internally calls TwinCAT's ITcSmTreeItem.CreateChild via COM N
+	// times in tight succession. Empirically TC's COM layer falls over
+	// somewhere around 60-80 rapid CreateChild calls (RPC server times
+	// out, TC process eventually crashes). Limit batch push to a
+	// chunk size that stays comfortably under the failure threshold,
+	// push test sources in chunks, then ONE final push for PLC_PRG +
+	// ONE build. Loses the "single push" optimization (~N HTTP calls
+	// vs 1) but each chunk completes in seconds and TC stays alive.
+	const CHUNK_SIZE = 20;
 	if (batch.length > 0) {
+		// Stage every test file on disk first — push picks up
+		// whatever's new in the workspace each call.
 		for (const t of batch) {
 			const ext = KIND_EXT[t.kind];
 			writeFileSync(join(workspace, `${t.pouName}.${ext}`), t.source, "utf-8");
 		}
-		writeFileSync(plcPrgPath, buildMegaPlcPrg(batch), "utf-8");
 
-		console.log(`  pushing ${batch.length} batch test(s) + combined PLC_PRG…`);
+		// Push the test sources in chunks. To make `volt push` send
+		// only the chunk we want, we DELETE the files in the
+		// not-yet-pushed chunks, push, then write them back for the
+		// next chunk.
+		const allTestFiles = batch.map((t) => ({
+			t,
+			path: join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`),
+			source: t.source,
+		}));
+		// Remove every test file from disk (we'll restore them chunk
+		// by chunk).
+		for (const f of allTestFiles) {
+			try { rmSync(f.path); } catch { /* ignore */ }
+		}
+		const chunkCount = Math.ceil(allTestFiles.length / CHUNK_SIZE);
+		for (let i = 0; i < allTestFiles.length; i += CHUNK_SIZE) {
+			const chunk = allTestFiles.slice(i, i + CHUNK_SIZE);
+			// Write just this chunk.
+			for (const f of chunk) writeFileSync(f.path, f.source, "utf-8");
+			console.log(`  pushing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${chunkCount} (${chunk.length} POU(s))…`);
+			const chunkPushRes = volt(workspace, "push", "--force");
+			if (chunkPushRes.code !== 0) {
+				console.error(`batch chunk push failed:\n${chunkPushRes.stderr.trim() || chunkPushRes.stdout.trim()}`);
+				await cleanupItems(bridge, batch.map((t) => t.pouName));
+				try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
+				process.exit(1);
+			}
+		}
+
+		// Final push: write the combined PLC_PRG that instantiates
+		// every test FB. This is just an update to one file, single
+		// COM call (UpdateHandler). Cheap.
+		writeFileSync(plcPrgPath, buildMegaPlcPrg(batch), "utf-8");
+		console.log(`  pushing combined PLC_PRG (instantiates ${batch.length} test FB(s))…`);
 		const pushRes = volt(workspace, "push", "--force");
 		if (pushRes.code !== 0) {
-			console.error(`batch push failed:\n${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
+			console.error(`PLC_PRG push failed:\n${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
 			await cleanupItems(bridge, batch.map((t) => t.pouName));
 			try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
 			process.exit(1);

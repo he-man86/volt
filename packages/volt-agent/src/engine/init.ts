@@ -50,9 +50,19 @@ export async function runInit(
 	const paths = workspacePaths(root);
 
 	const health = await bridge.getHealth();
-	if (health.projectName === undefined || health.plcProjectName === undefined) {
+	// Reject null/empty too, not just undefined. Right after a TC
+	// crash + reopen the bridge briefly reports projectName: null
+	// (IDE process is up, project not yet loaded). Old code accepted
+	// null, saved a config with `project.projectName: null`, and
+	// downstream `volt pull` rejected it as "malformed 'project'" —
+	// silent corruption.
+	if (
+		health.projectName === undefined || health.projectName === null || health.projectName === "" ||
+		health.plcProjectName === undefined || health.plcProjectName === null || health.plcProjectName === ""
+	) {
 		throw new Error(
-			"bridge has no project loaded — open a PLC project in the IDE before running `volt init`",
+			"bridge has no project loaded — open a PLC project in the IDE before running `volt init` " +
+				`(bridge reports projectName=${JSON.stringify(health.projectName)}, plcProjectName=${JSON.stringify(health.plcProjectName)})`,
 		);
 	}
 
