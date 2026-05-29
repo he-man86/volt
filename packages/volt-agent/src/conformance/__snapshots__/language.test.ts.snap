@@ -1210,3 +1210,148 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) op_arithmetic_b
   "tcWarnings": 0,
 }
 `;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_hex LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_hex",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_binary LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_binary",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_octal LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_octal",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_typed_int_hash LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_typed_int_hash",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_real_scientific LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_real_scientific",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_time LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_time",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_date LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_date",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_tod LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_tod",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_string_single_quoted LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_string_single_quoted",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_wstring_double_quoted LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_wstring_double_quoted",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_string_to_int_assignment LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_string_to_int_assignment",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'STRING(INT#4)' to type 'INT'",
+  ],
+  "tcWarnings": 0,
+}
+`;
