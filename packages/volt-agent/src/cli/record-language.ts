@@ -35,7 +35,6 @@ import { spawnSync } from "node:child_process";
 import {
 	mkdirSync,
 	mkdtempSync,
-	readdirSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
@@ -46,6 +45,7 @@ import { parseSource } from "@opencode-ai/volt-lsp-st";
 import { BridgeClient } from "../bridge/client.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 import { ALL_TESTS, type LanguageTest } from "../conformance/index.js";
+import { findExistingFile } from "./_workspace-utils.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const LANG_PREFIX_RE = /^(FB|GVL|DUT|ITF)_LANG_/;
@@ -399,25 +399,6 @@ async function cleanupItems(bridge: BridgeClient, names: string[]): Promise<void
 			return;
 		}
 	}
-}
-
-/** Walk the workspace for a file with the given basename. Skip .volt/. */
-function findExistingFile(root: string, basename: string): string | undefined {
-	let found: string | undefined;
-	function walk(dir: string): void {
-		if (found !== undefined) return;
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			if (entry.name === ".volt" || entry.name === ".git") continue;
-			const full = join(dir, entry.name);
-			if (entry.isDirectory()) walk(full);
-			else if (entry.isFile() && entry.name === basename) {
-				found = full;
-				return;
-			}
-		}
-	}
-	walk(root);
-	return found;
 }
 
 interface CliResult { stdout: string; stderr: string; code: number; }

@@ -16,12 +16,13 @@
  * OR re-run the recorder which sweeps all LANG_* leftovers.
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BridgeClient } from "../bridge/client.js";
 import { ALL_TESTS } from "../conformance/index.js";
+import { findExistingFile } from "./_workspace-utils.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -123,23 +124,5 @@ function run(r: { stdout: string; stderr: string; code: number }): void {
 	}
 }
 
-/** Walk the workspace for a file with the given basename. Skip .volt/. */
-function findExistingFile(root: string, basename: string): string | undefined {
-	let found: string | undefined;
-	function walk(dir: string): void {
-		if (found !== undefined) return;
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			if (entry.name === ".volt" || entry.name === ".git") continue;
-			const full = join(dir, entry.name);
-			if (entry.isDirectory()) walk(full);
-			else if (entry.isFile() && entry.name === basename) {
-				found = full;
-				return;
-			}
-		}
-	}
-	walk(root);
-	return found;
-}
 
 main().catch((err) => { console.error(err); process.exit(1); });
