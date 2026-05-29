@@ -20,7 +20,7 @@ import { INTERFACE_TESTS } from "./interface-tests.js";
 import { OOP_TESTS } from "./oop-tests.js";
 import { ADVANCED_TYPE_TESTS } from "./advanced-type-tests.js";
 
-export type { LanguageTest } from "./pragma-tests.js";
+export type { LanguageTest } from "./types.js";
 
 export const ALL_TESTS = [
 	...PRAGMA_TESTS,

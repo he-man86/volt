@@ -7,7 +7,7 @@
  *
  * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
  */
-import type { LanguageTest } from "./pragma-tests.js";
+import type { LanguageTest } from "./types.js";
 
 export const LITERAL_TESTS: readonly LanguageTest[] = [
 	// ========================================================================
