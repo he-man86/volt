@@ -203,10 +203,15 @@ const ENTRIES: PragmaEntry[] = [
 		oneLiner: "Function/program called after global initialization, ordered by slot number.",
 		syntax: "{attribute 'call_after_global_init_slot' := '${1:slot}'}",
 		insertLocation: "pou-top",
-		requires: ["linkalways"],
+		// NOTE: docs say linkalways is needed only if the POU isn't
+		// called elsewhere — not a hard companion requirement. The TC
+		// compiler doesn't enforce it either. Kept as a gotcha guideline
+		// (surfaces in hover) instead of a `requires` (which would emit
+		// pragmaMissingCompanion errors on every use even when the
+		// POU is explicitly called from PLC_PRG).
 		gotchas: [
 			"VAR_INPUT declarations cause compile errors — inputs unknown at implicit call time.",
-			"Only called if compiled+downloaded. Add {attribute 'linkalways'} to guarantee build inclusion.",
+			"Only called if compiled+downloaded. Add {attribute 'linkalways'} to guarantee build inclusion if POU isn't otherwise called.",
 		],
 	}),
 	pr({
