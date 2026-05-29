@@ -1412,7 +1412,7 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_missi
   "name": "interface_missing_implementation",
   "tcErrors": 1,
   "tcMessages": [
-    "[error] No definition found for interface 'ITF_LANG_with_method'",
+    "[error] There is no implementation for method 'COMPUTE' defined in interface 'ITF_LANG_WITH_METHOD'",
   ],
   "tcWarnings": 0,
 }

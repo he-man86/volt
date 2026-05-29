@@ -107,8 +107,7 @@ END_METHOD
 		feature: "FB IMPLEMENTS interface but doesn't define a required method — TC should error",
 		fromDoc: "10-keywords.md",
 		expectTcAccepts: false,
-		recordIsolated: true,
-		note: "Standard OO contract: implementing FB must provide all interface methods. TC errors with 'method not implemented' or similar. Marked recordIsolated because it depends on ITF_LANG_with_method being present.",
+		note: "Standard OO contract: implementing FB must provide all interface methods. TC errors with 'method not implemented'. Must record in BATCH mode (not isolated) so ITF_LANG_with_method is present in the project at the time TC compiles this FB — isolating it pushes the FB alone and TC errors with the wrong message ('No definition found for interface').",
 		plcPrgVar: "fb_imi : FB_LANG_interface_missing_implementation;",
 		plcPrgBody: "fb_imi();",
 		source:

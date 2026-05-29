@@ -74,6 +74,12 @@ export interface DiagnosticConfig {
 	 * navigation-grade scope.
 	 */
 	assignmentTypeMismatch: boolean;
+	/**
+	 * Flag function blocks that declare `IMPLEMENTS <Iface>` but
+	 * don't provide every method/property the interface requires.
+	 * Mirrors TC's error on missing interface members.
+	 */
+	missingInterfaceImplementation: boolean;
 }
 
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
@@ -93,6 +99,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	messagePragmas: true,
 	orphanConditionalPragma: true,
 	assignmentTypeMismatch: true,
+	missingInterfaceImplementation: true,
 };
 
 /**

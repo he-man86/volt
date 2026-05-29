@@ -89,6 +89,14 @@ describe("language conformance: pragmas (LSP vs recorded TwinCAT)", () => {
 });
 
 function runLsp(source: string): Array<{ severity: string; message: string }> {
+	// Per-test isolated scope. A shared cross-test PROJECT_SCOPE
+	// would unlock cross-file checks (missing-interface-implementation
+	// across separate test files) but contaminates per-test
+	// diagnostics — duplicate-declaration and shadowing checks see
+	// every other test's symbols and false-positive. Keeping
+	// isolated; cross-file checks that need the broader scope must
+	// either include their dependencies in the same source or accept
+	// the known limitation.
 	const parseResult = parseSource(source);
 	const project = buildSymbolTable([{ uri: "file:///conformance/test.st", parseResult }]);
 	const diags = computeSemanticDiagnostics({
