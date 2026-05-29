@@ -177,14 +177,14 @@ END_FUNCTION_BLOCK`,
 });
 
 describe("diagnostics: unknown pragma", () => {
-	it("warns on an unknown attribute pragma in a body", () => {
+	it("warns on an unknown attribute pragma in a body (opt-in)", () => {
 		const { diags } = setup(`FUNCTION_BLOCK FB_X
 VAR
 	x : INT;
 END_VAR
 {attribute 'flarbatz'}
 x := 1;
-END_FUNCTION_BLOCK`);
+END_FUNCTION_BLOCK`, { unknownPragma: true });
 		const warns = diags.filter(
 			(d) => d.code === "unknown-pragma" && d.message.includes("flarbatz"),
 		);
@@ -215,7 +215,7 @@ END_FUNCTION_BLOCK`);
 });
 
 describe("diagnostics: wrong-vendor pragma", () => {
-	it("warns when a TwinCAT pragma is used in a CODESYS project", () => {
+	it("warns when a TwinCAT pragma is used in a CODESYS project (opt-in)", () => {
 		const { diags } = setup(
 			`FUNCTION_BLOCK FB_X
 VAR
@@ -224,7 +224,7 @@ END_VAR
 {attribute 'TcRpcEnable'}
 x := 1;
 END_FUNCTION_BLOCK`,
-			undefined,
+			{ wrongVendorPragma: true, unknownPragma: true },
 			"codesys",
 		);
 		const warns = diags.filter((d) => d.code === "wrong-vendor-pragma");
@@ -234,7 +234,7 @@ END_FUNCTION_BLOCK`,
 		expect(warns[0]?.message).toContain("codesys");
 	});
 
-	it("does NOT warn when a TwinCAT pragma is used in a TwinCAT project", () => {
+	it("does NOT warn when a TwinCAT pragma is used in a TwinCAT project (opt-in)", () => {
 		const { diags } = setup(
 			`FUNCTION_BLOCK FB_X
 VAR
@@ -243,14 +243,14 @@ END_VAR
 {attribute 'TcRpcEnable'}
 x := 1;
 END_FUNCTION_BLOCK`,
-			undefined,
+			{ wrongVendorPragma: true, unknownPragma: true },
 			"twincat",
 		);
 		expect(diags.filter((d) => d.code === "wrong-vendor-pragma")).toHaveLength(0);
 		expect(diags.filter((d) => d.code === "unknown-pragma")).toHaveLength(0);
 	});
 
-	it("suggests an equivalent when available (TcPersistent → PERSISTENT)", () => {
+	it("suggests an equivalent when available (TcPersistent → PERSISTENT) (opt-in)", () => {
 		const { diags } = setup(
 			`FUNCTION_BLOCK FB_X
 VAR
@@ -259,7 +259,7 @@ END_VAR
 {attribute 'TcPersistent'}
 x := 1;
 END_FUNCTION_BLOCK`,
-			undefined,
+			{ wrongVendorPragma: true, unknownPragma: true },
 			"codesys",
 		);
 		const w = diags.find((d) => d.code === "wrong-vendor-pragma");
@@ -267,7 +267,7 @@ END_FUNCTION_BLOCK`,
 		expect(w?.message).toContain("PERSISTENT");
 	});
 
-	it("still flags truly unknown pragmas (not in either vendor)", () => {
+	it("still flags truly unknown pragmas (not in either vendor) (opt-in)", () => {
 		const { diags } = setup(
 			`FUNCTION_BLOCK FB_X
 VAR
@@ -276,7 +276,7 @@ END_VAR
 {attribute 'totalnonsense_xyzzy'}
 x := 1;
 END_FUNCTION_BLOCK`,
-			undefined,
+			{ wrongVendorPragma: true, unknownPragma: true },
 			"codesys",
 		);
 		expect(diags.filter((d) => d.code === "unknown-pragma")).toHaveLength(1);
@@ -312,15 +312,17 @@ END_FUNCTION_BLOCK`);
 });
 
 describe("diagnostics: FB lifecycle signature", () => {
-	it("errors on FB_Init returning INT instead of BOOL", () => {
+	it("does NOT error on FB_Init returning INT — TC permits, LSP matches", () => {
+		// TC accepts lifecycle methods with deviant return types
+		// (verified live via conformance). LSP only enforces what
+		// TC enforces: required VAR_INPUT params in order.
 		const { diags } = setup(`METHOD FB_Init : INT
 VAR_INPUT
 	bInitRetains : BOOL;
 	bInCopyCode : BOOL;
 END_VAR
 END_METHOD`);
-		const errs = diags.filter((d) => d.code === "fb-lifecycle-signature");
-		expect(errs.some((d) => d.message.includes("BOOL"))).toBe(true);
+		expect(diags.filter((d) => d.code === "fb-lifecycle-signature")).toHaveLength(0);
 	});
 
 	it("errors on FB_Exit missing bInCopyCode parameter", () => {
@@ -344,29 +346,38 @@ END_METHOD`);
 });
 
 describe("diagnostics: init-slot collision", () => {
-	it("does NOT warn for the user-default slot 50000 (intent, not collision)", () => {
+	it("does NOT warn for the user-default slot 50000 even with the check enabled (intent, not collision)", () => {
 		// 50000 IS the user-default. Picking it explicitly is a no-op
 		// equivalent to omitting the pragma — warning would be noisy
 		// and actionless. (Updated 2026-05-28 after the conformance
 		// harness flagged this as a false positive.)
-		const { diags } = setup(`{attribute 'global_init_slot' := '50000'}
+		const { diags } = setup(
+			`{attribute 'global_init_slot' := '50000'}
 FUNCTION_BLOCK FB_X
-END_FUNCTION_BLOCK`);
+END_FUNCTION_BLOCK`,
+			{ initSlotCollision: true },
+		);
 		expect(diags.filter((d) => d.code === "init-slot-collision")).toHaveLength(0);
 	});
 
-	it("warns when a slot collides with a vendor-reserved slot (30000 = Alarm Manager)", () => {
-		const { diags } = setup(`{attribute 'global_init_slot' := '30000'}
+	it("warns when a slot collides with a vendor-reserved slot (opt-in)", () => {
+		const { diags } = setup(
+			`{attribute 'global_init_slot' := '30000'}
 FUNCTION_BLOCK FB_X
-END_FUNCTION_BLOCK`);
+END_FUNCTION_BLOCK`,
+			{ initSlotCollision: true },
+		);
 		const warns = diags.filter((d) => d.code === "init-slot-collision");
 		expect(warns.length).toBeGreaterThan(0);
 	});
 
-	it("does NOT warn for an unreserved slot", () => {
-		const { diags } = setup(`{attribute 'global_init_slot' := '47000'}
+	it("does NOT warn for an unreserved slot (opt-in)", () => {
+		const { diags } = setup(
+			`{attribute 'global_init_slot' := '47000'}
 FUNCTION_BLOCK FB_X
-END_FUNCTION_BLOCK`);
+END_FUNCTION_BLOCK`,
+			{ initSlotCollision: true },
+		);
 		expect(diags.filter((d) => d.code === "init-slot-collision")).toHaveLength(0);
 	});
 });
@@ -473,6 +484,90 @@ END_FUNCTION_BLOCK`);
 		const w = diags.find((d) => d.code === "conversion-source-mismatch");
 		expect(w).toBeDefined();
 		expect(w?.message).toContain("STRING_TO_INT");
+	});
+});
+
+describe("diagnostics: VAR-section placement", () => {
+	it("flags VAR_TEMP inside a METHOD", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+END_FUNCTION_BLOCK
+
+METHOD Compute
+VAR_TEMP
+	tmp : INT;
+END_VAR
+END_METHOD`);
+		const errors = diags.filter((d) => d.code === "var-section-placement");
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toContain("VAR_TEMP");
+		expect(errors[0]?.message).toContain("METHOD");
+	});
+
+	it("allows VAR_TEMP inside a PROGRAM", () => {
+		const { diags } = setup(`PROGRAM Main
+VAR_TEMP
+	tmp : INT;
+END_VAR
+END_PROGRAM`);
+		expect(diags.filter((d) => d.code === "var-section-placement")).toHaveLength(0);
+	});
+
+	it("allows VAR_TEMP inside a FUNCTION", () => {
+		const { diags } = setup(`FUNCTION Compute : INT
+VAR_TEMP
+	tmp : INT;
+END_VAR
+Compute := 42;
+END_FUNCTION`);
+		expect(diags.filter((d) => d.code === "var-section-placement")).toHaveLength(0);
+	});
+
+	it("flags VAR_GLOBAL outside a GVL", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR_GLOBAL
+	g : INT;
+END_VAR
+END_FUNCTION_BLOCK`);
+		const errors = diags.filter((d) => d.code === "var-section-placement");
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toContain("VAR_GLOBAL");
+	});
+});
+
+describe("diagnostics: deref on non-pointer", () => {
+	it("flags `iValue^` when iValue is INT (not POINTER TO ...)", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	iValue : INT;
+	iOther : INT;
+END_VAR
+iOther := iValue^;
+END_FUNCTION_BLOCK`);
+		const errors = diags.filter((d) => d.code === "deref-non-pointer");
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toContain("iValue");
+		expect(errors[0]?.message).toContain("INT");
+	});
+
+	it("allows `pInt^` when pInt is POINTER TO INT", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	pInt : POINTER TO INT;
+	iCopy : INT;
+END_VAR
+iCopy := pInt^;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "deref-non-pointer")).toHaveLength(0);
+	});
+
+	it("stays silent when the identifier is unresolved", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	iCopy : INT;
+END_VAR
+iCopy := unknownVar^;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "deref-non-pointer")).toHaveLength(0);
 	});
 });
 

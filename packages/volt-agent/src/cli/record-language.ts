@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * `bun run record:language` — populate `expected-tc.json` ground truth
- * for the language-conformance test catalog (`src/conformance/`).
+ * for the language-conformance test catalog
+ * (`volt-lsp-st/src/conformance/`).
  *
  * **Batch mode.** All test POUs are pushed at once under a single
  * mega-PLC_PRG that instantiates them all, then one TwinCAT build
@@ -16,9 +17,9 @@
  *     filters out catalog entries with unparseable code BEFORE the
  *     push, so the batch pushes cleanly
  *
- * Output: `src/conformance/expected-tc.json` (overwritten). Commit
- * the result; the replay test (`language.test.ts`) then runs anywhere
- * without a bridge.
+ * Output: `volt-lsp-st/src/conformance/expected-tc.json` (overwritten).
+ * Commit the result; the replay test (`language.test.ts` in the same
+ * package) then runs anywhere without a bridge.
  *
  * Requires:
  *   - Bridge on 127.0.0.1:8555 (or VOLT_BRIDGE_PORT)
@@ -42,16 +43,19 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseSource } from "@opencode-ai/volt-lsp-st";
+import { ALL_TESTS, CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp-st/conformance";
 import { BridgeClient } from "../bridge/client.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
-import { ALL_TESTS, type LanguageTest } from "../conformance/index.js";
-import { findExistingFile } from "./_workspace-utils.js";
+import { findExistingFile } from "./_shared.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const LANG_PREFIX_RE = /^(FB|GVL|DUT|ITF)_LANG_/;
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = resolve(THIS_DIR, "bin.js");
-const OUTPUT_PATH = resolve(THIS_DIR, "..", "..", "src", "conformance", "expected-tc.json");
+// The catalog + recorded ground truth now live in volt-lsp-st (the LSP
+// is what the recordings verify). From this file's compiled location at
+// `packages/volt-agent/dist/cli/`, three `..` segments climb to `packages/`.
+const OUTPUT_PATH = resolve(THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "conformance", "expected-tc.json");
 
 const KIND_EXT: Record<LanguageTest["kind"], string> = {
 	function_block: "st",
@@ -157,8 +161,8 @@ async function main(): Promise<void> {
 	// analysis on the whole project, so other tests' errors would
 	// silently disappear from the build pane in mega-batch mode).
 	const isolated = valid.filter((t) => t.recordIsolated === true);
-	const batch = valid.filter((t) => t.recordIsolated !== true);
-	console.log(`  ${isolated.length} isolated test(s), ${batch.length} batch test(s)`);
+	const batchTotal = valid.length - isolated.length;
+	console.log(`  ${isolated.length} isolated test(s), ${batchTotal} batch test(s) across ${CATEGORIES.length} categor(ies)`);
 
 	const plcPrgPath = findExistingFile(workspace, "PLC_PRG.st") ?? join(workspace, "PLC_PRG.st");
 	const recorded: Record<string, RecordedEntry> = {};
@@ -170,14 +174,14 @@ async function main(): Promise<void> {
 		writeFileSync(testFilePath, t.source, "utf-8");
 		writeFileSync(plcPrgPath, buildMegaPlcPrg([t]), "utf-8");
 
-		const pushRes = volt(workspace, "push", "--force");
+		const pushRes = volt(workspace, "push", "--force", "--no-drift-check");
 		if (pushRes.code !== 0) {
 			console.log(`  ✗ ${t.name.padEnd(30)} push failed: ${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
 			recorded[t.name] = { buildSuccess: false, durationMs: 0, diagnostics: [] };
 			// Try cleanup before next iteration.
 			try { rmSync(testFilePath); } catch { /* ignore */ }
 			writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
-			volt(workspace, "push", "--force"); // best-effort reset
+			volt(workspace, "push", "--force", "--no-drift-check"); // best-effort reset
 			continue;
 		}
 
@@ -199,96 +203,42 @@ async function main(): Promise<void> {
 		// Reset for next iteration: clear the file + bare PLC_PRG + push.
 		try { rmSync(testFilePath); } catch { /* ignore */ }
 		writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
-		const resetRes = volt(workspace, "push", "--force");
+		const resetRes = volt(workspace, "push", "--force", "--no-drift-check");
 		if (resetRes.code !== 0) {
 			console.log(`    (warn) isolated reset failed for ${t.name}: ${resetRes.stderr.trim()}`);
 			await cleanupItems(bridge, [t.pouName]);
 		}
 	}
 
-	// ─── Batch recording: chunked pushes + ONE build ───────────────────
-	// Each volt push is a single HTTP /push call to the bridge, which
-	// internally calls TwinCAT's ITcSmTreeItem.CreateChild via COM N
-	// times in tight succession. Empirically TC's COM layer falls over
-	// somewhere around 60-80 rapid CreateChild calls (RPC server times
-	// out, TC process eventually crashes). Limit batch push to a
-	// chunk size that stays comfortably under the failure threshold,
-	// push test sources in chunks, then ONE final push for PLC_PRG +
-	// ONE build. Loses the "single push" optimization (~N HTTP calls
-	// vs 1) but each chunk completes in seconds and TC stays alive.
-	const CHUNK_SIZE = 20;
-	if (batch.length > 0) {
-		// Stage every test file on disk first — push picks up
-		// whatever's new in the workspace each call.
-		for (const t of batch) {
-			const ext = KIND_EXT[t.kind];
-			writeFileSync(join(workspace, `${t.pouName}.${ext}`), t.source, "utf-8");
-		}
-
-		// Push the test sources in chunks. To make `volt push` send
-		// only the chunk we want, we DELETE the files in the
-		// not-yet-pushed chunks, push, then write them back for the
-		// next chunk.
-		const allTestFiles = batch.map((t) => ({
-			t,
-			path: join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`),
-			source: t.source,
-		}));
-		// Remove every test file from disk (we'll restore them chunk
-		// by chunk).
-		for (const f of allTestFiles) {
-			try { rmSync(f.path); } catch { /* ignore */ }
-		}
-		const chunkCount = Math.ceil(allTestFiles.length / CHUNK_SIZE);
-		for (let i = 0; i < allTestFiles.length; i += CHUNK_SIZE) {
-			const chunk = allTestFiles.slice(i, i + CHUNK_SIZE);
-			// Write just this chunk.
-			for (const f of chunk) writeFileSync(f.path, f.source, "utf-8");
-			console.log(`  pushing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${chunkCount} (${chunk.length} POU(s))…`);
-			const chunkPushRes = volt(workspace, "push", "--force");
-			if (chunkPushRes.code !== 0) {
-				console.error(`batch chunk push failed:\n${chunkPushRes.stderr.trim() || chunkPushRes.stdout.trim()}`);
-				await cleanupItems(bridge, batch.map((t) => t.pouName));
-				try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
-				process.exit(1);
-			}
-		}
-
-		// Final push: write the combined PLC_PRG that instantiates
-		// every test FB. This is just an update to one file, single
-		// COM call (UpdateHandler). Cheap.
-		writeFileSync(plcPrgPath, buildMegaPlcPrg(batch), "utf-8");
-		console.log(`  pushing combined PLC_PRG (instantiates ${batch.length} test FB(s))…`);
-		const pushRes = volt(workspace, "push", "--force");
-		if (pushRes.code !== 0) {
-			console.error(`PLC_PRG push failed:\n${pushRes.stderr.trim() || pushRes.stdout.trim()}`);
-			await cleanupItems(bridge, batch.map((t) => t.pouName));
-			try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
-			process.exit(1);
-		}
-
-		console.log(`  building TC project…`);
-		const buildRes = await bridge.build({ buildType: "full" });
-		console.log(
-			`  build: success=${buildRes.success} duration=${buildRes.duration}ms ` +
-				`total-diagnostics=${buildRes.diagnostics.length}`,
+	// ─── Batch recording: PER-CATEGORY push + build + cleanup ─────────
+	// History: previously this was one giant batch of all 165+ batch
+	// tests with chunked pushes (CHUNK_SIZE=12) and ONE final build.
+	// That ran into a cumulative-cost wall: each /push HTTP call
+	// invokes BeckhoffConnection.LookupItemByName per pushItem op,
+	// which walks the project tree O(N) where N = current item count.
+	// At chunks 9+/14 the project already held 96 LANG_* items + their
+	// children, pushing per-op cost above the 60s bridge-client timeout.
+	// (Verified empirically on 2026-05-29: same chunk-9 content pushed
+	// in 10.8s against an empty project vs >60s after 96 prior items.)
+	//
+	// Fix: record one CATEGORY at a time (pragma, lifecycle, identifier,
+	// …). Each category contributes ≤12-ish tests, gets its own push +
+	// build + diagnostic-extract, then the category's POUs are deleted
+	// before the next category starts. So every push happens against a
+	// near-empty project (1 + category_size items). Cost: 17 builds
+	// instead of 1, but builds are seconds-level and reliable, whereas
+	// the giant-batch path was minutes-level and hit timeouts.
+	//
+	// Diagnostic scoping stays per-test (object name match), unchanged.
+	const validByName = new Set(valid.map((t) => t.name));
+	for (const category of CATEGORIES) {
+		const categoryBatch = category.tests.filter(
+			(t) => t.recordIsolated !== true && validByName.has(t.name),
 		);
+		if (categoryBatch.length === 0) continue;
 
-		for (const t of batch) {
-			const scoped = buildRes.diagnostics.filter(
-				(d) => d.object === t.pouName || (d.object !== null && d.object.startsWith(`${t.pouName}.`)),
-			);
-			const hasError = scoped.some((d) => d.severity === "error");
-			const errCount = scoped.filter((d) => d.severity === "error").length;
-			const warnCount = scoped.filter((d) => d.severity === "warning").length;
-			const okMark = !hasError ? "✓" : "✗";
-			console.log(`  ${okMark} ${t.name.padEnd(30)} errors=${errCount} warnings=${warnCount}`);
-			recorded[t.name] = {
-				buildSuccess: !hasError,
-				durationMs: buildRes.duration,
-				diagnostics: scoped,
-			};
-		}
+		console.log(`\n  ── ${category.name} (${categoryBatch.length} test(s)) ──`);
+		await recordCategory(category.name, categoryBatch, bridge, workspace, plcPrgPath, recorded);
 	}
 
 	// ─── Teardown ──────────────────────────────────────────────────────
@@ -297,7 +247,7 @@ async function main(): Promise<void> {
 		try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
 	}
 	writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
-	const resetRes = volt(workspace, "push", "--force");
+	const resetRes = volt(workspace, "push", "--force", "--no-drift-check");
 	if (resetRes.code !== 0) {
 		console.log(`    (warn) teardown push exit ${resetRes.code}; falling back to direct bridge cleanup`);
 		await cleanupItems(bridge, valid.map((t) => t.pouName));
@@ -323,6 +273,101 @@ async function main(): Promise<void> {
 		(skipped.length > 0 ? ` (${skipped.length} skipped at validation)` : ""));
 
 	process.exit(0);
+}
+
+// ─── Per-category batch recording ─────────────────────────────────────
+
+/**
+ * Record one conformance category: write its tests' files, write a
+ * PLC_PRG that instantiates only this category, push, build, extract
+ * per-test diagnostics, then clean up so the next category starts
+ * against a near-empty project. Writes results into `recorded`.
+ *
+ * On a failed push, falls back to direct bridge cleanup of any items
+ * the category staged and re-throws — caller decides whether to abort.
+ */
+async function recordCategory(
+	categoryName: string,
+	tests: readonly LanguageTest[],
+	bridge: BridgeClient,
+	workspace: string,
+	plcPrgPath: string,
+	recorded: Record<string, RecordedEntry>,
+): Promise<void> {
+	// Each /push HTTP call invokes BeckhoffConnection.LookupItemByName
+	// per pushItem op (O(N) tree walk). Within a category we push the
+	// tests in sub-chunks so any single /push call stays comfortably
+	// under the 60s bridge-client timeout, even when a category like
+	// `pragma` has 50 tests. Empirically 12 items per push on a
+	// near-empty project completes in ~10s; we stick with that.
+	const CHUNK_SIZE = 12;
+
+	const fail = async (label: string, msg: string): Promise<never> => {
+		console.error(`  [${categoryName}] ${label}: ${msg}`);
+		await cleanupItems(bridge, tests.map((t) => t.pouName));
+		for (const t of tests) {
+			try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
+		}
+		writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
+		throw new Error(`category '${categoryName}' ${label}; aborting`);
+	};
+
+	// 1. Push test sources in sub-chunks of CHUNK_SIZE so each /push
+	//    call stays bounded. The bare PLC_PRG already exists from pull
+	//    or the prior category's reset, so it's not part of the chunk.
+	const chunkCount = Math.ceil(tests.length / CHUNK_SIZE);
+	for (let i = 0; i < tests.length; i += CHUNK_SIZE) {
+		const chunk = tests.slice(i, i + CHUNK_SIZE);
+		for (const t of chunk) {
+			writeFileSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`), t.source, "utf-8");
+		}
+		if (chunkCount > 1) {
+			console.log(`    pushing sub-chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${chunkCount} (${chunk.length} POU(s))…`);
+		}
+		const pushRes = volt(workspace, "push", "--force", "--no-drift-check");
+		if (pushRes.code !== 0) {
+			await fail("push failed", pushRes.stderr.trim() || pushRes.stdout.trim());
+		}
+	}
+
+	// 2. Final push: mega PLC_PRG that instantiates this category's
+	//    tests. Single file change, cheap COM update.
+	writeFileSync(plcPrgPath, buildMegaPlcPrg(tests), "utf-8");
+	const plcPushRes = volt(workspace, "push", "--force", "--no-drift-check");
+	if (plcPushRes.code !== 0) {
+		await fail("PLC_PRG push failed", plcPushRes.stderr.trim() || plcPushRes.stdout.trim());
+	}
+
+	// 3. Build + extract per-test diagnostics.
+	const buildRes = await bridge.build({ buildType: "full" });
+	for (const t of tests) {
+		const scoped = buildRes.diagnostics.filter(
+			(d) => d.object === t.pouName || (d.object !== null && d.object.startsWith(`${t.pouName}.`)),
+		);
+		const hasError = scoped.some((d) => d.severity === "error");
+		const errCount = scoped.filter((d) => d.severity === "error").length;
+		const warnCount = scoped.filter((d) => d.severity === "warning").length;
+		const okMark = !hasError ? "✓" : "✗";
+		console.log(`    ${okMark} ${t.name.padEnd(40)} errors=${errCount} warnings=${warnCount}`);
+		recorded[t.name] = {
+			buildSuccess: !hasError,
+			durationMs: buildRes.duration,
+			diagnostics: scoped,
+		};
+	}
+
+	// 5. Cleanup: delete this category's test files locally, restore
+	//    bare PLC_PRG, push to apply on the bridge. Direct bridge
+	//    cleanup is a fallback in case the workspace-side push errors.
+	for (const t of tests) {
+		try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
+	}
+	writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
+	const cleanupRes = volt(workspace, "push", "--force", "--no-drift-check");
+	if (cleanupRes.code !== 0) {
+		console.log(`    (warn) [${categoryName}] cleanup push failed; falling back to direct bridge delete`);
+		await cleanupItems(bridge, tests.map((t) => t.pouName));
+	}
 }
 
 // ─── Mega-PLC_PRG builder ────────────────────────────────────────────
@@ -379,19 +424,19 @@ async function cleanupItems(bridge: BridgeClient, names: string[]): Promise<void
 			const ifVersion = refs.items[name];
 			if (ifVersion === undefined) continue;
 			try {
-				const res = await bridge.pushBatch({ ops: [{ op: "deletePou", name, ifVersion }] });
+				const res = await bridge.pushBatch({ ops: [{ op: "deleteItem", name, ifVersion }] });
 				if (res.accepted === true) {
 					madeProgress = true;
 				} else {
 					console.log(
-						`    (cleanup) bridge rejected deletePou ${name}` +
+						`    (cleanup) bridge rejected deleteItem ${name}` +
 							(res.conflicts !== undefined && res.conflicts.length > 0
 								? `: ${res.conflicts[0]?.reason ?? "unknown"}`
 								: ""),
 					);
 				}
 			} catch (err) {
-				console.log(`    (cleanup) deletePou ${name} failed: ${err instanceof Error ? err.message : err}`);
+				console.log(`    (cleanup) deleteItem ${name} failed: ${err instanceof Error ? err.message : err}`);
 			}
 		}
 		if (!madeProgress) {

@@ -1,49 +1,40 @@
 /**
- * Workspace ↔ bridge translation. Called by `volt import` and `volt export`
- * (in `import.ts` / `export.ts`); not used directly by the CLI surface.
+ * Workspace ↔ bridge translation. Used by `volt pull` and `volt push`
+ * (in `cli/pull.ts` / `cli/push.ts`).
  *
  * Workspace layout: ONE FILE PER POU, extension picked by kind/language
  * (see `pou-files.ts` — `.st`/`.gvl`/`.dut`/`.itf` for ST-grammar
  * content, `.fbd`/`.ld`/`.sfc`/`.cfc` for graphical bodies). The file
- * contains the outer POU (FUNCTION_BLOCK / PROGRAM / FUNCTION /
- * INTERFACE) followed by its children (METHOD / ACTION / PROPERTY) as
- * TOP-LEVEL SIBLINGS — the format the `@opencode-ai/volt-lsp-st` parser
- * already speaks. Parent association is implicit from the file name
- * (`POUs/FB_Motor.st` contains everything related to `FB_Motor`). The
- * bridge protocol stays per-child; this module owns the round-trip via
- * `st-assemble.ts` (write side) and `parseSource` from
- * `@opencode-ai/volt-lsp-st` (read side).
+ * is the unit of transfer: it contains the outer POU (FUNCTION_BLOCK /
+ * PROGRAM / FUNCTION / INTERFACE) followed by its children (METHOD /
+ * ACTION / PROPERTY) as TOP-LEVEL SIBLINGS. Parent association is
+ * implicit from the file name (`POUs/FB_Motor.st` contains everything
+ * related to `FB_Motor`).
+ *
+ * Wire-shape v2 (2026-05-29): the bridge owns structural parsing of
+ * `.st`. The agent sends a workspace file's raw contents as
+ * `sourceText` and receives one assembled `sourceText` per item back.
+ * No agent-side `st-parse.ts` / `st-assemble.ts` — the bridge does it
+ * all via `StSplitter` / `StAssembler`.
  *
  * Two directions:
  *
  *   syncFromBridge: bridge state → snapshot commit
- *     Fetches every changed item, ASSEMBLES each POU + its children
- *     into one workspace file, writes it as a blob into the hidden
- *     snapshot bare repo, builds a tree, creates a deterministic
+ *     Calls /fetch, writes each returned `sourceText` to its workspace
+ *     path as a snapshot blob, builds a tree, creates a deterministic
  *     commit on top of the previous one.
  *
  *   applyPushToBridge: snapshot commit → bridge.pushBatch
  *     Diffs the workspace tree against the prior snapshot tree at the
- *     FILE level (every POU file — see `POU_EXTENSIONS` — is one POU). For each POU that
- *     changed, PARSES both versions with the LSP and emits per-child
- *     primitive ops.
- *
- * All diff reasoning lives HERE. The bridge stays a dumb applier.
+ *     FILE level. For each POU file that changed, emits ONE pushItem
+ *     op carrying the full new `sourceText`. The bridge splits and
+ *     diffs internally.
  */
 import type { Remote } from "../bridge/remote.js";
 import type {
-	AIChildInfo,
-	AIGetResult,
-	CreateChildOp,
-	CreatePouOp,
-	DeleteAccessorOp,
-	DeleteChildOp,
-	DeletePouOp,
+	FetchedItem,
 	PushOp,
 	PushResponse,
-	SetAccessorOp,
-	UpdateChildOp,
-	UpdatePouOp,
 } from "../bridge/types.js";
 import {
 	buildTree,
@@ -58,26 +49,6 @@ import {
 } from "./git-cmds.js";
 import { listWorkspaceFiles, loadState, saveState, type RepoState } from "./snapshot.js";
 import {
-	assemblePou,
-	type AssembleChild,
-	type ChildKind,
-	type PouKind as ParsedPouKind,
-} from "./st-assemble.js";
-import { parseFile, type ParsedChild } from "./st-parse.js";
-
-// ─── Bridge → workspace materialization ────────────────────────────────
-
-/** POU kinds that can hold children (and therefore need an assembled file). */
-const COMPOSITE_KINDS = new Set<CreatePouOp["kind"]>([
-	"function_block",
-	"function",
-	"program",
-	"interface",
-]);
-
-// Extension routing helpers live in pou-files.ts — single source of
-// truth shared with snapshot.ts, pull.ts, and any future caller.
-import {
 	POU_EXTENSIONS,
 	asPouKind,
 	gitattributesContent,
@@ -86,12 +57,14 @@ import {
 	pickExtension,
 } from "./pou-files.js";
 
-export interface SyncOptions {
+// ─── Bridge → workspace materialization ────────────────────────────────
+
+interface SyncOptions {
 	/**
 	 * Skip the cache short-circuit AND the per-item incremental-fetch
 	 * optimization. Forces a full re-materialization from bridge state.
 	 *
-	 * Required after `volt export --force` adopts bridge state: at that
+	 * Required after `volt push --force` adopts bridge state: at that
 	 * point `state.projectVersion` already equals `refs.projectVersion`
 	 * (we just synced them), so the normal sync would no-op — leaving
 	 * the snapshot tree out of sync with `state.items`. With this flag,
@@ -121,9 +94,7 @@ export async function syncFromBridge(
 	const folders: Record<string, string> = { ...(state?.folders ?? {}) };
 	const items: Record<string, string> = { ...fetchResp.items };
 
-	// Seed with prev tree entries we haven't been told to change. Each
-	// POU is one file path; keep the prior blob unless the bridge
-	// reported a change for that name.
+	// Seed with prev tree entries we haven't been told to change.
 	if (state !== undefined) {
 		const prevTreeEntries = listTree(repoPath, state.commitSha);
 		for (const entry of prevTreeEntries) {
@@ -171,18 +142,17 @@ export async function syncFromBridge(
 	return commitSha;
 }
 
-/** Materialize a bridge item into a single workspace file (path + content). */
-function materializeItem(item: AIGetResult): { path: string; content: string } {
-	const folder = item.folder ?? "";
-	// Trust bridge's vendor-neutral kind. No text-inference fallback:
-	// a previous fallback that re-derived kind from declaration text
-	// silently misclassified GVLs whose first line was a comment as
-	// function_block, wrapping them with END_FUNCTION_BLOCK. The
-	// undefined check below catches outdated bridges that don't yet
-	// emit `kind` — TS types alone can't enforce JSON wire fields.
+/**
+ * Materialize a bridge item into a single workspace file (path + content).
+ *
+ * Wire-shape v2: the bridge already assembled the file on its side
+ * (POU + children → one `.st` blob), so we just route by extension
+ * derived from kind/language and drop the `sourceText` into place.
+ */
+function materializeItem(item: FetchedItem): { path: string; content: string } {
 	if (item.kind === undefined || item.kind === null) {
 		throw new Error(
-			`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it (volt bridge stop && volt bridge start)`,
+			`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it`,
 		);
 	}
 	const kind = asPouKind(item.kind);
@@ -190,58 +160,9 @@ function materializeItem(item: AIGetResult): { path: string; content: string } {
 		throw new Error(`bridge sent unknown kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
 	}
 	const ext = pickExtension(kind, item.language);
+	const folder = item.folder ?? "";
 	const path = joinPath(folder, `${item.name}.${ext}`);
-
-	if (!COMPOSITE_KINDS.has(kind)) {
-		// Simple POU (GVL, DUT, alias): one declaration block, no wrapper,
-		// no children. Emit declaration text as-is.
-		return { path, content: joinDeclImpl(item.declaration, item.implementation) };
-	}
-
-	const content = assemblePou({
-		kind: kind as ParsedPouKind,
-		declaration: item.declaration ?? "",
-		implementation: item.implementation ?? "",
-		children: (item.children ?? []).map(bridgeChildToAssemble),
-	});
-	return { path, content };
-}
-
-function bridgeChildToAssemble(c: AIChildInfo): AssembleChild {
-	const kind = inferChildKind(c.declaration ?? "");
-	// Bridge's `folder` field carries the in-FB organizational path
-	// (e.g. "Modes/SubModes"). Round-trip via the `(* folder: X *)`
-	// trailing comment on the assembled signature line — handled by
-	// the assembler when `folder` is set.
-	const folderPart = c.folder !== undefined && c.folder.length > 0 ? { folder: c.folder } : {};
-	if (kind === "property") {
-		const out: AssembleChild = {
-			kind,
-			name: c.name,
-			declaration: c.declaration ?? `PROPERTY ${c.name}`,
-			...folderPart,
-		};
-		if (c.getterCode !== undefined || c.getterDeclaration !== undefined) {
-			out.getter = {
-				...(c.getterDeclaration !== undefined && { declaration: c.getterDeclaration }),
-				...(c.getterCode !== undefined && { implementation: c.getterCode }),
-			};
-		}
-		if (c.setterCode !== undefined || c.setterDeclaration !== undefined) {
-			out.setter = {
-				...(c.setterDeclaration !== undefined && { declaration: c.setterDeclaration }),
-				...(c.setterCode !== undefined && { implementation: c.setterCode }),
-			};
-		}
-		return out;
-	}
-	return {
-		kind,
-		name: c.name,
-		declaration: c.declaration ?? "",
-		...(c.implementation !== undefined && { implementation: c.implementation }),
-		...folderPart,
-	};
+	return { path, content: item.sourceText };
 }
 
 // ─── Drift-cause diagnostic ───────────────────────────────────────────
@@ -251,9 +172,9 @@ function bridgeChildToAssemble(c: AIChildInfo): AssembleChild {
  * workspace that's been flagged as drifted.
  *
  * Returns true when the workspace's current files would assemble to
- * EXACTLY what the bridge currently has — i.e. a `volt import` would
+ * EXACTLY what the bridge currently has — i.e. a `volt pull` would
  * be a content no-op (it'd only update the snapshot's recorded
- * version). Most common case: a previous `volt export` succeeded on
+ * version). Most common case: a previous `volt push` succeeded on
  * the bridge but the process died before `saveState` persisted the
  * receipt, leaving the snapshot stale-but-correct.
  *
@@ -273,7 +194,7 @@ export async function workspaceMatchesBridge(
 	);
 
 	// Every bridge item must materialize to a workspace file with the
-	// identical assembled content.
+	// identical content.
 	const expectedPaths = new Set<string>([".gitattributes"]);
 	for (const item of bridgeItems) {
 		const { path, content } = materializeItem(item);
@@ -293,14 +214,13 @@ export async function workspaceMatchesBridge(
 	return true;
 }
 
-// ─── Workspace → bridge push (LSP-driven diff translation) ────────────
+// ─── Workspace → bridge push (file-level diff) ────────────────────────
 
 /**
  * Translate the diff between two snapshot commits into a list of
- * primitive bridge ops. Per-POU, parse-driven: every POU file (see
- * `POU_EXTENSIONS`) is one POU, so the file-level diff maps directly
- * to POU events; per-child changes come from running the LSP parser
- * on each file.
+ * item-level bridge ops. File-level: each POU file is one item, so
+ * any content change emits ONE pushItem op (carrying full new
+ * sourceText). The bridge handles the per-child diff internally.
  */
 export async function applyPushToBridge(
 	repoPath: string,
@@ -309,7 +229,7 @@ export async function applyPushToBridge(
 ): Promise<{ accepted: true; commitSha: string } | { accepted: false; reason: string }> {
 	const state = loadState(repoPath);
 	if (state === undefined) {
-		return { accepted: false, reason: "no snapshot to diff against — run `volt import` once first" };
+		return { accepted: false, reason: "no snapshot to diff against — run `volt pull` once first" };
 	}
 
 	const newTreeEntries = listTree(repoPath, newCommitSha);
@@ -360,18 +280,35 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	for (const entry of entries) {
 		const name = nameFromPouPath(entry.path);
 		if (name === undefined) continue;
-		// Graphical POUs (.fbd/.ld/.sfc/.cfc) are pull-only — their content
-		// is a placeholder, not parseable. Edit them in TwinCAT; volt pull
-		// picks up the changes. Filter from the push map so they don't
-		// trigger spurious diffs or parser crashes.
+		// Graphical POUs (.fbd/.ld/.sfc/.cfc) are pull-only — their
+		// content is a placeholder. Filter from the push map.
 		if (isGraphicalPath(entry.path)) continue;
 		const segs = entry.path.split("/");
 		const folder = segs.slice(0, -1).join("/");
+		const existing = out.get(name);
+		if (existing !== undefined) {
+			// Two files in the tree resolve to the same POU name.
+			// Hard-fail so the caller sees the collision.
+			throw new Error(
+				`duplicate POU name '${name}' — two files in the workspace produce the same POU: ` +
+					`'${existing.entry.path}' and '${entry.path}'. ` +
+					`POU names must be unique across the project tree. Remove one of the files.`,
+			);
+		}
 		out.set(name, { name, folder, entry });
 	}
 	return out;
 }
 
+// NOTE: workspace renames present here as `prev` having the old name
+// AND `curr` having the new name, with no entry overlap — they're
+// emitted as deleteItem(oldName) + pushItem(newName, ifVersion=null).
+// The wire surface includes a `renameItem` op (the bridge accepts it),
+// but THIS DIFF NEVER EMITS IT: agent-side file renames look identical
+// to delete+create at the tree level, and we have no metadata to recover
+// the "this is really a rename" intent. If you ever want renameItem
+// emission, you'd need explicit rename-detection (e.g. content-hash
+// matching across the delete + create candidates).
 function buildPushOps(
 	repoPath: string,
 	prevEntries: readonly TreeEntry[],
@@ -382,23 +319,31 @@ function buildPushOps(
 	const curr = buildPouFileMap(newEntries);
 	const ops: PushOp[] = [];
 
-	// 1. POU deletions.
+	// 1. Deletions.
 	for (const [name] of prev) {
 		if (curr.has(name)) continue;
 		const ifVersion = state.items[name];
 		if (ifVersion === undefined) continue;
-		const op: DeletePouOp = { op: "deletePou", name, ifVersion };
-		ops.push(op);
+		ops.push({ op: "deleteItem", name, ifVersion });
 	}
 
-	// 2. POU creates + updates.
+	// 2. Creates + updates.
 	for (const [name, currFile] of curr) {
 		const prevFile = prev.get(name);
 		const currContent = denormalizeLineEndings(readBlob(repoPath, currFile.entry.sha));
+
 		if (prevFile === undefined) {
-			ops.push(...buildCreatePouOps(name, currFile, currContent));
+			// New item — pushItem with ifVersion=null = create-new semantics.
+			ops.push({
+				op: "pushItem",
+				name,
+				...(currFile.folder.length > 0 && { folder: currFile.folder }),
+				sourceText: currContent,
+				ifVersion: null,
+			});
 			continue;
 		}
+
 		const folderChanged = prevFile.folder !== currFile.folder;
 		const contentChanged = prevFile.entry.sha !== currFile.entry.sha;
 		if (!folderChanged && !contentChanged) continue;
@@ -406,311 +351,30 @@ function buildPushOps(
 		const ifVersion = state.items[name];
 		if (ifVersion === undefined) continue;
 
-		if (folderChanged) {
-			ops.push({ op: "movePou", name, newFolder: currFile.folder, ifVersion });
-		}
-		if (contentChanged) {
-			const prevContent = denormalizeLineEndings(readBlob(repoPath, prevFile.entry.sha));
-			ops.push(...diffPou(name, prevContent, currContent, ifVersion));
-		}
-	}
-
-	return ops;
-}
-
-// ─── Per-POU diff ──────────────────────────────────────────────────────
-
-function buildCreatePouOps(name: string, currFile: PouFile, currContent: string): PushOp[] {
-	const ops: PushOp[] = [];
-	const kind = inferPouKind(currContent);
-	if (!COMPOSITE_KINDS.has(kind)) {
-		const split = splitDeclImpl(currContent);
-		const createPou: CreatePouOp = {
-			op: "createPou",
-			name,
-			...(currFile.folder.length > 0 && { folder: currFile.folder }),
-			kind,
-			declaration: split.declaration,
-			...(split.implementation !== undefined && { implementation: split.implementation }),
-			ifVersion: null,
-		};
-		ops.push(createPou);
-		return ops;
-	}
-
-	const parsed = parseFile(currContent, name);
-	const createPou: CreatePouOp = {
-		op: "createPou",
-		name,
-		...(currFile.folder.length > 0 && { folder: currFile.folder }),
-		kind,
-		declaration: parsed.pou.declaration,
-		implementation: parsed.pou.implementation,
-		ifVersion: null,
-	};
-	ops.push(createPou);
-
-	for (const child of parsed.children.values()) {
-		ops.push(...createChildOps(name, child));
-	}
-	return ops;
-}
-
-function createChildOps(parent: string, child: ParsedChild): PushOp[] {
-	const ops: PushOp[] = [];
-	const folderPart = child.folder !== undefined && child.folder.length > 0
-		? { folder: child.folder }
-		: {};
-	if (child.kind === "property") {
-		const createChild: CreateChildOp = {
-			op: "createChild",
-			parent,
-			name: child.name,
-			kind: "property",
-			declaration: child.declaration,
-			...folderPart,
-			ifVersion: null,
-		};
-		ops.push(createChild);
-		if (child.getter !== undefined) {
-			const setAcc: SetAccessorOp = {
-				op: "setAccessor",
-				parent,
-				property: child.name,
-				which: "get",
-				...(child.getter.declaration.length > 0 && { declaration: child.getter.declaration }),
-				implementation: child.getter.implementation,
-				ifVersion: null,
-			};
-			ops.push(setAcc);
-		}
-		if (child.setter !== undefined) {
-			const setAcc: SetAccessorOp = {
-				op: "setAccessor",
-				parent,
-				property: child.name,
-				which: "set",
-				...(child.setter.declaration.length > 0 && { declaration: child.setter.declaration }),
-				implementation: child.setter.implementation,
-				ifVersion: null,
-			};
-			ops.push(setAcc);
-		}
-		return ops;
-	}
-	const createChild: CreateChildOp = {
-		op: "createChild",
-		parent,
-		name: child.name,
-		kind: child.kind,
-		declaration: child.declaration,
-		...(child.implementation.length > 0 && { implementation: child.implementation }),
-		...folderPart,
-		ifVersion: null,
-	};
-	ops.push(createChild);
-	return ops;
-}
-
-function diffPou(
-	name: string,
-	prevContent: string,
-	currContent: string,
-	ifVersion: string,
-): PushOp[] {
-	const kind = inferPouKind(currContent);
-	if (!COMPOSITE_KINDS.has(kind)) {
-		// Simple POU — opaque blob; emit updatePou with full split.
-		const split = splitDeclImpl(currContent);
-		const updatePou: UpdatePouOp = {
-			op: "updatePou",
-			name,
-			declaration: split.declaration,
-			implementation: split.implementation ?? "",
-			ifVersion,
-		};
-		return [updatePou];
-	}
-
-	const prev = parseFile(prevContent, name);
-	const curr = parseFile(currContent, name);
-	const ops: PushOp[] = [];
-
-	if (
-		prev.pou.declaration !== curr.pou.declaration ||
-		prev.pou.implementation !== curr.pou.implementation
-	) {
-		const updatePou: UpdatePouOp = {
-			op: "updatePou",
-			name,
-			declaration: curr.pou.declaration,
-			implementation: curr.pou.implementation,
-			ifVersion,
-		};
-		ops.push(updatePou);
-	}
-
-	for (const childName of prev.children.keys()) {
-		if (curr.children.has(childName)) continue;
-		const deleteChild: DeleteChildOp = { op: "deleteChild", parent: name, name: childName, ifVersion };
-		ops.push(deleteChild);
-	}
-
-	for (const [childName, currChild] of curr.children) {
-		const prevChild = prev.children.get(childName);
-		if (prevChild === undefined) {
-			ops.push(...createChildOps(name, currChild));
+		if (folderChanged && !contentChanged) {
+			// Folder-only change — moveItem keeps the content intact.
+			ops.push({ op: "moveItem", name, newFolder: currFile.folder, ifVersion });
 			continue;
 		}
-		ops.push(...diffChild(name, prevChild, currChild, ifVersion));
+
+		// Content changed (folder may have changed too) — single
+		// pushItem carries the full new sourceText AND the new folder.
+		ops.push({
+			op: "pushItem",
+			name,
+			...(currFile.folder.length > 0 && { folder: currFile.folder }),
+			sourceText: currContent,
+			ifVersion,
+		});
 	}
 
 	return ops;
-}
-
-function diffChild(
-	parent: string,
-	prev: ParsedChild,
-	curr: ParsedChild,
-	ifVersion: string,
-): PushOp[] {
-	const ops: PushOp[] = [];
-
-	if (curr.kind === "property" && prev.kind === "property") {
-		if (prev.declaration !== curr.declaration) {
-			const updateChild: UpdateChildOp = {
-				op: "updateChild",
-				parent,
-				name: curr.name,
-				declaration: curr.declaration,
-				implementation: "",
-				ifVersion,
-			};
-			ops.push(updateChild);
-		}
-		ops.push(...diffAccessor(parent, curr.name, "get", prev.getter, curr.getter, ifVersion));
-		ops.push(...diffAccessor(parent, curr.name, "set", prev.setter, curr.setter, ifVersion));
-		return ops;
-	}
-
-	if (prev.declaration !== curr.declaration || prev.implementation !== curr.implementation) {
-		const updateChild: UpdateChildOp = {
-			op: "updateChild",
-			parent,
-			name: curr.name,
-			declaration: curr.declaration,
-			implementation: curr.implementation,
-			ifVersion,
-		};
-		ops.push(updateChild);
-	}
-	return ops;
-}
-
-function diffAccessor(
-	parent: string,
-	propName: string,
-	which: "get" | "set",
-	prev: ParsedChild["getter"],
-	curr: ParsedChild["getter"],
-	ifVersion: string,
-): PushOp[] {
-	if (prev === undefined && curr === undefined) return [];
-	if (prev !== undefined && curr === undefined) {
-		const del: DeleteAccessorOp = {
-			op: "deleteAccessor",
-			parent,
-			property: propName,
-			which,
-			ifVersion,
-		};
-		return [del];
-	}
-	if (curr === undefined) return [];
-	if (
-		prev !== undefined &&
-		prev.declaration === curr.declaration &&
-		prev.implementation === curr.implementation
-	) {
-		return [];
-	}
-	const setOp: SetAccessorOp = {
-		op: "setAccessor",
-		parent,
-		property: propName,
-		which,
-		...(curr.declaration.length > 0 && { declaration: curr.declaration }),
-		implementation: curr.implementation,
-		ifVersion: prev === undefined ? null : ifVersion,
-	};
-	return [setOp];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-function inferPouKind(declaration: string): CreatePouOp["kind"] {
-	const head = declaration.trimStart().toUpperCase();
-	if (head.startsWith("FUNCTION_BLOCK")) return "function_block";
-	if (head.startsWith("FUNCTION")) return "function";
-	if (head.startsWith("PROGRAM")) return "program";
-	if (head.startsWith("INTERFACE")) return "interface";
-	if (head.startsWith("VAR_GLOBAL")) return "gvl";
-	if (head.startsWith("TYPE")) {
-		const upper = declaration.toUpperCase();
-		if (upper.includes("STRUCT")) return "structure";
-		if (upper.includes("UNION")) return "union";
-		if (upper.includes("(")) return "enumeration";
-		return "alias";
-	}
-	return "function_block";
-}
-
-function inferChildKind(declaration: string): ChildKind {
-	const head = declaration.trimStart().toUpperCase();
-	if (head.startsWith("METHOD")) return "method";
-	if (head.startsWith("ACTION")) return "action";
-	if (head.startsWith("PROPERTY")) return "property";
-	return "method";
-}
-
 function joinPath(...parts: string[]): string {
 	return parts.filter((p) => p.length > 0).join("/");
-}
-
-function joinDeclImpl(decl: string | undefined, impl: string | undefined): string {
-	const d = decl ?? "";
-	const i = impl ?? "";
-	if (d.length === 0) return i;
-	if (i.length === 0) return d;
-	const sep = d.endsWith("\n") ? "" : "\n";
-	return `${d}${sep}\n${i}`;
-}
-
-interface SplitDeclImpl {
-	declaration: string;
-	implementation?: string;
-}
-
-/**
- * Split declaration and implementation text for SIMPLE POUs (GVL, DUT,
- * alias) — the kinds the LSP parser doesn't structurally decompose for
- * us. Composite POUs (FB / PROGRAM / FUNCTION / INTERFACE) go through
- * `parseFile` instead, which gives full AST-driven extraction.
- *
- * Heuristic: declaration is everything up to and including the LAST
- * `END_VAR`; implementation is whatever follows. Good enough for the
- * non-composite cases that have neither nested children nor structured
- * blocks beyond their VAR sections.
- */
-function splitDeclImpl(source: string): SplitDeclImpl {
-	const lastEndVar = source.lastIndexOf("END_VAR");
-	if (lastEndVar < 0) return { declaration: source.trimEnd() };
-	const eol = source.indexOf("\n", lastEndVar);
-	if (eol < 0) return { declaration: source.trimEnd() };
-	const declRaw = source.slice(0, eol);
-	const rest = source.slice(eol + 1);
-	if (rest.trim().length === 0) return { declaration: declRaw.trimEnd() };
-	return { declaration: declRaw.trimEnd(), implementation: rest.trim() };
 }
 
 function normalizeLineEndings(s: string): string {
@@ -720,4 +384,3 @@ function normalizeLineEndings(s: string): string {
 function denormalizeLineEndings(s: string): string {
 	return s.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
 }
-

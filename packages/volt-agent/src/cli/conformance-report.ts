@@ -29,50 +29,19 @@ import {
 	parseSource,
 	DEFAULT_DIAGNOSTIC_CONFIG,
 } from "@opencode-ai/volt-lsp-st";
-import { PRAGMA_TESTS } from "../conformance/pragma-tests.js";
-import { LIFECYCLE_TESTS } from "../conformance/lifecycle-tests.js";
-import { IDENTIFIER_TESTS } from "../conformance/identifier-tests.js";
-import { INIT_SLOT_TESTS } from "../conformance/init-slot-tests.js";
-import { SHADOWING_TESTS } from "../conformance/shadowing-tests.js";
-import { CONVERSION_TESTS } from "../conformance/conversion-tests.js";
-import { SEMANTIC_TESTS } from "../conformance/semantic-tests.js";
-import { CONDITIONAL_PRAGMA_TESTS } from "../conformance/conditional-pragma-tests.js";
-import { OPERATOR_TESTS } from "../conformance/operator-tests.js";
-import { LITERAL_TESTS } from "../conformance/literal-tests.js";
-import { INTERFACE_TESTS } from "../conformance/interface-tests.js";
-import { OOP_TESTS } from "../conformance/oop-tests.js";
-import { ADVANCED_TYPE_TESTS } from "../conformance/advanced-type-tests.js";
-import type { LanguageTest } from "../conformance/index.js";
+import { CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp-st/conformance";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_PATH = join(THIS_DIR, "..", "..", "src", "conformance", "expected-tc.json");
+// Catalog + ground truth live in volt-lsp-st. From this file's compiled
+// location at `packages/volt-agent/dist/cli/`, three `..` segments
+// climb to `packages/`.
+const EXPECTED_PATH = join(THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "conformance", "expected-tc.json");
 
 interface ExpectedTc {
 	recorded: { at: string; bridgeVersion: string; testCount: number } | null;
 	tests: Record<string, { buildSuccess: boolean; diagnostics: BridgeDiagnostic[] }>;
 }
-
-interface CategoryGroup {
-	name: string;
-	tests: readonly LanguageTest[];
-}
-
-const CATEGORIES: CategoryGroup[] = [
-	{ name: "pragma", tests: PRAGMA_TESTS },
-	{ name: "lifecycle", tests: LIFECYCLE_TESTS },
-	{ name: "identifier", tests: IDENTIFIER_TESTS },
-	{ name: "init-slot", tests: INIT_SLOT_TESTS },
-	{ name: "shadowing", tests: SHADOWING_TESTS },
-	{ name: "conversion", tests: CONVERSION_TESTS },
-	{ name: "semantic", tests: SEMANTIC_TESTS },
-	{ name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },
-	{ name: "operator", tests: OPERATOR_TESTS },
-	{ name: "literal", tests: LITERAL_TESTS },
-	{ name: "interface", tests: INTERFACE_TESTS },
-	{ name: "oop", tests: OOP_TESTS },
-	{ name: "advanced-type", tests: ADVANCED_TYPE_TESTS },
-];
 
 function runLsp(source: string): Array<{ severity: string }> {
 	const parseResult = parseSource(source);

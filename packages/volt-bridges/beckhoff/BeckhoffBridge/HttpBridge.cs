@@ -262,6 +262,16 @@ internal sealed class HttpBridge
 				);
 			}
 
+			// If a prior call caught an RPC failure and flagged the
+			// channel DEGRADED, reject non-/health calls fast — repeating
+			// the broken call would just produce another 500 and waste
+			// the COM round-trip. /health is the recovery path: its
+			// probe clears the flag once the channel is responsive.
+			if (path != "/health" && _connection.IsDegraded)
+			{
+				throw BridgeException.Degraded(_connection.DegradedReason ?? "previous call failed");
+			}
+
 			object? result = path switch
 			{
 				"/health"  => _connection.RunOnStaThread(() => _health.Handle()),
@@ -290,12 +300,24 @@ internal sealed class HttpBridge
 		catch (BridgeException ex)
 		{
 			sw.Stop();
+			// Flip DEGRADED when the underlying cause looks like an RPC
+			// failure — even though this handler returned a typed error,
+			// the COM channel is suspect and the next call would likely
+			// repeat the failure. /health probe clears it on recovery.
+			if (BeckhoffConnection.IsRpcFailure(ex.Cause))
+			{
+				_connection.MarkDegraded($"{path}: {ex.Message}");
+			}
 			Log.Http($"{method} {path} -> {ex.HttpStatus} ({sw.ElapsedMilliseconds}ms) {ex.Code}: {ex.Message}");
 			WriteResponse(stream, ex.HttpStatus, new { error = new { code = ex.Code, message = ex.Message } });
 		}
 		catch (Exception ex)
 		{
 			sw.Stop();
+			if (BeckhoffConnection.IsRpcFailure(ex))
+			{
+				_connection.MarkDegraded($"{path}: {ex.Message}");
+			}
 			Log.Error($"{method} {path} -> 500 ({sw.ElapsedMilliseconds}ms) {ex.Message}");
 			// Classify common COM/TwinCAT exceptions into actionable error codes
 			if (ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
@@ -426,11 +448,19 @@ internal class BridgeException : Exception
 {
 	public int HttpStatus { get; }
 	public string Code { get; }
+	/// <summary>
+	/// Original underlying exception (e.g. the COMException that ComCall
+	/// caught). Carried separately because base.InnerException is also
+	/// used by the framework for stack traces; downstream consumers
+	/// (HttpBridge degraded-detection) walk this chain explicitly.
+	/// </summary>
+	public Exception? Cause { get; }
 
-	public BridgeException(int httpStatus, string code, string message) : base(message)
+	public BridgeException(int httpStatus, string code, string message, Exception? cause = null) : base(message, cause)
 	{
 		HttpStatus = httpStatus;
 		Code = code;
+		Cause = cause;
 	}
 
 	public static BridgeException NotFound(string type, string name) =>
@@ -444,6 +474,10 @@ internal class BridgeException : Exception
 
 	public static BridgeException NotConnected() =>
 		new(503, "PLC_DISCONNECTED", "Not connected to TwinCAT XAE");
+
+	public static BridgeException Degraded(string reason) =>
+		new(503, "PLC_DEGRADED",
+			$"TwinCAT COM channel is unresponsive — {reason}. Retry after the bridge's next /health probe confirms recovery (or restart TwinCAT if it persists).");
 }
 
 /// <summary>

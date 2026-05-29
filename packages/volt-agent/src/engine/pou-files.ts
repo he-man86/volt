@@ -14,10 +14,10 @@
  *    text since the real content is binary/XML and the LSP doesn't
  *    parse it. Pull-only — push pipeline filters these out.
  */
-import type { CreatePouOp } from "../bridge/types.js";
+import type { PouKind } from "../bridge/types.js";
 
 /** Extension per POU kind. POU body kinds may be overridden by LANG_EXT. */
-export const KIND_EXT: Record<CreatePouOp["kind"], string> = {
+export const KIND_EXT: Record<PouKind, string> = {
 	function_block: "st",
 	function: "st",
 	program: "st",
@@ -30,7 +30,7 @@ export const KIND_EXT: Record<CreatePouOp["kind"], string> = {
 };
 
 /** Extension per body language. Applies to POU body kinds only. */
-export const LANG_EXT: Record<string, string> = {
+const LANG_EXT: Record<string, string> = {
 	ST: "st",
 	FBD: "fbd",
 	LD: "ld",
@@ -43,10 +43,10 @@ export const LANG_EXT: Record<string, string> = {
 export const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf", ".fbd", ".ld", ".sfc", ".cfc"] as const;
 
 /** Pull-only extensions — bridge body content is a placeholder, push would round-trip garbage. */
-export const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
+const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
 
 /** True if a workspace-relative path is a POU file (any recognized ST or graphical extension). */
-export function isPouPath(path: string): boolean {
+function isPouPath(path: string): boolean {
 	return POU_EXTENSIONS.some((e) => path.endsWith(e));
 }
 
@@ -77,7 +77,7 @@ export function nameFromPouPath(path: string): string | undefined {
  *  3. POU body kinds (FB / function / program) → LANG_EXT[language]
  *     when bridge reports a body language; else KIND_EXT (.st).
  */
-export function pickExtension(kind: CreatePouOp["kind"], language?: string): string {
+export function pickExtension(kind: PouKind, language?: string): string {
 	if (kind === "interface") return KIND_EXT[kind];
 	// POU body kinds = the ones with implementation language. Anything
 	// else uses its KIND_EXT directly (gvl/dut/etc.).
@@ -97,14 +97,14 @@ export function gitattributesContent(): string {
 /**
  * Validate a bridge-supplied `kind` string against the set of POU kinds
  * the materializer knows how to handle. Returns the string typed as
- * CreatePouOp["kind"] when valid, undefined otherwise — the caller
+ * PouKind when valid, undefined otherwise — the caller
  * should fail loudly on undefined (the wire shape is strict: every
  * item the bridge returns must have a recognized kind).
  *
  * The canonical kind vocabulary is shared with the C# bridge's
  * BlockTypeMapper.ToNodeType — vendor-agnostic by design.
  */
-const KNOWN_KINDS: ReadonlySet<CreatePouOp["kind"]> = new Set([
+const KNOWN_KINDS: ReadonlySet<PouKind> = new Set([
 	"function_block",
 	"function",
 	"program",
@@ -116,8 +116,8 @@ const KNOWN_KINDS: ReadonlySet<CreatePouOp["kind"]> = new Set([
 	"alias",
 ]);
 
-export function asPouKind(kind: string): CreatePouOp["kind"] | undefined {
-	return (KNOWN_KINDS as ReadonlySet<string>).has(kind) ? (kind as CreatePouOp["kind"]) : undefined;
+export function asPouKind(kind: string): PouKind | undefined {
+	return (KNOWN_KINDS as ReadonlySet<string>).has(kind) ? (kind as PouKind) : undefined;
 }
 
 /** Tracked-path check: POU files + our own .gitattributes are ours. */

@@ -1,8 +1,11 @@
 /**
- * Tiny utility surface shared by every CLI verb file. Kept minimal on
- * purpose — anything that grows beyond "argv flag parsing + a couple
- * of bridge-error helpers" should live in `engine/`, not here.
+ * Tiny utility surface shared by CLI verb files + the auxiliary tools
+ * (record-language, debug-push-one, conformance-report). Kept minimal
+ * on purpose — anything that grows beyond "argv flag parsing + bridge
+ * helpers + workspace-file lookup" should live in `engine/`, not here.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "../bridge/client.js";
 
 export type Flags = Record<string, string | boolean>;
@@ -63,4 +66,33 @@ export async function safeVerb(verb: VerbFn, ctx: VerbContext): Promise<number> 
 		process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
 		return 1;
 	}
+}
+
+/**
+ * Walk a workspace tree and return the first file whose basename
+ * matches. Skips `.volt/` (snapshot bare repo) and `.git/`. Used by
+ * the recorder + debug-push-one to locate POU files placed by
+ * `volt pull` — most importantly `PLC_PRG.st`, which they need to
+ * OVERWRITE in place (writing to root creates a ghost POU that
+ * volt push silently no-ops on because the name already exists at a
+ * different path).
+ *
+ * Returns the absolute path or undefined when nothing matches.
+ */
+export function findExistingFile(root: string, basename: string): string | undefined {
+	let found: string | undefined;
+	function walk(dir: string): void {
+		if (found !== undefined) return;
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			if (entry.name === ".volt" || entry.name === ".git") continue;
+			const full = join(dir, entry.name);
+			if (entry.isDirectory()) walk(full);
+			else if (entry.isFile() && entry.name === basename) {
+				found = full;
+				return;
+			}
+		}
+	}
+	walk(root);
+	return found;
 }

@@ -6,9 +6,9 @@ using BeckhoffBridge.Helpers;
 namespace BeckhoffBridge.Handlers;
 
 /// <summary>
-/// Internal helper invoked by <see cref="SetHandler"/> (which itself is
-/// invoked by <see cref="PushHandler"/>). Not wired to an HTTP route —
-/// the public wire surface is `POST /push`.
+/// Internal helper invoked by <see cref="PushHandler"/> on each
+/// `pushItem` op whose target doesn't already exist. Not wired to an
+/// HTTP route — the public wire surface is `POST /push`.
 ///
 /// Creates a new POU, GVL, DUT, or folder in the PLC project. Accepts
 /// pre-split `declaration`/`implementation` fields. Children have

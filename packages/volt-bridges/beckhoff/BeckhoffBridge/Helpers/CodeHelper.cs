@@ -66,7 +66,10 @@ internal static class CodeHelper
 			throw new BridgeException(400, "INVALID_CODE_HEADER", "No header line found in code");
 
 		// VAR_GLOBAL → GVL (name not in code)
-		if (Regex.IsMatch(headerLine, @"^VAR_GLOBAL\b", RegexOptions.IgnoreCase))
+		// VAR_CONFIG → same standalone shape as a GVL; TwinCAT also
+		// stores it as a GVL-type tree item. The IEC address-binding
+		// block has identical file structure (single VAR section + END_VAR).
+		if (Regex.IsMatch(headerLine, @"^(VAR_GLOBAL|VAR_CONFIG)\b", RegexOptions.IgnoreCase))
 			return new CodeHeader("gvl", null);
 
 		// FUNCTION_BLOCK name [EXTENDS ...] [IMPLEMENTS ...]

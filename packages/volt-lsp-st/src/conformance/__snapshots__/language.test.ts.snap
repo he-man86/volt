@@ -1,0 +1,2659 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`language conformance (LSP vs recorded TwinCAT) hide_var LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_var",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) call_after_init LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_init",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) warning_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "lspWarnings": 1,
+  "name": "warning_message",
+  "tcErrors": 0,
+  "tcMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "tcWarnings": 1,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) noinit LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "noinit",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) init_on_onlchange LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_on_onlchange",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) displaymode_hex LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_hex",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_copy LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_copy",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) linkalways LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_check LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_check",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_instance_in_retain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_instance_in_retain",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) hide_all_locals LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_all_locals",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_assign LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_assign",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) reflection LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "reflection",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) unknown_attribute_typo LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "unknown_attribute_typo",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) enable_dynamic_creation LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "enable_dynamic_creation",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) const_replaced LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_replaced",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) const_non_replaced LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_non_replaced",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) global_init_slot LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "global_init_slot",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) monitoring_display LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_display",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) monitoring_encoding LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_encoding",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) subsequent LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "subsequent",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) suppress_warning LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditionalshow LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) pingroup LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pingroup",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) info_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[information] this is a deliberate test info",
+  ],
+  "lspWarnings": 0,
+  "name": "info_message",
+  "tcErrors": 0,
+  "tcMessages": [
+    "[info] this is a deliberate test info",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) text_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[hint] this is a deliberate test text",
+  ],
+  "lspWarnings": 0,
+  "name": "text_message",
+  "tcErrors": 0,
+  "tcMessages": [
+    "[info] this is a deliberate test text",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) instance_path_with_reflection LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "instance_path_with_reflection",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) displaymode_bin LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_bin",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) displaymode_dec LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_dec",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) displaymode_invalid_value LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_invalid_value",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) suppress_warning_multi LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning_multi",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_init_aliases LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_init_aliases",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) linkalways_with_unused_pou LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways_with_unused_pou",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditionalshow_all_locals LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow_all_locals",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) pin_presentation_order LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) estimated_stack_usage LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "estimated_stack_usage",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) no_virtual_actions LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_virtual_actions",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) io_function_block LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "io_function_block",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) call_after_global_init_slot LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_global_init_slot",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) warning_disable_restore LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "warning_disable_restore",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) call_after_online_change_slot LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_online_change_slot",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) call_before_global_exit_slot LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_before_global_exit_slot",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) call_on_type_change LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_on_type_change",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) pin_presentation_order_outputs LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_outputs",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) pin_presentation_order_wildcard LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_wildcard",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) implicit_parameter_pouname LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "implicit_parameter_pouname",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) region_basic LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_basic",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) error_message LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "lspWarnings": 0,
+  "name": "error_message",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) region_pragma_basic LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_basic",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) region_pragma_nested LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_nested",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_init_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_canonical",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_reinit_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_canonical",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_exit_canonical LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_exit_canonical",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_init_wrong_return_type LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_wrong_return_type",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_init_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_init_missing_bInCopyCode",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] An 'FB_Init'-Method of a functionblock or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL.",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_exit_missing_bInCopyCode LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_exit_missing_bInCopyCode",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] An 'FB_Exit'-Method of a functionblock or struct needs an input 'bInCopyCode' of type BOOL.",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) fb_reinit_with_params LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_with_params",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) identifier_double_underscore LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Identifiers starting with '__' are reserved for system-generated names",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_double_underscore",
+  "tcErrors": 5,
+  "tcMessages": [
+    "[error] Unexpected Token '__systemReserved' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected Token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected Token 'INT' found",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) identifier_consecutive_underscores LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Multiple consecutive underscores are not permitted in identifiers",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_consecutive_underscores",
+  "tcErrors": 5,
+  "tcMessages": [
+    "[error] Unexpected Token 'foo__bar' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected Token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected Token 'INT' found",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) identifier_backtick_keyword_escape LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "identifier_backtick_keyword_escape",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) init_slot_default_50000 LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_default_50000",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) init_slot_reserved_alarm_manager LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_alarm_manager",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) init_slot_reserved_device_object LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_device_object",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) init_slot_user_early LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_user_early",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) shadowing_method_local_shadows_member LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_member",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) shadowing_method_param_shadows_member LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_param_shadows_member",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_int_to_real_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_valid",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_real_to_int_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_real_to_int_valid",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_int_to_real_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_wrong_source",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'REAL' to type 'INT'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_dint_to_int_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dint_to_int_wrong_source",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_implicit_dint_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_implicit_dint_to_int",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'DINT' to type 'INT'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_bool_to_int_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_bool_to_int_valid",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_int_to_bool_valid LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_bool_valid",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_time_to_dword LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_time_to_dword",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_date_to_string LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_date_to_string",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_dt_to_date LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dt_to_date",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_trunc_real_to_dint LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_real_to_dint",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_trunc_int_real_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_int_real_to_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conversion_overloaded_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_overloaded_to_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) duplicate_declaration LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'iCounter' is already declared in this scope",
+  ],
+  "lspWarnings": 0,
+  "name": "duplicate_declaration",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] A local variable named 'iCounter' is already defined in 'FB_LANG_duplicate_declaration'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) unresolved_identifier_in_body LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'iThisIdentifierDoesNotExistAnywhere' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "unresolved_identifier_in_body",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iThisIdentifierDoesNotExistAnywhere'' to type 'INT'",
+    "[error] Identifier 'iThisIdentifierDoesNotExistAnywhere' not defined",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflict_hide_plus_monitoring",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditional_define_then_if LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_define_then_if",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditional_else_branch_taken LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_else_branch_taken",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditional_elsif_chain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_elsif_chain",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditional_orphan_else LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
+    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+  ],
+  "lspWarnings": 0,
+  "name": "conditional_orphan_else",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) conditional_undefine_after_define LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_undefine_after_define",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_arithmetic_same_type LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_same_type",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_arithmetic_int_plus_dint LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_dint",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_arithmetic_int_plus_real LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_real",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_modulo_on_real LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_modulo_on_real",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] 'MOD' is not defined for 'REAL'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_comparison_int_vs_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_comparison_int_vs_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_logical_bool LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_logical_bool",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_bitwise_on_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_bitwise_on_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_shift_left LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_left",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_arithmetic_bool_plus_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_bool_plus_int",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sel_bool_picker LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sel_bool_picker",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_mux_multi_select LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_mux_multi_select",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_min_max LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_min_max",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_limit_clamp LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_limit_clamp",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_abs LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_abs",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_sqrt_real LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_sqrt_real",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_ln LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_ln",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_log LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_log",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_exp LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_exp",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_inverse_trig LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_inverse_trig",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_trig LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_trig",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_math_expt LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_expt",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_shift_right LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_right",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_rotate_left LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_left",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_rotate_right LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_right",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_isvalidref LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_isvalidref",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_varinfo LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__VARINFO' is CODESYS-only and not supported by TwinCAT.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_varinfo",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] ';' expected instead of '.'",
+    "[warning] The code '.size;",
+  ],
+  "tcWarnings": 1,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_currenttask LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__CURRENTTASK' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'Tc2_System.GetCurTaskIndex' (TC exposes task context via the Tc2_System library).",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_currenttask",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] ';' expected instead of end of POU",
+    "[error] Expression expected instead of ''",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_try_catch LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 4,
+  "lspMessages": [
+    "[warning] 'exc' is not defined in any reachable scope",
+    "[error] Operator '__TRY' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'PLC_Exception' (TC uses error-flag patterns or PLC_Exception traps).",
+    "[error] Operator '__CATCH' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__FINALLY' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__ENDTRY' is CODESYS-only and not supported by TwinCAT.",
+  ],
+  "lspWarnings": 1,
+  "name": "op_sys_try_catch",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Identifier 'exc' not defined",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_new_delete LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": false,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Operator '__NEW' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: '(no direct equivalent)' (TC programs use static instances or pre-allocated pools).",
+    "[error] Operator '__DELETE' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: '(no direct equivalent)' (Pair of __NEW; TC doesn't support either).",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_new_delete",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) op_sys_queryinterface LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__QUERYINTERFACE' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: '(TwinCAT.SystemBase)' (TC uses its own runtime-interface primitives).",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_queryinterface",
+  "tcErrors": 3,
+  "tcMessages": [
+    "[error] Cannot convert type 'Unknown type: '__QUERYINTERFACE(THIS^, ITF_LANG_with_method)'' to type 'BOOL'",
+    "[error] Unknown type: 'ITF_LANG_with_method'",
+    "[error] Identifier 'ITF_LANG_with_method' not defined",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_hex LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_hex",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_binary LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_binary",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_octal LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_octal",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_typed_int_hash LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_typed_int_hash",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_real_scientific LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_real_scientific",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_time LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_time",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_date LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_date",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_tod LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_tod",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_string_single_quoted LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_string_single_quoted",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_wstring_double_quoted LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_wstring_double_quoted",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) literal_string_to_int_assignment LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "literal_string_to_int_assignment",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] Cannot convert type 'STRING(INT#4)' to type 'INT'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) interface_empty LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) interface_empty_impl LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty_impl",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) interface_with_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) interface_with_method_impl LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method_impl",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) interface_missing_implementation LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB 'FB_LANG_interface_missing_implementation' implements 'ITF_LANG_with_method' but doesn't provide method 'Compute'.",
+  ],
+  "lspWarnings": 0,
+  "name": "interface_missing_implementation",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] There is no implementation for method 'COMPUTE' defined in interface 'ITF_LANG_WITH_METHOD'",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_base LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_base",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_extends_simple LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_simple",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_extends_with_override LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_override",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_extends_with_super LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_super",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_final_fb LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_final_fb",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_abstract_fb LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_fb",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) oop_abstract_instantiated LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_instantiated",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_array_of_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_of_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_array_2d LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_2d",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_pointer_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_pointer_to_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_reference_to_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_reference_to_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_string_n LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_string_n",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_var_temp_in_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] VAR_TEMP is not allowed inside a METHOD — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_var_temp_in_method",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] 'VAR_TEMP' declaration not allowed in this place",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_var_constant LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_var_constant",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_deref_non_pointer LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot dereference 'iValue': 'INT' is not a pointer type.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_deref_non_pointer",
+  "tcErrors": 2,
+  "tcMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iValue^'' to type 'INT'",
+    "[error] Dereference requires Pointer",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_struct_simple LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_simple",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_struct_extends LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_extends",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_struct_nested LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_nested",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_enum_simple LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_simple",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_enum_with_base LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_with_base",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_enum_explicit_values LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_explicit_values",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_alias_int LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_int",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_alias_string LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_string",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_union LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_union",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_subrange LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_subrange",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_any_function_input LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_function_input",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_any_int_function_input LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_int_function_input",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_codesys_xint LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xint",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_codesys_uxint LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_uxint",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_codesys_xword LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xword",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_codesys_vector LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Type '__VECTOR' is CODESYS-only and not supported by TwinCAT. TwinCAT has no SIMD primitive — use \`ARRAY[0..N-1] OF T\` for fixed-size containers.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_codesys_vector",
+  "tcErrors": 3,
+  "tcMessages": [
+    "[error] Type definition expected instead of '__VECTOR'",
+    "[error] 'vec4[0]' is no valid assignment target",
+    "[error] Identifier 'vec4' not defined",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_codesys_version LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_version",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_implicit_enum_inline LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_implicit_enum_inline",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) type_dut_struct_with_bit_fields LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_with_bit_fields",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_input_output_inout_on_fb LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_output_inout_on_fb",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_input_constant LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_constant",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_inst_in_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_inst_in_method",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_stat_in_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_stat_in_method",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_retain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_retain",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_persistent LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_persistent",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_non_retain LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] NON_RETAIN is only meaningful in retain-cascade contexts (e.g. inside a GVL that's RETAIN). Bare 'VAR NON_RETAIN' is rejected by TC.",
+  ],
+  "lspWarnings": 0,
+  "name": "var_non_retain",
+  "tcErrors": 7,
+  "tcMessages": [
+    "[error] Type definition expected instead of 'END_VAR'",
+    "[error] 'END_VAR' expected instead of ''",
+    "[error] ',, AT or :' expected instead of 'iCount'",
+    "[error] Identifier 'iCount' not defined",
+    "[error] 'iCount' is no valid assignment target",
+    "[error] Unknown type: 'iCount'",
+    "[error] Identifier 'iCount' not defined",
+  ],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_config_address_binding LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_config_address_binding",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_external_gvl LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_gvl",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_external_consumer LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_consumer",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) var_output_on_function LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_output_on_function",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_if_elsif_else LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_if_elsif_else",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_case_of_else LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_case_of_else",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_for_to_by_do LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_for_to_by_do",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_while_do LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_while_do",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_repeat_until LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_repeat_until",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_exit_in_loop LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_exit_in_loop",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_continue_in_loop LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_continue_in_loop",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) ctrl_return_from_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_return_from_method",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) keyword_this_dereference LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_this_dereference",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) keyword_null_pointer_init LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_null_pointer_init",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) operand_bit_access_byte LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_access_byte",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) operand_bit_assign_word LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_assign_word",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) operand_partial_word_in_dword LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'W1' is not defined in any reachable scope",
+    "[warning] 'B3' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 2,
+  "name": "operand_partial_word_in_dword",
+  "tcErrors": 4,
+  "tcMessages": [
+    "[error] ';' expected instead of 'W1'",
+    "[error] '%' is no component of 'dwSource'",
+    "[warning] The code 'W1;",
+    "[error] ';' expected instead of 'B3'",
+    "[error] '%' is no component of 'dwSource'",
+    "[warning] The code 'B3;",
+  ],
+  "tcWarnings": 2,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) operand_hw_address_marker LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_hw_address_marker",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance (LSP vs recorded TwinCAT) operand_uchar_literal LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnFlagged": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'UCHAR' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "operand_uchar_literal",
+  "tcErrors": 5,
+  "tcMessages": [
+    "[error] ';' expected instead of 'UCHAR#'",
+    "[error] Expression expected instead of 'UCHAR#'",
+    "[error] Unexpected Token 'UCHAR#' found",
+    "[error] ';' expected instead of ''A''",
+    "[error] Unexpected Token ''A'' found",
+  ],
+  "tcWarnings": 0,
+}
+`;

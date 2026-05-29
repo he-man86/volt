@@ -16,18 +16,30 @@
  * Error shape: bridges return `{ error: { code, message } }` on non-2xx
  * status. We parse that and throw `BridgeError` so tools can distinguish
  * `NOT_FOUND` / `ALREADY_EXISTS` / etc. from generic transport failures.
+ *
+ * Every 2xx response is `.parse()`-validated against the wire schemas in
+ * `./types.ts` before being returned. A malformed payload throws a
+ * `BridgeError("MALFORMED_RESPONSE", …)` naming the path + first failing
+ * field — far easier to root-cause than the downstream
+ * "undefined is not a function" it used to mask.
  */
 
 import { request as httpRequest } from "node:http";
-import type {
-	BuildRequest,
-	BuildResponse,
-	FetchRequest,
-	FetchResponse,
-	HealthResponse,
-	PushRequest,
-	PushResponse,
-	RefsResponse,
+import type { z } from "zod";
+import {
+	BuildResponseSchema,
+	FetchResponseSchema,
+	HealthResponseSchema,
+	PushResponseSchema,
+	RefsResponseSchema,
+	type BuildRequest,
+	type BuildResponse,
+	type FetchRequest,
+	type FetchResponse,
+	type HealthResponse,
+	type PushRequest,
+	type PushResponse,
+	type RefsResponse,
 } from "./types.js";
 import type { Remote } from "./remote.js";
 
@@ -61,38 +73,46 @@ export class BridgeClient implements Remote {
 	}
 
 	async getHealth(): Promise<HealthResponse> {
-		return this.get<HealthResponse>("/health");
+		return this.request("GET", "/health", HealthResponseSchema);
 	}
 
 	async getRefs(): Promise<RefsResponse> {
-		return this.get<RefsResponse>("/refs");
+		return this.request("GET", "/refs", RefsResponseSchema);
 	}
 
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
-		return this.post<FetchResponse>("/fetch", req);
+		return this.request("POST", "/fetch", FetchResponseSchema, req);
 	}
 
 	async pushBatch(req: PushRequest): Promise<PushResponse> {
-		return this.post<PushResponse>("/push", req);
+		return this.request("POST", "/push", PushResponseSchema, req);
 	}
 
 	async build(req: BuildRequest): Promise<BuildResponse> {
-		return this.post<BuildResponse>("/build", req);
-	}
-
-	private async get<T>(path: string): Promise<T> {
-		return this.request<T>("GET", path);
-	}
-
-	private async post<T>(path: string, body: unknown): Promise<T> {
-		return this.request<T>("POST", path, body);
+		return this.request("POST", "/build", BuildResponseSchema, req);
 	}
 
 	private async request<T>(
 		method: "GET" | "POST",
 		path: string,
+		schema: z.ZodType<T>,
 		body?: unknown,
 	): Promise<T> {
+		const raw = await this.transport(method, path, body);
+		try {
+			return schema.parse(raw);
+		} catch (err) {
+			if (isZodError(err)) {
+				throw new BridgeError(
+					"MALFORMED_RESPONSE",
+					`bridge ${path} returned malformed payload: ${formatZodError(err)}`,
+				);
+			}
+			throw err;
+		}
+	}
+
+	private async transport(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
 		// Use node:http directly rather than global fetch.
 		//
 		// Reason: global fetch (undici) keeps sockets in a keep-alive
@@ -110,7 +130,7 @@ export class BridgeClient implements Remote {
 			headers["content-length"] = String(payload.byteLength);
 		}
 
-		return new Promise<T>((resolve, reject) => {
+		return new Promise<unknown>((resolve, reject) => {
 			const req = httpRequest(
 				{
 					method,
@@ -144,7 +164,7 @@ export class BridgeClient implements Remote {
 							);
 							return;
 						}
-						resolve(parsed as T);
+						resolve(parsed);
 					});
 					res.on("error", (err) => reject(err));
 				},
@@ -183,4 +203,25 @@ function extractBridgeError(
 		code: typeof err.code === "string" ? err.code : undefined,
 		message: typeof err.message === "string" ? err.message : undefined,
 	};
+}
+
+interface ZodErrorLike {
+	issues: Array<{ path: Array<string | number>; message: string }>;
+}
+
+function isZodError(err: unknown): err is ZodErrorLike {
+	return err instanceof Error && err.name === "ZodError" && Array.isArray((err as { issues?: unknown }).issues);
+}
+
+/**
+ * Format a ZodError into a one-line message naming the first three
+ * offending paths. We cap at three to keep the error readable when the
+ * bridge sends totally wrong shape (e.g. an array where we expected an
+ * object) and zod would otherwise dump dozens of issues.
+ */
+function formatZodError(err: ZodErrorLike): string {
+	return err.issues
+		.slice(0, 3)
+		.map((i) => `${i.path.length > 0 ? i.path.join(".") : "<root>"}: ${i.message}`)
+		.join("; ");
 }

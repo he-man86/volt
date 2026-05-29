@@ -14,17 +14,22 @@ namespace BeckhoffBridge.Handlers;
 ///     "knownItems": { "FB_RateLimiter": "<sha1>", ... }   // optional, empty = "I have nothing"
 ///   }
 ///
-/// Response shape:
+/// Response shape (wire v2 — sourceText-on-the-wire):
 ///   {
 ///     "projectVersion": "<sha1>",                          // current bridge state
-///     "changed": [ AIGetResult, ... ],                     // items new or changed since client's known versions
+///     "changed": [ FetchedItem, ... ],                     // items new or changed since client's known versions
 ///     "removed": [ "name1", "name2" ],                     // items the client knows about but no longer exist
-///     "items":   { "name": "version" }                      // full ref map (so client can replace its cache wholesale)
+///     "items":   { "name": "version" }                      // full ref map (client can adopt wholesale)
 ///   }
+///
+/// Each FetchedItem carries:
+///   { name, kind, folder?, sourceText, language?, version }
+/// where sourceText is the assembled `.st`/`.gvl`/`.dut`/`.itf` file
+/// content (POU + children, produced by StAssembler).
 ///
 /// Walk identical to RefsHandler — but for items whose version differs
 /// from (or is absent from) the client's known map, we additionally
-/// emit the full content via BuildResult.
+/// emit the assembled file content via GetHandler.BuildResult + StAssembler.
 /// </summary>
 internal sealed class FetchHandler
 {
@@ -108,9 +113,20 @@ internal sealed class FetchHandler
 				try
 				{
 					var result = GetHandler.BuildResult(_connection, name, child);
-					// Annotate with the current version so the client can cache it.
-					result["version"] = version;
-					changed.Add(result);
+					// Wire-shape v2: assemble per-child fields into a single
+					// `sourceText` blob — the agent drops it straight into
+					// the workspace file without per-child reassembly.
+					var sourceText = StAssembler.Assemble(result);
+					var slim = new Dictionary<string, object?>
+					{
+						["name"] = name,
+						["version"] = version,
+						["sourceText"] = sourceText,
+					};
+					if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
+					if (result.TryGetValue("folder", out object? folderVal)) slim["folder"] = folderVal;
+					if (result.TryGetValue("language", out object? langVal)) slim["language"] = langVal;
+					changed.Add(slim);
 				}
 				catch
 				{

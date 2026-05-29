@@ -87,6 +87,7 @@ const TOP_LEVEL_DISPATCH: readonly Keyword[] = [
 	"INTERFACE",
 	"TYPE",
 	"VAR_GLOBAL",
+	"VAR_CONFIG",
 	"NAMESPACE",
 ];
 
@@ -111,6 +112,12 @@ function parseTopLevel(c: Cursor): TopLevel | undefined {
 		case "TYPE":
 			return parseTypeDecl(c);
 		case "VAR_GLOBAL":
+		case "VAR_CONFIG":
+			// VAR_CONFIG is the IEC address-binding block; same outer
+			// shape as a GVL file (single section + END_VAR), so we
+			// route through the same parser. The captured VarSection
+			// preserves its sectionKind, so downstream consumers can
+			// distinguish.
 			return parseGlobalVarList(c);
 		case "NAMESPACE":
 			return parseNamespace(c);
@@ -437,24 +444,16 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
 
 function collectAccessorBody(c: Cursor, endAccessor: Keyword): BodySpan {
 	const startSpan = c.peek().span;
-	const tokens: Token[] = [];
-	while (!c.atEof()) {
-		const t = c.peek();
-		if (t.kind === "keyword" && t.keyword !== undefined) {
-			if (t.keyword === endAccessor) {
-				const closer = c.consume();
-				return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span));
-			}
-			if (
-				t.keyword === "GET" ||
-				t.keyword === "SET" ||
-				t.keyword === "END_PROPERTY"
-			) {
-				// Sloppy close — stop without consuming.
-				return bodySpanFromTokens(tokens, startSpan);
-			}
-		}
-		tokens.push(c.consume());
+	const { tokens, closer, stoppedAt } = c.consumeBodyUntilAny({
+		consumeEnders: [endAccessor],
+		peekStoppers: ["GET", "SET", "END_PROPERTY"],
+	});
+	if (closer !== undefined) {
+		return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span));
+	}
+	if (stoppedAt !== undefined) {
+		// Sloppy close — stop without consuming; outer recover handles.
+		return bodySpanFromTokens(tokens, startSpan);
 	}
 	c.pushError(
 		`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`,
@@ -608,9 +607,21 @@ function parseTypeDecl(c: Cursor): TypeDecl | undefined {
 	const nameTok = c.expectIdent("for TYPE name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
+	// Optional `EXTENDS Base` clause between the name and the `:` —
+	// applies to STRUCT DUTs (CODESYS / TwinCAT 3.5+ OO-style structs).
+	// Per 06-data-types.md: `TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`.
+	let extendsName: Identifier | undefined;
+	if (c.eatKeyword("EXTENDS") !== undefined) {
+		const t = c.expectIdent("after EXTENDS in TYPE");
+		if (t !== undefined) extendsName = identFromToken(t);
+	}
 	const colon = c.expectPunct(":", "after TYPE name");
 	if (colon === undefined) return undefined;
 	const body = parseDutBody(c);
+	// Hoist the EXTENDS onto the STRUCT body (the AST stores it there).
+	if (extendsName !== undefined && body !== undefined && body.kind === "struct" && body.extends === undefined) {
+		body.extends = extendsName;
+	}
 	// TwinCAT-idiomatic optional `;` after the body (engineers C-style
 	// terminate the enum/struct/alias before END_TYPE). Spec-permissive
 	// for aliases (always required), tolerated by TC for the others.
@@ -674,18 +685,9 @@ function collectBodyUntilAny(
 	context: string,
 ): BodySpan {
 	const startSpan = c.peek().span;
-	const tokens: Token[] = [];
-	while (!c.atEof()) {
-		const t = c.peek();
-		if (t.kind === "keyword" && t.keyword !== undefined && enders.includes(t.keyword)) {
-			// Consume the ender. (For the multi-ender case, the caller
-			// might want it back — but interface/property recover by
-			// peeking BEFORE calling collectBodyUntilAny, so by the
-			// time we get here, consuming is right.)
-			const closer = c.consume();
-			return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span));
-		}
-		tokens.push(c.consume());
+	const { tokens, closer } = c.consumeBodyUntilAny({ consumeEnders: enders });
+	if (closer !== undefined) {
+		return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span));
 	}
 	c.pushError(`unterminated ${context}: expected ${enders.join(" or ")}`, startSpan);
 	return bodySpanFromTokens(tokens, startSpan);

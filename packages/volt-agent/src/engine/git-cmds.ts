@@ -2,23 +2,21 @@
  * Thin wrappers around the git plumbing commands the `engine/` layer
  * uses to materialize bridge state into the hidden `.volt/snapshot/`
  * bare repo (blobs, trees, commits) and to diff workspace files against
- * the last-imported snapshot. We shell out to the `git` binary — same
+ * the last-pulled snapshot. We shell out to the `git` binary — same
  * dependency the rest of the toolchain relies on — because the binary
  * is the canonical reference for tree/commit semantics.
  *
  * All commits use a FIXED author/committer + epoch date so the same
  * bridge state always produces the same commit SHA. Determinism is
- * load-bearing: it drives the no-churn skip in `volt import` ("nothing
+ * load-bearing: it drives the no-churn skip in `volt pull` ("nothing
  * changed, don't touch the workspace") and lets us compare snapshots
  * across machines / restarts / time.
  */
 import { spawnSync } from "node:child_process";
 
-/** Thrown when a `git` subprocess exits non-zero. Internal — no callers
- *  currently rely on the structured fields, but they're here for the
- *  day someone needs precise error handling. */
+/** Thrown when a `git` subprocess exits non-zero. */
 class GitCmdError extends Error {
-	constructor(public readonly cmd: string, public readonly exitCode: number, public readonly stderr: string) {
+	constructor(cmd: string, exitCode: number, stderr: string) {
 		super(`git ${cmd} failed (exit ${exitCode}): ${stderr.trim()}`);
 		this.name = "GitCmdError";
 	}

@@ -621,4 +621,23 @@ function ingestVarDecl(
 			ast: decl,
 		});
 	}
+	// Implicit enumeration: `iState : (Idle, Running, Halted)` declares
+	// the named variable AND introduces each enum value as a constant
+	// in the enclosing scope (CODESYS "Implicit Enumeration" rule —
+	// `Running` is then a valid bare identifier inside methods of the
+	// owning FB). Without this, the resolver flags every enum-value
+	// reference as unresolved.
+	if (decl.type.kind === "implicit_enum_type") {
+		for (const value of decl.type.values) {
+			defineSymbol(scope, {
+				kind: "enum_value",
+				name: value.name.text,
+				span: value.name.span,
+				declarationSpan: value.name.span,
+				owner: scope,
+				uri,
+				ast: decl,
+			});
+		}
+	}
 }

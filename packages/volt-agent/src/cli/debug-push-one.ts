@@ -21,8 +21,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BridgeClient } from "../bridge/client.js";
-import { ALL_TESTS } from "../conformance/index.js";
-import { findExistingFile } from "./_workspace-utils.js";
+import { ALL_TESTS } from "@opencode-ai/volt-lsp-st/conformance";
+import { findExistingFile } from "./_shared.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));

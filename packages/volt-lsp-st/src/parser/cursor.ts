@@ -138,6 +138,45 @@ export class Cursor {
 		return t;
 	}
 
+	// ─── Body collection (raw — preserves trivia) ──────────────────
+
+	/**
+	 * Walk the raw token stream — **including trivia (pragmas,
+	 * comments, whitespace)** — until the next *meaningful* token is
+	 * one of `consumeEnders` (the cursor advances past it) or
+	 * `peekStoppers` (the cursor leaves it for the caller). Returns
+	 * the collected tokens and the closer (undefined on EOF).
+	 *
+	 * Used by body collectors so the captured `BodySpan.tokens` keeps
+	 * pragma tokens (semantically meaningful: `{IF}`, `{warning ...}`,
+	 * `{attribute ...}`). Downstream consumers filter trivia via
+	 * `isLexerTrivia()` when they want only meaningful tokens.
+	 */
+	consumeBodyUntilAny(opts: {
+		consumeEnders: readonly Keyword[];
+		peekStoppers?: readonly Keyword[];
+	}): { tokens: Token[]; closer: Token | undefined; stoppedAt: Token | undefined } {
+		const tokens: Token[] = [];
+		const consumeSet = new Set<Keyword>(opts.consumeEnders);
+		const peekSet = new Set<Keyword>(opts.peekStoppers ?? []);
+		while (this.pos < this.tokens.length) {
+			const t = this.tokens[this.pos] as Token;
+			if (t.kind === "eof") return { tokens, closer: undefined, stoppedAt: undefined };
+			if (!isTrivia(t.kind) && t.kind === "keyword" && t.keyword !== undefined) {
+				if (consumeSet.has(t.keyword)) {
+					this.pos += 1;
+					return { tokens, closer: t, stoppedAt: undefined };
+				}
+				if (peekSet.has(t.keyword)) {
+					return { tokens, closer: undefined, stoppedAt: t };
+				}
+			}
+			tokens.push(t);
+			this.pos += 1;
+		}
+		return { tokens, closer: undefined, stoppedAt: undefined };
+	}
+
 	// ─── Recovery ──────────────────────────────────────────────────
 
 	/**

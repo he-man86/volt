@@ -8,32 +8,27 @@ using BeckhoffBridge.Helpers;
 namespace BeckhoffBridge.Handlers;
 
 /// <summary>
-/// POST /push — Atomic batch of PRIMITIVE ops.
+/// POST /push — Atomic batch of ITEM-LEVEL ops on the PLC project tree.
 ///
-/// 11 op types, one IDE operation each. The bridge does ZERO diff logic —
-/// "what changed since last time?" is the CLIENT's job (serve-git walks
-/// git trees; AIs / scripts compute it however they want). The bridge
-/// just applies what it's told.
+/// Wire shape v2 (2026-05-29) — ST-on-the-wire:
+/// The agent sends raw workspace `.st` / `.gvl` / `.dut` / `.itf` file
+/// content per item; the bridge runs <see cref="StSplitter"/> on it to
+/// recover the POU + children structure, then drives existing
+/// Create/Update/Delete/Rename handlers. The agent no longer parses
+/// ST or emits per-child ops — that work moves here.
 ///
-/// Op categories:
-///   POU lifecycle:    createPou, updatePou, deletePou, renamePou, movePou
-///   Child lifecycle:  createChild, updateChild, deleteChild, renameChild
-///   Property accessor: setAccessor, deleteAccessor
+/// Op categories (4 total):
+///   <c>pushItem</c>   — create-or-update one tree item. Carries full
+///                       <c>sourceText</c>. `ifVersion`: null = create
+///                       new; string = update existing (must match).
+///   <c>deleteItem</c> — remove one tree item.
+///   <c>renameItem</c> — rename one tree item.
+///   <c>moveItem</c>   — change the folder of one tree item.
 ///
-/// All ops carry `ifVersion` against the *affected POU's* current content
-/// hash (or `null` for create-new). Two-pass: validate every op's
-/// ifVersion against pre-batch state, then apply in declared order on
+/// Two-pass: validate every op's ifVersion against the pre-batch
+/// state (with forward simulation so an in-batch create + later op on
+/// the same name validates cleanly), then apply in declared order on
 /// success.
-///
-/// Why per-op primitives:
-///   - Bridge has no type-filtering decisions. The recurring "ItemSubType
-///     returns 0 on NestedProject" bug class can't bite anymore — the
-///     bridge no longer enumerates children to figure out diffs.
-///   - CODESYS / TIA bridge implementers get a clearer contract:
-///     "implement these 11 primitive operations." No diff logic to
-///     duplicate.
-///   - Bug surface goes way down. Each op is a one-COM-call function;
-///     failures are localized.
 /// </summary>
 internal sealed class PushHandler
 {
@@ -60,9 +55,15 @@ internal sealed class PushHandler
 			?? throw BridgeException.BadRequest("Missing 'ops' array");
 		var expectedProjectVersion = body["expectedProjectVersion"]?.GetValue<string>();
 
-		// ── Pre-flight: collect current per-POU versions ─────────────────
+		// ── Pre-flight: collect current per-item versions + item map ─────
+		// We walk the project tree ONCE up front. The version map drives
+		// pre-flight ifVersion checks; the item map lets ApplyPushItem do
+		// O(1) lookups for existence + child enumeration instead of
+		// re-walking the tree per pushItem op (which made big batches
+		// scale O(K×N) — a real wall on projects with 100+ items).
 		var currentVersions = new Dictionary<string, string>();
-		BuildCurrentVersions(currentVersions);
+		var itemCache = new Dictionary<string, dynamic>(StringComparer.OrdinalIgnoreCase);
+		BuildCurrentVersions(currentVersions, itemCache);
 		var currentProjectVersion = BeckhoffConnection.ComputeProjectVersion(currentVersions);
 
 		var conflicts = new List<Dictionary<string, object?>>();
@@ -78,113 +79,103 @@ internal sealed class PushHandler
 			});
 		}
 
-		// ── Per-op validation ─────────────────────────────────────────────
-		// Each op carries an ifVersion against the *affected POU* (the op's
-		// `name` for POU ops, `parent` for child/accessor ops).
-		//
-		// We walk a VIRTUAL state forward as we go: existence (and a
-		// version placeholder) for each POU at the moment its op would
-		// apply. This lets a batch like
-		//   [deletePou A, createPou B, createChild parent=B …]
-		// validate cleanly — the createChild's "parent must exist" check
-		// looks at the state after `createPou B` has been notionally
-		// applied, not at the literal pre-batch state.
-		//
-		// We don't actually mutate the IDE during validation; we just
-		// track what each POU's existence/version WOULD be if every prior
-		// op succeeded. The apply pass below uses the same op order.
+		// Forward-state simulation: pending tracks each item's
+		// existence as we walk ops in declared order, so a batch like
+		// [deleteItem A, pushItem B] validates cleanly even when both
+		// refer to the same project.
 		var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
 
 		foreach (var opNode in ops)
 		{
 			if (opNode is not JsonObject op) continue;
 			var opType = op["op"]?.GetValue<string>() ?? "";
-			var affected = AffectedPouName(op);
-			if (affected == null) continue;
-			var clientIfVersion = op.TryGetPropertyValue("ifVersion", out var ifvNode) && ifvNode is JsonValue ifv && ifv.TryGetValue<string>(out var s) ? s : null;
-			var currentVersion = pending.TryGetValue(affected, out var v) ? v : null;
+			var name = op["name"]?.GetValue<string>();
+			if (name == null) continue;
+			var clientIfVersion = op.TryGetPropertyValue("ifVersion", out var ifvNode)
+				&& ifvNode is JsonValue ifv && ifv.TryGetValue<string>(out var s) ? s : null;
+			var currentVersion = pending.TryGetValue(name, out var v) ? v : null;
 
-			if (opType == "createPou")
-			{
-				if (currentVersion != null)
-				{
-					conflicts.Add(new Dictionary<string, object?>
-					{
-						["name"] = affected,
-						["yourVersion"] = null,
-						["currentVersion"] = currentVersion,
-						["reason"] = "expected to create new POU but it already exists",
-					});
-				}
-				else
-				{
-					// Mark as existing for subsequent ops in this batch.
-					// Real version is computed post-apply; "" is a
-					// placeholder that satisfies `currentVersion != null`.
-					pending[affected] = "";
-				}
-				continue;
-			}
-
-			// createChild / setAccessor with ifVersion=null: parent POU
-			// must exist (either pre-batch or as the product of an earlier
-			// op in this batch).
-			if (clientIfVersion == null && (opType == "createChild" || opType == "setAccessor"))
-			{
-				if (currentVersion == null)
-				{
-					conflicts.Add(new Dictionary<string, object?>
-					{
-						["name"] = affected,
-						["yourVersion"] = null,
-						["currentVersion"] = null,
-						["reason"] = $"expected parent POU '{affected}' to exist for {opType}",
-					});
-				}
-				continue;
-			}
-
-			// All other ops require ifVersion to match current.
-			if (clientIfVersion != null && currentVersion != clientIfVersion)
-			{
-				conflicts.Add(new Dictionary<string, object?>
-				{
-					["name"] = affected,
-					["yourVersion"] = clientIfVersion,
-					["currentVersion"] = currentVersion,
-					["reason"] = currentVersion == null
-						? $"expected POU '{affected}' to exist but it doesn't"
-						: $"POU '{affected}' changed since you fetched its version",
-				});
-				continue;
-			}
-
-			// Track EXISTENCE-changing ops so later ops see the right
-			// presence. We deliberately do NOT touch pending after
-			// updatePou: the POU still exists with the same identity,
-			// and subsequent ops in the same batch (e.g. updateChild
-			// against the same parent) were computed by the client
-			// against the PRE-BATCH version. Stomping pending[affected]
-			// with a "" placeholder here would break those — the next
-			// op's `ifVersion` would compare against "" and fail.
-			//
-			// movePou also keeps the same name + version (snapshot/restore
-			// inside the bridge); no state change here.
 			switch (opType)
 			{
-				case "deletePou":
-					pending.Remove(affected);
-					break;
-				case "renamePou":
+				case "pushItem":
+					if (clientIfVersion == null)
 					{
-						var newName = op["newName"]?.GetValue<string>();
-						if (newName != null)
+						// Create-new semantics: item must NOT exist.
+						if (currentVersion != null)
 						{
-							pending.Remove(affected);
-							pending[newName] = "";
+							conflicts.Add(new Dictionary<string, object?>
+							{
+								["name"] = name,
+								["yourVersion"] = null,
+								["currentVersion"] = currentVersion,
+								["reason"] = "expected to create new item but it already exists",
+							});
 						}
-						break;
+						else
+						{
+							pending[name] = ""; // placeholder; real hash recomputed post-apply
+						}
 					}
+					else
+					{
+						// Update semantics: ifVersion must match.
+						if (currentVersion != clientIfVersion)
+						{
+							conflicts.Add(new Dictionary<string, object?>
+							{
+								["name"] = name,
+								["yourVersion"] = clientIfVersion,
+								["currentVersion"] = currentVersion,
+								["reason"] = currentVersion == null
+									? $"expected item '{name}' to exist but it doesn't"
+									: $"item '{name}' changed since you fetched its version",
+							});
+						}
+						// Existence stays; version recomputed post-apply.
+					}
+					break;
+
+				case "deleteItem":
+				case "renameItem":
+				case "moveItem":
+					if (clientIfVersion != null && currentVersion != clientIfVersion)
+					{
+						conflicts.Add(new Dictionary<string, object?>
+						{
+							["name"] = name,
+							["yourVersion"] = clientIfVersion,
+							["currentVersion"] = currentVersion,
+							["reason"] = currentVersion == null
+								? $"expected item '{name}' to exist but it doesn't"
+								: $"item '{name}' changed since you fetched its version",
+						});
+					}
+					else
+					{
+						switch (opType)
+						{
+							case "deleteItem":
+								pending.Remove(name);
+								break;
+							case "renameItem":
+							{
+								var newName = op["newName"]?.GetValue<string>();
+								if (newName != null)
+								{
+									pending.Remove(name);
+									pending[newName] = "";
+								}
+								break;
+							}
+							// moveItem keeps the same name + version
+							// (snapshot/restore inside the bridge); no
+							// pending change.
+						}
+					}
+					break;
+
+				default:
+					throw BridgeException.BadRequest($"Unknown op type: {opType}");
 			}
 		}
 
@@ -199,33 +190,23 @@ internal sealed class PushHandler
 		}
 
 		// ── Apply ─────────────────────────────────────────────────────────
-		// Each op = one IDE operation. We translate the op into the body
-		// shape an existing handler accepts (CreateHandler / UpdateHandler /
-		// RenameHandler / DeleteHandler) — keeping all the COM-touching
-		// code in those proven handlers, but stripping the diff logic that
-		// used to live in SetHandler.
 		foreach (var opNode in ops)
 		{
 			if (opNode is not JsonObject op) continue;
 			var opType = op["op"]?.GetValue<string>() ?? "";
 			switch (opType)
 			{
-				case "createPou":     ApplyCreatePou(op); break;
-				case "updatePou":     ApplyUpdatePou(op); break;
-				case "deletePou":     ApplyDeletePou(op); break;
-				case "renamePou":     ApplyRenamePou(op); break;
-				case "movePou":       ApplyMovePou(op); break;
-				case "createChild":   ApplyCreateChild(op); break;
-				case "updateChild":   ApplyUpdateChild(op); break;
-				case "deleteChild":   ApplyDeleteChild(op); break;
-				case "renameChild":   ApplyRenameChild(op); break;
-				case "setAccessor":   ApplySetAccessor(op); break;
-				case "deleteAccessor": ApplyDeleteAccessor(op); break;
+				case "pushItem":   ApplyPushItem(op, itemCache);   break;
+				case "deleteItem": ApplyDeleteItem(op); break;
+				case "renameItem": ApplyRenameItem(op); break;
+				case "moveItem":   ApplyMoveItem(op);   break;
 				default: throw BridgeException.BadRequest($"Unknown op type: {opType}");
 			}
 		}
 
 		// ── Recompute refs and report ────────────────────────────────────
+		// (Second walk is unavoidable — items added/removed by the ops
+		// above need fresh enumeration. Item cache is discarded.)
 		var newVersions = new Dictionary<string, string>();
 		BuildCurrentVersions(newVersions);
 		return new Dictionary<string, object?>
@@ -236,77 +217,51 @@ internal sealed class PushHandler
 		};
 	}
 
-	/// <summary>The POU whose version an op's ifVersion is validated against.</summary>
-	private static string? AffectedPouName(JsonObject op)
+	// ─── Op applicators ───────────────────────────────────────────────
+
+	/// <summary>
+	/// Apply a pushItem op — create the item if it doesn't exist, or
+	/// update it (with embedded child-diff) if it does. Uses the cached
+	/// itemMap from the pre-flight walk to avoid an O(N) tree re-walk
+	/// per op.
+	/// </summary>
+	private void ApplyPushItem(JsonObject op, Dictionary<string, dynamic> itemCache)
 	{
-		var type = op["op"]?.GetValue<string>() ?? "";
-		switch (type)
+		var name = op["name"]?.GetValue<string>()
+			?? throw BridgeException.BadRequest("pushItem missing 'name'");
+		var sourceText = op["sourceText"]?.GetValue<string>()
+			?? throw BridgeException.BadRequest("pushItem missing 'sourceText'");
+		var folder = op["folder"]?.GetValue<string>();
+
+		// SplitSt recovers POU + children from the raw .st text.
+		var split = StSplitter.SplitSt(sourceText);
+
+		// CreateHandler / UpdateHandler accept the same body shape:
+		// { name, declaration, implementation?, folder?, children?: [...] }
+		var existing = itemCache.TryGetValue(name, out var cached) ? cached : null;
+
+		if (existing == null)
 		{
-			case "createPou":
-			case "updatePou":
-			case "deletePou":
-			case "renamePou":
-			case "movePou":
-				return op["name"]?.GetValue<string>();
-			case "createChild":
-			case "updateChild":
-			case "deleteChild":
-			case "renameChild":
-			case "setAccessor":
-			case "deleteAccessor":
-				return op["parent"]?.GetValue<string>();
-			default:
-				return null;
+			// Create: all children are net-new.
+			var body = BuildCreateBody(name, folder, split);
+			_create.Handle(body);
+		}
+		else
+		{
+			// Update: diff embedded children against TC's current state.
+			var existingChildren = EnumerateChildNames(existing);
+			var body = BuildUpdateBody(name, folder, split, existingChildren);
+			_update.Handle(body);
 		}
 	}
 
-	// ─── Op applicators ───────────────────────────────────────────────
-	// Each one translates the new primitive op into the body shape that
-	// the existing handler (CreateHandler/UpdateHandler/etc.) accepts.
-	// This keeps the COM-touching code in the proven handlers; we only
-	// own the translation layer.
-
-	private void ApplyCreatePou(JsonObject op)
-	{
-		// CreateHandler.Handle expects { name, declaration, implementation?, folder?, children? }
-		var body = new JsonObject
-		{
-			["name"] = op["name"]?.DeepClone(),
-			["declaration"] = op["declaration"]?.DeepClone(),
-		};
-		if (op["implementation"] is JsonNode impl) body["implementation"] = impl.DeepClone();
-		if (op["folder"] is JsonNode folder) body["folder"] = folder.DeepClone();
-		_create.Handle(body);
-	}
-
-	private void ApplyUpdatePou(JsonObject op)
-	{
-		// Wire contract: updatePou ALWAYS carries both fields, even if
-		// only one changed. Mirrors TwinCAT COM's paired-property model
-		// and matches every other bridge implementation's behaviour.
-		// Pass empty string for fields that don't apply to a given POU
-		// kind (e.g. implementation on a GVL) — SetCode silently no-ops
-		// writes the underlying COM item doesn't support.
-		var decl = op["declaration"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("updatePou missing 'declaration' field");
-		var impl = op["implementation"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("updatePou missing 'implementation' field");
-		var body = new JsonObject
-		{
-			["name"] = op["name"]?.DeepClone(),
-			["declaration"] = decl,
-			["implementation"] = impl,
-		};
-		_update.Handle(body);
-	}
-
-	private void ApplyDeletePou(JsonObject op)
+	private void ApplyDeleteItem(JsonObject op)
 	{
 		var body = new JsonObject { ["name"] = op["name"]?.DeepClone() };
 		_delete.Handle(body);
 	}
 
-	private void ApplyRenamePou(JsonObject op)
+	private void ApplyRenameItem(JsonObject op)
 	{
 		var body = new JsonObject
 		{
@@ -316,223 +271,172 @@ internal sealed class PushHandler
 		_rename.Handle(body);
 	}
 
-	private void ApplyMovePou(JsonObject op)
+	private void ApplyMoveItem(JsonObject op)
 	{
-		// TwinCAT COM doesn't expose a clean cross-folder MoveItem primitive
-		// on the surface we use. We implement movePou as a controlled
-		// delete-then-recreate-at-new-folder, capturing the full POU state
-		// (declaration + implementation + children + accessors) up front so
-		// nothing's lost across the dance.
-		//
-		// Why bridge-internal vs leaving it to the client to emit two ops:
-		//   - One semantic op on the wire — clients aren't lied to about
-		//     what they asked for ("move this POU"), and they don't have to
-		//     replicate the snapshot dance.
-		//   - Sidesteps the pre-batch-validation problem: if the wire had
-		//     deletePou + createPou for the same name, validation against
-		//     pre-batch state would reject the createPou as "already exists."
-		//   - The recreated POU has identical content → same hash → other
-		//     ops in the batch that reference its version still validate.
-		//   - Future-friendly: if TwinCAT ever exposes a real move primitive
-		//     (or CODESYS does on its side), the implementation swap is
-		//     local to this method — wire shape doesn't change.
-
+		// TwinCAT COM doesn't expose a clean cross-folder MoveItem
+		// primitive on the surface we use. Implement moveItem as a
+		// controlled delete-then-recreate-at-new-folder, capturing the
+		// full item state (declaration + implementation + children +
+		// accessors) up front so nothing's lost across the dance.
 		var name = op["name"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("movePou missing 'name'");
+			?? throw BridgeException.BadRequest("moveItem missing 'name'");
 		var newFolder = op["newFolder"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("movePou missing 'newFolder'");
+			?? throw BridgeException.BadRequest("moveItem missing 'newFolder'");
 
 		var item = _connection.LookupItemByName(name)
 			?? throw new BridgeException(404, "NOT_FOUND",
-				$"movePou: POU '{name}' not found");
+				$"moveItem: item '{name}' not found");
 
-		// Capture snapshot via the same builder /fetch uses, so we preserve
-		// declaration + implementation + every child + every accessor's
-		// declaration & code. The snapshot is in AIGetResult shape.
+		// Capture snapshot via the same builder /fetch uses.
 		var snapshot = GetHandler.BuildResult(_connection, name, item);
-
-		// Convert snapshot to JsonObject so we can hand it to CreateHandler.
 		var snapshotNode = JsonNode.Parse(JsonSerializer.Serialize(snapshot))
 			?? throw new BridgeException(500, "INTERNAL_ERROR",
-				$"movePou: failed to serialize snapshot for '{name}'");
+				$"moveItem: failed to serialize snapshot for '{name}'");
 		var createBody = snapshotNode.AsObject();
-
-		// Override the folder to the new target. Any pre-existing `folder`
-		// in the snapshot reflected the OLD location; replace it.
 		createBody["folder"] = newFolder;
 
-		// Delete from the old location.
 		_delete.Handle(new JsonObject { ["name"] = name });
-
-		// Re-create at the new folder with the captured content. CreateHandler
-		// dispatches on the declaration header to pick the right kind, then
-		// inline-creates children + accessors.
 		_create.Handle(createBody);
 	}
 
-	private void ApplyCreateChild(JsonObject op)
+	// ─── Body builders ────────────────────────────────────────────────
+
+	/// <summary>
+	/// Build the body shape for CreateHandler.Handle from a SplitSt
+	/// result. All children are emitted as net-new creates.
+	/// </summary>
+	private static JsonObject BuildCreateBody(string name, string? folder, StSplitter.StSplitResult split)
 	{
-		// CreateHandler exposes per-child create via the children-list path in
-		// UpdateHandler. Easiest: build a children-of-one update body.
 		var body = new JsonObject
 		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray
+			["name"] = name,
+			["declaration"] = split.PouDeclaration,
+		};
+		if (!string.IsNullOrEmpty(split.PouImplementation))
+			body["implementation"] = split.PouImplementation;
+		if (folder != null) body["folder"] = folder;
+		if (split.Children.Count > 0)
+		{
+			var childrenArr = new JsonArray();
+			foreach (var child in split.Children)
+				childrenArr.Add(ChildToJson(child, op: "create"));
+			body["children"] = childrenArr;
+		}
+		return body;
+	}
+
+	/// <summary>
+	/// Build the body shape for UpdateHandler.Handle from a SplitSt
+	/// result, with child diff against the existing TC item's current
+	/// children. Adds: children present in source but not TC. Updates:
+	/// children present in both. Deletes: children present in TC but
+	/// not in source.
+	/// </summary>
+	private static JsonObject BuildUpdateBody(string name, string? folder, StSplitter.StSplitResult split, HashSet<string> existingChildren)
+	{
+		var body = new JsonObject
+		{
+			["name"] = name,
+			["declaration"] = split.PouDeclaration,
+			["implementation"] = split.PouImplementation,
+		};
+		if (folder != null) body["folder"] = folder;
+
+		var newNames = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+		var childrenArr = new JsonArray();
+		// Adds + updates
+		foreach (var child in split.Children)
+		{
+			var op = existingChildren.Contains(child.Name) ? "update" : "create";
+			childrenArr.Add(ChildToJson(child, op));
+		}
+		// Deletes
+		foreach (var existing in existingChildren)
+		{
+			if (newNames.Contains(existing)) continue;
+			childrenArr.Add(new JsonObject
 			{
-				BuildChildOpBody(op, isCreate: true),
-			},
-		};
-		_update.Handle(body);
+				["op"] = "delete",
+				["name"] = existing,
+			});
+		}
+		if (childrenArr.Count > 0) body["children"] = childrenArr;
+		return body;
 	}
 
-	private void ApplyUpdateChild(JsonObject op)
+	/// <summary>
+	/// Convert a SplitSt StChild record into the JSON shape that
+	/// Create/Update handlers consume.
+	/// </summary>
+	private static JsonObject ChildToJson(StSplitter.StChild child, string op)
 	{
-		// Same wire contract as updatePou: both fields always present.
-		// Pass empty string for kinds where one side is meaningless
-		// (e.g. implementation on a property — accessors carry the
-		// actual code, set via setAccessor ops).
-		if (op["declaration"] is not JsonNode)
-			throw BridgeException.BadRequest("updateChild missing 'declaration' field");
-		if (op["implementation"] is not JsonNode)
-			throw BridgeException.BadRequest("updateChild missing 'implementation' field");
-		var body = new JsonObject
+		var obj = new JsonObject
 		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray
+			["op"] = op,
+			["name"] = child.Name,
+			["kind"] = child.Kind,
+			["declaration"] = child.Declaration,
+		};
+		if (child.Implementation.Length > 0)
+			obj["implementation"] = child.Implementation;
+		if (child.Folder != null) obj["folder"] = child.Folder;
+		// Properties: encode accessor decl + impl in the field names
+		// UpdateHandler.ProcessChildren / EnsureAccessors already speak.
+		if (child.Kind == "property")
+		{
+			if (child.Getter != null)
 			{
-				BuildChildOpBody(op, isCreate: false),
-			},
-		};
-		_update.Handle(body);
+				obj["getterCode"] = child.Getter.Implementation;
+				if (!string.IsNullOrEmpty(child.Getter.Declaration))
+					obj["getterDeclaration"] = child.Getter.Declaration;
+			}
+			if (child.Setter != null)
+			{
+				obj["setterCode"] = child.Setter.Implementation;
+				if (!string.IsNullOrEmpty(child.Setter.Declaration))
+					obj["setterDeclaration"] = child.Setter.Declaration;
+			}
+		}
+		return obj;
 	}
 
-	private void ApplyDeleteChild(JsonObject op)
+	/// <summary>Enumerate names of an item's direct children (methods/actions/properties).</summary>
+	private static HashSet<string> EnumerateChildNames(dynamic parentItem)
 	{
-		var child = new JsonObject
+		var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		try
 		{
-			["op"] = "delete",
-			["name"] = op["name"]?.DeepClone(),
-		};
-		var body = new JsonObject
-		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray { child },
-		};
-		_update.Handle(body);
+			int count = (int)parentItem.ChildCount;
+			for (int i = 1; i <= count; i++)
+			{
+				try
+				{
+					dynamic child = parentItem.Child[i];
+					string childName = (string)child.Name;
+					names.Add(childName);
+				}
+				catch { /* skip degenerate child */ }
+			}
+		}
+		catch { /* no children or COM hiccup; treat as empty */ }
+		return names;
 	}
 
-	private void ApplyRenameChild(JsonObject op)
-	{
-		var child = new JsonObject
-		{
-			["op"] = "update",
-			["name"] = op["name"]?.DeepClone(),
-			["newName"] = op["newName"]?.DeepClone(),
-		};
-		var body = new JsonObject
-		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray { child },
-		};
-		_update.Handle(body);
-	}
-
-	private void ApplySetAccessor(JsonObject op)
-	{
-		// Accessors are property children. We address the property as a
-		// child-update with accessor fields populated.
-		var which = op["which"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("setAccessor missing 'which'");
-		var implementation = op["implementation"]?.GetValue<string>() ?? "";
-		var declaration = op["declaration"]?.GetValue<string>();
-
-		var child = new JsonObject
-		{
-			["op"] = "update",
-			["name"] = op["property"]?.DeepClone(),
-		};
-		if (which == "get")
-		{
-			child["getterCode"] = implementation;
-			if (declaration != null) child["getterDeclaration"] = declaration;
-		}
-		else if (which == "set")
-		{
-			child["setterCode"] = implementation;
-			if (declaration != null) child["setterDeclaration"] = declaration;
-		}
-		else
-		{
-			throw BridgeException.BadRequest($"setAccessor: 'which' must be 'get' or 'set', got '{which}'");
-		}
-
-		var body = new JsonObject
-		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray { child },
-		};
-		_update.Handle(body);
-	}
-
-	private void ApplyDeleteAccessor(JsonObject op)
-	{
-		var which = op["which"]?.GetValue<string>()
-			?? throw BridgeException.BadRequest("deleteAccessor missing 'which'");
-
-		// To "delete" an accessor we use the update path: child has an empty
-		// getterCode/setterCode, which UpdateHandler interprets as "ensure
-		// accessor is gone."
-		var child = new JsonObject
-		{
-			["op"] = "update",
-			["name"] = op["property"]?.DeepClone(),
-		};
-		if (which == "get")
-		{
-			// Sending explicit null for getterCode requests removal; UpdateHandler
-			// passes null through EnsureAccessors which drops the accessor.
-			child["getterCode"] = null;
-		}
-		else if (which == "set")
-		{
-			child["setterCode"] = null;
-		}
-		else
-		{
-			throw BridgeException.BadRequest($"deleteAccessor: 'which' must be 'get' or 'set', got '{which}'");
-		}
-
-		var body = new JsonObject
-		{
-			["name"] = op["parent"]?.DeepClone(),
-			["children"] = new JsonArray { child },
-		};
-		_update.Handle(body);
-	}
-
-	private static JsonObject BuildChildOpBody(JsonObject op, bool isCreate)
-	{
-		var child = new JsonObject
-		{
-			["op"] = isCreate ? "create" : "update",
-			["name"] = op["name"]?.DeepClone(),
-		};
-		if (op["folder"] is JsonNode folder) child["folder"] = folder.DeepClone();
-		if (op["declaration"] is JsonNode decl) child["declaration"] = decl.DeepClone();
-		if (op["implementation"] is JsonNode impl) child["implementation"] = impl.DeepClone();
-		if (op["kind"] is JsonNode kind) child["kind"] = kind.DeepClone();
-		return child;
-	}
-
-	// ─── Helpers ──────────────────────────────────────────────────────
+	// ─── Helpers (item-version walk) ──────────────────────────────────
 
 	private void BuildCurrentVersions(Dictionary<string, string> versions)
 	{
 		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, versions);
+		CollectVersions(root, versions, null);
 	}
 
-	private void CollectVersions(dynamic node, Dictionary<string, string> versions)
+	private void BuildCurrentVersions(Dictionary<string, string> versions, Dictionary<string, dynamic> items)
+	{
+		var root = _connection.GetPlcProjectRoot();
+		CollectVersions(root, versions, items);
+	}
+
+	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, dynamic>? items)
 	{
 		int count;
 		try { count = (int)node.ChildCount; }
@@ -552,7 +456,7 @@ internal sealed class PushHandler
 
 			if (itemType == BlockTypeMapper.FolderSubType)
 			{
-				CollectVersions(child, versions);
+				CollectVersions(child, versions, items);
 				continue;
 			}
 
@@ -560,6 +464,18 @@ internal sealed class PushHandler
 
 			try { versions[name] = BeckhoffConnection.ComputeItemVersion(child); }
 			catch { /* skip */ }
+
+			// Populate the item cache so ApplyPushItem can avoid a
+			// fresh LookupItemByName walk per pushItem op. The cached
+			// item supports ChildCount/Child[i] (used by
+			// EnumerateChildNames). Write operations go through
+			// _create.Handle / _update.Handle which do their own
+			// write-capable lookups, so we don't need the LookupTreeItem
+			// path here.
+			if (items != null)
+			{
+				try { items[name] = child; } catch { /* skip */ }
+			}
 		}
 	}
 }

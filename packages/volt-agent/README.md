@@ -224,32 +224,26 @@ Five endpoints. The CLI maps to all of them.
 | `GET /health` | `volt init`, error hints | liveness + project identifiers |
 | `GET /refs` | `volt status`, `volt push` | project version + per-item versions (cheap) |
 | `POST /fetch` | `volt pull` | items changed since the client's known versions |
-| `POST /push` | `volt push` | atomic batch of 11 primitive ops with `ifVersion` guards |
+| `POST /push` | `volt push` | atomic batch of 4 item-level ops (`pushItem`/`deleteItem`/`renameItem`/`moveItem`) with `ifVersion` guards |
 | `POST /build` | `volt build` | build + normalized diagnostics |
 
-The bridge does ZERO diff/merge/VCS logic. CODESYS, TIA, and any future bridge implement the same five endpoints — domain reasoning stays here.
+The bridge owns ST splitting + per-child diff against TC's current state. Agent sends raw assembled `.st` text per item; bridge `StSplitter` recovers POU + children and dispatches the COM calls. Vendor-neutral by design — CODESYS and TIA bridges will implement the same five endpoints with the same wire shape.
 
 ## The bridge contract (conformance suite)
 
-The Beckhoff bridge is the first implementation; CODESYS (IronPython) and TIA Portal are next. To keep them genuinely interchangeable from any client's perspective, there's one canonical test pack:
-
-```
-src/cli/conformance.ts
-```
-
-It runs the live `volt` CLI through scenarios covering every endpoint and every primitive op — POU/child/accessor create/update/delete/rename/move, atomic batch validation, drift detection, conflict recovery, multi-POU batches. Assertions reference only protocol behavior (item presence, folder layout, response shapes) — never vendor-specific defaults. Point it at any bridge port and any IDE-with-a-project-open; it works.
+The Beckhoff bridge is the first implementation; CODESYS (IronPython) and TIA Portal are next. The canonical conformance is the **language-feature replay**:
 
 ```bash
-# Run against any bridge implementation
-VOLT_BRIDGE_PORT=8555 bun run conformance         # CLI / wire conformance
-bun run conformance:drift                          # Engineer-drift workflows + git-inspired flags
-bun run conformance:errors                         # Failure-mode / negative paths
+# Record TC ground truth + replay against the LSP
+bun run record:language        # captures expected-tc.json from a live bridge
+bun test                       # replays against the recording (no live bridge needed)
 ```
 
-The three suites cover complementary surfaces:
-- **`src/cli/conformance.ts`** — AI-side actions: create/update/delete/rename/move POUs, children, accessors; atomic batches; the CLI's drift-rejection behaviour.
-- **`src/cli/conformance-drift.ts`** — Engineer-side actions simulated via direct `/push`: what happens when the engineer creates/deletes/renames/moves/edits things in the IDE between AI sessions, and does `volt pull` reflect it. Includes a full round-trip (`AI push → engineer edit → AI pull → AI push`) and the git-inspired flag suite (`--dry-run`, `--porcelain`, `--force-with-lease`).
-- **`src/cli/conformance-errors.ts`** — Negative paths: ordering mistakes (push before init etc.), bridge unreachable, mismatched binding, the reconcile case (drift + dirty), and the no-op (`nothing to push`). Each scenario asserts the error message is friendly enough to be actionable, not just "Cannot read property of undefined."
+`packages/volt-lsp-st/src/conformance/` holds the catalog (193 tests across 17 files covering pragmas, operators, lifecycle, conversions, DUTs, GVL, etc.) — co-located with the LSP it validates. Each test records TC's actual compile output and asserts the LSP's diagnostics agree (`agreementOnFlagged`). A bridge that passes this against the same TC project passes the conformance bar.
+
+Complementary surfaces (in `volt-agent`):
+- **`src/engine/ops.test.ts`** — Workspace ↔ bridge translation: materialization, deterministic commits, push-op generation (`pushItem`/`deleteItem`/`moveItem`), `--force` drift adoption, `workspaceMatchesBridge` drift self-cause detection.
+- **`src/bridge/client.test.ts`** — HTTP boundary: every response is zod-validated, so a buggy bridge surfaces as `bridge /endpoint returned malformed payload: …` with the offending field path instead of a downstream undefined-is-not-a-function.
 
 **A new bridge is "done" when it passes the conformance suite.** That's the contract — not a TS interface, not a doc, the test pack itself. If conformance goes green against your bridge, the `volt` CLI and any AI client driving it via shell will work against it without changes on their side.
 
@@ -263,17 +257,17 @@ The three suites cover complementary surfaces:
 
 So same IDE state → same snapshot commit SHA on every machine, every restart. This drives the no-churn shortcut in `volt pull` ("nothing changed, don't touch the workspace").
 
-If you change the workspace materialization format (file layout, assembler output, child ordering, `.gitattributes` contents), every snapshot SHA changes too. Treat the materialization format as part of the wire contract — bump deliberately.
+If you change the workspace materialization format (file layout, bridge StAssembler output, child ordering, `.gitattributes` contents), every snapshot SHA changes too. Treat the materialization format as part of the wire contract — bump deliberately.
 
 ## Push semantics
 
-Each `volt push` produces a SINGLE `bridge.pushBatch` call containing one op per changed top-level POU (plus child/accessor ops as needed). The bridge validates ALL ops' `ifVersion` before applying ANY — atomic. On any conflict, the whole batch is rejected and `volt push` reports the bridge's conflict info on stderr, exit 2.
+Each `volt push` produces a SINGLE `bridge.pushBatch` call containing ONE op per changed top-level item — `pushItem` (carrying full assembled `sourceText`) for creates and updates, `deleteItem` / `renameItem` / `moveItem` for the others. The bridge validates ALL ops' `ifVersion` before applying ANY — atomic. On any conflict, the whole batch is rejected and `volt push` reports the bridge's conflict info on stderr, exit 2.
 
 ## Tests
 
 ```bash
 bun test                                            # unit tests (bun:test, against TestBridge)
-node dist/cli/conformance.js                        # live CLI conformance (requires bridge + IDE)
+bun run record:language                             # live conformance recording (requires bridge + IDE)
 ```
 
 The C# bridge has its own xUnit suite at `bridges/beckhoff/BeckhoffBridge.Tests/`. C# tests + TS unit tests + CLI conformance all run independently of each other — failures in one don't mask the others.

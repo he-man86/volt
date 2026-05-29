@@ -40,7 +40,10 @@ internal sealed class GetHandler
 	}
 
 	/// <summary>
-	/// Build an AIGetResult-shaped dictionary for a single project item.
+	/// Build a result dictionary for a single project item — internal
+	/// shape with separate {declaration, implementation, children}
+	/// fields that FetchHandler then runs through StAssembler to
+	/// produce the unified `sourceText` on the wire.
 	/// Shared between `/get` (one item by name) and `/readAll` (every top-level).
 	/// </summary>
 	public static Dictionary<string, object?> BuildResult(

@@ -118,26 +118,55 @@ const ENTRIES: ReferenceEntry[] = [
 	op("ACOS", "math", "Arc cosine."),
 	op("ATAN", "math", "Arc tangent."),
 
-	// System operators (all __-prefixed; CODESYS extension)
+	// System operators (all __-prefixed; mostly CODESYS-specific).
+	// Vendor tags reflect recorded TwinCAT compatibility (2026-05-29 live
+	// recording): TC rejects most __-prefixed ops with a parse error; the
+	// LSP's TC-incompatible-operator check flags these when activeVendor
+	// is "twincat" so users see a red squiggle instead of waiting for the
+	// compiler. __ISVALIDREF is the exception — TC accepts it cleanly.
 	op("__NEW", "system", "Dynamic FB instantiation. `__NEW(FB_Name)` returns a POINTER TO FB_Name.", {
-		gotchas: ["Requires {attribute 'enable_dynamic_creation'} on the FB."],
+		vendor: "codesys",
+		gotchas: ["Requires {attribute 'enable_dynamic_creation'} on the FB.", "TwinCAT rejects — use static FB instances or explicit pool patterns."],
+		equivalentIn: {
+			twincat: { name: "(no direct equivalent)", note: "TC programs use static instances or pre-allocated pools" },
+		},
 	}),
-	op("__DELETE", "system", "Dispose a dynamically-allocated FB. `__DELETE(pInst)`."),
+	op("__DELETE", "system", "Dispose a dynamically-allocated FB. `__DELETE(pInst)`.", {
+		vendor: "codesys",
+		equivalentIn: {
+			twincat: { name: "(no direct equivalent)", note: "Pair of __NEW; TC doesn't support either" },
+		},
+	}),
 	op("__ISVALIDREF", "system", "Returns TRUE iff a REFERENCE TO is bound to a valid target.", {
 		examples: ["IF __ISVALIDREF(refVar) THEN refVar := newValue; END_IF"],
 	}),
-	op("__QUERYINTERFACE", "system", "Runtime interface test on an FB instance. `__QUERYINTERFACE(fb, ITF#name)`."),
-	op("__QUERYPOINTER", "system", "Runtime cast to POINTER TO."),
-	op("__TRY", "system", "Begin try block (CODESYS exception handling). Paired with __CATCH/__FINALLY/__ENDTRY."),
-	op("__CATCH", "system", "Catch clause of __TRY."),
-	op("__FINALLY", "system", "Cleanup clause of __TRY."),
-	op("__ENDTRY", "system", "End of __TRY block."),
-	op("__VARINFO", "system", "Compile-time variable metadata access."),
-	op("__CURRENTTASK", "system", "Returns a handle to the current IEC task."),
-	op("__POSITION", "system", "Source call position. Used by {attribute 'implicit-parameter' := 'position'}."),
-	op("__POUNAME", "system", "Qualified caller POU name. Used by {attribute 'implicit-parameter' := 'pouname'}."),
-	op("__COMPARE_AND_SWAP", "system", "Atomic compare-and-swap primitive."),
-	op("__XADD", "system", "Atomic exchange-and-add."),
+	op("__QUERYINTERFACE", "system", "Runtime interface test on an FB instance. `__QUERYINTERFACE(fb, ITF#name)`.", {
+		vendor: "codesys",
+		equivalentIn: {
+			twincat: { name: "(TwinCAT.SystemBase)", note: "TC uses its own runtime-interface primitives" },
+		},
+	}),
+	op("__QUERYPOINTER", "system", "Runtime cast to POINTER TO.", { vendor: "codesys" }),
+	op("__TRY", "system", "Begin try block (CODESYS exception handling). Paired with __CATCH/__FINALLY/__ENDTRY.", {
+		vendor: "codesys",
+		equivalentIn: {
+			twincat: { name: "PLC_Exception", note: "TC uses error-flag patterns or PLC_Exception traps" },
+		},
+	}),
+	op("__CATCH", "system", "Catch clause of __TRY.", { vendor: "codesys" }),
+	op("__FINALLY", "system", "Cleanup clause of __TRY.", { vendor: "codesys" }),
+	op("__ENDTRY", "system", "End of __TRY block.", { vendor: "codesys" }),
+	op("__VARINFO", "system", "Compile-time variable metadata access.", { vendor: "codesys" }),
+	op("__CURRENTTASK", "system", "Returns a handle to the current IEC task.", {
+		vendor: "codesys",
+		equivalentIn: {
+			twincat: { name: "Tc2_System.GetCurTaskIndex", note: "TC exposes task context via the Tc2_System library" },
+		},
+	}),
+	op("__POSITION", "system", "Source call position. Used by {attribute 'implicit-parameter' := 'position'}.", { vendor: "codesys" }),
+	op("__POUNAME", "system", "Qualified caller POU name. Used by {attribute 'implicit-parameter' := 'pouname'}.", { vendor: "codesys" }),
+	op("__COMPARE_AND_SWAP", "system", "Atomic compare-and-swap primitive.", { vendor: "codesys" }),
+	op("__XADD", "system", "Atomic exchange-and-add.", { vendor: "codesys" }),
 	op("__POOL", "system", "Disambiguator: forces lookup in the POUs view (vs Devices view). Use `__POOL.POU()`.", {
 		vendor: "codesys",
 		equivalentIn: {

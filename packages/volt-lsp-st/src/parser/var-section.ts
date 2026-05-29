@@ -98,12 +98,12 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
 function parseVarDecl(c: Cursor): VarDecl | undefined {
 	const firstName = c.expectIdent("at start of var declaration");
 	if (firstName === undefined) return undefined;
-	const names: Identifier[] = [identFromToken(firstName)];
+	const names: Identifier[] = [readMaybeQualifiedName(c, firstName)];
 
 	while (c.eatPunct(",") !== undefined) {
 		const more = c.expectIdent("in comma-separated var name list");
 		if (more === undefined) break;
-		names.push(identFromToken(more));
+		names.push(readMaybeQualifiedName(c, more));
 	}
 
 	// `AT <address>` can appear *before* the colon (standard IEC and
@@ -165,5 +165,30 @@ function parseVarDecl(c: Cursor): VarDecl | undefined {
 		...(init !== undefined ? { init } : {}),
 		...(at !== undefined ? { at } : {}),
 		span: joinSpans(firstName.span, endSpan),
+	};
+}
+
+/**
+ * Some VAR sections — most notably VAR_CONFIG at the GVL/file level —
+ * accept dot-qualified names like `PROGRAM_NAME.var_name`. Consume the
+ * `.<ident>` suffix(es) and fold the whole qualified path back into a
+ * single Identifier whose `text` carries the joined name. Symbol-table
+ * consumers see one symbol with the dotted text — accurate to what the
+ * source declared.
+ */
+function readMaybeQualifiedName(c: Cursor, first: Token): Identifier {
+	const parts: string[] = [first.text];
+	let lastSpan = first.span;
+	while (c.eatPunct(".") !== undefined) {
+		const next = c.eatIdent();
+		if (next === undefined) break;
+		parts.push(next.text);
+		lastSpan = next.span;
+	}
+	if (parts.length === 1) return identFromToken(first);
+	return {
+		kind: "identifier",
+		text: parts.join("."),
+		span: joinSpans(first.span, lastSpan),
 	};
 }

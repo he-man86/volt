@@ -1,87 +1,184 @@
 /**
- * `volt push` verb — push workspace state to the IDE.
+ * `volt push` verb — workspace → bridge.
  *
- * Exit code 2 is reserved for "the push DIDN'T happen because of
- * drift or bridge rejection" — distinct from "1 = something errored."
- * That lets shells / CI distinguish drift (user intervention needed)
- * from infrastructure failures.
+ * Hashes the current workspace files into the hidden snapshot bare
+ * repo, builds a synthetic commit on top of snapshot HEAD with that
+ * tree, then hands the commit to the diff/ops translator
+ * (`applyPushToBridge` in `engine/ops.ts`) — which emits one
+ * item-level op per changed file (pushItem / deleteItem / renameItem
+ * / moveItem), batches them, and sends them to the bridge.
  *
- * When `--force` overrides IDE drift, the verb prints the list of
- * items that came IN to the workspace as part of the post-push
- * reconcile. These are items the engineer had added that are now in
- * your workspace — NOT items that were overwritten. (Force-push
- * doesn't delete engineer-side items; it just bypasses the version
- * guard.)
+ * Drift policy: before computing the diff we check the bridge's
+ * current `/refs.projectVersion` against the snapshot's recorded one.
+ * If they differ, the IDE has changed underneath us — refuse with a
+ * clear "run `volt pull` first" message unless `--force`. This is
+ * the single behavior that prevents the AI from silently overwriting
+ * the engineer's work.
+ *
+ * Force semantic:
+ *   `--force` bypasses the drift refusal and pushes the workspace's
+ *   ops. It does NOT delete engineer-side items the workspace doesn't
+ *   touch — the bridge keeps those, since no op targets them. After a
+ *   successful force-push, this verb RECONCILES: it pulls the bridge's
+ *   post-push state (= "your edits + everything the engineer added")
+ *   into both the snapshot and the workspace.
+ *
+ * Exit codes: 0 = pushed (or dry-run / nothing-to-push). 2 = the push
+ * DIDN'T happen because of drift or bridge rejection.
  */
-import { runPush } from "../engine/push.js";
-import type { ChangeSet } from "../engine/snapshot.js";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
+import {
+	createDeterministicCommit,
+	listTree,
+	readBlobBytes,
+	resolveRef,
+	updateRef,
+} from "../engine/git-cmds.js";
+import { applyPushToBridge, syncFromBridge } from "../engine/ops.js";
+import { loadConfig, workspacePaths } from "../engine/config.js";
+import {
+	buildWorkspaceTreeSha,
+	computeIncoming,
+	computeOutgoing,
+	ensureSnapshotRepo,
+	hasChanges,
+	loadState,
+	saveState,
+	writeTreeToWorkspace,
+	type ChangeSet,
+} from "../engine/snapshot.js";
 import { flagBool, flagString, type VerbFn } from "./_shared.js";
 
 export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
-	const r = await runPush(workspace, bridge, {
-		force: flagBool(flags, "force"),
-		forceWithLease: flagString(flags, "force-with-lease"),
-		dryRun: flagBool(flags, "dry-run"),
-	});
-	switch (r.status) {
-		case "ok":
-			printPushed(r.pushed, r.dryRun === true);
-			if (r.adoptedFromBridge !== undefined && r.adoptedFromBridge.length > 0) {
-				printAdopted(r.adoptedFromBridge, r.dryRun === true);
-			}
-			if (r.dryRun === true) {
-				console.log("dry-run — nothing was sent to the bridge.");
-			} else {
-				console.log(`pushed. snapshot now @ ${r.commitSha.slice(0, 12)}`);
-			}
-			return 0;
-		case "nothing_to_push":
-			console.log("nothing to push — workspace matches snapshot.");
-			return 0;
-		case "lease_stale": {
-			process.stderr.write(
-				`--force-with-lease refused: bridge has moved further than what you expected.\n` +
-					`  expected:  ${r.expectedProjectVersion}\n` +
-					`  current:   ${r.bridgeProjectVersion}\n\n` +
-					`Someone (or another client) changed the bridge AFTER you observed it. ` +
-					`Re-run \`volt status\` to see what's new, then retry — use the bridge's ` +
-					`current projectVersion as your new lease.\n`,
-			);
-			const c = r.incoming;
-			if (c.added.length + c.modified.length + c.removed.length > 0) {
-				process.stderr.write("\nincoming since your lease was issued:\n");
-				for (const n of c.added) process.stderr.write(`  [IDE] + ${n}\n`);
-				for (const n of c.modified) process.stderr.write(`  [IDE] M ${n}\n`);
-				for (const n of c.removed) process.stderr.write(`  [IDE] - ${n}\n`);
-			}
-			return 2;
-		}
-		case "drift_detected": {
-			process.stderr.write(
-				`drift detected: IDE has changed since last pull.\n` +
-					`  local snapshot:  ${r.localProjectVersion}\n` +
-					`  bridge current:  ${r.bridgeProjectVersion}\n`,
-			);
-			const c = r.incoming;
-			const anyChanges = c.added.length + c.modified.length + c.removed.length > 0;
-			if (anyChanges) {
-				process.stderr.write("\nincoming (engineer-side changes):\n");
-				for (const n of c.added) process.stderr.write(`  [IDE] + ${n}\n`);
-				for (const n of c.modified) process.stderr.write(`  [IDE] M ${n}\n`);
-				for (const n of c.removed) process.stderr.write(`  [IDE] - ${n}\n`);
-			}
-			process.stderr.write(
-				`\nrun \`volt pull\` to bring in IDE changes, or \`volt push --force\` to push anyway ` +
-					`(force does NOT delete the engineer's items — it bypasses the version guard and ` +
-					`reconciles your workspace with the bridge afterwards).\n`,
-			);
-			return 2;
-		}
-		case "rejected":
-			process.stderr.write(`bridge rejected push: ${r.reason}\n`);
-			return 2;
+	const force = flagBool(flags, "force");
+	const forceWithLease = flagString(flags, "force-with-lease");
+	const dryRun = flagBool(flags, "dry-run");
+	const noDriftCheck = flagBool(flags, "no-drift-check");
+
+	const root = resolve(workspace);
+	const paths = workspacePaths(root);
+	loadConfig(root);
+	ensureSnapshotRepo(paths.snapshotPath);
+
+	const state = loadState(paths.snapshotPath);
+	if (state === undefined) {
+		throw new Error(
+			`no snapshot to diff against — run \`volt pull\` once before \`volt push\``,
+		);
 	}
+
+	// 1. Drift check against the live bridge.
+	let driftAdoptedItems: ChangeSet | undefined;
+	if (!noDriftCheck) {
+		const refs = await bridge.getRefs();
+		if (refs.projectVersion !== state.projectVersion) {
+			const incoming = computeIncoming(refs.items, state.items);
+			const leaseHolds =
+				forceWithLease !== undefined && forceWithLease === refs.projectVersion;
+			if (forceWithLease !== undefined && !leaseHolds) {
+				printLeaseStale(forceWithLease, refs.projectVersion, incoming);
+				return 2;
+			}
+			if (!force && !leaseHolds) {
+				printDriftDetected(state.projectVersion, refs.projectVersion, incoming);
+				return 2;
+			}
+			if (hasChanges(incoming)) driftAdoptedItems = incoming;
+			// Dry-run must NOT persist the adopted state.
+			if (!dryRun) {
+				saveState(paths.snapshotPath, {
+					...state,
+					projectVersion: refs.projectVersion,
+					items: { ...refs.items },
+				});
+			}
+			state.projectVersion = refs.projectVersion;
+			state.items = { ...refs.items };
+		}
+	}
+
+	// 2. Build a workspace tree; nothing-to-push shortcut.
+	const newTreeSha = buildWorkspaceTreeSha(root, paths.snapshotPath);
+	const parentSha = resolveRef(paths.snapshotPath, "refs/heads/main");
+	if (parentSha !== state.commitSha) {
+		throw new Error(
+			`snapshot HEAD (${parentSha ?? "<unborn>"}) doesn't match recorded commit (${state.commitSha})`,
+		);
+	}
+	const headTreeSha = treeShaOfCommit(paths.snapshotPath, state.commitSha);
+	if (newTreeSha === headTreeSha) {
+		console.log("nothing to push — workspace matches snapshot.");
+		return 0;
+	}
+
+	// 3. Compute the per-item delta BEFORE the push for the OK response.
+	const pushed = computeOutgoing(paths.snapshotPath, root, state.commitSha);
+
+	if (dryRun) {
+		const adopted = driftAdoptedItems
+			? [...driftAdoptedItems.added, ...driftAdoptedItems.modified].sort()
+			: [];
+		printPushed(pushed, true);
+		if (adopted.length > 0) printAdopted(adopted, true);
+		console.log("dry-run — nothing was sent to the bridge.");
+		return 0;
+	}
+
+	// 4. Build a synthetic commit on top of snapshot HEAD with the
+	//    workspace tree, and translate the diff into bridge ops.
+	const newCommitSha = createDeterministicCommit(
+		paths.snapshotPath,
+		newTreeSha,
+		state.commitSha,
+		"workspace push",
+	);
+	const result = await applyPushToBridge(paths.snapshotPath, bridge, newCommitSha);
+	if (!result.accepted) {
+		process.stderr.write(`bridge rejected push: ${result.reason}\n`);
+		return 2;
+	}
+
+	// 5. Advance snapshot HEAD so the next push diffs against the right
+	//    baseline. (applyPushToBridge updates state.json but not the ref.)
+	updateRef(paths.snapshotPath, "refs/heads/main", result.commitSha);
+
+	// 6. Post-push reconcile when drift was adopted via --force.
+	let adoptedNames: string[] | undefined;
+	if (driftAdoptedItems !== undefined) {
+		// `fullRebuild` is critical: the normal syncFromBridge would
+		// short-circuit because state.projectVersion already matches
+		// bridge.projectVersion (we just adopted it).
+		await syncFromBridge(paths.snapshotPath, bridge, { fullRebuild: true });
+		const postSyncState = loadState(paths.snapshotPath);
+		if (postSyncState !== undefined) {
+			const tree = listTree(paths.snapshotPath, postSyncState.commitSha);
+			writeTreeToWorkspace(
+				root,
+				tree.map((e) => ({
+					path: e.path,
+					content: readBlobBytes(paths.snapshotPath, e.sha),
+				})),
+			);
+		}
+		const adopted = [
+			...driftAdoptedItems.added,
+			...driftAdoptedItems.modified,
+		].sort();
+		if (adopted.length > 0) adoptedNames = adopted;
+	}
+
+	printPushed(pushed, false);
+	if (adoptedNames !== undefined) printAdopted(adoptedNames, false);
+	console.log(`pushed. snapshot now @ ${result.commitSha.slice(0, 12)}`);
+	return 0;
 };
+
+function treeShaOfCommit(repoPath: string, commitSha: string): string {
+	const r = spawnSync("git", ["-C", repoPath, "rev-parse", `${commitSha}^{tree}`], { encoding: "utf-8" });
+	if (r.status !== 0) throw new Error(`rev-parse ${commitSha}^{tree} failed: ${r.stderr}`);
+	return r.stdout.trim();
+}
 
 function printPushed(p: ChangeSet, dryRun: boolean): void {
 	const total = p.added.length + p.modified.length + p.removed.length;
@@ -104,5 +201,43 @@ function printAdopted(adopted: string[], dryRun: boolean): void {
 		process.stderr.write(
 			"These items were NOT overwritten — they survived the force-push and now live in your workspace too.\n\n",
 		);
+	}
+}
+
+function printDriftDetected(localVersion: string, bridgeVersion: string, incoming: ChangeSet): void {
+	process.stderr.write(
+		`drift detected: IDE has changed since last pull.\n` +
+			`  local snapshot:  ${localVersion}\n` +
+			`  bridge current:  ${bridgeVersion}\n`,
+	);
+	const anyChanges = incoming.added.length + incoming.modified.length + incoming.removed.length > 0;
+	if (anyChanges) {
+		process.stderr.write("\nincoming (engineer-side changes):\n");
+		for (const n of incoming.added) process.stderr.write(`  [IDE] + ${n}\n`);
+		for (const n of incoming.modified) process.stderr.write(`  [IDE] M ${n}\n`);
+		for (const n of incoming.removed) process.stderr.write(`  [IDE] - ${n}\n`);
+	}
+	process.stderr.write(
+		`\nrun \`volt pull\` to bring in IDE changes, or \`volt push --force\` to push anyway ` +
+			`(force does NOT delete the engineer's items — it bypasses the version guard and ` +
+			`reconciles your workspace with the bridge afterwards).\n`,
+	);
+}
+
+function printLeaseStale(expectedVersion: string, bridgeVersion: string, incoming: ChangeSet): void {
+	process.stderr.write(
+		`--force-with-lease refused: bridge has moved further than what you expected.\n` +
+			`  expected:  ${expectedVersion}\n` +
+			`  current:   ${bridgeVersion}\n\n` +
+			`Someone (or another client) changed the bridge AFTER you observed it. ` +
+			`Re-run \`volt status\` to see what's new, then retry — use the bridge's ` +
+			`current projectVersion as your new lease.\n`,
+	);
+	const anyChanges = incoming.added.length + incoming.modified.length + incoming.removed.length > 0;
+	if (anyChanges) {
+		process.stderr.write("\nincoming since your lease was issued:\n");
+		for (const n of incoming.added) process.stderr.write(`  [IDE] + ${n}\n`);
+		for (const n of incoming.modified) process.stderr.write(`  [IDE] M ${n}\n`);
+		for (const n of incoming.removed) process.stderr.write(`  [IDE] - ${n}\n`);
 	}
 }

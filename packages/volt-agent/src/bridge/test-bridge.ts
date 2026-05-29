@@ -1,8 +1,8 @@
 /**
  * In-process bridge stub for tests. Simulates the live bridge protocol
  * (getRefs / fetchChanges / pushBatch / build) over an in-memory item
- * map, with content-fingerprint versioning that matches the production
- * shape (sha1-of-content, recursive over children).
+ * map keyed by item name. Items are stored as their assembled
+ * `sourceText` (the same shape the real bridge sends/receives).
  *
  * Test code mutates `items` directly to simulate engineer-side IDE
  * edits between rounds (or calls `mutate(name, patch)` for convenience).
@@ -10,13 +10,13 @@
  */
 import { createHash } from "node:crypto";
 import type {
-	AIChildInfo,
-	AIGetResult,
 	BuildRequest,
 	BuildResponse,
 	FetchRequest,
 	FetchResponse,
+	FetchedItem,
 	HealthResponse,
+	ImplementationLanguage,
 	PushConflict,
 	PushOp,
 	PushRequest,
@@ -26,15 +26,17 @@ import type {
 import type { Remote } from "./remote.js";
 
 /**
- * Test-fixture shape — looser than the strict wire `AIGetResult` so
- * fixtures don't have to repeat `kind`/`implementation` on every item.
- * TestBridge normalizes each fixture via `withInferredKind` before
- * storing, producing a valid AIGetResult at runtime.
+ * Test-fixture shape — the same fields a real bridge would return for
+ * a fetched item, but `kind` and `language` are optional so fixtures
+ * can omit them (TestBridge infers kind from the declaration line).
  */
-export type TestBridgeItem = Omit<AIGetResult, "kind" | "implementation"> & {
+export interface TestBridgeItem {
+	name: string;
+	folder?: string;
 	kind?: string;
-	implementation?: string;
-};
+	language?: ImplementationLanguage;
+	sourceText: string;
+}
 
 export interface TestBridgeOptions {
 	initialItems?: TestBridgeItem[];
@@ -44,8 +46,16 @@ export interface TestBridgeOptions {
 	health?: Partial<HealthResponse>;
 }
 
+interface StoredItem {
+	name: string;
+	kind: string;
+	folder?: string;
+	language?: ImplementationLanguage;
+	sourceText: string;
+}
+
 export class TestBridge implements Remote {
-	items = new Map<string, AIGetResult>();
+	items = new Map<string, StoredItem>();
 	pushCalls: PushRequest[] = [];
 	buildCalls: BuildRequest[] = [];
 	private readonly buildImpl: NonNullable<TestBridgeOptions["build"]>;
@@ -53,10 +63,10 @@ export class TestBridge implements Remote {
 
 	constructor(opts: TestBridgeOptions = {}) {
 		for (const item of opts.initialItems ?? []) {
-			this.items.set(item.name, withInferredKind(item));
+			this.items.set(item.name, normalizeFixture(item));
 		}
 		this.buildImpl =
-			opts.build ?? (async () => ({ success: true, duration: 0, errors: 0, warnings: 0, diagnostics: [] }));
+			opts.build ?? (async () => ({ success: true, duration: 0, diagnostics: [] }));
 		this.healthOverride = opts.health ?? {};
 	}
 
@@ -66,6 +76,8 @@ export class TestBridge implements Remote {
 			platform: "beckhoff",
 			connected: true,
 			ideAlive: true,
+			degraded: false,
+			degradedReason: null,
 			version: "0.0.0-test",
 			projectName: "TestSolution",
 			plcProjectName: "TestPlc",
@@ -88,11 +100,20 @@ export class TestBridge implements Remote {
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
 		const versions = this.computeVersions();
 		const known = req.knownItems ?? {};
-		const changed: AIGetResult[] = [];
+		const changed: FetchedItem[] = [];
 		for (const [name, version] of Object.entries(versions)) {
 			if (known[name] !== version) {
 				const item = this.items.get(name);
-				if (item !== undefined) changed.push({ ...item, version });
+				if (item === undefined) continue;
+				const fetched: FetchedItem = {
+					name,
+					kind: item.kind,
+					sourceText: item.sourceText,
+					version,
+				};
+				if (item.folder !== undefined) fetched.folder = item.folder;
+				if (item.language !== undefined) fetched.language = item.language;
+				changed.push(fetched);
 			}
 		}
 		const removed: string[] = [];
@@ -113,7 +134,6 @@ export class TestBridge implements Remote {
 		const versions = this.computeVersions();
 		const conflicts: PushConflict[] = [];
 
-		// Validate batch-level guard.
 		if (req.expectedProjectVersion !== undefined) {
 			const currentProjectVersion = hashMap(versions);
 			if (req.expectedProjectVersion !== currentProjectVersion) {
@@ -132,48 +152,60 @@ export class TestBridge implements Remote {
 			}
 		}
 
-		// Per-op validation against pre-batch state. Ops on the same POU
-		// must use the same ifVersion (the pre-batch POU hash) — validation
-		// is against pre-batch, application is sequential.
+		// Forward-state simulation matching the bridge PushHandler.
+		const pending: Record<string, string | null> = { ...versions };
 		for (const op of req.ops) {
-			const affected = affectedPouName(op);
-			if (affected === undefined) continue;
-			const currentVersion = versions[affected] ?? null;
-			const isCreate =
-				(op.op === "createPou" || op.op === "createChild") && op.ifVersion === null;
-			const isCreateAccessor = op.op === "setAccessor" && op.ifVersion === null;
-			if (isCreate || isCreateAccessor) {
-				// createPou: parent (= self) must not exist.
-				// createChild/setAccessor with ifVersion=null: parent (POU) must EXIST.
-				if (op.op === "createPou" && currentVersion !== null) {
-					conflicts.push({
-						name: op.name,
-						yourVersion: null,
-						currentVersion,
-						reason: "expected to create new POU but it already exists",
-					});
-				}
-				// For child/accessor creates, the parent must exist.
-				if (op.op !== "createPou" && currentVersion === null) {
-					conflicts.push({
-						name: affected,
-						yourVersion: null,
-						currentVersion: null,
-						reason: "expected parent POU to exist for create-child/setAccessor",
-					});
-				}
-				continue;
-			}
-			if (op.ifVersion !== null && currentVersion !== op.ifVersion) {
-				conflicts.push({
-					name: affected,
-					yourVersion: op.ifVersion,
-					currentVersion,
-					reason:
-						currentVersion === null
-							? "expected POU to exist but it doesn't"
-							: "POU changed since you fetched its version",
-				});
+			const currentVersion = pending[op.name] ?? null;
+			switch (op.op) {
+				case "pushItem":
+					if (op.ifVersion === null) {
+						// Create: must NOT exist.
+						if (currentVersion !== null) {
+							conflicts.push({
+								name: op.name,
+								yourVersion: null,
+								currentVersion,
+								reason: "expected to create new item but it already exists",
+							});
+						} else {
+							pending[op.name] = "";
+						}
+					} else {
+						// Update: must match.
+						if (currentVersion !== op.ifVersion) {
+							conflicts.push({
+								name: op.name,
+								yourVersion: op.ifVersion,
+								currentVersion,
+								reason:
+									currentVersion === null
+										? "expected item to exist but it doesn't"
+										: "item changed since you fetched its version",
+							});
+						}
+					}
+					break;
+				case "deleteItem":
+				case "renameItem":
+				case "moveItem":
+					if (currentVersion !== op.ifVersion) {
+						conflicts.push({
+							name: op.name,
+							yourVersion: op.ifVersion,
+							currentVersion,
+							reason:
+								currentVersion === null
+									? "expected item to exist but it doesn't"
+									: "item changed since you fetched its version",
+						});
+					} else {
+						if (op.op === "deleteItem") delete pending[op.name];
+						else if (op.op === "renameItem") {
+							delete pending[op.name];
+							pending[op.newName] = "";
+						}
+					}
+					break;
 			}
 		}
 
@@ -185,7 +217,7 @@ export class TestBridge implements Remote {
 			};
 		}
 
-		// All guards passed — apply ops in declared order.
+		// Apply ops in declared order.
 		for (const op of req.ops) {
 			this.applyOp(op);
 		}
@@ -207,130 +239,36 @@ export class TestBridge implements Remote {
 	/** Add or replace an item to simulate engineer-side IDE edits. */
 	mutate(name: string, item: TestBridgeItem | undefined): void {
 		if (item === undefined) this.items.delete(name);
-		else this.items.set(name, withInferredKind({ ...item, name }));
+		else this.items.set(name, normalizeFixture({ ...item, name }));
 	}
 
 	private applyOp(op: PushOp): void {
 		switch (op.op) {
-			// ── POU-level
-			case "createPou": {
-				const created: AIGetResult = {
+			case "pushItem": {
+				const kind = inferKindFromSource(op.sourceText) ?? "function_block";
+				const stored: StoredItem = {
 					name: op.name,
-					kind: op.kind,
-					...(op.folder !== undefined && { folder: op.folder }),
-					declaration: op.declaration,
-					...(op.implementation !== undefined && { implementation: op.implementation }),
-					children: [],
+					kind,
+					sourceText: op.sourceText,
 				};
-				this.items.set(op.name, created);
+				if (op.folder !== undefined) stored.folder = op.folder;
+				this.items.set(op.name, stored);
 				return;
 			}
-			case "updatePou": {
-				const existing = this.items.get(op.name);
-				if (existing === undefined) return;
-				const updated: AIGetResult = { ...existing };
-				if (op.declaration !== undefined) updated.declaration = op.declaration;
-				if (op.implementation !== undefined) updated.implementation = op.implementation;
-				this.items.set(op.name, updated);
-				return;
-			}
-			case "deletePou":
+			case "deleteItem":
 				this.items.delete(op.name);
 				return;
-			case "renamePou": {
+			case "renameItem": {
 				const existing = this.items.get(op.name);
 				if (existing === undefined) return;
 				this.items.delete(op.name);
 				this.items.set(op.newName, { ...existing, name: op.newName });
 				return;
 			}
-			case "movePou": {
+			case "moveItem": {
 				const existing = this.items.get(op.name);
 				if (existing === undefined) return;
 				this.items.set(op.name, { ...existing, folder: op.newFolder });
-				return;
-			}
-
-			// ── Child-level
-			case "createChild": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = [...(parent.children ?? [])];
-				const newChild: AIChildInfo = {
-					name: op.name,
-					...(op.folder !== undefined && { folder: op.folder }),
-					declaration: op.declaration,
-					...(op.implementation !== undefined && op.kind !== "property" && { implementation: op.implementation }),
-				};
-				children.push(newChild);
-				this.items.set(op.parent, { ...parent, children });
-				return;
-			}
-			case "updateChild": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = (parent.children ?? []).map((c) => {
-					if (c.name !== op.name) return c;
-					const updated: AIChildInfo = { ...c };
-					if (op.declaration !== undefined) updated.declaration = op.declaration;
-					if (op.implementation !== undefined) updated.implementation = op.implementation;
-					return updated;
-				});
-				this.items.set(op.parent, { ...parent, children });
-				return;
-			}
-			case "deleteChild": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = (parent.children ?? []).filter((c) => c.name !== op.name);
-				this.items.set(op.parent, { ...parent, children });
-				return;
-			}
-			case "renameChild": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = (parent.children ?? []).map((c) =>
-					c.name === op.name ? { ...c, name: op.newName } : c,
-				);
-				this.items.set(op.parent, { ...parent, children });
-				return;
-			}
-
-			// ── Accessor-level
-			case "setAccessor": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = (parent.children ?? []).map((c) => {
-					if (c.name !== op.property) return c;
-					const updated: AIChildInfo = { ...c };
-					if (op.which === "get") {
-						if (op.declaration !== undefined) updated.getterDeclaration = op.declaration;
-						updated.getterCode = op.implementation;
-					} else {
-						if (op.declaration !== undefined) updated.setterDeclaration = op.declaration;
-						updated.setterCode = op.implementation;
-					}
-					return updated;
-				});
-				this.items.set(op.parent, { ...parent, children });
-				return;
-			}
-			case "deleteAccessor": {
-				const parent = this.items.get(op.parent);
-				if (parent === undefined) return;
-				const children = (parent.children ?? []).map((c) => {
-					if (c.name !== op.property) return c;
-					const updated: AIChildInfo = { ...c };
-					if (op.which === "get") {
-						delete updated.getterDeclaration;
-						delete updated.getterCode;
-					} else {
-						delete updated.setterDeclaration;
-						delete updated.setterCode;
-					}
-					return updated;
-				});
-				this.items.set(op.parent, { ...parent, children });
 				return;
 			}
 		}
@@ -345,50 +283,29 @@ export class TestBridge implements Remote {
 	}
 }
 
-/** The POU whose version an op's ifVersion is validated against. */
-function affectedPouName(op: PushOp): string | undefined {
-	switch (op.op) {
-		case "createPou":
-		case "updatePou":
-		case "deletePou":
-		case "renamePou":
-		case "movePou":
-			return op.name;
-		case "createChild":
-		case "updateChild":
-		case "deleteChild":
-		case "renameChild":
-		case "setAccessor":
-		case "deleteAccessor":
-			return op.parent;
-		default:
-			return undefined;
-	}
-}
+// ─── Fixture normalization ─────────────────────────────────────────────
 
-// ─── Test-side kind inference ──────────────────────────────────────────
-//
-// A real bridge reads `kind` from the IDE's COM metadata. TestBridge has
-// no IDE — its source of truth is the declaration text the fixture
-// author wrote. Inferring kind from that text at injection time keeps
-// the wire shape strict (engine always sees `kind` set) without forcing
-// every test fixture to repeat itself. This is fixture-side
-// normalization, NOT an engine fallback.
-
-function withInferredKind(item: TestBridgeItem): AIGetResult {
-	const kind = item.kind ?? inferKindFromDeclaration(item.declaration);
+function normalizeFixture(item: TestBridgeItem): StoredItem {
+	const kind = item.kind ?? inferKindFromSource(item.sourceText);
 	if (kind === undefined) {
 		throw new Error(
-			`TestBridge fixture "${item.name}": cannot infer kind from declaration; ` +
+			`TestBridge fixture "${item.name}": cannot infer kind from sourceText; ` +
 				`set fixture's "kind" field explicitly.`,
 		);
 	}
-	return { ...item, kind };
+	const stored: StoredItem = {
+		name: item.name,
+		kind,
+		sourceText: item.sourceText,
+	};
+	if (item.folder !== undefined) stored.folder = item.folder;
+	if (item.language !== undefined) stored.language = item.language;
+	return stored;
 }
 
-function inferKindFromDeclaration(decl: string): string | undefined {
+function inferKindFromSource(src: string): string | undefined {
 	// Strip comments / attributes / leading whitespace before matching.
-	const stripped = decl
+	const stripped = src
 		.replace(/\(\*[\s\S]*?\*\)/g, "")
 		.replace(/\/\/[^\n]*/g, "")
 		.replace(/\{[^}]*\}/g, "")
@@ -397,7 +314,7 @@ function inferKindFromDeclaration(decl: string): string | undefined {
 	if (/^FUNCTION\b/i.test(stripped)) return "function";
 	if (/^PROGRAM\b/i.test(stripped)) return "program";
 	if (/^INTERFACE\b/i.test(stripped)) return "interface";
-	if (/\bVAR_GLOBAL\b/i.test(stripped)) return "gvl";
+	if (/\bVAR_GLOBAL\b/i.test(stripped) || /\bVAR_CONFIG\b/i.test(stripped)) return "gvl";
 	if (/^TYPE\b[\s\S]*?:\s*STRUCT\b/i.test(stripped)) return "structure";
 	if (/^TYPE\b[\s\S]*?:\s*\(/i.test(stripped)) return "enumeration";
 	if (/^TYPE\b[\s\S]*?:\s*UNION\b/i.test(stripped)) return "union";
@@ -405,28 +322,15 @@ function inferKindFromDeclaration(decl: string): string | undefined {
 	return undefined;
 }
 
-// ─── Hashing (deterministic, matches production shape conceptually) ────
+// ─── Hashing ───────────────────────────────────────────────────────────
 
-function hashItem(item: AIGetResult): string {
+function hashItem(item: StoredItem): string {
 	const h = createHash("sha1");
-	h.update(`d=${item.declaration ?? ""}\0`);
-	h.update(`i=${item.implementation ?? ""}\0`);
-	const children = [...(item.children ?? [])].sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
-	h.update("c[\0");
-	for (const c of children) {
-		h.update(` n=${c.name}\0`);
-		h.update(`d=${c.declaration ?? ""}\0`);
-		h.update(`i=${c.implementation ?? ""}\0`);
-		h.update(`gd=${c.getterDeclaration ?? ""}\0`);
-		h.update(`gc=${c.getterCode ?? ""}\0`);
-		h.update(`sd=${c.setterDeclaration ?? ""}\0`);
-		h.update(`sc=${c.setterCode ?? ""}\0`);
-		h.update(`p=${c.folder ?? ""}\0`);
-		h.update(" --\0");
-	}
-	h.update("]\0");
+	// New shape: items ARE their sourceText. Hash that + the folder to
+	// produce a stable per-item fingerprint matching the real bridge's
+	// content-fingerprint convention.
+	h.update(`s=${item.sourceText}\0`);
+	h.update(`f=${item.folder ?? ""}\0`);
 	return h.digest("hex").slice(0, 16);
 }
 

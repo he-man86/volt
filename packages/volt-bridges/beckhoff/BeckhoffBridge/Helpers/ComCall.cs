@@ -26,7 +26,7 @@ internal static class ComCall
 		catch (BridgeException) { throw; }
 		catch (Exception ex)
 		{
-			throw new BridgeException(500, "COM_CALL_FAILED", FormatMessage(site, ex, context));
+			throw new BridgeException(500, "COM_CALL_FAILED", FormatMessage(site, ex, context), ex);
 		}
 	}
 
@@ -36,7 +36,7 @@ internal static class ComCall
 		catch (BridgeException) { throw; }
 		catch (Exception ex)
 		{
-			throw new BridgeException(500, "COM_CALL_FAILED", FormatMessage(site, ex, context));
+			throw new BridgeException(500, "COM_CALL_FAILED", FormatMessage(site, ex, context), ex);
 		}
 	}
 

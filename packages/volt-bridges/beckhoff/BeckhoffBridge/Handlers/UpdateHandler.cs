@@ -6,9 +6,9 @@ using BeckhoffBridge.Helpers;
 namespace BeckhoffBridge.Handlers;
 
 /// <summary>
-/// Internal helper invoked by <see cref="SetHandler"/> (which itself is
-/// invoked by <see cref="PushHandler"/>). Not wired to an HTTP route —
-/// the public wire surface is `POST /push`.
+/// Internal helper invoked by <see cref="PushHandler"/> on each
+/// `pushItem` op whose target already exists. Not wired to an HTTP
+/// route — the public wire surface is `POST /push`.
 ///
 /// Updates and/or renames an existing POU, GVL, DUT, interface, folder,
 /// or child item. Accepts pre-split `declaration`/`implementation` fields.
@@ -64,11 +64,11 @@ internal sealed class UpdateHandler
 
 		// --- Code phase ---
 		// No declaration → no top-level code update (e.g. children-only
-		// bodies). The wire validation that updatePou / updateChild ALWAYS
-		// arrive with both declaration + implementation lives in
-		// PushHandler.ApplyUpdate{Pou,Child}, so anything reaching here
-		// without a declaration is either a children-only body or a
-		// rename-only op.
+		// bodies). UpdateHandler is now called only internally from
+		// PushHandler.ApplyPushItem after StSplitter has produced
+		// declaration + implementation from the wire `sourceText`, so
+		// anything reaching here without a declaration is either a
+		// children-only body or a rename-only op.
 		if (type == "property")
 			return UpdateProperty(name, declaration, body);
 
@@ -252,9 +252,8 @@ internal sealed class UpdateHandler
 
 			// Both create and update require a declaration: create needs
 			// it to provision the new item; update needs it because the
-			// wire spec is "always send full paired state" (the upstream
-			// PushHandler validates the same on updateChild ops). For
-			// create, name can be parsed from the header; for update /
+			// internal child-op format pairs declaration + implementation.
+			// For create, name can be parsed from the header; for update /
 			// delete, name is required on the op.
 			if (op == "delete")
 			{

@@ -46,6 +46,70 @@ internal sealed class BeckhoffConnection
 	public string? PlcProjectName => _plcProjectName;
 	public string? PlcProjectPath => _plcProjectPath;
 
+	/// <summary>
+	/// Set when an HTTP handler caught an RPC-class COM failure (server
+	/// unavailable, call rejected, proxy disconnected, …). The HTTP
+	/// dispatcher rejects subsequent non-/health calls with 503
+	/// PLC_DEGRADED until the next /health probe verifies the channel
+	/// is responsive again. Volatile so reads from the HTTP threadpool
+	/// see writes from the STA thread without locking.
+	/// </summary>
+	private volatile bool _isDegraded;
+	private string? _degradedReason;
+	public bool IsDegraded => _isDegraded;
+	public string? DegradedReason => _degradedReason;
+
+	/// <summary>Flag the COM channel as wedged. Logged loudly so the bridge log shows the trigger.</summary>
+	public void MarkDegraded(string reason)
+	{
+		_degradedReason = reason;
+		if (!_isDegraded)
+		{
+			_isDegraded = true;
+			Log.Warn($"[Connection] DEGRADED: {reason}");
+		}
+	}
+
+	/// <summary>Clear the degraded flag — called from BuildHealthSnapshot after a successful probe.</summary>
+	public void ClearDegraded()
+	{
+		if (_isDegraded)
+		{
+			Log.Ide("[Connection] DEGRADED cleared — COM channel responsive again");
+		}
+		_isDegraded = false;
+		_degradedReason = null;
+	}
+
+	/// <summary>
+	/// Walk an exception chain and decide whether it looks like a TwinCAT
+	/// COM RPC failure (server gone, channel busy, call rejected). Used
+	/// by HttpBridge to flip the connection into DEGRADED state. Bare
+	/// "item not found" COMExceptions (E_INVALIDARG etc.) are NOT
+	/// RPC failures — we deliberately scope this to HRESULTs that
+	/// indicate the COM channel itself is broken, not domain errors
+	/// that just happen to come through COM.
+	/// </summary>
+	public static bool IsRpcFailure(Exception? ex)
+	{
+		for (var e = ex; e != null; e = e.InnerException)
+		{
+			if (e is COMException com)
+			{
+				uint hr = unchecked((uint)com.HResult);
+				// RPC_S_SERVER_UNAVAILABLE
+				if (hr == 0x800706BAu) return true;
+				// RPC_S_CALL_FAILED, RPC_S_CALL_FAILED_DNE
+				if (hr == 0x800706BEu || hr == 0x800706BFu) return true;
+				// RPC_E_* family: 0x80010001..0x800101FF (call rejected /
+				// disconnected / retry-later / call cancelled, etc.).
+				if ((hr & 0xFFFFFF00u) == 0x80010100u) return true;
+				if (hr == 0x80010001u || hr == 0x80010108u || hr == 0x8001010Au) return true;
+			}
+		}
+		return false;
+	}
+
 	/// <summary>Friendly name of the host IDE we attached to (e.g. "Visual Studio 2022", "TcXaeShell").</summary>
 	public string? IdeName => _ideProgId switch
 	{
@@ -158,6 +222,11 @@ internal sealed class BeckhoffConnection
 		_lookupBasePath = null;
 		_ideProgId = null;
 		_ideVersion = null;
+		// IsConnected is now false — the degraded gate would be
+		// redundant with PLC_DISCONNECTED. Clear it so the next
+		// Connect() starts fresh.
+		_isDegraded = false;
+		_degradedReason = null;
 	}
 
 	/// <summary>
@@ -196,14 +265,22 @@ internal sealed class BeckhoffConnection
 			// IDE went away — release stale COM refs without throwing.
 			try { Disconnect(); } catch { /* ignore */ }
 		}
+		else if (ideAlive && _isDegraded)
+		{
+			// COM channel is responsive again — clear the degraded
+			// gate so the next non-/health call can proceed.
+			ClearDegraded();
+		}
 
 		bool connected = IsConnected;
 		return new
 		{
-			status = connected ? "healthy" : "unavailable",
+			status = connected ? (_isDegraded ? "degraded" : "healthy") : "unavailable",
 			platform = "beckhoff",
 			connected,
 			ideAlive,
+			degraded = _isDegraded,
+			degradedReason = _degradedReason,
 			ideName = IdeName,
 			ideVersion = IdeVersion,
 			version,
@@ -305,8 +382,8 @@ internal sealed class BeckhoffConnection
 					// share names with the programs they call — if a program
 					// "PLC_PRG" was removed but the task still references that
 					// name, the call-ref child has Name="PLC_PRG" and used to
-					// be returned here, causing createPou to falsely error
-					// "ALREADY_EXISTS" and updatePou to crash on a COM object
+					// be returned here, causing pushItem-create to falsely error
+					// "ALREADY_EXISTS" and pushItem-update to crash on a COM object
 					// that has no DeclarationText property. Same problem for
 					// Tasks (621), Libraries (657), TmcFile (653), etc. that
 					// happen to share a name with a real CRUD item.

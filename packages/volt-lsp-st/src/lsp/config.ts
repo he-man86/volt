@@ -26,19 +26,41 @@ export interface DiagnosticConfig {
 	duplicateDeclaration: boolean;
 	/** Identifier in a body that doesn't resolve. Warning (library-blind). */
 	unresolvedIdentifier: boolean;
-	/** Pragma name not in either vendor's catalog. Warning. */
+	/**
+	 * Pragma name not in either vendor's catalog. Warning. **OFF by default** —
+	 * TC silently ignores unknown attributes (forward-compat for library-
+	 * provided pragmas); enable for stricter typo-catching.
+	 */
 	unknownPragma: boolean;
-	/** Pragma known but belongs to the OTHER vendor (not the active one). Warning. */
+	/**
+	 * Pragma known but belongs to the OTHER vendor (not the active one). Warning.
+	 * **OFF by default** — same rationale as `unknownPragma`. Useful when
+	 * porting between CODESYS and TwinCAT projects.
+	 */
 	wrongVendorPragma: boolean;
 	/** A pragma missing its required companion (e.g. instance-path without reflection). Error. */
 	pragmaMissingCompanion: boolean;
 	/** Two mutually-exclusive pragmas on the same target. Warning. */
 	pragmaConflict: boolean;
-	/** FB_Init/FB_Reinit/FB_Exit with wrong signature. Error. */
+	/**
+	 * FB_Init/FB_Reinit/FB_Exit with missing required VAR_INPUT
+	 * params. Error. Mirrors TC's enforcement of the minimum
+	 * lifecycle contract — TC permits return-type deviations and
+	 * extra params, so the LSP does too (verified via conformance).
+	 */
 	fbLifecycleSignature: boolean;
-	/** A declaration shadows a same-name symbol in an outer scope. Information. */
+	/**
+	 * A declaration shadows a same-name symbol in an outer scope. Information.
+	 * **OFF by default** — TC silently allows shadowing; enable for style-
+	 * conscious code-review setups.
+	 */
 	shadowingDeclaration: boolean;
-	/** {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot. Warning. */
+	/**
+	 * {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot. Warning.
+	 * **OFF by default** — TC accepts user-picked slots even when CODESYS
+	 * libraries claim them (would only conflict if those libraries are loaded);
+	 * enable when you know your library set.
+	 */
 	initSlotCollision: boolean;
 	/** `<X>_TO_<Y>(arg)` where arg's declared type isn't compatible with `<X>`. Warning. */
 	conversionSourceMismatch: boolean;
@@ -92,27 +114,69 @@ export interface DiagnosticConfig {
 	 * `lhs := id op id ;` shape; anything more complex is skipped.
 	 */
 	binaryOperatorTypeMismatch: boolean;
+	/**
+	 * Flag VAR-section kinds that aren't allowed for the containing
+	 * POU kind. Currently: VAR_TEMP only inside PROGRAM / FUNCTION /
+	 * FUNCTION_BLOCK (NOT METHOD / ACTION / INTERFACE) and
+	 * VAR_GLOBAL only inside a GVL. Mirrors TC's
+	 * `VAR_TEMP declaration not allowed in this place` error.
+	 */
+	varSectionPlacement: boolean;
+	/**
+	 * Flag pointer-dereference applied to a non-pointer variable:
+	 * `<id>^` where `id` is declared as a non-pointer simple type.
+	 * Mirrors TC's `'^' is not defined for ...` error.
+	 *
+	 * Conservative: only the simple `<id>^` shape is checked. Complex
+	 * shapes like `(expr)^`, `arr[i]^`, `obj.field^` are skipped to
+	 * avoid false positives without expression typing.
+	 */
+	derefOnNonPointer: boolean;
+	/**
+	 * When the active vendor is TwinCAT, error on CODESYS-only system
+	 * operators (`__VARINFO`, `__NEW`, `__DELETE`, `__QUERYINTERFACE`,
+	 * `__CURRENTTASK`, `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY`, etc.)
+	 * — verified live: TC rejects all of these. Mirrors TC's parse-error
+	 * behavior. `__ISVALIDREF` is TC-compatible and stays silent.
+	 */
+	vendorOnlyOperator: boolean;
 }
 
+/**
+ * Default config mirrors TC's enforcement: every check that's ON here
+ * fires only on code TC itself rejects. Stricter-than-TC lints
+ * (unknown-pragma typos, vendor-mismatch attributes, shadowing
+ * declarations, init-slot collisions) default OFF — they're available
+ * as opt-in via init options for stricter setups, but the baseline
+ * is "if TC compiles it, LSP doesn't complain". Conformance harness
+ * (`src/conformance/`, replayed by `language.test.ts`) is what
+ * validates this contract.
+ */
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	reservedKeyword: true,
 	doubleUnderscore: true,
 	consecutiveUnderscores: true,
 	duplicateDeclaration: true,
 	unresolvedIdentifier: true,
-	unknownPragma: true,
-	wrongVendorPragma: true,
+	// stricter-than-TC; opt-in
+	unknownPragma: false,
+	wrongVendorPragma: false,
 	pragmaMissingCompanion: true,
 	pragmaConflict: true,
 	fbLifecycleSignature: true,
-	shadowingDeclaration: true,
-	initSlotCollision: true,
+	// stricter-than-TC; opt-in
+	shadowingDeclaration: false,
+	// stricter-than-TC; opt-in
+	initSlotCollision: false,
 	conversionSourceMismatch: true,
 	messagePragmas: true,
 	orphanConditionalPragma: true,
 	assignmentTypeMismatch: true,
 	missingInterfaceImplementation: true,
 	binaryOperatorTypeMismatch: true,
+	varSectionPlacement: true,
+	derefOnNonPointer: true,
+	vendorOnlyOperator: true,
 };
 
 /**

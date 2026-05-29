@@ -137,6 +137,35 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 		c.pushError(`expected type, got ${tokenDescription(next)}`, next.span);
 		return undefined;
 	}
+	// CODESYS extension: `__VECTOR[<size>] OF <type>` — SIMD-friendly
+	// fixed-size container. Same shape as ARRAY[0..size-1] OF <type>;
+	// we reuse array_type in the AST since LSP navigation treats them
+	// the same. TC rejects __VECTOR; conformance encodes that.
+	if (idTok.text.toUpperCase() === "__VECTOR") {
+		c.expectPunct("[", "after __VECTOR");
+		const sizeTokens = collectUntil(c, (t) => t.kind === "punct" && t.text === "]");
+		c.expectPunct("]", "closing __VECTOR size");
+		c.expectKeyword("OF", "after __VECTOR size");
+		const element = parseTypeExpression(c);
+		if (element === undefined) return undefined;
+		// Synthesize a single-dim ArrayType from lower=0, upper=<size-tokens>.
+		// Source-slicing helpers don't need exact bound spans for navigation —
+		// the dim's span covers the bracketed content.
+		const sizeSpan = sizeTokens.length > 0
+			? joinSpans(sizeTokens[0]!.span, sizeTokens[sizeTokens.length - 1]!.span)
+			: idTok.span;
+		return {
+			kind: "array_type",
+			dims: [{
+				kind: "array_dim",
+				lower: bodySpanFromTokens([], idTok.span),
+				upper: bodySpanFromTokens(sizeTokens, sizeSpan),
+				span: sizeSpan,
+			}],
+			element,
+			span: joinSpans(idTok.span, element.span),
+		};
+	}
 	const head = identFromToken(idTok);
 	const qualifiers: Identifier[] = [];
 	while (c.eatPunct(".") !== undefined) {
@@ -148,7 +177,23 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 		}
 		qualifiers.push(identFromToken(part));
 	}
-	const lastSpan = qualifiers.length > 0 ? (qualifiers[qualifiers.length - 1] as Identifier).span : head.span;
+	let lastSpan = qualifiers.length > 0 ? (qualifiers[qualifiers.length - 1] as Identifier).span : head.span;
+	// Optional subrange constraint: `INT(0..100)` after a named type.
+	// We don't model subrange in the AST yet — just consume the parens
+	// so the parse doesn't fail and the source-slice captures it for
+	// downstream round-trip (DUT alias bodies, struct field types).
+	if (c.peek().kind === "punct" && c.peek().text === "(") {
+		const open = c.consume();
+		let depth = 1;
+		let closeSpan = open.span;
+		while (!c.atEof() && depth > 0) {
+			const t = c.consume();
+			closeSpan = t.span;
+			if (t.kind === "punct" && t.text === "(") depth++;
+			else if (t.kind === "punct" && t.text === ")") depth--;
+		}
+		lastSpan = closeSpan;
+	}
 	if (qualifiers.length > 0) {
 		return {
 			kind: "named_type",
