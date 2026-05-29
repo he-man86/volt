@@ -1,0 +1,507 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`signatureHelp corpus (every call site) hide_var 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) call_after_init 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) warning_message 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) noinit 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) init_on_onlchange 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) displaymode_hex 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_copy 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) linkalways 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_check 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_instance_in_retain 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) hide_all_locals 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_assign 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) reflection 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) unknown_attribute_typo 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) enable_dynamic_creation 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) const_replaced 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) const_non_replaced 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) global_init_slot 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) monitoring_display 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) monitoring_encoding 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) subsequent 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) suppress_warning 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditionalshow 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) pingroup 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) info_message 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) text_message 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) instance_path_with_reflection 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) displaymode_bin 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) displaymode_dec 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) displaymode_invalid_value 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) suppress_warning_multi 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_init_aliases 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) linkalways_with_unused_pou 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditionalshow_all_locals 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) pin_presentation_order 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) estimated_stack_usage 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) no_virtual_actions 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) io_function_block 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) call_after_global_init_slot 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) warning_disable_restore 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) call_after_online_change_slot 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) call_before_global_exit_slot 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) call_on_type_change 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) pin_presentation_order_outputs 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) pin_presentation_order_wildcard 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) implicit_parameter_pouname 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) region_basic 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) error_message 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) region_pragma_basic 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) region_pragma_nested 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_init_canonical 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_reinit_canonical 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_exit_canonical 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_init_wrong_return_type 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_init_missing_bInCopyCode 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_exit_missing_bInCopyCode 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) fb_reinit_with_params 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) identifier_double_underscore 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) identifier_consecutive_underscores 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) identifier_backtick_keyword_escape 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) init_slot_default_50000 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) init_slot_reserved_alarm_manager 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) init_slot_reserved_device_object 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) init_slot_user_early 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) shadowing_method_local_shadows_member 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) shadowing_method_param_shadows_member 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conversion_int_to_real_valid 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT_TO_REAL",
+    "char": 20,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_real_to_int_valid 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "REAL_TO_INT",
+    "char": 20,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT_TO_REAL",
+    "char": 20,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_dint_to_int_wrong_source 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "DINT_TO_INT",
+    "char": 20,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_implicit_dint_to_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conversion_bool_to_int_valid 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "BOOL_TO_INT",
+    "char": 22,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_int_to_bool_valid 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT_TO_BOOL",
+    "char": 21,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_time_to_dword 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "TIME_TO_DWORD",
+    "char": 22,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_date_to_string 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "DATE_TO_STRING",
+    "char": 29,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_dt_to_date 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "DT_TO_DATE",
+    "char": 20,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) conversion_trunc_real_to_dint 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conversion_trunc_int_real_to_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conversion_overloaded_to_int 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "TO_INT",
+    "char": 15,
+    "label": null,
+    "line": 9,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) duplicate_declaration 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) unresolved_identifier_in_body 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) pragma_conflict_hide_plus_monitoring 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditional_define_then_if 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditional_else_branch_taken 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditional_elsif_chain 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditional_orphan_else 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) conditional_undefine_after_define 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_arithmetic_same_type 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_arithmetic_int_plus_dint 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_arithmetic_int_plus_real 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_modulo_on_real 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_comparison_int_vs_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_logical_bool 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_bitwise_on_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_shift_left 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_arithmetic_bool_plus_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sel_bool_picker 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_mux_multi_select 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_min_max 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_limit_clamp 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_abs 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_sqrt_real 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_ln 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_log 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_exp 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_inverse_trig 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_trig 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_math_expt 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_shift_right 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_rotate_left 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_rotate_right 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_isvalidref 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_varinfo 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_currenttask 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_try_catch 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_new_delete 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) op_sys_queryinterface 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_hex 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_binary 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_octal 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_typed_int_hash 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_real_scientific 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_time 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_date 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_tod 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_string_single_quoted 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_wstring_double_quoted 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) literal_string_to_int_assignment 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) interface_empty 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) interface_empty_impl 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) interface_with_method 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) interface_with_method_impl 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) interface_missing_implementation 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_base 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_extends_simple 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_extends_with_override 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_extends_with_super 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Greet",
+    "char": 13,
+    "label": null,
+    "line": 8,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) oop_final_fb 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_abstract_fb 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) oop_abstract_instantiated 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_array_of_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_array_2d 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_pointer_to_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_reference_to_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_string_n 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_var_temp_in_method 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_var_constant 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_deref_non_pointer 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_struct_simple 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_struct_extends 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_struct_nested 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_enum_simple 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_enum_with_base 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_enum_explicit_values 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_alias_int 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_alias_string 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_union 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_subrange 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT",
+    "char": 29,
+    "label": null,
+    "line": 0,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site) type_any_function_input 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_any_int_function_input 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_codesys_xint 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_codesys_uxint 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_codesys_xword 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_codesys_vector 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_codesys_version 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_implicit_enum_inline 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) type_dut_struct_with_bit_fields 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_input_output_inout_on_fb 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_input_constant 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_inst_in_method 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_stat_in_method 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_retain 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_persistent 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_non_retain 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_config_address_binding 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_external_gvl 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_external_consumer 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) var_output_on_function 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_if_elsif_else 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_case_of_else 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_for_to_by_do 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_while_do 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_repeat_until 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_exit_in_loop 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_continue_in_loop 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) ctrl_return_from_method 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) keyword_this_dereference 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) keyword_null_pointer_init 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) operand_bit_access_byte 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) operand_bit_assign_word 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) operand_partial_word_in_dword 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) operand_hw_address_marker 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site) operand_uchar_literal 1`] = `[]`;
