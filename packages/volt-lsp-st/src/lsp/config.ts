@@ -60,6 +60,20 @@ export interface DiagnosticConfig {
 	 * stripping) — just the structural balance.
 	 */
 	orphanConditionalPragma: boolean;
+	/**
+	 * Flag simple assignments `<id> := <single-id-or-typed-literal>;`
+	 * where the right-hand side's type isn't assignable to the left
+	 * (BOOL ↔ numeric, narrowing DINT→INT, STRING→numeric, etc.).
+	 * Mirrors TC's `Cannot convert type X to type Y` error.
+	 *
+	 * Deliberately MINIMAL: only catches the simplest assignment
+	 * shape (single identifier or typed literal on RHS). Binary
+	 * expressions, conversion calls, member access are skipped to
+	 * avoid false positives — we'd need full expression type-
+	 * inference to handle them, which is well outside this LSP's
+	 * navigation-grade scope.
+	 */
+	assignmentTypeMismatch: boolean;
 }
 
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
@@ -78,6 +92,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	conversionSourceMismatch: true,
 	messagePragmas: true,
 	orphanConditionalPragma: true,
+	assignmentTypeMismatch: true,
 };
 
 /**

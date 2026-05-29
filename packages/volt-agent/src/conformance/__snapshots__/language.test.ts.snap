@@ -933,8 +933,10 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_impl
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
+  "lspMessages": [
+    "[warning] Cannot assign DINT value to 'iDst' (declared INT).",
+  ],
+  "lspWarnings": 1,
   "name": "conversion_implicit_dint_to_int",
   "tcErrors": 1,
   "tcMessages": [
@@ -1345,8 +1347,10 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_string_
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
+  "lspMessages": [
+    "[warning] Cannot assign STRING value to 'iValue' (declared INT).",
+  ],
+  "lspWarnings": 1,
   "name": "literal_string_to_int_assignment",
   "tcErrors": 1,
   "tcMessages": [
