@@ -83,7 +83,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
 	}
 
 	if (cfg.unresolvedIdentifier) {
-		checkUnresolvedIdentifiers(args.parseResult, args.project, out);
+		checkUnresolvedIdentifiers(args.parseResult, args.project, args.source, out);
 	}
 
 	if (cfg.unknownPragma || cfg.wrongVendorPragma || cfg.pragmaMissingCompanion || cfg.pragmaConflict || cfg.initSlotCollision) {
@@ -223,6 +223,7 @@ function walkScopeForDuplicates(scope: Scope, out: DiagnosticItem[]): void {
 function checkUnresolvedIdentifiers(
 	parseResult: ParseResult,
 	project: Scope,
+	source: string,
 	out: DiagnosticItem[],
 ): void {
 	for (const unit of parseResult.units) {
@@ -230,6 +231,22 @@ function checkUnresolvedIdentifiers(
 		if (body === undefined) continue;
 		const scope = findScopeForUnit(project, unit);
 		if (scope === undefined) continue;
+		// Skip the check entirely when the body's source contains
+		// conditional-compile pragmas ({IF}/{ELSIF}/{ELSE}/{END_IF}).
+		// Conservative: without modeling the preprocessor we can't
+		// tell whether an identifier inside a conditional block lives
+		// in the stripped or kept branch, so checking it produces
+		// false positives. TC's preprocessor strips dead branches
+		// before semantic analysis; mirroring that requires a real
+		// preprocessor — out of scope. Until then, the presence of
+		// ANY conditional pragma anywhere in the body disables this
+		// check for that body.
+		//
+		// Pragma tokens are stripped from body.tokens by the parser
+		// (treated as trivia), so we scan the body's source slice
+		// directly.
+		const bodySource = source.slice(body.span.start, body.span.end);
+		if (bodyContainsConditionalPragma(bodySource)) continue;
 		for (const occ of scanAllIdentifiersInBody(body)) {
 			if (occ.isMemberAccess) {
 				// `x.member` — we don't resolve members yet (requires type
@@ -255,6 +272,20 @@ function checkUnresolvedIdentifiers(
 			});
 		}
 	}
+}
+
+/**
+ * Substring-detect conditional-compile pragmas in a raw source slice.
+ * Used to disable unresolved-identifier checks in bodies that have
+ * preprocessor branches (we can't safely tell which branch is live).
+ *
+ * Regex is permissive on whitespace inside the braces so it catches
+ * `{ IF defined(X) }`, `{IF\tdefined ...}`, etc.
+ */
+const CONDITIONAL_PRAGMA_RE = /\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i;
+
+function bodyContainsConditionalPragma(bodySource: string): boolean {
+	return CONDITIONAL_PRAGMA_RE.test(bodySource);
 }
 
 function getBody(unit: TopLevel): BodySpan | undefined {

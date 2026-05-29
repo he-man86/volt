@@ -998,10 +998,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_def
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] 'this_is_not_valid_st_at_all_xyz_999' is not defined in any reachable scope",
-  ],
-  "lspWarnings": 1,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "conditional_define_then_if",
   "tcErrors": 2,
   "tcMessages": [
@@ -1017,10 +1015,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_els
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] 'this_should_be_stripped_and_never_compiled_abc' is not defined in any reachable scope",
-  ],
-  "lspWarnings": 1,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "conditional_else_branch_taken",
   "tcErrors": 2,
   "tcMessages": [
@@ -1036,11 +1032,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_els
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] 'broken_first_branch_xyz' is not defined in any reachable scope",
-    "[warning] 'broken_else_branch_xyz' is not defined in any reachable scope",
-  ],
-  "lspWarnings": 2,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "conditional_elsif_chain",
   "tcErrors": 3,
   "tcMessages": [
@@ -1077,10 +1070,8 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conditional_und
 {
   "agreementOnPassFail": false,
   "lspErrors": 0,
-  "lspMessages": [
-    "[warning] 'broken_should_be_stripped_xyz' is not defined in any reachable scope",
-  ],
-  "lspWarnings": 1,
+  "lspMessages": [],
+  "lspWarnings": 0,
   "name": "conditional_undefine_after_define",
   "tcErrors": 2,
   "tcMessages": [
