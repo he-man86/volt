@@ -368,14 +368,35 @@ async function cleanupItems(bridge: BridgeClient, names: string[]): Promise<void
 		const refs = await bridge.getRefs();
 		const remaining = names.filter((n) => refs.items[n] !== undefined);
 		if (remaining.length === 0) return;
+		// Track whether ANY deletion in this pass actually made
+		// progress. If the bridge is in a degraded state (RPC dead,
+		// returning `accepted: false` for everything), every delete
+		// call silently "succeeds" but nothing changes — the safety
+		// loop would otherwise hammer the bridge 10 times for no
+		// effect. Bail out early when no progress detected.
+		let madeProgress = false;
 		for (const name of remaining) {
 			const ifVersion = refs.items[name];
 			if (ifVersion === undefined) continue;
 			try {
-				await bridge.pushBatch({ ops: [{ op: "deletePou", name, ifVersion }] });
+				const res = await bridge.pushBatch({ ops: [{ op: "deletePou", name, ifVersion }] });
+				if (res.accepted === true) {
+					madeProgress = true;
+				} else {
+					console.log(
+						`    (cleanup) bridge rejected deletePou ${name}` +
+							(res.conflicts !== undefined && res.conflicts.length > 0
+								? `: ${res.conflicts[0]?.reason ?? "unknown"}`
+								: ""),
+					);
+				}
 			} catch (err) {
 				console.log(`    (cleanup) deletePou ${name} failed: ${err instanceof Error ? err.message : err}`);
 			}
+		}
+		if (!madeProgress) {
+			console.log(`    (cleanup) no deletion succeeded this pass — bridge may be degraded; bailing out`);
+			return;
 		}
 	}
 }
