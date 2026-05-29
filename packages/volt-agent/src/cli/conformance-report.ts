@@ -41,6 +41,7 @@ import { OPERATOR_TESTS } from "../conformance/operator-tests.js";
 import { LITERAL_TESTS } from "../conformance/literal-tests.js";
 import { INTERFACE_TESTS } from "../conformance/interface-tests.js";
 import { OOP_TESTS } from "../conformance/oop-tests.js";
+import { ADVANCED_TYPE_TESTS } from "../conformance/advanced-type-tests.js";
 import type { LanguageTest } from "../conformance/index.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 
@@ -70,6 +71,7 @@ const CATEGORIES: CategoryGroup[] = [
 	{ name: "literal", tests: LITERAL_TESTS },
 	{ name: "interface", tests: INTERFACE_TESTS },
 	{ name: "oop", tests: OOP_TESTS },
+	{ name: "advanced-type", tests: ADVANCED_TYPE_TESTS },
 ];
 
 function runLsp(source: string): Array<{ severity: string }> {

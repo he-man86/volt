@@ -18,6 +18,7 @@ import { OPERATOR_TESTS } from "./operator-tests.js";
 import { LITERAL_TESTS } from "./literal-tests.js";
 import { INTERFACE_TESTS } from "./interface-tests.js";
 import { OOP_TESTS } from "./oop-tests.js";
+import { ADVANCED_TYPE_TESTS } from "./advanced-type-tests.js";
 
 export type { LanguageTest } from "./pragma-tests.js";
 
@@ -34,4 +35,5 @@ export const ALL_TESTS = [
 	...LITERAL_TESTS,
 	...INTERFACE_TESTS,
 	...OOP_TESTS,
+	...ADVANCED_TYPE_TESTS,
 ];
