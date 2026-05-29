@@ -234,6 +234,13 @@ function checkUnresolvedIdentifiers(
 			}
 			const name = occ.token.text;
 			if (KEYWORD_SET.has(name.toLowerCase())) continue;
+			// Built-in conversion operators (`INT_TO_REAL`, etc.) are
+			// implicit lexical tokens, not symbols in any scope. Skip
+			// them here — `checkConversionCalls` handles their own
+			// validity (source-type mismatch). Without this skip,
+			// every conversion call would surface a false-positive
+			// unresolved-identifier warning.
+			if (getConversion(name) !== undefined) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",
@@ -262,10 +269,22 @@ function getBody(unit: TopLevel): BodySpan | undefined {
 function findScopeForUnit(project: Scope, unit: TopLevel): Scope | undefined {
 	const targetName = getUnitName(unit)?.text.toLowerCase();
 	if (targetName === undefined) return undefined;
-	for (const child of project.children) {
-		if (child.name.toLowerCase() === targetName) return child;
+	// Walk the WHOLE scope tree — standalone METHOD / ACTION /
+	// PROPERTY units live as children of their containing FB / PROGRAM
+	// scope, not directly under project (workspace-layout convention,
+	// see ingestStandaloneMethod). A flat scan of project.children
+	// would miss them and the body-walking checks (conversion source
+	// mismatch, unresolved identifier) would silently skip every
+	// method body.
+	function walk(scope: Scope): Scope | undefined {
+		for (const child of scope.children) {
+			if (child.name.toLowerCase() === targetName) return child;
+			const inner = walk(child);
+			if (inner !== undefined) return inner;
+		}
+		return undefined;
 	}
-	return undefined;
+	return walk(project);
 }
 
 // ─── Unknown-pragma check ────────────────────────────────────────────
