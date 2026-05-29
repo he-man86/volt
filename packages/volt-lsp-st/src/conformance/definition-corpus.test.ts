@@ -1,65 +1,69 @@
 /**
- * Definition corpus: snapshot go-to-definition response at every
- * identifier token in every ST source from the conformance catalog.
- * Catches regressions where definition stops resolving a known symbol
- * or returns the wrong target.
+ * Definition corpus: snapshot go-to-definition at every identifier in
+ * both the test POU AND the synthesized PLC_PRG.
  *
- * Each identifier token gets a probe. Non-resolving identifiers
- * (free names like keywords-misused-as-idents, or external symbols
- * we don't know about) snapshot as empty locations — equally part of
- * the contract.
+ * The cross-file probes are the high-value signal here — PLC_PRG's
+ * call sites (`fb_inst.SomeMethod`) should resolve back to the POU's
+ * method declaration. A regression in cross-file definition shows
+ * up as the location's `uri` flipping to the wrong file or empty.
+ *
+ * Snapshot per test: list of `{file, text, line, char,
+ * locations: [{uri, line, char}]}`.
  */
 import { describe, expect, it } from "bun:test";
 import { lex } from "../lexer/lexer.js";
 import { definition } from "../lsp/queries/definition.js";
-import { Workspace } from "../lsp/workspace.js";
-import { ALL_TESTS, type LanguageTest } from "./index.js";
-
-const KIND_EXT: Record<LanguageTest["kind"], string> = {
-	function_block: "st",
-	function: "st",
-	program: "st",
-	gvl: "gvl",
-	structure: "dut",
-	interface: "itf",
-};
+import { buildCorpusWorkspace } from "./_corpus-helpers.js";
+import { ALL_TESTS } from "./index.js";
 
 interface DefProbe {
+	file: "pou" | "plc_prg";
 	text: string;
 	line: number;
 	char: number;
-	locations: Array<{ line: number; char: number }>;
+	locations: Array<{ uri: string; line: number; char: number }>;
 }
 
-describe("definition corpus (every conformance test)", () => {
+function probeIdents(
+	source: string,
+	doc: Parameters<typeof definition>[0]["doc"],
+	project: Parameters<typeof definition>[0]["project"],
+	tag: "pou" | "plc_prg",
+): DefProbe[] {
+	const out: DefProbe[] = [];
+	for (const tok of lex(source)) {
+		if (tok.kind !== "identifier") continue;
+		const position = {
+			line: tok.span.startLine - 1,
+			character: tok.span.startCol,
+		};
+		const locs = definition({ doc, position, project });
+		out.push({
+			file: tag,
+			text: tok.text,
+			line: position.line,
+			char: position.character,
+			// Strip the URI prefix (always file:///conformance/) to keep
+			// snapshots focused on the cross-file routing signal.
+			locations: locs.map((l) => ({
+				uri: l.uri.replace("file:///conformance/", ""),
+				line: l.range.start.line,
+				char: l.range.start.character,
+			})),
+		});
+	}
+	return out;
+}
+
+describe("definition corpus (POU + PLC_PRG)", () => {
 	for (const t of ALL_TESTS) {
 		it(t.name, () => {
-			const uri = `file:///conformance/${t.pouName}.${KIND_EXT[t.kind]}`;
-			const ws = new Workspace();
-			ws.openDocument(uri, t.source, 1);
-			const doc = ws.getDocument(uri)!;
+			const { ws, pouDoc, pouSource, plcPrgDoc, plcPrgSource } = buildCorpusWorkspace(t);
 			const project = ws.getProjectScope();
-
-			const probes: DefProbe[] = [];
-			for (const tok of lex(t.source)) {
-				if (tok.kind !== "identifier") continue;
-				const position = {
-					line: tok.span.startLine - 1,
-					character: tok.span.startCol,
-				};
-				const locs = definition({ doc, position, project });
-				probes.push({
-					text: tok.text,
-					line: position.line,
-					char: position.character,
-					// Drop uri (always equals the test's own uri) and end position;
-					// the (line, char) of the definition's start is the signal.
-					locations: locs.map((l) => ({
-						line: l.range.start.line,
-						char: l.range.start.character,
-					})),
-				});
-			}
+			const probes = [
+				...probeIdents(pouSource, pouDoc, project, "pou"),
+				...probeIdents(plcPrgSource, plcPrgDoc, project, "plc_prg"),
+			];
 			expect(probes).toMatchSnapshot();
 		});
 	}
