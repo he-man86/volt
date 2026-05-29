@@ -1355,3 +1355,70 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_string_
   "tcWarnings": 0,
 }
 `;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_empty LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_empty_impl LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty_impl",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_with_method LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_with_method_impl LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method_impl",
+  "tcErrors": 0,
+  "tcMessages": [],
+  "tcWarnings": 0,
+}
+`;
+
+exports[`language conformance: pragmas (LSP vs recorded TwinCAT) interface_missing_implementation LSP diagnostics agree with TwinCAT 1`] = `
+{
+  "agreementOnPassFail": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_missing_implementation",
+  "tcErrors": 1,
+  "tcMessages": [
+    "[error] No definition found for interface 'ITF_LANG_with_method'",
+  ],
+  "tcWarnings": 0,
+}
+`;
