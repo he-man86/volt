@@ -929,6 +929,158 @@ END_FUNCTION_BLOCK
 `,
 	},
 
+	// ─── More attribute pragmas (batch 5) ───────────────────────────
+
+	{
+		name: "call_after_online_change_slot",
+		pouName: "FB_LANG_call_after_online_change_slot",
+		kind: "function_block",
+		feature: "{attribute 'call_after_online_change_slot' := '<slot>'} on a function",
+		fromDoc: "07-pragmas.md#call_after_online_change_slot",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_caocs : FB_LANG_call_after_online_change_slot;",
+		plcPrgBody: "fb_caocs();",
+		source:
+`FUNCTION_BLOCK FB_LANG_call_after_online_change_slot
+VAR
+	iCount : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'call_after_online_change_slot' := '50000'}
+METHOD AfterOnlineChange
+iCount := 1;
+END_METHOD
+`,
+	},
+
+	{
+		name: "call_before_global_exit_slot",
+		pouName: "FB_LANG_call_before_global_exit_slot",
+		kind: "function_block",
+		feature: "{attribute 'call_before_global_exit_slot' := '<slot>'} on a function",
+		fromDoc: "07-pragmas.md#call_before_global_exit_slot",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cbges : FB_LANG_call_before_global_exit_slot;",
+		plcPrgBody: "fb_cbges();",
+		source:
+`FUNCTION_BLOCK FB_LANG_call_before_global_exit_slot
+VAR
+	iCleanup : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'call_before_global_exit_slot' := '50000'}
+METHOD BeforeGlobalExit
+iCleanup := 0;
+END_METHOD
+`,
+	},
+
+	{
+		name: "call_on_type_change",
+		pouName: "FB_LANG_call_on_type_change",
+		kind: "function_block",
+		feature: "{attribute 'call_on_type_change' := '<fb>'} on a method tracking referenced FB type",
+		fromDoc: "07-pragmas.md#call_on_type_change",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_cotc : FB_LANG_call_on_type_change;",
+		plcPrgBody: "fb_cotc();",
+		source:
+`FUNCTION_BLOCK FB_LANG_call_on_type_change
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'call_on_type_change' := 'FB_LANG_call_on_type_change'}
+METHOD ReactToTypeChange : INT
+iVar := 1;
+ReactToTypeChange := iVar;
+END_METHOD
+`,
+	},
+
+	{
+		name: "pin_presentation_order_outputs",
+		pouName: "FB_LANG_pin_presentation_order_outputs",
+		kind: "function_block",
+		feature: "{attribute 'pin_presentation_order_outputs' := '...'} reorders FB output pins",
+		fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_ppoo : FB_LANG_pin_presentation_order_outputs;",
+		plcPrgBody: "fb_ppoo();",
+		source:
+`{attribute 'pin_presentation_order_outputs' := 'oResult,oStatus'}
+FUNCTION_BLOCK FB_LANG_pin_presentation_order_outputs
+VAR_OUTPUT
+	oStatus : INT;
+	oResult : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "pin_presentation_order_wildcard",
+		pouName: "FB_LANG_pin_presentation_order_wildcard",
+		kind: "function_block",
+		feature: "{attribute 'pin_presentation_order_inputs'} with `*` placeholder for unspecified",
+		fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_ppow : FB_LANG_pin_presentation_order_wildcard;",
+		plcPrgBody: "fb_ppow();",
+		source:
+`{attribute 'pin_presentation_order_inputs' := 'iLast,*'}
+FUNCTION_BLOCK FB_LANG_pin_presentation_order_wildcard
+VAR_INPUT
+	iA : INT;
+	iB : INT;
+	iLast : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "implicit_parameter_pouname",
+		pouName: "FB_LANG_implicit_parameter_pouname",
+		kind: "function_block",
+		feature: "{attribute 'implicit-parameter' := 'pouname'} on a VAR_INPUT STRING",
+		fromDoc: "07-pragmas.md#implicit-parameter",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_ipp : FB_LANG_implicit_parameter_pouname;",
+		plcPrgBody: "fb_ipp.LogIt();",
+		source:
+`FUNCTION_BLOCK FB_LANG_implicit_parameter_pouname
+VAR
+	sLastCaller : STRING(255);
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD LogIt
+VAR_INPUT
+	{attribute 'implicit-parameter' := 'pouname'}
+	sCaller : STRING(255);
+END_VAR
+sLastCaller := sCaller;
+END_METHOD
+`,
+	},
+
+	// NOTE: `is_connected_with_reflection` and `monitoring_on_property`
+	// removed for v1 — both hit "Child update missing 'declaration' field"
+	// in the push pipeline. The first mixes VAR_INPUT + VAR in a way the
+	// parser treats specially; the second is a property with only GET
+	// (no SET), which st-parse needs both for. Add when those parser
+	// limitations are lifted.
+
 	// ─── Region pragma — folding-only, no semantic effect ─────────────
 
 	{
