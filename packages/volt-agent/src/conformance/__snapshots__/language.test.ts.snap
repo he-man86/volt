@@ -901,12 +901,12 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_real
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_int_to_real_wrong_source LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
   "lspMessages": [
-    "[warning] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
   ],
-  "lspWarnings": 1,
+  "lspWarnings": 0,
   "name": "conversion_int_to_real_wrong_source",
   "tcErrors": 1,
   "tcMessages": [
@@ -931,12 +931,12 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_dint
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) conversion_implicit_dint_to_int LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
   "lspMessages": [
-    "[warning] Cannot assign DINT value to 'iDst' (declared INT).",
+    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
   ],
-  "lspWarnings": 1,
+  "lspWarnings": 0,
   "name": "conversion_implicit_dint_to_int",
   "tcErrors": 1,
   "tcMessages": [
@@ -1336,12 +1336,12 @@ exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_wstring
 
 exports[`language conformance: pragmas (LSP vs recorded TwinCAT) literal_string_to_int_assignment LSP diagnostics agree with TwinCAT 1`] = `
 {
-  "agreementOnPassFail": false,
-  "lspErrors": 0,
+  "agreementOnPassFail": true,
+  "lspErrors": 1,
   "lspMessages": [
-    "[warning] Cannot assign STRING value to 'iValue' (declared INT).",
+    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
   ],
-  "lspWarnings": 1,
+  "lspWarnings": 0,
   "name": "literal_string_to_int_assignment",
   "tcErrors": 1,
   "tcMessages": [

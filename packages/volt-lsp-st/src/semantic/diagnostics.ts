@@ -734,7 +734,10 @@ function checkConversionCalls(
 					: "";
 
 			out.push({
-				severity: "warning",
+				// Error — TC refuses to compile these (`Cannot convert
+				// type X to type Y`). Matching the TC severity keeps the
+				// IDE squiggle red where the IDE squiggle is red.
+				severity: "error",
 				span: callTok.span,
 				source: "volt-lsp-st",
 				code: "conversion-source-mismatch",
@@ -800,7 +803,10 @@ function checkAssignmentTypes(
 			if (isAssignable(lhsType, rhsType)) continue;
 
 			out.push({
-				severity: "warning",
+				// Error — TC refuses to compile a mismatched assignment
+				// ("Cannot convert type X to type Y"). Matching the TC
+				// severity gives the IDE a consistent red squiggle.
+				severity: "error",
 				span: lhsTok.span,
 				source: "volt-lsp-st",
 				code: "assignment-type-mismatch",
