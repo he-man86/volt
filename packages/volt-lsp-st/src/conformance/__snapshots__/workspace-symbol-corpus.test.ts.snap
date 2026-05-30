@@ -1740,9 +1740,25 @@ exports[`workspaceSymbol corpus (search by pouName) var_non_retain 1`] = `
 ]
 `;
 
-exports[`workspaceSymbol corpus (search by pouName) var_config_address_binding 1`] = `[]`;
+exports[`workspaceSymbol corpus (search by pouName) var_config_address_binding 1`] = `
+[
+  {
+    "file": "GVL_LANG_var_config.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_var_config",
+  },
+]
+`;
 
-exports[`workspaceSymbol corpus (search by pouName) var_external_gvl 1`] = `[]`;
+exports[`workspaceSymbol corpus (search by pouName) var_external_gvl 1`] = `
+[
+  {
+    "file": "GVL_LANG_var_external_target.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_var_external_target",
+  },
+]
+`;
 
 exports[`workspaceSymbol corpus (search by pouName) var_external_consumer 1`] = `
 [
@@ -2004,7 +2020,15 @@ exports[`workspaceSymbol corpus (search by pouName) use_struct_nested_member 1`]
 ]
 `;
 
-exports[`workspaceSymbol corpus (search by pouName) use_gvl_field_access 1`] = `[]`;
+exports[`workspaceSymbol corpus (search by pouName) use_gvl_field_access 1`] = `
+[
+  {
+    "file": "GVL_LANG_use_field_access.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_use_field_access",
+  },
+]
+`;
 
 exports[`workspaceSymbol corpus (search by pouName) use_this_member_in_method 1`] = `
 [

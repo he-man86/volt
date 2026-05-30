@@ -138,6 +138,8 @@ function renderDeclaration(sym: Symbol): string {
 			return `INTERFACE ${sym.name}`;
 		case "namespace":
 			return `NAMESPACE ${sym.name}`;
+		case "gvl_block":
+			return `VAR_GLOBAL ${sym.name}`;
 		case "type":
 			return `TYPE ${sym.name}`;
 		case "enum_value":

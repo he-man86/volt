@@ -309,6 +309,7 @@ function lspKindForSymbol(sym: Symbol): CompletionItemKind {
 		case "interface":
 			return CompletionItemKind.Interface;
 		case "namespace":
+		case "gvl_block":
 			return CompletionItemKind.Module;
 		case "type":
 			return CompletionItemKind.Struct;

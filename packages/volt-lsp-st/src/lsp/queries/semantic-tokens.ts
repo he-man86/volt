@@ -210,6 +210,7 @@ function tokenTypeForSymbol(sym: Symbol): number {
 		case "interface":
 			return ti("interface");
 		case "namespace":
+		case "gvl_block":
 			return ti("namespace");
 		case "type":
 			return ti("struct");

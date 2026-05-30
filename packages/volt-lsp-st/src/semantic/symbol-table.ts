@@ -65,6 +65,7 @@ export type SymbolKind =
 	| "struct_field"
 	| "enum_value"
 	| "gvl_var"
+	| "gvl_block"
 	| "namespace";
 
 export interface Symbol {
@@ -559,6 +560,25 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string): v
 }
 
 function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): void {
+	// Register the GVL block itself as a top-level symbol named after the
+	// URI's basename. This is what lets `workspace/symbol` find a GVL by
+	// name, and what `GVL_Name.field` references resolve to under
+	// `{attribute 'qualified_only'}`. ST has no in-source identifier for
+	// the GVL block — the file basename IS the identifier per CODESYS
+	// convention.
+	const gvlName = gvlNameFromUri(uri);
+	if (gvlName !== undefined) {
+		defineSymbol(project, {
+			kind: "gvl_block",
+			name: gvlName,
+			span: gvl.span,
+			declarationSpan: gvl.span,
+			owner: project,
+			uri,
+			ast: gvl,
+		});
+	}
+
 	// GVL contents go directly into the project scope as `gvl_var`.
 	for (const section of gvl.varSections) {
 		for (const decl of section.decls) {
@@ -577,6 +597,20 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): v
 			}
 		}
 	}
+}
+
+/**
+ * Derive a GVL block name from its document URI: basename minus
+ * extension. Returns undefined for empty / pathless URIs (test fixtures
+ * that pass `""` as uri stay anonymous).
+ */
+function gvlNameFromUri(uri: string): string | undefined {
+	if (uri.length === 0) return undefined;
+	const last = uri.split("/").pop() ?? "";
+	if (last.length === 0) return undefined;
+	const dot = last.lastIndexOf(".");
+	const name = dot > 0 ? last.slice(0, dot) : last;
+	return name.length > 0 ? name : undefined;
 }
 
 function ingestVarSections(

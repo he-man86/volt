@@ -25460,7 +25460,13 @@ exports[`definition corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `
     "char": 0,
     "file": "plc_prg",
     "line": 3,
-    "locations": [],
+    "locations": [
+      {
+        "char": 0,
+        "line": 1,
+        "uri": "GVL_LANG_use_field_access.gvl",
+      },
+    ],
     "text": "GVL_LANG_use_field_access",
   },
   {

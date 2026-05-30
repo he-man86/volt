@@ -116,6 +116,8 @@ export function lspSymbolKindFor(kind: SymbolKind): LspSymbolKindValue {
 			return LspSymbolKind.Property;
 		case "namespace":
 			return LspSymbolKind.Namespace;
+		case "gvl_block":
+			return LspSymbolKind.Module;
 		case "type":
 			return LspSymbolKind.Struct;
 		case "var":

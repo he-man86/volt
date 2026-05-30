@@ -45844,7 +45844,13 @@ _program_"
   },
   {
     "char": 0,
-    "contents": null,
+    "contents": 
+"\`\`\`iec61131
+VAR_GLOBAL GVL_LANG_use_field_access
+\`\`\`
+
+_gvl block_"
+,
     "file": "plc_prg",
     "line": 3,
     "text": "GVL_LANG_use_field_access",
