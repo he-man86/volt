@@ -53,6 +53,11 @@ from CodesysBridge.helpers.compat import (
 
 def _read_bridge_version():
 	# type: () -> str
+	# Single-file bundle injects `_BUNDLED_VERSION` at module top — use
+	# that if present so we don't need version.json on the filesystem.
+	bundled = globals().get("_BUNDLED_VERSION")
+	if bundled is not None:
+		return bundled
 	path = os.path.join(_HERE, "version.json")
 	try:
 		with open(path, "r") as fh:

@@ -11,14 +11,32 @@ so both can run side-by-side for differential testing.
 
 ## Run
 
+CODESYS's `Tools → Scripting → Execute Script File` takes ONE file, so
+the build produces a single-file bundle alongside the source tree:
+
+- **`packages/volt-bridges/dist/volt-codesys-bridge.py`** ← the file
+  you point CODESYS at. Self-contained (~120 KB, all 17 source modules
+  base64-embedded + a tiny `sys.modules` bootstrap).
+- `packages/volt-bridges/dist/CodesysBridge.zip` — same code as
+  exploded source, for users who want to inspect / patch.
+
+Build both with: `bash packages/volt-bridges/build-bridges.sh`
+
+Then:
+
 1. Open your project in CODESYS V3.5 SP19+
 2. **Tools → Scripting → Execute Script File** → select
-   `CodesysBridge/bridge.py`
+   `volt-codesys-bridge.py`
 3. Connect from the Volt agent:
    ```bash
    VOLT_BRIDGE_PORT=8556 node packages/volt-agent/dist/cli/bin.js init
    ```
 4. Close CODESYS to stop the bridge.
+
+For development (no bundle round-trip needed): run
+`python CodesysBridge/bridge.py` directly — the same `sys.path`
+manipulation makes it work from the source tree too. Useful for
+iterating on handlers without re-bundling.
 
 ## Test the helpers offline
 

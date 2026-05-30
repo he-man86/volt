@@ -90,12 +90,19 @@ build_bridge "Beckhoff Bridge" \
 	"-p:PublishTrimmed=false"
 
 # CODESYS bridge — IronPython 2.7 inside CODESYS. No compile step;
-# we package the source tree as a zip the user can extract into their
-# CODESYS script folder. Built independently of the Beckhoff bridge
-# (same per-bridge isolation contract as build_bridge above).
+# we produce TWO artifacts:
+#   - CodesysBridge.zip       — source tree (for users who want to
+#                                inspect / patch)
+#   - volt-codesys-bridge.py  — single-file bundle (what the user
+#                                picks in CODESYS's Tools > Scripting
+#                                > Execute Script File dialog)
+# Built independently of the Beckhoff bridge (same per-bridge
+# isolation contract as build_bridge above).
 build_codesys_bridge() {
 	local bridge_src="$SCRIPT_DIR/codesys/CodesysBridge"
+	local bundler="$SCRIPT_DIR/codesys/bundle.py"
 	local zip_out="$DIST_DIR/CodesysBridge.zip"
+	local single_out="$DIST_DIR/volt-codesys-bridge.py"
 	local ver_file="$bridge_src/version.json"
 
 	echo "Building CODESYS Bridge..."
@@ -106,11 +113,12 @@ build_codesys_bridge() {
 		return
 	fi
 
-	# Strip any prior __pycache__ before zipping so users don't import
-	# stale .pyc on the IronPython side.
+	# Strip any prior __pycache__ before packaging so users don't
+	# import stale .pyc on the IronPython side.
 	find "$bridge_src" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-	rm -f "$zip_out"
+	rm -f "$zip_out" "$single_out"
 
+	# 1. Source-tree zip (inspectable).
 	if command -v zip >/dev/null 2>&1; then
 		( cd "$SCRIPT_DIR/codesys" && zip -rq "$zip_out" CodesysBridge -x "*.pyc" -x "*__pycache__*" )
 	else
@@ -118,14 +126,24 @@ build_codesys_bridge() {
 			|| { echo "  !! zip failed (no zip + no python)" >&2; FAILED+=("CODESYS Bridge"); echo; return; }
 	fi
 
+	# 2. Single-file bundle — what users actually point CODESYS at.
+	if ! python "$bundler" >/dev/null; then
+		echo "  !! single-file bundle failed" >&2
+		FAILED+=("CODESYS Bridge")
+		echo
+		return
+	fi
+
 	local ver
 	if ver=$(python -c "import json; print(json.load(open('$ver_file'))['version'])" 2>/dev/null); then
 		MANIFEST_ENTRIES+=("\"codesys\": \"$ver\"")
 		BUILT+=("CODESYS Bridge ($ver)")
 		echo "  -> $zip_out"
+		echo "  -> $single_out"
 	else
 		BUILT+=("CODESYS Bridge (unknown version)")
 		echo "  -> $zip_out (version parse failed)"
+		echo "  -> $single_out"
 	fi
 	echo
 }
