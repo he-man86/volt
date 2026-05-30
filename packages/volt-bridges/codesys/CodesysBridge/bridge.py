@@ -210,18 +210,47 @@ def main():
 	t.daemon = True  # property works in both IronPython 2.7 and CPython 3+
 	t.start()
 	log.startup("Ready. Connect Volt agent at http://127.0.0.1:{0}".format(BRIDGE_PORT))
+	log.startup("Close CODESYS to stop the bridge.")
 	log.startup("=" * 60)
 
-	# Block the script's main thread forever — CODESYS Scripting's
-	# `Execute Script File` exits the script once the top-level call
-	# returns, which would also stop the daemon HTTP thread. The sleep
-	# loop keeps us alive without consuming CPU.
-	try:
-		while True:
-			time.sleep(60)
-	except (KeyboardInterrupt, SystemExit):
-		log.startup("Bridge stopping (interrupt)")
+	# CRITICAL: do NOT block here. Inside CODESYS, `Tools > Scripting >
+	# Execute Script File` runs this script ON THE IDE'S UI THREAD.
+	# Any blocking call here (sleep loop, server.serve_forever, etc.)
+	# freezes the CODESYS UI and — more importantly — prevents
+	# ui_thread.invoke_on_ui from EVER getting the UI thread to
+	# dispatch CODESYS-API work.
+	#
+	# We return immediately. The script's globals (and the daemon
+	# thread we just started) stay alive in IronPython's interpreter
+	# for the lifetime of the CODESYS process. When CODESYS shuts
+	# down, the daemon dies with the interpreter.
+	#
+	# For non-CODESYS smoke tests (CPython direct run), the
+	# `if __name__ == "__main__"` block below keeps the process alive
+	# instead — needed there because no host event loop is keeping
+	# the daemon thread's owner alive.
 
 
 if __name__ == "__main__":
 	main()
+	# Inside CODESYS: scriptengine is importable. We MUST NOT block
+	# here — the script runs on the IDE's UI thread, so any sleep
+	# would freeze CODESYS and prevent ui_thread.invoke_on_ui from
+	# ever dispatching CODESYS-API work. CODESYS itself keeps the
+	# IronPython interpreter (and our daemon thread) alive for the
+	# lifetime of the process.
+	#
+	# Outside CODESYS (CPython smoke-test): scriptengine is missing.
+	# We DO block, because nothing else is keeping the daemon thread's
+	# parent process alive — if main() returned, the process would
+	# exit and the daemon would die with it.
+	try:
+		import scriptengine  # type: ignore[import-not-found]  # noqa: F401
+		# CODESYS path — fall through, let main() return.
+	except ImportError:
+		# CPython smoke-test path — keep the process alive.
+		try:
+			while True:
+				time.sleep(60)
+		except (KeyboardInterrupt, SystemExit):
+			log.startup("Bridge stopping (interrupt)")
