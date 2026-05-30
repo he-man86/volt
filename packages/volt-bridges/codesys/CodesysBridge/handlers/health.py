@@ -12,6 +12,43 @@ MALFORMED_RESPONSE.
 from .. import ui_thread
 
 
+# Map OEM-rebranded CODESYS product names → variant slug. The
+# bridge auto-detects via Process.MainModule.FileVersionInfo
+# (see codesys_connection._IDE_NAME). Vanilla CODESYS returns
+# "CODESYS" → null variant. Future library-docs lookup uses this
+# to load the right library catalog (Lenze ships LMC/L-force libs,
+# Schneider ships EcoStruxure libs, etc.). LSP doesn't consume it.
+_OEM_VARIANTS = (
+	("lenze",       ("lenze", "plc designer")),
+	("schneider",   ("schneider", "ecostruxure", "machine expert", "som machine")),
+	("wago",        ("wago", "e!cockpit", "ecockpit")),
+	("abb",         ("abb", "automation builder")),
+	("eaton",       ("eaton", "xsoft")),
+	("bachmann",    ("bachmann",)),
+	("festo",       ("festo",)),
+	("phoenix",     ("phoenix contact", "phoenixcontact", "ple")),
+	("ifm",         ("ifm",)),
+	("kw_software", ("kw-software", "multiprog")),
+)
+
+
+def _derive_platform_variant(ide_name):
+	# type: (object) -> object
+	"""Return the OEM-variant slug (lenze / schneider / wago / ...) or
+	None for vanilla CODESYS. Case-insensitive substring match on the
+	IDE's product name."""
+	if not ide_name:
+		return None
+	low = str(ide_name).lower()
+	# "CODESYS" matches almost everything — only emit variant when a
+	# more specific brand token appears alongside.
+	for slug, tokens in _OEM_VARIANTS:
+		for tok in tokens:
+			if tok in low:
+				return slug
+	return None  # vanilla CODESYS
+
+
 def handle(connection, bridge_version):
 	# type: (object, str) -> dict
 	"""Build a HealthResponse dict. Safe to call from the HTTP thread
@@ -42,6 +79,7 @@ def handle(connection, bridge_version):
 	return {
 		"status": status,
 		"platform": "codesys",
+		"platformVariant": _derive_platform_variant(connection.ide_name),
 		"connected": bool(connection.is_connected),
 		"ideAlive": bool(connection.is_connected),
 		"degraded": bool(connection.is_degraded),

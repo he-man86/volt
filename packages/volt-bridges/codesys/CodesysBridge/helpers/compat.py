@@ -19,17 +19,20 @@ IS_PY2 = sys.version_info[0] == 2
 
 try:
 	from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler  # type: ignore[import-not-found]
+	from SocketServer import ThreadingMixIn  # type: ignore[import-not-found]
 	from urlparse import urlparse, parse_qs  # type: ignore[import-not-found]
 	from urllib import unquote  # type: ignore[import-not-found]
 	text_type = unicode  # type: ignore[name-defined,used-before-def] # noqa: F821
 except ImportError:
 	from http.server import HTTPServer, BaseHTTPRequestHandler  # type: ignore[no-redef]
+	from socketserver import ThreadingMixIn  # type: ignore[no-redef]
 	from urllib.parse import urlparse, unquote, parse_qs  # type: ignore[no-redef]
 	text_type = str  # type: ignore[misc,assignment]
 
 __all__ = [
 	"HTTPServer",
 	"BaseHTTPRequestHandler",
+	"ThreadingMixIn",
 	"urlparse",
 	"unquote",
 	"parse_qs",

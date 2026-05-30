@@ -229,19 +229,30 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
  * default — the agent's `volt init` writes the detected vendor into
  * `.volt/config.json` and the client passes the resolved value,
  * so this default only fires when no project context is available.
+ *
+ * **Vendor applicability filter:** after merging user opts, rules
+ * marked vendor-specific in `RULE_VENDOR_APPLICABILITY` get masked
+ * out for the active vendor — e.g. `consecutiveUnderscores` is
+ * silently disabled on CODESYS because CODESYS accepts those
+ * identifiers (recorded divergence). This runs ONCE at init time;
+ * the dispatcher in `../semantic/diagnostics.ts` then sees a
+ * pre-filtered config with zero per-token vendor branching.
  */
+import { filterConfigByVendor } from "./rule-vendor-applicability.js";
+
 export function resolveConfig(opts: PlcLspInitOptions | undefined): ResolvedConfig {
 	const requestedVendor = opts?.vendor;
 	const vendor: Vendor =
 		requestedVendor === "codesys" || requestedVendor === "twincat"
 			? requestedVendor
 			: "codesys"; // "auto" or undefined → codesys default
+	const userDiagnostics: DiagnosticConfig = {
+		...DEFAULT_DIAGNOSTIC_CONFIG,
+		...(opts?.diagnostics ?? {}),
+	};
 	return {
 		vendor,
-		diagnostics: {
-			...DEFAULT_DIAGNOSTIC_CONFIG,
-			...(opts?.diagnostics ?? {}),
-		},
+		diagnostics: filterConfigByVendor(userDiagnostics, vendor),
 		hover: {
 			showSource: opts?.hover?.showSource ?? DEFAULT_RESOLVED_CONFIG.hover.showSource,
 		},

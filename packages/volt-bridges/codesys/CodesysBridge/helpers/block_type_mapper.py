@@ -21,14 +21,70 @@ regardless of which bridge they're talking to.
 # pyright: reportMissingImports=false
 import re
 
-# CODESYS Scripting Engine "type marker" strings — what `str(obj)` returns.
-# These let us classify high-level container kinds without parsing source.
+# CODESYS Scripting Engine "type marker" SUBSTRINGS.
+#
+# `str(obj)` returns a composite of the form:
+#   ScriptObject{Marker1, Marker2, ..., MarkerN}(Project=N, Name=X, guid=...)
+# Each marker is either positive ("ScriptX") or negative ("NoX").
+# To distinguish e.g. ScriptApplication from
+# ScriptApplicationSymbolConfigExtension, we keep the trailing comma
+# on positive markers — that's the field separator inside `{...}`.
+#
+# Verified via /debug/flat against a default CODESYS 3.5 SP21 project
+# (Device → Plc Logic → Application tree with PLC_PRG).
 MARKER_APPLICATION = "ScriptApplication,"
-MARKER_TEXTUAL_DECL = "ScriptTextualDeclaration,"
+# Three distinct textual-item markers seen in /debug/flat against a
+# CODESYS 3.5 SP21 default project:
+#   ScriptTextualDeclarationImplementationObject  decl + impl
+#                                                  (FB, FUNCTION, PROGRAM,
+#                                                   method with body,
+#                                                   property GET/SET body)
+#   ScriptTextualDeclarationObject                decl only
+#                                                  (TYPE/DUT, GVL,
+#                                                   INTERFACE, PROPERTY
+#                                                   signature, interface
+#                                                   method signature)
+#   ScriptTextualImplementationObject             impl only
+#                                                  (ACTION, TRANSITION)
+# We treat all three as "textual" — classify_textual_pou + is_top_level
+# decide which actually surface at the top level of /refs.
+MARKER_TEXTUAL_DECL_IMPL = "ScriptTextualDeclarationImplementationObject,"
+MARKER_TEXTUAL_DECL_ONLY = "ScriptTextualDeclarationObject,"
+MARKER_TEXTUAL_IMPL = "ScriptTextualImplementationObject,"
+# Legacy alias — keep so existing call-sites (compute_item_version,
+# fetch._build_get_result, etc.) keep working until they migrate to
+# the broader `is_textual_item` predicate.
+MARKER_TEXTUAL_DECL = MARKER_TEXTUAL_DECL_IMPL
 MARKER_NON_TEXTUAL = "ScriptNonTextualObject,"
 MARKER_TASK = "ScriptTaskConfigObject,"
 MARKER_DEVICE = "ScriptDeviceObject,"
 MARKER_FOLDER = "ScriptFolderObject,"
+# Transient duplicates: visualization styles, runtime-generated copies
+# of POUs, etc. Filter these out of /refs and /fetch — they'd produce
+# phantom items with the same name as a real POU.
+MARKER_TRANSIENT = "ScriptTransientObjectMarker,"
+
+
+def is_textual_item(marker_string):
+	# type: (str) -> bool
+	"""True if `str(obj)` indicates the object carries textual ST source
+	(any of decl, impl, or both). Use this instead of a single marker
+	check — different POU kinds use different marker tokens."""
+	return (
+		MARKER_TEXTUAL_DECL_IMPL in marker_string
+		or MARKER_TEXTUAL_DECL_ONLY in marker_string
+		or MARKER_TEXTUAL_IMPL in marker_string
+	)
+
+
+def has_declaration(marker_string):
+	# type: (str) -> bool
+	"""True if the object exposes a `textual_declaration` document.
+	False for ACTION / TRANSITION (impl-only)."""
+	return (
+		MARKER_TEXTUAL_DECL_IMPL in marker_string
+		or MARKER_TEXTUAL_DECL_ONLY in marker_string
+	)
 
 # Vendor-neutral kinds we emit on the wire — must match
 # `BlockTypeMapper.ToNodeType` output strings in the C# bridge.

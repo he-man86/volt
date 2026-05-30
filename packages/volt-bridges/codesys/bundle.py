@@ -47,6 +47,8 @@ MODULES = [
 	("CodesysBridge.helpers.log", "helpers/log.py"),
 	("CodesysBridge.helpers.json_lite", "helpers/json_lite.py"),
 	("CodesysBridge.helpers.block_type_mapper", "helpers/block_type_mapper.py"),
+	("CodesysBridge.helpers.plcopen_xml", "helpers/plcopen_xml.py"),
+	("CodesysBridge.helpers.cross_bundle_state", "helpers/cross_bundle_state.py"),
 	("CodesysBridge.helpers.code_helper", "helpers/code_helper.py"),
 	("CodesysBridge.helpers.st_splitter", "helpers/st_splitter.py"),
 	("CodesysBridge.helpers.st_assembler", "helpers/st_assembler.py"),
@@ -57,6 +59,7 @@ MODULES = [
 	("CodesysBridge.handlers.fetch", "handlers/fetch.py"),
 	("CodesysBridge.handlers.push", "handlers/push.py"),
 	("CodesysBridge.handlers.build", "handlers/build.py"),
+	("CodesysBridge.handlers.debug", "handlers/debug.py"),
 ]
 ENTRY_REL = "bridge.py"
 
@@ -197,6 +200,18 @@ def main():
 	# Inject the version so the entry's _read_bridge_version() finds it
 	# without needing version.json on the filesystem.
 	out.append("_BUNDLED_VERSION = {0!r}\n".format(version))
+	# Unique build-id per bundle invocation, so /health can reveal
+	# exactly which bundle is running. Critical for diagnosing "did my
+	# re-execution actually take over the old bridge?" — same
+	# _BUNDLED_VERSION every time would tell us nothing.
+	import datetime, hashlib
+	stamp = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+	# Hash the bundled source so identical rebuilds produce identical
+	# ids (idempotent), but ANY source change produces a new id.
+	content_so_far = "\n\n".join(out)
+	digest = hashlib.sha1(content_so_far.encode("utf-8")).hexdigest()[:8]
+	build_id = "{0}-{1}".format(stamp, digest)
+	out.append("_BUNDLED_BUILD_ID = {0!r}\n".format(build_id))
 	out.append(entry_src)
 
 	# Write atomically.

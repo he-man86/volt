@@ -125,14 +125,25 @@ const ENTRIES: ReferenceEntry[] = [
 	// is "twincat" so users see a red squiggle instead of waiting for the
 	// compiler. __ISVALIDREF is the exception — TC accepts it cleanly.
 	op("__NEW", "system", "Dynamic FB instantiation. `__NEW(FB_Name)` returns a POINTER TO FB_Name.", {
-		vendor: "codesys",
-		gotchas: ["Requires {attribute 'enable_dynamic_creation'} on the FB.", "TwinCAT rejects — use static FB instances or explicit pool patterns."],
+		// vendor tag intentionally omitted: TC parses __NEW without
+		// rejecting (verified by `op_sys_new_delete` recording → TC 0 errors).
+		// It's CODESYS-specific in spirit (TC has no runtime to back the
+		// dynamic-allocation semantic), but flagging it as syntactically
+		// vendor-rejected produces false positives. The `gotchas` text
+		// still surfaces in hover so users get the portability heads-up.
+		gotchas: [
+			"Requires {attribute 'enable_dynamic_creation'} on the FB.",
+			"TC parses without errors but lacks the runtime — call has no effect on TwinCAT.",
+		],
 		equivalentIn: {
 			twincat: { name: "(no direct equivalent)", note: "TC programs use static instances or pre-allocated pools" },
 		},
 	}),
 	op("__DELETE", "system", "Dispose a dynamically-allocated FB. `__DELETE(pInst)`.", {
-		vendor: "codesys",
+		// See __NEW above — TC parses cleanly, gotcha lives in hover only.
+		gotchas: [
+			"TC parses without errors but the matching __NEW has no runtime backing.",
+		],
 		equivalentIn: {
 			twincat: { name: "(no direct equivalent)", note: "Pair of __NEW; TC doesn't support either" },
 		},

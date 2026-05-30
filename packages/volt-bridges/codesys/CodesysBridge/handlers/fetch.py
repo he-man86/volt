@@ -14,7 +14,7 @@ Mirrors `packages/volt-bridges/beckhoff/BeckhoffBridge/Handlers/FetchHandler.cs`
 # pyright: reportMissingImports=false
 from .. import codesys_connection as _conn_mod
 from .. import ui_thread
-from ..helpers import block_type_mapper, st_assembler
+from ..helpers import block_type_mapper, log, plcopen_xml, st_assembler
 
 
 def handle(connection, body):
@@ -44,9 +44,11 @@ def handle(connection, body):
 			try:
 				result = _build_get_result(name, kind, item)
 				source_text = st_assembler.assemble(result)
-			except Exception:
-				# Skip bad items — they'll show up in `removed` if they
-				# genuinely disappear next round.
+			except Exception as e:
+				# Log loud — silent drops mask real bugs (e.g. an FBD
+				# POU classification path that produces an assembler
+				# input the assembler doesn't accept).
+				log.warn("[FETCH] dropped {0!r} (kind={1!r}): {2}".format(name, kind, e))
 				continue
 			slim = {
 				"name": name,
@@ -58,6 +60,11 @@ def handle(connection, body):
 				slim["folder"] = result["folder"]
 			if result.get("language"):
 				slim["language"] = result["language"]
+			# Non-ST POUs ship their graphical body as PLCopenXML so
+			# the agent can either round-trip it or treat the POU as
+			# read-only. ST POUs never set this field.
+			if result.get("implementationXml"):
+				slim["implementationXml"] = result["implementationXml"]
 			changed.append(slim)
 		return versions, changed
 
@@ -77,29 +84,53 @@ def _build_get_result(name, kind, item):
 	# type: (str, str, object) -> dict
 	"""Build the dict shape st_assembler.assemble expects — equivalent
 	to GetHandler.BuildResult in the C# bridge. Pulls declaration +
-	implementation + children from the CODESYS item."""
+	implementation + children from the CODESYS item.
+
+	For non-ST POUs (FBD / LD / SFC / CFC), the declaration is still
+	textual (interface / VAR sections) but the implementation lives in
+	PLCopenXML — we surface it on the side as `implementationXml`.
+	"""
+	cls = plcopen_xml.classify(item)
+	language = cls.get("language") or "ST"
+	is_textual = cls.get("is_textual", True)
 	result = {
 		"name": name,
 		"kind": kind,
 		"declaration": _safe_text(getattr(item, "textual_declaration", None)),
-		"implementation": _safe_text(getattr(item, "textual_implementation", None)),
+		"implementation": _safe_text(getattr(item, "textual_implementation", None)) if is_textual else "",
 		"children": [],
 		"folder": None,
-		"language": "ST",
+		"language": language,
 	}
-	# Composite POU children
+	# Graphical POUs: their implementation isn't ST — surface the raw
+	# PLCopenXML <body> so the agent can either round-trip it or treat
+	# the POU as read-only. Wire consumers that don't recognize the
+	# field will simply ignore it (strict zod on FetchedItem will need
+	# the optional field added before this surfaces to the SaaS, but
+	# the bridge emits it so /debug/fetch already sees it).
+	if not is_textual:
+		body_xml = plcopen_xml.extract_graphical_body(item)
+		if body_xml:
+			result["implementationXml"] = body_xml
+	# Composite POU children. Use recursive=True so we flatten through
+	# any `folder` container the user has created INSIDE the POU
+	# (CODESYS lets you organize methods/actions under a folder inside
+	# the POU's namespace). The folder itself has no textual marker
+	# so is filtered by is_textual_item; Set/Get accessors get
+	# KIND_UNKNOWN classification and are skipped here — they ride via
+	# _collect_property_accessors when we process their parent Prop.
 	if kind in ("function_block", "function", "program", "interface"):
 		try:
-			for child in item.get_children(recursive=False):
+			for child in item.get_children(recursive=True):
 				try:
 					marker = str(child)
 				except Exception:
 					continue
-				if block_type_mapper.MARKER_TEXTUAL_DECL not in marker:
+				if not block_type_mapper.is_textual_item(marker):
 					continue
 				cdecl = _safe_text(getattr(child, "textual_declaration", None))
 				cimpl = _safe_text(getattr(child, "textual_implementation", None))
-				child_kind = _classify_child(cdecl)
+				child_kind = _classify_child(cdecl, marker)
 				if child_kind == block_type_mapper.KIND_UNKNOWN:
 					continue
 				try:
@@ -108,6 +139,12 @@ def _build_get_result(name, kind, item):
 					cname = ""
 				if not cname:
 					continue
+				# CODESYS ACTIONs (and TRANSITIONs) are impl-only — they
+				# have no textual_declaration document. The assembler
+				# needs `ACTION <name>` as the declaration line so it
+				# can emit `ACTION X / <impl> / END_ACTION`. Synthesize.
+				if child_kind == block_type_mapper.KIND_ACTION and not cdecl.strip():
+					cdecl = "ACTION {0}".format(cname)
 				child_entry = {
 					"kind": child_kind,
 					"name": cname,
@@ -124,10 +161,17 @@ def _build_get_result(name, kind, item):
 	return result
 
 
-def _classify_child(decl_text):
-	# type: (str) -> str
-	"""Pick child kind (method/action/property) from declaration. Falls
-	back to KIND_UNKNOWN on any other shape."""
+def _classify_child(decl_text, marker_string=""):
+	# type: (str, str) -> str
+	"""Pick child kind (method/action/property) from declaration. ACTION
+	and TRANSITION carry no declaration text (impl-only items) — they
+	get classified from the marker string instead. Falls back to
+	KIND_UNKNOWN on any other shape."""
+	# Impl-only marker means ACTION (or TRANSITION, which we treat as
+	# ACTION on the wire because TwinCAT lacks the distinction).
+	if marker_string and block_type_mapper.MARKER_TEXTUAL_IMPL in marker_string \
+			and block_type_mapper.MARKER_TEXTUAL_DECL_IMPL not in marker_string:
+		return block_type_mapper.KIND_ACTION
 	stripped = block_type_mapper.strip_leading_trivia(decl_text)
 	upper = stripped.lstrip()[:9].upper()
 	if upper.startswith("METHOD"):

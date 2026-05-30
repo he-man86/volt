@@ -48,6 +48,19 @@ export const HealthResponseSchema = z
 		status: z.enum(["healthy", "degraded", "unavailable"]),
 		/** Vendor identifier — "beckhoff" | "codesys" | "tia" | ... */
 		platform: z.string(),
+		/**
+		 * OEM variant of the platform — when CODESYS is rebranded by an
+		 * OEM (Lenze PLC Designer, Schneider EcoStruxure Machine Expert,
+		 * Wago e!Cockpit, etc.), the variant name. Null for vanilla
+		 * CODESYS or non-CODESYS platforms. The bridge derives this from
+		 * the IDE process's product-info metadata (FileVersionInfo).
+		 *
+		 * Not consumed by the LSP today — the conformance ruleset is
+		 * indexed by `platform` only. Variant matters for library docs
+		 * (each OEM ships its own library set) and is plumbed here so
+		 * that work can branch on it later without a wire-protocol bump.
+		 */
+		platformVariant: z.string().nullish(),
 		/** True when the bridge has a live handle to the IDE. */
 		connected: z.boolean(),
 		/** True when the IDE process is reachable. */

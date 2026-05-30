@@ -22,7 +22,7 @@ next successful probe.
 # pyright: reportMissingImports=false
 import hashlib
 
-from .helpers import block_type_mapper, log
+from .helpers import block_type_mapper, log, plcopen_xml
 
 # CODESYS Scripting Engine imports — only present inside the IDE.
 _SCRIPTENGINE_AVAILABLE = False
@@ -149,7 +149,17 @@ class CodesysConnection(object):
 		# type: () -> list
 		"""Walk the project tree and yield (name, kind, item) for
 		every top-level CRUD-addressable object (POU/GVL/DUT/Interface).
-		Folders are walked through transparently.
+
+		Uses CODESYS's built-in recursive walk so we transparently
+		descend into Device -> PLC Logic -> Application -> POUs without
+		hard-coding the intermediate container types. We filter the
+		flat enumeration: keep only items whose str() marker says
+		ScriptTextualDeclaration AND whose first declaration keyword
+		classifies to one of our top-level kinds. Methods / actions /
+		properties (nested under their parent POU) classify as
+		KIND_UNKNOWN here (no FUNCTION_BLOCK / FUNCTION / etc. lead
+		keyword) and get filtered out — they ride inline via
+		StAssembler when /fetch emits their parent.
 
 		Returns a list (not a generator) so the caller can release the
 		UI thread before iterating."""
@@ -157,37 +167,55 @@ class CodesysConnection(object):
 		proj = self.get_project()
 		if proj is None:
 			return out
-		self._walk(proj, out)
-		return out
-
-	def _walk(self, node, out):
 		try:
-			children = node.get_children(recursive=False)
+			all_children = proj.get_children(recursive=True)
 		except Exception:
-			return
-		for child in children:
+			return out
+		for child in all_children:
 			try:
 				marker = str(child)
 			except Exception:
 				continue
-			# Folder: recurse
-			if block_type_mapper.MARKER_FOLDER in marker:
-				self._walk(child, out)
+			# Accept any textual marker (decl+impl, decl-only, or impl-only).
+			if not block_type_mapper.is_textual_item(marker):
 				continue
-			# Textual object: classify by first declaration keyword
-			if block_type_mapper.MARKER_TEXTUAL_DECL in marker:
-				try:
-					decl = child.textual_declaration.text or ""
-				except Exception:
-					continue
-				kind = block_type_mapper.classify_textual_pou(decl)
-				if block_type_mapper.is_top_level(kind):
-					try:
-						name = child.get_name() if hasattr(child, "get_name") else None
-					except Exception:
-						continue
-					if name:
-						out.append((name, kind, child))
+			# Skip transient duplicates (visualization runtime copies).
+			if block_type_mapper.MARKER_TRANSIENT in marker:
+				continue
+			# Only items with a declaration are top-level candidates.
+			# ACTION / TRANSITION (impl-only) ride inline under their
+			# parent POU — handled in fetch.py.
+			if not block_type_mapper.has_declaration(marker):
+				continue
+			# Two-step classification:
+			#  (1) HEADER PARSE — gate which items are even ELIGIBLE
+			#      for top-level enumeration. Methods / actions /
+			#      properties / accessors all return KIND_UNKNOWN
+			#      from classify_textual_pou and get skipped here.
+			#      This is the FILTER step.
+			#  (2) PLCopenXML — once we know it's a top-level POU
+			#      candidate, refine the kind authoritatively (this
+			#      is the Beckhoff-parity step — see plcopen_xml.py).
+			# Doing XML-only would falsely classify methods as their
+			# parent FB's kind, because `obj.export_xml()` on a method
+			# returns the parent POU's full XML wrapper.
+			try:
+				decl = child.textual_declaration.text or ""
+			except Exception:
+				continue
+			header_kind = block_type_mapper.classify_textual_pou(decl)
+			if not block_type_mapper.is_top_level(header_kind):
+				continue
+			# Refine with PLCopenXML when available.
+			cls = plcopen_xml.classify(child)
+			kind = cls["kind"] if cls["kind"] != block_type_mapper.KIND_UNKNOWN else header_kind
+			try:
+				name = child.get_name() if hasattr(child, "get_name") else None
+			except Exception:
+				continue
+			if name:
+				out.append((name, kind, child))
+		return out
 
 	def find_by_name(self, name):
 		# type: (str) -> object
@@ -252,7 +280,7 @@ class CodesysConnection(object):
 					marker = str(child)
 				except Exception:
 					continue
-				if block_type_mapper.MARKER_TEXTUAL_DECL not in marker:
+				if not block_type_mapper.is_textual_item(marker):
 					continue
 				try:
 					cname = child.get_name() if hasattr(child, "get_name") else ""

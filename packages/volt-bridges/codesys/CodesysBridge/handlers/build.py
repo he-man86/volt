@@ -31,6 +31,22 @@ except ImportError:
 
 _POSITION_RE = re.compile(r"Line\s+(\d+)\s*\(?(\w+)?\)?", re.IGNORECASE)
 
+# When the user has CODESYS's IronPython script tracer enabled
+# (Tools > Options > Scripting > Trace Lines / Trace Function), each
+# executed line is logged to the same message store the build handler
+# reads from. Filter them out — they have a distinctive prefix
+# `<filename>.py(<line>):` or `<filename>.py(<line> in <fn>@<line>):`.
+# Without this filter, /build returns 5000+ "info" diagnostics per
+# script execution and the response becomes unusable.
+_TRACER_RE = re.compile(r"^[\w_-]+\.py\(\d+(?:\s+in\s+[\w_]+@\d+)?\):")
+
+# CODESYS also captures stdout writes (our own log lines!) into the
+# message store. Our log lines have a fixed prefix:
+# `[HH:MM:SS] CATEGORY  message...` where CATEGORY is one of STARTUP /
+# IDE / HTTP / WARN / ERROR (constant-width 7 chars). Filter those —
+# they're our diagnostic output, not the user's build output.
+_OWN_LOG_RE = re.compile(r"^\[\d{2}:\d{2}:\d{2}\]\s+(STARTUP|IDE|HTTP|WARN|ERROR)\s")
+
 
 def handle(connection, body):
 	# type: (object, dict) -> dict
@@ -79,7 +95,7 @@ def _collect_diagnostics():
 	# type: () -> list
 	"""Yield BridgeDiagnostic-shaped dicts from the CODESYS message
 	store. Feature-detects SP18 (single get_message_objects()) vs SP21+
-	(per-category enumeration)."""
+	(per-category enumeration). Tracer output filtered."""
 	out = []
 	if system is None:
 		return out
@@ -87,7 +103,9 @@ def _collect_diagnostics():
 	try:
 		msgs = list(system.get_message_objects())
 		for m in msgs:
-			out.append(_normalize_message(m))
+			d = _normalize_message(m)
+			if not _is_tracer_noise(d):
+				out.append(d)
 		return out
 	except TypeError:
 		# SP21+ requires category — fall through.
@@ -99,12 +117,23 @@ def _collect_diagnostics():
 		for cat in system.get_message_categories():
 			try:
 				for m in system.get_message_objects(cat):
-					out.append(_normalize_message(m))
+					d = _normalize_message(m)
+					if not _is_tracer_noise(d):
+						out.append(d)
 			except Exception:
 				continue
 	except Exception:
 		pass
 	return out
+
+
+def _is_tracer_noise(diag):
+	# type: (dict) -> bool
+	"""True for non-build noise that leaks into the message store:
+	IronPython script-tracer entries (when tracing is enabled) AND
+	our own bridge log lines (CODESYS captures script stdout)."""
+	msg = diag.get("message") or ""
+	return _TRACER_RE.match(msg) is not None or _OWN_LOG_RE.match(msg) is not None
 
 
 def _normalize_message(msg):

@@ -120,3 +120,81 @@ the two recordings surfaces real IEC-61131-3 spec ambiguity.
   multi-signature fallback.
 - `obj.textual_declaration.text` can return `str` (bytes) or `unicode`
   depending on SP; `fetch.py:_safe_text` handles three encodings.
+
+## Authoritative classification via PLCopenXML
+
+POU kind (FB / FUNCTION / PROGRAM / INTERFACE), implementation
+language (ST / IL / LD / FBD / SFC / CFC), and DUT subtype
+(struct / enum / union / alias) all come from `obj.export_xml()`,
+which returns full PLCopenXML 2.01. Equivalent of TwinCAT's numeric
+`ItemType` enum — no header-text parsing required.
+
+- `<pou pouType="functionBlock">` → kind
+- `<body><FBD>` / `<ST>` / `<LD>` / etc → language
+- `<dataType><baseType><struct/>` → DUT subtype
+- For graphical POUs, the textual declaration is still text but the
+  body is structural — fetched as `implementationXml` field
+
+Header-keyword parsing (`classify_textual_pou`) is the FALLBACK that
+only fires when PLCopenXML export fails. It also serves as the
+top-level filter: we header-parse first to skip methods / actions /
+properties that would otherwise show up as their parent POU's kind
+(because `export_xml()` on a method returns the parent's full XML).
+
+CODESYS exposes 3 distinct "textual" markers via `str(obj)`:
+- `ScriptTextualDeclarationImplementationObject` — POUs with both
+  declaration AND implementation (FBs, FUNCTIONs, PROGRAMs,
+  methods, property GET/SET bodies)
+- `ScriptTextualDeclarationObject` — declaration-only (TYPEs, GVLs,
+  INTERFACEs, property signatures, interface method signatures)
+- `ScriptTextualImplementationObject` — implementation-only
+  (ACTIONs, TRANSITIONs)
+
+`block_type_mapper.is_textual_item` matches all three.
+
+## Cross-bundle re-execution (no CODESYS restart)
+
+To iterate on the bridge — rebuild bundle, re-execute the script
+without restarting CODESYS — the new bundle's `_stop_existing_bridge_if_any`
+finds the previous bundle's `HTTPServer` via
+`helpers.cross_bundle_state` (backed by `System.AppDomain.CurrentDomain.GetData/SetData`)
+and shuts it down directly.
+
+Why AppDomain and not `sys`:
+
+- Module globals reset every script execution (fresh ScriptScope per
+  `Execute Script File`). So `_server_singleton = None` on every run.
+- CODESYS does NOT share `sys` attributes across script executions
+  either, despite IronPython docs implying it does. **Verified
+  empirically** — `setattr(sys, "_test", "x")` in one run is not
+  visible in the next.
+- `System.AppDomain.CurrentDomain` IS process-wide and survives every
+  Execute Script File invocation for the CODESYS lifetime.
+
+Other Windows / IronPython 2.7 gotchas baked into the bridge:
+
+| Issue | Workaround | Where |
+|---|---|---|
+| `HTTPServer` is single-threaded — handler blocked on UI thread paralyzes serve_forever, so `/admin/shutdown` POSTs time out | `ThreadingMixIn` subclass | `_ReusableHTTPServer` in `bridge.py` |
+| `BaseHTTPServer.server_close()` doesn't actually free the listening socket — netstat shows two LISTENING sockets after | Manually `getattr(server, "socket").close()` after | `_shutdown_server` in `bridge.py` |
+| `SO_REUSEADDR` on Windows lets MULTIPLE sockets bind to same port | Always combine with explicit raw-socket close on the OLD socket | `_shutdown_server` |
+| Worker thread `sys.stdout.write` silently fails in CODESYS (UI marshalling) — daemon-thread logs are LOST | Dual-output logger: stdout + `%TEMP%/volt-codesys-bridge.log` file. File log shows thread name. | `helpers/log.py` |
+| IronPython 2.7's `ElementTree.tostring(elem, encoding="unicode")` raises `unknown encoding: unicode` (Py3-only kwarg) | Call without `encoding`, get bytes, decode | `plcopen_xml.extract_graphical_body` |
+| PEP 515 numeric literals (`30_000`) are a syntax error in IronPython 2.7 | Plain integers | (codebase-wide) |
+| CODESYS's bundled-script tracer renames pseudo-paths with `<>` to broken paths → console spam | Use `bundled_X.py` pseudo-paths, not `<bundled:X>` | `bundle.py` |
+
+## Debug endpoints
+
+Read-only inspection surface, not part of the agent wire contract:
+
+- `GET /debug/build-id` — which bundle is serving (timestamp + content hash)
+- `GET /debug/cross-bundle-state` — AppDomain registration dump
+- `GET /debug/project` — `projects.primary` introspection
+- `GET /debug/flat` — flat list of every descendant of project root
+- `GET /debug/tree` — hierarchical tree (depth-limited)
+- `GET /debug/item?name=X` — full introspection of one item
+- `GET /debug/probe?name=X` — exhaustive attribute probe (CLR type,
+  properties, methods, candidate attribute name probe — used to
+  decide whether classification can be done structurally vs text-parsed)
+- `POST /admin/shutdown` — manual escape hatch; cooperative shutdown
+  via curl without restarting CODESYS
