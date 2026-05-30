@@ -126,6 +126,23 @@ internal sealed class FetchHandler
 					if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
 					if (result.TryGetValue("folder", out object? folderVal)) slim["folder"] = folderVal;
 					if (result.TryGetValue("language", out object? langVal)) slim["language"] = langVal;
+					// Graphical POU bodies (FBD/LD/SFC/CFC): export as
+					// PLCopenXML so the agent can write a faithful .fbd
+					// file with the body XML preserved verbatim (matches
+					// what the CODESYS bridge sends). ST bodies skip
+					// this entirely — `sourceText` carries everything
+					// for textual languages. Note: we check the language
+					// TAG ("FBD"/"LD"/"SFC"/"CFC") directly; don't call
+					// LanguageDetector.IsGraphical(string) — that sniffs
+					// XML markers in body TEXT, not language tags.
+					if (langVal is string langStr && IsGraphicalLanguage(langStr))
+					{
+						string? bodyXml = _connection.ExportItemBodyAsXml(child, name);
+						if (!string.IsNullOrEmpty(bodyXml))
+						{
+							slim["implementationXml"] = bodyXml;
+						}
+					}
 					changed.Add(slim);
 				}
 				catch
@@ -135,6 +152,15 @@ internal sealed class FetchHandler
 			}
 		}
 	}
+
+	/// <summary>
+	/// True when the language tag indicates a graphical body (FBD / LD /
+	/// SFC / CFC). Plain string match — don't confuse with
+	/// LanguageDetector.IsGraphical(string), which expects implementation
+	/// TEXT and sniffs XML markers inside it.
+	/// </summary>
+	private static bool IsGraphicalLanguage(string lang) =>
+		lang is "FBD" or "LD" or "SFC" or "CFC";
 
 	private static Dictionary<string, string> ParseKnownItems(JsonObject body)
 	{

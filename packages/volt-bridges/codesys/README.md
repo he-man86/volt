@@ -183,6 +183,51 @@ Other Windows / IronPython 2.7 gotchas baked into the bridge:
 | PEP 515 numeric literals (`30_000`) are a syntax error in IronPython 2.7 | Plain integers | (codebase-wide) |
 | CODESYS's bundled-script tracer renames pseudo-paths with `<>` to broken paths → console spam | Use `bundled_X.py` pseudo-paths, not `<bundled:X>` | `bundle.py` |
 
+## Graphical-POU round-trip (FBD / LD / SFC / CFC)
+
+Pull and push both work for graphical POUs via the **export-as-template
+pattern** — the load-bearing architectural decision learned the hard way
+when hand-crafted PLCopenXML kept failing CODESYS / TwinCAT's schema
+validation (missing `fileHeader` / `contentHeader` / `coordinateInfo` /
+…). Same pattern on both bridges; both unit-tested against captured
+fixtures.
+
+### Pull (`/fetch`)
+1. Bridge classifies the POU's language via `plcopen_xml.classify`
+2. For graphical POUs: bridge calls `obj.export_xml()`, parses the
+   document, extracts just the `<body>` element via
+   `plcopen_xml.extract_graphical_body`
+3. Wire payload carries `sourceText` (textual decl) + `language` +
+   `implementationXml` (raw `<body>` XML)
+4. Agent's `embedGraphicalBody` splices the body XML between
+   `END_VAR` and `END_PROGRAM` in the `.fbd` / `.ld` / `.sfc` / `.cfc`
+   file — declaration stays grep-friendly ST
+
+### Push (`/push`)
+1. Agent's `extractGraphicalBody` splits the `.fbd` file at `<body>` —
+   sends decl as `sourceText`, body XML as `implementationXml`
+2. Bridge writes the decl via `textual_declaration.text = decl`
+3. Bridge calls `existing.export_xml()` to get a **schema-valid
+   template** (the same document CODESYS would emit for this POU,
+   including all CODESYS-specific `addData` / vendor extensions)
+4. `plcopen_xml.replace_body_in_pou` parses the template, surgical-
+   replaces the `<body>` element with the incoming XML
+5. Bridge calls `existing.import_xml(modified_document)` — CODESYS
+   sees the same-named POU and updates in-place
+
+**Why export-as-template?** Hand-crafting PLCopenXML was tried and
+abandoned. Both vendors validate the schema strictly: CODESYS rejects
+documents missing `<addData>`, TC rejects documents missing
+`<fileHeader>` then `<contentHeader>` then `<coordinateInfo>`, and so
+on. Using the vendor's own export as the template means we always get a
+schema-valid envelope to splice into, regardless of vendor-specific
+quirks.
+
+**Create-new graphical POU from XML** isn't supported yet — the bridge's
+`create_pou` path doesn't know how to set body language. Push rejects
+those ops with a clear `GRAPHICAL_CREATE_UNSUPPORTED` error; user
+creates the POU in the IDE first, then re-pulls and edits.
+
 ## Debug endpoints
 
 Read-only inspection surface, not part of the agent wire contract:

@@ -8,11 +8,15 @@
  * is a one-place change.
  *
  * Two extension families:
- *  - **ST-content** (.st/.gvl/.dut/.itf): parsable ST grammar, pull +
- *    push round-trip works.
- *  - **Graphical** (.fbd/.ld/.sfc/.cfc): bridge serializes placeholder
- *    text since the real content is binary/XML and the LSP doesn't
- *    parse it. Pull-only — push pipeline filters these out.
+ *  - **ST-content** (.st/.gvl/.dut/.itf): parsable ST grammar; pull +
+ *    push round-trip via plain text.
+ *  - **Graphical** (.fbd/.ld/.sfc/.cfc): textual declaration plus a
+ *    PLCopenXML `<body>` block (see `graphical-pou.ts`). Pull + push
+ *    round-trip works update-only — creating a NEW graphical POU
+ *    from a `.fbd` file isn't supported yet (bridge create_pou path
+ *    can't set body language). `isGraphicalPath` flags these files
+ *    so the engine routes them through the graphical-aware splitter
+ *    rather than treating their content as raw ST.
  */
 import type { PouKind } from "../bridge/types.js";
 
@@ -42,7 +46,7 @@ const LANG_EXT: Record<string, string> = {
 /** Every extension this workspace recognizes as a POU file. */
 export const POU_EXTENSIONS = [".st", ".gvl", ".dut", ".itf", ".fbd", ".ld", ".sfc", ".cfc"] as const;
 
-/** Pull-only extensions — bridge body content is a placeholder, push would round-trip garbage. */
+/** Graphical-language extensions — files with PLCopenXML body block. */
 const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
 
 /** True if a workspace-relative path is a POU file (any recognized ST or graphical extension). */
@@ -50,7 +54,12 @@ function isPouPath(path: string): boolean {
 	return POU_EXTENSIONS.some((e) => path.endsWith(e));
 }
 
-/** True if the path is a graphical-language POU (pull-only). */
+/**
+ * True if the path is a graphical-language POU. Used to route the
+ * file through `extractGraphicalBody` during push so the embedded
+ * PLCopenXML body gets sent as `implementationXml` (not crammed
+ * into `sourceText` where StSplitter would choke on the XML).
+ */
 export function isGraphicalPath(path: string): boolean {
 	return GRAPHICAL_EXTENSIONS.some((e) => path.endsWith(e));
 }

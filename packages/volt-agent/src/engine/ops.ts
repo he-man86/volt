@@ -33,6 +33,7 @@
 import type { Remote } from "../bridge/remote.js";
 import type {
 	FetchedItem,
+	PushItemOp,
 	PushOp,
 	PushResponse,
 } from "../bridge/types.js";
@@ -56,6 +57,7 @@ import {
 	nameFromPouPath,
 	pickExtension,
 } from "./pou-files.js";
+import { embedGraphicalBody, extractGraphicalBody } from "./graphical-pou.js";
 
 // ─── Bridge → workspace materialization ────────────────────────────────
 
@@ -162,7 +164,15 @@ function materializeItem(item: FetchedItem): { path: string; content: string } {
 	const ext = pickExtension(kind, item.language);
 	const folder = item.folder ?? "";
 	const path = joinPath(folder, `${item.name}.${ext}`);
-	return { path, content: item.sourceText };
+	// Graphical POUs (FBD/LD/SFC/CFC): splice the PLCopenXML <body> into
+	// the textual declaration between END_VAR and END_PROGRAM. Keeps the
+	// variable section as plain ST (grep/diff/LLM-friendly) while
+	// preserving the graphical logic verbatim for future push.
+	const content =
+		item.implementationXml !== undefined && item.implementationXml !== null
+			? embedGraphicalBody(item.sourceText, item.implementationXml)
+			: item.sourceText;
+	return { path, content };
 }
 
 // ─── Drift-cause diagnostic ───────────────────────────────────────────
@@ -280,9 +290,10 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	for (const entry of entries) {
 		const name = nameFromPouPath(entry.path);
 		if (name === undefined) continue;
-		// Graphical POUs (.fbd/.ld/.sfc/.cfc) are pull-only — their
-		// content is a placeholder. Filter from the push map.
-		if (isGraphicalPath(entry.path)) continue;
+		// Graphical POUs are now first-class in push too — the embedded
+		// PLCopenXML body in .fbd / .ld / .sfc / .cfc files gets extracted
+		// via extractGraphicalBody and sent alongside the textual decl
+		// (see emitPushItem below).
 		const segs = entry.path.split("/");
 		const folder = segs.slice(0, -1).join("/");
 		const existing = out.get(name);
@@ -334,13 +345,7 @@ function buildPushOps(
 
 		if (prevFile === undefined) {
 			// New item — pushItem with ifVersion=null = create-new semantics.
-			ops.push({
-				op: "pushItem",
-				name,
-				...(currFile.folder.length > 0 && { folder: currFile.folder }),
-				sourceText: currContent,
-				ifVersion: null,
-			});
+			ops.push(buildPushItemOp(name, currFile, currContent, null));
 			continue;
 		}
 
@@ -359,16 +364,51 @@ function buildPushOps(
 
 		// Content changed (folder may have changed too) — single
 		// pushItem carries the full new sourceText AND the new folder.
-		ops.push({
-			op: "pushItem",
-			name,
-			...(currFile.folder.length > 0 && { folder: currFile.folder }),
-			sourceText: currContent,
-			ifVersion,
-		});
+		ops.push(buildPushItemOp(name, currFile, currContent, ifVersion));
 	}
 
 	return ops;
+}
+
+/**
+ * Construct a `pushItem` op from a workspace file's content. For
+ * graphical POUs, split the file via `extractGraphicalBody`:
+ *   - `sourceText` carries the textual declaration only
+ *   - `implementationXml` carries the raw `<body>` PLCopenXML
+ * For ST POUs and graphical files lacking a body marker, send the
+ * whole file as `sourceText` (bridge handles it via the splitter).
+ */
+function buildPushItemOp(
+	name: string,
+	currFile: PouFile,
+	currContent: string,
+	ifVersion: string | null,
+): PushItemOp {
+	const folderField = currFile.folder.length > 0 ? { folder: currFile.folder } : {};
+	if (isGraphicalPath(currFile.entry.path)) {
+		const parsed = extractGraphicalBody(currContent);
+		if (parsed !== null) {
+			return {
+				op: "pushItem",
+				name,
+				...folderField,
+				sourceText: parsed.declarationText,
+				implementationXml: parsed.bodyXml,
+				ifVersion,
+			};
+		}
+		// Graphical file with no embedded body — fall through to
+		// plain push. Bridge will run StSplitter on the whole content
+		// and either succeed (declaration-only file) or surface a
+		// parse error the caller can act on.
+	}
+	return {
+		op: "pushItem",
+		name,
+		...folderField,
+		sourceText: currContent,
+		ifVersion,
+	};
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────

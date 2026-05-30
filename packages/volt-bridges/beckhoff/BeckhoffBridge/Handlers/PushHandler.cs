@@ -233,6 +233,10 @@ internal sealed class PushHandler
 			?? throw BridgeException.BadRequest("pushItem missing 'sourceText'");
 		var folder = op["folder"]?.GetValue<string>();
 
+		// Graphical body push: optional. Present for FBD/LD/SFC/CFC
+		// POUs; agent extracts via extractGraphicalBody() before send.
+		var implementationXml = op["implementationXml"]?.GetValue<string>();
+
 		// SplitSt recovers POU + children from the raw .st text.
 		var split = StSplitter.SplitSt(sourceText);
 
@@ -242,6 +246,16 @@ internal sealed class PushHandler
 
 		if (existing == null)
 		{
+			// Graphical-POU creation isn't supported yet — TC's
+			// create_pou path doesn't know how to set body language
+			// via the COM surface. Reject explicitly so the caller
+			// sees the gap.
+			if (!string.IsNullOrEmpty(implementationXml))
+			{
+				throw new BridgeException(400, "GRAPHICAL_CREATE_UNSUPPORTED",
+					$"creating new graphical POU '{name}' from PLCopenXML not supported yet — " +
+					"create it in TC first, then re-pull and edit");
+			}
 			// Create: all children are net-new.
 			var body = BuildCreateBody(name, folder, split);
 			_create.Handle(body);
@@ -252,6 +266,19 @@ internal sealed class PushHandler
 			var existingChildren = EnumerateChildNames(existing);
 			var body = BuildUpdateBody(name, folder, split, existingChildren);
 			_update.Handle(body);
+			// Apply graphical body AFTER decl/impl write — the PLCopenXML
+			// import treats the existing POU as the target by name match;
+			// the textual declaration we just wrote becomes the interface
+			// (CODESYS-compatible behavior, verified live).
+			if (!string.IsNullOrEmpty(implementationXml))
+			{
+				var importError = _connection.ImportItemBodyAsXml(existing, name, implementationXml);
+				if (importError != null)
+				{
+					throw new BridgeException(500, "GRAPHICAL_IMPORT_FAILED",
+						$"PlcOpenImport on '{name}' failed: {importError}");
+				}
+			}
 		}
 	}
 

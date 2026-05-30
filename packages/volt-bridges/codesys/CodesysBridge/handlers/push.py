@@ -160,13 +160,21 @@ def _apply_push_item(connection, op, item_cache):
 	name = op["name"]
 	source_text = op.get("sourceText") or ""
 	folder = op.get("folder")
+	implementation_xml = op.get("implementationXml")  # graphical body XML or None
 	split = st_splitter.split_st(source_text)
 
 	existing = item_cache.get(name) or connection.find_by_name(name)
 	if existing is None:
+		# CREATE path doesn't yet handle graphical POUs from XML —
+		# create_pou(name, kind, language=FBD) needs a separate probe.
+		# Reject the op explicitly so the caller sees the gap.
+		if implementation_xml:
+			raise RuntimeError(
+				"creating new graphical POU '{0}' from PLCopenXML not yet supported — "
+				"create the POU in CODESYS first, then re-pull and edit".format(name))
 		_create_item(connection, name, split, folder)
 	else:
-		_update_item(connection, name, existing, split, folder)
+		_update_item(connection, name, existing, split, folder, implementation_xml)
 
 
 def _apply_delete_item(connection, op, item_cache):
@@ -271,12 +279,16 @@ def _create_item(connection, name, split, folder):
 		_create_child(created, child)
 
 
-def _update_item(connection, name, existing, split, folder):
-	# type: (object, str, object, object, object) -> None
+def _update_item(connection, name, existing, split, folder, implementation_xml=None):
+	# type: (object, str, object, object, object, object) -> None
 	# Write outer POU decl/impl.
 	_write_text(existing, "textual_declaration", split.pou_declaration)
 	if split.pou_implementation is not None:
 		_write_text(existing, "textual_implementation", split.pou_implementation)
+	# Graphical body push: apply the PLCopenXML <body> via import_xml.
+	# Update-only — create path is gated upstream.
+	if implementation_xml:
+		_apply_graphical_body(existing, name, split, implementation_xml)
 
 	# Diff children: collect current children by name, add new, update
 	# existing, delete missing.
@@ -412,3 +424,65 @@ def _write_text(obj, doc_attr, text):
 			doc.text = text
 		except Exception:
 			pass
+
+
+# ─── Graphical body application ────────────────────────────────────
+
+
+# Maps our vendor-neutral kind strings → PLCopenXML pouType attribute values.
+_POU_TYPE_ATTR = {
+	"function_block": "functionBlock",
+	"function":       "function",
+	"program":        "program",
+}
+
+
+def _apply_graphical_body(existing, name, split, body_xml):
+	# type: (object, str, object, str) -> None
+	"""Write a graphical POU's `<body>` PLCopenXML back into CODESYS.
+
+	**Export-as-template pattern** (parallel to TC's
+	`BeckhoffConnection.ImportItemBodyAsXml`):
+
+	  1. Export the existing item via `item.export_xml()` — gives us
+	     a schema-valid PLCopenXML document including all CODESYS-
+	     specific addData / vendor extensions we'd otherwise lose.
+	  2. Parse it, find the named POU's `<body>` element, replace its
+	     content with the incoming `body_xml`.
+	  3. Call `item.import_xml(modified_doc)` to write it back.
+	     Same-name match → in-place update.
+
+	Hand-crafting the PLCopenXML envelope from scratch was tried and
+	abandoned — both bridges' import APIs validate the schema
+	strictly and reject missing fileHeader / contentHeader /
+	coordinateInfo / etc. Using the vendor's own export sidesteps
+	that whole class of fragility.
+
+	On failure, raises so the push handler reports it in the response
+	rather than silently dropping the body change.
+	"""
+	from ..helpers import log
+	from ..helpers import plcopen_xml as _xml
+
+	try:
+		template_xml = existing.export_xml()
+	except Exception as e:
+		raise RuntimeError("failed to fetch export template for '{0}': {1}".format(name, e))
+	if not template_xml:
+		raise RuntimeError("empty template returned from export_xml on '{0}'".format(name))
+
+	modified_xml = _xml.replace_body_in_pou(template_xml, name, body_xml)
+	if modified_xml is None:
+		raise RuntimeError("couldn't locate <body> in export template for '{0}'".format(name))
+
+	try:
+		existing.import_xml(modified_xml)
+		log.startup("[push] graphical body applied for '{0}'".format(name))
+	except Exception as e:
+		raise RuntimeError("import_xml on '{0}' failed: {1}".format(name, e))
+
+
+# Body-swap helper lives in `helpers.plcopen_xml` as `replace_body_in_pou`
+# (parallel to TC's `BeckhoffConnection.ReplaceBodyInPou`). Single source
+# of truth for the PLCopenXML body-replacement logic — also unit-tested
+# in `CodesysBridge.Tests/test_plcopen_xml.py`.

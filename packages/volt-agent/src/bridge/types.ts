@@ -178,6 +178,18 @@ export const FetchedItemSchema = z
 		sourceText: z.string(),
 		/** Language of the body (graphical POUs get masked text + non-ST language tag). */
 		language: ImplementationLanguageSchema.optional(),
+		/**
+		 * Raw PLCopenXML `<body>...</body>` element — present ONLY for
+		 * graphical POUs (FBD/LD/SFC/CFC) where the implementation
+		 * has no textual form. Absent / null for ST/IL POUs (their
+		 * implementation lives in `sourceText` as plain ST).
+		 *
+		 * Agent stores this inside the `.fbd` / `.ld` / `.sfc` /
+		 * `.cfc` file via a versioned marker block — preserves the
+		 * graphical body losslessly while keeping variable declarations
+		 * grep/diff/LLM-friendly. See `pou-files.ts` write path.
+		 */
+		implementationXml: z.string().nullish(),
 		/** Per-item version stamp (sha1 short). */
 		version: z.string(),
 	})
@@ -270,6 +282,20 @@ export const PushItemOpSchema = z.object({
 	 * StSplitter on it to recover POU + children for COM dispatch.
 	 */
 	sourceText: z.string(),
+	/**
+	 * Raw PLCopenXML `<body>...</body>` element — present ONLY when
+	 * pushing a graphical POU (FBD/LD/SFC/CFC). Bridge applies the body
+	 * via `import_xml` (CODESYS) / `PlcOpenImport` (TwinCAT) after
+	 * writing the textual declaration via the existing `sourceText`
+	 * path. Absent / null for ST POUs.
+	 *
+	 * Update-only initially — creating a NEW graphical POU from XML
+	 * needs a separate `create_pou(name, kind, language)` call shape
+	 * we haven't probed yet, so create requests carrying
+	 * `implementationXml` MAY be rejected by the bridge with
+	 * `kind: "graphical-create-unsupported"` until that ships.
+	 */
+	implementationXml: z.string().nullish(),
 	/** `null` = create new; string = update existing (must match). */
 	ifVersion: z.string().nullable(),
 });

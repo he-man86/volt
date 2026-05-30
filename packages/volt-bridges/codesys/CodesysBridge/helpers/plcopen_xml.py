@@ -163,13 +163,22 @@ def extract_graphical_body(item):
 	body = pou.find(_tag("body"))
 	if body is None:
 		return None
-	# IronPython 2.7's tostring returns bytes and does NOT accept the
-	# Py3 `encoding="unicode"` shortcut — that raises "unknown
-	# encoding: unicode". Just take the bytes and decode.
+	return tostring_str(body, log_tag="graphical body")
+
+
+def tostring_str(element, log_tag=""):
+	# type: (object, str) -> object
+	"""ElementTree `tostring` that returns `str` (not bytes) across
+	IronPython 2.7 and CPython 3+. Single source of truth for the
+	"no encoding='unicode'" quirk — IronPython 2.7's tostring raises
+	`unknown encoding: unicode` for the Py3 shortcut, so we take
+	bytes and decode ourselves.
+	"""
 	try:
-		raw = _ET.tostring(body)
+		raw = _ET.tostring(element)
 	except Exception as e:
-		log.warn("[XML] tostring failed for graphical body: {0}".format(e))
+		log.warn("[XML] tostring failed{0}: {1}".format(
+			(" for " + log_tag) if log_tag else "", e))
 		return None
 	if isinstance(raw, bytes):
 		try:
@@ -177,3 +186,51 @@ def extract_graphical_body(item):
 		except Exception:
 			return raw.decode("utf-8", "replace")
 	return raw
+
+
+def replace_body_in_pou(template_xml, item_name, new_body_xml):
+	# type: (str, str, str) -> object
+	"""Surgical replacement of a POU's `<body>` element in a full
+	PLCopenXML document. Returns the modified document as a string,
+	or None when the named POU / its body can't be located.
+
+	**Export-as-template pattern** — feed in `existing.export_xml()`
+	output as the template (guaranteed schema-valid), splice in the
+	new body XML, write back via `existing.import_xml(modified)`.
+	The TC bridge runs the exact same pattern via
+	`BeckhoffConnection.ReplaceBodyInPou`; both are unit-tested
+	against captured fixtures so they stay in sync.
+	"""
+	if not template_xml:
+		return None
+	# Strip BOM if CODESYS prepended one.
+	if isinstance(template_xml, str) and template_xml.startswith("﻿"):
+		template_xml = template_xml[1:]
+	try:
+		root = _ET.fromstring(template_xml)
+	except Exception:
+		return None
+	target_pou = None
+	for pou in root.iter(_tag("pou")):
+		if (pou.get("name") or "").lower() == item_name.lower():
+			target_pou = pou
+			break
+	if target_pou is None:
+		return None
+	body_elem = target_pou.find(_tag("body"))
+	if body_elem is None:
+		return None
+	try:
+		new_body = _ET.fromstring(new_body_xml)
+	except Exception:
+		return None
+	# In-place body swap, preserving the body's position among siblings.
+	for i, child in enumerate(list(target_pou)):
+		if child is body_elem:
+			target_pou.remove(body_elem)
+			target_pou.insert(i, new_body)
+			break
+	# Default-namespace registration keeps output from getting
+	# `ns0:` prefixed everywhere — closer to CODESYS's own export.
+	_ET.register_namespace("", _NS)
+	return tostring_str(root, log_tag="modified template")

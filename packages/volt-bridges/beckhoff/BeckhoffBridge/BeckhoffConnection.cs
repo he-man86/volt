@@ -960,6 +960,220 @@ internal sealed class BeckhoffConnection
 	}
 
 	/// <summary>
+	/// Export a graphical POU's `&lt;body&gt;` PLCopenXML for the wire's
+	/// `implementationXml` field. Returns null on failure / non-graphical
+	/// items / older TC versions that don't expose the IEC project
+	/// interface — caller falls through to placeholder text.
+	///
+	/// Implementation: TwinCAT's `ITcPlcIECProject.PlcOpenExport` writes
+	/// the entire project as PLCopenXML to a file (no string overload,
+	/// no item-scoped variant — see infosys 242870539). We pass the
+	/// item's dotted path as the selection filter, write to a temp file,
+	/// parse, and pull out just the `&lt;body&gt;` element so the wire
+	/// shape matches what the CODESYS bridge sends.
+	///
+	/// Must run on STA thread (use RunOnStaThread when calling from
+	/// the HTTP threadpool).
+	/// </summary>
+	public string? ExportItemBodyAsXml(dynamic item, string itemName)
+	{
+		// `PlcOpenExport` lives on ITcPlcIECProject, which is the
+		// interface for the NestedProject (the source-code container
+		// inside the PLC project), NOT the outer PLC project node.
+		// `_plcNode.PlcOpenExport(...)` throws "no definition for
+		// PlcOpenExport" — `_nestedProject.PlcOpenExport(...)` works.
+		if (_nestedProject == null)
+		{
+			Log.Warn($"[Connection] ExportItemBodyAsXml({itemName}): no NestedProject cached");
+			return null;
+		}
+
+		// Build the dotted selection string. TwinCAT uses ^ in tree
+		// paths (e.g. "TIPC^Untitled1^POUs^FB_X") but PlcOpenExport
+		// expects . (e.g. "POUs.FB_X" — folder-qualified, no project
+		// name). Easiest robust mapping: walk parents until we hit
+		// the NestedProject node, collecting names.
+		string? selection = BuildPlcOpenSelectionPath(item);
+		if (selection == null)
+		{
+			Log.Warn($"[Connection] ExportItemBodyAsXml({itemName}): couldn't derive selection path");
+			return null;
+		}
+
+		string tempFile = System.IO.Path.Combine(
+			System.IO.Path.GetTempPath(),
+			$"volt-tc-export-{Guid.NewGuid():N}.xml");
+		try
+		{
+			dynamic iecProject = _nestedProject;
+			iecProject.PlcOpenExport(tempFile, selection);
+
+			if (!System.IO.File.Exists(tempFile))
+			{
+				Log.Warn($"[Connection] ExportItemBodyAsXml({itemName}): PlcOpenExport produced no file");
+				return null;
+			}
+			string xml = System.IO.File.ReadAllText(tempFile);
+			return ExtractBodyElement(xml, itemName);
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] ExportItemBodyAsXml({itemName}) failed: {ex.GetType().Name}: {ex.Message}");
+			return null;
+		}
+		finally
+		{
+			try { if (System.IO.File.Exists(tempFile)) System.IO.File.Delete(tempFile); }
+			catch { /* best-effort cleanup */ }
+		}
+	}
+
+	/// <summary>
+	/// Walk parents from `item` up to the NestedProject root,
+	/// collecting names, and return them joined with `.` for
+	/// PlcOpenExport's selection string. Returns null when the walk
+	/// can't reach the project root (item from a different project,
+	/// orphaned reference, etc.).
+	/// </summary>
+	private string? BuildPlcOpenSelectionPath(dynamic item)
+	{
+		// PlcOpenExport expects a dotted path RELATIVE to the IEC
+		// project root (the "{plcProjectName} Project" node), not
+		// relative to the PLC project or TIPC. So we walk parents
+		// upward, collecting names, until we hit either:
+		//   * the "{plcProjectName} Project" anchor (stop, don't include)
+		//   * the bare plcProjectName node (also stop — same logical
+		//     anchor, depends on TC version)
+		//   * loss of parent (give up — orphaned item)
+		string projectAnchor = $"{_plcProjectName} Project";
+		try
+		{
+			var segments = new List<string>();
+			dynamic cursor = item;
+			// Sanity bound — even deeply-nested folders don't reach 50.
+			for (int i = 0; i < 50; i++)
+			{
+				string name = (string)cursor.Name;
+				if (string.Equals(name, projectAnchor, StringComparison.OrdinalIgnoreCase)
+				    || string.Equals(name, _plcProjectName, StringComparison.OrdinalIgnoreCase))
+				{
+					segments.Reverse();
+					return string.Join(".", segments);
+				}
+				segments.Add(name);
+				dynamic? parent = null;
+				try { parent = cursor.Parent; } catch { parent = null; }
+				if (parent == null) break;
+				cursor = parent;
+			}
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] BuildPlcOpenSelectionPath aborted: {ex.Message}");
+		}
+		return null;
+	}
+
+	/// <summary>
+	/// Inverse of `ExportItemBodyAsXml` — apply a `&lt;body&gt;` PLCopenXML
+	/// element back into TC. Wraps the body in a full PLCopenXML
+	/// `&lt;project&gt;` document with the named POU, writes to a temp
+	/// file, calls `ITcPlcIECProject.PlcOpenImport`. Returns null on
+	/// success, or a human-readable error string for the push response.
+	///
+	/// Update-only — the caller has confirmed the POU already exists.
+	/// TC's PlcOpenImport default resolves name conflicts in favor of
+	/// the incoming XML (replaces existing) — see infosys 242870539.
+	///
+	/// Must run on STA thread (RunOnStaThread from HTTP context).
+	/// </summary>
+	/// <summary>
+	/// TwinCAT's `ITcPlcIECProject.PlcOpenImport` conflict-resolution
+	/// argument. The 1-arg form rejects on name collision with
+	/// "Import conflict!" — we always pass an explicit value to force
+	/// the replace-existing behavior we want for update-style pushes.
+	///
+	/// Values per infosys 242870539:
+	///   0 = ask user (interactive — bridge runs headless, so unusable)
+	///   1 = replace existing             ← what we want
+	///   2 = skip on conflict             ← no-ops our update
+	///   3 = copy with new name           ← creates duplicate
+	/// </summary>
+	private const int PLCOPEN_CONFLICT_REPLACE = 1;
+
+	public string? ImportItemBodyAsXml(dynamic item, string itemName, string bodyXml)
+	{
+		if (_nestedProject == null) return "no NestedProject cached";
+
+		// **Export-as-template pattern** (parallel to CODESYS's
+		// `plcopen_xml.replace_body_in_pou`):
+		//   1. Export the item via PlcOpenExport → guaranteed
+		//      schema-valid template carrying fileHeader, contentHeader,
+		//      coordinateInfo, and TC-specific addData blocks.
+		//   2. Parse, replace <body> with the incoming body XML.
+		//   3. Import the modified document via PlcOpenImport.
+		// Hand-crafted documents fail validation: TC rejects missing
+		// fileHeader / contentHeader / coordinateInfo / etc.
+		string? selection = BuildPlcOpenSelectionPath(item);
+		if (selection == null) return "couldn't derive selection path";
+
+		string templateFile = System.IO.Path.Combine(
+			System.IO.Path.GetTempPath(), $"volt-tc-template-{Guid.NewGuid():N}.xml");
+		string importFile = System.IO.Path.Combine(
+			System.IO.Path.GetTempPath(), $"volt-tc-import-{Guid.NewGuid():N}.xml");
+		try
+		{
+			dynamic iecProject = _nestedProject;
+			iecProject.PlcOpenExport(templateFile, selection);
+			if (!System.IO.File.Exists(templateFile)) return "PlcOpenExport produced no template";
+
+			string templateXml = System.IO.File.ReadAllText(templateFile);
+			string? modifiedXml = PlcOpenXml.ReplaceBodyInPou(templateXml, itemName, bodyXml);
+			if (modifiedXml == null) return "couldn't locate <body> in template";
+
+			System.IO.File.WriteAllText(importFile, modifiedXml, new System.Text.UTF8Encoding(false));
+			iecProject.PlcOpenImport(importFile, PLCOPEN_CONFLICT_REPLACE);
+			return null;
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] ImportItemBodyAsXml({itemName}) failed: {ex.GetType().Name}: {ex.Message}");
+			return $"{ex.GetType().Name}: {ex.Message}";
+		}
+		finally
+		{
+			try { if (System.IO.File.Exists(templateFile)) System.IO.File.Delete(templateFile); } catch { }
+			try { if (System.IO.File.Exists(importFile)) System.IO.File.Delete(importFile); } catch { }
+		}
+	}
+
+	/// <summary>
+	/// Pull the `&lt;body&gt;` element out of a PLCopenXML document for
+	/// the named POU. The document shape is
+	/// `&lt;project&gt;&lt;types&gt;&lt;pous&gt;&lt;pou name="X"&gt;&lt;interface/&gt;&lt;body&gt;...&lt;/body&gt;&lt;/pou&gt;...`
+	/// Returns null if the POU or its body isn't present (e.g. a
+	/// declaration-only item like a GVL).
+	/// </summary>
+	private static string? ExtractBodyElement(string xml, string itemName)
+	{
+		try
+		{
+			var doc = System.Xml.Linq.XDocument.Parse(xml);
+			System.Xml.Linq.XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
+			var pou = doc.Descendants(ns + "pou")
+				.FirstOrDefault(p => string.Equals(
+					(string?)p.Attribute("name") ?? "", itemName, StringComparison.OrdinalIgnoreCase));
+			var body = pou?.Element(ns + "body");
+			return body?.ToString();
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] ExtractBodyElement({itemName}) parse failed: {ex.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
 	/// Replace Turkish locale characters with ASCII equivalents.
 	/// TwinCAT's COM automation generates locale-dependent text on Turkish
 	/// Windows: CreateChild auto-adds "PUBLİC" instead of "PUBLIC" to
