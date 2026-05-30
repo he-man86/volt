@@ -16718,3 +16718,1311 @@ exports[`documentSymbol corpus (every conformance test) operand_uchar_literal 1`
   },
 ]
 `;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iCount",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_method_no_args",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 41,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "Tick",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 9,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 11,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iSum",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_method_one_input",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 43,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iIn",
+        "range": {
+          "end": {
+            "character": 11,
+            "line": 9,
+          },
+          "start": {
+            "character": 1,
+            "line": 9,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 9,
+          },
+          "start": {
+            "character": 1,
+            "line": 9,
+          },
+        },
+      },
+    ],
+    "kind": 6,
+    "name": "AddOne",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 12,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 13,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iArea",
+        "range": {
+          "end": {
+            "character": 13,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_method_named_args",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 44,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iWidth",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 9,
+          },
+          "start": {
+            "character": 1,
+            "line": 9,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 9,
+          },
+          "start": {
+            "character": 1,
+            "line": 9,
+          },
+        },
+      },
+      {
+        "kind": 13,
+        "name": "iHeight",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 10,
+          },
+          "start": {
+            "character": 1,
+            "line": 10,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 10,
+          },
+          "start": {
+            "character": 1,
+            "line": 10,
+          },
+        },
+      },
+    ],
+    "kind": 6,
+    "name": "Configure",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 13,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 16,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_method_returns_value 1`] = `
+[
+  {
+    "children": [],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_method_returns_value",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 1,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 47,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iIn",
+        "range": {
+          "end": {
+            "character": 11,
+            "line": 5,
+          },
+          "start": {
+            "character": 1,
+            "line": 5,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 5,
+          },
+          "start": {
+            "character": 1,
+            "line": 5,
+          },
+        },
+      },
+    ],
+    "kind": 6,
+    "name": "Compute",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 8,
+      },
+      "start": {
+        "character": 0,
+        "line": 3,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 14,
+        "line": 3,
+      },
+      "start": {
+        "character": 7,
+        "line": 3,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_property_read 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iBacking",
+        "range": {
+          "end": {
+            "character": 22,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 9,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_property_read",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 40,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "kind": 7,
+    "name": "Value",
+    "range": {
+      "end": {
+        "character": 12,
+        "line": 11,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 14,
+        "line": 7,
+      },
+      "start": {
+        "character": 9,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_property_write 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iThresholdBacking",
+        "range": {
+          "end": {
+            "character": 25,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 18,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_property_write",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 41,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "kind": 7,
+    "name": "Threshold",
+    "range": {
+      "end": {
+        "character": 12,
+        "line": 11,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 18,
+        "line": 7,
+      },
+      "start": {
+        "character": 9,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_fb_callable 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iIn",
+        "range": {
+          "end": {
+            "character": 11,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+      {
+        "kind": 13,
+        "name": "iCount",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 5,
+          },
+          "start": {
+            "character": 1,
+            "line": 5,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 5,
+          },
+          "start": {
+            "character": 1,
+            "line": 5,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_callable",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 9,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 35,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_struct_member_access 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 8,
+        "name": "iValue",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+      {
+        "kind": 8,
+        "name": "bFlag",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": "STRUCT",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_member",
+    "range": {
+      "end": {
+        "character": 8,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 31,
+        "line": 0,
+      },
+      "start": {
+        "character": 5,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_struct_nested_member 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 8,
+        "name": "iValue",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": "STRUCT",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_inner",
+    "range": {
+      "end": {
+        "character": 8,
+        "line": 4,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 30,
+        "line": 0,
+      },
+      "start": {
+        "character": 5,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [
+      {
+        "kind": 8,
+        "name": "inner",
+        "range": {
+          "end": {
+            "character": 35,
+            "line": 8,
+          },
+          "start": {
+            "character": 1,
+            "line": 8,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 8,
+          },
+          "start": {
+            "character": 1,
+            "line": 8,
+          },
+        },
+      },
+    ],
+    "detail": "STRUCT",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_outer",
+    "range": {
+      "end": {
+        "character": 8,
+        "line": 10,
+      },
+      "start": {
+        "character": 0,
+        "line": 6,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 30,
+        "line": 6,
+      },
+      "start": {
+        "character": 5,
+        "line": 6,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_gvl_field_access 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "gValue",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "kind": 3,
+    "name": "VAR_GLOBAL",
+    "range": {
+      "end": {
+        "character": 7,
+        "line": 3,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 7,
+        "line": 3,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_this_member_in_method 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iCount",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_this_member",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 38,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "Bump",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 9,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 11,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_function_call_with_arg 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iIn",
+        "range": {
+          "end": {
+            "character": 11,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "kind": 12,
+    "name": "FUN_LANG_use_function_call",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 35,
+        "line": 0,
+      },
+      "start": {
+        "character": 9,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_array_indexed_method_call 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iCount",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_array_indexed",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 40,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "Tick",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 9,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 11,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "target",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+      {
+        "kind": 13,
+        "name": "pTarget",
+        "range": {
+          "end": {
+            "character": 26,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_pointer_deref",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 7,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 40,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "SetTarget",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 11,
+      },
+      "start": {
+        "character": 0,
+        "line": 9,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 16,
+        "line": 9,
+      },
+      "start": {
+        "character": 7,
+        "line": 9,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) use_self_method_call 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iValue",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 7,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_use_self_call",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 5,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 36,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "Inner",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 9,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 12,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "Outer",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 13,
+      },
+      "start": {
+        "character": 0,
+        "line": 11,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 12,
+        "line": 11,
+      },
+      "start": {
+        "character": 7,
+        "line": 11,
+      },
+    },
+  },
+]
+`;

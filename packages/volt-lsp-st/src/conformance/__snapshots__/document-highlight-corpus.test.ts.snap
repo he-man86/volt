@@ -15497,6 +15497,39 @@ exports[`documentHighlight corpus (POU + PLC_PRG) interface_empty_impl 1`] = `
     "line": 0,
     "text": "PLC_PRG",
   },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_iei_called",
+  },
+  {
+    "char": 17,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_interface_empty_impl",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_iei_called",
+  },
 ]
 `;
 
@@ -15662,6 +15695,52 @@ exports[`documentHighlight corpus (POU + PLC_PRG) interface_with_method_impl 1`]
     "highlights": [],
     "line": 0,
     "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_iwm_called",
+  },
+  {
+    "char": 17,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_interface_with_method_impl",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_iwm_called",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 14,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Compute",
   },
 ]
 `;
@@ -24081,6 +24160,2073 @@ exports[`documentHighlight corpus (POU + PLC_PRG) operand_uchar_literal 1`] = `
     ],
     "line": 4,
     "text": "Pick",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_method_no_args",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 2,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Tick",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_umna",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_method_no_args",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_umna",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Tick",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_method_one_input",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 11,
+      },
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 11,
+      },
+    ],
+    "line": 2,
+    "text": "iSum",
+  },
+  {
+    "char": 8,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "AddOne",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 15,
+        "kind": 2,
+        "line": 11,
+      },
+    ],
+    "line": 9,
+    "text": "iIn",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 11,
+      },
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 11,
+      },
+    ],
+    "line": 11,
+    "text": "iSum",
+  },
+  {
+    "char": 8,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 11,
+      },
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 11,
+      },
+    ],
+    "line": 11,
+    "text": "iSum",
+  },
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 15,
+        "kind": 2,
+        "line": 11,
+      },
+    ],
+    "line": 11,
+    "text": "iIn",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_umoi",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_method_one_input",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_umoi",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "AddOne",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_method_named_args",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 2,
+    "text": "iArea",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Configure",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 9,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 9,
+    "text": "iWidth",
+  },
+  {
+    "char": 11,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 18,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 10,
+    "text": "iHeight",
+  },
+  {
+    "char": 11,
+    "file": "pou",
+    "highlights": [],
+    "line": 10,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 12,
+    "text": "iArea",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 9,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 12,
+    "text": "iWidth",
+  },
+  {
+    "char": 18,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 18,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 12,
+    "text": "iHeight",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_umna2",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_method_named_args",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_umna2",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 9,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Configure",
+  },
+  {
+    "char": 19,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 19,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iWidth",
+  },
+  {
+    "char": 33,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 33,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iHeight",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_method_returns_value 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_method_returns_value",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 7,
+      },
+    ],
+    "line": 3,
+    "text": "Compute",
+  },
+  {
+    "char": 17,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 11,
+        "kind": 2,
+        "line": 7,
+      },
+    ],
+    "line": 5,
+    "text": "iIn",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 5,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 7,
+      },
+    ],
+    "line": 7,
+    "text": "Compute",
+  },
+  {
+    "char": 11,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 11,
+        "kind": 2,
+        "line": 7,
+      },
+    ],
+    "line": 7,
+    "text": "iIn",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 11,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 2,
+    "text": "fb_umrv",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_method_returns_value",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 3,
+    "text": "iResult",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "iResult",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 11,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "fb_umrv",
+  },
+  {
+    "char": 19,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 19,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "Compute",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_property_read 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_property_read",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "iBacking",
+  },
+  {
+    "char": 12,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Value",
+  },
+  {
+    "char": 17,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "Value",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "iBacking",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 2,
+    "text": "fb_upr",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_property_read",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 3,
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "fb_upr",
+  },
+  {
+    "char": 15,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 15,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "Value",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_property_write 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_property_write",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "iThresholdBacking",
+  },
+  {
+    "char": 21,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Threshold",
+  },
+  {
+    "char": 21,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "iThresholdBacking",
+  },
+  {
+    "char": 21,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "Threshold",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_upw",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_property_write",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_upw",
+  },
+  {
+    "char": 7,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 7,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Threshold",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_fb_callable 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_callable",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 19,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 2,
+    "text": "iIn",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 5,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 5,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 19,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 19,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iIn",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_uc",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_callable",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_uc",
+  },
+  {
+    "char": 6,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iIn",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_member_access 1`] = `
+[
+  {
+    "char": 5,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "DUT_LANG_use_struct_member",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "bFlag",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "BOOL",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "dut_usm",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "DUT_LANG_use_struct_member",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "dut_usm",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iValue",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
+[
+  {
+    "char": 5,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "DUT_LANG_use_struct_inner",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 5,
+    "file": "pou",
+    "highlights": [],
+    "line": 6,
+    "text": "DUT_LANG_use_struct_outer",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 8,
+    "text": "inner",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 8,
+    "text": "DUT_LANG_use_struct_inner",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "dut_uso",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "DUT_LANG_use_struct_outer",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "dut_uso",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "inner",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 14,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iValue",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `
+[
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "gValue",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 3,
+      },
+    ],
+    "line": 3,
+    "text": "GVL_LANG_use_field_access",
+  },
+  {
+    "char": 26,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 26,
+        "kind": 2,
+        "line": 3,
+      },
+    ],
+    "line": 3,
+    "text": "gValue",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_this_member_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_this_member",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 22,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 2,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Bump",
+  },
+  {
+    "char": 6,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 22,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 22,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 22,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_utm",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_this_member",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_utm",
+  },
+  {
+    "char": 7,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 7,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Bump",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_function_call_with_arg 1`] = `
+[
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 0,
+    "text": "FUN_LANG_use_function_call",
+  },
+  {
+    "char": 38,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 30,
+        "kind": 2,
+        "line": 5,
+      },
+      {
+        "char": 36,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 2,
+    "text": "iIn",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "FUN_LANG_use_function_call",
+  },
+  {
+    "char": 30,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 30,
+        "kind": 2,
+        "line": 5,
+      },
+      {
+        "char": 36,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "iIn",
+  },
+  {
+    "char": 36,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 30,
+        "kind": 2,
+        "line": 5,
+      },
+      {
+        "char": 36,
+        "kind": 2,
+        "line": 5,
+      },
+    ],
+    "line": 5,
+    "text": "iIn",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "iFcOut",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "iFcOut",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "FUN_LANG_use_function_call",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_array_indexed_method_call 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_array_indexed",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 2,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 7,
+    "text": "Tick",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "arr_uai",
+  },
+  {
+    "char": 26,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_array_indexed",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "arr_uai",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 11,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Tick",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_pointer_deref",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 15,
+        "kind": 2,
+        "line": 6,
+      },
+    ],
+    "line": 2,
+    "text": "target",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 6,
+      },
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 10,
+      },
+    ],
+    "line": 3,
+    "text": "pTarget",
+  },
+  {
+    "char": 22,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 6,
+      },
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 10,
+      },
+    ],
+    "line": 6,
+    "text": "pTarget",
+  },
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 15,
+        "kind": 2,
+        "line": 6,
+      },
+    ],
+    "line": 6,
+    "text": "target",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 9,
+    "text": "SetTarget",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 6,
+      },
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 10,
+      },
+    ],
+    "line": 10,
+    "text": "pTarget",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_upd",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_pointer_deref",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_upd",
+  },
+  {
+    "char": 7,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 7,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "SetTarget",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_self_method_call 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_use_self_call",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 2,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 7,
+    "text": "Inner",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 8,
+      },
+      {
+        "char": 10,
+        "kind": 2,
+        "line": 8,
+      },
+    ],
+    "line": 8,
+    "text": "iValue",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 11,
+    "text": "Outer",
+  },
+  {
+    "char": 6,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 6,
+        "kind": 2,
+        "line": 12,
+      },
+    ],
+    "line": 12,
+    "text": "Inner",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_usc",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_use_self_call",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_usc",
+  },
+  {
+    "char": 7,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 7,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Outer",
   },
 ]
 `;

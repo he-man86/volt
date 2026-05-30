@@ -3097,3 +3097,262 @@ exports[`foldingRange corpus (every conformance test) operand_uchar_literal 1`] 
   },
 ]
 `;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_returns_value 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+  {
+    "endLine": 8,
+    "startLine": 3,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_property_read 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_property_write 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_callable 1`] = `
+[
+  {
+    "endLine": 9,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_struct_member_access 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_struct_nested_member 1`] = `
+[
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_gvl_field_access 1`] = `
+[
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_this_member_in_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_function_call_with_arg 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_array_indexed_method_call 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_self_method_call 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+  {
+    "endLine": 13,
+    "startLine": 11,
+  },
+]
+`;

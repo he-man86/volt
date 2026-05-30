@@ -24,6 +24,7 @@ import { DATA_TYPE_TESTS } from "./data-type-tests.js";
 import { VARIABLE_SECTION_TESTS } from "./variable-section-tests.js";
 import { KEYWORD_TESTS } from "./keyword-tests.js";
 import { OPERANDS_TESTS } from "./operands-tests.js";
+import { USAGE_PATTERN_TESTS } from "./usage-pattern-tests.js";
 
 export type { LanguageTest } from "./types.js";
 
@@ -50,6 +51,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
 	{ name: "variable-section", tests: VARIABLE_SECTION_TESTS },
 	{ name: "keyword", tests: KEYWORD_TESTS },
 	{ name: "operands", tests: OPERANDS_TESTS },
+	{ name: "usage-pattern", tests: USAGE_PATTERN_TESTS },
 ];
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests);

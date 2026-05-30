@@ -4014,6 +4014,19 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) interface_empty_impl 1`] = `
     ],
     "text": "FB_LANG_interface_empty_impl",
   },
+  {
+    "char": 17,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_empty_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_empty_impl",
+  },
 ]
 `;
 
@@ -4041,6 +4054,19 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) interface_with_method_impl 1`] = `
     "char": 15,
     "file": "pou",
     "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_with_method_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_with_method_impl",
+  },
+  {
+    "char": 17,
+    "file": "plc_prg",
+    "line": 2,
     "prepared": [
       {
         "name": "FB_LANG_interface_with_method_impl",
@@ -5463,6 +5489,355 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) operand_uchar_literal 1`] = `
       },
     ],
     "text": "FB_LANG_operand_uchar",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_no_args",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_no_args",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_no_args",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_no_args",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_one_input",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_one_input",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_one_input",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_one_input",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_named_args",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_named_args",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_named_args",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_named_args",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_method_returns_value 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_returns_value",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_returns_value",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_method_returns_value",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_method_returns_value",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_property_read 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_property_read",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_property_read",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_property_read",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_property_read",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_property_write 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_property_write",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_property_write",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_property_write",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_property_write",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_fb_callable 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_callable",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_callable",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_callable",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_callable",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_struct_member_access 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_this_member_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_this_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_this_member",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_this_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_this_member",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_function_call_with_arg 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_array_indexed_method_call 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_array_indexed",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_array_indexed",
+  },
+  {
+    "char": 26,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_array_indexed",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_array_indexed",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_pointer_deref",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_pointer_deref",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_pointer_deref",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_pointer_deref",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_self_method_call 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_self_call",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_self_call",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_self_call",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_self_call",
   },
 ]
 `;

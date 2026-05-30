@@ -46,8 +46,8 @@ END_INTERFACE
 		feature: "FB that IMPLEMENTS the empty interface ITF_LANG_empty",
 		fromDoc: "10-keywords.md",
 		expectTcAccepts: true,
-		plcPrgVar: undefined,
-		plcPrgBody: undefined,
+		plcPrgVar: "fb_iei_called : FB_LANG_interface_empty_impl;",
+		plcPrgBody: "fb_iei_called();",
 		source:
 `FUNCTION_BLOCK FB_LANG_interface_empty_impl IMPLEMENTS ITF_LANG_empty
 VAR
@@ -84,8 +84,8 @@ END_INTERFACE
 		feature: "FB that IMPLEMENTS ITF_LANG_with_method (must define Compute)",
 		fromDoc: "10-keywords.md",
 		expectTcAccepts: true,
-		plcPrgVar: undefined,
-		plcPrgBody: undefined,
+		plcPrgVar: "fb_iwm_called : FB_LANG_interface_with_method_impl;",
+		plcPrgBody: "fb_iwm_called.Compute();",
 		source:
 `FUNCTION_BLOCK FB_LANG_interface_with_method_impl IMPLEMENTS ITF_LANG_with_method
 VAR

@@ -1913,3 +1913,145 @@ exports[`workspaceSymbol corpus (search by pouName) operand_uchar_literal 1`] = 
   },
 ]
 `;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_no_args.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_no_args",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_one_input.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_one_input",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_named_args.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_named_args",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_returns_value 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_returns_value.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_returns_value",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_property_read 1`] = `
+[
+  {
+    "file": "FB_LANG_use_property_read.st",
+    "kind": 5,
+    "name": "FB_LANG_use_property_read",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_property_write 1`] = `
+[
+  {
+    "file": "FB_LANG_use_property_write.st",
+    "kind": 5,
+    "name": "FB_LANG_use_property_write",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_callable 1`] = `
+[
+  {
+    "file": "FB_LANG_use_callable.st",
+    "kind": 5,
+    "name": "FB_LANG_use_callable",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_struct_member_access 1`] = `
+[
+  {
+    "file": "DUT_LANG_use_struct_member.dut",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_struct_nested_member 1`] = `
+[
+  {
+    "file": "DUT_LANG_use_struct_outer.dut",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_outer",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_gvl_field_access 1`] = `[]`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_this_member_in_method 1`] = `
+[
+  {
+    "file": "FB_LANG_use_this_member.st",
+    "kind": 5,
+    "name": "FB_LANG_use_this_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_function_call_with_arg 1`] = `
+[
+  {
+    "file": "FUN_LANG_use_function_call.st",
+    "kind": 12,
+    "name": "FUN_LANG_use_function_call",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_array_indexed_method_call 1`] = `
+[
+  {
+    "file": "FB_LANG_use_array_indexed.st",
+    "kind": 5,
+    "name": "FB_LANG_use_array_indexed",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "file": "FB_LANG_use_pointer_deref.st",
+    "kind": 5,
+    "name": "FB_LANG_use_pointer_deref",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_self_method_call 1`] = `
+[
+  {
+    "file": "FB_LANG_use_self_call.st",
+    "kind": 5,
+    "name": "FB_LANG_use_self_call",
+  },
+]
+`;

@@ -421,3 +421,33 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) operand_partial_w
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) operand_hw_address_marker 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) operand_uchar_literal 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_method_call_no_args 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_method_call_one_input 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_method_call_named_args 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_method_returns_value 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_property_read 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_property_write 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_callable 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_member_access 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_nested_member 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_gvl_field_access 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_this_member_in_method 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_function_call_with_arg 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_array_indexed_method_call 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_pointer_deref_struct_field 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_call 1`] = `[]`;

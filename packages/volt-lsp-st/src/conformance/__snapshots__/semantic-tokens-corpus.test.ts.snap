@@ -17230,3 +17230,1350 @@ exports[`semanticTokens corpus (every conformance test) operand_uchar_literal 1`
   },
 ]
 `;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 26,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 19,
+    "length": 1,
+    "line": 8,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 28,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 6,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 9,
+    "type": "parameter",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 9,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 11,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 4,
+    "line": 11,
+    "type": "variable",
+  },
+  {
+    "char": 15,
+    "length": 3,
+    "line": 11,
+    "type": "parameter",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 12,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 29,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 9,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 9,
+    "type": "parameter",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 9,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 10,
+    "type": "parameter",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 10,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 11,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 5,
+    "line": 12,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 6,
+    "line": 12,
+    "type": "parameter",
+  },
+  {
+    "char": 18,
+    "length": 7,
+    "line": 12,
+    "type": "parameter",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 13,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_method_returns_value 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 32,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 7,
+    "line": 3,
+    "type": "method",
+  },
+  {
+    "char": 17,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 5,
+    "type": "parameter",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 5,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 7,
+    "type": "parameter",
+  },
+  {
+    "char": 17,
+    "length": 1,
+    "line": 7,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 8,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_property_read 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 25,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 8,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 12,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 19,
+    "length": 2,
+    "line": 2,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 9,
+    "length": 5,
+    "line": 7,
+    "type": "property",
+  },
+  {
+    "char": 17,
+    "length": 3,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 5,
+    "line": 9,
+    "type": "property",
+  },
+  {
+    "char": 9,
+    "length": 8,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 12,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_property_write 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 26,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 17,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 21,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 9,
+    "length": 9,
+    "line": 7,
+    "type": "property",
+  },
+  {
+    "char": 21,
+    "length": 3,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 17,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 21,
+    "length": 9,
+    "line": 9,
+    "type": "property",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 12,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_fb_callable 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 20,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 5,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 5,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 19,
+    "length": 3,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_struct_member_access 1`] = `
+[
+  {
+    "char": 0,
+    "length": 4,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 26,
+    "line": 0,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "property",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 3,
+    "type": "property",
+  },
+  {
+    "char": 10,
+    "length": 4,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 5,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_struct_nested_member 1`] = `
+[
+  {
+    "char": 0,
+    "length": 4,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 25,
+    "line": 0,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "property",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 25,
+    "line": 6,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 8,
+    "type": "property",
+  },
+  {
+    "char": 9,
+    "length": 25,
+    "line": 8,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 10,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_gvl_field_access 1`] = `
+[
+  {
+    "char": 0,
+    "length": 28,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_this_member_in_method 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 23,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 6,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 16,
+    "length": 4,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 22,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 31,
+    "length": 1,
+    "line": 8,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_function_call_with_arg 1`] = `
+[
+  {
+    "char": 0,
+    "length": 8,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 9,
+    "length": 26,
+    "line": 0,
+    "type": "function",
+  },
+  {
+    "char": 38,
+    "length": 3,
+    "line": 0,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 26,
+    "line": 5,
+    "type": "function",
+  },
+  {
+    "char": 30,
+    "length": 3,
+    "line": 5,
+    "type": "variable",
+  },
+  {
+    "char": 36,
+    "length": 3,
+    "line": 5,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 12,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_array_indexed_method_call 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 25,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 19,
+    "length": 1,
+    "line": 8,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 25,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 19,
+    "length": 2,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 22,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 6,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 6,
+    "line": 6,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 9,
+    "line": 9,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "variable",
+  },
+  {
+    "char": 12,
+    "length": 2,
+    "line": 10,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_self_method_call 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 21,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 5,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 19,
+    "length": 1,
+    "line": 8,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 11,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 5,
+    "line": 11,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 12,
+    "type": "keyword",
+  },
+  {
+    "char": 6,
+    "length": 5,
+    "line": 12,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 13,
+    "type": "keyword",
+  },
+]
+`;
