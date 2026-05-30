@@ -115,7 +115,11 @@ def _install_bundled_module(fullname, source_b64, is_package=False):
         src = src_bytes.decode("latin-1")
 
     mod = types.ModuleType(fullname)
-    fake_path = "<bundled:" + fullname + ">"
+    # Windows-path-safe pseudo-path. The angle-bracket/colon form
+    # Python normally uses for synthetic modules ("<bundled:X>")
+    # makes CODESYS's debugger spam "Illegal characters in path"
+    # when its line tracer tries to load source.
+    fake_path = "bundled_" + fullname.replace(".", "_") + ".py"
     mod.__file__ = fake_path
     if is_package:
         mod.__path__ = []

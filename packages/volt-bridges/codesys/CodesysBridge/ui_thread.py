@@ -29,7 +29,7 @@ same shape.
 # pyright: reportMissingImports=false
 from .helpers import log
 
-INVOKE_TIMEOUT_MS = 30_000
+INVOKE_TIMEOUT_MS = 30000  # 30 s — PEP 515 underscore literals not allowed (IronPython 2.7)
 
 _cached_form = None  # type: object
 _winforms_available = False
