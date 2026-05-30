@@ -14925,6 +14925,12 @@ exports[`semanticTokens corpus (every conformance test) var_config_address_bindi
     "type": "keyword",
   },
   {
+    "char": 1,
+    "length": 7,
+    "line": 1,
+    "type": "namespace",
+  },
+  {
     "char": 24,
     "length": 2,
     "line": 1,

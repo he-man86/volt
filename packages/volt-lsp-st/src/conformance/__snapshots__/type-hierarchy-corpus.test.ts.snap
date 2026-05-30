@@ -1,0 +1,5468 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) hide_var 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_hide_var",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_hide_var",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_hide_var",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_hide_var",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) call_after_init 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_init",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_init",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_init",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_init",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) warning_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_warning_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_warning_message",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_warning_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_warning_message",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) noinit 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_noinit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_noinit",
+  },
+  {
+    "char": 13,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_noinit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_noinit",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) init_on_onlchange 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_on_onlchange",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_on_onlchange",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_on_onlchange",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_on_onlchange",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) displaymode_hex 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_hex",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_hex",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_hex",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_hex",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_copy 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_copy",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_copy",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_copy",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_copy",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) linkalways 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_linkalways",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_linkalways",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_check 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_check",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_check",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_check",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_check",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_instance_in_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_instance_in_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_instance_in_retain",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_instance_in_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_instance_in_retain",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) hide_all_locals 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_hide_all_locals",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_hide_all_locals",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_hide_all_locals",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_hide_all_locals",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_assign 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_assign",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_assign",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_assign",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_assign",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) reflection 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_reflection",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_reflection",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_reflection",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_reflection",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) unknown_attribute_typo 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_unknown_attribute_typo",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_unknown_attribute_typo",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_unknown_attribute_typo",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_unknown_attribute_typo",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) enable_dynamic_creation 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_enable_dynamic_creation",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_enable_dynamic_creation",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_enable_dynamic_creation",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_enable_dynamic_creation",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) const_replaced 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_const_replaced",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_const_replaced",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_const_replaced",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_const_replaced",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) const_non_replaced 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_const_non_replaced",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_const_non_replaced",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_const_non_replaced",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_const_non_replaced",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) global_init_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_global_init_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_global_init_slot",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_global_init_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_global_init_slot",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) monitoring_display 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_monitoring_display",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_display",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_monitoring_display",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_display",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) monitoring_encoding 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_monitoring_encoding",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_encoding",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_monitoring_encoding",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_encoding",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) subsequent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_subsequent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_subsequent",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_subsequent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_subsequent",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) suppress_warning 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_suppress_warning",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_suppress_warning",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditionalshow 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditionalshow",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditionalshow",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pingroup 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_pingroup",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pingroup",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pingroup",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pingroup",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) info_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_info_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_info_message",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_info_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_info_message",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) text_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_text_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_text_message",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_text_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_text_message",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) instance_path_with_reflection 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_instance_path_with_reflection",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_instance_path_with_reflection",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_instance_path_with_reflection",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_instance_path_with_reflection",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) displaymode_bin 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_bin",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_bin",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_bin",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_bin",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) displaymode_dec 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_dec",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_dec",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_dec",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_dec",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) displaymode_invalid_value 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_invalid_value",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_invalid_value",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_displaymode_invalid_value",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_invalid_value",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) suppress_warning_multi 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_suppress_warning_multi",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning_multi",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_suppress_warning_multi",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning_multi",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_init_aliases 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_init_aliases",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_init_aliases",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_init_aliases",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_init_aliases",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) linkalways_with_unused_pou 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_linkalways_with_unused_pou",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways_with_unused_pou",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditionalshow_all_locals 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditionalshow_all_locals",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow_all_locals",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditionalshow_all_locals",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow_all_locals",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pin_presentation_order 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) estimated_stack_usage 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_estimated_stack_usage",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_estimated_stack_usage",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_estimated_stack_usage",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_estimated_stack_usage",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) no_virtual_actions 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_virtual_actions",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_virtual_actions",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_no_virtual_actions",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_no_virtual_actions",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) io_function_block 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_io_function_block",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_io_function_block",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_io_function_block",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_io_function_block",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) call_after_global_init_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_global_init_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_global_init_slot",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_global_init_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_global_init_slot",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) warning_disable_restore 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_warning_disable_restore",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_warning_disable_restore",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_warning_disable_restore",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_warning_disable_restore",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) call_after_online_change_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_online_change_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_online_change_slot",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_after_online_change_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_online_change_slot",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) call_before_global_exit_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_before_global_exit_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_before_global_exit_slot",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_before_global_exit_slot",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_before_global_exit_slot",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) call_on_type_change 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_on_type_change",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_on_type_change",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_call_on_type_change",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_call_on_type_change",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pin_presentation_order_outputs 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order_outputs",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_outputs",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order_outputs",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_outputs",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pin_presentation_order_wildcard 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order_wildcard",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_wildcard",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pin_presentation_order_wildcard",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_wildcard",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) implicit_parameter_pouname 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_implicit_parameter_pouname",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_parameter_pouname",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_implicit_parameter_pouname",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_parameter_pouname",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) region_basic 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_basic",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_basic",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_basic",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_basic",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) error_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_error_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_error_message",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_error_message",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_error_message",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) region_pragma_basic 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_pragma",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_pragma",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_pragma",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_pragma",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) region_pragma_nested 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_nested",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_nested",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_region_nested",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_region_nested",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_canonical",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_canonical",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_reinit_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_reinit_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_canonical",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_reinit_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_canonical",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_exit_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_exit_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_canonical",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_exit_canonical",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_canonical",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_init_wrong_return_type 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_wrong_return_type",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_wrong_return_type",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_wrong_return_type",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_wrong_return_type",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_init_missing_bInCopyCode 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_missing_bInCopyCode",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_missing_bInCopyCode",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_init_missing_bInCopyCode",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_exit_missing_bInCopyCode 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_exit_missing_bInCopyCode",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_missing_bInCopyCode",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_exit_missing_bInCopyCode",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) fb_reinit_with_params 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_reinit_with_params",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_with_params",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_fb_reinit_with_params",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_with_params",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) identifier_double_underscore 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_identifier_double_underscore",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_double_underscore",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_identifier_double_underscore",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_double_underscore",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) identifier_consecutive_underscores 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_identifier_consecutive_underscores",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_consecutive_underscores",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_identifier_consecutive_underscores",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_consecutive_underscores",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) identifier_backtick_keyword_escape 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_backtick_ident",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_backtick_ident",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_backtick_ident",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_backtick_ident",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) init_slot_default_50000 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_default_50000",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_default_50000",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_default_50000",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_default_50000",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) init_slot_reserved_alarm_manager 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_reserved_alarm_manager",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_alarm_manager",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_reserved_alarm_manager",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_alarm_manager",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) init_slot_reserved_device_object 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_reserved_device_object",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_device_object",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_reserved_device_object",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_device_object",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) init_slot_user_early 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_user_early",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_user_early",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_init_slot_user_early",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_user_early",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) shadowing_method_local_shadows_member 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_shadowing_method_local_shadows_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_local_shadows_member",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_shadowing_method_local_shadows_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_local_shadows_member",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) shadowing_method_param_shadows_member 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_shadowing_method_param_shadows_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_param_shadows_member",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_shadowing_method_param_shadows_member",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_param_shadows_member",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_int_to_real_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_real_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_valid",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_real_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_valid",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_real_to_int_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_real_to_int_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_real_to_int_valid",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_real_to_int_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_real_to_int_valid",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_real_wrong_source",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_wrong_source",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_real_wrong_source",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_wrong_source",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_dint_to_int_wrong_source 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_dint_to_int_wrong_source",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dint_to_int_wrong_source",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_dint_to_int_wrong_source",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dint_to_int_wrong_source",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_implicit_dint_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_implicit_dint_to_int",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_implicit_dint_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_implicit_dint_to_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_bool_to_int_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_bool_to_int_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_bool_to_int_valid",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_bool_to_int_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_bool_to_int_valid",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_int_to_bool_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_bool_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_bool_valid",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_int_to_bool_valid",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_bool_valid",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_time_to_dword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_time_to_dword",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_time_to_dword",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_time_to_dword",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_time_to_dword",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_date_to_string 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_date_to_string",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_date_to_string",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_date_to_string",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_date_to_string",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_dt_to_date 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_dt_to_date",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dt_to_date",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_dt_to_date",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dt_to_date",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_trunc_real_to_dint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_trunc",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_trunc",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_trunc_int_real_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_trunc_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc_int",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_trunc_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_overloaded_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_overloaded_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_overloaded_to_int",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conversion_overloaded_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_overloaded_to_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) duplicate_declaration 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_duplicate_declaration",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_duplicate_declaration",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_duplicate_declaration",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_duplicate_declaration",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) unresolved_identifier_in_body 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_unresolved_identifier_in_body",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_unresolved_identifier_in_body",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_unresolved_identifier_in_body",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_unresolved_identifier_in_body",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditional_define_then_if 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_define_then_if",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_define_then_if",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_define_then_if",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_define_then_if",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditional_else_branch_taken 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_else_branch_taken",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_else_branch_taken",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_else_branch_taken",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_else_branch_taken",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditional_elsif_chain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_elsif_chain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_elsif_chain",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_elsif_chain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_elsif_chain",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditional_orphan_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_orphan_else",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_orphan_else",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_orphan_else",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_orphan_else",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) conditional_undefine_after_define 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_undefine_after_define",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_undefine_after_define",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_conditional_undefine_after_define",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_undefine_after_define",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_arithmetic_same_type 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_same_type",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_same_type",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_same_type",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_same_type",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_arithmetic_int_plus_dint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_int_plus_dint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_dint",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_int_plus_dint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_dint",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_arithmetic_int_plus_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_int_plus_real",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_real",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_int_plus_real",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_real",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_modulo_on_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_modulo_on_real",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_modulo_on_real",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_modulo_on_real",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_modulo_on_real",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_comparison_int_vs_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_comparison_int_vs_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_comparison_int_vs_int",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_comparison_int_vs_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_comparison_int_vs_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_logical_bool 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_logical_bool",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_logical_bool",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_logical_bool",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_logical_bool",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_bitwise_on_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_bitwise_on_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_bitwise_on_int",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_bitwise_on_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_bitwise_on_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_shift_left 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_shift_left",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_left",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_shift_left",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_left",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_arithmetic_bool_plus_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_bool_plus_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_bool_plus_int",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_arithmetic_bool_plus_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_bool_plus_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sel_bool_picker 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sel",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sel",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sel",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sel",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_mux_multi_select 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_mux",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_mux",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_mux",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_mux",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_min_max 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_min_max",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_min_max",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_min_max",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_min_max",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_limit_clamp 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_limit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_limit",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_limit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_limit",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_abs 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_abs",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_abs",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_abs",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_abs",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_sqrt_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_sqrt",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_sqrt",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_sqrt",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_sqrt",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_ln 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_ln",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_ln",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_ln",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_ln",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_log 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_log",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_log",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_log",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_log",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_exp 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_exp",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_exp",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_exp",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_exp",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_inverse_trig 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_inverse_trig",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_inverse_trig",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_inverse_trig",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_inverse_trig",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_trig 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_trig",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_trig",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_trig",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_trig",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_math_expt 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_expt",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_expt",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_math_expt",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_expt",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_shift_right 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_shift_right",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_right",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_shift_right",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_right",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_rotate_left 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_rotate_left",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_left",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_rotate_left",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_left",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_rotate_right 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_rotate_right",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_right",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_rotate_right",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_right",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_isvalidref 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_isvalidref",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_isvalidref",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_isvalidref",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_isvalidref",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_varinfo 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_varinfo",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_varinfo",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_varinfo",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_varinfo",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_currenttask 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_currenttask",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_currenttask",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_currenttask",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_currenttask",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_try_catch 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_try_catch",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_try_catch",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_try_catch",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_try_catch",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_new_delete 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_new_delete",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 20,
+    "file": "pou",
+    "line": 3,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_new_delete",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 9,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_new_delete",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_new_delete",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) op_sys_queryinterface 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_queryinterface",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_queryinterface",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_op_sys_queryinterface",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_queryinterface",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_hex 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_hex",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_hex",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_hex",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_hex",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_binary 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_binary",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_binary",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_binary",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_binary",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_octal 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_octal",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_octal",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_octal",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_octal",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_typed_int_hash 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_typed_int_hash",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_typed_int_hash",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_typed_int_hash",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_typed_int_hash",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_real_scientific 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_real_scientific",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_real_scientific",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_real_scientific",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_real_scientific",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_time 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_time",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_time",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_time",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_time",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_date 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_date",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_date",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_date",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_date",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_tod 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_tod",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_tod",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_tod",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_tod",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_string_single_quoted 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_string_single_quoted",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_single_quoted",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_string_single_quoted",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_single_quoted",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_wstring_double_quoted 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_wstring_double_quoted",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_wstring_double_quoted",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_wstring_double_quoted",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_wstring_double_quoted",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) literal_string_to_int_assignment 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_string_to_int_assignment",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_to_int_assignment",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_literal_string_to_int_assignment",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_to_int_assignment",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_empty 1`] = `
+[
+  {
+    "char": 10,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "ITF_LANG_empty",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "ITF_LANG_empty",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_empty_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_empty_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_empty_impl",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_with_method 1`] = `
+[
+  {
+    "char": 10,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "ITF_LANG_with_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "ITF_LANG_with_method",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_with_method_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_with_method_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_with_method_impl",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_missing_implementation 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_missing_implementation",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_missing_implementation",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_interface_missing_implementation",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_interface_missing_implementation",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_base 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_base",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_base",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_base",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_base",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_extends_simple 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_simple",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_simple",
+  },
+  {
+    "char": 16,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_simple",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_simple",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_extends_with_override 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_with_override",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_override",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_with_override",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_override",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_extends_with_super 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_with_super",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_super",
+  },
+  {
+    "char": 15,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_extends_with_super",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_super",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_final_fb 1`] = `
+[
+  {
+    "char": 21,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_final_fb",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_final_fb",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_final_fb",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_final_fb",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_abstract_fb 1`] = `
+[
+  {
+    "char": 24,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_abstract_fb",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_fb",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_abstract_instantiated 1`] = `
+[
+  {
+    "char": 24,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_abstract_instantiated",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_instantiated",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_abstract_instantiated",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_instantiated",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_array_of_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_array_of_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_of_int",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_array_of_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_of_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_array_2d 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_array_2d",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_2d",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_array_2d",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_2d",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_pointer_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_pointer_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_pointer_to_int",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_pointer_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_pointer_to_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_reference_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_reference_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_reference_to_int",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_reference_to_int",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_reference_to_int",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_string_n 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_string_n",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_string_n",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_string_n",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_string_n",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_var_temp_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_var_temp_in_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_temp_in_method",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_var_temp_in_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_temp_in_method",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_var_constant 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_var_constant",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_constant",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_var_constant",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_constant",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_deref_non_pointer 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_deref_non_pointer",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_deref_non_pointer",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_type_deref_non_pointer",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_type_deref_non_pointer",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_struct_simple 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_enum_simple 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_enum_with_base 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_enum_explicit_values 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_alias_int 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_alias_string 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_union 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_subrange 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_any_function_input 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_any_int_function_input 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_codesys_xint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_xint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xint",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_xint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xint",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_codesys_uxint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_uxint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_uxint",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_uxint",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_uxint",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_codesys_xword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_xword",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xword",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_xword",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xword",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_codesys_vector 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_vector",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_vector",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_vector",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_vector",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_codesys_version 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_version",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_version",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_codesys_version",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_version",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_implicit_enum_inline 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_implicit_enum",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_enum",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_implicit_enum",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_enum",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_io_kinds",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_io_kinds",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_io_kinds",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_io_kinds",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_input_constant 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_input_constant",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_input_constant",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_input_constant",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_input_constant",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_inst_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_inst_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_inst_method",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_inst_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_inst_method",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_stat_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_stat_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_stat_method",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_stat_method",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_stat_method",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_retain",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_retain",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_persistent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_persistent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_persistent",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_persistent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_persistent",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_non_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_non_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_non_retain",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_non_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_non_retain",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_config_address_binding 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_external_gvl 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_external_consumer 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_external_consumer",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_external_consumer",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_var_external_consumer",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_var_external_consumer",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_output_on_function 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_if_elsif_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_if_elsif_else",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_if_elsif_else",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_if_elsif_else",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_if_elsif_else",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_case_of_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_case_of",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_case_of",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_case_of",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_case_of",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_for_to_by_do 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_for_loop",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_for_loop",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_for_loop",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_for_loop",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_while_do 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_while_do",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_while_do",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_while_do",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_while_do",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_repeat_until 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_repeat_until",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_repeat_until",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_repeat_until",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_repeat_until",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_exit_in_loop 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_exit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_exit",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_exit",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_exit",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_continue_in_loop 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_continue",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_continue",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_continue",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_continue",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_return_from_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_return",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_return",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_ctrl_return",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_return",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) keyword_this_dereference 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_keyword_this",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_this",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_keyword_this",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_this",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) keyword_null_pointer_init 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_keyword_null",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_null",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_keyword_null",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_null",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) operand_bit_access_byte 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_bit_byte",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_byte",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_bit_byte",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_byte",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) operand_bit_assign_word 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_bit_assign",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_assign",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_bit_assign",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_assign",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) operand_partial_word_in_dword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_partial",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_partial",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_partial",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_partial",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) operand_hw_address_marker 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_hw_marker",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_hw_marker",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_hw_marker",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_hw_marker",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) operand_uchar_literal 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_uchar",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_uchar",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_operand_uchar",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_operand_uchar",
+  },
+]
+`;

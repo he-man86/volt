@@ -4,23 +4,15 @@
  * where the classifier silently re-labels a construct (e.g. starts
  * treating a keyword as an identifier or vice versa).
  *
- * Position-free: runs the query on whole `source`. Snapshot stores the
- * decoded (line, char, length, type) tuple list — readable in a diff,
- * unlike the raw delta-encoded integer array LSP emits over the wire.
+ * Position-free: targets the POU's URI only. PLC_PRG is also in the
+ * workspace (via the shared helper) but its tokens aren't snapshotted
+ * — every test's PLC_PRG is structurally similar and would add noise
+ * without signal.
  */
 import { describe, expect, it } from "bun:test";
 import { semanticTokens, TOKEN_TYPES } from "../lsp/queries/semantic-tokens.js";
-import { Workspace } from "../lsp/workspace.js";
-import { ALL_TESTS, type LanguageTest } from "./index.js";
-
-const KIND_EXT: Record<LanguageTest["kind"], string> = {
-	function_block: "st",
-	function: "st",
-	program: "st",
-	gvl: "gvl",
-	structure: "dut",
-	interface: "itf",
-};
+import { buildCorpusWorkspace } from "./_corpus-helpers.js";
+import { ALL_TESTS } from "./index.js";
 
 interface DecodedToken {
 	line: number;
@@ -48,13 +40,11 @@ function decode(data: readonly number[]): DecodedToken[] {
 describe("semanticTokens corpus (every conformance test)", () => {
 	for (const t of ALL_TESTS) {
 		it(t.name, () => {
-			const uri = `file:///conformance/${t.pouName}.${KIND_EXT[t.kind]}`;
-			const ws = new Workspace();
-			ws.openDocument(uri, t.source, 1);
+			const { ws, pouUri, pouSource } = buildCorpusWorkspace(t);
 			const result = semanticTokens({
-				source: t.source,
+				source: pouSource,
 				project: ws.getProjectScope(),
-				docUri: uri,
+				docUri: pouUri,
 			});
 			expect(decode(result.data)).toMatchSnapshot();
 		});

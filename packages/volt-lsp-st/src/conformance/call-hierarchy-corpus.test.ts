@@ -1,0 +1,84 @@
+/**
+ * Call-hierarchy corpus: snapshot prepare + incoming + outgoing for
+ * every identifier in the POU and PLC_PRG. Three-step interaction:
+ *
+ *   1. prepareCallHierarchy(pos) -> items[]   (callables at the cursor)
+ *   2. incomingCalls(item)        -> callers
+ *   3. outgoingCalls(item)        -> callees
+ *
+ * Per probe we snapshot the prepare-item names + their incoming /
+ * outgoing call counts and target names. Catches regressions where
+ * the hierarchy stops finding a known caller/callee or misclassifies
+ * a callable.
+ */
+import { describe, expect, it } from "bun:test";
+import { lex } from "../lexer/lexer.js";
+import {
+	incomingCalls,
+	outgoingCalls,
+	prepareCallHierarchy,
+	type CallHierarchyItem,
+} from "../lsp/queries/call-hierarchy.js";
+import { buildCorpusWorkspace } from "./_corpus-helpers.js";
+import { ALL_TESTS } from "./index.js";
+
+interface CHProbe {
+	file: "pou" | "plc_prg";
+	text: string;
+	line: number;
+	char: number;
+	prepared: Array<{
+		name: string;
+		incoming: string[];
+		outgoing: string[];
+	}>;
+}
+
+function probe(
+	source: string,
+	doc: Parameters<typeof prepareCallHierarchy>[0]["doc"],
+	project: Parameters<typeof prepareCallHierarchy>[0]["project"],
+	workspace: Parameters<typeof incomingCalls>[0]["workspace"],
+	tag: "pou" | "plc_prg",
+): CHProbe[] {
+	const out: CHProbe[] = [];
+	for (const tok of lex(source)) {
+		if (tok.kind !== "identifier") continue;
+		const position = {
+			line: tok.span.startLine - 1,
+			character: tok.span.startCol,
+		};
+		const prepared = prepareCallHierarchy({ doc, position, project });
+		if (prepared.length === 0) continue;
+		out.push({
+			file: tag,
+			text: tok.text,
+			line: position.line,
+			char: position.character,
+			prepared: prepared.map((item: CallHierarchyItem) => ({
+				name: item.name,
+				incoming: incomingCalls({ workspace, item })
+					.map((c) => c.from.name)
+					.sort(),
+				outgoing: outgoingCalls({ workspace, project, item })
+					.map((c) => c.to.name)
+					.sort(),
+			})),
+		});
+	}
+	return out;
+}
+
+describe("callHierarchy corpus (POU + PLC_PRG)", () => {
+	for (const t of ALL_TESTS) {
+		it(t.name, () => {
+			const { ws, pouDoc, pouSource, plcPrgDoc, plcPrgSource } = buildCorpusWorkspace(t);
+			const project = ws.getProjectScope();
+			const probes = [
+				...probe(pouSource, pouDoc, project, ws, "pou"),
+				...probe(plcPrgSource, plcPrgDoc, project, ws, "plc_prg"),
+			];
+			expect(probes).toMatchSnapshot();
+		});
+	}
+});

@@ -1,0 +1,8140 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`callHierarchy corpus (POU + PLC_PRG) hide_var 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_hide_var",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_hide_var",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_hide_var",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_hide_var",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) call_after_init 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_init",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_init",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_init",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_init",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) warning_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_warning_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_warning_message",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_warning_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_warning_message",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) noinit 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_noinit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_noinit",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 13,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_noinit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_noinit",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) init_on_onlchange 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_on_onlchange",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_on_onlchange",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_on_onlchange",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_on_onlchange",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) displaymode_hex 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_hex",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_hex",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_hex",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_hex",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_copy 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_copy",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_copy",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_copy",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_copy",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) linkalways 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_linkalways",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_linkalways",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_check 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_check",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_check",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_check",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_check",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_instance_in_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_instance_in_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_instance_in_retain",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_instance_in_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_instance_in_retain",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) hide_all_locals 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_hide_all_locals",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_hide_all_locals",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_hide_all_locals",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_hide_all_locals",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_assign 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_assign",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_assign",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_assign",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_assign",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) reflection 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_reflection",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_reflection",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_reflection",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_reflection",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) unknown_attribute_typo 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_unknown_attribute_typo",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_unknown_attribute_typo",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_unknown_attribute_typo",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_unknown_attribute_typo",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) enable_dynamic_creation 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_enable_dynamic_creation",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_enable_dynamic_creation",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_enable_dynamic_creation",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_enable_dynamic_creation",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) const_replaced 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_const_replaced",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_const_replaced",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_const_replaced",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_const_replaced",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) const_non_replaced 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_const_non_replaced",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_const_non_replaced",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_const_non_replaced",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_const_non_replaced",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) global_init_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_global_init_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_global_init_slot",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_global_init_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_global_init_slot",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) monitoring_display 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_monitoring_display",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_display",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_monitoring_display",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_display",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) monitoring_encoding 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_monitoring_encoding",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_encoding",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_monitoring_encoding",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_monitoring_encoding",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) subsequent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_subsequent",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_subsequent",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_subsequent",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_subsequent",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) suppress_warning 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_suppress_warning",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_suppress_warning",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditionalshow 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditionalshow",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditionalshow",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) pingroup 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pingroup",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pingroup",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pingroup",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pingroup",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) info_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_info_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_info_message",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_info_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_info_message",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) text_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_text_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_text_message",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_text_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_text_message",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) instance_path_with_reflection 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_instance_path_with_reflection",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_instance_path_with_reflection",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_instance_path_with_reflection",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_instance_path_with_reflection",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) displaymode_bin 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_bin",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_bin",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_bin",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_bin",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) displaymode_dec 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_dec",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_dec",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_dec",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_dec",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) displaymode_invalid_value 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_invalid_value",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_invalid_value",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_displaymode_invalid_value",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_displaymode_invalid_value",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) suppress_warning_multi 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_suppress_warning_multi",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning_multi",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_suppress_warning_multi",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_suppress_warning_multi",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_init_aliases 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_init_aliases",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_init_aliases",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_init_aliases",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_init_aliases",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) linkalways_with_unused_pou 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_linkalways_with_unused_pou",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_linkalways_with_unused_pou",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditionalshow_all_locals 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditionalshow_all_locals",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow_all_locals",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditionalshow_all_locals",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditionalshow_all_locals",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) pin_presentation_order 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) estimated_stack_usage 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_estimated_stack_usage",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_estimated_stack_usage",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_estimated_stack_usage",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_estimated_stack_usage",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) no_virtual_actions 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_virtual_actions",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_virtual_actions",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_no_virtual_actions",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_no_virtual_actions",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) io_function_block 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_io_function_block",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_io_function_block",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_io_function_block",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_io_function_block",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) call_after_global_init_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_global_init_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_global_init_slot",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_global_init_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_global_init_slot",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) warning_disable_restore 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_warning_disable_restore",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_warning_disable_restore",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_warning_disable_restore",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_warning_disable_restore",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) call_after_online_change_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_online_change_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_online_change_slot",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_after_online_change_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_after_online_change_slot",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) call_before_global_exit_slot 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_before_global_exit_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_before_global_exit_slot",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_before_global_exit_slot",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_before_global_exit_slot",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) call_on_type_change 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_on_type_change",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_on_type_change",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_call_on_type_change",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_call_on_type_change",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) pin_presentation_order_outputs 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order_outputs",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_outputs",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order_outputs",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_outputs",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) pin_presentation_order_wildcard 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order_wildcard",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_wildcard",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pin_presentation_order_wildcard",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pin_presentation_order_wildcard",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) implicit_parameter_pouname 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_implicit_parameter_pouname",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_parameter_pouname",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_implicit_parameter_pouname",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_parameter_pouname",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) region_basic 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_basic",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_basic",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_basic",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_basic",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) error_message 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_error_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_error_message",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_error_message",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_error_message",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) region_pragma_basic 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_pragma",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_pragma",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_pragma",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_pragma",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) region_pragma_nested 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_nested",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_nested",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_region_nested",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_region_nested",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_canonical",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_canonical",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_reinit_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_reinit_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_canonical",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_reinit_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_canonical",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_exit_canonical 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_exit_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_canonical",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_exit_canonical",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_canonical",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_init_wrong_return_type 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_wrong_return_type",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_wrong_return_type",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_wrong_return_type",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_wrong_return_type",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_init_missing_bInCopyCode 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_missing_bInCopyCode",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_missing_bInCopyCode",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_init_missing_bInCopyCode",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_init_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_exit_missing_bInCopyCode 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_exit_missing_bInCopyCode",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_missing_bInCopyCode",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_exit_missing_bInCopyCode",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_exit_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) fb_reinit_with_params 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_reinit_with_params",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_with_params",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_fb_reinit_with_params",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_fb_reinit_with_params",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) identifier_double_underscore 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_identifier_double_underscore",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_double_underscore",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_identifier_double_underscore",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_double_underscore",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) identifier_consecutive_underscores 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_identifier_consecutive_underscores",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_consecutive_underscores",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_identifier_consecutive_underscores",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_identifier_consecutive_underscores",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) identifier_backtick_keyword_escape 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_backtick_ident",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_backtick_ident",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_backtick_ident",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_backtick_ident",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) init_slot_default_50000 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_default_50000",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_default_50000",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_default_50000",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_default_50000",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) init_slot_reserved_alarm_manager 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_reserved_alarm_manager",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_alarm_manager",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_reserved_alarm_manager",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_alarm_manager",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) init_slot_reserved_device_object 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_reserved_device_object",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_device_object",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_reserved_device_object",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_reserved_device_object",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) init_slot_user_early 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_user_early",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_user_early",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_init_slot_user_early",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_init_slot_user_early",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) shadowing_method_local_shadows_member 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_shadowing_method_local_shadows_member",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_local_shadows_member",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_shadowing_method_local_shadows_member",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_local_shadows_member",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) shadowing_method_param_shadows_member 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_shadowing_method_param_shadows_member",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_param_shadows_member",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_shadowing_method_param_shadows_member",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_shadowing_method_param_shadows_member",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_int_to_real_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_real_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_valid",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_real_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_valid",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_real_to_int_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_real_to_int_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_real_to_int_valid",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_real_to_int_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_real_to_int_valid",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_real_wrong_source",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_wrong_source",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_real_wrong_source",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_real_wrong_source",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_dint_to_int_wrong_source 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_dint_to_int_wrong_source",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dint_to_int_wrong_source",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_dint_to_int_wrong_source",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dint_to_int_wrong_source",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_implicit_dint_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_implicit_dint_to_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_implicit_dint_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_implicit_dint_to_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_bool_to_int_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_bool_to_int_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_bool_to_int_valid",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_bool_to_int_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_bool_to_int_valid",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_int_to_bool_valid 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_bool_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_bool_valid",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_int_to_bool_valid",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_int_to_bool_valid",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_time_to_dword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_time_to_dword",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_time_to_dword",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_time_to_dword",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_time_to_dword",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_date_to_string 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_date_to_string",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_date_to_string",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_date_to_string",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_date_to_string",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_dt_to_date 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_dt_to_date",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dt_to_date",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_dt_to_date",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_dt_to_date",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_trunc_real_to_dint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_trunc",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_trunc",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_trunc_int_real_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_trunc_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_trunc_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_trunc_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conversion_overloaded_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_overloaded_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_overloaded_to_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conversion_overloaded_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conversion_overloaded_to_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) duplicate_declaration 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_duplicate_declaration",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_duplicate_declaration",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_duplicate_declaration",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_duplicate_declaration",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) unresolved_identifier_in_body 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_unresolved_identifier_in_body",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_unresolved_identifier_in_body",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_unresolved_identifier_in_body",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_unresolved_identifier_in_body",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditional_define_then_if 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_define_then_if",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_define_then_if",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_define_then_if",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_define_then_if",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditional_else_branch_taken 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_else_branch_taken",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_else_branch_taken",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_else_branch_taken",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_else_branch_taken",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditional_elsif_chain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_elsif_chain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_elsif_chain",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_elsif_chain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_elsif_chain",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditional_orphan_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_orphan_else",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_orphan_else",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_orphan_else",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_orphan_else",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) conditional_undefine_after_define 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_undefine_after_define",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_undefine_after_define",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_conditional_undefine_after_define",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_conditional_undefine_after_define",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_arithmetic_same_type 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_same_type",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_same_type",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_same_type",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_same_type",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_arithmetic_int_plus_dint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_int_plus_dint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_dint",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_int_plus_dint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_dint",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_arithmetic_int_plus_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_int_plus_real",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_real",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_int_plus_real",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_int_plus_real",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_modulo_on_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_modulo_on_real",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_modulo_on_real",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_modulo_on_real",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_modulo_on_real",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_comparison_int_vs_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_comparison_int_vs_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_comparison_int_vs_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_comparison_int_vs_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_comparison_int_vs_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_logical_bool 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_logical_bool",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_logical_bool",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_logical_bool",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_logical_bool",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_bitwise_on_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_bitwise_on_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_bitwise_on_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_bitwise_on_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_bitwise_on_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_shift_left 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_shift_left",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_left",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_shift_left",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_left",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_arithmetic_bool_plus_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_bool_plus_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_bool_plus_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_arithmetic_bool_plus_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_arithmetic_bool_plus_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sel_bool_picker 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sel",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sel",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sel",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sel",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_mux_multi_select 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_mux",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_mux",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_mux",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_mux",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_min_max 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_min_max",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_min_max",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_min_max",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_min_max",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_limit_clamp 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_limit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_limit",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_limit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_limit",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_abs 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_abs",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_abs",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_abs",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_abs",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_sqrt_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_sqrt",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_sqrt",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_sqrt",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_sqrt",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_ln 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_ln",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_ln",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_ln",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_ln",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_log 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_log",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_log",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_log",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_log",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_exp 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_exp",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_exp",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_exp",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_exp",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_inverse_trig 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_inverse_trig",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_inverse_trig",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_inverse_trig",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_inverse_trig",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_trig 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_trig",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_trig",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_trig",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_trig",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_math_expt 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_expt",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_expt",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_math_expt",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_math_expt",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_shift_right 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_shift_right",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_right",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_shift_right",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_shift_right",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_rotate_left 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_rotate_left",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_left",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_rotate_left",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_left",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_rotate_right 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_rotate_right",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_right",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_rotate_right",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_rotate_right",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_isvalidref 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_isvalidref",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_isvalidref",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_isvalidref",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_isvalidref",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_varinfo 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_varinfo",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_varinfo",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_varinfo",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_varinfo",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_currenttask 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_currenttask",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_currenttask",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_currenttask",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_currenttask",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_try_catch 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_try_catch",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_try_catch",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_try_catch",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_try_catch",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_new_delete 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_new_delete",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 20,
+    "file": "pou",
+    "line": 3,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_new_delete",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 9,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_new_delete",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_new_delete",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_new_delete",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) op_sys_queryinterface 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_queryinterface",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_queryinterface",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_op_sys_queryinterface",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_op_sys_queryinterface",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_hex 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_hex",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_hex",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_hex",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_hex",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_binary 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_binary",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_binary",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_binary",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_binary",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_octal 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_octal",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_octal",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_octal",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_octal",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_typed_int_hash 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_typed_int_hash",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_typed_int_hash",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_typed_int_hash",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_typed_int_hash",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_real_scientific 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_real_scientific",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_real_scientific",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_real_scientific",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_real_scientific",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_time 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_time",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_time",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_time",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_time",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_date 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_date",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_date",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_date",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_date",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_tod 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_tod",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_tod",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_tod",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_tod",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_string_single_quoted 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_string_single_quoted",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_single_quoted",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_string_single_quoted",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_single_quoted",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_wstring_double_quoted 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_wstring_double_quoted",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_wstring_double_quoted",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_wstring_double_quoted",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_wstring_double_quoted",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) literal_string_to_int_assignment 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_string_to_int_assignment",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_to_int_assignment",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_literal_string_to_int_assignment",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_literal_string_to_int_assignment",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) interface_empty 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) interface_empty_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_interface_empty_impl",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_interface_empty_impl",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) interface_with_method 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) interface_with_method_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_interface_with_method_impl",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_interface_with_method_impl",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) interface_missing_implementation 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_interface_missing_implementation",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_interface_missing_implementation",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_interface_missing_implementation",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_interface_missing_implementation",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_base 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_base",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_base",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_base",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_base",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_extends_simple 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_simple",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_simple",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 16,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_simple",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_simple",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_extends_with_override 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_with_override",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_override",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_with_override",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_override",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_extends_with_super 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_with_super",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_super",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 15,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_extends_with_super",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_extends_with_super",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_final_fb 1`] = `
+[
+  {
+    "char": 21,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_final_fb",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_final_fb",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 12,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_final_fb",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_final_fb",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_abstract_fb 1`] = `
+[
+  {
+    "char": 24,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_abstract_fb",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_fb",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) oop_abstract_instantiated 1`] = `
+[
+  {
+    "char": 24,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_abstract_instantiated",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_instantiated",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 14,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_oop_abstract_instantiated",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_oop_abstract_instantiated",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_array_of_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_array_of_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_of_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_array_of_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_of_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_array_2d 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_array_2d",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_2d",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_array_2d",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_array_2d",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_pointer_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_pointer_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_pointer_to_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_pointer_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_pointer_to_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_reference_to_int 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_reference_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_reference_to_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_reference_to_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_reference_to_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_string_n 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_string_n",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_string_n",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_string_n",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_string_n",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_var_temp_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_var_temp_in_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_temp_in_method",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_var_temp_in_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_temp_in_method",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_var_constant 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_var_constant",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_constant",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_var_constant",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_var_constant",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_deref_non_pointer 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_deref_non_pointer",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_deref_non_pointer",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_type_deref_non_pointer",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_type_deref_non_pointer",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_struct_simple 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_enum_simple 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_enum_with_base 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_enum_explicit_values 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_alias_int 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_alias_string 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_union 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_subrange 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_any_function_input 1`] = `
+[
+  {
+    "char": 9,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_input",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_input",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "line": 5,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_input",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_input",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [
+          "FUN_LANG_any_input",
+        ],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 13,
+    "file": "plc_prg",
+    "line": 5,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_input",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_input",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_any_int_function_input 1`] = `
+[
+  {
+    "char": 9,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_int",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "line": 5,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_int",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [
+          "FUN_LANG_any_int",
+        ],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 13,
+    "file": "plc_prg",
+    "line": 5,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FUN_LANG_any_int",
+        "outgoing": [],
+      },
+    ],
+    "text": "FUN_LANG_any_int",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_codesys_xint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_xint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xint",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_xint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xint",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_codesys_uxint 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_uxint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_uxint",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_uxint",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_uxint",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_codesys_xword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_xword",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xword",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_xword",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_xword",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_codesys_vector 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_vector",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_vector",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_vector",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_vector",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_codesys_version 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_version",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_version",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_codesys_version",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_codesys_version",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_implicit_enum_inline 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_implicit_enum",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_enum",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_implicit_enum",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_implicit_enum",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_io_kinds",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_io_kinds",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_io_kinds",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_io_kinds",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_input_constant 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_input_constant",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_input_constant",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_input_constant",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_input_constant",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_inst_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_inst_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_inst_method",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_inst_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_inst_method",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_stat_in_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_stat_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_stat_method",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_stat_method",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_stat_method",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_retain",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_retain",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_persistent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_persistent",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_persistent",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_persistent",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_persistent",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_non_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_non_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_non_retain",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_non_retain",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_non_retain",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_config_address_binding 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_external_gvl 1`] = `
+[
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_external_consumer 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_external_consumer",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_external_consumer",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_var_external_consumer",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_var_external_consumer",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) var_output_on_function 1`] = `
+[
+  {
+    "char": 9,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FB_LANG_function_var_output",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_function_var_output",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "line": 9,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FB_LANG_function_var_output",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_function_var_output",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [
+          "FB_LANG_function_var_output",
+        ],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 5,
+    "prepared": [
+      {
+        "incoming": [
+          "PLC_PRG",
+        ],
+        "name": "FB_LANG_function_var_output",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_function_var_output",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_if_elsif_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_if_elsif_else",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_if_elsif_else",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_if_elsif_else",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_if_elsif_else",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_case_of_else 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_case_of",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_case_of",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_case_of",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_case_of",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_for_to_by_do 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_for_loop",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_for_loop",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_for_loop",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_for_loop",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_while_do 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_while_do",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_while_do",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_while_do",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_while_do",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_repeat_until 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_repeat_until",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_repeat_until",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_repeat_until",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_repeat_until",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_exit_in_loop 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_exit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_exit",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_exit",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_exit",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_continue_in_loop 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_continue",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_continue",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_continue",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_continue",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) ctrl_return_from_method 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_return",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_return",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_ctrl_return",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_ctrl_return",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) keyword_this_dereference 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_keyword_this",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_this",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 11,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_keyword_this",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_this",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) keyword_null_pointer_init 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_keyword_null",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_null",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_keyword_null",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_keyword_null",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) operand_bit_access_byte 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_bit_byte",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_byte",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_bit_byte",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_byte",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) operand_bit_assign_word 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_bit_assign",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_assign",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_bit_assign",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_bit_assign",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) operand_partial_word_in_dword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_partial",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_partial",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_partial",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_partial",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) operand_hw_address_marker 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_hw_marker",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_hw_marker",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_hw_marker",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_hw_marker",
+  },
+]
+`;
+
+exports[`callHierarchy corpus (POU + PLC_PRG) operand_uchar_literal 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_uchar",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_uchar",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "line": 0,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "PLC_PRG",
+        "outgoing": [],
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 9,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "incoming": [],
+        "name": "FB_LANG_operand_uchar",
+        "outgoing": [],
+      },
+    ],
+    "text": "FB_LANG_operand_uchar",
+  },
+]
+`;
