@@ -485,6 +485,32 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) region_pragma_
 ]
 `;
 
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) pragma_unknown_directive 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_pud",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) pragma_conflicting_pair 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_pcp",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) fb_init_canonical 1`] = `
 [
   {
@@ -688,6 +714,19 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) shadowing_meth
     "char": 13,
     "file": "plc_prg",
     "label": "Apply(iValue : INT)",
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Bump",
+    "char": 12,
+    "file": "plc_prg",
+    "label": null,
     "line": 4,
   },
 ]
@@ -969,6 +1008,19 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) unresolved_ide
 `;
 
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) deref_on_array_type 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Bad",
+    "char": 11,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
 
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) conditional_define_then_if 1`] = `
 [
@@ -1633,6 +1685,40 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_miss
 ]
 `;
 
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_extends_another 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "ExtraDo",
+    "char": 15,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_extends_another_impl 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_method_with_return_type 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "GetCount",
+    "char": 24,
+    "file": "plc_prg",
+    "label": null,
+    "line": 5,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_with_property 1`] = `[]`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) interface_with_property_impl 1`] = `[]`;
+
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) oop_base 1`] = `
 [
   {
@@ -1714,6 +1800,19 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) oop_abstract_i
     "activeParameter": null,
     "callee": "Inner",
     "char": 17,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) oop_action_block 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "DoIt",
+    "char": 12,
     "file": "plc_prg",
     "label": null,
     "line": 4,
@@ -1962,6 +2061,8 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) type_implicit_
 
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] = `[]`;
 
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) type_dut_alias_with_init 1`] = `[]`;
+
 exports[`signatureHelp corpus (every call site — POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -2079,6 +2180,19 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) var_output_on_
     "file": "plc_prg",
     "label": "FB_LANG_function_var_output(iA : INT, iB : INT)",
     "line": 5,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) var_inline_enum_decl 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Tick",
+    "char": 12,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
   },
 ]
 `;
@@ -2422,6 +2536,19 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) use_self_metho
     "file": "plc_prg",
     "label": null,
     "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) use_method_array_param 1`] = `
+[
+  {
+    "activeParameter": 0,
+    "callee": "Sum",
+    "char": 11,
+    "file": "plc_prg",
+    "label": "Sum(values : ARRAY OF INT)",
+    "line": 5,
   },
 ]
 `;

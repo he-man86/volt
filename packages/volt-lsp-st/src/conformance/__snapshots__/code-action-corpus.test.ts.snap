@@ -100,6 +100,10 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) region_pragma_bas
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) region_pragma_nested 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_unknown_directive 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_conflicting_pair 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) fb_init_canonical 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) fb_reinit_canonical 1`] = `[]`;
@@ -168,6 +172,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) shadowing_method_
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) shadowing_method_param_shadows_member 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to_real_valid 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_real_to_int_valid 1`] = `[]`;
@@ -199,6 +205,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) duplicate_declara
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) unresolved_identifier_in_body 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) deref_on_array_type 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conditional_define_then_if 1`] = `[]`;
 
@@ -302,6 +310,18 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_with_me
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_missing_implementation 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_extends_another 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_extends_another_impl 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_method_with_return_type 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_with_property 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_with_property_impl 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_base 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_extends_simple 1`] = `[]`;
@@ -315,6 +335,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_final_fb 1`] 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_abstract_fb 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_abstract_instantiated 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) oop_action_block 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_array_of_int 1`] = `[]`;
 
@@ -370,6 +392,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_implicit_enu
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_alias_with_init 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_input_constant 1`] = `[]`;
@@ -391,6 +415,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_external_gvl 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_external_consumer 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_output_on_function 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_inline_enum_decl 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) ctrl_if_elsif_else 1`] = `[]`;
 
@@ -451,3 +477,5 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_array_indexed
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_pointer_deref_struct_field 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_call 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_method_array_param 1`] = `[]`;

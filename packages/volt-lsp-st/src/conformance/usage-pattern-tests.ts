@@ -377,4 +377,38 @@ THIS^.Inner();
 END_METHOD
 `,
 	},
+
+	// ─── Coverage extension for signature-help.ts:143-152 (array param rendering) ─
+
+	{
+		name: "use_method_array_param",
+		pouName: "FB_LANG_use_array_param",
+		kind: "function_block",
+		feature: "Method with ARRAY-typed VAR_INPUT — sig-help renders the array type in the parameter label",
+		fromDoc: "usage-pattern",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_uap : FB_LANG_use_array_param;\n\tarr_in : ARRAY[0..3] OF INT;",
+		plcPrgBody: "fb_uap.Sum(arr_in);",
+		source:
+`FUNCTION_BLOCK FB_LANG_use_array_param
+VAR
+	iTotal : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Sum
+VAR_INPUT
+	values : ARRAY[0..3] OF INT;
+END_VAR
+VAR
+	i : INT;
+END_VAR
+iTotal := 0;
+FOR i := 0 TO 3 DO
+	iTotal := iTotal + values[i];
+END_FOR
+END_METHOD
+`,
+	},
 ];

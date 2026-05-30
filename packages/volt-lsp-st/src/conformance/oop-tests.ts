@@ -168,4 +168,29 @@ iVar := 1;
 END_METHOD
 `,
 	},
+
+	// ─── Coverage extension for document-symbol.ts:48-53 (action) ────
+
+	{
+		name: "oop_action_block",
+		pouName: "FB_LANG_oop_action_block",
+		kind: "function_block",
+		feature: "FB with an ACTION sibling — exercises action branch in document-symbol",
+		fromDoc: "10-keywords.md",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_oab : FB_LANG_oop_action_block;",
+		plcPrgBody: "fb_oab.DoIt();",
+		source:
+`FUNCTION_BLOCK FB_LANG_oop_action_block
+VAR
+	iValue : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+ACTION DoIt
+iValue := iValue + 1;
+END_ACTION
+`,
+	},
 ];

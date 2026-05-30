@@ -438,4 +438,23 @@ END_STRUCT
 END_TYPE
 `,
 	},
+
+	// ─── Coverage extension for dut.ts:211-218 (alias init body) ──
+	// STRUCT EXTENDS is already covered by `type_dut_struct_extends`
+	// above; remaining gap in dut.ts is the alias-with-init path.
+
+	{
+		name: "type_dut_alias_with_init",
+		pouName: "DUT_LANG_alias_with_init",
+		kind: "structure",
+		feature: "TYPE alias with initial value — alias body init path in DUT parser",
+		fromDoc: "06-data-types.md",
+		expectTcAccepts: true,
+		plcPrgVar: "dut_awi : DUT_LANG_alias_with_init;",
+		plcPrgBody: "dut_awi := dut_awi + 1;",
+		source:
+`TYPE DUT_LANG_alias_with_init : INT := 42;
+END_TYPE
+`,
+	},
 ];

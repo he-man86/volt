@@ -289,4 +289,31 @@ iCarryOut := 0;
 END_FUNCTION
 `,
 	},
+
+	// ─── Coverage extension for find-identifier.ts:204-206 (inline enum in VAR) ─
+
+	{
+		name: "var_inline_enum_decl",
+		pouName: "FB_LANG_inline_enum_var",
+		kind: "function_block",
+		feature: "VAR with inline enumeration type `(A, B, C)` — exercises implicit-enum branch in find-identifier",
+		fromDoc: "06-data-types.md",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_iev : FB_LANG_inline_enum_var;",
+		plcPrgBody: "fb_iev.Tick();",
+		source:
+`FUNCTION_BLOCK FB_LANG_inline_enum_var
+VAR
+	eState : (Idle, Running, Halted) := Idle;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Tick
+IF eState = Idle THEN
+	eState := Running;
+END_IF
+END_METHOD
+`,
+	},
 ];

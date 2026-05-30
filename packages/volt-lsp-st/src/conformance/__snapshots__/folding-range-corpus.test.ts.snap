@@ -731,6 +731,32 @@ exports[`foldingRange corpus (every conformance test) region_pragma_nested 1`] =
 ]
 `;
 
+exports[`foldingRange corpus (every conformance test) pragma_unknown_directive 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pragma_conflicting_pair 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 2,
+  },
+  {
+    "endLine": 6,
+    "startLine": 3,
+  },
+]
+`;
+
 exports[`foldingRange corpus (every conformance test) fb_init_canonical 1`] = `
 [
   {
@@ -1011,6 +1037,27 @@ exports[`foldingRange corpus (every conformance test) shadowing_method_param_sha
 ]
 `;
 
+exports[`foldingRange corpus (every conformance test) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
 exports[`foldingRange corpus (every conformance test) conversion_int_to_real_valid 1`] = `
 [
   {
@@ -1271,6 +1318,23 @@ exports[`foldingRange corpus (every conformance test) pragma_conflict_hide_plus_
   {
     "endLine": 5,
     "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) deref_on_array_type 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
   },
 ]
 `;
@@ -2118,6 +2182,80 @@ exports[`foldingRange corpus (every conformance test) interface_missing_implemen
 ]
 `;
 
+exports[`foldingRange corpus (every conformance test) interface_extends_another 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_extends_another_impl 1`] = `
+[
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_method_with_return_type 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_property 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_property_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
 exports[`foldingRange corpus (every conformance test) oop_base 1`] = `
 [
   {
@@ -2209,6 +2347,23 @@ exports[`foldingRange corpus (every conformance test) oop_abstract_fb 1`] = `
 `;
 
 exports[`foldingRange corpus (every conformance test) oop_abstract_instantiated 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_action_block 1`] = `
 [
   {
     "endLine": 5,
@@ -2644,6 +2799,15 @@ exports[`foldingRange corpus (every conformance test) type_dut_struct_with_bit_f
 ]
 `;
 
+exports[`foldingRange corpus (every conformance test) type_dut_alias_with_init 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+]
+`;
+
 exports[`foldingRange corpus (every conformance test) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -2835,6 +2999,23 @@ exports[`foldingRange corpus (every conformance test) var_output_on_function 1`]
   {
     "endLine": 7,
     "startLine": 5,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_inline_enum_decl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
   },
 ]
 `;
@@ -3349,6 +3530,31 @@ exports[`foldingRange corpus (every conformance test) use_self_method_call 1`] =
   {
     "endLine": 9,
     "startLine": 7,
+  },
+  {
+    "endLine": 13,
+    "startLine": 11,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_method_array_param 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 18,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
   },
   {
     "endLine": 13,

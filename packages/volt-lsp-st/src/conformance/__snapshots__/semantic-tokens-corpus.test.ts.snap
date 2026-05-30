@@ -3556,6 +3556,130 @@ exports[`semanticTokens corpus (every conformance test) region_pragma_nested 1`]
 ]
 `;
 
+exports[`semanticTokens corpus (every conformance test) pragma_unknown_directive 1`] = `
+[
+  {
+    "char": 0,
+    "length": 31,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 14,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 32,
+    "line": 1,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) pragma_conflicting_pair 1`] = `
+[
+  {
+    "char": 0,
+    "length": 55,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 34,
+    "line": 1,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 14,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 31,
+    "line": 2,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 2,
+    "line": 4,
+    "type": "variable",
+  },
+  {
+    "char": 6,
+    "length": 3,
+    "line": 4,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 2,
+    "line": 5,
+    "type": "variable",
+  },
+  {
+    "char": 6,
+    "length": 3,
+    "line": 5,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 8,
+    "type": "keyword",
+  },
+]
+`;
+
 exports[`semanticTokens corpus (every conformance test) fb_init_canonical 1`] = `
 [
   {
@@ -4891,6 +5015,143 @@ exports[`semanticTokens corpus (every conformance test) shadowing_method_param_s
     "char": 0,
     "length": 10,
     "line": 12,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 28,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 9,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 11,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 11,
+    "type": "variable",
+  },
+  {
+    "char": 19,
+    "length": 1,
+    "line": 11,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 12,
+    "type": "keyword",
+  },
+  {
+    "char": 6,
+    "length": 6,
+    "line": 12,
+    "type": "variable",
+  },
+  {
+    "char": 16,
+    "length": 4,
+    "line": 12,
+    "type": "keyword",
+  },
+  {
+    "char": 22,
+    "length": 6,
+    "line": 12,
+    "type": "variable",
+  },
+  {
+    "char": 31,
+    "length": 1,
+    "line": 12,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 13,
     "type": "keyword",
   },
 ]
@@ -6339,6 +6600,119 @@ exports[`semanticTokens corpus (every conformance test) pragma_conflict_hide_plu
     "char": 0,
     "length": 18,
     "line": 7,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) deref_on_array_type 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 22,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 5,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 13,
+    "length": 1,
+    "line": 2,
+    "type": "number",
+  },
+  {
+    "char": 16,
+    "length": 1,
+    "line": 2,
+    "type": "number",
+  },
+  {
+    "char": 19,
+    "length": 2,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 22,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 8,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 1,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 10,
     "type": "keyword",
   },
 ]
@@ -11465,6 +11839,396 @@ exports[`semanticTokens corpus (every conformance test) interface_missing_implem
 ]
 `;
 
+exports[`semanticTokens corpus (every conformance test) interface_extends_another 1`] = `
+[
+  {
+    "char": 0,
+    "length": 9,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 10,
+    "length": 24,
+    "line": 0,
+    "type": "interface",
+  },
+  {
+    "char": 35,
+    "length": 7,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 7,
+    "line": 2,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 13,
+    "line": 5,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) interface_extends_another_impl 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 16,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 32,
+    "length": 10,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 7,
+    "line": 4,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 5,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) interface_method_with_return_type 1`] = `
+[
+  {
+    "char": 0,
+    "length": 9,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 10,
+    "length": 23,
+    "line": 0,
+    "type": "interface",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 8,
+    "line": 2,
+    "type": "method",
+  },
+  {
+    "char": 18,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 13,
+    "line": 5,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 27,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 43,
+    "length": 10,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 17,
+    "length": 1,
+    "line": 2,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 8,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 18,
+    "length": 3,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 8,
+    "type": "method",
+  },
+  {
+    "char": 12,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) interface_with_property 1`] = `
+[
+  {
+    "char": 0,
+    "length": 9,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 10,
+    "length": 22,
+    "line": 0,
+    "type": "interface",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 9,
+    "length": 5,
+    "line": 2,
+    "type": "property",
+  },
+  {
+    "char": 17,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 12,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 13,
+    "line": 5,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) interface_with_property_impl 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 26,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 42,
+    "length": 10,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 13,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 17,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 24,
+    "length": 2,
+    "line": 2,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 9,
+    "length": 5,
+    "line": 7,
+    "type": "property",
+  },
+  {
+    "char": 17,
+    "length": 3,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 5,
+    "line": 9,
+    "type": "property",
+  },
+  {
+    "char": 9,
+    "length": 13,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 12,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
 exports[`semanticTokens corpus (every conformance test) oop_base 1`] = `
 [
   {
@@ -11967,6 +12731,89 @@ exports[`semanticTokens corpus (every conformance test) oop_abstract_instantiate
   },
   {
     "char": 8,
+    "length": 1,
+    "line": 8,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 9,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) oop_action_block 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 24,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "function",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 19,
     "length": 1,
     "line": 8,
     "type": "number",
@@ -14191,6 +15038,41 @@ exports[`semanticTokens corpus (every conformance test) type_dut_struct_with_bit
 ]
 `;
 
+exports[`semanticTokens corpus (every conformance test) type_dut_alias_with_init 1`] = `
+[
+  {
+    "char": 0,
+    "length": 4,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 24,
+    "line": 0,
+    "type": "struct",
+  },
+  {
+    "char": 32,
+    "length": 3,
+    "line": 0,
+    "type": "type",
+  },
+  {
+    "char": 39,
+    "length": 2,
+    "line": 0,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 1,
+    "type": "keyword",
+  },
+]
+`;
+
 exports[`semanticTokens corpus (every conformance test) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -15200,6 +16082,131 @@ exports[`semanticTokens corpus (every conformance test) var_output_on_function 1
   {
     "char": 0,
     "length": 12,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) var_inline_enum_decl 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 23,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 4,
+    "line": 2,
+    "type": "enumMember",
+  },
+  {
+    "char": 17,
+    "length": 7,
+    "line": 2,
+    "type": "enumMember",
+  },
+  {
+    "char": 26,
+    "length": 6,
+    "line": 2,
+    "type": "enumMember",
+  },
+  {
+    "char": 37,
+    "length": 4,
+    "line": 2,
+    "type": "enumMember",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 2,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 3,
+    "length": 6,
+    "line": 8,
+    "type": "variable",
+  },
+  {
+    "char": 12,
+    "length": 4,
+    "line": 8,
+    "type": "enumMember",
+  },
+  {
+    "char": 17,
+    "length": 4,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 9,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 7,
+    "line": 9,
+    "type": "enumMember",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 10,
     "line": 11,
     "type": "keyword",
   },
@@ -18573,6 +19580,221 @@ exports[`semanticTokens corpus (every conformance test) use_self_method_call 1`]
     "char": 0,
     "length": 10,
     "line": 13,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) use_method_array_param 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 23,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 3,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 9,
+    "type": "parameter",
+  },
+  {
+    "char": 10,
+    "length": 5,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 16,
+    "length": 1,
+    "line": 9,
+    "type": "number",
+  },
+  {
+    "char": 19,
+    "length": 1,
+    "line": 9,
+    "type": "number",
+  },
+  {
+    "char": 22,
+    "length": 2,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 25,
+    "length": 3,
+    "line": 9,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 11,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 12,
+    "type": "variable",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 12,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 13,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 14,
+    "type": "variable",
+  },
+  {
+    "char": 10,
+    "length": 1,
+    "line": 14,
+    "type": "number",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 15,
+    "type": "keyword",
+  },
+  {
+    "char": 4,
+    "length": 1,
+    "line": 15,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 1,
+    "line": 15,
+    "type": "number",
+  },
+  {
+    "char": 11,
+    "length": 2,
+    "line": 15,
+    "type": "keyword",
+  },
+  {
+    "char": 14,
+    "length": 1,
+    "line": 15,
+    "type": "number",
+  },
+  {
+    "char": 16,
+    "length": 2,
+    "line": 15,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 6,
+    "line": 16,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 6,
+    "line": 16,
+    "type": "variable",
+  },
+  {
+    "char": 20,
+    "length": 6,
+    "line": 16,
+    "type": "parameter",
+  },
+  {
+    "char": 27,
+    "length": 1,
+    "line": 16,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 17,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 18,
     "type": "keyword",
   },
 ]

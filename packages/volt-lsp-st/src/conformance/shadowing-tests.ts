@@ -67,4 +67,34 @@ iValue := iValue + 1;
 END_METHOD
 `,
 	},
+
+	// ─── Coverage extension for resolver.ts:54-61 (lookupAll across scopes) ─
+
+	{
+		name: "shadowing_method_local_shadows_fb_var",
+		pouName: "FB_LANG_method_local_shadows",
+		kind: "function_block",
+		feature: "METHOD VAR shadows an FB VAR with the same name — exercises lookupAll's nested-scope walk",
+		fromDoc: "09-shadowing.md",
+		expectTcAccepts: true,
+		note: "TC accepts shadowing here (the LSP shadowingDeclaration check ships OFF by default per LSP-mirrors-TC). The cross-scope lookupAll path is exercised by hovering on iCount inside the method — it returns the local first then the FB var.",
+		plcPrgVar: "fb_mls : FB_LANG_method_local_shadows;",
+		plcPrgBody: "fb_mls.Bump();",
+		source:
+`FUNCTION_BLOCK FB_LANG_method_local_shadows
+VAR
+	iCount : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Bump
+VAR
+	iCount : INT;
+END_VAR
+iCount := iCount + 1;
+THIS^.iCount := THIS^.iCount + 1;
+END_METHOD
+`,
+	},
 ];

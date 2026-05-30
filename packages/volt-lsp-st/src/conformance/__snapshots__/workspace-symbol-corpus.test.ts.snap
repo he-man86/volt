@@ -500,6 +500,26 @@ exports[`workspaceSymbol corpus (search by pouName) region_pragma_nested 1`] = `
 ]
 `;
 
+exports[`workspaceSymbol corpus (search by pouName) pragma_unknown_directive 1`] = `
+[
+  {
+    "file": "FB_LANG_pragma_unknown_directive.st",
+    "kind": 5,
+    "name": "FB_LANG_pragma_unknown_directive",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pragma_conflicting_pair 1`] = `
+[
+  {
+    "file": "FB_LANG_pragma_conflicting_pair.st",
+    "kind": 5,
+    "name": "FB_LANG_pragma_conflicting_pair",
+  },
+]
+`;
+
 exports[`workspaceSymbol corpus (search by pouName) fb_init_canonical 1`] = `
 [
   {
@@ -660,6 +680,16 @@ exports[`workspaceSymbol corpus (search by pouName) shadowing_method_param_shado
 ]
 `;
 
+exports[`workspaceSymbol corpus (search by pouName) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "file": "FB_LANG_method_local_shadows.st",
+    "kind": 5,
+    "name": "FB_LANG_method_local_shadows",
+  },
+]
+`;
+
 exports[`workspaceSymbol corpus (search by pouName) conversion_int_to_real_valid 1`] = `
 [
   {
@@ -816,6 +846,16 @@ exports[`workspaceSymbol corpus (search by pouName) pragma_conflict_hide_plus_mo
     "file": "FB_LANG_pragma_conflict_hide_plus_monitoring.st",
     "kind": 5,
     "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) deref_on_array_type 1`] = `
+[
+  {
+    "file": "FB_LANG_deref_on_array.st",
+    "kind": 5,
+    "name": "FB_LANG_deref_on_array",
   },
 ]
 `;
@@ -1330,6 +1370,66 @@ exports[`workspaceSymbol corpus (search by pouName) interface_missing_implementa
 ]
 `;
 
+exports[`workspaceSymbol corpus (search by pouName) interface_extends_another 1`] = `
+[
+  {
+    "file": "ITF_LANG_extends_another.itf",
+    "kind": 11,
+    "name": "ITF_LANG_extends_another",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_extends_another_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_iea_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_iea_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return_type 1`] = `
+[
+  {
+    "file": "ITF_LANG_method_returns.itf",
+    "kind": 11,
+    "name": "ITF_LANG_method_returns",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_method_returns_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_method_returns_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_property 1`] = `
+[
+  {
+    "file": "ITF_LANG_with_property.itf",
+    "kind": 11,
+    "name": "ITF_LANG_with_property",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_property_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_with_property_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_with_property_impl",
+  },
+]
+`;
+
 exports[`workspaceSymbol corpus (search by pouName) oop_base 1`] = `
 [
   {
@@ -1396,6 +1496,16 @@ exports[`workspaceSymbol corpus (search by pouName) oop_abstract_instantiated 1`
     "file": "FB_LANG_oop_abstract_instantiated.st",
     "kind": 5,
     "name": "FB_LANG_oop_abstract_instantiated",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_action_block 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_action_block.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_action_block",
   },
 ]
 `;
@@ -1670,6 +1780,16 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_with_bit_fie
 ]
 `;
 
+exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_with_init 1`] = `
+[
+  {
+    "file": "DUT_LANG_alias_with_init.dut",
+    "kind": 23,
+    "name": "DUT_LANG_alias_with_init",
+  },
+]
+`;
+
 exports[`workspaceSymbol corpus (search by pouName) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -1776,6 +1896,16 @@ exports[`workspaceSymbol corpus (search by pouName) var_output_on_function 1`] =
     "file": "FB_LANG_function_var_output.st",
     "kind": 12,
     "name": "FB_LANG_function_var_output",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_inline_enum_decl 1`] = `
+[
+  {
+    "file": "FB_LANG_inline_enum_var.st",
+    "kind": 5,
+    "name": "FB_LANG_inline_enum_var",
   },
 ]
 `;
@@ -2076,6 +2206,16 @@ exports[`workspaceSymbol corpus (search by pouName) use_self_method_call 1`] = `
     "file": "FB_LANG_use_self_call.st",
     "kind": 5,
     "name": "FB_LANG_use_self_call",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_method_array_param 1`] = `
+[
+  {
+    "file": "FB_LANG_use_array_param.st",
+    "kind": 5,
+    "name": "FB_LANG_use_array_param",
   },
 ]
 `;

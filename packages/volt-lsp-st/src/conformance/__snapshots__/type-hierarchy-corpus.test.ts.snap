@@ -1537,6 +1537,68 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) region_pragma_nested 1`] = `
 ]
 `;
 
+exports[`typeHierarchy corpus (POU + PLC_PRG) pragma_unknown_directive 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 1,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_unknown_directive",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_unknown_directive",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) pragma_conflicting_pair 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_conflicting_pair",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_pragma_conflicting_pair",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+]
+`;
+
 exports[`typeHierarchy corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
 [
   {
@@ -2033,6 +2095,37 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) shadowing_method_param_shadows_mem
 ]
 `;
 
+exports[`typeHierarchy corpus (POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_method_local_shadows",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_method_local_shadows",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_method_local_shadows",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_method_local_shadows",
+  },
+]
+`;
+
 exports[`typeHierarchy corpus (POU + PLC_PRG) conversion_int_to_real_valid 1`] = `
 [
   {
@@ -2525,6 +2618,37 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) pragma_conflict_hide_plus_monitori
       },
     ],
     "text": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) deref_on_array_type 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_deref_on_array",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_deref_on_array",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_deref_on_array",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_deref_on_array",
   },
 ]
 `;
@@ -4110,6 +4234,114 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) interface_missing_implementation 1
 ]
 `;
 
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_extends_another 1`] = `
+[
+  {
+    "char": 10,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "ITF_LANG_extends_another",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "ITF_LANG_extends_another",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_extends_another_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_iea_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_iea_impl",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_method_with_return_type 1`] = `
+[
+  {
+    "char": 10,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "ITF_LANG_method_returns",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "ITF_LANG_method_returns",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_method_returns_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_method_returns_impl",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_with_property 1`] = `
+[
+  {
+    "char": 10,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "ITF_LANG_with_property",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "ITF_LANG_with_property",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) interface_with_property_impl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_with_property_impl",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_with_property_impl",
+  },
+]
+`;
+
 exports[`typeHierarchy corpus (POU + PLC_PRG) oop_base 1`] = `
 [
   {
@@ -4310,6 +4542,37 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) oop_abstract_instantiated 1`] = `
       },
     ],
     "text": "FB_LANG_oop_abstract_instantiated",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) oop_action_block 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_action_block",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_action_block",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_oop_action_block",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_oop_action_block",
   },
 ]
 `;
@@ -4774,6 +5037,8 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) type_implicit_enum_inline 1`] = `
 
 exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] = `[]`;
 
+exports[`typeHierarchy corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `[]`;
+
 exports[`typeHierarchy corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -5027,6 +5292,37 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) var_external_consumer 1`] = `
 `;
 
 exports[`typeHierarchy corpus (POU + PLC_PRG) var_output_on_function 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) var_inline_enum_decl 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_inline_enum_var",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_inline_enum_var",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_inline_enum_var",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_inline_enum_var",
+  },
+]
+`;
 
 exports[`typeHierarchy corpus (POU + PLC_PRG) ctrl_if_elsif_else 1`] = `
 [
@@ -5838,6 +6134,37 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) use_self_method_call 1`] = `
       },
     ],
     "text": "FB_LANG_use_self_call",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) use_method_array_param 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_array_param",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_array_param",
+  },
+  {
+    "char": 10,
+    "file": "plc_prg",
+    "line": 2,
+    "prepared": [
+      {
+        "name": "FB_LANG_use_array_param",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_use_array_param",
   },
 ]
 `;

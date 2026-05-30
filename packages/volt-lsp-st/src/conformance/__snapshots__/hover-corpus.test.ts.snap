@@ -9675,6 +9675,367 @@ _section_: \`VAR\`"
 ]
 `;
 
+exports[`hover corpus (POU + PLC_PRG) pragma_unknown_directive 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_pragma_unknown_directive
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 1,
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iVar : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 3,
+    "text": "iVar",
+  },
+  {
+    "char": 8,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 4,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 6,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_pud : FB_LANG_pragma_unknown_directive
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_pud",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_pragma_unknown_directive
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_pud : FB_LANG_pragma_unknown_directive
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_pud",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) pragma_conflicting_pair 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_pragma_conflicting_pair
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "VAR_INPUT",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iA : INT
+\`\`\`
+
+_var_
+_section_: \`VAR_INPUT\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 4,
+    "text": "iA",
+  },
+  {
+    "char": 6,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 4,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iB : INT
+\`\`\`
+
+_var_
+_section_: \`VAR_INPUT\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 5,
+    "text": "iB",
+  },
+  {
+    "char": 6,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 5,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 6,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_pcp : FB_LANG_pragma_conflicting_pair
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_pcp",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_pragma_conflicting_pair
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_pcp : FB_LANG_pragma_conflicting_pair
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_pcp",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
 exports[`hover corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
 [
   {
@@ -13187,6 +13548,273 @@ _section_: \`VAR\`"
     "file": "plc_prg",
     "line": 4,
     "text": "iValue",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_method_local_shadows
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_method_local_shadows",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iCount : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "Bump",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 9,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 10,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 11,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "pou",
+    "line": 11,
+    "text": "iCount",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 12,
+    "text": "THIS",
+  },
+  {
+    "char": 6,
+    "contents": null,
+    "file": "pou",
+    "line": 12,
+    "text": "iCount",
+  },
+  {
+    "char": 16,
+    "contents": null,
+    "file": "pou",
+    "line": 12,
+    "text": "THIS",
+  },
+  {
+    "char": 22,
+    "contents": null,
+    "file": "pou",
+    "line": 12,
+    "text": "iCount",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 13,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_mls : FB_LANG_method_local_shadows
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_mls",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_method_local_shadows
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_method_local_shadows",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_mls : FB_LANG_method_local_shadows
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_mls",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "Bump",
   },
   {
     "char": 0,
@@ -17056,6 +17684,252 @@ _section_: \`VAR\`"
     "file": "plc_prg",
     "line": 4,
     "text": "sVal",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) deref_on_array_type 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_deref_on_array
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_deref_on_array",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+arr : ARRAY[0..1] OF INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "arr",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "ARRAY",
+  },
+  {
+    "char": 19,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "OF",
+  },
+  {
+    "char": 22,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+x : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 3,
+    "text": "x",
+  },
+  {
+    "char": 7,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 4,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 6,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "Bad",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "x",
+  },
+  {
+    "char": 5,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "arr",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 10,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_doa : FB_LANG_deref_on_array
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_doa",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_deref_on_array
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_deref_on_array",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_doa : FB_LANG_deref_on_array
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_doa",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "Bad",
   },
   {
     "char": 0,
@@ -29362,6 +30236,1092 @@ _section_: \`VAR\`"
 ]
 `;
 
+exports[`hover corpus (POU + PLC_PRG) interface_extends_another 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "INTERFACE",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+INTERFACE ITF_LANG_extends_another
+\`\`\`
+
+_interface_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_extends_another",
+  },
+  {
+    "char": 35,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "EXTENDS",
+  },
+  {
+    "char": 43,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_empty",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": 
+"\`\`\`iec61131
+METHOD ExtraDo
+\`\`\`
+
+_interface method_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "ExtraDo",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_INTERFACE",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_iea : FB_LANG_iea_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_iea",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_iea_impl",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_iea : FB_LANG_iea_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_iea",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "ExtraDo",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) interface_extends_another_impl 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_iea_impl
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_iea_impl",
+  },
+  {
+    "char": 32,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "IMPLEMENTS",
+  },
+  {
+    "char": 43,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_extends_another",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 4,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 4,
+    "text": "ExtraDo",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) interface_method_with_return_type 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "INTERFACE",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+INTERFACE ITF_LANG_method_returns
+\`\`\`
+
+_interface_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_method_returns",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": 
+"\`\`\`iec61131
+METHOD GetCount : INT
+\`\`\`
+
+_interface method_
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "GetCount",
+  },
+  {
+    "char": 18,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_INTERFACE",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_imr : FB_LANG_method_returns_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_imr",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_method_returns_impl",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iOut : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+iOut : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+fb_imr : FB_LANG_method_returns_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "fb_imr",
+  },
+  {
+    "char": 15,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "GetCount",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 6,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_method_returns_impl
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_method_returns_impl",
+  },
+  {
+    "char": 43,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "IMPLEMENTS",
+  },
+  {
+    "char": 54,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_method_returns",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iCount : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "GetCount",
+  },
+  {
+    "char": 18,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 7,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "GetCount",
+  },
+  {
+    "char": 12,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "iCount",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) interface_with_property 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "INTERFACE",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+INTERFACE ITF_LANG_with_property
+\`\`\`
+
+_interface_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_with_property",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "PROPERTY",
+  },
+  {
+    "char": 9,
+    "contents": 
+"\`\`\`iec61131
+PROPERTY Value : INT
+\`\`\`
+
+_interface property_
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "Value",
+  },
+  {
+    "char": 17,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_PROPERTY",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_INTERFACE",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_iwp : FB_LANG_with_property_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_iwp",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_with_property_impl",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iPv : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "iPv",
+  },
+  {
+    "char": 7,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+iPv : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "iPv",
+  },
+  {
+    "char": 7,
+    "contents": 
+"\`\`\`iec61131
+fb_iwp : FB_LANG_with_property_impl
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "fb_iwp",
+  },
+  {
+    "char": 14,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "Value",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 6,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) interface_with_property_impl 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_with_property_impl
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_with_property_impl",
+  },
+  {
+    "char": 42,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "IMPLEMENTS",
+  },
+  {
+    "char": 53,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "ITF_LANG_with_property",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iValueBacking : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "iValueBacking",
+  },
+  {
+    "char": 17,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "PROPERTY",
+  },
+  {
+    "char": 9,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "Value",
+  },
+  {
+    "char": 17,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 7,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "GET",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "Value",
+  },
+  {
+    "char": 9,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "iValueBacking",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 10,
+    "text": "END_GET",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 11,
+    "text": "END_PROPERTY",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
 exports[`hover corpus (POU + PLC_PRG) oop_base 1`] = `
 [
   {
@@ -30696,6 +32656,211 @@ _section_: \`VAR\`"
     "file": "plc_prg",
     "line": 4,
     "text": "Inner",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) oop_action_block 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_oop_action_block
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_oop_action_block",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iValue : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "ACTION",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "DoIt",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "iValue",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "END_ACTION",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_oab : FB_LANG_oop_action_block
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_oab",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_oop_action_block
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_oop_action_block",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_oab : FB_LANG_oop_action_block
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_oab",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "DoIt",
   },
   {
     "char": 0,
@@ -36727,6 +38892,147 @@ _section_: \`VAR\`"
 ]
 `;
 
+exports[`hover corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "TYPE",
+  },
+  {
+    "char": 5,
+    "contents": 
+"\`\`\`iec61131
+TYPE DUT_LANG_alias_with_init
+\`\`\`
+
+_type_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "DUT_LANG_alias_with_init",
+  },
+  {
+    "char": 32,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "END_TYPE",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+dut_awi : DUT_LANG_alias_with_init
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "dut_awi",
+  },
+  {
+    "char": 11,
+    "contents": 
+"\`\`\`iec61131
+TYPE DUT_LANG_alias_with_init
+\`\`\`
+
+_type_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "DUT_LANG_alias_with_init",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+dut_awi : DUT_LANG_alias_with_init
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "dut_awi",
+  },
+  {
+    "char": 11,
+    "contents": 
+"\`\`\`iec61131
+dut_awi : DUT_LANG_alias_with_init
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "dut_awi",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
 exports[`hover corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -39519,6 +41825,271 @@ _Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesy
     "contents": null,
     "file": "plc_prg",
     "line": 6,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) var_inline_enum_decl 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_inline_enum_var
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_inline_enum_var",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+eState : (Idle, Running, Halted)
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "eState",
+  },
+  {
+    "char": 11,
+    "contents": 
+"\`\`\`iec61131
+Idle
+\`\`\`
+
+_enum value_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "Idle",
+  },
+  {
+    "char": 17,
+    "contents": 
+"\`\`\`iec61131
+Running
+\`\`\`
+
+_enum value_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "Running",
+  },
+  {
+    "char": 26,
+    "contents": 
+"\`\`\`iec61131
+Halted
+\`\`\`
+
+_enum value_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "Halted",
+  },
+  {
+    "char": 37,
+    "contents": null,
+    "file": "pou",
+    "line": 2,
+    "text": "Idle",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "Tick",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "IF",
+  },
+  {
+    "char": 3,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "eState",
+  },
+  {
+    "char": 12,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "Idle",
+  },
+  {
+    "char": 17,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "THEN",
+  },
+  {
+    "char": 1,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "eState",
+  },
+  {
+    "char": 11,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "Running",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 10,
+    "text": "END_IF",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 11,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_iev : FB_LANG_inline_enum_var
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_iev",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_inline_enum_var
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_inline_enum_var",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_iev : FB_LANG_inline_enum_var
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "fb_iev",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "Tick",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
     "text": "END_PROGRAM",
   },
 ]
@@ -47128,6 +49699,404 @@ _section_: \`VAR\`"
     "contents": null,
     "file": "plc_prg",
     "line": 5,
+    "text": "END_PROGRAM",
+  },
+]
+`;
+
+exports[`hover corpus (POU + PLC_PRG) use_method_array_param 1`] = `
+[
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 0,
+    "text": "FUNCTION_BLOCK",
+  },
+  {
+    "char": 15,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_use_array_param
+\`\`\`
+
+_function block_"
+,
+    "file": "pou",
+    "line": 0,
+    "text": "FB_LANG_use_array_param",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+iTotal : INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`
+
+---
+
+**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "iTotal",
+  },
+  {
+    "char": 10,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 2,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 3,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 5,
+    "text": "END_FUNCTION_BLOCK",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "METHOD",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "pou",
+    "line": 7,
+    "text": "Sum",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 8,
+    "text": "VAR_INPUT",
+  },
+  {
+    "char": 1,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "values",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "ARRAY",
+  },
+  {
+    "char": 22,
+    "contents": null,
+    "file": "pou",
+    "line": 9,
+    "text": "OF",
+  },
+  {
+    "char": 25,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 9,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 10,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 11,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": null,
+    "file": "pou",
+    "line": 12,
+    "text": "i",
+  },
+  {
+    "char": 5,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "pou",
+    "line": 12,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 13,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 14,
+    "text": "iTotal",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 15,
+    "text": "FOR",
+  },
+  {
+    "char": 4,
+    "contents": null,
+    "file": "pou",
+    "line": 15,
+    "text": "i",
+  },
+  {
+    "char": 11,
+    "contents": null,
+    "file": "pou",
+    "line": 15,
+    "text": "TO",
+  },
+  {
+    "char": 16,
+    "contents": null,
+    "file": "pou",
+    "line": 15,
+    "text": "DO",
+  },
+  {
+    "char": 1,
+    "contents": null,
+    "file": "pou",
+    "line": 16,
+    "text": "iTotal",
+  },
+  {
+    "char": 11,
+    "contents": null,
+    "file": "pou",
+    "line": 16,
+    "text": "iTotal",
+  },
+  {
+    "char": 20,
+    "contents": null,
+    "file": "pou",
+    "line": 16,
+    "text": "values",
+  },
+  {
+    "char": 27,
+    "contents": null,
+    "file": "pou",
+    "line": 16,
+    "text": "i",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 17,
+    "text": "END_FOR",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "pou",
+    "line": 18,
+    "text": "END_METHOD",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PROGRAM",
+  },
+  {
+    "char": 8,
+    "contents": 
+"\`\`\`iec61131
+PROGRAM PLC_PRG
+\`\`\`
+
+_program_"
+,
+    "file": "plc_prg",
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 1,
+    "text": "VAR",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+fb_uap : FB_LANG_use_array_param
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "fb_uap",
+  },
+  {
+    "char": 10,
+    "contents": 
+"\`\`\`iec61131
+FUNCTION_BLOCK FB_LANG_use_array_param
+\`\`\`
+
+_function block_"
+,
+    "file": "plc_prg",
+    "line": 2,
+    "text": "FB_LANG_use_array_param",
+  },
+  {
+    "char": 1,
+    "contents": 
+"\`\`\`iec61131
+arr_in : ARRAY[0..3] OF INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "arr_in",
+  },
+  {
+    "char": 10,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "ARRAY",
+  },
+  {
+    "char": 22,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "OF",
+  },
+  {
+    "char": 25,
+    "contents": 
+"**INT** — _data-type_
+
+Signed 16-bit. Range -32_768..32_767.
+
+_Source: [docs/codesys-reference/06-data-types.md](https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_reference_datatypes.html)_"
+,
+    "file": "plc_prg",
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 4,
+    "text": "END_VAR",
+  },
+  {
+    "char": 0,
+    "contents": 
+"\`\`\`iec61131
+fb_uap : FB_LANG_use_array_param
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "fb_uap",
+  },
+  {
+    "char": 7,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "Sum",
+  },
+  {
+    "char": 11,
+    "contents": 
+"\`\`\`iec61131
+arr_in : ARRAY[0..3] OF INT
+\`\`\`
+
+_var_
+_section_: \`VAR\`"
+,
+    "file": "plc_prg",
+    "line": 5,
+    "text": "arr_in",
+  },
+  {
+    "char": 0,
+    "contents": null,
+    "file": "plc_prg",
+    "line": 6,
     "text": "END_PROGRAM",
   },
 ]

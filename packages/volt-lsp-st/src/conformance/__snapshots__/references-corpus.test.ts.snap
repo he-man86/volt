@@ -6405,6 +6405,204 @@ exports[`references corpus (POU + PLC_PRG) region_pragma_nested 1`] = `
 ]
 `;
 
+exports[`references corpus (POU + PLC_PRG) pragma_unknown_directive 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 1,
+    "locations": [
+      {
+        "char": 15,
+        "line": 1,
+        "uri": "FB_LANG_pragma_unknown_directive.st",
+      },
+    ],
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+  {
+    "char": 1,
+    "count": 0,
+    "file": "pou",
+    "line": 3,
+    "locations": [],
+    "text": "iVar",
+  },
+  {
+    "char": 8,
+    "count": 0,
+    "file": "pou",
+    "line": 3,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_pud",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 1,
+        "uri": "FB_LANG_pragma_unknown_directive.st",
+      },
+    ],
+    "text": "FB_LANG_pragma_unknown_directive",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_pud",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) pragma_conflicting_pair 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 2,
+        "uri": "FB_LANG_pragma_conflicting_pair.st",
+      },
+    ],
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+  {
+    "char": 1,
+    "count": 0,
+    "file": "pou",
+    "line": 4,
+    "locations": [],
+    "text": "iA",
+  },
+  {
+    "char": 6,
+    "count": 0,
+    "file": "pou",
+    "line": 4,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "count": 0,
+    "file": "pou",
+    "line": 5,
+    "locations": [],
+    "text": "iB",
+  },
+  {
+    "char": 6,
+    "count": 0,
+    "file": "pou",
+    "line": 5,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_pcp",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 2,
+        "uri": "FB_LANG_pragma_conflicting_pair.st",
+      },
+    ],
+    "text": "FB_LANG_pragma_conflicting_pair",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_pcp",
+  },
+]
+`;
+
 exports[`references corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
 [
   {
@@ -8596,6 +8794,299 @@ exports[`references corpus (POU + PLC_PRG) shadowing_method_param_shadows_member
       },
     ],
     "text": "iValue",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "FB_LANG_method_local_shadows",
+  },
+  {
+    "char": 1,
+    "count": 4,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 7,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Bump",
+  },
+  {
+    "char": 1,
+    "count": 4,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "pou",
+    "line": 9,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 4,
+    "file": "pou",
+    "line": 11,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "count": 4,
+    "file": "pou",
+    "line": 11,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 6,
+    "count": 4,
+    "file": "pou",
+    "line": 12,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 22,
+    "count": 4,
+    "file": "pou",
+    "line": 12,
+    "locations": [
+      {
+        "char": 0,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 10,
+        "line": 11,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 6,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+      {
+        "char": 22,
+        "line": 12,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_mls",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_method_local_shadows.st",
+      },
+    ],
+    "text": "FB_LANG_method_local_shadows",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_mls",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Bump",
   },
 ]
 `;
@@ -11366,6 +11857,181 @@ exports[`references corpus (POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 
       },
     ],
     "text": "sVal",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) deref_on_array_type 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "FB_LANG_deref_on_array",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 5,
+        "line": 9,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "arr",
+  },
+  {
+    "char": 22,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "pou",
+    "line": 3,
+    "locations": [
+      {
+        "char": 0,
+        "line": 9,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "x",
+  },
+  {
+    "char": 7,
+    "count": 0,
+    "file": "pou",
+    "line": 3,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Bad",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 0,
+        "line": 9,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "x",
+  },
+  {
+    "char": 5,
+    "count": 1,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 5,
+        "line": 9,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "arr",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_doa",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_deref_on_array.st",
+      },
+    ],
+    "text": "FB_LANG_deref_on_array",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_doa",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Bad",
   },
 ]
 `;
@@ -20301,6 +20967,644 @@ exports[`references corpus (POU + PLC_PRG) interface_missing_implementation 1`] 
 ]
 `;
 
+exports[`references corpus (POU + PLC_PRG) interface_extends_another 1`] = `
+[
+  {
+    "char": 10,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 10,
+        "line": 0,
+        "uri": "ITF_LANG_extends_another.itf",
+      },
+    ],
+    "text": "ITF_LANG_extends_another",
+  },
+  {
+    "char": 43,
+    "count": 0,
+    "file": "pou",
+    "line": 0,
+    "locations": [],
+    "text": "ITF_LANG_empty",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "ExtraDo",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iea",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [],
+    "text": "FB_LANG_iea_impl",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iea",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "ExtraDo",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) interface_extends_another_impl 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_iea_impl.st",
+      },
+    ],
+    "text": "FB_LANG_iea_impl",
+  },
+  {
+    "char": 43,
+    "count": 0,
+    "file": "pou",
+    "line": 0,
+    "locations": [],
+    "text": "ITF_LANG_extends_another",
+  },
+  {
+    "char": 7,
+    "count": 0,
+    "file": "pou",
+    "line": 4,
+    "locations": [],
+    "text": "ExtraDo",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) interface_method_with_return_type 1`] = `
+[
+  {
+    "char": 10,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 10,
+        "line": 0,
+        "uri": "ITF_LANG_method_returns.itf",
+      },
+    ],
+    "text": "ITF_LANG_method_returns",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "GetCount",
+  },
+  {
+    "char": 18,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 8,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_imr",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [],
+    "text": "FB_LANG_method_returns_impl",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "iOut",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 8,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_imr",
+  },
+  {
+    "char": 15,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 15,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "GetCount",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_method_returns_impl.st",
+      },
+    ],
+    "text": "FB_LANG_method_returns_impl",
+  },
+  {
+    "char": 54,
+    "count": 0,
+    "file": "pou",
+    "line": 0,
+    "locations": [],
+    "text": "ITF_LANG_method_returns",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 12,
+        "line": 8,
+        "uri": "FB_LANG_method_returns_impl.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 7,
+    "locations": [
+      {
+        "char": 0,
+        "line": 8,
+        "uri": "FB_LANG_method_returns_impl.st",
+      },
+    ],
+    "text": "GetCount",
+  },
+  {
+    "char": 18,
+    "count": 0,
+    "file": "pou",
+    "line": 7,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 0,
+        "line": 8,
+        "uri": "FB_LANG_method_returns_impl.st",
+      },
+    ],
+    "text": "GetCount",
+  },
+  {
+    "char": 12,
+    "count": 1,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 12,
+        "line": 8,
+        "uri": "FB_LANG_method_returns_impl.st",
+      },
+    ],
+    "text": "iCount",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) interface_with_property 1`] = `
+[
+  {
+    "char": 10,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 10,
+        "line": 0,
+        "uri": "ITF_LANG_with_property.itf",
+      },
+    ],
+    "text": "ITF_LANG_with_property",
+  },
+  {
+    "char": 9,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 14,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Value",
+  },
+  {
+    "char": 17,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 7,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iwp",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [],
+    "text": "FB_LANG_with_property_impl",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "iPv",
+  },
+  {
+    "char": 7,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "iPv",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 7,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iwp",
+  },
+  {
+    "char": 14,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 14,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Value",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) interface_with_property_impl 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_with_property_impl.st",
+      },
+    ],
+    "text": "FB_LANG_with_property_impl",
+  },
+  {
+    "char": 53,
+    "count": 0,
+    "file": "pou",
+    "line": 0,
+    "locations": [],
+    "text": "ITF_LANG_with_property",
+  },
+  {
+    "char": 1,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "iValueBacking",
+  },
+  {
+    "char": 17,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 9,
+    "count": 0,
+    "file": "pou",
+    "line": 7,
+    "locations": [],
+    "text": "Value",
+  },
+  {
+    "char": 17,
+    "count": 0,
+    "file": "pou",
+    "line": 7,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 0,
+    "file": "pou",
+    "line": 9,
+    "locations": [],
+    "text": "Value",
+  },
+  {
+    "char": 9,
+    "count": 0,
+    "file": "pou",
+    "line": 9,
+    "locations": [],
+    "text": "iValueBacking",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+]
+`;
+
 exports[`references corpus (POU + PLC_PRG) oop_base 1`] = `
 [
   {
@@ -21238,6 +22542,174 @@ exports[`references corpus (POU + PLC_PRG) oop_abstract_instantiated 1`] = `
       },
     ],
     "text": "Inner",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) oop_action_block 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+    ],
+    "text": "FB_LANG_oop_action_block",
+  },
+  {
+    "char": 1,
+    "count": 2,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+      {
+        "char": 10,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+    ],
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 7,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "DoIt",
+  },
+  {
+    "char": 0,
+    "count": 2,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 0,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+      {
+        "char": 10,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+    ],
+    "text": "iValue",
+  },
+  {
+    "char": 10,
+    "count": 2,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 0,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+      {
+        "char": 10,
+        "line": 8,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+    ],
+    "text": "iValue",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_oab",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_oop_action_block.st",
+      },
+    ],
+    "text": "FB_LANG_oop_action_block",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_oab",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "DoIt",
   },
 ]
 `;
@@ -25490,6 +26962,118 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] =
 ]
 `;
 
+exports[`references corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `
+[
+  {
+    "char": 5,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 5,
+        "line": 0,
+        "uri": "DUT_LANG_alias_with_init.dut",
+      },
+    ],
+    "text": "DUT_LANG_alias_with_init",
+  },
+  {
+    "char": 32,
+    "count": 0,
+    "file": "pou",
+    "line": 0,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 2,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+      {
+        "char": 11,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "dut_awi",
+  },
+  {
+    "char": 11,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 5,
+        "line": 0,
+        "uri": "DUT_LANG_alias_with_init.dut",
+      },
+    ],
+    "text": "DUT_LANG_alias_with_init",
+  },
+  {
+    "char": 0,
+    "count": 2,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+      {
+        "char": 11,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "dut_awi",
+  },
+  {
+    "char": 11,
+    "count": 2,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+      {
+        "char": 11,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "dut_awi",
+  },
+]
+`;
+
 exports[`references corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
 [
   {
@@ -27644,6 +29228,238 @@ exports[`references corpus (POU + PLC_PRG) var_output_on_function 1`] = `
       },
     ],
     "text": "iCarry",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) var_inline_enum_decl 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "FB_LANG_inline_enum_var",
+  },
+  {
+    "char": 1,
+    "count": 2,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 3,
+        "line": 8,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+      {
+        "char": 1,
+        "line": 9,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "eState",
+  },
+  {
+    "char": 11,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 12,
+        "line": 8,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "Idle",
+  },
+  {
+    "char": 17,
+    "count": 1,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 11,
+        "line": 9,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "Running",
+  },
+  {
+    "char": 26,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "Halted",
+  },
+  {
+    "char": 37,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "Idle",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 7,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Tick",
+  },
+  {
+    "char": 3,
+    "count": 2,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 3,
+        "line": 8,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+      {
+        "char": 1,
+        "line": 9,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "eState",
+  },
+  {
+    "char": 12,
+    "count": 1,
+    "file": "pou",
+    "line": 8,
+    "locations": [
+      {
+        "char": 12,
+        "line": 8,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "Idle",
+  },
+  {
+    "char": 1,
+    "count": 2,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 3,
+        "line": 8,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+      {
+        "char": 1,
+        "line": 9,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "eState",
+  },
+  {
+    "char": 11,
+    "count": 1,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 11,
+        "line": 9,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "Running",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iev",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_inline_enum_var.st",
+      },
+    ],
+    "text": "FB_LANG_inline_enum_var",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 0,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_iev",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 4,
+    "locations": [
+      {
+        "char": 7,
+        "line": 4,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Tick",
   },
 ]
 `;
@@ -33666,6 +35482,350 @@ exports[`references corpus (POU + PLC_PRG) use_self_method_call 1`] = `
       },
     ],
     "text": "Outer",
+  },
+]
+`;
+
+exports[`references corpus (POU + PLC_PRG) use_method_array_param 1`] = `
+[
+  {
+    "char": 15,
+    "count": 1,
+    "file": "pou",
+    "line": 0,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "FB_LANG_use_array_param",
+  },
+  {
+    "char": 1,
+    "count": 3,
+    "file": "pou",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 14,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 1,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 11,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "iTotal",
+  },
+  {
+    "char": 10,
+    "count": 0,
+    "file": "pou",
+    "line": 2,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "pou",
+    "line": 7,
+    "locations": [
+      {
+        "char": 7,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Sum",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "pou",
+    "line": 9,
+    "locations": [
+      {
+        "char": 20,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "values",
+  },
+  {
+    "char": 25,
+    "count": 0,
+    "file": "pou",
+    "line": 9,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 1,
+    "count": 2,
+    "file": "pou",
+    "line": 12,
+    "locations": [
+      {
+        "char": 4,
+        "line": 15,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 27,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "i",
+  },
+  {
+    "char": 5,
+    "count": 0,
+    "file": "pou",
+    "line": 12,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 3,
+    "file": "pou",
+    "line": 14,
+    "locations": [
+      {
+        "char": 0,
+        "line": 14,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 1,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 11,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "iTotal",
+  },
+  {
+    "char": 4,
+    "count": 2,
+    "file": "pou",
+    "line": 15,
+    "locations": [
+      {
+        "char": 4,
+        "line": 15,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 27,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "i",
+  },
+  {
+    "char": 1,
+    "count": 3,
+    "file": "pou",
+    "line": 16,
+    "locations": [
+      {
+        "char": 0,
+        "line": 14,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 1,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 11,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "iTotal",
+  },
+  {
+    "char": 11,
+    "count": 3,
+    "file": "pou",
+    "line": 16,
+    "locations": [
+      {
+        "char": 0,
+        "line": 14,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 1,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 11,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "iTotal",
+  },
+  {
+    "char": 20,
+    "count": 1,
+    "file": "pou",
+    "line": 16,
+    "locations": [
+      {
+        "char": 20,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "values",
+  },
+  {
+    "char": 27,
+    "count": 2,
+    "file": "pou",
+    "line": 16,
+    "locations": [
+      {
+        "char": 4,
+        "line": 15,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+      {
+        "char": 27,
+        "line": 16,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "i",
+  },
+  {
+    "char": 8,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 0,
+    "locations": [
+      {
+        "char": 8,
+        "line": 0,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_uap",
+  },
+  {
+    "char": 10,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 2,
+    "locations": [
+      {
+        "char": 15,
+        "line": 0,
+        "uri": "FB_LANG_use_array_param.st",
+      },
+    ],
+    "text": "FB_LANG_use_array_param",
+  },
+  {
+    "char": 1,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [
+      {
+        "char": 11,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "arr_in",
+  },
+  {
+    "char": 25,
+    "count": 0,
+    "file": "plc_prg",
+    "line": 3,
+    "locations": [],
+    "text": "INT",
+  },
+  {
+    "char": 0,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 0,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "fb_uap",
+  },
+  {
+    "char": 7,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 7,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "Sum",
+  },
+  {
+    "char": 11,
+    "count": 1,
+    "file": "plc_prg",
+    "line": 5,
+    "locations": [
+      {
+        "char": 11,
+        "line": 5,
+        "uri": "PLC_PRG.st",
+      },
+    ],
+    "text": "arr_in",
   },
 ]
 `;

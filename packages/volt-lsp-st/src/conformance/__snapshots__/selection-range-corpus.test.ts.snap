@@ -11400,6 +11400,432 @@ exports[`selectionRange corpus (POU + PLC_PRG) region_pragma_nested 1`] = `
 }
 `;
 
+exports[`selectionRange corpus (POU + PLC_PRG) pragma_unknown_directive 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 43,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 43,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 1,
+      "ranges": [
+        {
+          "endChar": 47,
+          "endLine": 1,
+          "startChar": 15,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 2,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 2,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) pragma_conflicting_pair 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 46,
+          "endLine": 2,
+          "startChar": 15,
+          "startLine": 2,
+        },
+        {
+          "endChar": 0,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 2,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 4,
+          "startChar": 1,
+          "startLine": 4,
+        },
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 1,
+          "startLine": 4,
+        },
+        {
+          "endChar": 7,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 3,
+        },
+        {
+          "endChar": 0,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 2,
+        },
+      ],
+    },
+    {
+      "char": 6,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 9,
+          "endLine": 4,
+          "startChar": 6,
+          "startLine": 4,
+        },
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 1,
+          "startLine": 4,
+        },
+        {
+          "endChar": 7,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 3,
+        },
+        {
+          "endChar": 0,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 2,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 5,
+          "startChar": 1,
+          "startLine": 5,
+        },
+        {
+          "endChar": 10,
+          "endLine": 5,
+          "startChar": 1,
+          "startLine": 5,
+        },
+        {
+          "endChar": 7,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 3,
+        },
+        {
+          "endChar": 0,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 2,
+        },
+      ],
+    },
+    {
+      "char": 6,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 9,
+          "endLine": 5,
+          "startChar": 6,
+          "startLine": 5,
+        },
+        {
+          "endChar": 10,
+          "endLine": 5,
+          "startChar": 1,
+          "startLine": 5,
+        },
+        {
+          "endChar": 7,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 3,
+        },
+        {
+          "endChar": 0,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 2,
+        },
+      ],
+    },
+  ],
+}
+`;
+
 exports[`selectionRange corpus (POU + PLC_PRG) fb_init_canonical 1`] = `
 {
   "plc_prg": [
@@ -15525,6 +15951,357 @@ exports[`selectionRange corpus (POU + PLC_PRG) shadowing_method_param_shadows_me
         {
           "endChar": 0,
           "endLine": 12,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) shadowing_method_local_shadows_fb_var 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 39,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 38,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 39,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 43,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 14,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 7,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 9,
+          "startChar": 10,
+          "startLine": 9,
+        },
+        {
+          "endChar": 14,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 7,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 11,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 11,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 11,
+      "ranges": [
+        {
+          "endChar": 16,
+          "endLine": 11,
+          "startChar": 10,
+          "startLine": 11,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 6,
+      "line": 12,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 12,
+          "startChar": 6,
+          "startLine": 12,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 22,
+      "line": 12,
+      "ranges": [
+        {
+          "endChar": 28,
+          "endLine": 12,
+          "startChar": 22,
+          "startLine": 12,
+        },
+        {
+          "endChar": 0,
+          "endLine": 13,
           "startChar": 0,
           "startLine": 7,
         },
@@ -20441,6 +21218,321 @@ exports[`selectionRange corpus (POU + PLC_PRG) pragma_conflict_hide_plus_monitor
           "endLine": 7,
           "startChar": 0,
           "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) deref_on_array_type 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 33,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 32,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 33,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 37,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 22,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 25,
+          "endLine": 2,
+          "startChar": 22,
+          "startLine": 2,
+        },
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 3,
+          "startChar": 7,
+          "startLine": 3,
+        },
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 8,
+          "startChar": 7,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 1,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 9,
+          "startChar": 5,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
         },
       ],
     },
@@ -35883,6 +36975,1152 @@ exports[`selectionRange corpus (POU + PLC_PRG) interface_missing_implementation 
 }
 `;
 
+exports[`selectionRange corpus (POU + PLC_PRG) interface_extends_another 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 10,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 34,
+          "endLine": 0,
+          "startChar": 10,
+          "startLine": 0,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 43,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 57,
+          "endLine": 0,
+          "startChar": 43,
+          "startLine": 0,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 7,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) interface_extends_another_impl 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 31,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 2,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 43,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 67,
+          "endLine": 0,
+          "startChar": 43,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 2,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 4,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) interface_method_with_return_type 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 38,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 37,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 38,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 5,
+          "startChar": 8,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 15,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 23,
+          "endLine": 5,
+          "startChar": 15,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 10,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 0,
+          "startChar": 10,
+          "startLine": 0,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 2,
+          "startChar": 7,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 18,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 18,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) interface_method_with_return_type_impl 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 42,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 54,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 77,
+          "endLine": 0,
+          "startChar": 54,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 19,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 19,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 18,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 21,
+          "endLine": 7,
+          "startChar": 18,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 12,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 18,
+          "endLine": 8,
+          "startChar": 12,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) interface_with_property 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 37,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 36,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 37,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 3,
+          "startChar": 7,
+          "startLine": 3,
+        },
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 7,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 14,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 19,
+          "endLine": 5,
+          "startChar": 14,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 10,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 32,
+          "endLine": 0,
+          "startChar": 10,
+          "startLine": 0,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 17,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 20,
+          "endLine": 2,
+          "startChar": 17,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) interface_with_property_impl 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 53,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 75,
+          "endLine": 0,
+          "startChar": 53,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 17,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 20,
+          "endLine": 2,
+          "startChar": 17,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 7,
+          "startChar": 9,
+          "startLine": 7,
+        },
+        {
+          "endChar": 12,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 17,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 20,
+          "endLine": 7,
+          "startChar": 17,
+          "startLine": 7,
+        },
+        {
+          "endChar": 12,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
 exports[`selectionRange corpus (POU + PLC_PRG) oop_base 1`] = `
 {
   "plc_prg": [
@@ -37432,6 +39670,261 @@ exports[`selectionRange corpus (POU + PLC_PRG) oop_abstract_instantiated 1`] = `
           "endChar": 4,
           "endLine": 8,
           "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) oop_action_block 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 35,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 34,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 35,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 39,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 16,
+          "endLine": 8,
+          "startChar": 10,
           "startLine": 8,
         },
         {
@@ -44457,6 +46950,165 @@ exports[`selectionRange corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1
 }
 `;
 
+exports[`selectionRange corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 36,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 35,
+          "endLine": 2,
+          "startChar": 11,
+          "startLine": 2,
+        },
+        {
+          "endChar": 36,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 18,
+          "endLine": 4,
+          "startChar": 11,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 5,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 29,
+          "endLine": 0,
+          "startChar": 5,
+          "startLine": 0,
+        },
+        {
+          "endChar": 8,
+          "endLine": 1,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 32,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 35,
+          "endLine": 0,
+          "startChar": 32,
+          "startLine": 0,
+        },
+        {
+          "endChar": 8,
+          "endLine": 1,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
 exports[`selectionRange corpus (POU + PLC_PRG) var_input_output_inout_on_fb 1`] = `
 {
   "plc_prg": [
@@ -47783,6 +50435,381 @@ exports[`selectionRange corpus (POU + PLC_PRG) var_output_on_function 1`] = `
           "endLine": 11,
           "startChar": 0,
           "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) var_inline_enum_decl 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 34,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 34,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 38,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 2,
+          "startChar": 11,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 17,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 24,
+          "endLine": 2,
+          "startChar": 17,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 26,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 32,
+          "endLine": 2,
+          "startChar": 26,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 37,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 3,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 9,
+          "endLine": 8,
+          "startChar": 3,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 12,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 16,
+          "endLine": 8,
+          "startChar": 12,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 18,
+          "endLine": 9,
+          "startChar": 11,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
         },
       ],
     },
@@ -56975,6 +60002,531 @@ exports[`selectionRange corpus (POU + PLC_PRG) use_self_method_call 1`] = `
           "endLine": 13,
           "startChar": 0,
           "startLine": 11,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) use_method_array_param 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 34,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 34,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 29,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 25,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 28,
+          "endLine": 3,
+          "startChar": 25,
+          "startLine": 3,
+        },
+        {
+          "endChar": 29,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 5,
+          "startChar": 7,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 5,
+      "ranges": [
+        {
+          "endChar": 17,
+          "endLine": 5,
+          "startChar": 11,
+          "startLine": 5,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 38,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 14,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 29,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 7,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 25,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 28,
+          "endLine": 9,
+          "startChar": 25,
+          "startLine": 9,
+        },
+        {
+          "endChar": 29,
+          "endLine": 9,
+          "startChar": 1,
+          "startLine": 9,
+        },
+        {
+          "endChar": 7,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 12,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 12,
+          "startChar": 1,
+          "startLine": 12,
+        },
+        {
+          "endChar": 9,
+          "endLine": 12,
+          "startChar": 1,
+          "startLine": 12,
+        },
+        {
+          "endChar": 7,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 11,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 12,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 12,
+          "startChar": 5,
+          "startLine": 12,
+        },
+        {
+          "endChar": 9,
+          "endLine": 12,
+          "startChar": 1,
+          "startLine": 12,
+        },
+        {
+          "endChar": 7,
+          "endLine": 13,
+          "startChar": 0,
+          "startLine": 11,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 14,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 14,
+          "startChar": 0,
+          "startLine": 14,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 4,
+      "line": 15,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 15,
+          "startChar": 4,
+          "startLine": 15,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 16,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 16,
+          "startChar": 1,
+          "startLine": 16,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 16,
+      "ranges": [
+        {
+          "endChar": 17,
+          "endLine": 16,
+          "startChar": 11,
+          "startLine": 16,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 20,
+      "line": 16,
+      "ranges": [
+        {
+          "endChar": 26,
+          "endLine": 16,
+          "startChar": 20,
+          "startLine": 16,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 27,
+      "line": 16,
+      "ranges": [
+        {
+          "endChar": 28,
+          "endLine": 16,
+          "startChar": 27,
+          "startLine": 16,
+        },
+        {
+          "endChar": 0,
+          "endLine": 18,
+          "startChar": 0,
+          "startLine": 7,
         },
       ],
     },

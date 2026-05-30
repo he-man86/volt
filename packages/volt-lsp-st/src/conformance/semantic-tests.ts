@@ -92,4 +92,31 @@ END_FUNCTION_BLOCK
 	//   (or vice versa). The recorder runs against TwinCAT (live bridge),
 	//   so the test makes most sense as a pure-LSP unit test rather than
 	//   round-trip. Skipping in v1.
+
+	// ─── Coverage extension for check-deref.ts:66-69 (type-label switch) ─
+
+	{
+		name: "deref_on_array_type",
+		pouName: "FB_LANG_deref_on_array",
+		kind: "function_block",
+		feature: "Dereference (^) applied to an ARRAY-typed variable — exercises array branch of derefOnNonPointer type-label switch",
+		fromDoc: "06-data-types.md",
+		expectTcAccepts: false,
+		note: "TC rejects `arr^` where arr is ARRAY. LSP's derefOnNonPointer check should also flag it — and the type-label string used in the diagnostic message comes from the type-kind switch, exercising the 'array_type' case.",
+		plcPrgVar: "fb_doa : FB_LANG_deref_on_array;",
+		plcPrgBody: "fb_doa.Bad();",
+		source:
+`FUNCTION_BLOCK FB_LANG_deref_on_array
+VAR
+	arr : ARRAY[0..1] OF INT;
+	x   : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Bad
+x := arr^;
+END_METHOD
+`,
+	},
 ];

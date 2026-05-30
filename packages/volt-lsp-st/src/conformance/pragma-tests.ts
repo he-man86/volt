@@ -1157,4 +1157,50 @@ iCount := iCount + 10;
 END_METHOD
 `,
 	},
+
+	// ─── Coverage extensions for check-pragmas.ts:167-174, 240-251 ─
+
+	{
+		name: "pragma_unknown_directive",
+		pouName: "FB_LANG_pragma_unknown_directive",
+		kind: "function_block",
+		feature: "Unknown {DIRECTIVE} that no recognizer matches — exercises directive-not-found fallthrough",
+		fromDoc: "07-pragmas.md",
+		expectTcAccepts: true,
+		note: "TC silently ignores unrecognized {DIRECTIVE}-style pragmas; LSP's unknownPragma check is OFF by default but the recognizer still walks past, hitting the no-match branch.",
+		plcPrgVar: "fb_pud : FB_LANG_pragma_unknown_directive;",
+		plcPrgBody: "fb_pud();",
+		source:
+`{TOTALLY_MADE_UP_DIRECTIVE foo}
+FUNCTION_BLOCK FB_LANG_pragma_unknown_directive
+VAR
+	iVar : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
+
+	{
+		name: "pragma_conflicting_pair",
+		pouName: "FB_LANG_pragma_conflicting_pair",
+		kind: "function_block",
+		feature: "Two mutually-exclusive attribute pragmas on the same FB — triggers pragmaConflict check",
+		fromDoc: "07-pragmas.md",
+		expectTcAccepts: true,
+		note: "`pin_presentation_order_inputs` and `pingroup` are listed as mutually exclusive in src/reference/pragmas.ts; TC accepts both individually so the file builds, but the LSP pragmaConflict check (default ON) flags the pair.",
+		plcPrgVar: "fb_pcp : FB_LANG_pragma_conflicting_pair;",
+		plcPrgBody: "fb_pcp();",
+		source:
+`{attribute 'pin_presentation_order_inputs' := 'iA, iB'}
+{attribute 'pingroup' := 'inputs'}
+FUNCTION_BLOCK FB_LANG_pragma_conflicting_pair
+VAR_INPUT
+	iA : INT;
+	iB : INT;
+END_VAR
+
+END_FUNCTION_BLOCK
+`,
+	},
 ];
