@@ -89,6 +89,49 @@ build_bridge "Beckhoff Bridge" \
 	"beckhoff" \
 	"-p:PublishTrimmed=false"
 
+# CODESYS bridge — IronPython 2.7 inside CODESYS. No compile step;
+# we package the source tree as a zip the user can extract into their
+# CODESYS script folder. Built independently of the Beckhoff bridge
+# (same per-bridge isolation contract as build_bridge above).
+build_codesys_bridge() {
+	local bridge_src="$SCRIPT_DIR/codesys/CodesysBridge"
+	local zip_out="$DIST_DIR/CodesysBridge.zip"
+	local ver_file="$bridge_src/version.json"
+
+	echo "Building CODESYS Bridge..."
+	if [ ! -d "$bridge_src" ]; then
+		echo "  !! source dir missing: $bridge_src" >&2
+		FAILED+=("CODESYS Bridge")
+		echo
+		return
+	fi
+
+	# Strip any prior __pycache__ before zipping so users don't import
+	# stale .pyc on the IronPython side.
+	find "$bridge_src" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+	rm -f "$zip_out"
+
+	if command -v zip >/dev/null 2>&1; then
+		( cd "$SCRIPT_DIR/codesys" && zip -rq "$zip_out" CodesysBridge -x "*.pyc" -x "*__pycache__*" )
+	else
+		python -c "import shutil; shutil.make_archive('${zip_out%.zip}', 'zip', '$SCRIPT_DIR/codesys', 'CodesysBridge')" \
+			|| { echo "  !! zip failed (no zip + no python)" >&2; FAILED+=("CODESYS Bridge"); echo; return; }
+	fi
+
+	local ver
+	if ver=$(python -c "import json; print(json.load(open('$ver_file'))['version'])" 2>/dev/null); then
+		MANIFEST_ENTRIES+=("\"codesys\": \"$ver\"")
+		BUILT+=("CODESYS Bridge ($ver)")
+		echo "  -> $zip_out"
+	else
+		BUILT+=("CODESYS Bridge (unknown version)")
+		echo "  -> $zip_out (version parse failed)"
+	fi
+	echo
+}
+
+build_codesys_bridge
+
 echo "==================================="
 echo "Build summary:"
 if [ ${#BUILT[@]} -gt 0 ]; then
