@@ -27,7 +27,7 @@ directly — there's no UI to marshal to and the caller code is the
 same shape.
 """
 # pyright: reportMissingImports=false
-from . import log
+from .helpers import log
 
 INVOKE_TIMEOUT_MS = 30_000
 

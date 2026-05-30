@@ -22,8 +22,7 @@ next successful probe.
 # pyright: reportMissingImports=false
 import hashlib
 
-from . import log
-from .helpers import block_type_mapper
+from .helpers import block_type_mapper, log
 
 # CODESYS Scripting Engine imports — only present inside the IDE.
 _SCRIPTENGINE_AVAILABLE = False

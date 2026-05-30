@@ -34,13 +34,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.dirname(_HERE))
 
-from CodesysBridge import codesys_connection, log, ui_thread
+from CodesysBridge import codesys_connection, ui_thread
 from CodesysBridge.handlers import build as build_handler
 from CodesysBridge.handlers import fetch as fetch_handler
 from CodesysBridge.handlers import health as health_handler
 from CodesysBridge.handlers import refs as refs_handler
 from CodesysBridge.handlers import push as push_handler
-from CodesysBridge.helpers import json_lite
+from CodesysBridge.helpers import json_lite, log
 from CodesysBridge.helpers.compat import (
 	BaseHTTPRequestHandler,
 	HTTPServer,
@@ -179,7 +179,7 @@ def _stop_existing_bridge_if_any():
 	don't try to kill it. The user can restart CODESYS to fully reset."""
 	if _port_is_free(BRIDGE_PORT):
 		return
-	log.warn("[STARTUP] Port {0} already in use — earlier bridge may still be alive".format(BRIDGE_PORT))
+	log.warn("[STARTUP] Port {0} already in use -- earlier bridge may still be alive".format(BRIDGE_PORT))
 
 
 def _run_server():
@@ -198,11 +198,11 @@ def main():
 	log.startup("Volt CODESYS Bridge {0} starting".format(BRIDGE_VERSION))
 	log.startup("IDE: {0} {1}".format(_connection_singleton.ide_name, _connection_singleton.ide_version))
 	if not _connection_singleton.is_connected:
-		log.warn("[STARTUP] scriptengine import failed — bridge will serve /health but every other call returns 503")
+		log.warn("[STARTUP] scriptengine import failed -- bridge will serve /health but every other call returns 503")
 	_stop_existing_bridge_if_any()
 
 	t = threading.Thread(target=_run_server, name="volt-bridge-http")
-	t.setDaemon(True)
+	t.daemon = True  # property works in both IronPython 2.7 and CPython 3+
 	t.start()
 	log.startup("Ready. Connect Volt agent at http://127.0.0.1:{0}".format(BRIDGE_PORT))
 	log.startup("=" * 60)

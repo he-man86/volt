@@ -128,7 +128,7 @@ def _classify_child(decl_text):
 	# type: (str) -> str
 	"""Pick child kind (method/action/property) from declaration. Falls
 	back to KIND_UNKNOWN on any other shape."""
-	stripped = block_type_mapper._strip_leading_trivia(decl_text)
+	stripped = block_type_mapper.strip_leading_trivia(decl_text)
 	upper = stripped.lstrip()[:9].upper()
 	if upper.startswith("METHOD"):
 		return block_type_mapper.KIND_METHOD

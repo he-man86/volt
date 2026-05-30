@@ -66,7 +66,7 @@ TOP_LEVEL_KINDS = frozenset([
 ])
 
 
-def _strip_leading_trivia(text):
+def strip_leading_trivia(text):
 	# type: (str) -> str
 	"""Skip pragma blocks `{...}`, block comments `(* ... *)`, line
 	comments `// ...`, and whitespace before the first real keyword."""
@@ -116,7 +116,7 @@ def classify_textual_pou(declaration_text):
 	For TYPE declarations, refines into structure / enumeration /
 	union / alias by scanning the body — same logic StSplitter uses.
 	"""
-	stripped = _strip_leading_trivia(declaration_text)
+	stripped = strip_leading_trivia(declaration_text)
 	m = _KEYWORD_RE.match(stripped)
 	if not m:
 		return KIND_UNKNOWN
