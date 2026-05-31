@@ -6,6 +6,7 @@ import { describe, expect, it } from "bun:test";
 import { parseSource } from "../parser/parser.js";
 import { buildSymbolTable } from "./symbol-table.js";
 import { computeSemanticDiagnostics } from "./diagnostics.js";
+import { buildBodyModelsForParseResult } from "../body/index.js";
 import { DEFAULT_DIAGNOSTIC_CONFIG, type DiagnosticConfig } from "../lsp/config.js";
 
 function setup(
@@ -16,12 +17,14 @@ function setup(
 	const parseResult = parseSource(src);
 	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
 	const config: DiagnosticConfig = { ...DEFAULT_DIAGNOSTIC_CONFIG, ...configOverrides };
+	const bodyModels = buildBodyModelsForParseResult("structured-text", src, parseResult);
 	const diags = computeSemanticDiagnostics({
 		parseResult,
 		source: src,
 		project,
 		config,
 		activeVendor,
+		bodyModels,
 	});
 	return { diags, project, parseResult };
 }

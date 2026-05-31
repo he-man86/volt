@@ -9,8 +9,9 @@
  * checking would false-positive on stripped-branch references.
  */
 import type { BodySpan, ParseResult } from "../../parser/ast.js";
+import type { BodyModel } from "../../body/index.js";
 import type { Scope } from "../symbol-table.js";
-import { lookup as resolverLookup, scanAllIdentifiersInBody } from "../resolver.js";
+import { lookup as resolverLookup } from "../resolver.js";
 import { getConversion } from "../../reference/type-conversion.js";
 import { type DiagnosticItem, KEYWORD_SET, getBody, findScopeForUnit } from "./_shared.js";
 
@@ -31,6 +32,7 @@ function bodyContainsConditionalPragma(body: BodySpan): boolean {
 export function checkUnresolvedIdentifiers(
 	parseResult: ParseResult,
 	project: Scope,
+	bodyModels: Map<BodySpan, BodyModel> | undefined,
 	out: DiagnosticItem[],
 ): void {
 	for (const unit of parseResult.units) {
@@ -42,13 +44,20 @@ export function checkUnresolvedIdentifiers(
 		// kind="pragma"). Scan them directly for conditional-compile
 		// directives that gate this skip.
 		if (bodyContainsConditionalPragma(body)) continue;
-		for (const occ of scanAllIdentifiersInBody(body)) {
-			if (occ.isMemberAccess) {
+		// Body-language-aware identifier list — populated by the right
+		// body parser (ST tokens for `.st`, `<expression>` text +
+		// `<block typeName>` for `.fbd`, etc.). When the workspace
+		// hasn't built bodyModels (legacy callers that pre-date P1
+		// integration), skip the check rather than misreport.
+		const model = bodyModels?.get(body);
+		if (model === undefined) continue;
+		for (const ref of model.identifiers) {
+			if (ref.isMemberAccess) {
 				// `x.member` — we don't resolve members yet (requires type
 				// inference). Skip to avoid false positives.
 				continue;
 			}
-			const name = occ.token.text;
+			const name = ref.name;
 			if (KEYWORD_SET.has(name.toLowerCase())) continue;
 			// Built-in conversion operators (`INT_TO_REAL`, etc.) are
 			// implicit lexical tokens, not symbols in any scope. Skip
@@ -59,7 +68,7 @@ export function checkUnresolvedIdentifiers(
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",
-				span: occ.span,
+				span: ref.span,
 				source: "volt-lsp-st",
 				code: "unresolved-identifier",
 				message: `'${name}' is not defined in any reachable scope`,

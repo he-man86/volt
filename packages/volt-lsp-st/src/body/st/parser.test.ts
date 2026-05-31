@@ -148,7 +148,7 @@ END_FUNCTION_BLOCK
 		expect(aRefs.length).toBe(2);
 	});
 
-	test("unknown languageId falls back to ST parser (preserves pre-P1 behavior)", async () => {
+	test("unknown languageId falls back to ST parser (graceful degradation)", async () => {
 		const { buildBodyModel } = await import("../index.js");
 		const source = `FUNCTION_BLOCK X
 VAR a : INT; END_VAR
@@ -160,12 +160,14 @@ END_FUNCTION_BLOCK
 		if (unit === undefined || !("body" in unit) || unit.body === undefined) {
 			throw new Error("fixture body missing");
 		}
-		const model = buildBodyModel("plc-fbd", {
+		// "plc-zzz" is unregistered — must fall through to ST so the
+		// file at least opens without crashing. Output keeps the ST
+		// languageId tag (the parser's own identity, not the input).
+		const model = buildBodyModel("plc-zzz", {
 			source,
 			bodyRegion: { start: unit.body.span.start, end: unit.body.span.end },
 			st: unit.body,
 		});
-		// Fall-back kept the ST parser's languageId tag.
 		expect(model.languageId).toBe("structured-text");
 	});
 });

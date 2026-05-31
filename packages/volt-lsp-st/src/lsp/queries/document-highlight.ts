@@ -18,7 +18,7 @@ import type {
 } from "vscode-languageserver-protocol";
 import { DocumentHighlightKind } from "vscode-languageserver-protocol";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { scanReferencesInBody } from "../../semantic/resolver.js";
+import { findIdentifiersByName } from "../../body/index.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Document } from "../workspace.js";
 import { findIdentifierAtOffset } from "./find-identifier.js";
@@ -37,27 +37,35 @@ export function documentHighlight(args: DocumentHighlightArgs): DocumentHighligh
 	const target = idToken.text;
 	const out: DocumentHighlight[] = [];
 	for (const unit of args.doc.parseResult.units) {
-		collectFromUnit(unit, target, out);
+		collectFromUnit(args.doc, unit, target, out);
 	}
 	return out;
 }
 
-function collectFromUnit(unit: TopLevel, target: string, out: DocumentHighlight[]): void {
+function collectFromUnit(
+	doc: Document,
+	unit: TopLevel,
+	target: string,
+	out: DocumentHighlight[],
+): void {
 	const body = getBody(unit);
 	if (body !== undefined) {
-		for (const occ of scanReferencesInBody(body, target)) {
-			out.push({
-				range: rangeFromSpan(occ.span),
-				kind: occ.isCall
-					? DocumentHighlightKind.Read
-					: DocumentHighlightKind.Read,
-			});
+		const model = doc.bodyModels.get(body);
+		if (model !== undefined) {
+			for (const ref of findIdentifiersByName(model, target)) {
+				out.push({
+					range: rangeFromSpan(ref.span),
+					kind: ref.isCall
+						? DocumentHighlightKind.Read
+						: DocumentHighlightKind.Read,
+				});
+			}
 		}
 	}
 	// Recurse into namespace's inner units.
 	if (unit.kind === "namespace") {
 		for (const inner of unit.units) {
-			collectFromUnit(inner, target, out);
+			collectFromUnit(doc, inner, target, out);
 		}
 	}
 }

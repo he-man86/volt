@@ -29,6 +29,7 @@ import { fileURLToPath } from "node:url";
 import { parseSource } from "../parser/parser.js";
 import { buildSymbolTable } from "../semantic/symbol-table.js";
 import { computeSemanticDiagnostics } from "../semantic/diagnostics.js";
+import { buildBodyModelsForParseResult } from "../body/index.js";
 import { resolveConfig, type Vendor } from "../lsp/config.js";
 import { ALL_TESTS } from "./index.js";
 
@@ -145,6 +146,7 @@ function runLsp(
 		project,
 		config: resolved.diagnostics,
 		activeVendor: resolved.vendor,
+		bodyModels: buildBodyModelsForParseResult("structured-text", source, parseResult),
 	});
 	// Surface parse errors as diagnostics too — comparison wants to know
 	// if EITHER side rejected the source.

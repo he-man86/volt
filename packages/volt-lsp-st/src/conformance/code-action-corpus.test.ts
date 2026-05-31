@@ -48,6 +48,7 @@ function probe(
 		project,
 		config: ALL_CHECKS_ON,
 		activeVendor: "twincat",
+		bodyModels: doc.bodyModels,
 	});
 	for (const diag of diagnostics) {
 		// The code-action handlers in src/lsp/queries/code-action.ts expect

@@ -12,6 +12,8 @@
 import type { ParseResult } from "../parser/ast.js";
 import type { Scope } from "./symbol-table.js";
 import type { Vendor } from "../reference/index.js";
+import type { BodySpan } from "../parser/ast.js";
+import type { BodyModel } from "../body/index.js";
 import type { DiagnosticConfig } from "../lsp/config.js";
 
 import { type DiagnosticItem } from "./checks/_shared.js";
@@ -41,6 +43,11 @@ export interface DiagnosticsArgs {
 	config: DiagnosticConfig;
 	/** Active vendor — drives wrong-vendor-pragma vs unknown-pragma distinction. */
 	activeVendor?: Vendor;
+	/** Per-body BodyModel produced by the language-appropriate parser
+	 *  (`body/index.ts`). Required by body-dependent checks
+	 *  (currently only `unresolved-identifier`). Empty Map is OK —
+	 *  body-dependent checks just skip. */
+	bodyModels?: Map<BodySpan, BodyModel>;
 }
 
 export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
@@ -57,7 +64,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
 	}
 
 	if (cfg.unresolvedIdentifier) {
-		checkUnresolvedIdentifiers(args.parseResult, args.project, out);
+		checkUnresolvedIdentifiers(args.parseResult, args.project, args.bodyModels, out);
 	}
 
 	if (

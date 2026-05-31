@@ -1,0 +1,116 @@
+// This function returns TRUE, if the sum of the inputs is greater than the global constant. Otherwise, it returns FALSE.
+
+// This functionality is implemented in a short programming way in FBD.
+// The same functionality in ST is implemented in: 	F_SumComparison_ST_short
+// The extensive FBD variant is implemented in: 	F_SumComparison_FBD
+FUNCTION F_SumComparison_FBD_short : BOOL
+VAR_INPUT
+	nInput1		: INT;
+	nInput2		: INT;
+END_VAR
+
+<body xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <FBD>
+    <vendorElement localId="10000000000">
+      <position x="0" y="0" />
+      <alternativeText>
+        <xhtml xmlns="http://www.w3.org/1999/xhtml">FBD Implementation Attributes</xhtml>
+      </alternativeText>
+      <addData>
+        <data name="http://www.3s-software.com/plcopenxml/fbd/implementationattributes" handleUnknown="implementation">
+          <fbdattributes xmlns="">
+            <attribute name="BoxInputFlagsSupported" value="true" />
+          </fbdattributes>
+        </data>
+      </addData>
+    </vendorElement>
+    <inVariable localId="10000000001">
+      <position x="0" y="0" />
+      <connectionPointOut />
+      <expression>nInput1</expression>
+    </inVariable>
+    <inVariable localId="10000000002">
+      <position x="0" y="0" />
+      <connectionPointOut />
+      <expression>nInput2</expression>
+    </inVariable>
+    <block localId="10000000003" typeName="ADD">
+      <position x="0" y="0" />
+      <inputVariables>
+        <variable formalParameter="In1">
+          <connectionPointIn>
+            <connection refLocalId="10000000001" />
+          </connectionPointIn>
+        </variable>
+        <variable formalParameter="In2">
+          <connectionPointIn>
+            <connection refLocalId="10000000002" />
+          </connectionPointIn>
+        </variable>
+      </inputVariables>
+      <inOutVariables />
+      <outputVariables>
+        <variable formalParameter="Out1">
+          <connectionPointOut />
+        </variable>
+      </outputVariables>
+      <addData>
+        <data name="http://www.3s-software.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+          <CallType xmlns="">operator</CallType>
+        </data>
+        <data name="http://www.3s-software.com/plcopenxml/inputparamtypes" handleUnknown="implementation">
+          <InputParamTypes xmlns="" />
+        </data>
+        <data name="http://www.3s-software.com/plcopenxml/outputparamtypes" handleUnknown="implementation">
+          <OutputParamTypes xmlns="">INT</OutputParamTypes>
+        </data>
+      </addData>
+    </block>
+    <inVariable localId="10000000004">
+      <position x="0" y="0" />
+      <connectionPointOut />
+      <expression>GVL_Basic.cSumComparisonLimit</expression>
+    </inVariable>
+    <block localId="10000000005" typeName="GT">
+      <position x="0" y="0" />
+      <inputVariables>
+        <variable formalParameter="In1">
+          <connectionPointIn>
+            <connection refLocalId="10000000003" formalParameter="Out1" />
+          </connectionPointIn>
+        </variable>
+        <variable formalParameter="In2">
+          <connectionPointIn>
+            <connection refLocalId="10000000004" />
+          </connectionPointIn>
+        </variable>
+      </inputVariables>
+      <inOutVariables />
+      <outputVariables>
+        <variable formalParameter="Out1">
+          <connectionPointOut />
+        </variable>
+      </outputVariables>
+      <addData>
+        <data name="http://www.3s-software.com/plcopenxml/fbdcalltype" handleUnknown="implementation">
+          <CallType xmlns="">operator</CallType>
+        </data>
+        <data name="http://www.3s-software.com/plcopenxml/inputparamtypes" handleUnknown="implementation">
+          <InputParamTypes xmlns="" />
+        </data>
+        <data name="http://www.3s-software.com/plcopenxml/outputparamtypes" handleUnknown="implementation">
+          <OutputParamTypes xmlns="">BOOL</OutputParamTypes>
+        </data>
+      </addData>
+    </block>
+    <outVariable localId="10000000006">
+      <position x="0" y="0" />
+      <connectionPointIn>
+        <connection refLocalId="10000000005" formalParameter="Out1" />
+      </connectionPointIn>
+      <expression>F_SumComparison_FBD_short</expression>
+    </outVariable>
+  </FBD>
+</body>
+
+END_FUNCTION

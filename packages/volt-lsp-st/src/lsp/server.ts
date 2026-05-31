@@ -527,6 +527,7 @@ export function runServer(opts: ServerOptions): void {
 			project: workspace.getProjectScope(),
 			config: workspace.config.diagnostics,
 			activeVendor: workspace.config.vendor,
+			bodyModels: doc.bodyModels,
 		}).map((d) => ({
 			range: {
 				start: { line: d.span.startLine - 1, character: d.span.startCol },

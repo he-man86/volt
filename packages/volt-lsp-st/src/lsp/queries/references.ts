@@ -16,12 +16,12 @@
  *     project-global "count" is usually what the user wants to see.
  */
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
-import { scanReferencesInBody } from "../../semantic/resolver.js";
 import { lookup } from "../../semantic/resolver.js";
 import type { Scope } from "../../semantic/symbol-table.js";
 import type { Location, Position } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
+import { findIdentifiersByName } from "../../body/index.js";
 import { findIdentifierAtOffset } from "./find-identifier.js";
 
 export interface ReferencesArgs {
@@ -49,9 +49,10 @@ export function references(args: ReferencesArgs): Location[] {
 		for (const unit of d.parseResult.units) {
 			const body = getBody(unit);
 			if (body === undefined) continue;
-			const occs = scanReferencesInBody(body, targetName);
-			for (const o of occs) {
-				locations.push({ uri: d.uri, range: rangeFromSpan(o.span) });
+			const model = d.bodyModels.get(body);
+			if (model === undefined) continue;
+			for (const ref of findIdentifiersByName(model, targetName)) {
+				locations.push({ uri: d.uri, range: rangeFromSpan(ref.span) });
 			}
 		}
 	}

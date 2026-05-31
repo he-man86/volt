@@ -10,17 +10,20 @@
  * Unknown languages fall back to the ST parser so behavior matches
  * the pre-dispatch era (zero regression risk).
  */
+import type { BodySpan, TopLevel } from "../parser/ast.js";
+import { fbdBodyParser } from "./fbd/parser.js";
 import { stBodyParser } from "./st/parser.js";
 import type {
-	BodyLanguageId,
 	BodyModel,
 	BodyParseInput,
 	BodyParser,
+	IdentifierRef,
 } from "./types.js";
 
 export type {
 	BodyLanguageId,
 	BodyModel,
+	BodyParseDiagnostic,
 	BodyParser,
 	BodyParseInput,
 	CallSite,
@@ -29,7 +32,6 @@ export type {
 	GraphNode,
 	IdentifierRef,
 	PortRef,
-	BodyParseDiagnostic,
 } from "./types.js";
 
 /**
@@ -41,6 +43,7 @@ export type {
  */
 export const bodyParsers: Map<string, BodyParser> = new Map([
 	["structured-text", stBodyParser],
+	["plc-fbd", fbdBodyParser],
 ]);
 
 /**
@@ -54,18 +57,6 @@ export function buildBodyModel(
 ): BodyModel {
 	const parser = bodyParsers.get(languageId) ?? stBodyParser;
 	return parser.parse(input);
-}
-
-/** Type guard — true when the string is one of the recognized
- *  body language IDs. */
-export function isBodyLanguageId(value: string): value is BodyLanguageId {
-	return (
-		value === "structured-text" ||
-		value === "plc-fbd" ||
-		value === "plc-ld" ||
-		value === "plc-sfc" ||
-		value === "plc-cfc"
-	);
 }
 
 /**
@@ -103,6 +94,23 @@ export function buildBodyModelsForParseResult(
 	return out;
 }
 
+/**
+ * Convenience: every IdentifierRef in a BodyModel whose name
+ * matches the given target (case-insensitive).
+ *
+ * Replaces the inline `scanReferencesInBody(body, name)` pattern
+ * that LSP queries used to do — now driven by the language-
+ * appropriate BodyModel, so the same query works for ST + FBD
+ * (and LD/SFC/CFC after P4) without per-caller language branches.
+ */
+export function findIdentifiersByName(
+	model: BodyModel,
+	name: string,
+): readonly IdentifierRef[] {
+	const target = name.toLowerCase();
+	return model.identifiers.filter((i) => i.name.toLowerCase() === target);
+}
+
 /** Return every BodySpan attached directly to a top-level unit
  *  (does NOT recurse into namespaces — caller handles that). */
 function collectBodySpans(u: TopLevel): BodySpan[] {
@@ -123,6 +131,3 @@ function collectBodySpans(u: TopLevel): BodySpan[] {
 			return [];
 	}
 }
-
-// ─── Type-only imports needed by the walker above ────────────────────
-import type { BodySpan, TopLevel } from "../parser/ast.js";

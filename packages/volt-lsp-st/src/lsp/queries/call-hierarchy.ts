@@ -15,11 +15,8 @@
  */
 import { lspSymbolKindFor } from "../capabilities.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
-import {
-	scanAllIdentifiersInBody,
-	scanReferencesInBody,
-	lookup,
-} from "../../semantic/resolver.js";
+import { lookup } from "../../semantic/resolver.js";
+import { findIdentifiersByName } from "../../body/index.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import type { Location, LspSymbolKindValue, Position, Range } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
@@ -92,7 +89,9 @@ export function incomingCalls(args: IncomingArgs): CallHierarchyIncomingCall[] {
 		for (const unit of doc.parseResult.units) {
 			const body = bodyOf(unit);
 			if (body === undefined) continue;
-			const occs = scanReferencesInBody(body, item.name).filter((o) => o.isCall);
+			const model = doc.bodyModels.get(body);
+			if (model === undefined) continue;
+			const occs = findIdentifiersByName(model, item.name).filter((o) => o.isCall);
 			if (occs.length === 0) continue;
 			const callerItem = makeItemForUnit(doc.uri, unit);
 			if (callerItem === undefined) continue;
@@ -133,10 +132,15 @@ export function outgoingCalls(args: OutgoingArgs): CallHierarchyOutgoingCall[] {
 	}
 	if (body === undefined || containingUnit === undefined) return [];
 
-	const occs = scanAllIdentifiersInBody(body).filter((o) => o.isCall && !o.isMemberAccess);
+	const model = doc.bodyModels.get(body);
+	if (model === undefined) return [];
+	const occs = model.calls.filter((c) => {
+		const ref = model.identifiers.find((i) => i.span.start === c.span.start && i.name === c.name);
+		return ref !== undefined && !ref.isMemberAccess;
+	});
 	const targets = new Map<string, { to: CallHierarchyItem; ranges: Range[] }>();
 	for (const o of occs) {
-		const r = lookup(project, o.token.text);
+		const r = lookup(project, o.name);
 		if (r === undefined || !isCallable(r.symbol)) continue;
 		// The target's defining doc — we don't yet track per-symbol URI,
 		// so we synthesize an item using the project-wide name; the
