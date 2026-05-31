@@ -28,8 +28,8 @@ import {
 	buildSymbolTable,
 	parseSource,
 	DEFAULT_DIAGNOSTIC_CONFIG,
-} from "@opencode-ai/volt-lsp-st";
-import { CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp-st/conformance";
+} from "@opencode-ai/volt-lsp";
+import { CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp/conformance";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));

@@ -42,8 +42,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseSource } from "@opencode-ai/volt-lsp-st";
-import { ALL_TESTS, CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp-st/conformance";
+import { parseSource } from "@opencode-ai/volt-lsp";
+import { ALL_TESTS, CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp/conformance";
 import { BridgeClient } from "../bridge/client.js";
 import type { BridgeDiagnostic } from "../bridge/types.js";
 import { findExistingFile } from "./_shared.js";

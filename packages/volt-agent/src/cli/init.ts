@@ -11,7 +11,7 @@
  * build` all just read the binding.
  */
 import { resolve } from "node:path";
-import { detectVendor, installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-st";
+import { detectVendor, installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp";
 import { configExists, loadConfig, saveConfig, workspacePaths } from "../engine/config.js";
 import { ensureGitignore, ensureSnapshotRepo } from "../engine/snapshot.js";
 import { flagBool, type VerbFn } from "./_shared.js";

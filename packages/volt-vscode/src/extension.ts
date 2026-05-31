@@ -61,7 +61,7 @@ interface PlcLanguage {
 const PLC_LANGUAGES: PlcLanguage[] = [
 	{
 		languageId: "structured-text",
-		lspPackage: "@opencode-ai/volt-lsp-st",
+		lspPackage: "@opencode-ai/volt-lsp",
 		displayName: "Structured Text",
 		configKey: "volt.structuredText.lspServer",
 		settingsRoot: "volt.structuredText",

@@ -44,7 +44,7 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "@opencode-ai/volt-lsp-st#test": {
+    "@opencode-ai/volt-lsp#test": {
       "dependsOn": ["^build"],
       "outputs": []
     },

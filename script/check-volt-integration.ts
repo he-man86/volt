@@ -67,7 +67,7 @@ check(".claude/skills/st-reference/SKILL.md exists", () =>
 console.log("\nBuilt binaries");
 check("volt-lsp-st dist/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-lsp-st/dist/bin.js");
-	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-lsp-st' run build";
+	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-lsp' run build";
 });
 check("volt CLI dist/cli/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-agent/dist/cli/bin.js");

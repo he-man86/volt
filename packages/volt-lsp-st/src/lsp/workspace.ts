@@ -27,8 +27,12 @@ import type {
 	TextDocumentContentChangeEvent,
 } from "vscode-languageserver-protocol";
 import { parseSource } from "../parser/parser.js";
-import type { ParseResult } from "../parser/ast.js";
+import type { BodySpan, ParseResult } from "../parser/ast.js";
 import { buildSymbolTable, type Scope } from "../semantic/symbol-table.js";
+import {
+	buildBodyModelsForParseResult,
+	type BodyModel,
+} from "../body/index.js";
 import {
 	DEFAULT_RESOLVED_CONFIG,
 	type ResolvedConfig,
@@ -48,6 +52,22 @@ export interface Document {
 	parseResult: ParseResult;
 	/** Underlying LSP text document — used by `applyContentChanges`. */
 	textDocument: TextDocument;
+	/**
+	 * Body language for this document (`structured-text` /
+	 * `plc-fbd` / `plc-ld` / `plc-sfc` / `plc-cfc`). Routed via
+	 * `body/index.ts` to the language-specific parser. Defaults to
+	 * `structured-text` when the LSP client doesn't tell us
+	 * (matches pre-multi-language behavior).
+	 */
+	languageId: string;
+	/**
+	 * Per-body-span `BodyModel` produced by the language-appropriate
+	 * parser. Keyed by BodySpan reference identity — callers that
+	 * already hold a `BodySpan` from the AST use it directly as the
+	 * lookup key. Empty for documents with no bodies (interfaces,
+	 * pure DUT/GVL files).
+	 */
+	bodyModels: Map<BodySpan, BodyModel>;
 }
 
 export class Workspace {
@@ -74,7 +94,7 @@ export class Workspace {
 
 	openDocument(uri: string, source: string, version: number, languageId: string = ST_LANGUAGE_ID): void {
 		const textDocument = TextDocument.create(uri, languageId, version, source);
-		this.documents.set(uri, this.buildDocument(textDocument));
+		this.documents.set(uri, this.buildDocument(textDocument, languageId));
 		this.invalidate();
 	}
 
@@ -105,7 +125,7 @@ export class Workspace {
 			return;
 		}
 		const updated = TextDocument.update(existing.textDocument, changes, version);
-		this.documents.set(uri, this.buildDocument(updated));
+		this.documents.set(uri, this.buildDocument(updated, existing.languageId));
 		this.invalidate();
 	}
 
@@ -132,14 +152,23 @@ export class Workspace {
 		return project;
 	}
 
-	private buildDocument(textDocument: TextDocument): Document {
+	private buildDocument(textDocument: TextDocument, languageId: string): Document {
 		const source = textDocument.getText();
+		const parseResult = parseSource(source);
+		// Eagerly build a BodyModel for every body in the parse tree.
+		// For ST this just runs the existing identifier scan; for
+		// graphical languages (P2+) it routes to the FBD/LD/SFC/CFC
+		// parser. Cost shifts from query time to parse time, which
+		// keeps LSP query latency predictable.
+		const bodyModels = buildBodyModelsForParseResult(languageId, source, parseResult);
 		return {
 			uri: textDocument.uri,
 			source,
 			version: textDocument.version,
-			parseResult: parseSource(source),
+			parseResult,
 			textDocument,
+			languageId,
+			bodyModels,
 		};
 	}
 

@@ -26,7 +26,7 @@
     "conformance:report": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/cli/conformance-report.js"
   },
   "dependencies": {
-    "@opencode-ai/volt-lsp-st": "workspace:*",
+    "@opencode-ai/volt-lsp": "workspace:*",
     "zod": "^3.25.76"
   },
   "devDependencies": {
