@@ -31,6 +31,8 @@ import type { BodySpan, ParseResult } from "../parser/ast.js";
 import { buildSymbolTable, type Scope } from "../semantic/symbol-table.js";
 import {
 	buildBodyModelsForParseResult,
+	coerceBodyLanguageId,
+	type BodyLanguageId,
 	type BodyModel,
 } from "../body/index.js";
 import {
@@ -56,10 +58,10 @@ export interface Document {
 	 * Body language for this document (`structured-text` /
 	 * `plc-fbd` / `plc-ld` / `plc-sfc` / `plc-cfc`). Routed via
 	 * `body/index.ts` to the language-specific parser. Defaults to
-	 * `structured-text` when the LSP client doesn't tell us
-	 * (matches pre-multi-language behavior).
+	 * `structured-text` when the LSP client sends an unknown
+	 * languageId (matches pre-multi-language behavior).
 	 */
-	languageId: string;
+	languageId: BodyLanguageId;
 	/**
 	 * Per-body-span `BodyModel` produced by the language-appropriate
 	 * parser. Keyed by BodySpan reference identity — callers that
@@ -93,8 +95,9 @@ export class Workspace {
 	}
 
 	openDocument(uri: string, source: string, version: number, languageId: string = ST_LANGUAGE_ID): void {
-		const textDocument = TextDocument.create(uri, languageId, version, source);
-		this.documents.set(uri, this.buildDocument(textDocument, languageId));
+		const lang = coerceBodyLanguageId(languageId);
+		const textDocument = TextDocument.create(uri, lang, version, source);
+		this.documents.set(uri, this.buildDocument(textDocument, lang));
 		this.invalidate();
 	}
 
@@ -152,7 +155,7 @@ export class Workspace {
 		return project;
 	}
 
-	private buildDocument(textDocument: TextDocument, languageId: string): Document {
+	private buildDocument(textDocument: TextDocument, languageId: BodyLanguageId): Document {
 		const source = textDocument.getText();
 		const parseResult = parseSource(source);
 		// Eagerly build a BodyModel for every body in the parse tree.

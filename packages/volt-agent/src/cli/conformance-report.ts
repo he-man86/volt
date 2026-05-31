@@ -28,6 +28,7 @@ import {
 	buildSymbolTable,
 	parseSource,
 	DEFAULT_DIAGNOSTIC_CONFIG,
+	buildBodyModelsForParseResult,
 } from "@opencode-ai/volt-lsp";
 import { CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp/conformance";
 import type { BridgeDiagnostic } from "../bridge/types.js";
@@ -46,12 +47,15 @@ interface ExpectedTc {
 function runLsp(source: string): Array<{ severity: string }> {
 	const parseResult = parseSource(source);
 	const project = buildSymbolTable([{ uri: "file:///report/test.st", parseResult }]);
+	const bodyModels = buildBodyModelsForParseResult("structured-text", source, parseResult);
 	const diags = computeSemanticDiagnostics({
 		parseResult,
 		source,
 		project,
 		config: DEFAULT_DIAGNOSTIC_CONFIG,
 		activeVendor: "twincat",
+		languageId: "structured-text",
+		bodyModels,
 	});
 	for (const e of parseResult.errors) diags.push({ severity: "error" } as never);
 	return diags.map((d) => ({ severity: d.severity }));

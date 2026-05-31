@@ -48,6 +48,7 @@ function probe(
 		project,
 		config: ALL_CHECKS_ON,
 		activeVendor: "twincat",
+		languageId: "structured-text",
 		bodyModels: doc.bodyModels,
 	});
 	for (const diag of diagnostics) {

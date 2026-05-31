@@ -10,7 +10,6 @@
  * `BodyModel.identifiers` instead of re-scanning, at which point
  * this adapter becomes the single source of truth for ST.
  */
-import { spanFromOffsets } from "../../lexer/span.js";
 import { scanAllIdentifiersInBody } from "../../semantic/resolver.js";
 import type {
 	BodyModel,
@@ -25,15 +24,14 @@ export const stBodyParser: BodyParser = {
 	parse(input: BodyParseInput): BodyModel {
 		const st = input.st;
 		if (st === undefined) {
-			// ST without a token-stream means the parser was bypassed
-			// (graphical-only entry point). Defensive: return an empty
-			// model so downstream features behave like an empty body.
-			return {
-				languageId: "structured-text",
-				span: spanFromOffsets(input.source, input.bodyRegion.start, input.bodyRegion.end),
-				identifiers: [],
-				calls: [],
-			};
+			// Invariant: `buildBodyModelsForParseResult` always passes
+			// `st` for ST documents (it's pulled from the AST). If we
+			// reach here, a caller has misrouted a non-ST body to the
+			// ST parser — fail loud so the routing bug surfaces
+			// instead of producing silent empty results.
+			throw new Error(
+				"stBodyParser invoked without BodyParseInput.st — route via buildBodyModel(languageId, ...) which forwards the AST's BodySpan",
+			);
 		}
 		const occurrences = scanAllIdentifiersInBody(st);
 		const identifiers: IdentifierRef[] = occurrences.map((o) => ({

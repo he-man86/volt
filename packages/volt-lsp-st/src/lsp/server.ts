@@ -527,6 +527,7 @@ export function runServer(opts: ServerOptions): void {
 			project: workspace.getProjectScope(),
 			config: workspace.config.diagnostics,
 			activeVendor: workspace.config.vendor,
+			languageId: doc.languageId,
 			bodyModels: doc.bodyModels,
 		}).map((d) => ({
 			range: {

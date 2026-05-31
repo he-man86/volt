@@ -52,17 +52,21 @@ export const fbdBodyParser: BodyParser = {
 };
 
 /**
- * Shared graphical-body parser — used by FBD today, and reused
- * unchanged by LD/CFC in P4 (those languages emit the same
- * inVariable / outVariable / block / connection vocabulary; only
- * the inner element name is `<LD>` or `<CFC>`).
+ * Shared graphical-body parser — used by FBD today, and reused by
+ * LD / SFC / CFC in P4. Those languages share the FBD vocabulary
+ * for `<inVariable>` / `<outVariable>` / `<block>` / `<connection>`
+ * per PLCopenXML XSD; only the root element name differs (`<LD>`,
+ * `<SFC>`, `<CFC>`). Language-specific elements (LD's
+ * `<contact>`/`<coil>`, SFC's `<step>`/`<transition>`) need
+ * post-processing in their own parser — this function handles only
+ * the shared core.
  *
- * Exported (not just used by `fbdBodyParser`) so the LD/CFC
+ * Exported (not just used by `fbdBodyParser`) so the LD/SFC/CFC
  * parsers in P4 can call it with their own root tag name.
  */
 export function parseGraphicalBody(
 	input: BodyParseInput,
-	rootTag: "FBD" | "LD" | "CFC",
+	rootTag: "FBD" | "LD" | "SFC" | "CFC",
 ): BodyModel {
 	const { source, bodyRegion } = input;
 	const span = spanFromOffsets(source, bodyRegion.start, bodyRegion.end);
@@ -96,13 +100,12 @@ export function parseGraphicalBody(
 	}
 
 	const graph: GraphBody = { nodes, connections, parseDiagnostics };
-	return {
-		languageId: rootTag === "FBD" ? "plc-fbd" : rootTag === "LD" ? "plc-ld" : "plc-cfc",
-		span,
-		identifiers,
-		calls,
-		graph,
-	};
+	const languageId =
+		rootTag === "FBD" ? "plc-fbd" :
+		rootTag === "LD" ? "plc-ld" :
+		rootTag === "SFC" ? "plc-sfc" :
+		"plc-cfc";
+	return { languageId, span, identifiers, calls, graph };
 }
 
 interface WalkAccum {

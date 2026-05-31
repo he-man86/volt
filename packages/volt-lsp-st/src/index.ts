@@ -23,3 +23,13 @@ export { buildSymbolTable } from "./semantic/symbol-table.js";
 export type { Scope, SymbolTableInput } from "./semantic/symbol-table.js";
 export { DEFAULT_DIAGNOSTIC_CONFIG } from "./lsp/config.js";
 export type { DiagnosticConfig } from "./lsp/config.js";
+
+// Body-language plug-in surface — needed by downstream callers
+// (volt-agent's conformance harness) that compute diagnostics
+// without going through the LSP workspace.
+export {
+	buildBodyModel,
+	buildBodyModelsForParseResult,
+	coerceBodyLanguageId,
+} from "./body/index.js";
+export type { BodyLanguageId, BodyModel } from "./body/index.js";

@@ -111,7 +111,6 @@ function readElement(ctx: Ctx): XmlNode | undefined {
 		return { tag, attrs, children: [], text: "", span: { start, end: ctx.pos } };
 	}
 	ctx.pos++; // past '>'
-	const bodyStart = ctx.pos;
 	const children: XmlNode[] = [];
 	let text = "";
 	let textSpan: { start: number; end: number } | undefined;
@@ -157,9 +156,6 @@ function readElement(ctx: Ctx): XmlNode | undefined {
 				end: ctx.pos - trailing,
 			};
 		}
-	}
-	if (bodyStart > 0) {
-		/* keep linter happy */
 	}
 	return {
 		tag,
@@ -258,12 +254,6 @@ function decodeEntities(s: string): string {
 export function* walkElements(node: XmlNode): IterableIterator<XmlNode> {
 	yield node;
 	for (const child of node.children) yield* walkElements(child);
-}
-
-/** Convenience: find the first descendant with the given tag name. */
-export function findChild(node: XmlNode, tag: string): XmlNode | undefined {
-	for (const child of node.children) if (child.tag === tag) return child;
-	return undefined;
 }
 
 /** Convenience: every direct child with the given tag name. */

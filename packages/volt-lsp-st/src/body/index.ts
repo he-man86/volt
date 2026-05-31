@@ -13,11 +13,13 @@
 import type { BodySpan, TopLevel } from "../parser/ast.js";
 import { fbdBodyParser } from "./fbd/parser.js";
 import { stBodyParser } from "./st/parser.js";
-import type {
-	BodyModel,
-	BodyParseInput,
-	BodyParser,
-	IdentifierRef,
+import {
+	BODY_LANGUAGE_IDS,
+	type BodyLanguageId,
+	type BodyModel,
+	type BodyParseInput,
+	type BodyParser,
+	type IdentifierRef,
 } from "./types.js";
 
 export type {
@@ -29,10 +31,14 @@ export type {
 	CallSite,
 	Connection,
 	GraphBody,
+	GraphicalBodyModel,
+	GraphicalLanguageId,
 	GraphNode,
 	IdentifierRef,
 	PortRef,
+	STBodyModel,
 } from "./types.js";
+export { BODY_LANGUAGE_IDS, GRAPHICAL_LANGUAGE_IDS } from "./types.js";
 
 /**
  * Registry: languageId → BodyParser. The set grows phase by phase
@@ -57,6 +63,19 @@ export function buildBodyModel(
 ): BodyModel {
 	const parser = bodyParsers.get(languageId) ?? stBodyParser;
 	return parser.parse(input);
+}
+
+/**
+ * Coerce an arbitrary string (e.g. `textDocument.languageId` from
+ * the LSP client) to a known `BodyLanguageId`. Unknown values fall
+ * back to `"structured-text"` — keeps the LSP open to misbehaving
+ * clients while constraining the rest of the codebase to the
+ * narrow union.
+ */
+export function coerceBodyLanguageId(value: string): BodyLanguageId {
+	return (BODY_LANGUAGE_IDS as readonly string[]).includes(value)
+		? (value as BodyLanguageId)
+		: "structured-text";
 }
 
 /**

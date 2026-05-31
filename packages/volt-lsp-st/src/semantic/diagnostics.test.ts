@@ -24,6 +24,7 @@ function setup(
 		project,
 		config,
 		activeVendor,
+		languageId: "structured-text",
 		bodyModels,
 	});
 	return { diags, project, parseResult };

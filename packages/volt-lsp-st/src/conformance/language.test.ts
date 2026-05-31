@@ -146,6 +146,7 @@ function runLsp(
 		project,
 		config: resolved.diagnostics,
 		activeVendor: resolved.vendor,
+		languageId: "structured-text",
 		bodyModels: buildBodyModelsForParseResult("structured-text", source, parseResult),
 	});
 	// Surface parse errors as diagnostics too — comparison wants to know
