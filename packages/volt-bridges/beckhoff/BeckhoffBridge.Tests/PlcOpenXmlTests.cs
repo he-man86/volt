@@ -120,4 +120,14 @@ public class PlcOpenXmlTests
 		Assert.Null(PlcOpenXml.ReplaceBodyInPou("", "MyFB", NewBody));
 		Assert.Null(PlcOpenXml.ReplaceBodyInPou(null!, "MyFB", NewBody));
 	}
+
+	[Fact]
+	public void Rejects_Non_Body_Root_Element()
+	{
+		// Passing a bare <FBD>...</FBD> instead of <body><FBD>...</FBD></body>
+		// must be rejected — splicing it directly under <pou> would
+		// produce a malformed document.
+		const string notABody = @"<FBD xmlns=""http://www.plcopen.org/xml/tc6_0200""><inVariable localId=""1"" /></FBD>";
+		Assert.Null(PlcOpenXml.ReplaceBodyInPou(TemplateFbdPou, "MyFB", notABody));
+	}
 }

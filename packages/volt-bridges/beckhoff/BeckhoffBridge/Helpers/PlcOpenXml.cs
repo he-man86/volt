@@ -50,6 +50,11 @@ public static class PlcOpenXml
 		try { newBody = XElement.Parse(newBodyXml); }
 		catch { return null; }
 
+		// Reject mis-named elements (e.g. someone passed a bare <FBD>
+		// instead of <body><FBD>...</body>) — splicing would produce
+		// a malformed document the vendor silently rejects on import.
+		if (newBody.Name != Ns + "body") return null;
+
 		body.ReplaceWith(newBody);
 		return (doc.Declaration?.ToString() + "\n" + doc.ToString()).TrimStart('\n');
 	}

@@ -95,6 +95,14 @@ class TestReplaceBodyInPou(unittest.TestCase):
 		result = plcopen_xml.replace_body_in_pou(TEMPLATE_FBD_POU, "MyFB", "not xml")
 		self.assertIsNone(result)
 
+	def test_rejects_non_body_root_element(self):
+		# Passing a bare <FBD>...</FBD> instead of <body><FBD>...</FBD></body>
+		# must be rejected — splicing it directly under <pou> would
+		# produce a malformed document.
+		not_a_body = '<FBD xmlns="http://www.plcopen.org/xml/tc6_0200"><inVariable localId="1"/></FBD>'
+		result = plcopen_xml.replace_body_in_pou(TEMPLATE_FBD_POU, "MyFB", not_a_body)
+		self.assertIsNone(result)
+
 	def test_handles_BOM_prefix(self):
 		# CODESYS prepends a UTF-8 BOM to its export output — make sure
 		# the helper tolerates it.
@@ -117,29 +125,46 @@ class TestReplaceBodyInPou(unittest.TestCase):
 
 
 class TestExtractGraphicalBody(unittest.TestCase):
-	"""Mirror test for the inverse (pull-side) helper. Pure data."""
+	"""Mirror test for the inverse (pull-side) helper. Pure data.
 
-	def test_extracts_body_with_default_namespace(self):
-		# Build a fake "item" that returns our template from export_xml().
+	Two functions under test: `extract_graphical_body(item)` does the
+	COM IO; `extract_body_from_xml(xml_str)` is the pure-data inner
+	helper. Most tests exercise the pure-data form directly.
+	"""
+
+	def test_extract_body_from_xml_extracts_body(self):
+		body = plcopen_xml.extract_body_from_xml(TEMPLATE_FBD_POU)
+		self.assertIsNotNone(body)
+		self.assertIn("OLD_VAR", body)
+		self.assertIn("FBD", body)
+
+	def test_extract_body_from_xml_handles_BOM(self):
+		# CODESYS prepends a UTF-8 BOM to export output.
+		body = plcopen_xml.extract_body_from_xml("﻿" + TEMPLATE_FBD_POU)
+		self.assertIsNotNone(body)
+		self.assertIn("OLD_VAR", body)
+
+	def test_extract_body_from_xml_returns_none_on_empty(self):
+		self.assertIsNone(plcopen_xml.extract_body_from_xml(""))
+		self.assertIsNone(plcopen_xml.extract_body_from_xml(None))
+
+	def test_extract_body_from_xml_returns_none_on_malformed(self):
+		self.assertIsNone(plcopen_xml.extract_body_from_xml("<not xml"))
+
+	def test_extract_graphical_body_wrapper_does_IO(self):
+		# The wrapper just calls item.export_xml() then delegates.
 		class FakeItem:
 			def export_xml(self):
 				return TEMPLATE_FBD_POU
 		body = plcopen_xml.extract_graphical_body(FakeItem())
 		self.assertIsNotNone(body)
 		self.assertIn("OLD_VAR", body)
-		self.assertIn("FBD", body)
 
-	def test_returns_none_when_export_fails(self):
+	def test_extract_graphical_body_wrapper_handles_io_failure(self):
 		class BrokenItem:
 			def export_xml(self):
 				raise RuntimeError("simulated COM failure")
 		self.assertIsNone(plcopen_xml.extract_graphical_body(BrokenItem()))
-
-	def test_returns_none_when_export_empty(self):
-		class EmptyItem:
-			def export_xml(self):
-				return ""
-		self.assertIsNone(plcopen_xml.extract_graphical_body(EmptyItem()))
 
 
 if __name__ == "__main__":

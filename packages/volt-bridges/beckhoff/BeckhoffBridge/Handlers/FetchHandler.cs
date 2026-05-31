@@ -49,7 +49,7 @@ internal sealed class FetchHandler
 		var currentVersions = new Dictionary<string, string>();
 		var changed = new List<object>();
 		var root = _connection.GetPlcProjectRoot();
-		WalkAndCollect(root, knownItems, currentVersions, changed);
+		WalkAndCollect(root, "", knownItems, currentVersions, changed);
 
 		var removed = new List<string>();
 		foreach (var name in knownItems.Keys)
@@ -70,6 +70,7 @@ internal sealed class FetchHandler
 
 	private void WalkAndCollect(
 		dynamic node,
+		string folderPath,
 		Dictionary<string, string> knownItems,
 		Dictionary<string, string> currentVersions,
 		List<object> changed)
@@ -92,64 +93,149 @@ internal sealed class FetchHandler
 
 			if (itemType == BlockTypeMapper.FolderSubType)
 			{
-				WalkAndCollect(child, knownItems, currentVersions, changed);
+				// Recurse with the folder appended. Folder names compose with
+				// `/` so the on-disk layout matches the IDE's tree exactly
+				// (e.g. POUs/Motors/FB_Stepper.st).
+				var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
+				WalkAndCollect(child, nested, knownItems, currentVersions, changed);
 				continue;
 			}
 
-			if (!BlockTypeMapper.IsTopLevelCrud(itemType))
+			if (BlockTypeMapper.IsInlinedInPou(itemType))
 			{
+				// Methods/actions/properties — ride inline via parent POU.
 				continue;
 			}
 
-			string version;
-			try { version = BeckhoffConnection.ComputeItemVersion(child); }
-			catch { continue; }
+			// Hybrid items (non-CRUD with children — RecipeManager + Recipes,
+			// References + library refs, etc.): nest the PARENT's file inside
+			// its own folder so VS Code shows ONE node per concept. So
+			// instead of `Drives/RecipeManager.xml` + `Drives/RecipeManager/
+			// Recipes.xml` side-by-side, we get `Drives/RecipeManager/
+			// RecipeManager.xml` + `Drives/RecipeManager/Recipes.xml`
+			// (component-folder convention, single tree entry per node).
+			int childCount = 0;
+			try { childCount = (int)child.ChildCount; } catch { }
+			bool isHybrid = childCount > 0 && !BlockTypeMapper.IsTopLevelCrud(itemType);
+			string emitFolder = isHybrid
+				? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}")
+				: folderPath;
 
-			currentVersions[name] = version;
-
-			// Emit full content only when client's known version doesn't match.
-			if (!knownItems.TryGetValue(name, out var clientVersion) || clientVersion != version)
+			if (BlockTypeMapper.IsTopLevelCrud(itemType))
 			{
-				try
+				EmitSourceItem(child, name, folderPath, knownItems, currentVersions, changed);
+			}
+			else
+			{
+				string configKind = BlockTypeMapper.ToConfigKind(itemType);
+				EmitConfigItem(child, name, configKind, emitFolder, knownItems, currentVersions, changed);
+			}
+
+			// Recurse into hybrid items with the SAME nested folder path
+			// (matches the parent's emitFolder above, so children land
+			// alongside their parent's file inside the shared folder).
+			if (isHybrid)
+			{
+				WalkAndCollect(child, emitFolder, knownItems, currentVersions, changed);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Emit a top-level CRUD item (POU / GVL / DUT / Interface) — the
+	/// previous default path. SourceText is the StAssembler-produced
+	/// `.st`/`.gvl`/`.dut`/`.itf` content; graphical POUs additionally
+	/// carry `implementationXml` (PLCopenXML body block).
+	/// </summary>
+	private void EmitSourceItem(
+		dynamic child,
+		string name,
+		string folderPath,
+		Dictionary<string, string> knownItems,
+		Dictionary<string, string> currentVersions,
+		List<object> changed)
+	{
+		string version;
+		try { version = BeckhoffConnection.ComputeItemVersion(child); }
+		catch { return; }
+
+		currentVersions[name] = version;
+		if (knownItems.TryGetValue(name, out var clientVersion) && clientVersion == version)
+			return;
+
+		try
+		{
+			var result = GetHandler.BuildResult(_connection, name, child);
+			var sourceText = StAssembler.Assemble(result);
+			var slim = new Dictionary<string, object?>
+			{
+				["name"] = name,
+				["version"] = version,
+				["sourceText"] = sourceText,
+			};
+			if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
+			// Prefer the walk-tracked folder (consistent across source +
+			// config items). Fall back to whatever BuildResult inferred
+			// only when our walk didn't pick anything up.
+			if (!string.IsNullOrEmpty(folderPath))
+				slim["folder"] = folderPath;
+			else if (result.TryGetValue("folder", out object? folderVal))
+				slim["folder"] = folderVal;
+			if (result.TryGetValue("language", out object? langVal)) slim["language"] = langVal;
+			if (langVal is string langStr && IsGraphicalLanguage(langStr))
+			{
+				string? bodyXml = _connection.ExportItemBodyAsXml(child, name);
+				if (!string.IsNullOrEmpty(bodyXml))
 				{
-					var result = GetHandler.BuildResult(_connection, name, child);
-					// Wire-shape v2: assemble per-child fields into a single
-					// `sourceText` blob — the agent drops it straight into
-					// the workspace file without per-child reassembly.
-					var sourceText = StAssembler.Assemble(result);
-					var slim = new Dictionary<string, object?>
-					{
-						["name"] = name,
-						["version"] = version,
-						["sourceText"] = sourceText,
-					};
-					if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
-					if (result.TryGetValue("folder", out object? folderVal)) slim["folder"] = folderVal;
-					if (result.TryGetValue("language", out object? langVal)) slim["language"] = langVal;
-					// Graphical POU bodies (FBD/LD/SFC/CFC): export as
-					// PLCopenXML so the agent can write a faithful .fbd
-					// file with the body XML preserved verbatim (matches
-					// what the CODESYS bridge sends). ST bodies skip
-					// this entirely — `sourceText` carries everything
-					// for textual languages. Note: we check the language
-					// TAG ("FBD"/"LD"/"SFC"/"CFC") directly; don't call
-					// LanguageDetector.IsGraphical(string) — that sniffs
-					// XML markers in body TEXT, not language tags.
-					if (langVal is string langStr && IsGraphicalLanguage(langStr))
-					{
-						string? bodyXml = _connection.ExportItemBodyAsXml(child, name);
-						if (!string.IsNullOrEmpty(bodyXml))
-						{
-							slim["implementationXml"] = bodyXml;
-						}
-					}
-					changed.Add(slim);
-				}
-				catch
-				{
-					// Skip bad items — they'll show up in `removed` next round.
+					slim["implementationXml"] = bodyXml;
 				}
 			}
+			changed.Add(slim);
+		}
+		catch
+		{
+			// Skip bad items — they'll show up in `removed` next round.
+		}
+	}
+
+	/// <summary>
+	/// Emit a non-CRUD item (Task / VisualizationManager / Visualization /
+	/// LibraryManager / library ref / RecipeManager / ImagePool /
+	/// GlobalTextList / ClassDiagram / TmcFile / etc.) as opaque config.
+	/// SourceText is the universal `ITcSmTreeItem.ProduceXml()` output;
+	/// constant version "config" matches the policy in RefsHandler.
+	/// </summary>
+	private void EmitConfigItem(
+		dynamic child,
+		string name,
+		string configKind,
+		string folderPath,
+		Dictionary<string, string> knownItems,
+		Dictionary<string, string> currentVersions,
+		List<object> changed)
+	{
+		string version = configKind;
+		currentVersions[name] = version;
+		if (knownItems.TryGetValue(name, out var clientVersion) && clientVersion == version)
+			return;
+
+		try
+		{
+			string xml = _connection.ProduceItemXml(child, name);
+			var slim = new Dictionary<string, object?>
+			{
+				["name"] = name,
+				["kind"] = configKind,
+				["version"] = version,
+				["sourceText"] = xml,
+			};
+			if (!string.IsNullOrEmpty(folderPath))
+				slim["folder"] = folderPath;
+			changed.Add(slim);
+		}
+		catch
+		{
+			// best-effort — bad item shouldn't poison the walk.
 		}
 	}
 

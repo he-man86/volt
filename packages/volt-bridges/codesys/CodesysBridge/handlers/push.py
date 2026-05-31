@@ -288,7 +288,7 @@ def _update_item(connection, name, existing, split, folder, implementation_xml=N
 	# Graphical body push: apply the PLCopenXML <body> via import_xml.
 	# Update-only — create path is gated upstream.
 	if implementation_xml:
-		_apply_graphical_body(existing, name, split, implementation_xml)
+		_apply_graphical_body(existing, name, implementation_xml)
 
 	# Diff children: collect current children by name, add new, update
 	# existing, delete missing.
@@ -429,37 +429,28 @@ def _write_text(obj, doc_attr, text):
 # ─── Graphical body application ────────────────────────────────────
 
 
-# Maps our vendor-neutral kind strings → PLCopenXML pouType attribute values.
-_POU_TYPE_ATTR = {
-	"function_block": "functionBlock",
-	"function":       "function",
-	"program":        "program",
-}
-
-
-def _apply_graphical_body(existing, name, split, body_xml):
-	# type: (object, str, object, str) -> None
+def _apply_graphical_body(existing, name, body_xml):
+	# type: (object, str, str) -> None
 	"""Write a graphical POU's `<body>` PLCopenXML back into CODESYS.
 
 	**Export-as-template pattern** (parallel to TC's
 	`BeckhoffConnection.ImportItemBodyAsXml`):
-
-	  1. Export the existing item via `item.export_xml()` — gives us
-	     a schema-valid PLCopenXML document including all CODESYS-
+	  1. Export the existing item via `item.export_xml()` — gives a
+	     schema-valid PLCopenXML document carrying all CODESYS-
 	     specific addData / vendor extensions we'd otherwise lose.
-	  2. Parse it, find the named POU's `<body>` element, replace its
-	     content with the incoming `body_xml`.
-	  3. Call `item.import_xml(modified_doc)` to write it back.
-	     Same-name match → in-place update.
+	  2. Splice the new `<body>` into it via `replace_body_in_pou`.
+	  3. Call `parent.import_xml(ReplaceReporter(), modified_doc)` —
+	     the reporter tells CODESYS to REPLACE same-named POUs in
+	     place. Without the reporter CODESYS auto-renames colliding
+	     imports to `<name>_1`.
 
 	Hand-crafting the PLCopenXML envelope from scratch was tried and
 	abandoned — both bridges' import APIs validate the schema
-	strictly and reject missing fileHeader / contentHeader /
-	coordinateInfo / etc. Using the vendor's own export sidesteps
-	that whole class of fragility.
+	strictly. Using the vendor's own export sidesteps that fragility.
 
-	On failure, raises so the push handler reports it in the response
-	rather than silently dropping the body change.
+	Raises on any failure so the push handler surfaces it in the
+	response (rather than silently changing GUIDs or dropping the
+	body change).
 	"""
 	from ..helpers import log
 	from ..helpers import plcopen_xml as _xml
@@ -467,19 +458,79 @@ def _apply_graphical_body(existing, name, split, body_xml):
 	try:
 		template_xml = existing.export_xml()
 	except Exception as e:
-		raise RuntimeError("failed to fetch export template for '{0}': {1}".format(name, e))
+		raise RuntimeError("export_xml template fetch for '{0}' failed: {1}".format(name, e))
 	if not template_xml:
-		raise RuntimeError("empty template returned from export_xml on '{0}'".format(name))
+		raise RuntimeError("empty export_xml template for '{0}'".format(name))
 
 	modified_xml = _xml.replace_body_in_pou(template_xml, name, body_xml)
 	if modified_xml is None:
-		raise RuntimeError("couldn't locate <body> in export template for '{0}'".format(name))
+		raise RuntimeError("replace_body_in_pou couldn't locate <body> in template for '{0}'".format(name))
+
+	# import_xml goes on the parent, not the item itself (verified
+	# live: calling on the item itself raises "No importable objects
+	# found"). The ImportReporter is mandatory for replace semantics.
+	parent = getattr(existing, "parent", None)
+	if parent is None:
+		raise RuntimeError("'{0}' has no parent — can't reach import_xml".format(name))
 
 	try:
-		existing.import_xml(modified_xml)
-		log.startup("[push] graphical body applied for '{0}'".format(name))
+		from scriptengine import ImportReporter, ConflictResolve  # type: ignore[import-not-found]
 	except Exception as e:
-		raise RuntimeError("import_xml on '{0}' failed: {1}".format(name, e))
+		raise RuntimeError(
+			"scriptengine.ImportReporter / ConflictResolve unavailable: {0} "
+			"(graphical-body push requires CODESYS SP19+)".format(e))
+
+	class _ReplaceReporter(ImportReporter):
+		"""Resolves every name collision by replacing the existing
+		object in place — preserves the POU's identity (GUID, parent
+		reference, neighbor ordering). Verified live: GUID is byte-
+		identical before and after."""
+		def error(self, message):    log.warn("[push] import error: {0}".format(message))
+		def warning(self, message):  log.warn("[push] import warning: {0}".format(message))
+		def resolve_conflict(self, obj):  return ConflictResolve.Replace
+		def added(self, obj):     pass
+		def replaced(self, obj):  pass
+		def skipped(self, obj):   pass
+		@property
+		def aborting(self):       return False
+
+	try:
+		parent.import_xml(_ReplaceReporter(), modified_xml)
+	except Exception as e:
+		raise RuntimeError("import_xml(ReplaceReporter, xml) for '{0}' failed: {1}".format(name, e))
+
+	# Sanity check: if Replace was silently ignored, CODESYS would
+	# auto-rename the incoming POU to `<name>_1`. Crash loudly so the
+	# user knows their push didn't actually take. Past bugs in this
+	# area silently rewrote GUIDs via a delete-then-import fallback;
+	# we trust the reporter path now and want the bug visible if it
+	# regresses.
+	if _has_duplicate(parent, name):
+		raise RuntimeError(
+			"ReplaceReporter was ignored — '{0}_1' duplicate created. "
+			"CODESYS scripting API may have changed; investigate before retrying.".format(name))
+
+	log.startup("[push] graphical body replaced in place for '{0}'".format(name))
+
+
+def _has_duplicate(parent, item_name):
+	# type: (object, str) -> bool
+	"""True if a `<name>_N` sibling exists under `parent`. CODESYS's
+	default-policy auto-renames colliding imports — we use this to
+	detect ReplaceReporter being silently ignored."""
+	try:
+		for child in parent.get_children(recursive=False):
+			try:
+				cname = (child.get_name() if hasattr(child, "get_name") else "") or ""
+			except Exception:
+				continue
+			if cname.startswith(item_name + "_"):
+				suffix = cname[len(item_name) + 1:]
+				if suffix.isdigit():
+					return True
+	except Exception:
+		pass
+	return False
 
 
 # Body-swap helper lives in `helpers.plcopen_xml` as `replace_body_in_pou`

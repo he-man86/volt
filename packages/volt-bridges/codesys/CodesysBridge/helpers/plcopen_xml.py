@@ -143,15 +143,31 @@ def classify(item):
 def extract_graphical_body(item):
 	# type: (object) -> object
 	"""For non-ST POUs, return the raw `<body>...</body>` XML fragment
-	(as a string) for embedding in the wire payload. Returns None if
-	export fails or the POU has no body."""
+	(as a string). Wrapper around `extract_body_from_xml` that does the
+	COM `item.export_xml()` IO. Returns None if export fails or the
+	POU has no body."""
 	try:
 		xml_str = item.export_xml()
 	except Exception:
 		return None
+	return extract_body_from_xml(xml_str)
+
+
+def extract_body_from_xml(xml_str):
+	# type: (object) -> object
+	"""Pure-data version: take an already-fetched PLCopenXML document
+	string and return its first POU's `<body>` element serialized to a
+	string. Returns None when input is empty / unparseable / has no
+	POU / has no body.
+
+	Split out so tests don't need to stub a fake COM `item` object
+	just to exercise the parsing path. Mirrors the TC bridge's
+	`ExtractBodyElement(string xml, string itemName)` helper shape.
+	"""
 	if not xml_str:
 		return None
 	try:
+		# Strip CODESYS's UTF-8 BOM (`item.export_xml()` prepends it).
 		if isinstance(xml_str, str) and xml_str.startswith("﻿"):
 			xml_str = xml_str[1:]
 		root = _ET.fromstring(xml_str)
@@ -223,6 +239,12 @@ def replace_body_in_pou(template_xml, item_name, new_body_xml):
 	try:
 		new_body = _ET.fromstring(new_body_xml)
 	except Exception:
+		return None
+	# Validate the incoming element is actually a <body> in the PLCopen
+	# namespace — passing e.g. a bare <FBD> would splice a malformed
+	# document that CODESYS / TC silently rejects on import.
+	if new_body.tag != _tag("body"):
+		log.warn("[XML] replace_body_in_pou: incoming element is {0!r}, expected {{tc6_0200}}body".format(new_body.tag))
 		return None
 	# In-place body swap, preserving the body's position among siblings.
 	for i, child in enumerate(list(target_pou)):

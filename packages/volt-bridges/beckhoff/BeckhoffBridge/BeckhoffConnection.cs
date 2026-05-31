@@ -975,6 +975,35 @@ internal sealed class BeckhoffConnection
 	/// Must run on STA thread (use RunOnStaThread when calling from
 	/// the HTTP threadpool).
 	/// </summary>
+	/// <summary>
+	/// Universal serializer for non-CRUD tree items (tasks, visualizations,
+	/// library managers, image pools, recipe managers, text lists, etc.).
+	/// Calls `ITcSmTreeItem.ProduceXml()` which works on every tree-item
+	/// subclass — verified empirically via /debug against TC3 sample project:
+	/// returns 374-8014 byte distinct XML payloads per kind, all wrapped in
+	/// `&lt;TreeItem&gt;...&lt;/TreeItem&gt;`. Unlike `PlcOpenExport` (which
+	/// only handles POU-shaped IEC items), `ProduceXml` is the TwinCAT
+	/// Automation Interface's generic round-trippable serialization and
+	/// covers everything in the PLC tree.
+	///
+	/// Returns empty string on failure (logged). Caller treats result as
+	/// "opaque XML blob, write verbatim" — same opaque-passthrough policy
+	/// the CODESYS bridge uses for its config items.
+	/// </summary>
+	public string ProduceItemXml(dynamic item, string itemName)
+	{
+		try
+		{
+			string xml = (string)item.ProduceXml();
+			return xml ?? "";
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] ProduceItemXml({itemName}) failed: {ex.GetType().Name}: {ex.Message}");
+			return "";
+		}
+	}
+
 	public string? ExportItemBodyAsXml(dynamic item, string itemName)
 	{
 		// `PlcOpenExport` lives on ITcPlcIECProject, which is the
@@ -1075,19 +1104,6 @@ internal sealed class BeckhoffConnection
 	}
 
 	/// <summary>
-	/// Inverse of `ExportItemBodyAsXml` — apply a `&lt;body&gt;` PLCopenXML
-	/// element back into TC. Wraps the body in a full PLCopenXML
-	/// `&lt;project&gt;` document with the named POU, writes to a temp
-	/// file, calls `ITcPlcIECProject.PlcOpenImport`. Returns null on
-	/// success, or a human-readable error string for the push response.
-	///
-	/// Update-only — the caller has confirmed the POU already exists.
-	/// TC's PlcOpenImport default resolves name conflicts in favor of
-	/// the incoming XML (replaces existing) — see infosys 242870539.
-	///
-	/// Must run on STA thread (RunOnStaThread from HTTP context).
-	/// </summary>
-	/// <summary>
 	/// TwinCAT's `ITcPlcIECProject.PlcOpenImport` conflict-resolution
 	/// argument. The 1-arg form rejects on name collision with
 	/// "Import conflict!" — we always pass an explicit value to force
@@ -1101,6 +1117,18 @@ internal sealed class BeckhoffConnection
 	/// </summary>
 	private const int PLCOPEN_CONFLICT_REPLACE = 1;
 
+	/// <summary>
+	/// Inverse of `ExportItemBodyAsXml` — apply a `&lt;body&gt;` PLCopenXML
+	/// element back into TC. Uses the export-as-template pattern:
+	/// export the item to get a schema-valid wrapper, splice the new
+	/// body in, re-import via `PlcOpenImport(file, REPLACE)`. Returns
+	/// null on success, or a human-readable error string for the push
+	/// response.
+	///
+	/// Update-only — the caller has confirmed the POU already exists.
+	///
+	/// Must run on STA thread (RunOnStaThread from HTTP context).
+	/// </summary>
 	public string? ImportItemBodyAsXml(dynamic item, string itemName, string bodyXml)
 	{
 		if (_nestedProject == null) return "no NestedProject cached";

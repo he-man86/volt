@@ -102,15 +102,15 @@ export function extractGraphicalBody(
 	// Body: the <body>...</body> element verbatim.
 	const bodyXml = normalized.slice(bodyStart, bodyEnd);
 
-	// Trailing bookend (END_PROGRAM etc.) — preserved so caller can
-	// re-attach when reconstructing the on-disk form.
-	const after = normalized.slice(bodyEnd).replace(/^\s+/, "");
-	const trailing = after.length > 0 ? "\n\n" + after : "";
+	// Trailing bookend (END_PROGRAM etc.) — anything after </body>,
+	// re-attached to the declaration with a blank-line separator so
+	// embedGraphicalBody can find the END_X anchor on next round-trip.
+	const after = normalized.slice(bodyEnd).replace(/^\s+/, "").trimEnd();
+	const fullDecl = after.length > 0
+		? declarationText + "\n\n" + after + "\n"
+		: declarationText + "\n";
 
-	return {
-		declarationText: declarationText + (trailing ? "\n\n" + after.trimEnd() + "\n" : "\n"),
-		bodyXml,
-	};
+	return { declarationText: fullDecl, bodyXml };
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────

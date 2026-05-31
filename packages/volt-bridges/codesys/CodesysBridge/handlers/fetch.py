@@ -32,39 +32,37 @@ def handle(connection, body):
 	def _do():
 		versions = {}
 		changed = []
-		for (name, kind, item) in connection.iter_top_level():
+		for (name, kind, item, is_source) in connection.iter_all_items():
 			try:
-				ver = _conn_mod.CodesysConnection.compute_item_version(item)
+				if is_source:
+					ver = _conn_mod.CodesysConnection.compute_item_version(item)
+				else:
+					# Config items and folder markers: opaque, no
+					# content drift detection. Constant version
+					# (the kind string itself) makes that explicit.
+					# Structural add / remove / rename still surface
+					# via structureVersion (it hashes the `{name:
+					# version}` dict; adding or removing a name
+					# changes the dict shape regardless of values).
+					ver = kind
 			except Exception:
 				continue
 			versions[name] = ver
 			if known_items.get(name) == ver:
 				continue
-			# Build the per-item result and assemble into sourceText.
 			try:
-				result = _build_get_result(name, kind, item)
-				source_text = st_assembler.assemble(result)
+				if is_source:
+					slim = _build_source_item(name, kind, ver, item)
+				elif kind == "folder":
+					slim = _build_folder_item(name, kind, ver, item)
+				else:
+					slim = _build_config_item(name, kind, ver, item)
+				if slim is None:
+					continue
 			except Exception as e:
-				# Log loud — silent drops mask real bugs (e.g. an FBD
-				# POU classification path that produces an assembler
-				# input the assembler doesn't accept).
+				# Log loud — silent drops mask real bugs.
 				log.warn("[FETCH] dropped {0!r} (kind={1!r}): {2}".format(name, kind, e))
 				continue
-			slim = {
-				"name": name,
-				"kind": kind,
-				"sourceText": source_text,
-				"version": ver,
-			}
-			if result.get("folder"):
-				slim["folder"] = result["folder"]
-			if result.get("language"):
-				slim["language"] = result["language"]
-			# Non-ST POUs ship their graphical body as PLCopenXML so
-			# the agent can either round-trip it or treat the POU as
-			# read-only. ST POUs never set this field.
-			if result.get("implementationXml"):
-				slim["implementationXml"] = result["implementationXml"]
 			changed.append(slim)
 		return versions, changed
 
@@ -78,6 +76,215 @@ def handle(connection, body):
 		"removed": removed,
 		"items": versions,
 	}
+
+
+def _build_source_item(name, kind, version, item):
+	# type: (str, str, str, object) -> object
+	"""Build a FetchedItem dict for a source POU/GVL/DUT/Interface.
+	Routes through the StAssembler + (for graphical POUs) PLCopenXML
+	body extraction. Returns the wire dict or raises on assembler
+	failure (caller logs + skips)."""
+	result = _build_get_result(name, kind, item)
+	source_text = st_assembler.assemble(result)
+	slim = {
+		"name": name,
+		"kind": kind,
+		"sourceText": source_text,
+		"version": version,
+	}
+	# Folder mirroring: source POUs use the same parent-walk as config
+	# items so the workspace layout matches the CODESYS IDE tree
+	# 1:1 (Device/Plc Logic/Application/<subfolders>/<name>.<ext>).
+	folder = _folder_path_for(item)
+	if folder:
+		slim["folder"] = folder
+	if result.get("language"):
+		slim["language"] = result["language"]
+	if result.get("implementationXml"):
+		slim["implementationXml"] = result["implementationXml"]
+	return slim
+
+
+def _export_item_native(item, name):
+	# type: (object, str) -> str
+	"""Get the CODESYS-native XML serialization of a config item.
+
+	CODESYS Scripting API: `project.export_native(path, [items],
+	recursive)` writes the native XML for the listed items into a
+	file. Unlike `item.export_xml()` which returns a string for POU
+	items only, the file-based native export handles every object
+	kind (tasks, alarms, visualizations, etc.) — these aren't
+	PLCopenXML-shaped so the no-args xml export returns a generic
+	empty envelope.
+
+	Returns empty string on failure (logged). Caller treats this as
+	"opaque blob, write verbatim".
+	"""
+	import os
+	import tempfile
+	from .. import codesys_connection as _conn
+	fd, path = tempfile.mkstemp(prefix="volt-codesys-export-", suffix=".xml")
+	os.close(fd)
+	try:
+		proj = None
+		try:
+			parent_walker = item
+			for _ in range(30):
+				p = getattr(parent_walker, "parent", None)
+				if p is None:
+					proj = parent_walker
+					break
+				parent_walker = p
+		except Exception:
+			pass
+		if proj is None:
+			log.warn("[FETCH] config item '{0}': could not find project root".format(name))
+			return ""
+		try:
+			# (path, items, recursive=True) — exports the item and
+			# any descendants in one shot. Recursive matters for
+			# container items (Alarm Configuration, Visualization
+			# Manager) whose own native data plus children's data
+			# live in the same XML.
+			proj.export_native(path, [item], True)
+		except Exception as e:
+			log.warn("[FETCH] config item '{0}': proj.export_native failed: {1}".format(name, e))
+			return ""
+		try:
+			with open(path, "rb") as fh:
+				raw = fh.read()
+		except Exception as e:
+			log.warn("[FETCH] config item '{0}': read-back failed: {1}".format(name, e))
+			return ""
+		if not raw:
+			return ""
+		for enc in ("utf-8", "utf-16", "cp1252", "latin-1"):
+			try:
+				return raw.decode(enc)
+			except Exception:
+				continue
+		return raw.decode("utf-8", errors="replace")
+	finally:
+		try:
+			os.unlink(path)
+		except Exception:
+			pass
+
+
+def _build_folder_item(name, kind, version, item):
+	# type: (str, str, str, object) -> object
+	"""Build a FetchedItem dict for an empty CODESYS folder. Agent
+	materializes this as `<folder>/<name>/.gitkeep` so git preserves
+	the otherwise-empty directory. No PLCopenXML export — folders
+	hold no editable content."""
+	folder = _folder_path_for(item)
+	slim = {
+		"name": name,
+		"kind": kind,
+		"sourceText": "",
+		"version": version,
+	}
+	if folder:
+		slim["folder"] = folder
+	return slim
+
+
+def _build_config_item(name, kind, version, item):
+	# type: (str, str, str, object) -> object
+	"""Build a FetchedItem dict for a non-source config item (task,
+	visualization, alarm config, library manager, device tree, etc.).
+
+	Uses `export_native()` — CODESYS's native-XML export — NOT
+	`export_xml()` (PLCopenXML). Reason: PLCopenXML (IEC 61131-10)
+	only covers POU/DUT/GVL kinds; for CODESYS-specific objects it
+	returns an empty 861-byte envelope `<types><dataTypes/><pous/>
+	</types>` with zero actual data. `export_native()` returns the
+	CODESYS-internal XML that carries the object's real settings
+	(task cycle time, alarm class properties, visualization layout,
+	etc.). Verified empirically: with export_xml the disk file was
+	identical-empty across every config item; with export_native each
+	carries its distinct content.
+
+	Agent writes the result as opaque `.xml`. No parsing, no
+	per-kind handling — per "opaque passthrough first" until we
+	decide a specific kind needs structured round-trip."""
+	# NOTE: `item.export_xml()` (no args) returns the PLCopenXML envelope.
+	# For POU-shaped items this carries real data; for tasks /
+	# visualizations / alarms / device-tree etc. it returns a generic
+	# empty wrapper. Switching to `proj.export_native(path, [item])` is
+	# the documented path for non-PLCopenXML objects but hangs on some
+	# CODESYS configurations (modal dialog suspected) — see follow-up.
+	# Keeping the simple call for now so extension work can land; data
+	# completeness is a separate fix.
+	xml = ""
+	try:
+		xml = item.export_xml() or ""
+	except Exception as e:
+		log.warn("[FETCH] config item '{0}' ({1}): export_xml failed: {2}".format(name, kind, e))
+	folder = _folder_path_for(item)
+	# Hybrid mode: if this item has children, nest its own file inside
+	# its folder (component-folder convention). So instead of
+	# `RecipeManager.xml` + `RecipeManager/Recipes.xml` side-by-side
+	# in the parent folder, we get `RecipeManager/RecipeManager.xml` +
+	# `RecipeManager/Recipes.xml` — one tree entry per concept in
+	# VS Code's explorer.
+	try:
+		has_children = False
+		try:
+			for _ in item.get_children(recursive=False):
+				has_children = True
+				break
+		except Exception:
+			pass
+		if has_children:
+			folder = folder + "/" + name if folder else name
+	except Exception:
+		pass
+	slim = {
+		"name": name,
+		"kind": kind,
+		"sourceText": xml,
+		"version": version,
+	}
+	if folder:
+		slim["folder"] = folder
+	return slim
+
+
+def _folder_path_for(item):
+	# type: (object) -> str
+	"""Walk up parents to compute the CODESYS folder path for an
+	item — used for BOTH source POUs and non-source config items so
+	the workspace layout mirrors the IDE tree exactly. Stops at the
+	project root (returns empty string for items at the root).
+	"""
+	segments = []
+	try:
+		cursor = getattr(item, "parent", None)
+		# Sanity bound — even deep trees don't reach 30.
+		for _ in range(30):
+			if cursor is None:
+				break
+			try:
+				cname = cursor.get_name() if hasattr(cursor, "get_name") else None
+			except Exception:
+				cname = None
+			if cname in (None, "", "/"):
+				break
+			# Stop at the project node itself (its parent is None).
+			parent_of_cursor = None
+			try:
+				parent_of_cursor = getattr(cursor, "parent", None)
+			except Exception:
+				pass
+			if parent_of_cursor is None:
+				break
+			segments.append(cname)
+			cursor = parent_of_cursor
+	except Exception:
+		return ""
+	segments.reverse()
+	return "/".join(segments)
 
 
 def _build_get_result(name, kind, item):

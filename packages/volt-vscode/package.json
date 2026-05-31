@@ -19,7 +19,15 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:structured-text"
+    "onLanguage:structured-text",
+    "onLanguage:plc-interface",
+    "onLanguage:plc-gvl",
+    "onLanguage:plc-dut",
+    "onLanguage:plc-fbd",
+    "onLanguage:plc-ld",
+    "onLanguage:plc-sfc",
+    "onLanguage:plc-cfc",
+    "workspaceContains:**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc,visu,recipes,task,library,libraries,textlist,imagepool,device,trace,cam,alarm,uml,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -32,16 +40,34 @@
           "IEC 61131-3"
         ],
         "extensions": [
-          ".st",
-          ".dut",
-          ".gvl",
-          ".itf"
+          ".st"
         ],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {
           "light": "./icons/st.svg",
           "dark":  "./icons/st.svg"
         }
+      },
+      {
+        "id": "plc-interface",
+        "aliases": ["PLC Interface", "ITF"],
+        "extensions": [".itf"],
+        "configuration": "./languages/structured-text/language-configuration.json",
+        "icon": { "light": "./icons/itf.svg", "dark": "./icons/itf.svg" }
+      },
+      {
+        "id": "plc-gvl",
+        "aliases": ["PLC Global Variable List", "GVL"],
+        "extensions": [".gvl"],
+        "configuration": "./languages/structured-text/language-configuration.json",
+        "icon": { "light": "./icons/gvl.svg", "dark": "./icons/gvl.svg" }
+      },
+      {
+        "id": "plc-dut",
+        "aliases": ["PLC Data Unit Type", "DUT"],
+        "extensions": [".dut"],
+        "configuration": "./languages/structured-text/language-configuration.json",
+        "icon": { "light": "./icons/dut.svg", "dark": "./icons/dut.svg" }
       },
       {
         "id": "plc-fbd",
@@ -114,11 +140,98 @@
           "light": "./icons/cfc.svg",
           "dark":  "./icons/cfc.svg"
         }
+      },
+      {
+        "id": "plc-visualization",
+        "aliases": ["PLC Visualization", "VISU"],
+        "extensions": [".visu"],
+        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
+      },
+      {
+        "id": "plc-recipes",
+        "aliases": ["PLC Recipe", "RCPE"],
+        "extensions": [".recipes"],
+        "icon": { "light": "./icons/recipes.svg", "dark": "./icons/recipes.svg" }
+      },
+      {
+        "id": "plc-task",
+        "aliases": ["PLC Task"],
+        "extensions": [".task"],
+        "icon": { "light": "./icons/task.svg", "dark": "./icons/task.svg" }
+      },
+      {
+        "id": "plc-library",
+        "aliases": ["PLC Library Reference", "LIB"],
+        "extensions": [".library", ".libraries"],
+        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
+      },
+      {
+        "id": "plc-textlist",
+        "aliases": ["PLC Text List", "TXT"],
+        "extensions": [".textlist"],
+        "icon": { "light": "./icons/textlist.svg", "dark": "./icons/textlist.svg" }
+      },
+      {
+        "id": "plc-imagepool",
+        "aliases": ["PLC Image Pool", "IMG"],
+        "extensions": [".imagepool"],
+        "icon": { "light": "./icons/imagepool.svg", "dark": "./icons/imagepool.svg" }
+      },
+      {
+        "id": "plc-device",
+        "aliases": ["PLC Device", "DEV"],
+        "extensions": [".device"],
+        "icon": { "light": "./icons/device.svg", "dark": "./icons/device.svg" }
+      },
+      {
+        "id": "plc-trace",
+        "aliases": ["PLC Trace", "TRC"],
+        "extensions": [".trace"],
+        "icon": { "light": "./icons/trace.svg", "dark": "./icons/trace.svg" }
+      },
+      {
+        "id": "plc-cam",
+        "aliases": ["PLC CAM Profile"],
+        "extensions": [".cam"],
+        "icon": { "light": "./icons/cam.svg", "dark": "./icons/cam.svg" }
+      },
+      {
+        "id": "plc-alarm",
+        "aliases": ["PLC Alarm", "ALM"],
+        "extensions": [".alarm"],
+        "icon": { "light": "./icons/alarm.svg", "dark": "./icons/alarm.svg" }
+      },
+      {
+        "id": "plc-uml",
+        "aliases": ["PLC Class Diagram", "UML"],
+        "extensions": [".uml"],
+        "icon": { "light": "./icons/uml.svg", "dark": "./icons/uml.svg" }
+      },
+      {
+        "id": "plc-tmc",
+        "aliases": ["TwinCAT Module Class", "TMC"],
+        "extensions": [".tmc"],
+        "icon": { "light": "./icons/tmc.svg", "dark": "./icons/tmc.svg" }
       }
     ],
     "grammars": [
       {
         "language": "structured-text",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "plc-interface",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "plc-gvl",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "plc-dut",
         "scopeName": "source.structured-text",
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       }
@@ -285,7 +398,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --external=vscode",
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
     "package": "vsce package --no-dependencies"

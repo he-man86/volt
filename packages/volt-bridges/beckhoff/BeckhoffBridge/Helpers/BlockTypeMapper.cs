@@ -246,6 +246,52 @@ internal static class BlockTypeMapper
 			or GvlSubType or StructSubType or EnumSubType or InterfaceSubType;
 	}
 
+	/// <summary>
+	/// True when the type code identifies an item that lives INSIDE a POU
+	/// and rides inline via StAssembler — not a separately-emitted top-level
+	/// item. Excluded from /refs and /fetch because emitting them would
+	/// duplicate content the parent POU's sourceText already carries.
+	/// </summary>
+	public static bool IsInlinedInPou(int typeCode)
+	{
+		return typeCode is ActionSubType or MethodSubType or InterfaceMethodSubType
+			or PropertySubType or InterfacePropertySubType
+			or PropertyGetSubType or PropertySetSubType
+			or InterfacePropertyGetSubType or InterfacePropertySetSubType
+			or TransitionSubType or TaskCallReference;
+	}
+
+	/// <summary>
+	/// Map a non-CRUD ItemType code to a vendor-neutral kind string that
+	/// the agent uses to pick a dedicated extension (.visu / .recipes /
+	/// .libraries / .textlist / .imagepool / .task / .library / .uml /
+	/// .tmc, etc.). Same vocabulary the CODESYS bridge emits — pou-files.ts
+	/// CONFIG_KIND_EXT looks up by these strings.
+	///
+	/// Unknown / unmapped non-CRUD codes fall through to "config" so the
+	/// agent still writes them as opaque `.xml` (no data loss, just no
+	/// dedicated extension).
+	/// </summary>
+	public static string ToConfigKind(int typeCode)
+	{
+		return typeCode switch
+		{
+			Visualization => "visualization",
+			VisualizationManager => "visualization_manager",
+			ImagePool => "image_pool",
+			RecipeManager => "recipe_manager",
+			RecipesContainer => "recipe_manager",  // same family, same ext
+			GlobalTextList => "text_list",
+			TaskSubType => "task",
+			LibraryManagerSubType => "library_manager",
+			LibrarySubType => "library",
+			ClassDiagram => "class_diagram",
+			TmcFile => "tmc_file",
+			ExternalTypes => "external_types",
+			_ => "config",
+		};
+	}
+
 	private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, byte> _warnedCodes = new();
 
 	private static void WarnUnknownCode(int code)

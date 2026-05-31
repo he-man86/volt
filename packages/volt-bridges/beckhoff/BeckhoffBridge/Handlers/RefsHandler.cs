@@ -73,21 +73,40 @@ internal sealed class RefsHandler
 
 			if (itemType == BlockTypeMapper.FolderSubType)
 			{
-				// Recurse to find code items inside.
+				// Recurse to find items inside.
 				CollectVersions(child, versions, kinds);
 				continue;
 			}
 
-			if (!BlockTypeMapper.IsTopLevelCrud(itemType))
+			if (BlockTypeMapper.IsInlinedInPou(itemType))
 			{
-				// Skip non-CRUD items (libraries, tasks, etc.).
+				// Methods/actions/properties/transitions ride inline via
+				// StAssembler — emitting them here would duplicate content
+				// the parent POU's sourceText already carries.
 				continue;
 			}
 
 			try
 			{
-				versions[name] = BeckhoffConnection.ComputeItemVersion(child);
-				kinds[name] = BlockTypeMapper.ToNodeType(itemType);
+				if (BlockTypeMapper.IsTopLevelCrud(itemType))
+				{
+					versions[name] = BeckhoffConnection.ComputeItemVersion(child);
+					kinds[name] = BlockTypeMapper.ToNodeType(itemType);
+				}
+				else
+				{
+					// Non-CRUD items get vendor-neutral kind strings the agent
+					// recognizes (visualization → .visu, recipe_manager →
+					// .recipes, task → .task, library_manager → .libraries,
+					// library → .library, tmc_file → .tmc, etc.). Unknown
+					// codes fall through to "config" → generic `.xml`.
+					// Version is the kind itself — constant per item, so
+					// /refs is fast and structureVersion still flips on
+					// add/remove/rename.
+					string configKind = BlockTypeMapper.ToConfigKind(itemType);
+					versions[name] = configKind;
+					kinds[name] = configKind;
+				}
 			}
 			catch
 			{

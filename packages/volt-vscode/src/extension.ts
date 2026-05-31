@@ -42,6 +42,20 @@ interface PlcLanguage {
 	settingsRoot: string;
 	/** Relative path under the workspace for the language reference. */
 	referencePath: string;
+	/**
+	 * VS Code language IDs this client subscribes to. The primary
+	 * `languageId` is always implicitly included; this lists the
+	 * ADDITIONAL ones (graphical-POU languages whose files have ST
+	 * text on top + a PLCopenXML body — the LSP parses the text
+	 * portion and treats the rest opaquely).
+	 */
+	additionalLanguageIds?: readonly string[];
+	/**
+	 * File-watcher glob — must cover every extension whose contents
+	 * the LSP wants to know about (for diagnostics refresh, cross-
+	 * file resolution, etc.). Defaults to `**\/*.st` for back-compat.
+	 */
+	fileWatcherGlob?: string;
 }
 
 const PLC_LANGUAGES: PlcLanguage[] = [
@@ -52,6 +66,20 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 		configKey: "volt.structuredText.lspServer",
 		settingsRoot: "volt.structuredText",
 		referencePath: "docs/codesys-reference/00-index.md",
+		// volt-lsp-st handles every POU language: ST/IL via parsed
+		// source, FBD/LD/SFC/CFC via the text declaration on top of
+		// the marker block (body XML is opaque to the LSP). Single
+		// LSP client serves all.
+		additionalLanguageIds: [
+			"plc-interface",
+			"plc-gvl",
+			"plc-dut",
+			"plc-fbd",
+			"plc-ld",
+			"plc-sfc",
+			"plc-cfc",
+		],
+		fileWatcherGlob: "**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc}",
 	},
 ];
 
@@ -66,6 +94,7 @@ const clients = new Map<string, ClientState>();
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	registerCommands(context);
 	registerCli(context);
+	registerConfigXmlFormatter(context);
 	for (const lang of PLC_LANGUAGES) {
 		await startLanguageClient(context, lang);
 	}
@@ -80,6 +109,93 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 			}
 		}),
 	);
+}
+
+// ─── XML formatter for plc-config languages ───────────────────────────
+//
+// The plc-visualization / plc-recipes / plc-task / plc-library /
+// plc-textlist / plc-imagepool / plc-device / plc-trace / plc-cam /
+// plc-alarm / plc-uml / plc-tmc languages exist so each kind gets its
+// own file icon — but they don't have a TextMate XML grammar attached
+// (the source bytes are vendor-emitted XML; we don't bundle the full
+// XML grammar). Without grammar, VS Code's built-in XML formatter
+// doesn't apply, and Format Document fails with "no formatter
+// installed".
+//
+// Solution: register a simple Document Formatting Provider that runs a
+// line-based XML pretty-printer over the file contents. Keeps the
+// on-disk bytes byte-identical to whatever the bridge emitted (so push
+// round-trips don't shift content), but adds newlines + indentation
+// the moment the user hits Format Document / formatOnSave.
+const CONFIG_XML_LANGUAGES = [
+	"plc-visualization",
+	"plc-recipes",
+	"plc-task",
+	"plc-library",
+	"plc-textlist",
+	"plc-imagepool",
+	"plc-device",
+	"plc-trace",
+	"plc-cam",
+	"plc-alarm",
+	"plc-uml",
+	"plc-tmc",
+];
+
+function registerConfigXmlFormatter(context: vscode.ExtensionContext): void {
+	const provider: vscode.DocumentFormattingEditProvider = {
+		provideDocumentFormattingEdits(document, options) {
+			const text = document.getText();
+			const formatted = formatXml(text, options.insertSpaces ? " ".repeat(options.tabSize) : "\t");
+			if (formatted === text) return [];
+			const fullRange = new vscode.Range(
+				document.positionAt(0),
+				document.positionAt(text.length),
+			);
+			return [vscode.TextEdit.replace(fullRange, formatted)];
+		},
+	};
+	for (const languageId of CONFIG_XML_LANGUAGES) {
+		context.subscriptions.push(
+			vscode.languages.registerDocumentFormattingEditProvider(
+				{ language: languageId, scheme: "file" },
+				provider,
+			),
+		);
+	}
+}
+
+/**
+ * Line-based XML pretty-printer. Splits on `><` boundaries, then walks
+ * each line tracking nesting depth — opening tags increase indent,
+ * closing tags decrease it, self-closing and inline-text tags keep
+ * the current depth. Preserves CDATA sections and processing
+ * instructions (`<?xml ... ?>`) unchanged.
+ *
+ * Not a full XML parser — purpose-built for the vendor-emitted single-
+ * line XML our bridges produce (ProduceXml from TwinCAT, export_xml
+ * from CODESYS). For pathological inputs (malformed, mixed-content
+ * documents) we may indent imperfectly but never corrupt content.
+ */
+function formatXml(xml: string, indent: string): string {
+	const trimmed = xml.trim();
+	if (!trimmed) return xml;
+	// Inject a newline boundary between adjacent tags so the line
+	// loop can process one element per line.
+	const lines = trimmed.replace(/>\s*</g, ">\n<").split("\n");
+	let depth = 0;
+	const out: string[] = [];
+	for (let raw of lines) {
+		const line = raw.trim();
+		if (!line) continue;
+		const isClosing = /^<\//.test(line);
+		const isSelfClosing = /\/\s*>$/.test(line) || /^<\?/.test(line) || /^<!--/.test(line) || /^<!\[CDATA\[/.test(line);
+		const hasInlineClose = /^<([\w:.-]+)(\s[^>]*)?>.*<\/\1>$/.test(line);
+		if (isClosing) depth = Math.max(0, depth - 1);
+		out.push(indent.repeat(depth) + line);
+		if (!isClosing && !isSelfClosing && !hasInlineClose) depth++;
+	}
+	return out.join("\n") + "\n";
 }
 
 export async function deactivate(): Promise<void> {
@@ -128,10 +244,13 @@ async function startLanguageClient(
 		},
 	};
 
+	const languageIds = [lang.languageId, ...(lang.additionalLanguageIds ?? [])];
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: "file", language: lang.languageId }],
+		documentSelector: languageIds.map((language) => ({ scheme: "file", language })),
 		synchronize: {
-			fileEvents: vscode.workspace.createFileSystemWatcher("**/*.st"),
+			fileEvents: vscode.workspace.createFileSystemWatcher(
+				lang.fileWatcherGlob ?? `**/*.${lang.languageId}`,
+			),
 		},
 		outputChannelName: `Volt — ${lang.displayName}`,
 		initializationOptions: buildInitializationOptions(lang),

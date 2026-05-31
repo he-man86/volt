@@ -50,9 +50,13 @@ import {
 } from "./git-cmds.js";
 import { listWorkspaceFiles, loadState, saveState, type RepoState } from "./snapshot.js";
 import {
+	CONFIG_EXTENSIONS,
+	FOLDER_MARKER,
 	POU_EXTENSIONS,
 	asPouKind,
 	gitattributesContent,
+	isConfigKind,
+	isFolderKind,
 	isGraphicalPath,
 	nameFromPouPath,
 	pickExtension,
@@ -157,12 +161,41 @@ function materializeItem(item: FetchedItem): { path: string; content: string } {
 			`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it`,
 		);
 	}
+	const folder = item.folder ?? "";
+
+	// Non-source config items (tasks, visualizations, library refs,
+	// alarm configs, device tree, etc.) come through with a config
+	// kind. Their `sourceText` is the raw PLCopenXML / native XML
+	// export from the bridge — write verbatim, no assembly, no
+	// graphical-body splicing.
+	if (isConfigKind(item.kind)) {
+		const ext = pickExtension(item.kind);
+		// Empty ext = item name already has the right extension baked in
+		// (e.g. TwinCAT .tmc files arrive as `Foo.tmc` and we'd produce
+		// the ugly double `Foo.tmc.xml` if we appended). Treat empty ext
+		// as "use item.name verbatim".
+		const fileName = ext === "" ? item.name : `${item.name}.${ext}`;
+		const path = joinPath(folder, fileName);
+		return { path, content: item.sourceText };
+	}
+
+	// Empty CODESYS folder — materialize as `<folder>/<name>/.gitkeep`
+	// so git preserves the otherwise-empty directory. Non-empty folders
+	// are NOT emitted by the bridge (their dir appears naturally via
+	// children's paths), so we never sprinkle redundant `.gitkeep`
+	// markers inside populated directories.
+	if (isFolderKind(item.kind)) {
+		const path = joinPath(folder, item.name, FOLDER_MARKER);
+		return { path, content: "" };
+	}
+
 	const kind = asPouKind(item.kind);
 	if (kind === undefined) {
-		throw new Error(`bridge sent unknown kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS in pou-files.ts`);
+		throw new Error(
+			`bridge sent unknown kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS (POU) or treat as config in pou-files.ts`,
+		);
 	}
 	const ext = pickExtension(kind, item.language);
-	const folder = item.folder ?? "";
 	const path = joinPath(folder, `${item.name}.${ext}`);
 	// Graphical POUs (FBD/LD/SFC/CFC): splice the PLCopenXML <body> into
 	// the textual declaration between END_VAR and END_PROGRAM. Keeps the

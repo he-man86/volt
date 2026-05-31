@@ -19,7 +19,17 @@
  * in package.json).
  */
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import * as vscode from "vscode";
+
+/**
+ * Every POU file extension volt-agent writes — keep in sync with
+ * `packages/volt-agent/src/engine/pou-files.ts:POU_EXTENSIONS`.
+ * Order matters for resolvePouUri's first-match search: textual
+ * extensions first (most common), graphical last.
+ */
+const POU_EXTENSIONS = ["st", "gvl", "dut", "itf", "fbd", "ld", "sfc", "cfc"] as const;
 
 const TERMINAL_NAME = "Volt";
 
@@ -218,31 +228,58 @@ interface BridgeDiagnostic {
 
 /**
  * Group diagnostics by file. The bridge gives us per-object diagnostics
- * (object = "FB_X" or "FB_X.Method"); we map each to the corresponding
- * `.st` file in the workspace's POUs/ tree by walking the workspace and
- * matching the leaf POU name. If no file is found, the diagnostic is
- * dropped silently — better to lose a project-level diagnostic than to
- * pin it to the wrong file.
+ * (object = "FB_X" or "FB_X.Method"); we resolve each to its workspace
+ * file by trying every POU extension (.st / .gvl / .dut / .itf for
+ * textual; .fbd / .ld / .sfc / .cfc for graphical). If no file is
+ * found, the diagnostic is dropped silently — better to lose a
+ * project-level diagnostic than to pin it to the wrong file.
  */
 function mapDiagnosticsToFiles(
 	diagnostics: BridgeDiagnostic[],
 	cwd: string,
 ): Map<vscode.Uri, vscode.Diagnostic[]> {
 	const out = new Map<vscode.Uri, vscode.Diagnostic[]>();
+	const resolveCache = new Map<string, vscode.Uri | undefined>();
 	for (const d of diagnostics) {
 		const pouName = d.object?.split(".")[0];
 		if (pouName === undefined || pouName.length === 0) continue;
-		// Workspace layout is conventionally POUs/<name>.st (per volt init).
-		const path = vscode.Uri.joinPath(vscode.Uri.file(cwd), "POUs", `${pouName}.st`);
+		let uri = resolveCache.get(pouName);
+		if (uri === undefined && !resolveCache.has(pouName)) {
+			uri = resolvePouUri(cwd, pouName);
+			resolveCache.set(pouName, uri);
+		}
+		if (uri === undefined) continue; // dropped — no matching file in workspace
 		const line = Math.max(0, d.line - 1); // VS Code is 0-indexed
 		const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
 		const diag = new vscode.Diagnostic(range, d.message, toVscodeSeverity(d.severity));
 		diag.source = "volt build";
-		const existing = out.get(path) ?? [];
+		const existing = out.get(uri) ?? [];
 		existing.push(diag);
-		out.set(path, existing);
+		out.set(uri, existing);
 	}
 	return out;
+}
+
+/**
+ * Find the workspace file for a POU by name, trying every supported
+ * extension (textual + graphical) in both the conventional `POUs/`
+ * subfolder and the workspace root. Returns the first existing file
+ * or `undefined` when none match. Per-call resolution is cached at
+ * the caller (one fs hit per unique POU name per build).
+ *
+ * Doesn't recurse into arbitrary nested folders — the agent's pull
+ * mirrors the bridge's folder structure, so POUs/Motors/FB_X.st is
+ * possible. For now we just try POUs/ and the root; if users hit
+ * deeper layouts we can swap in `vscode.workspace.findFiles` here.
+ */
+function resolvePouUri(cwd: string, pouName: string): vscode.Uri | undefined {
+	for (const ext of POU_EXTENSIONS) {
+		for (const dir of ["POUs", ""]) {
+			const fsPath = join(cwd, dir, `${pouName}.${ext}`);
+			if (existsSync(fsPath)) return vscode.Uri.file(fsPath);
+		}
+	}
+	return undefined;
 }
 
 function toVscodeSeverity(s: BridgeDiagnostic["severity"]): vscode.DiagnosticSeverity {

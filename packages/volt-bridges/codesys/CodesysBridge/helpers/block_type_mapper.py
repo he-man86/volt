@@ -102,8 +102,87 @@ KIND_ACTION = "action"
 KIND_PROPERTY = "property"
 KIND_GETTER = "getter"
 KIND_SETTER = "setter"
+
+# ─── Non-source / config kind ──────────────────────────────────────
+#
+# Items that aren't ST code (tasks, visualizations, alarm configs,
+# library refs, device tree, etc.) are pulled as opaque XML files
+# for source-control + visibility. We don't classify them per-kind
+# on the wire — the agent writes a single `.xml` and the file's
+# inner CODESYS-supplied PLCopenXML already says exactly what kind
+# of element it is via the root element name and attributes.
+#
+# Trade-off: we lose per-kind file extensions (.tasks, .visu, etc.)
+# but gain a much simpler pipeline + no marker-substring classifier
+# to maintain across CODESYS SP versions. Users who need extension-
+# level distinction can add it later via the XML root element's
+# tag name.
+KIND_CONFIG = "config"
 KIND_FOLDER = "folder"
 KIND_UNKNOWN = "unknown"
+
+# Marker → vendor-neutral kind for CODESYS non-source items.
+#
+# Same kind vocabulary the TwinCAT bridge emits (see
+# `Beckhoff/Helpers/BlockTypeMapper.cs::ToConfigKind`). Agent uses
+# these strings to pick a dedicated extension (.visu / .recipes /
+# .libraries / .textlist / .task / .imagepool / .device / .trace /
+# .cam / .alarm, etc.); unmapped markers fall back to "config" →
+# generic `.xml`.
+#
+# Boundary-aware matching: a positive marker like `ScriptTraceObject,`
+# is preceded by `{` or `, ` (space-after-comma). The negative form
+# `NoScriptTraceObject,` is preceded by `o`. Checking the char before
+# the match avoids the substring trap (`No...` falsely matching the
+# positive form).
+_NONSOURCE_MARKER_KINDS = (
+	# Tasks
+	("ScriptTaskObject,", "task"),
+	("ScriptTaskConfigObject,", "task"),
+	# Visualizations
+	("ScriptVisualObject,", "visualization"),
+	("ScriptVisualObjectContainer,", "visualization_manager"),
+	# Library refs
+	("ScriptLibManObject,", "library_manager"),
+	# Device tree
+	("ScriptDeviceObject,", "device"),
+	# Application (catch-all wrapper) — no nice ext, falls through
+	# to .xml via the catch-all
+	("ScriptApplication,", "config"),
+	# Image pool
+	("ScriptImagePoolObject,", "image_pool"),
+	# Recipes
+	("ScriptRecipeManObject,", "recipe_manager"),
+	# Text lists
+	("ScriptTextListObject,", "text_list"),
+	# Trace / Cam / Alarms
+	("ScriptTraceObject,", "trace"),
+	("ScriptCamObject,", "cam"),
+	("ScriptAlarmConfigObject,", "alarm_configuration"),
+)
+
+
+def classify_nonsource(marker_string):
+	# type: (str) -> str
+	"""Map a CODESYS object marker to its vendor-neutral kind string.
+
+	Returns KIND_CONFIG when no specific marker matches — caller still
+	gets a usable wire kind and the agent writes the file as `.xml`.
+
+	Boundary-aware: requires the preceding char to be `{` or ` ` so the
+	positive form (`ScriptTraceObject,`) doesn't false-match inside the
+	negative form (`NoScriptTraceObject,`). CODESYS marker strings are
+	a comma-separated list inside `{...}`; the positive form is always
+	preceded by `{` or `, `, never by `o`.
+	"""
+	for token, kind in _NONSOURCE_MARKER_KINDS:
+		idx = marker_string.find(token)
+		while idx != -1:
+			prev = marker_string[idx - 1] if idx > 0 else "{"
+			if prev in ("{", " "):
+				return kind
+			idx = marker_string.find(token, idx + 1)
+	return KIND_CONFIG
 
 # Top-level CRUD kinds — what /refs and /fetch enumerate. Methods,
 # properties, actions, getters, setters live INSIDE their parent POU

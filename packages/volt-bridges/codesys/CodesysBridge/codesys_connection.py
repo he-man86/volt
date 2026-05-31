@@ -217,6 +217,123 @@ class CodesysConnection(object):
 				out.append((name, kind, child))
 		return out
 
+	def iter_all_items(self):
+		# type: () -> list
+		"""Walk the project tree ONCE and yield (name, kind, item, is_source)
+		tuples for every meaningful item.
+
+		Single-pass design: we previously called iter_top_level() AND
+		walked proj.get_children() separately, doubling COM calls on
+		large projects and turning /refs into a 60s wedge. This version
+		walks the recursive children once and routes per-marker.
+
+		Categories produced:
+		  - is_source=True:  POU/GVL/DUT/Interface — textual code the
+		                     LSP can analyze. Kind classified via
+		                     PLCopenXML (or header parse fallback).
+		  - is_source=False: tasks, visualizations, alarm configs,
+		                     library refs, device tree, etc. All get
+		                     the single kind "config" — the agent
+		                     writes them as opaque `.xml` and the
+		                     XML's own root element declares what
+		                     CODESYS object kind it is.
+
+		Skipped silently:
+		  - Transient duplicates (visualization runtime copies)
+		  - Folders (containers; their kids already appear in the walk)
+		  - Top-level wrappers (Application/Plc Logic/Device) whose
+		    own export duplicates every child we emit separately
+		  - Methods/actions/properties (ride inline with parent POU)
+		  - Items lacking a name
+		"""
+		out = []
+		proj = self.get_project()
+		if proj is None:
+			return out
+		try:
+			all_children = list(proj.get_children(recursive=True))
+		except Exception:
+			return out
+		seen_names = set()
+		SKIP_WRAPPER_NAMES = ("Application", "Plc Logic", "Device")
+		for child in all_children:
+			try:
+				marker = str(child)
+			except Exception:
+				continue
+			if block_type_mapper.MARKER_TRANSIENT in marker:
+				continue
+			try:
+				name = child.get_name() if hasattr(child, "get_name") else None
+			except Exception:
+				continue
+			if not name or name in seen_names:
+				continue
+
+			# Folder branch: only emit folders that are EMPTY (no
+			# non-folder descendants anywhere below). Non-empty folders
+			# show up naturally via their children's parent-walk paths,
+			# so emitting them here would just sprinkle redundant
+			# .gitkeep markers inside already-populated directories.
+			try:
+				if getattr(child, "is_folder", False):
+					has_items = False
+					try:
+						for d in child.get_children(recursive=True):
+							if not getattr(d, "is_folder", False):
+								has_items = True
+								break
+					except Exception:
+						pass
+					if not has_items and name not in SKIP_WRAPPER_NAMES:
+						seen_names.add(name)
+						out.append((name, "folder", child, False))
+					continue
+			except Exception:
+				pass
+
+			if block_type_mapper.is_textual_item(marker):
+				# Source POU branch — only top-level items survive
+				# (methods/actions/properties classify as UNKNOWN
+				# from the first-keyword scan and get filtered out;
+				# they ride inline via st_assembler).
+				if not block_type_mapper.has_declaration(marker):
+					continue
+				try:
+					decl = child.textual_declaration.text or ""
+				except Exception:
+					continue
+				header_kind = block_type_mapper.classify_textual_pou(decl)
+				if not block_type_mapper.is_top_level(header_kind):
+					continue
+				cls = plcopen_xml.classify(child)
+				kind = cls["kind"] if cls["kind"] != block_type_mapper.KIND_UNKNOWN else header_kind
+				seen_names.add(name)
+				out.append((name, kind, child, True))
+			else:
+				# Config item branch — classify the marker to a
+				# vendor-neutral kind (visualization / task /
+				# recipe_manager / library_manager / image_pool /
+				# device / etc.) so the agent picks a dedicated file
+				# extension (.visu / .task / .recipes / ...). Unknown
+				# markers fall through to "config" → generic `.xml`.
+				# Same kind vocabulary the TwinCAT bridge emits.
+				if name in SKIP_WRAPPER_NAMES:
+					continue
+				kind = block_type_mapper.classify_nonsource(marker)
+				seen_names.add(name)
+				out.append((name, kind, child, False))
+		return out
+
+	def iter_top_level_from_all(self, all_items=None):
+		# type: (object) -> list
+		"""Returns (name, kind, item) for source items only. Wrapper
+		that builds on `iter_all_items` for callers that don't care
+		about config items (push handler, hash recompute)."""
+		if all_items is None:
+			all_items = self.iter_all_items()
+		return [(n, k, it) for (n, k, it, src) in all_items if src]
+
 	def find_by_name(self, name):
 		# type: (str) -> object
 		"""Look up an item by name. Tries the SP19+ `find` fast path
@@ -263,6 +380,12 @@ class CodesysConnection(object):
 				h.update(s.encode("utf-8"))
 			h.update(b"\x00")
 
+		# For SOURCE items (POU/GVL/DUT/Interface) hash decl + impl.
+		# For NON-SOURCE items these attributes don't exist — the
+		# /refs/_do special-cases them with the GUID directly (no
+		# SHA1, no children walk) so /refs stays fast on large
+		# projects. compute_item_version is only called for source
+		# items in the current code path.
 		try:
 			_add(item.textual_declaration.text)
 		except Exception:

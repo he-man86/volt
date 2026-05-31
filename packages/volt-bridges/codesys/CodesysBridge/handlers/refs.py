@@ -24,9 +24,25 @@ def handle(connection):
 	def _do():
 		versions = {}
 		kinds = {}
-		for (name, kind, item) in connection.iter_top_level():
+		# iter_all_items returns BOTH source POUs (LSP-analyzable) and
+		# non-source config items (tasks, visualizations, alarm configs,
+		# etc.). Source items get SHA1(decl + impl) — content-drift
+		# sensitive. Config items get a constant version because
+		# CODESYS exposes no cheap content-hash on them (verified via
+		# /debug/probe: only stable IDs like guid/handle/index exist,
+		# no `modified` / `revision` property). Honest representation
+		# is "no per-item version tracking"; structural add / remove /
+		# rename still surface via structureVersion. Must match the
+		# same branching in fetch.py so /refs and /fetch agree.
+		for (name, kind, item, is_source) in connection.iter_all_items():
 			try:
-				versions[name] = _conn_mod.CodesysConnection.compute_item_version(item)
+				if is_source:
+					versions[name] = _conn_mod.CodesysConnection.compute_item_version(item)
+				else:
+					# Config items and folder markers: opaque. Use
+					# the kind string as the version so it's stable
+					# AND legible ("config" or "folder").
+					versions[name] = kind
 				kinds[name] = kind
 			except Exception:
 				continue
