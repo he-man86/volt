@@ -29,6 +29,7 @@ import {
 	readFileSync,
 	rmSync,
 	statSync,
+	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -37,14 +38,89 @@ import { isTrackedPath, nameFromPouPath } from "./pou-files.js";
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────
 
-/** Ensure the snapshot bare repo exists. Idempotent. */
-export function ensureSnapshotRepo(snapshotPath: string): void {
-	if (!existsSync(snapshotPath)) {
-		mkdirSync(snapshotPath, { recursive: true });
-	}
+/** Result of `ensureSnapshotRepo`. `rebuilt: true` means the caller should
+ *  treat the next pull as a full-rebuild (state.json may have been wiped).
+ *  `reason` is a short human-readable explanation suitable for stderr. */
+export interface SnapshotHealResult {
+	rebuilt: boolean;
+	reason?: string;
+}
+
+/**
+ * Audit the snapshot directory. Returns `undefined` if it's not present
+ * (caller should init), `{healthy: true}` if it's a valid bare repo, or
+ * `{healthy: false, missing}` listing what's wrong. We check the three
+ * bare-repo essentials: HEAD, objects/, refs/. Without any of these,
+ * git will fail with cryptic plumbing errors deep in write-tree.
+ */
+function inspectSnapshot(snapshotPath: string):
+	| undefined
+	| { healthy: true }
+	| { healthy: false; missing: string[] } {
+	if (!existsSync(snapshotPath)) return undefined;
 	if (!isRepo(snapshotPath)) {
-		initBareRepo(snapshotPath);
+		return { healthy: false, missing: ["repo metadata (config / HEAD)"] };
 	}
+	const missing: string[] = [];
+	if (!existsSync(join(snapshotPath, "HEAD"))) missing.push("HEAD");
+	if (!existsSync(join(snapshotPath, "objects"))) missing.push("objects/");
+	if (!existsSync(join(snapshotPath, "refs"))) missing.push("refs/");
+	return missing.length === 0 ? { healthy: true } : { healthy: false, missing };
+}
+
+/**
+ * Ensure the snapshot bare repo exists and is structurally intact.
+ * Idempotent.
+ *
+ * Returns `{rebuilt: false}` on healthy or fresh-init paths. Returns
+ * `{rebuilt: true, reason}` when we found a corrupted bare repo and had
+ * to wipe + reinit. Callers SHOULD surface the heal to the user — the
+ * subsequent pull will refetch everything from the bridge, which is
+ * worth explaining so the user understands why their cached state went
+ * away.
+ *
+ * Corruption can happen when a prior `volt pull` crashed mid-write
+ * (Windows fork storm, killed process, antivirus quarantine). Without
+ * detection, those failures cascade into baffling "invalid object"
+ * errors from write-tree. Detect-and-heal beats limp-along.
+ */
+export function ensureSnapshotRepo(snapshotPath: string): SnapshotHealResult {
+	const audit = inspectSnapshot(snapshotPath);
+	if (audit === undefined) {
+		mkdirSync(snapshotPath, { recursive: true });
+		initBareRepo(snapshotPath);
+		return { rebuilt: false };
+	}
+	if (audit.healthy) return { rebuilt: false };
+	// Wipe the snapshot CONTENTS (not the directory itself — that can
+	// EBUSY on Windows when our cwd is anywhere inside it). We drop
+	// state.json too: its commitSha + per-item SHAs reference objects
+	// we just erased, so a clean full-rebuild pull is the only safe
+	// path forward.
+	const reason = `missing ${audit.missing.join(", ")}`;
+	for (const entry of readdirSync(snapshotPath)) {
+		const full = join(snapshotPath, entry);
+		try {
+			const st = statSync(full);
+			if (st.isDirectory()) rmSync(full, { recursive: true, force: true });
+			else unlinkSync(full);
+		} catch {
+			// Best-effort — keep going so initBareRepo can do its job.
+		}
+	}
+	initBareRepo(snapshotPath);
+	return { rebuilt: true, reason };
+}
+
+/** Convenience: print a heal notice to stderr if `ensureSnapshotRepo`
+ *  rebuilt. No-op when nothing was healed. Keep messaging here so all
+ *  callers surface corruption the same way. */
+export function reportSnapshotHeal(heal: SnapshotHealResult): void {
+	if (!heal.rebuilt) return;
+	process.stderr.write(
+		`volt: snapshot was corrupt (${heal.reason ?? "unknown reason"}); rebuilt from scratch.\n` +
+			`      next pull will refetch every item from the bridge — no workspace files were touched.\n`,
+	);
 }
 
 // ─── State file ───────────────────────────────────────────────────────
@@ -325,8 +401,14 @@ export function detectWorkspaceDirty(
 	const dirty = new Set<string>();
 
 	// Workspace files that differ from (or are absent from) HEAD.
+	// Normalize line endings before hashing — snapshot blobs are
+	// written with LF (`syncFromBridge` normalizes on import), so
+	// workspace files saved as CRLF on Windows would otherwise show
+	// as dirty even when their content is identical. `workspaceMatchesBridge`
+	// already normalizes; keeping both predicates in agreement is what
+	// prevents phantom drift on the Windows + git autocrlf combo.
 	for (const [path, content] of wsByPath) {
-		const wsSha = writeBlob(snapshotPath, content);
+		const wsSha = writeBlob(snapshotPath, normalizeWorkspaceContent(content));
 		if (headByPath.get(path) !== wsSha) dirty.add(path);
 	}
 
@@ -336,6 +418,21 @@ export function detectWorkspaceDirty(
 	}
 
 	return [...dirty].sort();
+}
+
+/**
+ * Canonical "content as it would be stored in the snapshot" — LF line
+ * endings, no BOM. Snapshot blobs go through `syncFromBridge`'s
+ * `normalizeLineEndings` on the way in; this is the symmetric
+ * transformation for hashing workspace files against them. Exported
+ * so other modules can share the same definition (especially
+ * `workspaceMatchesBridge` in `ops.ts`).
+ */
+export function normalizeWorkspaceContent(buf: Buffer): Buffer {
+	const s = buf.toString("utf-8");
+	const normalized = s.replace(/\r\n/g, "\n");
+	if (normalized === s) return buf;
+	return Buffer.from(normalized, "utf-8");
 }
 
 /**

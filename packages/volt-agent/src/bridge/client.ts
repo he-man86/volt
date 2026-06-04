@@ -77,7 +77,37 @@ export class BridgeClient implements Remote {
 	}
 
 	async getRefs(): Promise<RefsResponse> {
-		return this.request("GET", "/refs", RefsResponseSchema);
+		const refs = await this.request("GET", "/refs", RefsResponseSchema);
+		// Defense against a bridge that returns 200-OK with an empty
+		// items map when the IDE has gone away. Both the Beckhoff and
+		// CODESYS bridges have had pathways where a dangling IDE handle
+		// produces this (Beckhoff: stale _dte non-null between /health
+		// probes; CODESYS: is_connected was an import-time constant).
+		// Treating empty-refs as truth surfaces to the user as "engineer
+		// deleted every POU" which then risks a destructive pull.
+		//
+		// If items is empty, cross-check /health. When /health says the
+		// bridge has no IDE attached, throw PLC_DISCONNECTED — every
+		// consumer (status, pull, push) already routes that to the
+		// "bridge offline" error path.
+		if (Object.keys(refs.items).length === 0) {
+			const health = await this.getHealth().catch(() => undefined);
+			if (health !== undefined && health.connected !== true) {
+				// One-line stderr note before throwing — makes the defense
+				// firing visible when you're debugging a phantom-delete
+				// scenario. The throw routes through the same CLI error
+				// path as a real PLC_DISCONNECTED from the bridge.
+				process.stderr.write(
+					`[bridge-client] empty /refs + /health.connected=false (status=${health.status}, ideAlive=${health.ideAlive ?? "?"}) — refusing to interpret as "engineer deleted everything"\n`,
+				);
+				throw new BridgeError(
+					"PLC_DISCONNECTED",
+					"bridge reported zero items AND /health says no IDE is attached — refusing to treat empty refs as truth",
+					503,
+				);
+			}
+		}
+		return refs;
 	}
 
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {

@@ -34,8 +34,10 @@
  */
 import { spawnSync } from "node:child_process";
 import {
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
 } from "node:fs";
@@ -45,17 +47,76 @@ import { fileURLToPath } from "node:url";
 import { parseSource } from "@opencode-ai/volt-lsp";
 import { ALL_TESTS, CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp/conformance";
 import { BridgeClient } from "../bridge/client.js";
-import type { BridgeDiagnostic } from "../bridge/types.js";
-import { findExistingFile } from "./_shared.js";
+import type { BridgeDiagnostic, PushOp } from "../bridge/types.js";
+import { findExistingFile } from "../cli/_shared.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const LANG_PREFIX_RE = /^(FB|GVL|DUT|ITF)_LANG_/;
+
+/**
+ * Optional category filter for incremental recording. When set to a
+ * comma-separated list of category names (e.g.
+ * `VOLT_RECORD_CATEGORIES=fbd-element,ld-element`), the recorder:
+ *
+ *   - records ONLY the listed categories' tests
+ *   - MERGES the new results into the existing `expected-*.json`,
+ *     preserving recordings for categories NOT in the filter
+ *   - drops stale entries: tests removed from a filtered category
+ *     since the last full run are evicted, so the merged file stays
+ *     in sync with the current catalog for the filtered set
+ *
+ * Unset = behave like a full run (record every category, overwrite
+ * the JSON). The filter exists so fixture iteration on FBD/LD costs
+ * seconds instead of minutes — the 200+ trusted ST recordings don't
+ * have to be re-derived against TC every time we tweak a graphical
+ * fixture.
+ */
+const CATEGORY_FILTER = parseCategoryFilter(process.env.VOLT_RECORD_CATEGORIES);
+
+function parseCategoryFilter(raw: string | undefined): ReadonlySet<string> | undefined {
+	if (raw === undefined) return undefined;
+	const trimmed = raw.trim();
+	if (trimmed.length === 0) return undefined;
+	const names = trimmed.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+	if (names.length === 0) return undefined;
+	const known = new Set(CATEGORIES.map((c) => c.name));
+	const unknown = names.filter((n) => !known.has(n));
+	if (unknown.length > 0) {
+		console.error(
+			`VOLT_RECORD_CATEGORIES contains unknown categor(ies): ${unknown.join(", ")}\n` +
+				`known categories: ${[...known].join(", ")}`,
+		);
+		process.exit(1);
+	}
+	return new Set(names);
+}
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = resolve(THIS_DIR, "bin.js");
 // The catalog + recorded ground truth now live in volt-lsp-st (the LSP
 // is what the recordings verify). From this file's compiled location at
 // `packages/volt-agent/dist/cli/`, three `..` segments climb to `packages/`.
-const OUTPUT_PATH = resolve(THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "conformance", "expected-tc.json");
+const RECORDINGS_DIR = resolve(
+	THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "conformance", "recordings",
+);
+
+/** Map the bridge's `health.platform` to its output JSON file under
+ *  `volt-lsp-st/src/conformance/recordings/`. Both vendors have their
+ *  own ground truth file; `language.test.ts` replays each. Recording
+ *  against the wrong file would silently overwrite the other
+ *  vendor's data. */
+function outputPathForPlatform(platform: string): string {
+	switch (platform) {
+		case "beckhoff":
+			return resolve(RECORDINGS_DIR, "expected-tc.json");
+		case "codesys":
+			return resolve(RECORDINGS_DIR, "expected-codesys.json");
+		default:
+			throw new Error(
+				`recorder doesn't know which output file to write for bridge platform '${platform}' — ` +
+					"add a case to outputPathForPlatform()",
+			);
+	}
+}
 
 const KIND_EXT: Record<LanguageTest["kind"], string> = {
 	function_block: "st",
@@ -66,6 +127,13 @@ const KIND_EXT: Record<LanguageTest["kind"], string> = {
 	interface: "itf",
 };
 
+/** Workspace file extension for a test. Conformance fixtures are
+ *  all ST now (graphical fixtures moved to volt-agent's transpiler
+ *  test inputs at `engine/__fixtures__/`). */
+function extensionFor(t: LanguageTest): string {
+	return KIND_EXT[t.kind];
+}
+
 interface RecordedEntry {
 	buildSuccess: boolean;
 	durationMs: number;
@@ -75,6 +143,38 @@ interface RecordedEntry {
 interface ExpectedTc {
 	recorded: { at: string; bridgeVersion: string; testCount: number };
 	tests: Record<string, RecordedEntry>;
+}
+
+/**
+ * Write the vendor's `expected-*.json` from the current `recorded` map.
+ * Called incrementally after each category completes so a downstream
+ * category failure doesn't drop hours of upstream recordings on the
+ * floor. Always overwrites — the file IS the snapshot of accumulated
+ * progress.
+ */
+function writeExpected(
+	recorded: Record<string, RecordedEntry>,
+	bridgeVersion: string,
+	outputPath: string,
+): void {
+	// Schema reference is relative to the output file's directory.
+	const schemaName = outputPath.endsWith("expected-codesys.json")
+		? "./expected-codesys.schema.json"
+		: "./expected-tc.schema.json";
+	const output: ExpectedTc & { $schema: string; _doc: string } = {
+		$schema: schemaName,
+		_doc:
+			"Auto-generated by `bun run record:language`. " +
+			"Do not edit by hand — re-record after editing the test catalog. " +
+			"Written incrementally per-category so partial runs persist.",
+		recorded: {
+			at: new Date().toISOString(),
+			bridgeVersion,
+			testCount: Object.keys(recorded).length,
+		},
+		tests: recorded,
+	};
+	writeFileSync(outputPath, `${JSON.stringify(output, null, 2)}\n`, "utf-8");
 }
 
 async function main(): Promise<void> {
@@ -95,7 +195,9 @@ async function main(): Promise<void> {
 		process.exit(1);
 	}
 	console.log(`  bridge: ${health.version}  IDE: ${health.ideName}/${health.ideVersion}`);
-	console.log(`  project: ${health.projectName}/${health.plcProjectName}\n`);
+	console.log(`  project: ${health.projectName}/${health.plcProjectName}`);
+	const outputPath = outputPathForPlatform(health.platform);
+	console.log(`  output: ${outputPath}\n`);
 
 	// Sweep LANG_* leftovers.
 	const refs = await bridge.getRefs();
@@ -105,13 +207,51 @@ async function main(): Promise<void> {
 		await cleanupItems(bridge, leftovers);
 	}
 
-	// ─── Filter tests by parseability ──────────────────────────────────
+	// ─── Apply category filter (incremental recording) ─────────────────
+	// When VOLT_RECORD_CATEGORIES is set, restrict the run to those
+	// categories' tests. Builds `categoryTestNames` (the set of tests
+	// inside the filter) so the merge-write below knows which entries
+	// in the existing JSON to refresh vs leave alone.
+	const filteredCategories =
+		CATEGORY_FILTER === undefined
+			? CATEGORIES
+			: CATEGORIES.filter((c) => CATEGORY_FILTER.has(c.name));
+	const filterTestNames = new Set<string>();
+	for (const c of filteredCategories) {
+		for (const t of c.tests) filterTestNames.add(t.name);
+	}
+	const candidates =
+		CATEGORY_FILTER === undefined
+			? ALL_TESTS
+			: ALL_TESTS.filter((t) => filterTestNames.has(t.name));
+
+	if (CATEGORY_FILTER !== undefined) {
+		console.log(
+			`  category filter: ${[...CATEGORY_FILTER].join(", ")} ` +
+				`(${candidates.length}/${ALL_TESTS.length} tests; ` +
+				`other categories merged from existing recording)\n`,
+		);
+	}
+
+	// ─── Filter tests by parseability + recorderSkip ───────────────────
 	// Validate each test source AND its plcPrg snippet upfront. Any
 	// test that can't be parsed by volt-lsp-st would crash the batch
 	// push — better to log and exclude it.
+	//
+	// Also drop fixtures with `recorderSkip: true` — these are
+	// LSP-only diagnostic exercises (dangling refs, duplicate localIds,
+	// etc.) that produce IDE-corrupt POUs on import. Their TC/CODESYS
+	// recordings are silent in a misleading way (the IDE never gets
+	// far enough to emit a meaningful diagnostic), and LSP-side unit
+	// tests under `semantic/checks/_fbd/check-*.test.ts` already cover
+	// the relevant checks.
 	const valid: LanguageTest[] = [];
 	const skipped: Array<{ name: string; reason: string }> = [];
-	for (const t of ALL_TESTS) {
+	for (const t of candidates) {
+		if (t.recorderSkip === true) {
+			skipped.push({ name: t.name, reason: "recorderSkip: LSP-only fixture" });
+			continue;
+		}
 		const sourceErr = firstParseError(t.source, `test ${t.name} source`);
 		if (sourceErr !== undefined) {
 			skipped.push({ name: t.name, reason: sourceErr });
@@ -165,11 +305,42 @@ async function main(): Promise<void> {
 	console.log(`  ${isolated.length} isolated test(s), ${batchTotal} batch test(s) across ${CATEGORIES.length} categor(ies)`);
 
 	const plcPrgPath = findExistingFile(workspace, "PLC_PRG.st") ?? join(workspace, "PLC_PRG.st");
+
+	// Seed `recorded` from the existing file when running a filtered
+	// pass — otherwise the per-category incremental writes (and the
+	// final write at end-of-run) would clobber the categories we
+	// didn't run. Also drop stale entries for tests that USED to live
+	// in a filtered category but no longer do (catalog edits between
+	// runs), keeping the merged file in sync with the live catalog.
 	const recorded: Record<string, RecordedEntry> = {};
+	if (CATEGORY_FILTER !== undefined && existsSync(outputPath)) {
+		try {
+			const prev = JSON.parse(readFileSync(outputPath, "utf-8")) as Partial<ExpectedTc>;
+			const prevTests = prev.tests ?? {};
+			for (const [name, entry] of Object.entries(prevTests)) {
+				// Keep entries from categories NOT in the filter; drop
+				// any entry whose test would have been re-recorded
+				// (filterTestNames) and any entry whose test name no
+				// longer appears anywhere in the catalog at all (deleted).
+				const allKnown = new Set(ALL_TESTS.map((t) => t.name));
+				if (!filterTestNames.has(name) && allKnown.has(name)) {
+					recorded[name] = entry;
+				}
+			}
+			const preserved = Object.keys(recorded).length;
+			console.log(`  merged ${preserved} unchanged test(s) from existing ${outputPath}\n`);
+		} catch (err) {
+			console.error(
+				`failed to read existing recording at ${outputPath}: ${err instanceof Error ? err.message : err}\n` +
+					`refusing to silently clobber: delete the file (full re-record) or fix the JSON, then retry.`,
+			);
+			process.exit(1);
+		}
+	}
 
 	// ─── Isolated recordings: one push+build cycle per test ────────────
 	for (const t of isolated) {
-		const ext = KIND_EXT[t.kind];
+		const ext = extensionFor(t);
 		const testFilePath = join(workspace, `${t.pouName}.${ext}`);
 		writeFileSync(testFilePath, t.source, "utf-8");
 		writeFileSync(plcPrgPath, buildMegaPlcPrg([t]), "utf-8");
@@ -231,20 +402,34 @@ async function main(): Promise<void> {
 	//
 	// Diagnostic scoping stays per-test (object name match), unchanged.
 	const validByName = new Set(valid.map((t) => t.name));
-	for (const category of CATEGORIES) {
+	const categoryFailures: Array<{ name: string; error: string }> = [];
+	for (const category of filteredCategories) {
 		const categoryBatch = category.tests.filter(
 			(t) => t.recordIsolated !== true && validByName.has(t.name),
 		);
 		if (categoryBatch.length === 0) continue;
 
 		console.log(`\n  ── ${category.name} (${categoryBatch.length} test(s)) ──`);
-		await recordCategory(category.name, categoryBatch, bridge, workspace, plcPrgPath, recorded);
+		try {
+			await recordCategory(category.name, categoryBatch, bridge, workspace, plcPrgPath, recorded);
+		} catch (err) {
+			// Don't abort the whole run — one category's failure (e.g.
+			// bridge-side unsupported feature, network blip, OOM) must
+			// not drop the OTHER categories' recordings on the floor.
+			// Log + persist what we have + continue.
+			const msg = err instanceof Error ? err.message : String(err);
+			console.error(`  [${category.name}] FAILED — skipping rest of category: ${msg}`);
+			categoryFailures.push({ name: category.name, error: msg });
+		}
+		// Persist incrementally so partial progress survives a downstream
+		// crash, OS-level interrupt, or this Bash invocation's timeout.
+		writeExpected(recorded, health.version, outputPath);
 	}
 
 	// ─── Teardown ──────────────────────────────────────────────────────
 	console.log(`\n  teardown: removing test POUs + resetting PLC_PRG`);
 	for (const t of valid) {
-		try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
+		try { rmSync(join(workspace, `${t.pouName}.${extensionFor(t)}`)); } catch { /* ignore */ }
 	}
 	writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
 	const resetRes = volt(workspace, "push", "--force", "--no-drift-check");
@@ -254,24 +439,18 @@ async function main(): Promise<void> {
 	}
 	try { rmSync(rootTmp, { recursive: true, force: true }); } catch { /* ignore */ }
 
-	// ─── Write expected-tc.json ────────────────────────────────────────
-	const output: ExpectedTc & { $schema: string; _doc: string } = {
-		$schema: "./expected-tc.schema.json",
-		_doc:
-			"Auto-generated by `bun run record:language`. " +
-			"Do not edit by hand — re-record after editing the test catalog.",
-		recorded: {
-			at: new Date().toISOString(),
-			bridgeVersion: health.version,
-			testCount: Object.keys(recorded).length,
-		},
-		tests: recorded,
-	};
-	writeFileSync(OUTPUT_PATH, `${JSON.stringify(output, null, 2)}\n`, "utf-8");
-	console.log(`\n  wrote ${OUTPUT_PATH}`);
+	// ─── Final write + report ─────────────────────────────────────────
+	// Incremental per-category writes already happened above; this final
+	// call captures the post-teardown timestamp.
+	writeExpected(recorded, health.version, outputPath);
+	console.log(`\n  wrote ${outputPath}`);
 	console.log(`  recorded ${Object.keys(recorded).length}/${ALL_TESTS.length} tests` +
 		(skipped.length > 0 ? ` (${skipped.length} skipped at validation)` : ""));
-
+	if (categoryFailures.length > 0) {
+		console.log(`  ${categoryFailures.length} categor(ies) failed mid-run:`);
+		for (const f of categoryFailures) console.log(`    - ${f.name}: ${f.error}`);
+		process.exit(2);
+	}
 	process.exit(0);
 }
 
@@ -306,7 +485,7 @@ async function recordCategory(
 		console.error(`  [${categoryName}] ${label}: ${msg}`);
 		await cleanupItems(bridge, tests.map((t) => t.pouName));
 		for (const t of tests) {
-			try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
+			try { rmSync(join(workspace, `${t.pouName}.${extensionFor(t)}`)); } catch { /* ignore */ }
 		}
 		writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
 		throw new Error(`category '${categoryName}' ${label}; aborting`);
@@ -315,32 +494,80 @@ async function recordCategory(
 	// 1. Push test sources in sub-chunks of CHUNK_SIZE so each /push
 	//    call stays bounded. The bare PLC_PRG already exists from pull
 	//    or the prior category's reset, so it's not part of the chunk.
+	//
+	//    Chunk-batch is the fast path. When a chunk push fails (one
+	//    fixture in the chunk has a problem the bridge rejects — XSD
+	//    violation in graphical XML, malformed ST, etc.), we DON'T
+	//    abort the whole category. Instead we walk that chunk one test
+	//    at a time, recording each failure with its bridge error
+	//    message and continuing past the bad ones. That keeps the
+	//    speed for healthy ST runs and gives granular per-fixture
+	//    reporting when iterating on FBD/LD where breakage is common.
+	//
+	//    `liveTests` = the subset of `tests` that actually reached the
+	//    bridge. `pushFailures` = name → bridge error for the ones
+	//    that didn't. Both are folded into `recorded` after the build.
+	const liveTests: LanguageTest[] = [];
+	const pushFailures = new Map<string, string>();
+
 	const chunkCount = Math.ceil(tests.length / CHUNK_SIZE);
 	for (let i = 0; i < tests.length; i += CHUNK_SIZE) {
 		const chunk = tests.slice(i, i + CHUNK_SIZE);
 		for (const t of chunk) {
-			writeFileSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`), t.source, "utf-8");
+			writeFileSync(join(workspace, `${t.pouName}.${extensionFor(t)}`), t.source, "utf-8");
 		}
 		if (chunkCount > 1) {
 			console.log(`    pushing sub-chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${chunkCount} (${chunk.length} POU(s))…`);
 		}
 		const pushRes = volt(workspace, "push", "--force", "--no-drift-check");
-		if (pushRes.code !== 0) {
-			await fail("push failed", pushRes.stderr.trim() || pushRes.stdout.trim());
+		if (pushRes.code === 0) {
+			// Fast path — every test in this chunk reached the bridge.
+			liveTests.push(...chunk);
+			continue;
+		}
+
+		// Chunk rejected. The bridge didn't accept ANY of the items
+		// (push is atomic), so all the chunk files we just wrote are
+		// orphaned on disk. Wipe them, then re-add one at a time so a
+		// single failing fixture only fails its own per-test push.
+		const chunkLabel = `chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${chunkCount}`;
+		console.log(
+			`    ${chunkLabel} rejected — re-trying per-test to isolate the bad fixture(s)`,
+		);
+		for (const t of chunk) {
+			try { rmSync(join(workspace, `${t.pouName}.${extensionFor(t)}`)); } catch { /* ignore */ }
+		}
+		for (const t of chunk) {
+			writeFileSync(join(workspace, `${t.pouName}.${extensionFor(t)}`), t.source, "utf-8");
+			const r = volt(workspace, "push", "--force", "--no-drift-check");
+			if (r.code === 0) {
+				liveTests.push(t);
+				continue;
+			}
+			const errMsg = (r.stderr || r.stdout).trim();
+			pushFailures.set(t.name, errMsg);
+			try { rmSync(join(workspace, `${t.pouName}.${extensionFor(t)}`)); } catch { /* ignore */ }
+			const summary = errMsg.length > 100 ? `${errMsg.slice(0, 100)}…` : errMsg;
+			console.log(`    ✗ ${t.name.padEnd(40)} push rejected: ${summary}`);
 		}
 	}
 
 	// 2. Final push: mega PLC_PRG that instantiates this category's
-	//    tests. Single file change, cheap COM update.
-	writeFileSync(plcPrgPath, buildMegaPlcPrg(tests), "utf-8");
+	//    LIVE tests. Skipping pushFailures keeps the program tree
+	//    referentially consistent — instantiating an FB the bridge
+	//    never accepted would itself fail the build with a misleading
+	//    "unknown type" error masking the real fixture problem.
+	writeFileSync(plcPrgPath, buildMegaPlcPrg(liveTests), "utf-8");
 	const plcPushRes = volt(workspace, "push", "--force", "--no-drift-check");
 	if (plcPushRes.code !== 0) {
 		await fail("PLC_PRG push failed", plcPushRes.stderr.trim() || plcPushRes.stdout.trim());
 	}
 
-	// 3. Build + extract per-test diagnostics.
+	// 3. Build + extract per-test diagnostics for tests that reached
+	//    the bridge. Tests in pushFailures get synthetic entries below
+	//    so they appear in the same `recorded` shape downstream.
 	const buildRes = await bridge.build({ buildType: "full" });
-	for (const t of tests) {
+	for (const t of liveTests) {
 		const scoped = buildRes.diagnostics.filter(
 			(d) => d.object === t.pouName || (d.object !== null && d.object.startsWith(`${t.pouName}.`)),
 		);
@@ -356,17 +583,41 @@ async function recordCategory(
 		};
 	}
 
+	// 4. Record push-rejected fixtures with the bridge's exact error
+	//    text as a synthetic diagnostic. Downstream `language.test.ts`
+	//    treats `buildSuccess: false` uniformly — the LSP is expected
+	//    to also flag (or accept that the LSP can't replicate XSD
+	//    validation, in which case the divergence shows in snapshots).
+	for (const [name, msg] of pushFailures) {
+		recorded[name] = {
+			buildSuccess: false,
+			durationMs: 0,
+			diagnostics: [
+				{
+					severity: "error",
+					message: `bridge rejected POU push: ${msg}`,
+					object: name,
+					section: null,
+					line: 0,
+				},
+			],
+		};
+	}
+
 	// 5. Cleanup: delete this category's test files locally, restore
 	//    bare PLC_PRG, push to apply on the bridge. Direct bridge
 	//    cleanup is a fallback in case the workspace-side push errors.
+	//    Only liveTests landed on the bridge, but rm-ing pushFailures
+	//    files is a no-op (already removed in step 1), so iterating
+	//    the full `tests` list is fine and keeps the comment local.
 	for (const t of tests) {
-		try { rmSync(join(workspace, `${t.pouName}.${KIND_EXT[t.kind]}`)); } catch { /* ignore */ }
+		try { rmSync(join(workspace, `${t.pouName}.${extensionFor(t)}`)); } catch { /* ignore */ }
 	}
 	writeFileSync(plcPrgPath, BARE_PLC_PRG, "utf-8");
 	const cleanupRes = volt(workspace, "push", "--force", "--no-drift-check");
 	if (cleanupRes.code !== 0) {
 		console.log(`    (warn) [${categoryName}] cleanup push failed; falling back to direct bridge delete`);
-		await cleanupItems(bridge, tests.map((t) => t.pouName));
+		await cleanupItems(bridge, liveTests.map((t) => t.pouName));
 	}
 }
 

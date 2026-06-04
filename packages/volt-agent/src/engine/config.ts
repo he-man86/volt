@@ -28,8 +28,56 @@ export interface WorkspaceConfig {
 		/** PLC-project-within-solution name (e.g. TwinCAT's `Untitled2`). */
 		plcProjectName: string;
 	};
+	/**
+	 * Per-extension push policy. Controls which file extensions
+	 * `volt push` is allowed to send to the bridge. Files with
+	 * extensions NOT in `allowExtensions` are PULLED normally (so
+	 * AI can read them for context) but REFUSED at push time with
+	 * a clear error.
+	 *
+	 * Default (when absent or empty): `[".st", ".gvl", ".dut", ".itf"]`
+	 * — only ST-grammar files are pushable; graphical bodies,
+	 * device descriptions, recipes, trace configs, alarms etc. are
+	 * implicitly read-only.
+	 *
+	 * The user can opt extensions in by editing `.volt/config.json`
+	 * directly — the schema is intentionally simple.
+	 *
+	 * This guard is INDEPENDENT of the graphical-body-edit guard
+	 * (see push.ts), which catches body-XML changes within
+	 * declaration-pushable graphical files. The two guards
+	 * compose: graphical files might allow declaration changes
+	 * (depending on this list) but never body changes (per the
+	 * graphical read-only contract).
+	 */
+	pushPolicy?: {
+		/** File extensions (with leading dot) that `volt push` may send. Empty or missing = use defaults. */
+		allowExtensions: string[];
+	};
 	/** ISO timestamp of `volt init`. Informational. */
 	linkedAt: string;
+}
+
+/** Default push allowlist — ST-grammar files only. */
+export const DEFAULT_PUSH_ALLOW_EXTENSIONS: readonly string[] = [
+	".st",
+	".gvl",
+	".dut",
+	".itf",
+];
+
+/**
+ * Return the effective push allowlist for a workspace's config.
+ * Single source of truth used by `volt push` and tests.
+ */
+export function effectivePushAllowExtensions(cfg: WorkspaceConfig): readonly string[] {
+	const allow = cfg.pushPolicy?.allowExtensions;
+	if (allow === undefined || allow.length === 0) return DEFAULT_PUSH_ALLOW_EXTENSIONS;
+	// Normalize: lowercase + ensure leading dot.
+	return allow.map((e) => {
+		const lower = e.toLowerCase().trim();
+		return lower.startsWith(".") ? lower : `.${lower}`;
+	});
 }
 
 export interface WorkspacePaths {
@@ -82,6 +130,20 @@ export function loadConfig(workspaceRoot: string): WorkspaceConfig {
 	) {
 		throw new Error(`workspace config at ${configPath} is missing or malformed 'project'`);
 	}
+	// Optional pushPolicy — accept missing, malformed-but-recoverable
+	// (silently ignore non-array values), or well-formed string-array.
+	let pushPolicy: WorkspaceConfig["pushPolicy"];
+	const rawPolicy = (parsed as { pushPolicy?: unknown }).pushPolicy;
+	if (
+		rawPolicy !== undefined &&
+		typeof rawPolicy === "object" &&
+		rawPolicy !== null &&
+		Array.isArray((rawPolicy as { allowExtensions?: unknown }).allowExtensions)
+	) {
+		const arr = (rawPolicy as { allowExtensions: unknown[] }).allowExtensions;
+		const cleaned = arr.filter((e): e is string => typeof e === "string");
+		pushPolicy = { allowExtensions: cleaned };
+	}
 	return {
 		schemaVersion: SCHEMA_VERSION,
 		bridge: { port: parsed.bridge.port },
@@ -90,6 +152,7 @@ export function loadConfig(workspaceRoot: string): WorkspaceConfig {
 			projectName: parsed.project.projectName,
 			plcProjectName: parsed.project.plcProjectName,
 		},
+		...(pushPolicy !== undefined ? { pushPolicy } : {}),
 		linkedAt: typeof parsed.linkedAt === "string" ? parsed.linkedAt : "",
 	};
 }

@@ -1,12 +1,14 @@
 /**
- * Tiny utility surface shared by CLI verb files + the auxiliary tools
- * (record-language, debug-push-one, conformance-report). Kept minimal
- * on purpose — anything that grows beyond "argv flag parsing + bridge
- * helpers + workspace-file lookup" should live in `engine/`, not here.
+ * Tiny utility surface shared by CLI verb files + the `tools/` dev
+ * scripts (record-language, debug-push-one, conformance-report). Kept
+ * minimal on purpose — anything that grows beyond "argv flag parsing +
+ * bridge helpers + workspace-file lookup" should live in `engine/`,
+ * not here.
  */
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "../bridge/client.js";
+import { formatVoltError, isDebugMode, isVoltError, VoltError } from "./_error.js";
 
 export type Flags = Record<string, string | boolean>;
 
@@ -44,27 +46,40 @@ export function flagBool(flags: Flags, key: string): boolean {
 	return flags[key] === true;
 }
 
-/** Write the standard "bridge unreachable, is it running?" hint to stderr. */
-export function bridgeOfflineHint(err: unknown): void {
-	process.stderr.write(`bridge unreachable: ${err instanceof Error ? err.message : err}\n`);
-	process.stderr.write("is the bridge running? (bridges/dist/BeckhoffBridge.exe with the IDE open)\n");
+/** Bridge-offline → a friendly VoltError. Common enough to warrant its own helper. */
+export function bridgeOfflineError(err: unknown, port: number): VoltError {
+	return new VoltError({
+		what: "bridge unreachable",
+		why: `no response on port ${port}: ${err instanceof Error ? err.message : String(err)}`,
+		hint: "start the IDE-side bridge (bridges/dist/BeckhoffBridge.exe with TwinCAT XAE, or the CODESYS plugin) and retry",
+		exitCode: 1,
+		cause: err,
+	});
 }
 
 /**
- * Wrap a verb body so bridge-offline errors land as a friendly message
- * (exit 1) and other errors land as `error: …` (exit 1). Returns the
- * verb's natural exit code on success, OR 1 on failure.
+ * Wrap a verb body so every failure path produces a clean stderr render
+ * via VoltError. Returns the verb's natural exit code on success, or
+ * the VoltError's exit code on failure. Unknown throws get rewrapped
+ * so the user never sees raw `Error: …` lines.
  */
 export async function safeVerb(verb: VerbFn, ctx: VerbContext): Promise<number> {
 	try {
 		return await verb(ctx);
 	} catch (err) {
-		if (isBridgeOfflineError(err)) {
-			bridgeOfflineHint(err);
-			return 1;
-		}
-		process.stderr.write(`error: ${err instanceof Error ? err.message : String(err)}\n`);
-		return 1;
+		const debug = isDebugMode(ctx.flags);
+		const voltErr = isVoltError(err)
+			? err
+			: isBridgeOfflineError(err)
+				? bridgeOfflineError(err, ctx.port)
+				: new VoltError({
+						what: `\`volt\` failed unexpectedly`,
+						why: err instanceof Error ? err.message : String(err),
+						hint: "run with --debug for the full trace, or file an issue at github.com/anthropics/volt with the output",
+						cause: err,
+					});
+		process.stderr.write(formatVoltError(voltErr, debug));
+		return voltErr.exitCode;
 	}
 }
 

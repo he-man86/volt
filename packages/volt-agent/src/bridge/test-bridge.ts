@@ -36,6 +36,9 @@ export interface TestBridgeItem {
 	kind?: string;
 	language?: ImplementationLanguage;
 	sourceText: string;
+	/** PLCopen TC6 `<body>` XML for graphical POUs. Drives the
+	 *  transpiler path in `materializeItem`. */
+	implementationXml?: string;
 }
 
 export interface TestBridgeOptions {
@@ -52,12 +55,21 @@ interface StoredItem {
 	folder?: string;
 	language?: ImplementationLanguage;
 	sourceText: string;
+	implementationXml?: string;
 }
 
 export class TestBridge implements Remote {
 	items = new Map<string, StoredItem>();
 	pushCalls: PushRequest[] = [];
 	buildCalls: BuildRequest[] = [];
+	/**
+	 * When set, getRefs/fetchChanges return THIS projectVersion instead
+	 * of the items-hash-derived one. Lets tests simulate the case where
+	 * the bridge bumped its projectVersion for a non-item reason (TC's
+	 * dirty-bit flip, structural save). Set to `null` to restore the
+	 * default behaviour.
+	 */
+	projectVersionOverride: string | null = null;
 	private readonly buildImpl: NonNullable<TestBridgeOptions["build"]>;
 	private readonly healthOverride: Partial<HealthResponse>;
 
@@ -90,7 +102,7 @@ export class TestBridge implements Remote {
 		const kinds: Record<string, string> = {};
 		for (const [name, item] of this.items) kinds[name] = item.kind;
 		return {
-			projectVersion: hashMap(versions),
+			projectVersion: this.projectVersionOverride ?? hashMap(versions),
 			structureVersion: hashStructure(versions),
 			items: versions,
 			kinds,
@@ -113,6 +125,7 @@ export class TestBridge implements Remote {
 				};
 				if (item.folder !== undefined) fetched.folder = item.folder;
 				if (item.language !== undefined) fetched.language = item.language;
+				if (item.implementationXml !== undefined) fetched.implementationXml = item.implementationXml;
 				changed.push(fetched);
 			}
 		}
@@ -121,7 +134,7 @@ export class TestBridge implements Remote {
 			if (!(name in versions)) removed.push(name);
 		}
 		return {
-			projectVersion: hashMap(versions),
+			projectVersion: this.projectVersionOverride ?? hashMap(versions),
 			structureVersion: hashStructure(versions),
 			changed,
 			removed,
@@ -135,7 +148,7 @@ export class TestBridge implements Remote {
 		const conflicts: PushConflict[] = [];
 
 		if (req.expectedProjectVersion !== undefined) {
-			const currentProjectVersion = hashMap(versions);
+			const currentProjectVersion = this.projectVersionOverride ?? hashMap(versions);
 			if (req.expectedProjectVersion !== currentProjectVersion) {
 				return {
 					accepted: false,
@@ -300,6 +313,7 @@ function normalizeFixture(item: TestBridgeItem): StoredItem {
 	};
 	if (item.folder !== undefined) stored.folder = item.folder;
 	if (item.language !== undefined) stored.language = item.language;
+	if (item.implementationXml !== undefined) stored.implementationXml = item.implementationXml;
 	return stored;
 }
 

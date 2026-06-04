@@ -47,14 +47,13 @@ interface ExpectedTc {
 function runLsp(source: string): Array<{ severity: string }> {
 	const parseResult = parseSource(source);
 	const project = buildSymbolTable([{ uri: "file:///report/test.st", parseResult }]);
-	const bodyModels = buildBodyModelsForParseResult("structured-text", source, parseResult);
+	const bodyModels = buildBodyModelsForParseResult(parseResult);
 	const diags = computeSemanticDiagnostics({
 		parseResult,
 		source,
 		project,
 		config: DEFAULT_DIAGNOSTIC_CONFIG,
 		activeVendor: "twincat",
-		languageId: "structured-text",
 		bodyModels,
 	});
 	for (const e of parseResult.errors) diags.push({ severity: "error" } as never);

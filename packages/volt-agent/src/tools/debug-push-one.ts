@@ -7,7 +7,7 @@
  *   2. A manual Build All in TwinCAT produces the expected
  *      diagnostics in the Build output pane
  *
- * Run: `node dist/cli/debug-push-one.js [testName]`
+ * Run: `node dist/tools/debug-push-one.js [testName]`
  *   Default test: `warning_message` (most informative — it MUST
  *   produce a TC warning per docs, so absence is diagnostic).
  *
@@ -22,7 +22,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BridgeClient } from "../bridge/client.js";
 import { ALL_TESTS } from "@opencode-ai/volt-lsp/conformance";
-import { findExistingFile } from "./_shared.js";
+import { findExistingFile } from "../cli/_shared.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));

@@ -22,8 +22,8 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "record:language": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/cli/record-language.js",
-    "conformance:report": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/cli/conformance-report.js"
+    "record:language": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/tools/record-language.js",
+    "conformance:report": "cd ../volt-lsp-st && tsc && cd ../volt-agent && tsc && node dist/tools/conformance-report.js"
   },
   "dependencies": {
     "@opencode-ai/volt-lsp": "workspace:*",

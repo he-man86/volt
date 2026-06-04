@@ -149,3 +149,91 @@ describe("BridgeClient response validation", () => {
 		}
 	});
 });
+
+// ─── empty-refs disconnect defense ────────────────────────────────────
+//
+// Locks in the volt-agent-side check that protects against any bridge
+// (Beckhoff or CODESYS) that returns 200-OK + `{items: {}}` while its
+// IDE is actually disconnected. Without this defense, `volt status`
+// would interpret empty refs as "engineer deleted every POU" and
+// surface a destructive "incoming delete" set.
+
+describe("BridgeClient empty-refs disconnect defense", () => {
+	let multiServer: Server;
+	let multiPort: number;
+	let refsBody: unknown = { items: {}, kinds: {}, projectVersion: "abc", structureVersion: "abc" };
+	let healthBody: unknown = { ...VALID_HEALTH };
+
+	beforeEach(async () => {
+		multiServer = createServer((req, res) => {
+			res.statusCode = 200;
+			res.setHeader("content-type", "application/json");
+			if (req.url === "/refs") {
+				res.end(JSON.stringify(refsBody));
+			} else if (req.url === "/health") {
+				res.end(JSON.stringify(healthBody));
+			} else {
+				res.statusCode = 404;
+				res.end(JSON.stringify({ error: { code: "NOT_FOUND" } }));
+			}
+		});
+		await new Promise<void>((resolve) => multiServer.listen(0, "127.0.0.1", () => resolve()));
+		const addr = multiServer.address() as AddressInfo;
+		multiPort = addr.port;
+	});
+
+	afterEach(async () => {
+		await new Promise<void>((resolve) => multiServer.close(() => resolve()));
+	});
+
+	function client(): BridgeClient {
+		return new BridgeClient({ baseUrl: `http://127.0.0.1:${multiPort}`, timeoutMs: 1000 });
+	}
+
+	test("empty refs + /health.connected=false → throws PLC_DISCONNECTED", async () => {
+		refsBody = { items: {}, kinds: {}, projectVersion: "empty", structureVersion: "empty" };
+		healthBody = { ...VALID_HEALTH, connected: false, status: "unavailable", ideAlive: false };
+		let caught: unknown;
+		try {
+			await client().getRefs();
+		} catch (err) {
+			caught = err;
+		}
+		expect(caught).toBeInstanceOf(BridgeError);
+		expect((caught as BridgeError).code).toBe("PLC_DISCONNECTED");
+	});
+
+	test("empty refs + /health.connected=true → trusted (project is genuinely empty)", async () => {
+		refsBody = { items: {}, kinds: {}, projectVersion: "fresh", structureVersion: "fresh" };
+		healthBody = { ...VALID_HEALTH }; // connected: true
+		const refs = await client().getRefs();
+		expect(Object.keys(refs.items).length).toBe(0);
+		expect(refs.projectVersion).toBe("fresh");
+	});
+
+	test("non-empty refs → /health is NOT consulted (no extra round trip)", async () => {
+		// If the defense path runs when items is non-empty, this would
+		// observe `connected: false` and throw — proving the gate fires
+		// only on the empty case.
+		refsBody = {
+			items: { FB_X: "v1" },
+			kinds: { FB_X: "function_block" },
+			projectVersion: "v1",
+			structureVersion: "v1",
+		};
+		healthBody = { ...VALID_HEALTH, connected: false }; // misleading on purpose
+		const refs = await client().getRefs();
+		expect(refs.items["FB_X"]).toBe("v1");
+	});
+
+	test("empty refs + /health that throws/times-out → trusts refs (fails open)", async () => {
+		// If we can't reach /health, we can't disprove the bridge —
+		// fall through and let downstream layers decide. Strict
+		// gating would mean a degraded /health takes down /refs entirely.
+		refsBody = { items: {}, kinds: {}, projectVersion: "empty", structureVersion: "empty" };
+		// Respond malformed so HealthResponseSchema rejects → getHealth throws.
+		healthBody = { not: "valid" };
+		const refs = await client().getRefs();
+		expect(Object.keys(refs.items).length).toBe(0);
+	});
+});

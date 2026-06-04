@@ -27,7 +27,7 @@ import {
 	buildTree,
 	writeBlob,
 } from "./git-cmds.js";
-import { applyPushToBridge, syncFromBridge, workspaceMatchesBridge } from "./ops.js";
+import { applyPushToBridge, peekBridgeItem, syncFromBridge, workspaceMatchesBridge } from "./ops.js";
 import { loadState, saveState } from "./snapshot.js";
 
 /** Wrap a minimal FB sourceText that the splitter can parse. */
@@ -143,27 +143,139 @@ describe("syncFromBridge", () => {
 		expect(gvlContent).not.toContain("END_FUNCTION_BLOCK");
 	});
 
-	it("routes graphical POU bodies (FBD/LD/SFC/CFC) to their own extensions", async () => {
+	it("graphical POU without VAR section + dead-end block still produces meaningful ST", async () => {
+		// CODESYS may emit a POU's sourceText with no VAR block when the
+		// engineer hasn't declared any local variables. The splice MUST
+		// still produce valid ST. Combined with a dead-end FBD body
+		// (AND gate whose output isn't wired to an outVariable), the
+		// transpiler emits a `(* unused: ... *)` comment so AI sees the
+		// structure instead of an empty file.
+		const bridge = new TestBridge({
+			initialItems: [
+				{
+					name: "FB_LANG_fbd_box_and_two_inputs",
+					kind: "function_block",
+					folder: "POUs",
+					language: "FBD",
+					sourceText: "FUNCTION_BLOCK FB_LANG_fbd_box_and_two_inputs\n\nEND_FUNCTION_BLOCK\n",
+					implementationXml: `<body xmlns="http://www.plcopen.org/xml/tc6_0200"><FBD>
+  <inVariable localId="1"><connectionPointOut /><expression>TRUE</expression></inVariable>
+  <inVariable localId="2"><connectionPointOut /><expression>FALSE</expression></inVariable>
+  <block localId="3" typeName="AND">
+    <inputVariables>
+      <variable formalParameter="In1"><connectionPointIn><connection refLocalId="1" /></connectionPointIn></variable>
+      <variable formalParameter="In2"><connectionPointIn><connection refLocalId="2" /></connectionPointIn></variable>
+    </inputVariables>
+    <inOutVariables />
+    <outputVariables><variable formalParameter="Out1"><connectionPointOut /></variable></outputVariables>
+  </block>
+</FBD></body>`,
+				},
+			],
+		});
+		const commitSha = await syncFromBridge(repoPath, bridge);
+		const tree = listTree(repoPath, commitSha);
+		const blob = tree.find((e) => e.path === "POUs/FB_LANG_fbd_box_and_two_inputs.fbd");
+		expect(blob).toBeDefined();
+		const content = readBlob(repoPath, blob!.sha);
+		// Header preserved.
+		expect(content).toContain("FUNCTION_BLOCK FB_LANG_fbd_box_and_two_inputs");
+		// Dead-end block surfaced.
+		expect(content).toContain("(* unused: TRUE AND FALSE *)");
+		// Closing terminator present.
+		expect(content).toContain("END_FUNCTION_BLOCK");
+	});
+
+	it("graphical POU sourceText placeholder is replaced by transpiled body", async () => {
+		// Beckhoff bridge injects `(graphical language — not visible or
+		// editable as text)` in sourceText for graphical POUs (see
+		// GetHandler.cs:97). The placeholder isn't valid ST — once we
+		// have a real transpiled body, the splice must DROP whatever
+		// sits between END_VAR and END_PROGRAM in the sourceText.
+		const bridge = new TestBridge({
+			initialItems: [
+				{
+					name: "POU_SR",
+					kind: "program",
+					folder: "POUs",
+					language: "FBD",
+					sourceText: "PROGRAM POU_SR\nVAR\n    sr1: SR;\nEND_VAR\n\n(graphical language — not visible or editable as text)\n\nEND_PROGRAM\n",
+					implementationXml: `<body xmlns="http://www.plcopen.org/xml/tc6_0200"><FBD>
+  <inVariable localId="1"><connectionPointOut /><expression>FALSE</expression></inVariable>
+  <inVariable localId="2"><connectionPointOut /><expression>TRUE</expression></inVariable>
+  <block localId="3" typeName="SR" instanceName="sr1">
+    <inputVariables>
+      <variable formalParameter="RESET"><connectionPointIn><connection refLocalId="1" /></connectionPointIn></variable>
+      <variable formalParameter="SET1"><connectionPointIn><connection refLocalId="2" /></connectionPointIn></variable>
+    </inputVariables>
+    <inOutVariables />
+    <outputVariables>
+      <variable formalParameter="Q1"><connectionPointOut /></variable>
+    </outputVariables>
+  </block>
+</FBD></body>`,
+				},
+			],
+		});
+		const commitSha = await syncFromBridge(repoPath, bridge);
+		const tree = listTree(repoPath, commitSha);
+		const blob = tree.find((e) => e.path === "POUs/POU_SR.fbd");
+		expect(blob).toBeDefined();
+		const content = readBlob(repoPath, blob!.sha);
+		// Placeholder gone.
+		expect(content).not.toContain("graphical language");
+		// Transpiled body present.
+		expect(content).toContain("sr1(RESET := FALSE, SET1 := TRUE);");
+		// Declaration preserved.
+		expect(content).toContain("PROGRAM POU_SR");
+		expect(content).toContain("sr1: SR;");
+		expect(content).toContain("END_PROGRAM");
+	});
+
+	it("graphical POU bodies transpile to ST but keep the .fbd / .ld extension", async () => {
+		// Body content is transpiled to ST on pull; file EXTENSION
+		// still reflects the source graphical language so the user
+		// sees which files came from FBD vs LD. The VS Code extension
+		// routes plc-fbd / plc-ld to the same ST LSP server, so the
+		// extension difference is purely cosmetic — analysis is uniform.
 		const bridge = new TestBridge({
 			initialItems: [
 				{
 					name: "FB_Graph",
 					kind: "function_block",
 					folder: "POUs",
-					sourceText: "FUNCTION_BLOCK FB_Graph\nVAR\nEND_VAR\n<graphical-body-placeholder>\nEND_FUNCTION_BLOCK\n",
+					sourceText: "FUNCTION_BLOCK FB_Graph\nVAR\n  out : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
 					language: "FBD",
+					implementationXml: `<body xmlns="http://www.plcopen.org/xml/tc6_0200"><FBD>
+  <inVariable localId="1"><connectionPointOut /><expression>TRUE</expression></inVariable>
+  <outVariable localId="2"><connectionPointIn><connection refLocalId="1" /></connectionPointIn><expression>out</expression></outVariable>
+</FBD></body>`,
 				},
 			],
 		});
 
 		const commitSha = await syncFromBridge(repoPath, bridge);
-		const paths = listTree(repoPath, commitSha).map((e) => e.path);
+		const tree = listTree(repoPath, commitSha);
+		const paths = tree.map((e) => e.path);
 
+		// Extension reflects source language.
 		expect(paths).toContain("POUs/FB_Graph.fbd");
-		expect(paths).not.toContain("POUs/FB_Graph.st");
+		// File CONTENT is transpiled ST.
+		const blob = tree.find((e) => e.path === "POUs/FB_Graph.fbd");
+		expect(blob).toBeDefined();
+		const content = readBlob(repoPath, blob!.sha);
+		expect(content).toContain("out := TRUE;");
+		expect(content).not.toContain("<body");
+		expect(content).not.toContain("<FBD");
 	});
 
-	it("throws loudly when bridge returns a kind the materializer doesn't recognize", async () => {
+	it("skips items the materializer doesn't recognize, logs the failure, and keeps the rest", async () => {
+		// Per-item resilience: one bad item (unknown kind, missing
+		// anchor in the body, etc.) MUST NOT kill the whole pull.
+		// Skipped items are dropped from state.items and folders so
+		// the next push doesn't emit phantom delete ops; the next
+		// pull retries them (giving bridge-side fixes a chance to
+		// recover for free).
 		const bridge = new TestBridge({
 			initialItems: [
 				{
@@ -172,10 +284,44 @@ describe("syncFromBridge", () => {
 					folder: "POUs",
 					sourceText: "FUNCTION_BLOCK MysteryItem\nEND_FUNCTION_BLOCK\n",
 				},
+				{
+					name: "FB_OK",
+					kind: "function_block",
+					folder: "POUs",
+					sourceText: fbSource("FB_OK"),
+				},
 			],
 		});
 
-		await expect(syncFromBridge(repoPath, bridge)).rejects.toThrow(/unknown kind "wormhole_block"/);
+		// Capture stderr so we can verify the per-item diagnostic.
+		const origWrite = process.stderr.write.bind(process.stderr);
+		const captured: string[] = [];
+		(process.stderr.write as unknown as (s: string) => boolean) = (s: string) => {
+			captured.push(s);
+			return true;
+		};
+		let sha: string;
+		try {
+			sha = await syncFromBridge(repoPath, bridge);
+		} finally {
+			(process.stderr.write as unknown) = origWrite;
+		}
+
+		// The good item landed in the snapshot.
+		const entries = listTree(repoPath, sha);
+		expect(entries.some((e) => e.path === "POUs/FB_OK.st")).toBe(true);
+		expect(entries.some((e) => e.path.startsWith("POUs/MysteryItem"))).toBe(false);
+
+		// The bad item was reported by name with the underlying reason.
+		const stderr = captured.join("");
+		expect(stderr).toContain("MysteryItem");
+		expect(stderr).toMatch(/unknown kind "wormhole_block"/);
+
+		// MysteryItem is gone from state.items so the next push won't
+		// fire a phantom delete op against the bridge.
+		const stateAfter = loadState(repoPath);
+		expect(stateAfter?.items["MysteryItem"]).toBeUndefined();
+		expect(stateAfter?.items["FB_OK"]).toBeDefined();
 	});
 
 	it("is deterministic: same bridge state → same commit SHA across separate sync calls", async () => {
@@ -274,6 +420,83 @@ describe("syncFromBridge", () => {
 		const secondSha = await syncFromBridge(repoPath, bridge);
 		expect(listTree(repoPath, secondSha).some((e) => e.path === "POUs/FB_B.st")).toBe(false);
 		expect(listTree(repoPath, secondSha).some((e) => e.path === "POUs/FB_A.st")).toBe(true);
+	});
+});
+
+describe("peekBridgeItem", () => {
+	let tmp: string;
+	let repoPath: string;
+
+	beforeEach(() => {
+		tmp = mkdtempSync(join(tmpdir(), "volt-peek-"));
+		repoPath = join(tmp, "test.git");
+		initBareRepo(repoPath);
+	});
+	afterEach(() => {
+		try {
+			rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			/* ignore */
+		}
+	});
+
+	it("returns the bridge item's current bytes without mutating snapshot or state", async () => {
+		// Establish a baseline snapshot from one bridge state.
+		const bridge = new TestBridge({
+			initialItems: [
+				{ name: "FB_A", folder: "POUs", sourceText: fbSource("FB_A") },
+				{ name: "FB_B", folder: "POUs", sourceText: fbSource("FB_B") },
+			],
+		});
+		await syncFromBridge(repoPath, bridge);
+
+		// Snapshot of every observable piece of local state BEFORE the
+		// peek. If peekBridgeItem leaks side effects, at least one of
+		// these will differ after the call.
+		const beforeHeadSha = resolveRef(repoPath, "refs/heads/main");
+		const beforeTreeEntries = JSON.stringify(
+			listTree(repoPath, beforeHeadSha!),
+		);
+		const beforeState = JSON.stringify(loadState(repoPath));
+
+		// Mutate the bridge so the peeked content DIFFERS from what
+		// the snapshot has. This is the realistic scenario — engineer
+		// edited FB_A in CODESYS; we click the diff before pulling.
+		bridge.mutate("FB_A", {
+			name: "FB_A",
+			folder: "POUs",
+			sourceText: fbSource("FB_A", "x := 42;  // engineer edited"),
+		});
+
+		// Peek — should return the BRIDGE's new bytes, not the
+		// snapshot's stale bytes.
+		const peeked = await peekBridgeItem(bridge, "FB_A");
+		expect(peeked.path).toBe("POUs/FB_A.st");
+		expect(peeked.content).toContain("x := 42;");
+		expect(peeked.content).toContain("engineer edited");
+
+		// Assert the architectural boundary: every local state we
+		// hashed before the peek must be byte-identical now.
+		const afterHeadSha = resolveRef(repoPath, "refs/heads/main");
+		const afterTreeEntries = JSON.stringify(
+			listTree(repoPath, afterHeadSha!),
+		);
+		const afterState = JSON.stringify(loadState(repoPath));
+		expect(afterHeadSha).toBe(beforeHeadSha);
+		expect(afterTreeEntries).toBe(beforeTreeEntries);
+		expect(afterState).toBe(beforeState);
+	});
+
+	it("throws clearly when the bridge has no such item", async () => {
+		const bridge = new TestBridge({
+			initialItems: [
+				{ name: "FB_A", folder: "POUs", sourceText: fbSource("FB_A") },
+			],
+		});
+		await syncFromBridge(repoPath, bridge);
+		await expect(peekBridgeItem(bridge, "FB_DOES_NOT_EXIST")).rejects.toThrow(
+			/no item named 'FB_DOES_NOT_EXIST'/,
+		);
 	});
 });
 

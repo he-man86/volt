@@ -3,13 +3,16 @@
  * (in `cli/pull.ts` / `cli/push.ts`).
  *
  * Workspace layout: ONE FILE PER POU, extension picked by kind/language
- * (see `pou-files.ts` — `.st`/`.gvl`/`.dut`/`.itf` for ST-grammar
- * content, `.fbd`/`.ld`/`.sfc`/`.cfc` for graphical bodies). The file
- * is the unit of transfer: it contains the outer POU (FUNCTION_BLOCK /
- * PROGRAM / FUNCTION / INTERFACE) followed by its children (METHOD /
- * ACTION / PROPERTY) as TOP-LEVEL SIBLINGS. Parent association is
- * implicit from the file name (`POUs/FB_Motor.st` contains everything
- * related to `FB_Motor`).
+ * (see `pou-files.ts`). Every file holds plain ST — bodies authored
+ * graphically by the engineer are transpiled to ST at pull time so the
+ * workspace stays single-language (memory `st-only-workspace`). The
+ * source-language extension is preserved (`.fbd`, `.ld`) so the
+ * engineer's intent is visible at a glance. The file is the unit of
+ * transfer: it contains the outer POU (FUNCTION_BLOCK / PROGRAM /
+ * FUNCTION / INTERFACE) followed by its children (METHOD / ACTION /
+ * PROPERTY) as TOP-LEVEL SIBLINGS. Parent association is implicit from
+ * the file name (`POUs/FB_Motor.st` contains everything related to
+ * `FB_Motor`).
  *
  * Wire-shape v2 (2026-05-29): the bridge owns structural parsing of
  * `.st`. The agent sends a workspace file's raw contents as
@@ -57,11 +60,10 @@ import {
 	gitattributesContent,
 	isConfigKind,
 	isFolderKind,
-	isGraphicalPath,
 	nameFromPouPath,
 	pickExtension,
 } from "./pou-files.js";
-import { embedGraphicalBody, extractGraphicalBody } from "./graphical-pou.js";
+import { materializeGraphicalPouAsST } from "./transpile-graphical-to-st.js";
 
 // ─── Bridge → workspace materialization ────────────────────────────────
 
@@ -117,14 +119,45 @@ export async function syncFromBridge(
 		}
 	}
 
+	// Per-item materialization: one bad item must NOT prevent the
+	// other 30+ from landing in the workspace. On failure we log a
+	// clear per-item diagnostic (item name + computed path + the
+	// underlying error) and skip JUST that item; the rest continue.
+	//
+	// Skipped items are also removed from `items` and `folders` so
+	// they don't appear in `state.items` — that keeps push diff
+	// from emitting a phantom "delete this item" op against the
+	// bridge on the next push (where snapshot would say the item
+	// exists but workspace doesn't). Net effect: the next pull
+	// will try to materialize the item again with whatever the
+	// bridge sends — fix-on-bridge-side recovery happens for free.
+	const skipped: Array<{ name: string; reason: string }> = [];
 	for (const item of fetchResp.changed) {
-		const { path, content } = materializeItem(item);
-		entries.set(path, { path, sha: writeBlob(repoPath, normalizeLineEndings(content)) });
-		folders[item.name] = item.folder ?? "";
+		try {
+			const { path, content } = materializeItem(item);
+			entries.set(path, { path, sha: writeBlob(repoPath, normalizeLineEndings(content)) });
+			folders[item.name] = item.folder ?? "";
+		} catch (err) {
+			const reason = err instanceof Error ? err.message : String(err);
+			skipped.push({ name: item.name, reason });
+			delete items[item.name];
+			delete folders[item.name];
+			process.stderr.write(
+				`[skip] ${item.name} (${item.kind ?? "unknown kind"}): ${reason}\n`,
+			);
+		}
 	}
 
 	for (const name of fetchResp.removed) {
 		delete folders[name];
+	}
+
+	if (skipped.length > 0) {
+		process.stderr.write(
+			`\n${skipped.length} item(s) could not be materialized and were skipped. ` +
+				`The remaining items pulled cleanly. ` +
+				`Fix the bridge-side cause for each skipped item, then re-run \`volt pull\`.\n`,
+		);
 	}
 
 	const gitattributesSha = writeBlob(repoPath, gitattributesContent());
@@ -197,15 +230,63 @@ function materializeItem(item: FetchedItem): { path: string; content: string } {
 	}
 	const ext = pickExtension(kind, item.language);
 	const path = joinPath(folder, `${item.name}.${ext}`);
-	// Graphical POUs (FBD/LD/SFC/CFC): splice the PLCopenXML <body> into
-	// the textual declaration between END_VAR and END_PROGRAM. Keeps the
-	// variable section as plain ST (grep/diff/LLM-friendly) while
-	// preserving the graphical logic verbatim for future push.
+	// Graphical POUs (FBD/LD): the transpiler module owns the full
+	// pipeline (vendor-markup strip → topology walk → ST splice). On
+	// transpile failure it throws with a user-actionable message that
+	// the pull error path surfaces — no silent best-effort writes.
+	// See memory `st-only-workspace`.
 	const content =
 		item.implementationXml !== undefined && item.implementationXml !== null
-			? embedGraphicalBody(item.sourceText, item.implementationXml)
+			? materializeGraphicalPouAsST(item, item.implementationXml)
 			: item.sourceText;
 	return { path, content };
+}
+
+// ─── Pure-read primitive: peekBridgeItem ──────────────────────────────
+
+/**
+ * Pure-read primitive: ask the bridge for ONE item's current state
+ * and return its materialized `{path, content}` representation
+ * WITHOUT writing anywhere.
+ *
+ * Architectural boundary (see `project_graphical_read_only` and the
+ * post-launch UX plan): `syncFromBridge` is the only operation that
+ * persists bridge state to the snapshot and workspace. `peekBridgeItem`
+ * is the read counterpart — it asks the bridge "what does X look like
+ * right now?", runs the response through the same `materializeItem`
+ * machinery, and hands the bytes back. It does NOT touch:
+ *
+ *   - the snapshot's git blobs (no `writeBlob`)
+ *   - the snapshot's refs (no `updateRef`, no `buildTree`)
+ *   - `.volt/snapshot/state.json` (no `saveState`)
+ *   - the workspace tree (no `writeFileSync`)
+ *
+ * Used by `volt show BRIDGE <path>` to back the SCM extension's
+ * incoming-side diff click. The user can browse incoming changes
+ * freely; their workspace copy is never silently overwritten.
+ *
+ * If the bridge doesn't have the item, throws — the caller (`volt
+ * show`) translates that into a clean exit-2 with a user-readable
+ * error.
+ */
+export async function peekBridgeItem(
+	bridge: Remote,
+	name: string,
+): Promise<{ path: string; content: string }> {
+	// Force a full re-fetch of this single item by passing an empty
+	// version string in `knownItems` — the bridge then includes its
+	// current bytes in the `changed` array unconditionally.
+	const resp = await bridge.fetchChanges({ knownItems: { [name]: "" } });
+	const item = resp.changed.find((i) => i.name === name);
+	if (item === undefined) {
+		throw new Error(
+			`bridge has no item named '${name}' — check the spelling or run \`volt status\` to see what's available`,
+		);
+	}
+	// Reuse the same materializer the pull path uses, so the diff
+	// shows EXACTLY what a subsequent `volt pull` would write to
+	// the workspace. The return is `{path, content}` — no writes.
+	return materializeItem(item);
 }
 
 // ─── Drift-cause diagnostic ───────────────────────────────────────────
@@ -237,10 +318,22 @@ export async function workspaceMatchesBridge(
 	);
 
 	// Every bridge item must materialize to a workspace file with the
-	// identical content.
+	// identical content. A bridge item we can't materialize at all
+	// (malformed declaration, unknown kind, etc.) means we cannot
+	// answer "does the workspace match?" affirmatively — return false
+	// to force the caller to treat this as "doesn't match", which is
+	// the safe choice (worst case the user is shown drift they could
+	// have ignored; the alternative — throwing — kills `volt status`
+	// entirely on a single bad item).
 	const expectedPaths = new Set<string>([".gitattributes"]);
 	for (const item of bridgeItems) {
-		const { path, content } = materializeItem(item);
+		let path: string;
+		let content: string;
+		try {
+			({ path, content } = materializeItem(item));
+		} catch {
+			return false;
+		}
 		expectedPaths.add(path);
 		const wsContent = wsByPath.get(path);
 		if (wsContent === undefined) return false;
@@ -323,10 +416,6 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	for (const entry of entries) {
 		const name = nameFromPouPath(entry.path);
 		if (name === undefined) continue;
-		// Graphical POUs are now first-class in push too — the embedded
-		// PLCopenXML body in .fbd / .ld / .sfc / .cfc files gets extracted
-		// via extractGraphicalBody and sent alongside the textual decl
-		// (see emitPushItem below).
 		const segs = entry.path.split("/");
 		const folder = segs.slice(0, -1).join("/");
 		const existing = out.get(name);
@@ -404,12 +493,15 @@ function buildPushOps(
 }
 
 /**
- * Construct a `pushItem` op from a workspace file's content. For
- * graphical POUs, split the file via `extractGraphicalBody`:
- *   - `sourceText` carries the textual declaration only
- *   - `implementationXml` carries the raw `<body>` PLCopenXML
- * For ST POUs and graphical files lacking a body marker, send the
- * whole file as `sourceText` (bridge handles it via the splitter).
+ * Construct a `pushItem` op from a workspace file's content.
+ *
+ * The workspace is ST-only — graphical bodies are transpiled to ST
+ * at pull time (memory: `st-only-workspace`). Every push therefore
+ * carries plain text the bridge's StSplitter consumes directly.
+ *
+ * The agent NEVER sends `implementationXml` to the bridge. Graphical
+ * bodies live exclusively on the IDE side; the engineer authors them
+ * in CODESYS / TwinCAT, we only read them.
  */
 function buildPushItemOp(
 	name: string,
@@ -418,23 +510,6 @@ function buildPushItemOp(
 	ifVersion: string | null,
 ): PushItemOp {
 	const folderField = currFile.folder.length > 0 ? { folder: currFile.folder } : {};
-	if (isGraphicalPath(currFile.entry.path)) {
-		const parsed = extractGraphicalBody(currContent);
-		if (parsed !== null) {
-			return {
-				op: "pushItem",
-				name,
-				...folderField,
-				sourceText: parsed.declarationText,
-				implementationXml: parsed.bodyXml,
-				ifVersion,
-			};
-		}
-		// Graphical file with no embedded body — fall through to
-		// plain push. Bridge will run StSplitter on the whole content
-		// and either succeed (declaration-only file) or surface a
-		// parse error the caller can act on.
-	}
 	return {
 		op: "pushItem",
 		name,

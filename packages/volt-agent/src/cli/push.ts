@@ -28,15 +28,19 @@
  */
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join as pathJoin } from "node:path";
 import {
 	createDeterministicCommit,
 	listTree,
+	readBlob,
 	readBlobBytes,
 	resolveRef,
 	updateRef,
 } from "../engine/git-cmds.js";
+import { isMergingNow } from "../engine/merge.js";
 import { applyPushToBridge, syncFromBridge } from "../engine/ops.js";
-import { loadConfig, workspacePaths } from "../engine/config.js";
+import { effectivePushAllowExtensions, loadConfig, workspacePaths } from "../engine/config.js";
 import {
 	buildWorkspaceTreeSha,
 	computeIncoming,
@@ -44,10 +48,12 @@ import {
 	ensureSnapshotRepo,
 	hasChanges,
 	loadState,
+	reportSnapshotHeal,
 	saveState,
 	writeTreeToWorkspace,
 	type ChangeSet,
 } from "../engine/snapshot.js";
+import { isVoltError, VoltError, wrapEngineError } from "./_error.js";
 import { flagBool, flagString, type VerbFn } from "./_shared.js";
 
 export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
@@ -58,58 +64,129 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 
 	const root = resolve(workspace);
 	const paths = workspacePaths(root);
-	loadConfig(root);
-	ensureSnapshotRepo(paths.snapshotPath);
+	const cfg = loadConfig(root);
+	const heal = ensureSnapshotRepo(paths.snapshotPath);
+	reportSnapshotHeal(heal);
+
+	// Mid-merge guard. Mirror `git push` against an in-progress merge:
+	// the user MUST resolve the merge first so the push sends a
+	// coherent merged state, not a half-resolved one.
+	if (isMergingNow(paths.snapshotPath) !== undefined) {
+		throw new VoltError({
+			what: "push refused — merge in progress",
+			why: "you have unresolved conflicts from a 3-way merge",
+			hint: "run `volt merge --continue` (after resolving markers) or `volt merge --abort` to back out",
+			exitCode: 2,
+		});
+	}
 
 	const state = loadState(paths.snapshotPath);
 	if (state === undefined) {
-		throw new Error(
-			`no snapshot to diff against — run \`volt pull\` once before \`volt push\``,
-		);
+		throw new VoltError({
+			what: "no snapshot to diff against",
+			why: heal.rebuilt
+				? "the snapshot was just rebuilt because it was corrupt; there's nothing to diff yet"
+				: "this workspace has never been pulled, so there's no baseline to compute changes from",
+			hint: "run `volt pull` once before `volt push`",
+		});
 	}
 
 	// 1. Drift check against the live bridge.
+	//
+	// "Drift" = the bridge's items differ from our recorded items —
+	// NOT just that `projectVersion` differs. The bridge can bump its
+	// projectVersion for non-item reasons (TC's dirty-bit flips, a
+	// structural save without content change). Refusing on that
+	// produces phantom merge conflicts where nothing actually changed.
+	// Per "trust authoritative data": the items map is the truth;
+	// projectVersion is a cache key.
 	let driftAdoptedItems: ChangeSet | undefined;
-	if (!noDriftCheck) {
-		const refs = await bridge.getRefs();
-		if (refs.projectVersion !== state.projectVersion) {
-			const incoming = computeIncoming(refs.items, state.items);
-			const leaseHolds =
-				forceWithLease !== undefined && forceWithLease === refs.projectVersion;
-			if (forceWithLease !== undefined && !leaseHolds) {
-				printLeaseStale(forceWithLease, refs.projectVersion, incoming);
-				return 2;
-			}
-			if (!force && !leaseHolds) {
-				printDriftDetected(state.projectVersion, refs.projectVersion, incoming);
-				return 2;
-			}
-			if (hasChanges(incoming)) driftAdoptedItems = incoming;
-			// Dry-run must NOT persist the adopted state.
-			if (!dryRun) {
-				saveState(paths.snapshotPath, {
-					...state,
-					projectVersion: refs.projectVersion,
-					items: { ...refs.items },
-				});
-			}
-			state.projectVersion = refs.projectVersion;
-			state.items = { ...refs.items };
+	// Always refresh state from the bridge so `expectedProjectVersion`
+	// reflects reality on the wire. `--no-drift-check` only suppresses
+	// the user-facing REFUSAL on real drift — it doesn't (and shouldn't)
+	// mean "send stale expectedProjectVersion and let the bridge reject."
+	// That was the recorder's failure mode in P5: between two batched
+	// pushes, TC bumped projectVersion for non-content reasons, the
+	// recorder skipped the sync, and chunk 2's push got rejected on
+	// the bridge with "project-level drift".
+	const refs = await bridge.getRefs();
+	const projectVersionBumped = refs.projectVersion !== state.projectVersion;
+	const incoming = projectVersionBumped
+		? computeIncoming(refs.items, state.items)
+		: { added: [], removed: [], modified: [] };
+	const realDrift = projectVersionBumped && hasChanges(incoming);
+
+	if (realDrift && !noDriftCheck) {
+		const leaseHolds =
+			forceWithLease !== undefined && forceWithLease === refs.projectVersion;
+		if (forceWithLease !== undefined && !leaseHolds) {
+			printLeaseStale(forceWithLease, refs.projectVersion, incoming);
+			return 2;
 		}
+		if (!force && !leaseHolds) {
+			printDriftDetected(state.projectVersion, refs.projectVersion, incoming);
+			return 2;
+		}
+		driftAdoptedItems = incoming;
+	} else if (realDrift) {
+		// noDriftCheck: track adopted items so the post-push reconciler
+		// can sync any engineer-side additions into the workspace.
+		driftAdoptedItems = incoming;
+	}
+
+	if (projectVersionBumped && !dryRun) {
+		saveState(paths.snapshotPath, {
+			...state,
+			projectVersion: refs.projectVersion,
+			items: { ...refs.items },
+		});
+		state.projectVersion = refs.projectVersion;
+		state.items = { ...refs.items };
+	} else if (projectVersionBumped) {
+		// Dry-run still updates the in-memory state so the rest of
+		// this verb sees consistent data; the on-disk state is left
+		// alone (per the --dry-run contract).
+		state.projectVersion = refs.projectVersion;
+		state.items = { ...refs.items };
 	}
 
 	// 2. Build a workspace tree; nothing-to-push shortcut.
-	const newTreeSha = buildWorkspaceTreeSha(root, paths.snapshotPath);
+	let newTreeSha: string;
+	try {
+		newTreeSha = buildWorkspaceTreeSha(root, paths.snapshotPath);
+	} catch (err) {
+		if (isVoltError(err)) throw err;
+		throw wrapEngineError(err, "build workspace tree");
+	}
 	const parentSha = resolveRef(paths.snapshotPath, "refs/heads/main");
 	if (parentSha !== state.commitSha) {
-		throw new Error(
-			`snapshot HEAD (${parentSha ?? "<unborn>"}) doesn't match recorded commit (${state.commitSha})`,
-		);
+		throw new VoltError({
+			what: "internal snapshot inconsistency",
+			why: `snapshot HEAD (${parentSha ?? "<unborn>"}) doesn't match the recorded commit in state.json (${state.commitSha})`,
+			hint: "delete .volt/snapshot/ and run `volt pull --force` to rebuild from the bridge",
+		});
 	}
 	const headTreeSha = treeShaOfCommit(paths.snapshotPath, state.commitSha);
 	if (newTreeSha === headTreeSha) {
 		console.log("nothing to push — workspace matches snapshot.");
 		return 0;
+	}
+
+	// 2b. Per-extension push policy guard.
+	//
+	// `.volt/config.json`'s `pushPolicy.allowExtensions` declares which
+	// file types may travel from workspace to bridge. Files with any
+	// other extension are pull-only — useful for engineer-managed
+	// configs (.device, .visu, .recipes, .task, .tmc, .alarm, .trace,
+	// etc.) that the AI / user should be able to READ for context but
+	// never push back. Default allowlist when unset = ST-grammar files
+	// (.st, .gvl, .dut, .itf); graphical files are NOT in the default,
+	// matching the v1 graphical-read-only contract.
+	const allowExtensions = effectivePushAllowExtensions(cfg);
+	const policyRefusals = findPolicyRefusals(root, paths.snapshotPath, state.commitSha, allowExtensions);
+	if (policyRefusals.length > 0) {
+		printPolicyRefusal(policyRefusals, allowExtensions);
+		return 2;
 	}
 
 	// 3. Compute the per-item delta BEFORE the push for the OK response.
@@ -133,10 +210,20 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 		state.commitSha,
 		"workspace push",
 	);
-	const result = await applyPushToBridge(paths.snapshotPath, bridge, newCommitSha);
+	let result: Awaited<ReturnType<typeof applyPushToBridge>>;
+	try {
+		result = await applyPushToBridge(paths.snapshotPath, bridge, newCommitSha);
+	} catch (err) {
+		if (isVoltError(err)) throw err;
+		throw wrapEngineError(err, "send push to bridge");
+	}
 	if (!result.accepted) {
-		process.stderr.write(`bridge rejected push: ${result.reason}\n`);
-		return 2;
+		throw new VoltError({
+			what: "bridge rejected push",
+			why: result.reason,
+			hint: "run `volt status` to see current state, then `volt pull` to bring in IDE changes — or retry with `--force` to override",
+			exitCode: 2,
+		});
 	}
 
 	// 5. Advance snapshot HEAD so the next push diffs against the right
@@ -176,7 +263,13 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 
 function treeShaOfCommit(repoPath: string, commitSha: string): string {
 	const r = spawnSync("git", ["-C", repoPath, "rev-parse", `${commitSha}^{tree}`], { encoding: "utf-8" });
-	if (r.status !== 0) throw new Error(`rev-parse ${commitSha}^{tree} failed: ${r.stderr}`);
+	if (r.status !== 0) {
+		throw new VoltError({
+			what: "could not resolve snapshot commit",
+			why: `git rev-parse ${commitSha}^{tree} exited ${r.status ?? "?"}: ${r.stderr.trim()}`,
+			hint: "snapshot may be corrupt — delete .volt/snapshot/ and run `volt pull --force` to rebuild",
+		});
+	}
 	return r.stdout.trim();
 }
 
@@ -222,6 +315,97 @@ function printDriftDetected(localVersion: string, bridgeVersion: string, incomin
 			`(force does NOT delete the engineer's items — it bypasses the version guard and ` +
 			`reconciles your workspace with the bridge afterwards).\n`,
 	);
+}
+
+/**
+ * Walk every changed-or-added workspace file and return those whose
+ * file extension is NOT in the workspace's `pushPolicy.allowExtensions`.
+ * The check compares the file's lowercase extension (with leading dot)
+ * against the allowlist; files with no extension are always refused
+ * (they're never POU sources). Snapshot blobs identical to workspace
+ * files are skipped — only diff-emitting files are considered.
+ */
+function findPolicyRefusals(
+	workspaceRoot: string,
+	snapshotPath: string,
+	commitSha: string,
+	allowExtensions: readonly string[],
+): Array<{ path: string; ext: string }> {
+	const refused: Array<{ path: string; ext: string }> = [];
+	const allowSet = new Set(allowExtensions.map((e) => e.toLowerCase()));
+
+	const snapshotEntries = listTree(snapshotPath, commitSha);
+	const snapshotByPath = new Map<string, string>();
+	for (const e of snapshotEntries) snapshotByPath.set(e.path, e.sha);
+
+	const wsFiles = listWorkspaceFiles(workspaceRoot);
+	for (const wsPath of wsFiles) {
+		// Pull extension (lowercased, with leading dot).
+		const dot = wsPath.lastIndexOf(".");
+		const ext = dot >= 0 ? wsPath.slice(dot).toLowerCase() : "";
+		if (allowSet.has(ext)) continue;
+
+		const wsAbs = `${workspaceRoot.replace(/[\\/]+$/, "")}/${wsPath}`;
+		const wsContent = readFileSync(wsAbs);
+		const wsHash = hashBytes(wsContent);
+		const snapshotSha = snapshotByPath.get(wsPath);
+		// Identical to snapshot → no diff, no push attempt; skip.
+		if (snapshotSha !== undefined) {
+			const snapHash = hashBytes(readBlobBytes(snapshotPath, snapshotSha));
+			if (wsHash === snapHash) continue;
+		}
+		refused.push({ path: wsPath, ext: ext.length > 0 ? ext : "(no ext)" });
+	}
+	return refused;
+}
+
+/** Cheap, stable byte hash for content equality. Uses node's built-in
+ *  hash so we don't pull in a dependency. */
+function hashBytes(buf: Buffer): string {
+	const { createHash } = require("node:crypto") as typeof import("node:crypto");
+	return createHash("sha1").update(buf).digest("hex");
+}
+
+function printPolicyRefusal(
+	refused: Array<{ path: string; ext: string }>,
+	allowExtensions: readonly string[],
+): void {
+	process.stderr.write(
+		`refused: ${refused.length} file(s) have extensions not in this workspace's push allowlist.\n\n`,
+	);
+	process.stderr.write("Files refused:\n");
+	for (const r of refused) process.stderr.write(`  ${r.ext.padEnd(10)} ${r.path}\n`);
+	process.stderr.write(
+		`\nCurrent push allowlist: ${allowExtensions.join(", ")}\n` +
+			`\nThese files were pulled so AI / you can READ them, but pushing\n` +
+			`them back risks overwriting engineer-managed config. If you really\n` +
+			`want to push them, edit .volt/config.json:\n\n` +
+			`  "pushPolicy": {\n` +
+			`    "allowExtensions": [".st", ".gvl", ".dut", ".itf", "<add yours>"]\n` +
+			`  }\n`,
+	);
+}
+
+/**
+ * List every file under `root`, returning paths relative to `root`
+ * with forward slashes. Excludes `.volt/`, `.git/`, and any hidden
+ * dotfiles at any depth — same exclusions used by
+ * `buildWorkspaceTreeSha` so we walk the same surface.
+ */
+function listWorkspaceFiles(root: string): string[] {
+	const out: string[] = [];
+	function walk(dir: string, rel: string): void {
+		const entries = readdirSync(dir, { withFileTypes: true });
+		for (const e of entries) {
+			if (e.name.startsWith(".")) continue;
+			const childAbs = pathJoin(dir, e.name);
+			const childRel = rel.length === 0 ? e.name : `${rel}/${e.name}`;
+			if (e.isDirectory()) walk(childAbs, childRel);
+			else if (e.isFile()) out.push(childRel);
+		}
+	}
+	walk(root, "");
+	return out;
 }
 
 function printLeaseStale(expectedVersion: string, bridgeVersion: string, incoming: ChangeSet): void {

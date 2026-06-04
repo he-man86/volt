@@ -7,16 +7,11 @@
  * pull.ts remove-detection) imports from here so adding a new extension
  * is a one-place change.
  *
- * Two extension families:
- *  - **ST-content** (.st/.gvl/.dut/.itf): parsable ST grammar; pull +
- *    push round-trip via plain text.
- *  - **Graphical** (.fbd/.ld/.sfc/.cfc): textual declaration plus a
- *    PLCopenXML `<body>` block (see `graphical-pou.ts`). Pull + push
- *    round-trip works update-only — creating a NEW graphical POU
- *    from a `.fbd` file isn't supported yet (bridge create_pou path
- *    can't set body language). `isGraphicalPath` flags these files
- *    so the engine routes them through the graphical-aware splitter
- *    rather than treating their content as raw ST.
+ * Every workspace POU lands on disk as one of the ST-content
+ * extensions (.st / .gvl / .dut / .itf). Graphical bodies (FBD / LD)
+ * are transpiled to ST at pull time by volt-agent's transpiler —
+ * see memory `st-only-workspace` and
+ * `engine/transpile-graphical-to-st.ts`.
  */
 import type { PouKind } from "../bridge/types.js";
 
@@ -84,7 +79,15 @@ export const CONFIG_KIND_EXT: Record<string, string> = {
 /** Catch-all extension for any non-source kind without an explicit mapping. */
 const CONFIG_FALLBACK_EXT = "xml";
 
-/** Extension per body language. Applies to POU body kinds only. */
+/** Extension per body language. Applies to POU body kinds only.
+ *
+ *  Graphical POUs are transpiled to ST at pull time but RETAIN their
+ *  source-language extension on disk — `.fbd` for FBD, `.ld` for LD —
+ *  so the user (and AI) can see at a glance which files came from
+ *  graphical sources. The file CONTENT is still ST; the VS Code
+ *  extension routes `plc-fbd` / `plc-ld` languageIds to the same ST
+ *  LSP server, so analysis is uniform. SFC and CFC are not yet
+ *  transpiled; the transpiler refuses them with a loud error. */
 const LANG_EXT: Record<string, string> = {
 	ST: "st",
 	FBD: "fbd",
@@ -108,22 +111,9 @@ export const CONFIG_EXTENSIONS = Array.from(
 	]),
 );
 
-/** Graphical-language extensions — files with PLCopenXML body block. */
-const GRAPHICAL_EXTENSIONS = [".fbd", ".ld", ".sfc", ".cfc"] as const;
-
-/** True if a workspace-relative path is a POU file (any recognized ST or graphical extension). */
+/** True if a workspace-relative path is a POU file (any recognized ST extension). */
 function isPouPath(path: string): boolean {
 	return POU_EXTENSIONS.some((e) => path.endsWith(e));
-}
-
-/**
- * True if the path is a graphical-language POU. Used to route the
- * file through `extractGraphicalBody` during push so the embedded
- * PLCopenXML body gets sent as `implementationXml` (not crammed
- * into `sourceText` where StSplitter would choke on the XML).
- */
-export function isGraphicalPath(path: string): boolean {
-	return GRAPHICAL_EXTENSIONS.some((e) => path.endsWith(e));
 }
 
 /**

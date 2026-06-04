@@ -1,0 +1,6463 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`language conformance (LSP vs twincat recording) hide_var LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_var",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) call_after_init LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_init",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) warning_message LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "lspWarnings": 1,
+  "name": "warning_message",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) noinit LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "noinit",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) init_on_onlchange LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_on_onlchange",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) displaymode_hex LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_hex",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_copy LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_copy",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) linkalways LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_check LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_check",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_instance_in_retain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_instance_in_retain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) hide_all_locals LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_all_locals",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_assign LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_assign",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) reflection LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "reflection",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) unknown_attribute_typo LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "unknown_attribute_typo",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) enable_dynamic_creation LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "enable_dynamic_creation",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) const_replaced LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_replaced",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) const_non_replaced LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_non_replaced",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) global_init_slot LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "global_init_slot",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) monitoring_display LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_display",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) monitoring_encoding LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_encoding",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) subsequent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "subsequent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) suppress_warning LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditionalshow LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pingroup LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pingroup",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) info_message LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[info] this is a deliberate test info",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[information] this is a deliberate test info",
+  ],
+  "lspWarnings": 0,
+  "name": "info_message",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) text_message LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[info] this is a deliberate test text",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[hint] this is a deliberate test text",
+  ],
+  "lspWarnings": 0,
+  "name": "text_message",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) instance_path_with_reflection LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "instance_path_with_reflection",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) displaymode_bin LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_bin",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) displaymode_dec LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_dec",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) displaymode_invalid_value LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_invalid_value",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) suppress_warning_multi LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning_multi",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_init_aliases LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_init_aliases",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) linkalways_with_unused_pou LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways_with_unused_pou",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditionalshow_all_locals LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow_all_locals",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pin_presentation_order LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) estimated_stack_usage LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "estimated_stack_usage",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) no_virtual_actions LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_virtual_actions",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) io_function_block LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "io_function_block",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) call_after_global_init_slot LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_global_init_slot",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) warning_disable_restore LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "warning_disable_restore",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) call_after_online_change_slot LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_online_change_slot",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) call_before_global_exit_slot LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_before_global_exit_slot",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) call_on_type_change LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_on_type_change",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pin_presentation_order_outputs LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_outputs",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pin_presentation_order_wildcard LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_wildcard",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) implicit_parameter_pouname LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "implicit_parameter_pouname",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) region_basic LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_basic",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) error_message LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "lspWarnings": 0,
+  "name": "error_message",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) region_pragma_basic LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_basic",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) region_pragma_nested LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_nested",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pragma_unknown_directive LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_unknown_directive",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pragma_conflicting_pair LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflicting_pair",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_init_canonical LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_canonical",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_reinit_canonical LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_canonical",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_exit_canonical LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_exit_canonical",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_init_wrong_return_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_wrong_return_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_init_missing_bInCopyCode LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] An 'FB_Init'-Method of a functionblock or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL.",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_init_missing_bInCopyCode",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_exit_missing_bInCopyCode LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] An 'FB_Exit'-Method of a functionblock or struct needs an input 'bInCopyCode' of type BOOL.",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_exit_missing_bInCopyCode",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) fb_reinit_with_params LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_with_params",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) identifier_double_underscore LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 5,
+  "ideMessages": [
+    "[error] Unexpected Token '__systemReserved' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected Token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected Token 'INT' found",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Identifiers starting with '__' are reserved for system-generated names",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_double_underscore",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) identifier_consecutive_underscores LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 5,
+  "ideMessages": [
+    "[error] Unexpected Token 'foo__bar' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected Token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected Token 'INT' found",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Multiple consecutive underscores are not permitted in identifiers",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_consecutive_underscores",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) identifier_backtick_keyword_escape LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "identifier_backtick_keyword_escape",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) init_slot_default_50000 LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_default_50000",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) init_slot_reserved_alarm_manager LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_alarm_manager",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) init_slot_reserved_device_object LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_device_object",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) init_slot_user_early LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_user_early",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) shadowing_method_local_shadows_member LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_member",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) shadowing_method_param_shadows_member LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_param_shadows_member",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) shadowing_method_local_shadows_fb_var LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_fb_var",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_int_to_real_valid LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_valid",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_real_to_int_valid LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_real_to_int_valid",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_int_to_real_wrong_source LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'REAL' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_wrong_source",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_dint_to_int_wrong_source LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dint_to_int_wrong_source",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_implicit_dint_to_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'DINT' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_implicit_dint_to_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_bool_to_int_valid LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_bool_to_int_valid",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_int_to_bool_valid LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_bool_valid",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_time_to_dword LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_time_to_dword",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_date_to_string LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_date_to_string",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_dt_to_date LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dt_to_date",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_trunc_real_to_dint LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_real_to_dint",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_trunc_int_real_to_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_int_real_to_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conversion_overloaded_to_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_overloaded_to_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) duplicate_declaration LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] A local variable named 'iCounter' is already defined in 'FB_LANG_duplicate_declaration'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'iCounter' is already declared in this scope",
+  ],
+  "lspWarnings": 0,
+  "name": "duplicate_declaration",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) unresolved_identifier_in_body LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iThisIdentifierDoesNotExistAnywhere'' to type 'INT'",
+    "[error] Identifier 'iThisIdentifierDoesNotExistAnywhere' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'iThisIdentifierDoesNotExistAnywhere' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "unresolved_identifier_in_body",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflict_hide_plus_monitoring",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) deref_on_array_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'arr^'' to type 'INT'",
+    "[error] Dereference requires Pointer",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot dereference 'arr': 'ARRAY' is not a pointer type.",
+  ],
+  "lspWarnings": 0,
+  "name": "deref_on_array_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditional_define_then_if LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_define_then_if",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditional_else_branch_taken LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_else_branch_taken",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditional_elsif_chain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_elsif_chain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditional_orphan_else LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
+    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+  ],
+  "lspWarnings": 0,
+  "name": "conditional_orphan_else",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) conditional_undefine_after_define LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_undefine_after_define",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_arithmetic_same_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_same_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_arithmetic_int_plus_dint LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_dint",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_arithmetic_int_plus_real LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_real",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_modulo_on_real LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'MOD' is not defined for 'REAL'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_modulo_on_real",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_comparison_int_vs_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_comparison_int_vs_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_logical_bool LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_logical_bool",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_bitwise_on_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_bitwise_on_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_shift_left LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_left",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_arithmetic_bool_plus_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_bool_plus_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sel_bool_picker LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sel_bool_picker",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_mux_multi_select LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_mux_multi_select",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_min_max LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_min_max",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_limit_clamp LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_limit_clamp",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_abs LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_abs",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_sqrt_real LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_sqrt_real",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_ln LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_ln",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_log LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_log",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_exp LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_exp",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_inverse_trig LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_inverse_trig",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_trig LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_trig",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_math_expt LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_expt",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_shift_right LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_right",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_rotate_left LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_left",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_rotate_right LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_right",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_isvalidref LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_isvalidref",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_varinfo LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] ';' expected instead of '.'",
+    "[warning] The code '.size;",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__VARINFO' is CODESYS-only and not supported by TwinCAT.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_varinfo",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_currenttask LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] ';' expected instead of end of POU",
+    "[error] Expression expected instead of ''",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__CURRENTTASK' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'Tc2_System.GetCurTaskIndex' (TC exposes task context via the Tc2_System library).",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_currenttask",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_try_catch LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Identifier 'exc' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 4,
+  "lspMessages": [
+    "[warning] 'exc' is not defined in any reachable scope",
+    "[error] Operator '__TRY' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'PLC_Exception' (TC uses error-flag patterns or PLC_Exception traps).",
+    "[error] Operator '__CATCH' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__FINALLY' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__ENDTRY' is CODESYS-only and not supported by TwinCAT.",
+  ],
+  "lspWarnings": 1,
+  "name": "op_sys_try_catch",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_new_delete LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_new_delete",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) op_sys_queryinterface LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 3,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: '__QUERYINTERFACE(THIS^, ITF_LANG_with_method)'' to type 'BOOL'",
+    "[error] Unknown type: 'ITF_LANG_with_method'",
+    "[error] Identifier 'ITF_LANG_with_method' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Operator '__QUERYINTERFACE' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: '(TwinCAT.SystemBase)' (TC uses its own runtime-interface primitives).",
+  ],
+  "lspWarnings": 0,
+  "name": "op_sys_queryinterface",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_hex LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_hex",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_binary LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_binary",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_octal LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_octal",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_typed_int_hash LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_typed_int_hash",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_real_scientific LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_real_scientific",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_time LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_time",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_date LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_date",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_tod LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_tod",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_string_single_quoted LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_string_single_quoted",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_wstring_double_quoted LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_wstring_double_quoted",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) literal_string_to_int_assignment LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'STRING(INT#4)' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "literal_string_to_int_assignment",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_empty LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_empty_impl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty_impl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_with_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_with_method_impl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method_impl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_missing_implementation LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] There is no implementation for method 'COMPUTE' defined in interface 'ITF_LANG_WITH_METHOD'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB 'FB_LANG_interface_missing_implementation' implements 'ITF_LANG_with_method' but doesn't provide method 'Compute'.",
+  ],
+  "lspWarnings": 0,
+  "name": "interface_missing_implementation",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_extends_another LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_extends_another",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_extends_another_impl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_extends_another_impl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_method_with_return_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_method_with_return_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_method_with_return_type_impl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_method_with_return_type_impl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_with_property LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_property",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) interface_with_property_impl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] There is no implementation for method '__SETVALUE' defined in interface 'ITF_LANG_WITH_PROPERTY'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB 'FB_LANG_with_property_impl' implements 'ITF_LANG_with_property' but doesn't provide property 'Value'.",
+  ],
+  "lspWarnings": 0,
+  "name": "interface_with_property_impl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_base LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_base",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_extends_simple LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_simple",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_extends_with_override LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_override",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_extends_with_super LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_super",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_final_fb LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_final_fb",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_abstract_fb LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_fb",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_abstract_instantiated LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_instantiated",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) oop_action_block LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_action_block",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_array_of_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_of_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_array_2d LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_2d",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_pointer_to_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_pointer_to_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_reference_to_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_reference_to_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_string_n LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_string_n",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_var_temp_in_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'VAR_TEMP' declaration not allowed in this place",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] VAR_TEMP is not allowed inside a METHOD — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_var_temp_in_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_var_constant LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_var_constant",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_deref_non_pointer LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iValue^'' to type 'INT'",
+    "[error] Dereference requires Pointer",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot dereference 'iValue': 'INT' is not a pointer type.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_deref_non_pointer",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_simple LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_simple",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_extends LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_extends",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_nested LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_nested",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_enum_simple LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_simple",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_enum_with_base LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_with_base",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_enum_explicit_values LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_explicit_values",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_alias_int LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_int",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_alias_string LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_string",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_union LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_union",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_subrange LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_subrange",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_any_function_input LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_function_input",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_any_int_function_input LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_int_function_input",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_codesys_xint LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xint",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_codesys_uxint LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_uxint",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_codesys_xword LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xword",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_codesys_vector LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 3,
+  "ideMessages": [
+    "[error] Type definition expected instead of '__VECTOR'",
+    "[error] 'vec4[0]' is no valid assignment target",
+    "[error] Identifier 'vec4' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Type '__VECTOR' is CODESYS-only and not supported by TwinCAT. TwinCAT has no SIMD primitive — use \`ARRAY[0..N-1] OF T\` for fixed-size containers.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_codesys_vector",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_codesys_version LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_version",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_implicit_enum_inline LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_implicit_enum_inline",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_with_bit_fields LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_with_bit_fields",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_alias_with_init LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_with_init",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_input_output_inout_on_fb LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_output_inout_on_fb",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_input_constant LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_constant",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_inst_in_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_inst_in_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_stat_in_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_stat_in_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_retain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_retain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_persistent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_persistent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_non_retain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 7,
+  "ideMessages": [
+    "[error] Type definition expected instead of 'END_VAR'",
+    "[error] 'END_VAR' expected instead of ''",
+    "[error] ',, AT or :' expected instead of 'iCount'",
+    "[error] Identifier 'iCount' not defined",
+    "[error] 'iCount' is no valid assignment target",
+    "[error] Unknown type: 'iCount'",
+    "[error] Identifier 'iCount' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] NON_RETAIN is only meaningful in retain-cascade contexts (e.g. inside a GVL that's RETAIN). Bare 'VAR NON_RETAIN' is rejected by TC.",
+  ],
+  "lspWarnings": 0,
+  "name": "var_non_retain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_config_address_binding LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_config_address_binding",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_external_gvl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_gvl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_external_consumer LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_consumer",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_output_on_function LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_output_on_function",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) var_inline_enum_decl LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_inline_enum_decl",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_if_elsif_else LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_if_elsif_else",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_case_of_else LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_case_of_else",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_for_to_by_do LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_for_to_by_do",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_while_do LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_while_do",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_repeat_until LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_repeat_until",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_exit_in_loop LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_exit_in_loop",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_continue_in_loop LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_continue_in_loop",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) ctrl_return_from_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_return_from_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) keyword_this_dereference LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_this_dereference",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) keyword_null_pointer_init LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_null_pointer_init",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) operand_bit_access_byte LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_access_byte",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) operand_bit_assign_word LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_assign_word",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) operand_partial_word_in_dword LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 4,
+  "ideMessages": [
+    "[error] ';' expected instead of 'W1'",
+    "[error] '%' is no component of 'dwSource'",
+    "[warning] The code 'W1;",
+    "[error] ';' expected instead of 'B3'",
+    "[error] '%' is no component of 'dwSource'",
+    "[warning] The code 'B3;",
+  ],
+  "ideWarnings": 2,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'W1' is not defined in any reachable scope",
+    "[warning] 'B3' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 2,
+  "name": "operand_partial_word_in_dword",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) operand_hw_address_marker LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_hw_address_marker",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) operand_uchar_literal LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 5,
+  "ideMessages": [
+    "[error] ';' expected instead of 'UCHAR#'",
+    "[error] Expression expected instead of 'UCHAR#'",
+    "[error] Unexpected Token 'UCHAR#' found",
+    "[error] ';' expected instead of ''A''",
+    "[error] Unexpected Token ''A'' found",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'UCHAR' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "operand_uchar_literal",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_method_call_no_args LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_no_args",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_method_call_one_input LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_one_input",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_method_call_named_args LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_named_args",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_method_returns_value LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_returns_value",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_property_read LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_property_read",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_property_write LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_property_write",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_fb_callable LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_callable",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_struct_member_access LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_member_access",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_struct_nested_member LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_nested_member",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_gvl_field_access LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_gvl_field_access",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_this_member_in_method LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_this_member_in_method",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_function_call_with_arg LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_function_call_with_arg",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_array_indexed_method_call LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_array_indexed_method_call",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_pointer_deref_struct_field LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_pointer_deref_struct_field",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_self_method_call LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_self_method_call",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_method_array_param LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_method_array_param",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) hide_var LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_var",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) call_after_init LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_init",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) warning_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "warning_message",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) noinit LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "noinit",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_on_onlchange LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_on_onlchange",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_hex LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_hex",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_copy LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_copy",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) linkalways LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_check LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_check",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_instance_in_retain LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_instance_in_retain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) hide_all_locals LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "hide_all_locals",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_assign LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_assign",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) reflection LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "reflection",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) unknown_attribute_typo LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "unknown_attribute_typo",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) enable_dynamic_creation LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "enable_dynamic_creation",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) const_replaced LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_replaced",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) const_non_replaced LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "const_non_replaced",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) global_init_slot LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "global_init_slot",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) monitoring_display LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_display",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) monitoring_encoding LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "monitoring_encoding",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) subsequent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "subsequent",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) suppress_warning LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditionalshow LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pingroup LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pingroup",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) info_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "info_message",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) text_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "text_message",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) instance_path_with_reflection LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "instance_path_with_reflection",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_bin LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_bin",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_dec LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_dec",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_invalid_value LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "displaymode_invalid_value",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) suppress_warning_multi LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "suppress_warning_multi",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_init_aliases LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_init_aliases",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) linkalways_with_unused_pou LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "linkalways_with_unused_pou",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditionalshow_all_locals LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditionalshow_all_locals",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pin_presentation_order LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) estimated_stack_usage LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "estimated_stack_usage",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_virtual_actions LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "no_virtual_actions",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) io_function_block LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "io_function_block",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) call_after_global_init_slot LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_global_init_slot",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) warning_disable_restore LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "warning_disable_restore",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) call_after_online_change_slot LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_after_online_change_slot",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) call_before_global_exit_slot LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_before_global_exit_slot",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) call_on_type_change LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "call_on_type_change",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pin_presentation_order_outputs LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_outputs",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pin_presentation_order_wildcard LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pin_presentation_order_wildcard",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) implicit_parameter_pouname LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] The attribute implicit-parameter is unknown and will be ignored by the  compiler.",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "implicit_parameter_pouname",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) region_basic LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_basic",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) error_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "error_message",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) region_pragma_basic LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_basic",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) region_pragma_nested LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "region_pragma_nested",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pragma_unknown_directive LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_unknown_directive",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pragma_conflicting_pair LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflicting_pair",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_init_canonical LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_canonical",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_reinit_canonical LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_canonical",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_exit_canonical LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_exit_canonical",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_init_wrong_return_type LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_init_wrong_return_type",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_init_missing_bInCopyCode LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_init_missing_bInCopyCode",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_exit_missing_bInCopyCode LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL.",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
+  ],
+  "lspWarnings": 0,
+  "name": "fb_exit_missing_bInCopyCode",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) fb_reinit_with_params LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "fb_reinit_with_params",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) identifier_double_underscore LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "identifier_double_underscore",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) identifier_consecutive_underscores LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "identifier_consecutive_underscores",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) identifier_backtick_keyword_escape LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "identifier_backtick_keyword_escape",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_slot_default_50000 LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_default_50000",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_slot_reserved_alarm_manager LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_alarm_manager",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_slot_reserved_device_object LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_reserved_device_object",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_slot_user_early LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "init_slot_user_early",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) shadowing_method_local_shadows_member LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_member",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) shadowing_method_param_shadows_member LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_param_shadows_member",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) shadowing_method_local_shadows_fb_var LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "shadowing_method_local_shadows_fb_var",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_int_to_real_valid LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_valid",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_real_to_int_valid LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_real_to_int_valid",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_int_to_real_wrong_source LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'REAL' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_real_wrong_source",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_dint_to_int_wrong_source LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dint_to_int_wrong_source",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_implicit_dint_to_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'DINT' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "conversion_implicit_dint_to_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_bool_to_int_valid LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_bool_to_int_valid",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_int_to_bool_valid LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_int_to_bool_valid",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_time_to_dword LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_time_to_dword",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_date_to_string LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_date_to_string",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_dt_to_date LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_dt_to_date",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_trunc_real_to_dint LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_real_to_dint",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_trunc_int_real_to_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_trunc_int_real_to_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conversion_overloaded_to_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conversion_overloaded_to_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) duplicate_declaration LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "duplicate_declaration",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) unresolved_identifier_in_body LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iThisIdentifierDoesNotExistAnywhere'' to type 'INT'",
+    "[error] Identifier 'iThisIdentifierDoesNotExistAnywhere' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'iThisIdentifierDoesNotExistAnywhere' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "unresolved_identifier_in_body",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflict_hide_plus_monitoring",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) deref_on_array_type LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'arr^'' to type 'INT'",
+    "[error] Dereference requires a pointer",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot dereference 'arr': 'ARRAY' is not a pointer type.",
+  ],
+  "lspWarnings": 0,
+  "name": "deref_on_array_type",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditional_define_then_if LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_define_then_if",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditional_else_branch_taken LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_else_branch_taken",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditional_elsif_chain LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_elsif_chain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditional_orphan_else LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Unexpected pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected pragma: 'END_IF' found without matching 'if'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
+    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+  ],
+  "lspWarnings": 0,
+  "name": "conditional_orphan_else",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditional_undefine_after_define LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "conditional_undefine_after_define",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_arithmetic_same_type LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_same_type",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_arithmetic_int_plus_dint LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_dint",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_arithmetic_int_plus_real LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_int_plus_real",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_modulo_on_real LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] MOD is not defined for REAL",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_modulo_on_real",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_comparison_int_vs_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_comparison_int_vs_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_logical_bool LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_logical_bool",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_bitwise_on_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_bitwise_on_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_shift_left LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_left",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_arithmetic_bool_plus_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+  ],
+  "lspWarnings": 0,
+  "name": "op_arithmetic_bool_plus_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sel_bool_picker LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sel_bool_picker",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_mux_multi_select LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_mux_multi_select",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_min_max LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_min_max",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_limit_clamp LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_limit_clamp",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_abs LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_abs",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_sqrt_real LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_sqrt_real",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_ln LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_ln",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_log LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_log",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_exp LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_exp",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_inverse_trig LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_inverse_trig",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_trig LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_trig",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_math_expt LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_math_expt",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_shift_right LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_shift_right",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_rotate_left LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_left",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_rotate_right LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_rotate_right",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_isvalidref LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_isvalidref",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_varinfo LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] ';' expected instead of '.'",
+    
+"[warning] The code '.size;
+' has no effect. Is this the intent?"
+,
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_varinfo",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_currenttask LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] ';' expected instead of end of POU",
+    "[error] Expression expected instead of ''",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_currenttask",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_try_catch LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Identifier 'exc' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'exc' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "op_sys_try_catch",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_new_delete LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] No memory for dynamic object creation defined for application 'Device.Application'",
+    "[error] No memory for dynamic object creation defined for application 'Device.Application'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_new_delete",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) op_sys_queryinterface LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 3,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: '__QUERYINTERFACE(THIS^, ITF_LANG_with_method)'' to type 'BOOL'",
+    "[error] Unknown type: 'ITF_LANG_with_method'",
+    "[error] Identifier 'ITF_LANG_with_method' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "op_sys_queryinterface",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_hex LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_hex",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_binary LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_binary",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_octal LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_octal",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_typed_int_hash LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_typed_int_hash",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_real_scientific LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_real_scientific",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_time LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_time",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_date LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_date",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_tod LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_tod",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_string_single_quoted LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_string_single_quoted",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_wstring_double_quoted LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "literal_wstring_double_quoted",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) literal_string_to_int_assignment LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'STRING(INT#4)' to type 'INT'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
+  ],
+  "lspWarnings": 0,
+  "name": "literal_string_to_int_assignment",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_empty LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_empty_impl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_empty_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_with_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_with_method_impl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_method_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_missing_implementation LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_missing_implementation",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_extends_another LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_extends_another",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_extends_another_impl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_extends_another_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_method_with_return_type LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_method_with_return_type",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_method_with_return_type_impl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_method_with_return_type_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_with_property LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_property",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_with_property_impl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_property_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_base LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_base",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_extends_simple LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_simple",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_extends_with_override LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_override",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_extends_with_super LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_extends_with_super",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_final_fb LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_final_fb",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_abstract_fb LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_fb",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_abstract_instantiated LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_abstract_instantiated",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_action_block LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "oop_action_block",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_array_of_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_of_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_array_2d LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_array_2d",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_pointer_to_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_pointer_to_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_reference_to_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_reference_to_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_string_n LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_string_n",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_var_temp_in_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] VAR_TEMP declaration not allowed in this place",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] VAR_TEMP is not allowed inside a METHOD — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_var_temp_in_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_var_constant LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_var_constant",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_deref_non_pointer LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] Cannot convert type 'Unknown type: 'iValue^'' to type 'INT'",
+    "[error] Dereference requires a pointer",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot dereference 'iValue': 'INT' is not a pointer type.",
+  ],
+  "lspWarnings": 0,
+  "name": "type_deref_non_pointer",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_simple LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_simple",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_extends LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_extends",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_nested LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_nested",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_enum_simple LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_simple",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_enum_with_base LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_with_base",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_enum_explicit_values LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_enum_explicit_values",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_alias_int LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_int",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_alias_string LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_string",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_union LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_union",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_subrange LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_subrange",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_any_function_input LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_function_input",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_any_int_function_input LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_any_int_function_input",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_codesys_xint LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xint",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_codesys_uxint LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_uxint",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_codesys_xword LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_xword",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_codesys_vector LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_vector",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_codesys_version LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_codesys_version",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_implicit_enum_inline LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_implicit_enum_inline",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_with_bit_fields LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_with_bit_fields",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_alias_with_init LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_alias_with_init",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_input_output_inout_on_fb LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_output_inout_on_fb",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_input_constant LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_input_constant",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_inst_in_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_inst_in_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_stat_in_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_stat_in_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_retain LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_retain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_persistent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_persistent",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_non_retain LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 4,
+  "ideMessages": [
+    "[error] Identifier 'iCount' not defined",
+    "[error] 'iCount' is no valid assignment target",
+    "[error] Unknown type: 'iCount'",
+    "[error] Identifier 'iCount' not defined",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] NON_RETAIN is only meaningful in retain-cascade contexts (e.g. inside a GVL that's RETAIN). Bare 'VAR NON_RETAIN' is rejected by TC.",
+  ],
+  "lspWarnings": 0,
+  "name": "var_non_retain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_config_address_binding LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_config_address_binding",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_external_gvl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_gvl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_external_consumer LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_consumer",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_output_on_function LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_output_on_function",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_inline_enum_decl LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_inline_enum_decl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_if_elsif_else LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_if_elsif_else",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_case_of_else LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_case_of_else",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_for_to_by_do LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_for_to_by_do",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_while_do LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_while_do",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_repeat_until LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_repeat_until",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_exit_in_loop LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_exit_in_loop",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_continue_in_loop LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_continue_in_loop",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) ctrl_return_from_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "ctrl_return_from_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) keyword_this_dereference LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_this_dereference",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) keyword_null_pointer_init LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "keyword_null_pointer_init",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) operand_bit_access_byte LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_access_byte",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) operand_bit_assign_word LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_bit_assign_word",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) operand_partial_word_in_dword LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'W1' is not defined in any reachable scope",
+    "[warning] 'B3' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 2,
+  "name": "operand_partial_word_in_dword",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) operand_hw_address_marker LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "operand_hw_address_marker",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) operand_uchar_literal LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Cannot convert type 'UDINT' to type 'BYTE'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] 'UCHAR' is not defined in any reachable scope",
+  ],
+  "lspWarnings": 1,
+  "name": "operand_uchar_literal",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_method_call_no_args LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_no_args",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_method_call_one_input LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_one_input",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_method_call_named_args LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_call_named_args",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_method_returns_value LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_method_returns_value",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_property_read LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_property_read",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_property_write LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_property_write",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_fb_callable LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_fb_callable",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_struct_member_access LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_member_access",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_struct_nested_member LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_nested_member",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_gvl_field_access LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_gvl_field_access",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_this_member_in_method LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_this_member_in_method",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_function_call_with_arg LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_function_call_with_arg",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_array_indexed_method_call LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_array_indexed_method_call",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_pointer_deref_struct_field LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_pointer_deref_struct_field",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_self_method_call LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_self_method_call",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_method_array_param LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_method_array_param",
+  "vendor": "codesys",
+}
+`;

@@ -13,7 +13,7 @@
 import { resolve } from "node:path";
 import { detectVendor, installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp";
 import { configExists, loadConfig, saveConfig, workspacePaths } from "../engine/config.js";
-import { ensureGitignore, ensureSnapshotRepo } from "../engine/snapshot.js";
+import { ensureGitignore, ensureSnapshotRepo, reportSnapshotHeal } from "../engine/snapshot.js";
 import { flagBool, type VerbFn } from "./_shared.js";
 
 export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
@@ -52,7 +52,7 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 					`re-run with --force to repoint.`,
 			);
 		}
-		ensureSnapshotRepo(paths.snapshotPath);
+		reportSnapshotHeal(ensureSnapshotRepo(paths.snapshotPath));
 		ensureGitignore(root);
 		alreadyInitialized = sameProject;
 		if (!sameProject) {
@@ -71,7 +71,7 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 			},
 			linkedAt: new Date().toISOString(),
 		});
-		ensureSnapshotRepo(paths.snapshotPath);
+		reportSnapshotHeal(ensureSnapshotRepo(paths.snapshotPath));
 		ensureGitignore(root);
 	}
 
