@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "TypeScript-native Language Server for IEC 61131-3 PLC languages (ST today; FBD/LD/SFC/CFC in flight). Navigation + diagnostics + completion + hover + signature help + semantic tokens, driven by an embedded CODESYS language reference. Type-checking and code-gen remain the IDE's job.",
+  "description": "TypeScript-native Language Server for IEC 61131-3 Structured Text. Navigation + diagnostics + completion + hover + signature help + semantic tokens, driven by an embedded CODESYS language reference. Graphical bodies (FBD/LD/SFC/CFC) are transpiled to ST at pull time by volt-agent, so the LSP analyzes a single source language. Type-checking and code-gen remain the IDE's job.",
   "type": "module",
   "exports": {
     ".": {
@@ -16,8 +16,8 @@
       "default": "./dist/index.js"
     },
     "./conformance": {
-      "bun": "./src/conformance/index.ts",
-      "default": "./dist/conformance/index.js"
+      "bun": "./src/tests/conformance/index.ts",
+      "default": "./dist/tests/conformance/index.js"
     }
   },
   "bin": {

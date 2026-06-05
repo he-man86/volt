@@ -1,0 +1,2591 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`workspaceSymbol corpus (search by pouName) hide_var 1`] = `
+[
+  {
+    "file": "FB_LANG_hide_var.st",
+    "kind": 5,
+    "name": "FB_LANG_hide_var",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) call_after_init 1`] = `
+[
+  {
+    "file": "FB_LANG_call_after_init.st",
+    "kind": 5,
+    "name": "FB_LANG_call_after_init",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) warning_message 1`] = `
+[
+  {
+    "file": "FB_LANG_warning_message.st",
+    "kind": 5,
+    "name": "FB_LANG_warning_message",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) noinit 1`] = `
+[
+  {
+    "file": "FB_LANG_noinit.st",
+    "kind": 5,
+    "name": "FB_LANG_noinit",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) init_on_onlchange 1`] = `
+[
+  {
+    "file": "FB_LANG_init_on_onlchange.st",
+    "kind": 5,
+    "name": "FB_LANG_init_on_onlchange",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) displaymode_hex 1`] = `
+[
+  {
+    "file": "FB_LANG_displaymode_hex.st",
+    "kind": 5,
+    "name": "FB_LANG_displaymode_hex",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_copy 1`] = `
+[
+  {
+    "file": "FB_LANG_no_copy.st",
+    "kind": 5,
+    "name": "FB_LANG_no_copy",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) linkalways 1`] = `
+[
+  {
+    "file": "FB_LANG_linkalways.st",
+    "kind": 5,
+    "name": "FB_LANG_linkalways",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_check 1`] = `
+[
+  {
+    "file": "FB_LANG_no_check.st",
+    "kind": 5,
+    "name": "FB_LANG_no_check",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_instance_in_retain 1`] = `
+[
+  {
+    "file": "FB_LANG_no_instance_in_retain.st",
+    "kind": 5,
+    "name": "FB_LANG_no_instance_in_retain",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) hide_all_locals 1`] = `
+[
+  {
+    "file": "FB_LANG_hide_all_locals.st",
+    "kind": 5,
+    "name": "FB_LANG_hide_all_locals",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_assign 1`] = `
+[
+  {
+    "file": "FB_LANG_no_assign.st",
+    "kind": 5,
+    "name": "FB_LANG_no_assign",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) reflection 1`] = `
+[
+  {
+    "file": "FB_LANG_reflection.st",
+    "kind": 5,
+    "name": "FB_LANG_reflection",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) unknown_attribute_typo 1`] = `
+[
+  {
+    "file": "FB_LANG_unknown_attribute_typo.st",
+    "kind": 5,
+    "name": "FB_LANG_unknown_attribute_typo",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) enable_dynamic_creation 1`] = `
+[
+  {
+    "file": "FB_LANG_enable_dynamic_creation.st",
+    "kind": 5,
+    "name": "FB_LANG_enable_dynamic_creation",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) const_replaced 1`] = `
+[
+  {
+    "file": "FB_LANG_const_replaced.st",
+    "kind": 5,
+    "name": "FB_LANG_const_replaced",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) const_non_replaced 1`] = `
+[
+  {
+    "file": "FB_LANG_const_non_replaced.st",
+    "kind": 5,
+    "name": "FB_LANG_const_non_replaced",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) global_init_slot 1`] = `
+[
+  {
+    "file": "FB_LANG_global_init_slot.st",
+    "kind": 5,
+    "name": "FB_LANG_global_init_slot",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) monitoring_display 1`] = `
+[
+  {
+    "file": "FB_LANG_monitoring_display.st",
+    "kind": 5,
+    "name": "FB_LANG_monitoring_display",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) monitoring_encoding 1`] = `
+[
+  {
+    "file": "FB_LANG_monitoring_encoding.st",
+    "kind": 5,
+    "name": "FB_LANG_monitoring_encoding",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) subsequent 1`] = `
+[
+  {
+    "file": "FB_LANG_subsequent.st",
+    "kind": 5,
+    "name": "FB_LANG_subsequent",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) suppress_warning 1`] = `
+[
+  {
+    "file": "FB_LANG_suppress_warning.st",
+    "kind": 5,
+    "name": "FB_LANG_suppress_warning",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditionalshow 1`] = `
+[
+  {
+    "file": "FB_LANG_conditionalshow.st",
+    "kind": 5,
+    "name": "FB_LANG_conditionalshow",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pingroup 1`] = `
+[
+  {
+    "file": "FB_LANG_pingroup.st",
+    "kind": 5,
+    "name": "FB_LANG_pingroup",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) info_message 1`] = `
+[
+  {
+    "file": "FB_LANG_info_message.st",
+    "kind": 5,
+    "name": "FB_LANG_info_message",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) text_message 1`] = `
+[
+  {
+    "file": "FB_LANG_text_message.st",
+    "kind": 5,
+    "name": "FB_LANG_text_message",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) instance_path_with_reflection 1`] = `
+[
+  {
+    "file": "FB_LANG_instance_path_with_reflection.st",
+    "kind": 5,
+    "name": "FB_LANG_instance_path_with_reflection",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) displaymode_bin 1`] = `
+[
+  {
+    "file": "FB_LANG_displaymode_bin.st",
+    "kind": 5,
+    "name": "FB_LANG_displaymode_bin",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) displaymode_dec 1`] = `
+[
+  {
+    "file": "FB_LANG_displaymode_dec.st",
+    "kind": 5,
+    "name": "FB_LANG_displaymode_dec",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) displaymode_invalid_value 1`] = `
+[
+  {
+    "file": "FB_LANG_displaymode_invalid_value.st",
+    "kind": 5,
+    "name": "FB_LANG_displaymode_invalid_value",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) suppress_warning_multi 1`] = `
+[
+  {
+    "file": "FB_LANG_suppress_warning_multi.st",
+    "kind": 5,
+    "name": "FB_LANG_suppress_warning_multi",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_init_aliases 1`] = `
+[
+  {
+    "file": "FB_LANG_no_init_aliases.st",
+    "kind": 5,
+    "name": "FB_LANG_no_init_aliases",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) linkalways_with_unused_pou 1`] = `
+[
+  {
+    "file": "FB_LANG_linkalways_with_unused_pou.st",
+    "kind": 5,
+    "name": "FB_LANG_linkalways_with_unused_pou",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditionalshow_all_locals 1`] = `
+[
+  {
+    "file": "FB_LANG_conditionalshow_all_locals.st",
+    "kind": 5,
+    "name": "FB_LANG_conditionalshow_all_locals",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pin_presentation_order 1`] = `
+[
+  {
+    "file": "FB_LANG_pin_presentation_order.st",
+    "kind": 5,
+    "name": "FB_LANG_pin_presentation_order",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) estimated_stack_usage 1`] = `
+[
+  {
+    "file": "FB_LANG_estimated_stack_usage.st",
+    "kind": 5,
+    "name": "FB_LANG_estimated_stack_usage",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) no_virtual_actions 1`] = `
+[
+  {
+    "file": "FB_LANG_no_virtual_actions.st",
+    "kind": 5,
+    "name": "FB_LANG_no_virtual_actions",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) io_function_block 1`] = `
+[
+  {
+    "file": "FB_LANG_io_function_block.st",
+    "kind": 5,
+    "name": "FB_LANG_io_function_block",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) call_after_global_init_slot 1`] = `
+[
+  {
+    "file": "FB_LANG_call_after_global_init_slot.st",
+    "kind": 5,
+    "name": "FB_LANG_call_after_global_init_slot",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) warning_disable_restore 1`] = `
+[
+  {
+    "file": "FB_LANG_warning_disable_restore.st",
+    "kind": 5,
+    "name": "FB_LANG_warning_disable_restore",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) call_after_online_change_slot 1`] = `
+[
+  {
+    "file": "FB_LANG_call_after_online_change_slot.st",
+    "kind": 5,
+    "name": "FB_LANG_call_after_online_change_slot",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) call_before_global_exit_slot 1`] = `
+[
+  {
+    "file": "FB_LANG_call_before_global_exit_slot.st",
+    "kind": 5,
+    "name": "FB_LANG_call_before_global_exit_slot",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) call_on_type_change 1`] = `
+[
+  {
+    "file": "FB_LANG_call_on_type_change.st",
+    "kind": 5,
+    "name": "FB_LANG_call_on_type_change",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pin_presentation_order_outputs 1`] = `
+[
+  {
+    "file": "FB_LANG_pin_presentation_order_outputs.st",
+    "kind": 5,
+    "name": "FB_LANG_pin_presentation_order_outputs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pin_presentation_order_wildcard 1`] = `
+[
+  {
+    "file": "FB_LANG_pin_presentation_order_wildcard.st",
+    "kind": 5,
+    "name": "FB_LANG_pin_presentation_order_wildcard",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) implicit_parameter_pouname 1`] = `
+[
+  {
+    "file": "FB_LANG_implicit_parameter_pouname.st",
+    "kind": 5,
+    "name": "FB_LANG_implicit_parameter_pouname",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) region_basic 1`] = `
+[
+  {
+    "file": "FB_LANG_region_basic.st",
+    "kind": 5,
+    "name": "FB_LANG_region_basic",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) error_message 1`] = `
+[
+  {
+    "file": "FB_LANG_error_message.st",
+    "kind": 5,
+    "name": "FB_LANG_error_message",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) region_pragma_basic 1`] = `
+[
+  {
+    "file": "FB_LANG_region_pragma.st",
+    "kind": 5,
+    "name": "FB_LANG_region_pragma",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) region_pragma_nested 1`] = `
+[
+  {
+    "file": "FB_LANG_region_nested.st",
+    "kind": 5,
+    "name": "FB_LANG_region_nested",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pragma_unknown_directive 1`] = `
+[
+  {
+    "file": "FB_LANG_pragma_unknown_directive.st",
+    "kind": 5,
+    "name": "FB_LANG_pragma_unknown_directive",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pragma_conflicting_pair 1`] = `
+[
+  {
+    "file": "FB_LANG_pragma_conflicting_pair.st",
+    "kind": 5,
+    "name": "FB_LANG_pragma_conflicting_pair",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_init_canonical 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_init_canonical.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_init_canonical",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_reinit_canonical 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_reinit_canonical.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_reinit_canonical",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_exit_canonical 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_exit_canonical.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_exit_canonical",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_init_wrong_return_type 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_init_wrong_return_type.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_init_wrong_return_type",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_init_missing_bInCopyCode 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_init_missing_bInCopyCode.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_init_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_exit_missing_bInCopyCode 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_exit_missing_bInCopyCode.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_exit_missing_bInCopyCode",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fb_reinit_with_params 1`] = `
+[
+  {
+    "file": "FB_LANG_fb_reinit_with_params.st",
+    "kind": 5,
+    "name": "FB_LANG_fb_reinit_with_params",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) identifier_double_underscore 1`] = `
+[
+  {
+    "file": "FB_LANG_identifier_double_underscore.st",
+    "kind": 5,
+    "name": "FB_LANG_identifier_double_underscore",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) identifier_consecutive_underscores 1`] = `
+[
+  {
+    "file": "FB_LANG_identifier_consecutive_underscores.st",
+    "kind": 5,
+    "name": "FB_LANG_identifier_consecutive_underscores",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) identifier_backtick_keyword_escape 1`] = `
+[
+  {
+    "file": "FB_LANG_backtick_ident.st",
+    "kind": 5,
+    "name": "FB_LANG_backtick_ident",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) init_slot_default_50000 1`] = `
+[
+  {
+    "file": "FB_LANG_init_slot_default_50000.st",
+    "kind": 5,
+    "name": "FB_LANG_init_slot_default_50000",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) init_slot_reserved_alarm_manager 1`] = `
+[
+  {
+    "file": "FB_LANG_init_slot_reserved_alarm_manager.st",
+    "kind": 5,
+    "name": "FB_LANG_init_slot_reserved_alarm_manager",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) init_slot_reserved_device_object 1`] = `
+[
+  {
+    "file": "FB_LANG_init_slot_reserved_device_object.st",
+    "kind": 5,
+    "name": "FB_LANG_init_slot_reserved_device_object",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) init_slot_user_early 1`] = `
+[
+  {
+    "file": "FB_LANG_init_slot_user_early.st",
+    "kind": 5,
+    "name": "FB_LANG_init_slot_user_early",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) shadowing_method_local_shadows_member 1`] = `
+[
+  {
+    "file": "FB_LANG_shadowing_method_local_shadows_member.st",
+    "kind": 5,
+    "name": "FB_LANG_shadowing_method_local_shadows_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) shadowing_method_param_shadows_member 1`] = `
+[
+  {
+    "file": "FB_LANG_shadowing_method_param_shadows_member.st",
+    "kind": 5,
+    "name": "FB_LANG_shadowing_method_param_shadows_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "file": "FB_LANG_method_local_shadows.st",
+    "kind": 5,
+    "name": "FB_LANG_method_local_shadows",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_int_to_real_valid 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_int_to_real_valid.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_int_to_real_valid",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_real_to_int_valid 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_real_to_int_valid.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_real_to_int_valid",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_int_to_real_wrong_source.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_int_to_real_wrong_source",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_dint_to_int_wrong_source 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_dint_to_int_wrong_source.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_dint_to_int_wrong_source",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_implicit_dint_to_int 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_implicit_dint_to_int.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_implicit_dint_to_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_bool_to_int_valid 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_bool_to_int_valid.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_bool_to_int_valid",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_int_to_bool_valid 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_int_to_bool_valid.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_int_to_bool_valid",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_time_to_dword 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_time_to_dword.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_time_to_dword",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_date_to_string 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_date_to_string.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_date_to_string",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_dt_to_date 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_dt_to_date.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_dt_to_date",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_trunc_real_to_dint 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_trunc.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_trunc",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_trunc_int_real_to_int 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_trunc_int.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_trunc_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conversion_overloaded_to_int 1`] = `
+[
+  {
+    "file": "FB_LANG_conversion_overloaded_to_int.st",
+    "kind": 5,
+    "name": "FB_LANG_conversion_overloaded_to_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) duplicate_declaration 1`] = `
+[
+  {
+    "file": "FB_LANG_duplicate_declaration.st",
+    "kind": 5,
+    "name": "FB_LANG_duplicate_declaration",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) unresolved_identifier_in_body 1`] = `
+[
+  {
+    "file": "FB_LANG_unresolved_identifier_in_body.st",
+    "kind": 5,
+    "name": "FB_LANG_unresolved_identifier_in_body",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) pragma_conflict_hide_plus_monitoring 1`] = `
+[
+  {
+    "file": "FB_LANG_pragma_conflict_hide_plus_monitoring.st",
+    "kind": 5,
+    "name": "FB_LANG_pragma_conflict_hide_plus_monitoring",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) deref_on_array_type 1`] = `
+[
+  {
+    "file": "FB_LANG_deref_on_array.st",
+    "kind": 5,
+    "name": "FB_LANG_deref_on_array",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditional_define_then_if 1`] = `
+[
+  {
+    "file": "FB_LANG_conditional_define_then_if.st",
+    "kind": 5,
+    "name": "FB_LANG_conditional_define_then_if",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditional_else_branch_taken 1`] = `
+[
+  {
+    "file": "FB_LANG_conditional_else_branch_taken.st",
+    "kind": 5,
+    "name": "FB_LANG_conditional_else_branch_taken",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditional_elsif_chain 1`] = `
+[
+  {
+    "file": "FB_LANG_conditional_elsif_chain.st",
+    "kind": 5,
+    "name": "FB_LANG_conditional_elsif_chain",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditional_orphan_else 1`] = `
+[
+  {
+    "file": "FB_LANG_conditional_orphan_else.st",
+    "kind": 5,
+    "name": "FB_LANG_conditional_orphan_else",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) conditional_undefine_after_define 1`] = `
+[
+  {
+    "file": "FB_LANG_conditional_undefine_after_define.st",
+    "kind": 5,
+    "name": "FB_LANG_conditional_undefine_after_define",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_arithmetic_same_type 1`] = `
+[
+  {
+    "file": "FB_LANG_op_arithmetic_same_type.st",
+    "kind": 5,
+    "name": "FB_LANG_op_arithmetic_same_type",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_arithmetic_int_plus_dint 1`] = `
+[
+  {
+    "file": "FB_LANG_op_arithmetic_int_plus_dint.st",
+    "kind": 5,
+    "name": "FB_LANG_op_arithmetic_int_plus_dint",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_arithmetic_int_plus_real 1`] = `
+[
+  {
+    "file": "FB_LANG_op_arithmetic_int_plus_real.st",
+    "kind": 5,
+    "name": "FB_LANG_op_arithmetic_int_plus_real",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_modulo_on_real 1`] = `
+[
+  {
+    "file": "FB_LANG_op_modulo_on_real.st",
+    "kind": 5,
+    "name": "FB_LANG_op_modulo_on_real",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_comparison_int_vs_int 1`] = `
+[
+  {
+    "file": "FB_LANG_op_comparison_int_vs_int.st",
+    "kind": 5,
+    "name": "FB_LANG_op_comparison_int_vs_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_logical_bool 1`] = `
+[
+  {
+    "file": "FB_LANG_op_logical_bool.st",
+    "kind": 5,
+    "name": "FB_LANG_op_logical_bool",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_bitwise_on_int 1`] = `
+[
+  {
+    "file": "FB_LANG_op_bitwise_on_int.st",
+    "kind": 5,
+    "name": "FB_LANG_op_bitwise_on_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_shift_left 1`] = `
+[
+  {
+    "file": "FB_LANG_op_shift_left.st",
+    "kind": 5,
+    "name": "FB_LANG_op_shift_left",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_arithmetic_bool_plus_int 1`] = `
+[
+  {
+    "file": "FB_LANG_op_arithmetic_bool_plus_int.st",
+    "kind": 5,
+    "name": "FB_LANG_op_arithmetic_bool_plus_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sel_bool_picker 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sel.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sel",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_mux_multi_select 1`] = `
+[
+  {
+    "file": "FB_LANG_op_mux.st",
+    "kind": 5,
+    "name": "FB_LANG_op_mux",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_min_max 1`] = `
+[
+  {
+    "file": "FB_LANG_op_min_max.st",
+    "kind": 5,
+    "name": "FB_LANG_op_min_max",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_limit_clamp 1`] = `
+[
+  {
+    "file": "FB_LANG_op_limit.st",
+    "kind": 5,
+    "name": "FB_LANG_op_limit",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_abs 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_abs.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_abs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_sqrt_real 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_sqrt.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_sqrt",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_ln 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_ln.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_ln",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_log 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_log.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_log",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_exp 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_exp.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_exp",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_inverse_trig 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_inverse_trig.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_inverse_trig",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_trig 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_trig.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_trig",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_math_expt 1`] = `
+[
+  {
+    "file": "FB_LANG_op_math_expt.st",
+    "kind": 5,
+    "name": "FB_LANG_op_math_expt",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_shift_right 1`] = `
+[
+  {
+    "file": "FB_LANG_op_shift_right.st",
+    "kind": 5,
+    "name": "FB_LANG_op_shift_right",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_rotate_left 1`] = `
+[
+  {
+    "file": "FB_LANG_op_rotate_left.st",
+    "kind": 5,
+    "name": "FB_LANG_op_rotate_left",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_rotate_right 1`] = `
+[
+  {
+    "file": "FB_LANG_op_rotate_right.st",
+    "kind": 5,
+    "name": "FB_LANG_op_rotate_right",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_isvalidref 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_isvalidref.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_isvalidref",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_varinfo 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_varinfo.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_varinfo",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_currenttask 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_currenttask.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_currenttask",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_try_catch 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_try_catch.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_try_catch",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_new_delete 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_new_delete.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_new_delete",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) op_sys_queryinterface 1`] = `
+[
+  {
+    "file": "FB_LANG_op_sys_queryinterface.st",
+    "kind": 5,
+    "name": "FB_LANG_op_sys_queryinterface",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_hex 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_hex.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_hex",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_binary 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_binary.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_binary",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_octal 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_octal.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_octal",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_typed_int_hash 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_typed_int_hash.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_typed_int_hash",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_real_scientific 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_real_scientific.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_real_scientific",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_time 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_time.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_time",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_date 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_date.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_date",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_tod 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_tod.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_tod",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_string_single_quoted 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_string_single_quoted.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_string_single_quoted",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_wstring_double_quoted 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_wstring_double_quoted.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_wstring_double_quoted",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) literal_string_to_int_assignment 1`] = `
+[
+  {
+    "file": "FB_LANG_literal_string_to_int_assignment.st",
+    "kind": 5,
+    "name": "FB_LANG_literal_string_to_int_assignment",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_empty 1`] = `
+[
+  {
+    "file": "ITF_LANG_empty.itf",
+    "kind": 11,
+    "name": "ITF_LANG_empty",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_empty_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_interface_empty_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_interface_empty_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_method 1`] = `
+[
+  {
+    "file": "ITF_LANG_with_method.itf",
+    "kind": 11,
+    "name": "ITF_LANG_with_method",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_method_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_interface_with_method_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_interface_with_method_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_missing_implementation 1`] = `
+[
+  {
+    "file": "FB_LANG_interface_missing_implementation.st",
+    "kind": 5,
+    "name": "FB_LANG_interface_missing_implementation",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_extends_another 1`] = `
+[
+  {
+    "file": "ITF_LANG_extends_another.itf",
+    "kind": 11,
+    "name": "ITF_LANG_extends_another",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_extends_another_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_iea_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_iea_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return_type 1`] = `
+[
+  {
+    "file": "ITF_LANG_method_returns.itf",
+    "kind": 11,
+    "name": "ITF_LANG_method_returns",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_method_returns_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_method_returns_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_property 1`] = `
+[
+  {
+    "file": "ITF_LANG_with_property.itf",
+    "kind": 11,
+    "name": "ITF_LANG_with_property",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) interface_with_property_impl 1`] = `
+[
+  {
+    "file": "FB_LANG_with_property_impl.st",
+    "kind": 5,
+    "name": "FB_LANG_with_property_impl",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_base 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_base.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_base",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_extends_simple 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_extends_simple.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_extends_simple",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_extends_with_override 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_extends_with_override.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_extends_with_override",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_extends_with_super 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_extends_with_super.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_extends_with_super",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_final_fb 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_final_fb.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_final_fb",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_abstract_fb 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_abstract_fb.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_abstract_fb",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_abstract_instantiated 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_abstract_instantiated.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_abstract_instantiated",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) oop_action_block 1`] = `
+[
+  {
+    "file": "FB_LANG_oop_action_block.st",
+    "kind": 5,
+    "name": "FB_LANG_oop_action_block",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_array_of_int 1`] = `
+[
+  {
+    "file": "FB_LANG_type_array_of_int.st",
+    "kind": 5,
+    "name": "FB_LANG_type_array_of_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_array_2d 1`] = `
+[
+  {
+    "file": "FB_LANG_type_array_2d.st",
+    "kind": 5,
+    "name": "FB_LANG_type_array_2d",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_pointer_to_int 1`] = `
+[
+  {
+    "file": "FB_LANG_type_pointer_to_int.st",
+    "kind": 5,
+    "name": "FB_LANG_type_pointer_to_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_reference_to_int 1`] = `
+[
+  {
+    "file": "FB_LANG_type_reference_to_int.st",
+    "kind": 5,
+    "name": "FB_LANG_type_reference_to_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_string_n 1`] = `
+[
+  {
+    "file": "FB_LANG_type_string_n.st",
+    "kind": 5,
+    "name": "FB_LANG_type_string_n",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_var_temp_in_method 1`] = `
+[
+  {
+    "file": "FB_LANG_type_var_temp_in_method.st",
+    "kind": 5,
+    "name": "FB_LANG_type_var_temp_in_method",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_var_constant 1`] = `
+[
+  {
+    "file": "FB_LANG_type_var_constant.st",
+    "kind": 5,
+    "name": "FB_LANG_type_var_constant",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_deref_non_pointer 1`] = `
+[
+  {
+    "file": "FB_LANG_type_deref_non_pointer.st",
+    "kind": 5,
+    "name": "FB_LANG_type_deref_non_pointer",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_simple 1`] = `
+[
+  {
+    "file": "DUT_LANG_struct_simple.dut",
+    "kind": 23,
+    "name": "DUT_LANG_struct_simple",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_extends 1`] = `
+[
+  {
+    "file": "DUT_LANG_struct_extends.dut",
+    "kind": 23,
+    "name": "DUT_LANG_struct_extends",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_nested 1`] = `
+[
+  {
+    "file": "DUT_LANG_struct_nested.dut",
+    "kind": 23,
+    "name": "DUT_LANG_struct_nested",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_simple 1`] = `
+[
+  {
+    "file": "DUT_LANG_enum_simple.dut",
+    "kind": 23,
+    "name": "DUT_LANG_enum_simple",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_with_base 1`] = `
+[
+  {
+    "file": "DUT_LANG_enum_with_base.dut",
+    "kind": 23,
+    "name": "DUT_LANG_enum_with_base",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_explicit_values 1`] = `
+[
+  {
+    "file": "DUT_LANG_enum_explicit_values.dut",
+    "kind": 23,
+    "name": "DUT_LANG_enum_explicit_values",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_int 1`] = `
+[
+  {
+    "file": "DUT_LANG_alias_int.dut",
+    "kind": 23,
+    "name": "DUT_LANG_alias_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_string 1`] = `
+[
+  {
+    "file": "DUT_LANG_alias_string.dut",
+    "kind": 23,
+    "name": "DUT_LANG_alias_string",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_union 1`] = `
+[
+  {
+    "file": "DUT_LANG_union.dut",
+    "kind": 23,
+    "name": "DUT_LANG_union",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_subrange 1`] = `
+[
+  {
+    "file": "DUT_LANG_subrange.dut",
+    "kind": 23,
+    "name": "DUT_LANG_subrange",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_any_function_input 1`] = `
+[
+  {
+    "file": "FUN_LANG_any_input.st",
+    "kind": 12,
+    "name": "FUN_LANG_any_input",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_any_int_function_input 1`] = `
+[
+  {
+    "file": "FUN_LANG_any_int.st",
+    "kind": 12,
+    "name": "FUN_LANG_any_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_codesys_xint 1`] = `
+[
+  {
+    "file": "FB_LANG_codesys_xint.st",
+    "kind": 5,
+    "name": "FB_LANG_codesys_xint",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_codesys_uxint 1`] = `
+[
+  {
+    "file": "FB_LANG_codesys_uxint.st",
+    "kind": 5,
+    "name": "FB_LANG_codesys_uxint",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_codesys_xword 1`] = `
+[
+  {
+    "file": "FB_LANG_codesys_xword.st",
+    "kind": 5,
+    "name": "FB_LANG_codesys_xword",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_codesys_vector 1`] = `
+[
+  {
+    "file": "FB_LANG_codesys_vector.st",
+    "kind": 5,
+    "name": "FB_LANG_codesys_vector",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_codesys_version 1`] = `
+[
+  {
+    "file": "FB_LANG_codesys_version.st",
+    "kind": 5,
+    "name": "FB_LANG_codesys_version",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_implicit_enum_inline 1`] = `
+[
+  {
+    "file": "FB_LANG_implicit_enum.st",
+    "kind": 5,
+    "name": "FB_LANG_implicit_enum",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_with_bit_fields 1`] = `
+[
+  {
+    "file": "DUT_LANG_struct_bit_fields.dut",
+    "kind": 23,
+    "name": "DUT_LANG_struct_bit_fields",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_with_init 1`] = `
+[
+  {
+    "file": "DUT_LANG_alias_with_init.dut",
+    "kind": 23,
+    "name": "DUT_LANG_alias_with_init",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_input_output_inout_on_fb 1`] = `
+[
+  {
+    "file": "FB_LANG_var_io_kinds.st",
+    "kind": 5,
+    "name": "FB_LANG_var_io_kinds",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_input_constant 1`] = `
+[
+  {
+    "file": "FB_LANG_var_input_constant.st",
+    "kind": 5,
+    "name": "FB_LANG_var_input_constant",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_inst_in_method 1`] = `
+[
+  {
+    "file": "FB_LANG_var_inst_method.st",
+    "kind": 5,
+    "name": "FB_LANG_var_inst_method",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_stat_in_method 1`] = `
+[
+  {
+    "file": "FB_LANG_var_stat_method.st",
+    "kind": 5,
+    "name": "FB_LANG_var_stat_method",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_retain 1`] = `
+[
+  {
+    "file": "FB_LANG_var_retain.st",
+    "kind": 5,
+    "name": "FB_LANG_var_retain",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_persistent 1`] = `
+[
+  {
+    "file": "FB_LANG_var_persistent.st",
+    "kind": 5,
+    "name": "FB_LANG_var_persistent",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_non_retain 1`] = `
+[
+  {
+    "file": "FB_LANG_var_non_retain.st",
+    "kind": 5,
+    "name": "FB_LANG_var_non_retain",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_config_address_binding 1`] = `
+[
+  {
+    "file": "GVL_LANG_var_config.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_var_config",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_external_gvl 1`] = `
+[
+  {
+    "file": "GVL_LANG_var_external_target.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_var_external_target",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_external_consumer 1`] = `
+[
+  {
+    "file": "FB_LANG_var_external_consumer.st",
+    "kind": 5,
+    "name": "FB_LANG_var_external_consumer",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_output_on_function 1`] = `
+[
+  {
+    "file": "FB_LANG_function_var_output.st",
+    "kind": 12,
+    "name": "FB_LANG_function_var_output",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) var_inline_enum_decl 1`] = `
+[
+  {
+    "file": "FB_LANG_inline_enum_var.st",
+    "kind": 5,
+    "name": "FB_LANG_inline_enum_var",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_if_elsif_else 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_if_elsif_else.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_if_elsif_else",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_case_of_else 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_case_of.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_case_of",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_for_to_by_do 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_for_loop.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_for_loop",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_while_do 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_while_do.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_while_do",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_repeat_until 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_repeat_until.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_repeat_until",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_exit_in_loop 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_exit.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_exit",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_continue_in_loop 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_continue.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_continue",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ctrl_return_from_method 1`] = `
+[
+  {
+    "file": "FB_LANG_ctrl_return.st",
+    "kind": 5,
+    "name": "FB_LANG_ctrl_return",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) keyword_this_dereference 1`] = `
+[
+  {
+    "file": "FB_LANG_keyword_this.st",
+    "kind": 5,
+    "name": "FB_LANG_keyword_this",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) keyword_null_pointer_init 1`] = `
+[
+  {
+    "file": "FB_LANG_keyword_null.st",
+    "kind": 5,
+    "name": "FB_LANG_keyword_null",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) operand_bit_access_byte 1`] = `
+[
+  {
+    "file": "FB_LANG_operand_bit_byte.st",
+    "kind": 5,
+    "name": "FB_LANG_operand_bit_byte",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) operand_bit_assign_word 1`] = `
+[
+  {
+    "file": "FB_LANG_operand_bit_assign.st",
+    "kind": 5,
+    "name": "FB_LANG_operand_bit_assign",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) operand_partial_word_in_dword 1`] = `
+[
+  {
+    "file": "FB_LANG_operand_partial.st",
+    "kind": 5,
+    "name": "FB_LANG_operand_partial",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) operand_hw_address_marker 1`] = `
+[
+  {
+    "file": "FB_LANG_operand_hw_marker.st",
+    "kind": 5,
+    "name": "FB_LANG_operand_hw_marker",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) operand_uchar_literal 1`] = `
+[
+  {
+    "file": "FB_LANG_operand_uchar.st",
+    "kind": 5,
+    "name": "FB_LANG_operand_uchar",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_no_args.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_no_args",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_one_input.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_one_input",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_named_args.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_named_args",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_method_returns_value 1`] = `
+[
+  {
+    "file": "FB_LANG_use_method_returns_value.st",
+    "kind": 5,
+    "name": "FB_LANG_use_method_returns_value",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_property_read 1`] = `
+[
+  {
+    "file": "FB_LANG_use_property_read.st",
+    "kind": 5,
+    "name": "FB_LANG_use_property_read",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_property_write 1`] = `
+[
+  {
+    "file": "FB_LANG_use_property_write.st",
+    "kind": 5,
+    "name": "FB_LANG_use_property_write",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_fb_callable 1`] = `
+[
+  {
+    "file": "FB_LANG_use_callable.st",
+    "kind": 5,
+    "name": "FB_LANG_use_callable",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_struct_member_access 1`] = `
+[
+  {
+    "file": "DUT_LANG_use_struct_member.dut",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_struct_nested_member 1`] = `
+[
+  {
+    "file": "DUT_LANG_use_struct_outer.dut",
+    "kind": 23,
+    "name": "DUT_LANG_use_struct_outer",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_gvl_field_access 1`] = `
+[
+  {
+    "file": "GVL_LANG_use_field_access.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_use_field_access",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_this_member_in_method 1`] = `
+[
+  {
+    "file": "FB_LANG_use_this_member.st",
+    "kind": 5,
+    "name": "FB_LANG_use_this_member",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_function_call_with_arg 1`] = `
+[
+  {
+    "file": "FUN_LANG_use_function_call.st",
+    "kind": 12,
+    "name": "FUN_LANG_use_function_call",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_array_indexed_method_call 1`] = `
+[
+  {
+    "file": "FB_LANG_use_array_indexed.st",
+    "kind": 5,
+    "name": "FB_LANG_use_array_indexed",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "file": "FB_LANG_use_pointer_deref.st",
+    "kind": 5,
+    "name": "FB_LANG_use_pointer_deref",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_self_method_call 1`] = `
+[
+  {
+    "file": "FB_LANG_use_self_call.st",
+    "kind": 5,
+    "name": "FB_LANG_use_self_call",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) use_method_array_param 1`] = `
+[
+  {
+    "file": "FB_LANG_use_array_param.st",
+    "kind": 5,
+    "name": "FB_LANG_use_array_param",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_box_and_two_inputs 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_box_and_two_inputs.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_box_and_two_inputs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_assignment_output 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_assignment_output.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_assignment_output",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_fb_instance_call 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_fb_instance_call.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_fb_instance_call",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_empty_network 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_empty_network.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_empty_network",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_two_networks_stacked 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_two_networks_stacked.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_two_networks_stacked",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_dangling_connection_ref 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_dangling_connection_ref.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_dangling_connection_ref",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_duplicate_local_id 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_duplicate_local_id.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_duplicate_local_id",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_orphan_block 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_orphan_block.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_orphan_block",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_or_two_inputs 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_or_two_inputs.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_or_two_inputs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_not_unary 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_not_unary.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_not_unary",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_xor_two_inputs 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_xor_two_inputs.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_xor_two_inputs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_add_int 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_add_int.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_add_int",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_comparison_gt 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_comparison_gt.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_comparison_gt",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_move_assignment 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_move_assignment.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_move_assignment",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_sr_flipflop 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_sr_flipflop.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_sr_flipflop",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_ton_timer 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_ton_timer.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_ton_timer",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_ctu_counter 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_ctu_counter.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_ctu_counter",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_f_trig_edge 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_f_trig_edge.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_f_trig_edge",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_chained_blocks 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_chained_blocks.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_chained_blocks",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_fanout_one_source_two_consumers 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_fanout_one_source.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_fanout_one_source",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_block_to_outvar 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_block_to_outvar.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_block_to_outvar",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_return_statement 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_return_statement.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_return_statement",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_jump_to_label 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_jump_to_label.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_jump_to_label",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_fb_undeclared_instance 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_fb_undeclared_instance.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_fb_undeclared_instance",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_jump_to_missing_label 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_jump_to_missing_label.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_jump_to_missing_label",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) fbd_var_input_output_sections 1`] = `
+[
+  {
+    "file": "FB_LANG_fbd_var_input_output_sections.fbd",
+    "kind": 5,
+    "name": "FB_LANG_fbd_var_input_output_sections",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_minimal_rung 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_minimal_rung.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_minimal_rung",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_series_contacts 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_series_contacts.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_series_contacts",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_negated_contact 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_negated_contact.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_negated_contact",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_rising_edge_contact 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_rising_edge_contact.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_rising_edge_contact",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_falling_edge_contact 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_falling_edge_contact.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_falling_edge_contact",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_negated_coil 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_negated_coil.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_negated_coil",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_set_coil 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_set_coil.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_set_coil",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_reset_coil 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_reset_coil.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_reset_coil",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_two_rungs 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_two_rungs.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_two_rungs",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_block_in_rung 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_block_in_rung.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_block_in_rung",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) ld_dangling_contact_ref 1`] = `
+[
+  {
+    "file": "FB_LANG_ld_dangling_contact_ref.ld",
+    "kind": 5,
+    "name": "FB_LANG_ld_dangling_contact_ref",
+  },
+]
+`;

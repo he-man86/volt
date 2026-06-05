@@ -1,0 +1,4053 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`foldingRange corpus (every conformance test) hide_var 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) call_after_init 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 8,
+  },
+  {
+    "endLine": 10,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) warning_message 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) noinit 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) init_on_onlchange 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) displaymode_hex 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_copy 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) linkalways 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_check 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_instance_in_retain 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) hide_all_locals 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_assign 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) reflection 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) unknown_attribute_typo 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) enable_dynamic_creation 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) const_replaced 1`] = `
+[
+  {
+    "endLine": 9,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 7,
+    "startLine": 5,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) const_non_replaced 1`] = `
+[
+  {
+    "endLine": 9,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 7,
+    "startLine": 5,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) global_init_slot 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) monitoring_display 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) monitoring_encoding 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) subsequent 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) suppress_warning 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditionalshow 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pingroup 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) info_message 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) text_message 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) instance_path_with_reflection 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) displaymode_bin 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) displaymode_dec 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) displaymode_invalid_value 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) suppress_warning_multi 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_init_aliases 1`] = `
+[
+  {
+    "endLine": 10,
+    "startLine": 0,
+  },
+  {
+    "endLine": 8,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) linkalways_with_unused_pou 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditionalshow_all_locals 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pin_presentation_order 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) estimated_stack_usage 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 8,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) no_virtual_actions 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) io_function_block 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) call_after_global_init_slot 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) warning_disable_restore 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) call_after_online_change_slot 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) call_before_global_exit_slot 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) call_on_type_change 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pin_presentation_order_outputs 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pin_presentation_order_wildcard 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) implicit_parameter_pouname 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) region_basic 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 5,
+    "kind": "region",
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) error_message 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) region_pragma_basic 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 14,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "kind": "region",
+    "startLine": 8,
+  },
+  {
+    "endLine": 13,
+    "kind": "region",
+    "startLine": 11,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) region_pragma_nested 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 15,
+    "startLine": 7,
+  },
+  {
+    "endLine": 12,
+    "kind": "region",
+    "startLine": 10,
+  },
+  {
+    "endLine": 14,
+    "kind": "region",
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pragma_unknown_directive 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pragma_conflicting_pair 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 2,
+  },
+  {
+    "endLine": 6,
+    "startLine": 3,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_init_canonical 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_reinit_canonical 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_exit_canonical 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_init_wrong_return_type 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 14,
+    "startLine": 7,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_init_missing_bInCopyCode 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_exit_missing_bInCopyCode 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+  {
+    "endLine": 9,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fb_reinit_with_params 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) identifier_double_underscore 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) identifier_consecutive_underscores 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) identifier_backtick_keyword_escape 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) init_slot_default_50000 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) init_slot_reserved_alarm_manager 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) init_slot_reserved_device_object 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) init_slot_user_early 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) shadowing_method_local_shadows_member 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) shadowing_method_param_shadows_member 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) shadowing_method_local_shadows_fb_var 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_int_to_real_valid 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_real_to_int_valid 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_dint_to_int_wrong_source 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_implicit_dint_to_int 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_bool_to_int_valid 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_int_to_bool_valid 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_time_to_dword 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_date_to_string 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_dt_to_date 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_trunc_real_to_dint 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_trunc_int_real_to_int 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conversion_overloaded_to_int 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) duplicate_declaration 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) unresolved_identifier_in_body 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) pragma_conflict_hide_plus_monitoring 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) deref_on_array_type 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditional_define_then_if 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 14,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditional_else_branch_taken 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditional_elsif_chain 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 16,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditional_orphan_else 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) conditional_undefine_after_define 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 15,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_arithmetic_same_type 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_arithmetic_int_plus_dint 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_arithmetic_int_plus_real 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_modulo_on_real 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_comparison_int_vs_int 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_logical_bool 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_bitwise_on_int 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_shift_left 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_arithmetic_bool_plus_int 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sel_bool_picker 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_mux_multi_select 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_min_max 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 10,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_limit_clamp 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_abs 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_sqrt_real 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_ln 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_log 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_exp 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_inverse_trig 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 14,
+    "startLine": 10,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_trig 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 14,
+    "startLine": 10,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_math_expt 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_shift_right 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_rotate_left 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_rotate_right 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_isvalidref 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_varinfo 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_currenttask 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_try_catch 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 16,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_new_delete 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+  {
+    "endLine": 4,
+    "startLine": 2,
+  },
+  {
+    "endLine": 13,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) op_sys_queryinterface 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_hex 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_binary 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_octal 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_typed_int_hash 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_real_scientific 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_time 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_date 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_tod 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_string_single_quoted 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_wstring_double_quoted 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) literal_string_to_int_assignment 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_empty 1`] = `
+[
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_empty_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_method_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_missing_implementation 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_extends_another 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_extends_another_impl 1`] = `
+[
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_method_with_return_type 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_method_with_return_type_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_property 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) interface_with_property_impl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_base 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_extends_simple 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_extends_with_override 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_extends_with_super 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_final_fb 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_abstract_fb 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_abstract_instantiated 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) oop_action_block 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_array_of_int 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_array_2d 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_pointer_to_int 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_reference_to_int 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_string_n 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_var_temp_in_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_var_constant 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+  {
+    "endLine": 12,
+    "startLine": 10,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_deref_non_pointer 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_struct_simple 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_struct_extends 1`] = `
+[
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_struct_nested 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_enum_simple 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_enum_with_base 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_enum_explicit_values 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_alias_int 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_alias_string 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_union 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_subrange 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_any_function_input 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_any_int_function_input 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_codesys_xint 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_codesys_uxint 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_codesys_xword 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_codesys_vector 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_codesys_version 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_implicit_enum_inline 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_struct_with_bit_fields 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) type_dut_alias_with_init 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_input_output_inout_on_fb 1`] = `
+[
+  {
+    "endLine": 13,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_input_constant 1`] = `
+[
+  {
+    "endLine": 9,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_inst_in_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_stat_in_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_retain 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_persistent 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_non_retain 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_config_address_binding 1`] = `
+[
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_external_gvl 1`] = `
+[
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_external_consumer 1`] = `
+[
+  {
+    "endLine": 8,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+  {
+    "endLine": 12,
+    "startLine": 10,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_output_on_function 1`] = `
+[
+  {
+    "endLine": 11,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 7,
+    "startLine": 5,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) var_inline_enum_decl 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_if_elsif_else 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 16,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_case_of_else 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 16,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_for_to_by_do 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_while_do 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_repeat_until 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_exit_in_loop 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 15,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_continue_in_loop 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 15,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ctrl_return_from_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 16,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) keyword_this_dereference 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) keyword_null_pointer_init 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) operand_bit_access_byte 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) operand_bit_assign_word 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) operand_partial_word_in_dword 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) operand_hw_address_marker 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) operand_uchar_literal 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_no_args 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_one_input 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 12,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_call_named_args 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 13,
+    "startLine": 7,
+  },
+  {
+    "endLine": 11,
+    "startLine": 8,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_method_returns_value 1`] = `
+[
+  {
+    "endLine": 1,
+    "startLine": 0,
+  },
+  {
+    "endLine": 8,
+    "startLine": 3,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_property_read 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_property_write 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_fb_callable 1`] = `
+[
+  {
+    "endLine": 9,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_struct_member_access 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_struct_nested_member 1`] = `
+[
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 0,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+  {
+    "endLine": 10,
+    "startLine": 6,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_gvl_field_access 1`] = `
+[
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_this_member_in_method 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_function_call_with_arg 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_array_indexed_method_call 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_pointer_deref_struct_field 1`] = `
+[
+  {
+    "endLine": 7,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 11,
+    "startLine": 9,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_self_method_call 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 9,
+    "startLine": 7,
+  },
+  {
+    "endLine": 13,
+    "startLine": 11,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) use_method_array_param 1`] = `
+[
+  {
+    "endLine": 5,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 18,
+    "startLine": 7,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+  {
+    "endLine": 13,
+    "startLine": 11,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_box_and_two_inputs 1`] = `
+[
+  {
+    "endLine": 41,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_assignment_output 1`] = `
+[
+  {
+    "endLine": 24,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_fb_instance_call 1`] = `
+[
+  {
+    "endLine": 32,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_empty_network 1`] = `
+[
+  {
+    "endLine": 11,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_two_networks_stacked 1`] = `
+[
+  {
+    "endLine": 39,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_dangling_connection_ref 1`] = `
+[
+  {
+    "endLine": 36,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_duplicate_local_id 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_orphan_block 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_or_two_inputs 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_not_unary 1`] = `
+[
+  {
+    "endLine": 19,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_xor_two_inputs 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_add_int 1`] = `
+[
+  {
+    "endLine": 23,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_comparison_gt 1`] = `
+[
+  {
+    "endLine": 23,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_move_assignment 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_sr_flipflop 1`] = `
+[
+  {
+    "endLine": 22,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_ton_timer 1`] = `
+[
+  {
+    "endLine": 25,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_ctu_counter 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_f_trig_edge 1`] = `
+[
+  {
+    "endLine": 20,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_chained_blocks 1`] = `
+[
+  {
+    "endLine": 30,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_fanout_one_source_two_consumers 1`] = `
+[
+  {
+    "endLine": 29,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_block_to_outvar 1`] = `
+[
+  {
+    "endLine": 23,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_return_statement 1`] = `
+[
+  {
+    "endLine": 16,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_jump_to_label 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_fb_undeclared_instance 1`] = `
+[
+  {
+    "endLine": 25,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_jump_to_missing_label 1`] = `
+[
+  {
+    "endLine": 21,
+    "startLine": 0,
+  },
+  {
+    "endLine": 2,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) fbd_var_input_output_sections 1`] = `
+[
+  {
+    "endLine": 19,
+    "startLine": 0,
+  },
+  {
+    "endLine": 3,
+    "startLine": 1,
+  },
+  {
+    "endLine": 6,
+    "startLine": 4,
+  },
+  {
+    "endLine": 8,
+    "startLine": 7,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_minimal_rung 1`] = `
+[
+  {
+    "endLine": 30,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_series_contacts 1`] = `
+[
+  {
+    "endLine": 34,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_negated_contact 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_rising_edge_contact 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_falling_edge_contact 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_negated_coil 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_set_coil 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_reset_coil 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_two_rungs 1`] = `
+[
+  {
+    "endLine": 25,
+    "startLine": 0,
+  },
+  {
+    "endLine": 6,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_block_in_rung 1`] = `
+[
+  {
+    "endLine": 40,
+    "startLine": 0,
+  },
+  {
+    "endLine": 5,
+    "startLine": 1,
+  },
+]
+`;
+
+exports[`foldingRange corpus (every conformance test) ld_dangling_contact_ref 1`] = `
+[
+  {
+    "endLine": 27,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+]
+`;
