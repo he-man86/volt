@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ensureSnapshotRepo } from "./snapshot.js";
+import { ensureSnapshotRepo } from "../../engine/snapshot.js";
 
 function freshTmpRoot(): string {
 	return mkdtempSync(join(tmpdir(), "volt-heal-"));

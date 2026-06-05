@@ -16,7 +16,7 @@
  *   curl http://localhost:8556/health    # CODESYS (port may vary)
  */
 import { describe, expect, test } from "bun:test";
-import { HealthResponseSchema } from "./types.js";
+import { HealthResponseSchema } from "../../bridge/types.js";
 
 // ─── Beckhoff samples ────────────────────────────────────────────────
 

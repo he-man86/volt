@@ -13,7 +13,7 @@
  * later-phase fixtures must fail loudly with a readable reason.
  */
 import { describe, expect, test } from "bun:test";
-import { transpileGraphicalBodyToST } from "./transpile-graphical-to-st.js";
+import { transpileGraphicalBodyToST } from "../../engine/transpile-graphical-to-st.js";
 
 // Inline fixtures so the test doesn't depend on the volt-lsp-st
 // conformance package. These mirror a few key entries from

@@ -16,7 +16,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
 import { AddressInfo } from "node:net";
-import { BridgeClient, BridgeError } from "./client.js";
+import { BridgeClient, BridgeError } from "../../bridge/client.js";
 
 interface MockReply {
 	status: number;

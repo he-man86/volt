@@ -12,9 +12,9 @@
  * still need handling.
  */
 import { describe, test } from "bun:test";
-import { FBD_ELEMENT_TESTS } from "./__fixtures__/fbd-bodies.js";
-import { LD_ELEMENT_TESTS } from "./__fixtures__/ld-bodies.js";
-import { transpileGraphicalBodyToST } from "./transpile-graphical-to-st.js";
+import { FBD_ELEMENT_TESTS } from "../../engine/__fixtures__/fbd-bodies.js";
+import { LD_ELEMENT_TESTS } from "../../engine/__fixtures__/ld-bodies.js";
+import { transpileGraphicalBodyToST } from "../../engine/transpile-graphical-to-st.js";
 
 function bodyOf(fileSource: string): string | undefined {
 	const m = fileSource.match(/<body[\s\S]*<\/body>/);

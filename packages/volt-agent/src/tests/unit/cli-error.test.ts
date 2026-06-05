@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { GitCmdError } from "../engine/git-cmds.js";
+import { GitCmdError } from "../../engine/git-cmds.js";
 import {
 	formatVoltError,
 	isDebugMode,
 	isVoltError,
 	VoltError,
 	wrapEngineError,
-} from "./_error.js";
+} from "../../cli/_error.js";
 
 describe("VoltError", () => {
 	test("renders what + why + hint with consistent layout", () => {
