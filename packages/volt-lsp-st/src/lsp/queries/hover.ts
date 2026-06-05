@@ -23,8 +23,8 @@ import {
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Position, Range } from "../types.js";
 import type { Document } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
-import { scopeAtOffset } from "./scope-at.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
+import { scopeAtOffset } from "../scope-at.js";
 
 export interface HoverArgs {
 	doc: Document;
@@ -44,7 +44,7 @@ export interface HoverResult {
 export function hover(args: HoverArgs): HoverResult | null {
 	const offset = offsetFromPosition(args.doc.source, args.position);
 	if (offset < 0) return null;
-	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset, args.doc.bodyModels);
 	if (idToken === undefined) return null;
 
 	// First, try the user's project scope — a name that resolves to a

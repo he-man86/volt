@@ -18,10 +18,10 @@ import type {
 } from "vscode-languageserver-protocol";
 import { DocumentHighlightKind } from "vscode-languageserver-protocol";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { findIdentifiersByName } from "../../body/index.js";
+import { findIdentifiersByName } from "../../semantic/body.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Document } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
 
 export interface DocumentHighlightArgs {
 	doc: Document;
@@ -31,7 +31,7 @@ export interface DocumentHighlightArgs {
 export function documentHighlight(args: DocumentHighlightArgs): DocumentHighlight[] {
 	const offset = offsetFromPosition(args.doc.source, args.position);
 	if (offset < 0) return [];
-	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset, args.doc.bodyModels);
 	if (idToken === undefined) return [];
 
 	const target = idToken.text;

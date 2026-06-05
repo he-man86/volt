@@ -23,7 +23,7 @@ import type { Span } from "../../lexer/span.js";
 import type { TopLevel, VarDecl, VarSection } from "../../parser/ast.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Document } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
 
 export interface SelectionRangeArgs {
 	doc: Document;
@@ -50,7 +50,7 @@ function computeForPosition(doc: Document, position: Position): SelectionRange {
 	}
 
 	// Innermost: identifier at cursor (preferable to byte-offset range).
-	const idTok = findIdentifierAtOffset(doc.parseResult, offset);
+	const idTok = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idTok !== undefined) chain.push(idTok.span);
 
 	// Outermost → innermost: build the nested SelectionRange.

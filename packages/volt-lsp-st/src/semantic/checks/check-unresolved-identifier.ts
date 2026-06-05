@@ -9,7 +9,7 @@
  * checking would false-positive on stripped-branch references.
  */
 import type { BodySpan, ParseResult } from "../../parser/ast.js";
-import type { BodyModel } from "../../body/index.js";
+import type { BodyModel } from "../../semantic/body.js";
 import type { Scope } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
 import { getConversion } from "../../reference/type-conversion.js";
@@ -44,11 +44,10 @@ export function checkUnresolvedIdentifiers(
 		// kind="pragma"). Scan them directly for conditional-compile
 		// directives that gate this skip.
 		if (bodyContainsConditionalPragma(body)) continue;
-		// Body-language-aware identifier list — populated by the right
-		// body parser (ST tokens for `.st`, `<expression>` text +
-		// `<block typeName>` for `.fbd`, etc.). When the workspace
-		// hasn't built bodyModels (legacy callers that pre-date P1
-		// integration), skip the check rather than misreport.
+		// Identifier list populated by the ST body parser. If no
+		// bodyModel was built (defensive — the workspace builds one
+		// for every body it parses), skip the check rather than
+		// misreport.
 		const model = bodyModels?.get(body);
 		if (model === undefined) continue;
 		for (const ref of model.identifiers) {

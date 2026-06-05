@@ -1,31 +1,84 @@
 /**
- * DUT body parser — the part after the colon in `TYPE Name : … END_TYPE`.
+ * `TYPE Name [EXTENDS Base] : <body> [;] END_TYPE`
  *
- * Dispatch:
- *   STRUCT … END_STRUCT      → struct (fields look like VAR decls)
+ * Dispatches on the first keyword/punct after the colon:
+ *
+ *   STRUCT … END_STRUCT      → struct (fields look like VAR decls; supports EXTENDS)
  *   UNION  … END_UNION       → union (struct-like)
- *   '(' … ')' [base]         → enum (comma-separated values, optional explicit base type)
+ *   '(' … ')' [base]         → enum (comma-separated values, optional base type)
  *   anything else            → alias (just parses a TypeExpr)
  *
- * Optional `EXTENDS BaseStruct` is supported for STRUCT (OOP-style
- * structures in TwinCAT 3 / CODESYS 3.5).
+ * The `EXTENDS BaseStruct` clause between the name and the `:`
+ * applies to STRUCT DUTs only (OOP-style structs in TwinCAT 3 /
+ * CODESYS 3.5). It's hoisted onto the STRUCT body so the AST puts
+ * the inheritance info next to the fields.
+ *
+ * The trailing `;` before END_TYPE is consumed here (single source
+ * of truth) — TwinCAT-idiomatic C-style terminator is tolerated for
+ * struct/union/enum and required for aliases.
  */
-import type { Token } from "../lexer/tokens.js";
-import {
-	type AliasBody,
-	type DutBody,
-	type EnumBody,
-	type EnumValue,
-	type Identifier,
-	type StructBody,
-	type UnionBody,
-	type VarDecl,
-} from "./ast.js";
-import { Cursor } from "./cursor.js";
-import { bodySpanFromTokens, identFromToken, joinSpans } from "./util.js";
-import { parseTypeExpression } from "./type-expr.js";
+import type { Token } from "../../lexer/tokens.js";
+import type {
+	AliasBody,
+	DutBody,
+	EnumBody,
+	EnumValue,
+	Identifier,
+	StructBody,
+	TypeDecl,
+	UnionBody,
+	VarDecl,
+} from "../ast.js";
+import type { Cursor } from "../cursor.js";
+import { parseTypeExpression } from "../type-expr.js";
+import { bodySpanFromTokens, identFromToken, joinSpans } from "../util.js";
 
-export function parseDutBody(c: Cursor): DutBody | undefined {
+export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
+	const start = c.expectKeyword("TYPE", "at start of TYPE block");
+	if (start === undefined) return undefined;
+	const nameTok = c.expectIdent("for TYPE name");
+	if (nameTok === undefined) return undefined;
+	const name = identFromToken(nameTok);
+	// Optional `EXTENDS Base` clause between the name and the `:` —
+	// applies to STRUCT DUTs (CODESYS / TwinCAT 3.5+ OO-style structs).
+	// Per 06-data-types.md: `TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`.
+	let extendsName: Identifier | undefined;
+	if (c.eatKeyword("EXTENDS") !== undefined) {
+		const t = c.expectIdent("after EXTENDS in TYPE");
+		if (t !== undefined) extendsName = identFromToken(t);
+	}
+	const colon = c.expectPunct(":", "after TYPE name");
+	if (colon === undefined) return undefined;
+	const body = parseDutBody(c);
+	// Hoist the EXTENDS onto the STRUCT body (the AST stores it there).
+	if (extendsName !== undefined && body !== undefined && body.kind === "struct" && body.extends === undefined) {
+		body.extends = extendsName;
+	}
+	// TwinCAT-idiomatic optional `;` after the body (engineers C-style
+	// terminate the enum/struct/alias before END_TYPE). Spec-permissive
+	// for aliases (always required), tolerated by TC for the others.
+	c.eatPunct(";");
+	const endType = c.expectKeyword("END_TYPE", "after TYPE body");
+	const endSpan = endType?.span ?? body?.span ?? start.span;
+	if (body === undefined) {
+		return {
+			kind: "type_decl",
+			name,
+			body: { kind: "alias", target: { kind: "named_type", name: { kind: "identifier", text: "?", span: name.span }, span: name.span }, span: name.span } satisfies DutBody,
+			span: joinSpans(start.span, endSpan),
+		};
+	}
+	return {
+		kind: "type_decl",
+		name,
+		body,
+		span: joinSpans(start.span, endSpan),
+	};
+}
+
+// ─── DUT body parsers ────────────────────────────────────────────────
+
+function parseDutBody(c: Cursor): DutBody | undefined {
 	const next = c.peek();
 	if (next.kind === "keyword" && next.keyword === "STRUCT") {
 		return parseStructBody(c);

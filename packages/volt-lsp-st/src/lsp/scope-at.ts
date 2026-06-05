@@ -5,8 +5,8 @@
  * The project scope is the fallback — if the offset is outside any
  * top-level unit, we resolve from project root.
  */
-import type { Scope } from "../../semantic/symbol-table.js";
-import type { Document } from "../workspace.js";
+import type { Scope } from "../semantic/symbol-table.js";
+import type { Document } from "./workspace.js";
 
 export function scopeAtOffset(project: Scope, doc: Document, offset: number): Scope {
 	for (const unit of doc.parseResult.units) {

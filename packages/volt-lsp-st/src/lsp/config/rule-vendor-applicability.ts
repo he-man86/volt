@@ -19,8 +19,8 @@
  * vendor accepts code the other rejects, or if the rule encodes
  * vendor-specific knowledge (e.g. `vendorOnlyOperator`).
  */
-import type { DiagnosticConfig } from "./config.js";
-import type { Vendor } from "../reference/index.js";
+import type { DiagnosticConfig } from "./index.js";
+import type { Vendor } from "../../reference/index.js";
 
 export type VendorApplicability = readonly Vendor[];
 

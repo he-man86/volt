@@ -14,7 +14,7 @@ import { lookup } from "../../semantic/resolver.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import type { LspSymbolKindValue, Position, Range } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
 import type {
 	FunctionBlock,
 	Interface,
@@ -39,7 +39,7 @@ export function prepareTypeHierarchy(args: PrepareArgs): TypeHierarchyItem[] {
 	const { doc, position, project } = args;
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
-	const idToken = findIdentifierAtOffset(doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 	const r = lookup(project, idToken.text);
 	if (r === undefined) return [];

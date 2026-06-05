@@ -1,26 +1,19 @@
 /**
  * Semantic diagnostics orchestrator — walks a check registry,
- * gates each entry by `config` flag AND target body language,
- * and concatenates results.
+ * gates each entry by the `config` enable flag, and concatenates
+ * results.
  *
  * **Pure data in → pure data out.** This module knows nothing about
  * LSP transport. The server calls `computeSemanticDiagnostics()` and
  * merges results with parse errors before push/pull delivery.
  *
- * Adding a new check:
- *   1. Add a `CheckSpec` to the `CHECKS` array below.
- *   2. If the check depends on body shape (ST tokens vs FBD graph),
- *      gate via `languages: ["structured-text"]` etc. so it doesn't
- *      false-positive on other body kinds.
- *
- * Adding a new body language (FBD/LD/SFC/CFC/…):
- *   - No changes here. Universal checks (`languages` unset) run on
- *     the new language automatically. Per-language checks stay
- *     scoped where their `languages` field declares.
+ * Adding a new check: add a `CheckSpec` to the `CHECKS` array below.
+ * All checks run on ST — the workspace is ST-only since graphical
+ * bodies are transpiled at pull time (see memory `st-only-workspace`).
  */
 import type { BodySpan, ParseResult } from "../parser/ast.js";
-import type { BodyLanguageId, BodyModel } from "../body/index.js";
-import type { DiagnosticConfig } from "../lsp/config.js";
+import type { BodyModel } from "./body.js";
+import type { DiagnosticConfig } from "../lsp/config/index.js";
 import type { Vendor } from "../reference/index.js";
 import type { Scope } from "./symbol-table.js";
 
@@ -47,13 +40,7 @@ export interface DiagnosticsArgs {
 	source: string;
 	/** The project scope (for cross-file lookup). */
 	project: Scope;
-	/** Body language of this document. Drives per-language check
-	 *  gating (ST-grammar checks like assignment-type-mismatch skip
-	 *  on `plc-fbd`, etc.). */
-	languageId: BodyLanguageId;
-	/** Per-body BodyModel produced by the language-appropriate
-	 *  parser (`body/index.ts`). Required: the workspace always
-	 *  builds it via `buildBodyModelsForParseResult`. */
+	/** Per-body BodyModel built by `buildBodyModelsForParseResult`. */
 	bodyModels: Map<BodySpan, BodyModel>;
 	/** Enable flags. */
 	config: DiagnosticConfig;
@@ -69,9 +56,6 @@ interface CheckSpec {
 	/** Stable identifier — appears in DiagnosticItem.code on output
 	 *  but kept here for log / debug clarity too. */
 	id: string;
-	/** Which body languages this check applies to. `undefined` =
-	 *  universal (runs on every body language). */
-	languages?: ReadonlyArray<BodyLanguageId>;
 	/** Whether this check is currently enabled by user config. Some
 	 *  checks have multiple sub-flags (e.g. `walkDeclarations` runs
 	 *  if ANY of reservedKeyword / doubleUnderscore / etc. are on);
@@ -82,15 +66,15 @@ interface CheckSpec {
 }
 
 /**
- * The check registry.
+ * The check registry. Every check runs on ST source — the workspace
+ * is ST-only since graphical bodies are transpiled at pull time (see
+ * memory `st-only-workspace`).
  *
- * Universal checks (no `languages` field) run on every body
- * language — they operate on declarations or on the language-
- * neutral `BodyModel.identifiers` surface.
- *
- * ST-grammar checks declare `languages: ["structured-text"]` —
- * they walk the raw ST token stream (assignment `:=`, operator
- * type rules, etc.) which doesn't exist for graphical bodies.
+ * The previous build had a `languages` field distinguishing checks
+ * that read raw ST tokens from those that read the language-neutral
+ * `BodyModel.identifiers` surface. Now redundant — kept the split
+ * conceptually for clarity (declaration-only vs body-token-walking
+ * checks) but no per-language gating remains.
  */
 const CHECKS: CheckSpec[] = [
 	// ─── Universal — declarations only / language-neutral BodyModel ──
@@ -106,9 +90,8 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "unresolved-identifier",
 		enabled: (c) => c.unresolvedIdentifier,
-		// Uses BodyModel.identifiers — populated by every body
-		// parser, so this check works for ST + every graphical
-		// language without per-language code paths.
+		// Uses BodyModel.identifiers — the language-neutral surface
+		// the body adapter populates from ST body tokens.
 		run: (ctx, out) =>
 			checkUnresolvedIdentifiers(ctx.parseResult, ctx.project, ctx.bodyModels, out),
 	},
@@ -146,36 +129,29 @@ const CHECKS: CheckSpec[] = [
 		run: (ctx, out) => checkVarSectionPlacement(ctx.parseResult, out),
 	},
 
-	// ─── ST-grammar only — walk raw ST token stream ────────────────
-	// These would false-positive on graphical bodies whose
-	// "body" is XML rather than ST statements.
+	// ─── ST-grammar — walk the ST token stream ──────────────────────
 	{
 		id: "conversion-source-mismatch",
-		languages: ["structured-text"],
 		enabled: (c) => c.conversionSourceMismatch,
 		run: (ctx, out) => checkConversionCalls(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "assignment-type-mismatch",
-		languages: ["structured-text"],
 		enabled: (c) => c.assignmentTypeMismatch,
 		run: (ctx, out) => checkAssignmentTypes(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "binary-operator-type-mismatch",
-		languages: ["structured-text"],
 		enabled: (c) => c.binaryOperatorTypeMismatch,
 		run: (ctx, out) => checkBinaryOperators(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "deref-non-pointer",
-		languages: ["structured-text"],
 		enabled: (c) => c.derefOnNonPointer,
 		run: (ctx, out) => checkDerefOnNonPointer(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "vendor-only-operator",
-		languages: ["structured-text"],
 		enabled: (c) => c.vendorOnlyOperator,
 		run: (ctx, out) => checkVendorOnlyOperators(ctx.parseResult, ctx.activeVendor, ctx.source, out),
 	},
@@ -185,7 +161,6 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
 	const out: DiagnosticItem[] = [];
 	for (const check of CHECKS) {
 		if (!check.enabled(args.config)) continue;
-		if (check.languages !== undefined && !check.languages.includes(args.languageId)) continue;
 		check.run(args, out);
 	}
 	return out;

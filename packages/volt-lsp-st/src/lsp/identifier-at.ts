@@ -3,8 +3,13 @@
  * document. Walks the AST as well as body tokens — clicking on a
  * declaration name (FB name, var name, type ref in a VAR decl) is a
  * first-class navigation point, not just clicking inside code bodies.
+ *
+ * Body references go through `BodyModel.identifiers` (pre-populated by
+ * `buildBodyModelsForParseResult`), consulted AFTER the declaration
+ * walk so cursors on declared names take priority over body references
+ * at the same offset.
  */
-import type { Token } from "../../lexer/tokens.js";
+import type { Token } from "../lexer/tokens.js";
 import type {
 	BodySpan,
 	Identifier,
@@ -13,15 +18,42 @@ import type {
 	TypeExpr,
 	VarDecl,
 	VarSection,
-} from "../../parser/ast.js";
+} from "../parser/ast.js";
+import type { BodyModel } from "../semantic/body.js";
 
 export function findIdentifierAtOffset(
 	parseResult: ParseResult,
 	offset: number,
+	bodyModels?: Map<BodySpan, BodyModel>,
 ): Token | undefined {
 	for (const unit of parseResult.units) {
 		const found = findInUnit(unit, offset);
 		if (found !== undefined) return found;
+	}
+	// Body model fallback: `BodyModel.identifiers` carries every name
+	// occurrence inside POU bodies with proper document offsets, so
+	// cursors landing inside bodies (rather than on declarations)
+	// resolve through this index.
+	if (bodyModels !== undefined) {
+		const ref = findInBodyModels(bodyModels, offset);
+		if (ref !== undefined) return ref;
+	}
+	return undefined;
+}
+
+function findInBodyModels(
+	bodyModels: Map<BodySpan, BodyModel>,
+	offset: number,
+): Token | undefined {
+	for (const model of bodyModels.values()) {
+		// Cheap window filter — skip whole bodies whose region doesn't
+		// contain the offset. Caller's offset is in source coordinates.
+		if (offset < model.span.start || offset > model.span.end) continue;
+		for (const ref of model.identifiers) {
+			if (offset >= ref.span.start && offset < ref.span.end) {
+				return { kind: "identifier", text: ref.name, span: ref.span };
+			}
+		}
 	}
 	return undefined;
 }

@@ -11,7 +11,7 @@
 import type { Span } from "../../lexer/span.js";
 import type { ParseResult, TopLevel } from "../../parser/ast.js";
 import type { Scope, Symbol } from "../symbol-table.js";
-import type { DiagnosticConfig } from "../../lsp/config.js";
+import type { DiagnosticConfig } from "../../lsp/config/index.js";
 import { type DiagnosticItem, KEYWORD_SET, getUnitName } from "./_shared.js";
 
 export function walkDeclarations(

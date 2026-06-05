@@ -21,8 +21,8 @@ import type { Scope } from "../../semantic/symbol-table.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Location, Position } from "../types.js";
 import type { Document } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
-import { scopeAtOffset as scopeAt } from "./scope-at.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
+import { scopeAtOffset as scopeAt } from "../scope-at.js";
 
 export interface DefinitionArgs {
 	doc: Document;
@@ -35,7 +35,7 @@ export function definition(args: DefinitionArgs): Location[] {
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
 
-	const idToken = findIdentifierAtOffset(doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 
 	// Determine the most specific scope for this lookup. For now we

@@ -28,17 +28,16 @@ import type {
 } from "vscode-languageserver-protocol";
 import { parseSource } from "../parser/parser.js";
 import type { BodySpan, ParseResult } from "../parser/ast.js";
-import { buildSymbolTable, type Scope } from "../semantic/symbol-table.js";
+import { buildSymbolTable } from "../semantic/symbol-table-build.js";
+import type { Scope } from "../semantic/symbol-table.js";
 import {
 	buildBodyModelsForParseResult,
-	coerceBodyLanguageId,
-	type BodyLanguageId,
 	type BodyModel,
-} from "../body/index.js";
+} from "../semantic/body.js";
 import {
 	DEFAULT_RESOLVED_CONFIG,
 	type ResolvedConfig,
-} from "./config.js";
+} from "./config/index.js";
 
 /**
  * The IEC 61131-3 ST language id under LSP. Matches the VS Code
@@ -55,19 +54,10 @@ export interface Document {
 	/** Underlying LSP text document — used by `applyContentChanges`. */
 	textDocument: TextDocument;
 	/**
-	 * Body language for this document (`structured-text` /
-	 * `plc-fbd` / `plc-ld` / `plc-sfc` / `plc-cfc`). Routed via
-	 * `body/index.ts` to the language-specific parser. Defaults to
-	 * `structured-text` when the LSP client sends an unknown
-	 * languageId (matches pre-multi-language behavior).
-	 */
-	languageId: BodyLanguageId;
-	/**
-	 * Per-body-span `BodyModel` produced by the language-appropriate
-	 * parser. Keyed by BodySpan reference identity — callers that
-	 * already hold a `BodySpan` from the AST use it directly as the
-	 * lookup key. Empty for documents with no bodies (interfaces,
-	 * pure DUT/GVL files).
+	 * Per-body-span `BodyModel`. Keyed by BodySpan reference identity —
+	 * callers that already hold a `BodySpan` from the AST use it
+	 * directly as the lookup key. Empty for documents with no bodies
+	 * (interfaces, pure DUT/GVL files).
 	 */
 	bodyModels: Map<BodySpan, BodyModel>;
 }
@@ -94,10 +84,12 @@ export class Workspace {
 		this._config = config;
 	}
 
-	openDocument(uri: string, source: string, version: number, languageId: string = ST_LANGUAGE_ID): void {
-		const lang = coerceBodyLanguageId(languageId);
-		const textDocument = TextDocument.create(uri, lang, version, source);
-		this.documents.set(uri, this.buildDocument(textDocument, lang));
+	openDocument(uri: string, source: string, version: number, _languageId: string = ST_LANGUAGE_ID): void {
+		// Workspace is ST-only — graphical bodies are transpiled to ST at
+		// pull time. We accept the languageId parameter for VS Code
+		// compatibility but always treat the document as ST.
+		const textDocument = TextDocument.create(uri, ST_LANGUAGE_ID, version, source);
+		this.documents.set(uri, this.buildDocument(textDocument));
 		this.invalidate();
 	}
 
@@ -128,7 +120,7 @@ export class Workspace {
 			return;
 		}
 		const updated = TextDocument.update(existing.textDocument, changes, version);
-		this.documents.set(uri, this.buildDocument(updated, existing.languageId));
+		this.documents.set(uri, this.buildDocument(updated));
 		this.invalidate();
 	}
 
@@ -155,22 +147,20 @@ export class Workspace {
 		return project;
 	}
 
-	private buildDocument(textDocument: TextDocument, languageId: BodyLanguageId): Document {
+	private buildDocument(textDocument: TextDocument): Document {
 		const source = textDocument.getText();
 		const parseResult = parseSource(source);
 		// Eagerly build a BodyModel for every body in the parse tree.
-		// For ST this just runs the existing identifier scan; for
-		// graphical languages (P2+) it routes to the FBD/LD/SFC/CFC
-		// parser. Cost shifts from query time to parse time, which
-		// keeps LSP query latency predictable.
-		const bodyModels = buildBodyModelsForParseResult(languageId, source, parseResult);
+		// Workspace is ST-only — graphical bodies are transpiled to ST
+		// at pull time. Cost shifts from query time to parse time,
+		// which keeps LSP query latency predictable.
+		const bodyModels = buildBodyModelsForParseResult(parseResult);
 		return {
 			uri: textDocument.uri,
 			source,
 			version: textDocument.version,
 			parseResult,
 			textDocument,
-			languageId,
 			bodyModels,
 		};
 	}

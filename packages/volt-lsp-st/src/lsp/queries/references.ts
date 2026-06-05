@@ -21,8 +21,8 @@ import type { Scope } from "../../semantic/symbol-table.js";
 import type { Location, Position } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { findIdentifiersByName } from "../../body/index.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
+import { findIdentifiersByName } from "../../semantic/body.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
 
 export interface ReferencesArgs {
 	workspace: Workspace;
@@ -37,7 +37,7 @@ export function references(args: ReferencesArgs): Location[] {
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
 
-	const idToken = findIdentifierAtOffset(doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 
 	const targetName = idToken.text;

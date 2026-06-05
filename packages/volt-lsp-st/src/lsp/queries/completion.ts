@@ -39,7 +39,7 @@ import { ALL_PRAGMAS } from "../../reference/pragmas.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
-import { scopeAtOffset } from "./scope-at.js";
+import { scopeAtOffset } from "../scope-at.js";
 
 export interface CompletionArgs {
 	doc: Document;
@@ -254,6 +254,11 @@ function sortPrefixFor(entry: ReferenceEntry): string {
 			return "50_";
 		case "lifecycle-method":
 			return "15_";
+		case "standard-fb":
+			// Common standard-library FBs (TON/CTU/R_TRIG/...) — ranked
+			// just above data-types so they surface near concrete types
+			// at completion time. Engineers reach for these constantly.
+			return "18_";
 	}
 }
 
@@ -270,6 +275,10 @@ function lspKindForReference(entry: ReferenceEntry): CompletionItemKind {
 			return CompletionItemKind.Keyword;
 		case "lifecycle-method":
 			return CompletionItemKind.Method;
+		case "standard-fb":
+			// Function blocks are class-shaped instantiables — same LSP
+			// kind we use for user-defined FBs (see lspKindForSymbol).
+			return CompletionItemKind.Class;
 	}
 }
 
@@ -287,6 +296,8 @@ function humanKindForReference(entry: ReferenceEntry): string {
 			return "pragma";
 		case "lifecycle-method":
 			return "FB lifecycle method";
+		case "standard-fb":
+			return "standard function block";
 	}
 }
 

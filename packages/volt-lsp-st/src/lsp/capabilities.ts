@@ -40,6 +40,9 @@ export function buildServerCapabilities(clientCaps: ClientCapabilities): ServerC
 		workspaceSymbolProvider: true,
 		callHierarchyProvider: true,
 		typeHierarchyProvider: true,
+		// `prepareProvider` lets clients pre-validate the cursor
+		// position before prompting for a new name.
+		renameProvider: { prepareProvider: true },
 	};
 
 	if (supportsPullDiagnostics) {
@@ -64,7 +67,7 @@ export function buildServerCapabilities(clientCaps: ClientCapabilities): ServerC
 		retriggerCharacters: [","],
 	};
 
-	// Phase-7 polish features — all advertised unconditionally; clients
+	// Polish features — all advertised unconditionally; clients
 	// that don't support them ignore.
 	caps.foldingRangeProvider = true;
 	caps.documentHighlightProvider = true;

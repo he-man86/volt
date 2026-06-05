@@ -14,7 +14,7 @@ import type { Token } from "../../lexer/tokens.js";
 import { PRAGMAS, getPragma, ALL_PRAGMAS } from "../../reference/pragmas.js";
 import type { Vendor } from "../../reference/index.js";
 import { getReservationsAtSlot } from "../../reference/init-slots.js";
-import type { DiagnosticConfig } from "../../lsp/config.js";
+import type { DiagnosticConfig } from "../../lsp/config/index.js";
 import type { DiagnosticItem } from "./_shared.js";
 
 /** Pragma directive names (the word right after `{`). */

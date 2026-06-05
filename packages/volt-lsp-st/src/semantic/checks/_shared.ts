@@ -105,3 +105,4 @@ export function isLexerTrivia(kind: string): boolean {
 		kind === "pragma"
 	);
 }
+

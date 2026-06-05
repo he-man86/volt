@@ -23,7 +23,7 @@ import { lookup } from "../../semantic/resolver.js";
 import type { Scope } from "../../semantic/symbol-table.js";
 import type { Location, Position } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
-import { findIdentifierAtOffset } from "./find-identifier.js";
+import { findIdentifierAtOffset } from "../identifier-at.js";
 import type { FunctionBlock } from "../../parser/ast.js";
 
 export interface ImplementationArgs {
@@ -38,7 +38,7 @@ export function implementation(args: ImplementationArgs): Location[] {
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
 
-	const idToken = findIdentifierAtOffset(doc.parseResult, offset);
+	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 
 	const sym = lookup(project, idToken.text)?.symbol;
