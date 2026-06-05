@@ -55,6 +55,17 @@ internal sealed class PushHandler
 			?? throw BridgeException.BadRequest("Missing 'ops' array");
 		var expectedProjectVersion = body["expectedProjectVersion"]?.GetValue<string>();
 
+		// Flush BEFORE pre-flight. Two reasons:
+		//   1. The version hashes /refs returned to the client (which
+		//      now also flushes) and the hashes we're about to compute
+		//      must agree. Without a flush here, an editor buffer
+		//      mutation between /refs and /push would yield a different
+		//      hash for the same nominally-unchanged item.
+		//   2. The post-apply flush at the end of this handler keeps
+		//      newItems consistent with the client's next /refs. Both
+		//      "ends" of the push window must straddle a SaveAll.
+		_connection.FlushPendingWrites();
+
 		// ── Pre-flight: collect current per-item versions + item map ─────
 		// We walk the project tree ONCE up front. The version map drives
 		// pre-flight ifVersion checks; the item map lets ApplyPushItem do
@@ -190,6 +201,12 @@ internal sealed class PushHandler
 		}
 
 		// ── Apply ─────────────────────────────────────────────────────────
+		// Every apply method takes the same itemCache so per-op tree
+		// walks become O(1) cache hits — mirrors the CODESYS bridge's
+		// `_apply_*(connection, op, item_cache)` pattern. For a 50-item
+		// delete batch in a 1000-item project, this drops apply cost
+		// from 50 × O(N) COM walks to 50 × O(1) cache lookups. Both
+		// bridges now use the same shape: cache-first, scan-fallback.
 		foreach (var opNode in ops)
 		{
 			if (opNode is not JsonObject op) continue;
@@ -197,12 +214,22 @@ internal sealed class PushHandler
 			switch (opType)
 			{
 				case "pushItem":   ApplyPushItem(op, itemCache);   break;
-				case "deleteItem": ApplyDeleteItem(op); break;
-				case "renameItem": ApplyRenameItem(op); break;
-				case "moveItem":   ApplyMoveItem(op);   break;
+				case "deleteItem": ApplyDeleteItem(op, itemCache); break;
+				case "renameItem": ApplyRenameItem(op, itemCache); break;
+				case "moveItem":   ApplyMoveItem(op, itemCache);   break;
 				default: throw BridgeException.BadRequest($"Unknown op type: {opType}");
 			}
 		}
+
+		// Flush TC's open-document buffers BEFORE recomputing refs.
+		// TC keeps the result of our writes in-memory until something
+		// (usually a build's own SaveAll) persists them, at which point
+		// it may normalize source text (re-indent, fold attributes into
+		// canonical form, etc.). Without this flush, our post-apply walk
+		// hashes the pre-normalization buffer, while the NEXT /fetch
+		// hashes the eventually-saved form. The two hashes diverge and
+		// the client's next push rejects with phantom drift.
+		_connection.FlushPendingWrites();
 
 		// ── Recompute refs and report ────────────────────────────────────
 		// (Second walk is unavoidable — items added/removed by the ops
@@ -242,23 +269,44 @@ internal sealed class PushHandler
 
 		// CreateHandler / UpdateHandler accept the same body shape:
 		// { name, declaration, implementation?, folder?, children?: [...] }
-		var existing = itemCache.TryGetValue(name, out var cached) ? cached : null;
+		// ResolveItem is cache-first / name-lookup-fallback — same shape
+		// as the other apply methods.
+		var existing = ResolveItem(name, itemCache);
 
 		if (existing == null)
 		{
-			// Graphical-POU creation isn't supported yet — TC's
-			// create_pou path doesn't know how to set body language
-			// via the COM surface. Reject explicitly so the caller
-			// sees the gap.
+			// Create path — fan out by ST vs graphical (FBD/LD/SFC/CFC).
+			// Graphical body present → detect the language tag from the
+			// XML so CreateChild gets the right `vInfo` and TC opens the
+			// POU in the correct editor; then splice the body via the
+			// same export-template pattern the update path uses.
 			if (!string.IsNullOrEmpty(implementationXml))
 			{
-				throw new BridgeException(400, "GRAPHICAL_CREATE_UNSUPPORTED",
-					$"creating new graphical POU '{name}' from PLCopenXML not supported yet — " +
-					"create it in TC first, then re-pull and edit");
+				var bodyLanguage = PlcOpenXml.DetectBodyLanguage(implementationXml);
+				if (bodyLanguage == null)
+				{
+					throw new BridgeException(400, "GRAPHICAL_BODY_UNRECOGNIZED",
+						$"creating graphical POU '{name}' but body XML's root child is not " +
+						"a recognized language tag (<FBD>/<LD>/<SFC>/<CFC>)");
+				}
+				var body = BuildCreateBody(name, folder, split);
+				body["bodyLanguage"] = bodyLanguage;
+				_create.Handle(body);
+				// Re-resolve the freshly-created item and splice the body.
+				var created = _connection.LookupItemByName(name)
+					?? throw new BridgeException(500, "INTERNAL_ERROR",
+						$"created '{name}' but couldn't re-resolve for body import");
+				var importError = _connection.ImportItemBodyAsXml(created, name, implementationXml);
+				if (importError != null)
+				{
+					throw new BridgeException(500, "GRAPHICAL_IMPORT_FAILED",
+						$"PlcOpenImport on freshly-created '{name}' failed: {importError}");
+				}
+				return;
 			}
-			// Create: all children are net-new.
-			var body = BuildCreateBody(name, folder, split);
-			_create.Handle(body);
+			// Plain ST create: all children are net-new.
+			var stBody = BuildCreateBody(name, folder, split);
+			_create.Handle(stBody);
 		}
 		else
 		{
@@ -282,23 +330,62 @@ internal sealed class PushHandler
 		}
 	}
 
-	private void ApplyDeleteItem(JsonObject op)
+	/// <summary>
+	/// Resolve an item by name using the pre-flight cache; fall through
+	/// to a fresh tree walk only on cache miss. Mirrors the CODESYS
+	/// bridge's `item_cache.get(name) or connection.find_by_name(name)`
+	/// pattern so apply-side lookup behaviour matches across the two
+	/// platforms.
+	/// </summary>
+	private dynamic? ResolveItem(string name, Dictionary<string, dynamic> itemCache)
 	{
-		var body = new JsonObject { ["name"] = op["name"]?.DeepClone() };
-		_delete.Handle(body);
+		if (itemCache.TryGetValue(name, out var cached)) return cached;
+		return _connection.LookupItemByName(name);
 	}
 
-	private void ApplyRenameItem(JsonObject op)
+	private void ApplyDeleteItem(JsonObject op, Dictionary<string, dynamic> itemCache)
 	{
-		var body = new JsonObject
+		var name = op["name"]?.GetValue<string>()
+			?? throw BridgeException.BadRequest("deleteItem missing 'name'");
+		// Cache-first parent lookup: if the cached item exposes its
+		// .Parent COM property, we skip the full FindRelativePath walk
+		// LookupParentByName would otherwise do. Falls back to the
+		// name-based lookup if Parent isn't readable from the cached
+		// reference (some TC versions throw on detached items).
+		dynamic? parent = null;
+		if (itemCache.TryGetValue(name, out var cached))
 		{
-			["name"] = op["name"]?.DeepClone(),
-			["newName"] = op["newName"]?.DeepClone(),
-		};
-		_rename.Handle(body);
+			try { parent = cached.Parent; }
+			catch { /* fall through to name-based lookup */ }
+		}
+		parent ??= _connection.LookupParentByName(name)
+			?? throw BridgeException.NotFound("item", name);
+		ComCall.Invoke(
+			"DeleteChild(top-level)",
+			() => parent.DeleteChild(name),
+			("name", name));
 	}
 
-	private void ApplyMoveItem(JsonObject op)
+	private void ApplyRenameItem(JsonObject op, Dictionary<string, dynamic> itemCache)
+	{
+		var name = op["name"]?.GetValue<string>()
+			?? throw BridgeException.BadRequest("renameItem missing 'name'");
+		var newName = op["newName"]?.GetValue<string>()
+			?? throw BridgeException.BadRequest("renameItem missing 'newName'");
+		// _rename has its own internals; for consistency with the other
+		// apply paths we resolve via cache first and forward the JSON
+		// shape it already understands. If the cache had the item,
+		// RenameHandler's internal lookup hits LookupTreeItem with a
+		// path it can quickly resolve (warm caches inside TC's COM).
+		_ = ResolveItem(name, itemCache); // keep cache locality warm
+		_rename.Handle(new JsonObject
+		{
+			["name"] = name,
+			["newName"] = newName,
+		});
+	}
+
+	private void ApplyMoveItem(JsonObject op, Dictionary<string, dynamic> itemCache)
 	{
 		// TwinCAT COM doesn't expose a clean cross-folder MoveItem
 		// primitive on the surface we use. Implement moveItem as a
@@ -310,17 +397,43 @@ internal sealed class PushHandler
 		var newFolder = op["newFolder"]?.GetValue<string>()
 			?? throw BridgeException.BadRequest("moveItem missing 'newFolder'");
 
-		var item = _connection.LookupItemByName(name)
+		var item = ResolveItem(name, itemCache)
 			?? throw new BridgeException(404, "NOT_FOUND",
 				$"moveItem: item '{name}' not found");
 
 		// Capture snapshot via the same builder /fetch uses.
 		var snapshot = GetHandler.BuildResult(_connection, name, item);
+
+		// Safety: moveItem is implemented as delete-then-recreate, but
+		// CreateHandler doesn't yet round-trip graphical bodies (the
+		// agent treats them as read-only — see
+		// `project_graphical_read_only` memory). If the parent has any
+		// graphical children, the delete-recreate would silently lose
+		// them. Refuse loudly so the engineer can move via the IDE
+		// instead.
+		// Pattern: pull out IList from the snapshot value. The
+		// `is`-pattern binding doesn't propagate the cast back into the
+		// trailing `Count` access cleanly under .NET 8's flow analysis
+		// (CS0165), so do the two checks sequentially.
+		snapshot.TryGetValue("graphicalChildren", out object? gcVal);
+		var gcList = gcVal as System.Collections.IList;
+		if (gcList != null && gcList.Count > 0)
+		{
+			throw new BridgeException(409, "MOVE_REFUSED_GRAPHICAL_CHILDREN",
+				$"moveItem refused: '{name}' contains {gcList.Count} graphical child member(s) " +
+				$"(FBD/LD/SFC/CFC) which can't be round-tripped through Volt yet. " +
+				$"Move this POU in the TwinCAT IDE instead.");
+		}
+
 		var snapshotNode = JsonNode.Parse(JsonSerializer.Serialize(snapshot))
 			?? throw new BridgeException(500, "INTERNAL_ERROR",
 				$"moveItem: failed to serialize snapshot for '{name}'");
 		var createBody = snapshotNode.AsObject();
 		createBody["folder"] = newFolder;
+		// Strip the graphicalChildren field — it's not part of the
+		// create-body contract and CreateHandler ignores it. Keeps
+		// the JSON shape clean across the delete-recreate boundary.
+		createBody.Remove("graphicalChildren");
 
 		_delete.Handle(new JsonObject { ["name"] = name });
 		_create.Handle(createBody);
@@ -450,59 +563,61 @@ internal sealed class PushHandler
 	}
 
 	// ─── Helpers (item-version walk) ──────────────────────────────────
+	//
+	// Both signatures forward to the SHARED walker on BeckhoffConnection
+	// — same code path RefsHandler and FetchHandler use, so the resulting
+	// `versions` map (and the projectVersion hash derived from it) are
+	// structurally guaranteed to agree across all three handlers.
 
 	private void BuildCurrentVersions(Dictionary<string, string> versions)
 	{
-		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, versions, null);
+		CollectVersions(versions, items: null);
 	}
 
 	private void BuildCurrentVersions(Dictionary<string, string> versions, Dictionary<string, dynamic> items)
 	{
-		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, versions, items);
+		CollectVersions(versions, items: items);
 	}
 
-	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, dynamic>? items)
+	private void CollectVersions(Dictionary<string, string> versions, Dictionary<string, dynamic>? items)
 	{
-		int count;
-		try { count = (int)node.ChildCount; }
-		catch { return; }
-
-		for (int i = 1; i <= count; i++)
+		_connection.WalkProjectTree((visit) =>
 		{
-			dynamic child;
-			try { child = node.Child[i]; }
-			catch { continue; }
-
-			string name;
-			try { name = (string)child.Name; }
-			catch { continue; }
-
-			int itemType = BeckhoffConnection.GetItemType(child);
-
-			if (itemType == BlockTypeMapper.FolderSubType)
+			if (visit.IsTopLevelCrud)
 			{
-				CollectVersions(child, versions, items);
-				continue;
+				versions[visit.Name] = BeckhoffConnection.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
+				// Cache CRUD items so ApplyPushItem avoids a fresh
+				// LookupItemByName walk per op. Only CRUD items are
+				// pushable, so caching only those is sufficient.
+				if (items != null) items[visit.Name] = visit.Item;
 			}
-
-			if (!BlockTypeMapper.IsTopLevelCrud(itemType)) continue;
-
-			try { versions[name] = BeckhoffConnection.ComputeItemVersion(child); }
-			catch { /* skip */ }
-
-			// Populate the item cache so ApplyPushItem can avoid a
-			// fresh LookupItemByName walk per pushItem op. The cached
-			// item supports ChildCount/Child[i] (used by
-			// EnumerateChildNames). Write operations go through
-			// _create.Handle / _update.Handle which do their own
-			// write-capable lookups, so we don't need the LookupTreeItem
-			// path here.
-			if (items != null)
+			else
 			{
-				try { items[name] = child; } catch { /* skip */ }
+				string? configKind = BlockTypeMapper.ToConfigKind(visit.ItemType);
+				if (configKind is null)
+				{
+					Log.Warn($"[push:versions] skipping {visit.Name}: ItemType {visit.ItemType} unmapped");
+					return;
+				}
+				// Use the typed-extractor-derived version so the
+				// post-push hash matches what /refs and /fetch produce
+				// for the SAME item. Anything else risks phantom drift
+				// after a successful push. `visit.Item` is dynamic → call is
+				// late-bound, return degrades to dynamic; DLR auto-unboxes the
+				// Nullable<ValueTuple>, so .Value fails — read named members directly.
+				var manifest = _connection.BuildConfigManifest(visit.Item, configKind, visit.Name, visit.FolderPath ?? "");
+				if (manifest is null) return;
+				versions[visit.Name] = (string)manifest.Version;
 			}
-		}
+		});
+
+		// I/O devices contribute to the project version too — same
+		// rationale as RefsHandler / FetchHandler.
+		_connection.WalkIoDevices((visit) =>
+		{
+			var manifest = _connection.BuildConfigManifest(visit.Item, "device", visit.Name, visit.FolderPath ?? "");
+			if (manifest is null) return;
+			versions[visit.Name] = (string)manifest.Version;
+		});
 	}
 }

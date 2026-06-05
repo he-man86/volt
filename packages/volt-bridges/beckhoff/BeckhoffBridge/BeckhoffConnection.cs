@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using BeckhoffBridge.Helpers;
+using BeckhoffBridge.Helpers.Extractors;
 
 namespace BeckhoffBridge;
 
@@ -20,6 +21,10 @@ namespace BeckhoffBridge;
 ///   ITcSmTreeItem         - Tree items (POUs, GVLs, DUTs, folders)
 ///   ITcPlcDeclaration     - Provides DeclarationText property
 ///   ITcPlcImplementation  - Provides ImplementationText property
+///
+/// Structural contracts: <c>WalkProjectTree</c> below is the single walker
+/// used by refs/fetch/push handlers — see <c>packages/volt-bridges/INVARIANTS.md</c>
+/// for the rules (single walker, post-push fetch invariant, itemCache through apply).
 /// </summary>
 internal sealed class BeckhoffConnection
 {
@@ -788,14 +793,36 @@ internal sealed class BeckhoffConnection
 	/// Returns the first 16 hex chars — collision-resistant enough for a
 	/// project's worth of items.
 	/// </summary>
-	public static string ComputeItemVersion(dynamic item)
+	/// <summary>
+	/// Per-item version hash. Foundation principle:
+	/// <c>version = SHA1(everything the materializer needs)</c> —
+	/// content (decl + impl + child digests + body XML) AND
+	/// location (<paramref name="folderPath"/>). When the engineer
+	/// MOVES a POU in TwinCAT the content stays identical but the
+	/// folder changes; including folder in the hash gives the agent
+	/// the version bump it needs to detect the move via /refs and
+	/// re-materialize at the new path. No /move verb, no parallel
+	/// folder map on /refs.
+	///
+	/// <para>Callers MUST pass the folder path they already track
+	/// (from <see cref="TreeItemVisit.FolderPath"/> on the walker
+	/// paths, or computed via <see cref="FindRelativePath"/> for
+	/// per-item code paths). Don't fall back to empty — that
+	/// re-introduces the bug.</para>
+	/// </summary>
+	public static string ComputeItemVersion(dynamic item, string folderPath)
 	{
 		string topName = "?";
 		try { topName = (string)item.Name; } catch { }
-		Log.Ide($"[hash] start: {topName}");
+		Log.Ide($"[hash] start: {topName} @ {folderPath}");
 		try
 		{
 			var sb = new StringBuilder();
+			// Folder FIRST so a move bumps the hash even when no
+			// other content changed. Prefix tag keeps the input
+			// unambiguous if a folder path happens to look like
+			// declaration text.
+			sb.Append("folder=").Append(folderPath ?? "").Append('\0');
 			AppendItemContent(sb, item, topName);
 			var v = ShortSha1(sb.ToString());
 			Log.Ide($"[hash] done:  {topName} -> {v}");
@@ -894,6 +921,219 @@ internal sealed class BeckhoffConnection
 	/// content → its version changes → project version changes. The "ref"
 	/// the bridge advertises in /refs.
 	/// </summary>
+	/// <summary>
+	/// Force TC to commit any in-memory document changes back into the
+	/// project tree, normalizing source text as it does so. Required
+	/// before any operation that READS the post-write state and reports
+	/// a hash from it — without this, TC keeps the buffer in-memory until
+	/// some later trigger (usually a build's own SaveAll), and a hash
+	/// computed against the buffer differs from the hash computed against
+	/// the eventually-saved form, surfacing as phantom drift on the next
+	/// push.
+	///
+	/// Used by:
+	///   - PushHandler: after `Apply`, before recomputing newProjectVersion.
+	///     Without this the post-apply walk sees pre-normalization source;
+	///     the next /fetch (which runs after some build normalizes things)
+	///     sees a DIFFERENT hash and the client thinks the project drifted.
+	///   - BuildHandler: before invoking the compiler. Ensures the compile
+	///     reads our intended source, not stale on-disk content.
+	/// </summary>
+	public void FlushPendingWrites()
+	{
+		if (_dte == null) return;
+		try { _dte.Documents.SaveAll(); }
+		catch (Exception ex) { Log.Warn($"[Connection] Documents.SaveAll failed: {ex.Message}"); }
+	}
+
+	/// <summary>
+	/// Single source of truth for "walk the PLC project tree, yield each
+	/// significant item, recurse into folders and hybrid containers."
+	///
+	/// Used by RefsHandler / FetchHandler / PushHandler — all three need
+	/// to enumerate the exact same item set to compute coherent project
+	/// versions. Before this lived in one place, each handler had its
+	/// own walker, and the three diverged on hybrid-container recursion
+	/// + filter logic, producing different `projectVersion` hashes for
+	/// the same project — every push after a pull rejected with phantom
+	/// drift.
+	///
+	/// Semantics applied to each tree node:
+	///   - Folder           → recurse with folder path appended
+	///   - Inlined-in-POU   → skip (methods/actions/properties ride in
+	///                        their parent POU's sourceText)
+	///   - Top-level CRUD   → visitor called with isTopLevelCrud=true
+	///                        (POU / GVL / DUT / Interface)
+	///   - Other items      → visitor called with isTopLevelCrud=false
+	///                        (visualizations, tasks, libraries, etc.)
+	///   - Hybrid container → visitor called for the container ITSELF,
+	///                        then we recurse so its children are
+	///                        ALSO visited. The "References" node is
+	///                        the canonical example: it carries a
+	///                        library_manager identity AND contains
+	///                        individual library refs as children;
+	///                        both the container and the libraries
+	///                        end up in the version map.
+	/// </summary>
+	public void WalkProjectTree(Action<TreeItemVisit> visitor)
+	{
+		WalkInner(GetPlcProjectRoot(), "", visitor);
+	}
+
+	/// <summary>
+	/// Walk the TwinCAT I/O Devices subtree (<c>TIID</c>) and yield one
+	/// visit per direct child device (EtherCAT master, EAP master,
+	/// USB camera, etc.). Sub-elements of each device (slave boxes,
+	/// channels, terminals) are NOT emitted as separate items — the
+	/// <see cref="Extractors.DeviceExtractor"/> enumerates them inline
+	/// within the parent device's manifest. This matches the
+	/// "structural presence at device level, content detail inside" cut.
+	///
+	/// I/O devices live in a parallel COM tree (system tree, not PLC
+	/// tree) — they're addressed by ITcSysManager.LookupTreeItem(\"TIID\")
+	/// and their child-walking uses the same ITcSmTreeItem.Child[i]
+	/// surface as PLC items, so the visit shape is identical.
+	///
+	/// Returns silently when TIID isn't present (some TwinCAT installs
+	/// lack the I/O license, or the project doesn't yet have any I/O
+	/// config). Logs a warning loud enough to surface in bridge.log
+	/// when individual device probing fails.
+	/// </summary>
+	public void WalkIoDevices(Action<TreeItemVisit> visitor)
+	{
+		if (_sysManager == null) return;
+		dynamic tiid;
+		try { tiid = _sysManager.LookupTreeItem("TIID"); }
+		catch
+		{
+			// No I/O devices subtree on this install — skip silently.
+			return;
+		}
+
+		int count;
+		try { count = (int)tiid.ChildCount; }
+		catch (Exception ex)
+		{
+			Log.Warn($"[Connection] WalkIoDevices: ChildCount on TIID failed: {ex.Message}");
+			return;
+		}
+
+		for (int i = 1; i <= count; i++)
+		{
+			dynamic device;
+			try { device = tiid.Child[i]; }
+			catch (Exception ex)
+			{
+				Log.Warn($"[Connection] WalkIoDevices: TIID.Child[{i}] failed: {ex.Message}");
+				continue;
+			}
+			string name;
+			try { name = (string)device.Name; }
+			catch (Exception ex)
+			{
+				Log.Warn($"[Connection] WalkIoDevices: child[{i}].Name read failed: {ex.Message}");
+				continue;
+			}
+			int itemType = GetItemType(device);
+			visitor(new TreeItemVisit
+			{
+				Name = name,
+				Item = device,
+				ItemType = itemType,
+				IsTopLevelCrud = false,
+				// All devices land under a fixed "I/O Devices" folder so
+				// they don't collide with PLC-tree items if names happen
+				// to overlap (rare but possible — e.g. "Tasks" exists in
+				// both subtrees).
+				FolderPath = "I/O Devices",
+			});
+		}
+	}
+
+	private static void WalkInner(dynamic node, string folderPath, Action<TreeItemVisit> visitor)
+	{
+		int count;
+		try { count = (int)node.ChildCount; }
+		catch { return; }
+
+		for (int i = 1; i <= count; i++)
+		{
+			dynamic child;
+			try { child = node.Child[i]; }
+			catch { continue; }
+
+			string name;
+			try { name = (string)child.Name; }
+			catch { continue; }
+
+			int itemType = GetItemType(child);
+
+			if (itemType == BlockTypeMapper.FolderSubType)
+			{
+				// Recurse with the folder appended. Folder names compose with
+				// `/` so the on-disk layout matches the IDE's tree exactly
+				// (e.g. POUs/Motors/FB_Stepper.st).
+				var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
+				WalkInner(child, nested, visitor);
+				continue;
+			}
+
+			if (BlockTypeMapper.IsInlinedInPou(itemType))
+			{
+				// Methods/actions/properties/transitions ride inline via
+				// StAssembler — they appear in the parent POU's sourceText,
+				// not as standalone items.
+				continue;
+			}
+
+			int childCount = 0;
+			try { childCount = (int)child.ChildCount; } catch { }
+			bool isTopLevelCrud = BlockTypeMapper.IsTopLevelCrud(itemType);
+			bool isHybrid = childCount > 0 && !isTopLevelCrud;
+			string emitFolder = isHybrid
+				? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}")
+				: folderPath;
+
+			visitor(new TreeItemVisit
+			{
+				Name = name,
+				Item = child,
+				ItemType = itemType,
+				IsTopLevelCrud = isTopLevelCrud,
+				FolderPath = emitFolder,
+			});
+
+			// Hybrid containers (non-CRUD with children — RecipeManager +
+			// Recipes, References + libraries, etc.) have their own item
+			// identity AND children. We've already emitted the container;
+			// now recurse into its children so they're emitted too. Visited
+			// folder is the container's own folder so children land
+			// alongside the parent's file (component-folder convention).
+			if (isHybrid)
+			{
+				WalkInner(child, emitFolder, visitor);
+			}
+		}
+	}
+
+	/// <summary>
+	/// One visit yielded by <see cref="WalkProjectTree"/>. Callers
+	/// project this into their own per-handler shape (RefsHandler maps
+	/// to versions/kinds; FetchHandler additionally builds sourceText;
+	/// PushHandler caches the item for later op application).
+	/// </summary>
+	internal struct TreeItemVisit
+	{
+		public string Name;
+		public dynamic Item;
+		public int ItemType;
+		public bool IsTopLevelCrud;
+		/// <summary>Folder path WITH the hybrid container's own name
+		/// appended (when applicable) — matches the component-folder
+		/// convention used in /fetch's emitFolder.</summary>
+		public string FolderPath;
+	}
+
 	public static string ComputeProjectVersion(IReadOnlyDictionary<string, string> itemVersions)
 	{
 		var sb = new StringBuilder();
@@ -990,18 +1230,78 @@ internal sealed class BeckhoffConnection
 	/// "opaque XML blob, write verbatim" — same opaque-passthrough policy
 	/// the CODESYS bridge uses for its config items.
 	/// </summary>
-	public string ProduceItemXml(dynamic item, string itemName)
+	/// <summary>
+	/// Render a non-CRUD config item as its (sourceText, version) pair
+	/// using the per-kind typed extractor. Returns <c>null</c> when no
+	/// extractor is registered for the kind — caller should SKIP the
+	/// item with a warning rather than fall back to opaque XML (per the
+	/// <c>no-fallbacks</c> rule). The closed kind set is owned by
+	/// <see cref="Extractors.ExtractorRegistry"/>; an unregistered kind
+	/// means either (a) the bridge emitted a new kind without
+	/// registering an extractor, or (b) BlockTypeMapper hit its
+	/// catch-all "config" branch — both real bugs to fix at the
+	/// SOURCE, not paper over here.
+	///
+	/// Used by RefsHandler (needs the version only) and FetchHandler
+	/// (needs both fields). RefsHandler discards <c>sourceText</c>;
+	/// extracting it twice would be wasteful but extracting it ONCE
+	/// keeps the hash trivially consistent across the two handlers.
+	/// </summary>
+	/// <summary>
+	/// Build the deterministic text manifest + per-item version for a
+	/// non-CRUD config item (task / library / device / visualization /
+	/// recipe / textlist / image-pool / TMC / class-diagram / etc.).
+	///
+	/// <para>Version = SHA1("folder=" + <paramref name="folderPath"/>
+	/// + "\0" + manifest). Folder participates so a MOVE in TwinCAT
+	/// (e.g. dragging a task into a different Task Configuration
+	/// folder) produces a version bump the agent detects on /refs —
+	/// same foundation principle as
+	/// <see cref="ComputeItemVersion(dynamic, string)"/> for source
+	/// items.</para>
+	/// </summary>
+	/// <summary>
+	/// Result of <see cref="BuildConfigManifest"/>. A real record (not a
+	/// ValueTuple) because callers pass <c>dynamic</c> arguments — that
+	/// makes the call site late-bound and the return type degrades to
+	/// <c>dynamic</c>. Named tuple members like <c>.Version</c> are only
+	/// compile-time metadata; the DLR sees through to <c>Item1</c> /
+	/// <c>Item2</c> and named accessors fail. A record exposes real
+	/// properties that work over dynamic dispatch.
+	/// </summary>
+	public sealed record ConfigManifest(string SourceText, string Version);
+
+	public ConfigManifest? BuildConfigManifest(dynamic item, string configKind, string itemName, string folderPath)
 	{
+		var extractor = ExtractorRegistry.Get(configKind);
+		if (extractor is null)
+		{
+			Log.Warn($"[Connection] BuildConfigManifest({itemName}): no extractor for kind '{configKind}' — skipping (register one in ExtractorRegistry.cs).");
+			return null;
+		}
+		string sourceText;
 		try
 		{
-			string xml = (string)item.ProduceXml();
-			return xml ?? "";
+			sourceText = extractor.Extract(item);
 		}
 		catch (Exception ex)
 		{
-			Log.Warn($"[Connection] ProduceItemXml({itemName}) failed: {ex.GetType().Name}: {ex.Message}");
-			return "";
+			// Per-item containment: one bad item must not kill the whole
+			// walk. We log LOUDLY with the kind + item name + stack trace
+			// origin so bridge.log captures exactly which item failed and
+			// why — this is the "structured logging" version of error
+			// handling, not a silent swallow. The agent will see the
+			// item as `removed` next round, which is the correct
+			// user-visible signal for "bridge can't currently render
+			// this item".
+			Log.Warn($"[Connection] BuildConfigManifest({itemName}) extractor for '{configKind}' threw: {ex.GetType().Name}: {ex.Message}");
+			return null;
 		}
+		// SHA1 of "folder=<path>\0<manifest>" — content + location.
+		// Moving a config item bumps the hash even when the manifest
+		// text didn't change.
+		string version = ShortSha1("folder=" + (folderPath ?? "") + "\0" + sourceText);
+		return new ConfigManifest(sourceText, version);
 	}
 
 	public string? ExportItemBodyAsXml(dynamic item, string itemName)

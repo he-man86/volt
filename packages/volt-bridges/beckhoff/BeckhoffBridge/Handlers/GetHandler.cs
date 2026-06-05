@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using BeckhoffBridge.Helpers;
@@ -78,8 +78,21 @@ internal sealed class GetHandler
 	private static Dictionary<string, object?> GetPou(BeckhoffConnection connection, string name, dynamic item, string declaration)
 	{
 		string implementation = BeckhoffConnection.ReadImplementation(item)?.Trim() ?? "";
-		var children = BuildChildrenList(name, item);
 		string language = DetectLanguage(implementation);
+		// Walk children with the connection so the graphical-children
+		// branch can call `ExportItemBodyAsXml` for canonical body XML
+		// (TwinCAT's `PlcOpenExport` is the authoritative source for a
+		// member's body language — same role `plcopen_xml.extract_self_
+		// member_body` plays for CODESYS). Returns BOTH textual children
+		// (folded into sourceText via StAssembler) and graphical
+		// children (emitted separately on the wire as read-only).
+		// `item` is dynamic → BuildChildrenList call is late-bound,
+		// return value behaves as dynamic at runtime. Record properties
+		// work over dynamic dispatch; named-tuple labels would NOT
+		// (DLR sees through to Item1/Item2). See ChildrenSplit.
+		var childResult = BuildChildrenList(connection, item);
+		var textualChildren = childResult.Textual;
+		var graphicalChildren = childResult.Graphical;
 
 		var result = new Dictionary<string, object?>
 		{
@@ -88,16 +101,16 @@ internal sealed class GetHandler
 			["language"] = language,
 		};
 		AttachParentPath(connection, result, name);
-		// Mask graphical bodies with a placeholder so AI clients without
-		// a graphical-language LSP can't accidentally clobber them with
-		// text edits. The `language` field above tells the caller WHICH
-		// language is being masked, so once an LSP exists we can drop
-		// the mask cleanly without breaking the protocol.
-		if (language != "ST")
-			result["implementation"] = "(graphical language — not visible or editable as text)";
-		else if (!string.IsNullOrEmpty(implementation))
+		// Top-level POU body: ST gets folded into sourceText as today.
+		// Graphical bodies leave `implementation` empty here — the wire
+		// payload carries the body separately via `implementationXml`
+		// (FetchHandler attaches it via `ExportItemBodyAsXml`). No
+		// placeholder text — the agent owns rendering the workspace
+		// file from the XML.
+		if (language == "ST" && !string.IsNullOrEmpty(implementation))
 			result["implementation"] = implementation;
-		if (children != null) result["children"] = children;
+		if (textualChildren != null) result["children"] = textualChildren;
+		if (graphicalChildren != null) result["graphicalChildren"] = graphicalChildren;
 
 		return result;
 	}
@@ -126,8 +139,12 @@ internal sealed class GetHandler
 
 	private static Dictionary<string, object?> GetInterface(BeckhoffConnection connection, string name, dynamic item, string declaration)
 	{
-		// Build flat children list — flag interface to skip property child enumeration
-		var children = BuildChildrenList(name, item, parentIsInterface: true);
+		// Build flat children list — flag interface to skip property child enumeration.
+		// `item` is dynamic → call is late-bound; record property access works through
+		// dynamic dispatch (named-tuple labels would not). Interfaces never carry
+		// graphical children — discard that bucket.
+		var childResult = BuildChildrenList(connection, item, parentIsInterface: true);
+		var children = childResult.Textual;
 
 		var result = new Dictionary<string, object?>
 		{
@@ -170,22 +187,49 @@ internal sealed class GetHandler
 	}
 
 	/// <summary>
-	/// Build a flat children array with separate declaration/implementation fields.
-	/// Recurses into folders so that code items nested in organizational folders
-	/// are included in the flat list.
-	/// Methods: { name, declaration, implementation }
-	/// Actions: { name, declaration, implementation }
-	/// Properties: { name, declaration, getterCode?, setterCode? }
+	/// Return value of <see cref="BuildChildrenList"/>. A record (not a
+	/// named ValueTuple) because callers pass <c>dynamic</c> arguments —
+	/// the resulting call site is late-bound, so the named tuple
+	/// labels disappear at runtime (the DLR sees only Item1/Item2). A
+	/// record exposes real CLR properties that work over dynamic
+	/// dispatch.
 	/// </summary>
-	private static List<Dictionary<string, object?>>? BuildChildrenList(
-		string parentName, dynamic parent, bool parentIsInterface = false)
+	private sealed record ChildrenSplit(
+		List<Dictionary<string, object?>>? Textual,
+		List<Dictionary<string, object?>>? Graphical);
+
+	/// <summary>
+	/// Build two flat children lists from a parent POU/interface:
+	///
+	/// <list type="bullet">
+	///   <item><description><b>textual</b> — ST methods/actions and properties.
+	///   Get folded into the parent's assembled sourceText by StAssembler.</description></item>
+	///   <item><description><b>graphical</b> — FBD/LD/SFC/CFC methods/actions.
+	///   Surfaced separately on the wire via `graphicalChildren` so the
+	///   agent can materialize each as a read-only sibling file
+	///   (`&lt;parent_name&gt;/&lt;child_name&gt;.&lt;lang_ext&gt;`).
+	///   The body XML comes from `PlcOpenExport` (canonical TwinCAT
+	///   format) via <see cref="BeckhoffConnection.ExportItemBodyAsXml"/>.</description></item>
+	/// </list>
+	///
+	/// Recurses into folder children so organizational folders inside a POU
+	/// flatten transparently. Returns (null, null) when there are no
+	/// children at all; null on either side individually when that bucket
+	/// is empty.
+	/// </summary>
+	private static ChildrenSplit BuildChildrenList(
+		BeckhoffConnection connection, dynamic parent, bool parentIsInterface = false)
 	{
-		var children = new List<Dictionary<string, object?>>();
-		CollectChildren(parent, children, parentIsInterface, "");
-		return children.Count > 0 ? children : null;
+		var textual = new List<Dictionary<string, object?>>();
+		var graphical = new List<Dictionary<string, object?>>();
+		CollectChildren(connection, parent, textual, graphical, parentIsInterface, "");
+		return new ChildrenSplit(
+			textual.Count > 0 ? textual : null,
+			graphical.Count > 0 ? graphical : null
+		);
 	}
 
-	private static void CollectChildren(dynamic parent, List<Dictionary<string, object?>> children, bool parentIsInterface, string folderPath)
+	private static void CollectChildren(BeckhoffConnection connection, dynamic parent, List<Dictionary<string, object?>> children, List<Dictionary<string, object?>> graphicalChildren, bool parentIsInterface, string folderPath)
 	{
 		try
 		{
@@ -206,7 +250,7 @@ internal sealed class GetHandler
 					if (itemType == BlockTypeMapper.FolderSubType)
 					{
 						var subPath = string.IsNullOrEmpty(folderPath) ? childName : $"{folderPath}/{childName}";
-						CollectChildren(child, children, parentIsInterface, subPath);
+						CollectChildren(connection, child, children, graphicalChildren, parentIsInterface, subPath);
 						continue;
 					}
 
@@ -234,43 +278,87 @@ internal sealed class GetHandler
 					{
 						string methodImpl = implementation?.Trim() ?? "";
 						string methodLang = DetectLanguage(methodImpl);
-						var entry = new Dictionary<string, object?>
+						if (methodLang == "FBD" || methodLang == "LD" || methodLang == "SFC" || methodLang == "CFC")
 						{
-							["name"] = childName,
-							["declaration"] = declaration.Trim(),
-							["language"] = methodLang,
-						};
-						if (methodLang != "ST")
-							entry["implementation"] = "(graphical language — not visible or editable as text)";
-						else if (!string.IsNullOrEmpty(methodImpl))
-							entry["implementation"] = methodImpl;
-						if (!string.IsNullOrEmpty(folderPath))
-							entry["folder"] = folderPath;
-						children.Add(entry);
+							// Graphical method — export canonical body XML via
+							// TC's `PlcOpenExport` and surface separately.
+							// Wire schema is strict; only the fields the agent's
+							// `GraphicalChildSchema` accepts go on this entry.
+							var bodyXml = connection.ExportItemBodyAsXml(child, childName);
+							if (string.IsNullOrEmpty(bodyXml))
+							{
+								Log.Warn($"[Get] graphical method '{childName}' under parent: PlcOpenExport returned empty; skipping");
+								continue;
+							}
+							graphicalChildren.Add(new Dictionary<string, object?>
+							{
+								["name"] = childName,
+								["kind"] = "method",
+								["language"] = methodLang,
+								["declaration"] = declaration.Trim(),
+								["implementationXml"] = bodyXml,
+							});
+						}
+						else
+						{
+							// Textual (ST) method — fold into parent sourceText.
+							var entry = new Dictionary<string, object?>
+							{
+								["name"] = childName,
+								["kind"] = "method",
+								["declaration"] = declaration.Trim(),
+								["language"] = methodLang,
+							};
+							if (!string.IsNullOrEmpty(methodImpl))
+								entry["implementation"] = methodImpl;
+							if (!string.IsNullOrEmpty(folderPath))
+								entry["folder"] = folderPath;
+							children.Add(entry);
+						}
 					}
 					else if (isAction)
 					{
 						string actionImpl = implementation?.Trim() ?? "";
 						string actionLang = DetectLanguage(actionImpl);
-						var entry = new Dictionary<string, object?>
+						if (actionLang == "FBD" || actionLang == "LD" || actionLang == "SFC" || actionLang == "CFC")
 						{
-							["name"] = childName,
-							["declaration"] = $"ACTION {childName}",
-							["language"] = actionLang,
-						};
-						if (actionLang != "ST")
-							entry["implementation"] = "(graphical language — not visible or editable as text)";
-						else if (!string.IsNullOrEmpty(actionImpl))
-							entry["implementation"] = actionImpl;
-						if (!string.IsNullOrEmpty(folderPath))
-							entry["folder"] = folderPath;
-						children.Add(entry);
+							var bodyXml = connection.ExportItemBodyAsXml(child, childName);
+							if (string.IsNullOrEmpty(bodyXml))
+							{
+								Log.Warn($"[Get] graphical action '{childName}' under parent: PlcOpenExport returned empty; skipping");
+								continue;
+							}
+							graphicalChildren.Add(new Dictionary<string, object?>
+							{
+								["name"] = childName,
+								["kind"] = "action",
+								["language"] = actionLang,
+								["declaration"] = $"ACTION {childName}",
+								["implementationXml"] = bodyXml,
+							});
+						}
+						else
+						{
+							var entry = new Dictionary<string, object?>
+							{
+								["name"] = childName,
+								["kind"] = "action",
+								["declaration"] = $"ACTION {childName}",
+								["language"] = actionLang,
+							};
+							if (!string.IsNullOrEmpty(actionImpl))
+								entry["implementation"] = actionImpl;
+							if (!string.IsNullOrEmpty(folderPath))
+								entry["folder"] = folderPath;
+							children.Add(entry);
+						}
 					}
 					else if (isProperty)
 					{
 						var entry = new Dictionary<string, object?>
 						{
 							["name"] = childName,
+							["kind"] = "property",
 							["declaration"] = declaration.Trim(),
 						};
 

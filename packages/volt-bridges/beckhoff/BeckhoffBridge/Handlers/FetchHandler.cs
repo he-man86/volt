@@ -44,12 +44,47 @@ internal sealed class FetchHandler
 	{
 		if (!_connection.IsConnected) throw BridgeException.NotConnected();
 
+		// Flush before reading — same rationale as RefsHandler. The
+		// fetched items' versions must agree with what /refs reported
+		// to the client and what the next /push pre-flight will see.
+		// All three handlers compute hashes from POST-flush state so
+		// the client never observes a phantom drift between calls.
+		_connection.FlushPendingWrites();
+
 		var knownItems = ParseKnownItems(body);
 
 		var currentVersions = new Dictionary<string, string>();
 		var changed = new List<object>();
-		var root = _connection.GetPlcProjectRoot();
-		WalkAndCollect(root, "", knownItems, currentVersions, changed);
+
+		// Single shared walker — same item set as RefsHandler / PushHandler.
+		// projectVersion derived from `currentVersions` is therefore
+		// guaranteed to agree across all three handlers; refs ↔ fetch ↔
+		// push drift is structurally impossible.
+		_connection.WalkProjectTree((visit) =>
+		{
+			if (visit.IsTopLevelCrud)
+			{
+				EmitSourceItem(visit.Item, visit.Name, visit.FolderPath, knownItems, currentVersions, changed);
+			}
+			else
+			{
+				string? configKind = BlockTypeMapper.ToConfigKind(visit.ItemType);
+				if (configKind is null)
+				{
+					Log.Warn($"[fetch] skipping {visit.Name}: ItemType {visit.ItemType} unmapped in BlockTypeMapper.ToConfigKind");
+					return;
+				}
+				EmitConfigItem(visit.Item, visit.Name, configKind, visit.FolderPath, knownItems, currentVersions, changed);
+			}
+		});
+
+		// I/O devices live in a parallel COM subtree (TIID, not the PLC
+		// NestedProject). Walked separately and emitted with the fixed
+		// kind "device" — DeviceExtractor enumerates child boxes inline.
+		_connection.WalkIoDevices((visit) =>
+		{
+			EmitConfigItem(visit.Item, visit.Name, "device", visit.FolderPath, knownItems, currentVersions, changed);
+		});
 
 		var removed = new List<string>();
 		foreach (var name in knownItems.Keys)
@@ -68,79 +103,6 @@ internal sealed class FetchHandler
 		};
 	}
 
-	private void WalkAndCollect(
-		dynamic node,
-		string folderPath,
-		Dictionary<string, string> knownItems,
-		Dictionary<string, string> currentVersions,
-		List<object> changed)
-	{
-		int count;
-		try { count = (int)node.ChildCount; }
-		catch { return; }
-
-		for (int i = 1; i <= count; i++)
-		{
-			dynamic child;
-			try { child = node.Child[i]; }
-			catch { continue; }
-
-			string name;
-			try { name = (string)child.Name; }
-			catch { continue; }
-
-			int itemType = BeckhoffConnection.GetItemType(child);
-
-			if (itemType == BlockTypeMapper.FolderSubType)
-			{
-				// Recurse with the folder appended. Folder names compose with
-				// `/` so the on-disk layout matches the IDE's tree exactly
-				// (e.g. POUs/Motors/FB_Stepper.st).
-				var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
-				WalkAndCollect(child, nested, knownItems, currentVersions, changed);
-				continue;
-			}
-
-			if (BlockTypeMapper.IsInlinedInPou(itemType))
-			{
-				// Methods/actions/properties — ride inline via parent POU.
-				continue;
-			}
-
-			// Hybrid items (non-CRUD with children — RecipeManager + Recipes,
-			// References + library refs, etc.): nest the PARENT's file inside
-			// its own folder so VS Code shows ONE node per concept. So
-			// instead of `Drives/RecipeManager.xml` + `Drives/RecipeManager/
-			// Recipes.xml` side-by-side, we get `Drives/RecipeManager/
-			// RecipeManager.xml` + `Drives/RecipeManager/Recipes.xml`
-			// (component-folder convention, single tree entry per node).
-			int childCount = 0;
-			try { childCount = (int)child.ChildCount; } catch { }
-			bool isHybrid = childCount > 0 && !BlockTypeMapper.IsTopLevelCrud(itemType);
-			string emitFolder = isHybrid
-				? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}")
-				: folderPath;
-
-			if (BlockTypeMapper.IsTopLevelCrud(itemType))
-			{
-				EmitSourceItem(child, name, folderPath, knownItems, currentVersions, changed);
-			}
-			else
-			{
-				string configKind = BlockTypeMapper.ToConfigKind(itemType);
-				EmitConfigItem(child, name, configKind, emitFolder, knownItems, currentVersions, changed);
-			}
-
-			// Recurse into hybrid items with the SAME nested folder path
-			// (matches the parent's emitFolder above, so children land
-			// alongside their parent's file inside the shared folder).
-			if (isHybrid)
-			{
-				WalkAndCollect(child, emitFolder, knownItems, currentVersions, changed);
-			}
-		}
-	}
-
 	/// <summary>
 	/// Emit a top-level CRUD item (POU / GVL / DUT / Interface) — the
 	/// previous default path. SourceText is the StAssembler-produced
@@ -156,54 +118,92 @@ internal sealed class FetchHandler
 		List<object> changed)
 	{
 		string version;
-		try { version = BeckhoffConnection.ComputeItemVersion(child); }
-		catch { return; }
+		try { version = BeckhoffConnection.ComputeItemVersion(child, folderPath ?? ""); }
+		catch (Exception ex)
+		{
+			// One bad CRUD item shouldn't poison the whole fetch — the
+			// agent will see it as `removed` next round, which is the
+			// correct user-visible signal. But LOG so the bridge.log
+			// captures which item + why, instead of the previous silent
+			// swallow that left no trail.
+			Log.Warn($"[fetch] ComputeItemVersion({name}) threw — item will be reported as removed: {ex.GetType().Name}: {ex.Message}");
+			return;
+		}
 
 		currentVersions[name] = version;
 		if (knownItems.TryGetValue(name, out var clientVersion) && clientVersion == version)
 			return;
 
+		Dictionary<string, object?> result;
+		string sourceText;
 		try
 		{
-			var result = GetHandler.BuildResult(_connection, name, child);
-			var sourceText = StAssembler.Assemble(result);
-			var slim = new Dictionary<string, object?>
-			{
-				["name"] = name,
-				["version"] = version,
-				["sourceText"] = sourceText,
-			};
-			if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
-			// Prefer the walk-tracked folder (consistent across source +
-			// config items). Fall back to whatever BuildResult inferred
-			// only when our walk didn't pick anything up.
-			if (!string.IsNullOrEmpty(folderPath))
-				slim["folder"] = folderPath;
-			else if (result.TryGetValue("folder", out object? folderVal))
-				slim["folder"] = folderVal;
-			if (result.TryGetValue("language", out object? langVal)) slim["language"] = langVal;
-			if (langVal is string langStr && IsGraphicalLanguage(langStr))
-			{
-				string? bodyXml = _connection.ExportItemBodyAsXml(child, name);
-				if (!string.IsNullOrEmpty(bodyXml))
-				{
-					slim["implementationXml"] = bodyXml;
-				}
-			}
-			changed.Add(slim);
+			result = GetHandler.BuildResult(_connection, name, child);
+			sourceText = StAssembler.Assemble(result);
 		}
-		catch
+		catch (Exception ex)
 		{
-			// Skip bad items — they'll show up in `removed` next round.
+			// BuildResult / StAssembler failed — log loudly and skip.
+			// Same rationale as above: the agent will treat the item as
+			// removed; we just need to leave a forensic trail.
+			Log.Warn($"[fetch] BuildResult/Assemble({name}) threw — emitting as removed: {ex.GetType().Name}: {ex.Message}");
+			currentVersions.Remove(name);
+			return;
 		}
+
+		var slim = new Dictionary<string, object?>
+		{
+			["name"] = name,
+			["version"] = version,
+			["sourceText"] = sourceText,
+		};
+		if (result.TryGetValue("kind", out object? kindVal)) slim["kind"] = kindVal;
+		// Prefer the walk-tracked folder (consistent across source +
+		// config items). Fall back to whatever BuildResult inferred
+		// only when our walk didn't pick anything up.
+		if (!string.IsNullOrEmpty(folderPath))
+			slim["folder"] = folderPath;
+		else if (result.TryGetValue("folder", out object? folderVal))
+			slim["folder"] = folderVal;
+		object? langVal = null;
+		if (result.TryGetValue("language", out var langOut))
+		{
+			langVal = langOut;
+			slim["language"] = langVal;
+		}
+		if (langVal is string langStr && IsGraphicalLanguage(langStr))
+		{
+			string? bodyXml = _connection.ExportItemBodyAsXml(child, name);
+			if (!string.IsNullOrEmpty(bodyXml))
+			{
+				slim["implementationXml"] = bodyXml;
+			}
+		}
+		// Non-textual children (FBD/LD/SFC/CFC actions or methods nested
+		// in an otherwise-ST parent) ride on the wire as a separate
+		// list. The agent materializes each as a read-only sibling
+		// file `<parent>/<child>.<lang_ext>`. Parity with the CODESYS
+		// bridge — see `feedback_bridges_must_stay_at_parity`.
+		if (result.TryGetValue("graphicalChildren", out object? gcVal) && gcVal is not null)
+		{
+			slim["graphicalChildren"] = gcVal;
+		}
+		changed.Add(slim);
 	}
 
 	/// <summary>
 	/// Emit a non-CRUD item (Task / VisualizationManager / Visualization /
 	/// LibraryManager / library ref / RecipeManager / ImagePool /
-	/// GlobalTextList / ClassDiagram / TmcFile / etc.) as opaque config.
-	/// SourceText is the universal `ITcSmTreeItem.ProduceXml()` output;
-	/// constant version "config" matches the policy in RefsHandler.
+	/// GlobalTextList / ClassDiagram / TmcFile / Device / etc.) via the
+	/// typed extractor registered for its kind. SourceText is the
+	/// deterministic text manifest the extractor produces; version is
+	/// SHA1 of that manifest — content-aware, fixing the prior bug
+	/// where every task version was the constant string "task".
+	///
+	/// Items whose kind has no registered extractor are SKIPPED with a
+	/// warning (no opaque-XML fallback — see
+	/// <see cref="BeckhoffConnection.BuildConfigManifest"/> for the
+	/// rationale).
 	/// </summary>
 	private void EmitConfigItem(
 		dynamic child,
@@ -214,29 +214,28 @@ internal sealed class FetchHandler
 		Dictionary<string, string> currentVersions,
 		List<object> changed)
 	{
-		string version = configKind;
+		// BuildConfigManifest takes a `dynamic child` arg so the call is
+		// late-bound — C# returns `dynamic`, not the declared nullable tuple.
+		// At runtime Nullable<ValueTuple> auto-unboxes, so .Value would fail.
+		// Access named members directly on the dynamic to bypass that.
+		var manifest = _connection.BuildConfigManifest(child, configKind, name, folderPath ?? "");
+		if (manifest is null) return;  // no extractor registered → skip with log
+
+		string version = (string)manifest.Version;
 		currentVersions[name] = version;
 		if (knownItems.TryGetValue(name, out var clientVersion) && clientVersion == version)
 			return;
 
-		try
+		var slim = new Dictionary<string, object?>
 		{
-			string xml = _connection.ProduceItemXml(child, name);
-			var slim = new Dictionary<string, object?>
-			{
-				["name"] = name,
-				["kind"] = configKind,
-				["version"] = version,
-				["sourceText"] = xml,
-			};
-			if (!string.IsNullOrEmpty(folderPath))
-				slim["folder"] = folderPath;
-			changed.Add(slim);
-		}
-		catch
-		{
-			// best-effort — bad item shouldn't poison the walk.
-		}
+			["name"] = name,
+			["kind"] = configKind,
+			["version"] = version,
+			["sourceText"] = (string)manifest.SourceText,
+		};
+		if (!string.IsNullOrEmpty(folderPath))
+			slim["folder"] = folderPath;
+		changed.Add(slim);
 	}
 
 	/// <summary>

@@ -11,14 +11,16 @@ namespace BeckhoffBridge.Handlers;
 ///
 /// Response shape:
 ///   {
-///     "projectVersion": "<sha1 short>",
-///     "items": { "FB_RateLimiter": "<sha1>", "PLC_PRG": "<sha1>", ... }
+///     "projectVersion": "&lt;sha1 short&gt;",
+///     "items": { "FB_RateLimiter": "&lt;sha1&gt;", "PLC_PRG": "&lt;sha1&gt;", ... }
 ///   }
 ///
-/// Walks NestedProject and picks out top-level CRUD items (POU / GVL /
-/// DUT / Interface) via <see cref="BlockTypeMapper.IsTopLevelCrud"/>.
-/// Each item's version is the sha1 of its full content (recursive — see
-/// <see cref="BeckhoffConnection.ComputeItemVersion"/>).
+/// Walks the PLC project tree via <see cref="BeckhoffConnection.WalkProjectTree"/>
+/// — the SAME walker FetchHandler and PushHandler use. Three handlers,
+/// one walker, one item set: <c>projectVersion</c> is structurally
+/// guaranteed to agree across them, so the client's push pre-flight
+/// check can never reject with phantom drift between a pull and the
+/// next push.
 /// </summary>
 internal sealed class RefsHandler
 {
@@ -33,10 +35,58 @@ internal sealed class RefsHandler
 	{
 		if (!_connection.IsConnected) throw BridgeException.NotConnected();
 
+		// Flush BEFORE walking. TC keeps editor edits in in-memory
+		// document buffers; reading without flushing first returns a
+		// hash of the buffer state, which then differs from the hash
+		// the next PushHandler / BuildHandler (both of which flush)
+		// computes — surfacing as phantom drift on the client's next
+		// push. The cost is one SaveAll per /refs (idempotent when
+		// nothing's dirty), in exchange for hash stability across the
+		// three handlers that compute item versions.
+		_connection.FlushPendingWrites();
+
 		var itemVersions = new Dictionary<string, string>();
 		var itemKinds = new Dictionary<string, string>();
-		var root = _connection.GetPlcProjectRoot();
-		CollectVersions(root, itemVersions, itemKinds);
+		_connection.WalkProjectTree((visit) =>
+		{
+			if (visit.IsTopLevelCrud)
+			{
+				itemVersions[visit.Name] = BeckhoffConnection.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
+				itemKinds[visit.Name] = BlockTypeMapper.ToNodeType(visit.ItemType);
+			}
+			else
+			{
+				// Non-CRUD items (tasks / libraries / visualizations /
+				// recipes / etc.) get a vendor-neutral kind string the
+				// agent recognizes. The version is SHA1 of the typed
+				// extractor's manifest — content-aware, agrees with the
+				// hash FetchHandler computes for the same item.
+				string? configKind = BlockTypeMapper.ToConfigKind(visit.ItemType);
+				if (configKind is null)
+				{
+					Log.Warn($"[refs] skipping {visit.Name}: ItemType {visit.ItemType} unmapped in BlockTypeMapper.ToConfigKind");
+					return;
+				}
+				// `visit.Item` is dynamic → BuildConfigManifest call is late-bound,
+				// return type degrades to dynamic. The DLR auto-unboxes the
+				// Nullable<ValueTuple>, so .Value fails — read named members directly.
+				var manifest = _connection.BuildConfigManifest(visit.Item, configKind, visit.Name, visit.FolderPath ?? "");
+				if (manifest is null) return;  // no extractor → skip with log
+				itemVersions[visit.Name] = (string)manifest.Version;
+				itemKinds[visit.Name] = configKind;
+			}
+		});
+
+		// I/O devices (TIID subtree) — parallel walk, emitted as kind
+		// "device". Same versioning path as PLC config items so
+		// /refs ↔ /fetch hashes agree.
+		_connection.WalkIoDevices((visit) =>
+		{
+			var manifest = _connection.BuildConfigManifest(visit.Item, "device", visit.Name, visit.FolderPath ?? "");
+			if (manifest is null) return;
+			itemVersions[visit.Name] = (string)manifest.Version;
+			itemKinds[visit.Name] = "device";
+		});
 
 		return new Dictionary<string, object?>
 		{
@@ -46,72 +96,8 @@ internal sealed class RefsHandler
 			// Per-item vendor-neutral kind string ("function_block", "gvl",
 			// "interface", etc.), parallel to `items`. Lets clients route
 			// per kind (extension picking, future per-type content
-			// handling) without re-inferring from declaration text. Every
-			// bridge implementation translates its native type code to
-			// this same canonical vocabulary.
+			// handling) without re-inferring from declaration text.
 			["kinds"] = itemKinds,
 		};
-	}
-
-	private void CollectVersions(dynamic node, Dictionary<string, string> versions, Dictionary<string, string> kinds)
-	{
-		int count;
-		try { count = (int)node.ChildCount; }
-		catch { return; }
-
-		for (int i = 1; i <= count; i++)
-		{
-			dynamic child;
-			try { child = node.Child[i]; }
-			catch { continue; }
-
-			string name;
-			try { name = (string)child.Name; }
-			catch { continue; }
-
-			int itemType = BeckhoffConnection.GetItemType(child);
-
-			if (itemType == BlockTypeMapper.FolderSubType)
-			{
-				// Recurse to find items inside.
-				CollectVersions(child, versions, kinds);
-				continue;
-			}
-
-			if (BlockTypeMapper.IsInlinedInPou(itemType))
-			{
-				// Methods/actions/properties/transitions ride inline via
-				// StAssembler — emitting them here would duplicate content
-				// the parent POU's sourceText already carries.
-				continue;
-			}
-
-			try
-			{
-				if (BlockTypeMapper.IsTopLevelCrud(itemType))
-				{
-					versions[name] = BeckhoffConnection.ComputeItemVersion(child);
-					kinds[name] = BlockTypeMapper.ToNodeType(itemType);
-				}
-				else
-				{
-					// Non-CRUD items get vendor-neutral kind strings the agent
-					// recognizes (visualization → .visu, recipe_manager →
-					// .recipes, task → .task, library_manager → .libraries,
-					// library → .library, tmc_file → .tmc, etc.). Unknown
-					// codes fall through to "config" → generic `.xml`.
-					// Version is the kind itself — constant per item, so
-					// /refs is fast and structureVersion still flips on
-					// add/remove/rename.
-					string configKind = BlockTypeMapper.ToConfigKind(itemType);
-					versions[name] = configKind;
-					kinds[name] = configKind;
-				}
-			}
-			catch
-			{
-				// One bad object shouldn't poison the whole refs walk.
-			}
-		}
 	}
 }
