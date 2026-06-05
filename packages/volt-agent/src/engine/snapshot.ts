@@ -34,7 +34,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { buildTree, initBareRepo, isRepo, listTree, writeBlob } from "./git-cmds.js";
-import { isTrackedPath, nameFromPouPath } from "./pou-files.js";
+import { getByPath, isTrackedPath, nameFromPath } from "./extension-registry.js";
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -231,6 +231,73 @@ export function writeTreeToWorkspace(
 }
 
 /**
+ * Sweep stale empty directories under the workspace root.
+ *
+ * `removeFilesFromWorkspace` walks up only when IT just removed a file
+ * — so dirs that were ALREADY empty when pull began (left over from a
+ * previous pull's classifier change, or a kind that has since been
+ * retired) are never collected. This sweep is a post-pull pass that
+ * catches them.
+ *
+ * Rule: any directory under `workspaceRoot` whose subtree contains
+ * ZERO files is stale and removed. The workspace is a Volt-managed
+ * surface — folders that don't trace back to an IDE item path are
+ * by definition not part of the IDE's state. Folders the engineer
+ * created in the IDE arrive as `kind="folder"` items with a `.gitkeep`
+ * marker inside, so they have a file and survive this sweep.
+ *
+ * Skips `.volt/` and `.git/` at the root (Volt's own state + the user's
+ * own git repo if any).
+ */
+export function sweepEmptyDirs(workspaceRoot: string): string[] {
+	const rootAbs = resolve(workspaceRoot);
+	const removed: string[] = [];
+
+	function dirHasFiles(abs: string): boolean {
+		let entries: import("node:fs").Dirent[];
+		try {
+			entries = readdirSync(abs, { withFileTypes: true }) as import("node:fs").Dirent[];
+		} catch {
+			return false;
+		}
+		for (const e of entries) {
+			if (e.isFile()) return true;
+			if (e.isDirectory()) {
+				if (dirHasFiles(join(abs, e.name))) return true;
+			}
+		}
+		return false;
+	}
+
+	function walk(abs: string): void {
+		let entries: import("node:fs").Dirent[];
+		try {
+			entries = readdirSync(abs, { withFileTypes: true }) as import("node:fs").Dirent[];
+		} catch {
+			return;
+		}
+		for (const e of entries) {
+			if (!e.isDirectory()) continue;
+			if (abs === rootAbs && (e.name === ".volt" || e.name === ".git")) continue;
+			const childAbs = join(abs, e.name);
+			// Depth-first so we collapse from the leaves.
+			walk(childAbs);
+			if (!dirHasFiles(childAbs)) {
+				try {
+					rmSync(childAbs, { recursive: true, force: true });
+					removed.push(relative(rootAbs, childAbs).split(sep).join("/"));
+				} catch {
+					/* ignore — concurrent change or permission issue */
+				}
+			}
+		}
+	}
+
+	walk(rootAbs);
+	return removed;
+}
+
+/**
  * Delete files from the workspace by relative path. Tolerant of missing
  * files. Cleans up empty parent directories left behind, walking upward
  * until a non-empty dir or the workspace root is reached.
@@ -290,6 +357,18 @@ export interface ChangeSet {
 	added: string[];
 	removed: string[];
 	modified: string[];
+	/**
+	 * Items whose name stayed but whose folder/path changed. Path-keyed
+	 * diffs (workspace files) would otherwise report a move as `added`
+	 * + `removed` of the same name, misleading the engineer into
+	 * thinking work was lost. The wire op emitted in this case is a
+	 * single `moveItem` — surfacing the move here keeps the human
+	 * output honest about what's actually happening.
+	 *
+	 * `from` / `to` are workspace-relative folder paths (basename
+	 * always matches `<name>.<ext>` so it's elided).
+	 */
+	moved: Array<{ name: string; from: string; to: string }>;
 }
 
 /**
@@ -313,16 +392,26 @@ export function computeIncoming(
 	for (const name of Object.keys(snapshotItems)) {
 		if (!(name in bridgeItems)) removed.push(name);
 	}
+	// Incoming has no path information — folder moves on the bridge
+	// surface only as a version bump, which we report as `modified`.
+	// Path-aware move detection happens in `computeOutgoing` (workspace
+	// side) where we DO have both paths.
 	return {
 		added: added.sort(),
 		removed: removed.sort(),
 		modified: modified.sort(),
+		moved: [],
 	};
 }
 
 /** True if the ChangeSet reflects any changes at all. */
 export function hasChanges(c: ChangeSet): boolean {
-	return c.added.length > 0 || c.removed.length > 0 || c.modified.length > 0;
+	return (
+		c.added.length > 0 ||
+		c.removed.length > 0 ||
+		c.modified.length > 0 ||
+		c.moved.length > 0
+	);
 }
 
 // ─── Workspace-local files we manage outside the snapshot ────────────
@@ -455,32 +544,66 @@ export function computeOutgoing(
 	const wsFiles = listWorkspaceFiles(workspaceRoot);
 	const wsByPath = new Map(wsFiles.map((f) => [f.path, f.content]));
 
-	const added = new Set<string>();
+	// Track per-name → containing folder, both sides, so a path-move
+	// surfaces as a single `moved` entry rather than the misleading
+	// `added` + `removed` pair the previous path-keyed diff produced.
+	// `buildPushOps` already emits ONE `moveItem` wire op for this
+	// case — the display now matches.
+	const added = new Map<string, string>();    // name → workspace folder
+	const removed = new Map<string, string>();  // name → head folder
 	const modified = new Set<string>();
-	const removed = new Set<string>();
 
+	// Push diff is SOURCE-only — config items (.library/.task/…) are
+	// read-only by default and never sent back to the bridge. Filter
+	// by family so adding a new source kind doesn't require touching
+	// this function.
+	const sourceOnly = (path: string): string | undefined => {
+		const def = getByPath(path);
+		if (def === undefined || def.family !== "source") return undefined;
+		return nameFromPath(path);
+	};
+	const folderOf = (path: string): string => {
+		const segs = path.split("/");
+		return segs.slice(0, -1).join("/");
+	};
 	for (const [path, content] of wsByPath) {
-		const name = nameFromPouPath(path);
+		const name = sourceOnly(path);
 		if (name === undefined) continue;
 		const wsSha = writeBlob(snapshotPath, content);
 		const headSha = headByPath.get(path);
-		if (headSha === undefined) added.add(name);
+		if (headSha === undefined) added.set(name, folderOf(path));
 		else if (headSha !== wsSha) modified.add(name);
 	}
 	for (const path of headByPath.keys()) {
-		const name = nameFromPouPath(path);
+		const name = sourceOnly(path);
 		if (name === undefined) continue;
-		if (!wsByPath.has(path)) removed.add(name);
+		if (!wsByPath.has(path)) removed.set(name, folderOf(path));
 	}
 
+	// Pair up: any name in both `added` and `removed` is a move — the
+	// workspace file changed paths but the item itself didn't. Pull
+	// them out into `moved` so the display matches the single
+	// `moveItem` op that actually goes on the wire.
+	const moved: Array<{ name: string; from: string; to: string }> = [];
+	for (const [name, toFolder] of added) {
+		const fromFolder = removed.get(name);
+		if (fromFolder === undefined) continue;
+		moved.push({ name, from: fromFolder, to: toFolder });
+		added.delete(name);
+		removed.delete(name);
+	}
+	moved.sort((a, b) => a.name.localeCompare(b.name));
+
 	return {
-		added: [...added].sort(),
+		added: [...added.keys()].sort(),
 		modified: [...modified].sort(),
-		removed: [...removed].sort(),
+		removed: [...removed.keys()].sort(),
+		moved,
 	};
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-// nameFromPouPath / isTrackedPath live in ./pou-files.js — single source
-// of truth for what counts as a workspace POU file.
+// nameFromPath / isTrackedPath / family lookups live in
+// ./extension-registry.js — single source of truth for every tracked
+// kind / extension and what family it belongs to.

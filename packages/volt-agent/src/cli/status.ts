@@ -26,7 +26,7 @@ import { configExists, loadConfig, workspacePaths } from "../engine/config.js";
 import { listTree } from "../engine/git-cmds.js";
 import { isMergingNow, type ConflictEntry } from "../engine/merge.js";
 import { workspaceMatchesBridge } from "../engine/ops.js";
-import { nameFromPouPath, pickExtension } from "../engine/pou-files.js";
+import { nameFromPath as nameFromPouPath, pickExtension } from "../engine/extension-registry.js";
 import {
 	computeIncoming,
 	computeOutgoing,
@@ -158,6 +158,7 @@ export const status: VerbFn = async ({ workspace, bridge, flags }) => {
 		console.log("outgoing — would be sent to bridge on volt push:");
 		for (const name of r.outgoing.added) console.log(`  [WS]  + ${name}  (you created)`);
 		for (const name of r.outgoing.modified) console.log(`  [WS]  M ${name}  (you edited)`);
+		for (const m of r.outgoing.moved) console.log(`  [WS]  → ${m.name}  (you moved ${m.from || "(root)"} → ${m.to || "(root)"})`);
 		for (const name of r.outgoing.removed) console.log(`  [WS]  - ${name}  (you deleted)`);
 	}
 
@@ -202,9 +203,9 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 			initialized: true,
 			ideDrifted: false,
 			workspaceDirty: true,
-			incoming: { added: [], removed: [], modified: [] },
+			incoming: { added: [], removed: [], modified: [], moved: [] },
 			dirtyPaths: [],
-			outgoing: { added: [], removed: [], modified: [] },
+			outgoing: { added: [], removed: [], modified: [], moved: [] },
 			driftLikelySelfCaused: false,
 			bridgeProjectVersion: refs.projectVersion,
 			snapshotProjectVersion: state.projectVersion,
@@ -224,7 +225,7 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 	const workspaceDirty = dirtyPaths.length > 0;
 	const outgoing = workspaceDirty
 		? computeOutgoing(paths.snapshotPath, root, state.commitSha)
-		: { added: [], removed: [], modified: [] };
+		: { added: [], removed: [], modified: [], moved: [] };
 
 	// When drift is detected, ask "did we cause this?" by comparing
 	// the workspace files to what the bridge would re-materialize.
@@ -321,9 +322,9 @@ function emptyStatus(bridgeProjectVersion: string, nextAction: NextAction, summa
 		initialized: false,
 		ideDrifted: false,
 		workspaceDirty: false,
-		incoming: { added: [], removed: [], modified: [] },
+		incoming: { added: [], removed: [], modified: [], moved: [] },
 		dirtyPaths: [],
-		outgoing: { added: [], removed: [], modified: [] },
+		outgoing: { added: [], removed: [], modified: [], moved: [] },
 		driftLikelySelfCaused: false,
 		bridgeProjectVersion,
 		snapshotProjectVersion: undefined,

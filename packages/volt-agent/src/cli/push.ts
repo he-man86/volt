@@ -27,6 +27,7 @@
  * DIDN'T happen because of drift or bridge rejection.
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
 import { join as pathJoin } from "node:path";
@@ -40,7 +41,8 @@ import {
 } from "../engine/git-cmds.js";
 import { isMergingNow } from "../engine/merge.js";
 import { applyPushToBridge, syncFromBridge } from "../engine/ops.js";
-import { effectivePushAllowExtensions, loadConfig, workspacePaths } from "../engine/config.js";
+import { loadConfig, workspacePaths, type WorkspaceConfig } from "../engine/config.js";
+import { isPushable } from "../engine/access.js";
 import {
 	buildWorkspaceTreeSha,
 	computeIncoming,
@@ -113,7 +115,7 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	const projectVersionBumped = refs.projectVersion !== state.projectVersion;
 	const incoming = projectVersionBumped
 		? computeIncoming(refs.items, state.items)
-		: { added: [], removed: [], modified: [] };
+		: { added: [], removed: [], modified: [], moved: [] };
 	const realDrift = projectVersionBumped && hasChanges(incoming);
 
 	if (realDrift && !noDriftCheck) {
@@ -172,20 +174,18 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 		return 0;
 	}
 
-	// 2b. Per-extension push policy guard.
+	// 2b. Per-extension access guard.
 	//
-	// `.volt/config.json`'s `pushPolicy.allowExtensions` declares which
-	// file types may travel from workspace to bridge. Files with any
-	// other extension are pull-only — useful for engineer-managed
-	// configs (.device, .visu, .recipes, .task, .tmc, .alarm, .trace,
-	// etc.) that the AI / user should be able to READ for context but
-	// never push back. Default allowlist when unset = ST-grammar files
-	// (.st, .gvl, .dut, .itf); graphical files are NOT in the default,
-	// matching the v1 graphical-read-only contract.
-	const allowExtensions = effectivePushAllowExtensions(cfg);
-	const policyRefusals = findPolicyRefusals(root, paths.snapshotPath, state.commitSha, allowExtensions);
+	// Each tracked extension has a default access mode in the registry
+	// (`r` = read-only, `rw` = pull + push). The workspace's
+	// `.volt/config.json#extensionAccess` overrides per extension.
+	// Push refuses any workspace edit whose extension isn't `rw` in
+	// effect — engineer-managed configs (.device, .visu, .task, etc.)
+	// stay pull-only by default; the engineer can opt extensions into
+	// push by setting `"extensionAccess": { ".fbd": "rw" }`.
+	const policyRefusals = findPolicyRefusals(root, paths.snapshotPath, state.commitSha, cfg);
 	if (policyRefusals.length > 0) {
-		printPolicyRefusal(policyRefusals, allowExtensions);
+		printPolicyRefusal(policyRefusals);
 		return 2;
 	}
 
@@ -279,6 +279,7 @@ function printPushed(p: ChangeSet, dryRun: boolean): void {
 	process.stdout.write(dryRun ? "would push to bridge (dry-run):\n" : "pushed to bridge:\n");
 	for (const n of p.added) process.stdout.write(`  [WS]  + ${n}  (created)\n`);
 	for (const n of p.modified) process.stdout.write(`  [WS]  M ${n}  (updated)\n`);
+	for (const m of p.moved) process.stdout.write(`  [WS]  → ${m.name}  (moved ${m.from || "(root)"} → ${m.to || "(root)"})\n`);
 	for (const n of p.removed) process.stdout.write(`  [WS]  - ${n}  (deleted)\n`);
 }
 
@@ -319,20 +320,19 @@ function printDriftDetected(localVersion: string, bridgeVersion: string, incomin
 
 /**
  * Walk every changed-or-added workspace file and return those whose
- * file extension is NOT in the workspace's `pushPolicy.allowExtensions`.
- * The check compares the file's lowercase extension (with leading dot)
- * against the allowlist; files with no extension are always refused
- * (they're never POU sources). Snapshot blobs identical to workspace
- * files are skipped — only diff-emitting files are considered.
+ * effective access mode (registry default merged with config
+ * overrides) isn't `rw`. Snapshot blobs identical to workspace files
+ * are skipped — only diff-emitting files are considered, so a stable
+ * `.library` file on disk doesn't trigger a refusal just because its
+ * default mode is `r`.
  */
 function findPolicyRefusals(
 	workspaceRoot: string,
 	snapshotPath: string,
 	commitSha: string,
-	allowExtensions: readonly string[],
+	cfg: WorkspaceConfig,
 ): Array<{ path: string; ext: string }> {
 	const refused: Array<{ path: string; ext: string }> = [];
-	const allowSet = new Set(allowExtensions.map((e) => e.toLowerCase()));
 
 	const snapshotEntries = listTree(snapshotPath, commitSha);
 	const snapshotByPath = new Map<string, string>();
@@ -340,10 +340,9 @@ function findPolicyRefusals(
 
 	const wsFiles = listWorkspaceFiles(workspaceRoot);
 	for (const wsPath of wsFiles) {
-		// Pull extension (lowercased, with leading dot).
 		const dot = wsPath.lastIndexOf(".");
 		const ext = dot >= 0 ? wsPath.slice(dot).toLowerCase() : "";
-		if (allowSet.has(ext)) continue;
+		if (isPushable(ext, cfg)) continue;
 
 		const wsAbs = `${workspaceRoot.replace(/[\\/]+$/, "")}/${wsPath}`;
 		const wsContent = readFileSync(wsAbs);
@@ -362,27 +361,23 @@ function findPolicyRefusals(
 /** Cheap, stable byte hash for content equality. Uses node's built-in
  *  hash so we don't pull in a dependency. */
 function hashBytes(buf: Buffer): string {
-	const { createHash } = require("node:crypto") as typeof import("node:crypto");
 	return createHash("sha1").update(buf).digest("hex");
 }
 
-function printPolicyRefusal(
-	refused: Array<{ path: string; ext: string }>,
-	allowExtensions: readonly string[],
-): void {
+function printPolicyRefusal(refused: Array<{ path: string; ext: string }>): void {
 	process.stderr.write(
-		`refused: ${refused.length} file(s) have extensions not in this workspace's push allowlist.\n\n`,
+		`refused: ${refused.length} file(s) have a read-only extension or are untracked.\n\n`,
 	);
 	process.stderr.write("Files refused:\n");
-	for (const r of refused) process.stderr.write(`  ${r.ext.padEnd(10)} ${r.path}\n`);
+	for (const r of refused) process.stderr.write(`  ${r.ext.padEnd(14)} ${r.path}\n`);
 	process.stderr.write(
-		`\nCurrent push allowlist: ${allowExtensions.join(", ")}\n` +
-			`\nThese files were pulled so AI / you can READ them, but pushing\n` +
-			`them back risks overwriting engineer-managed config. If you really\n` +
-			`want to push them, edit .volt/config.json:\n\n` +
-			`  "pushPolicy": {\n` +
-			`    "allowExtensions": [".st", ".gvl", ".dut", ".itf", "<add yours>"]\n` +
-			`  }\n`,
+		`\nThese were pulled so the AI / you can READ them, but pushing them back\n` +
+			`risks overwriting engineer-managed config. To opt one in, edit\n` +
+			`.volt/config.json:\n\n` +
+			`  "extensionAccess": {\n` +
+			`    ".fbd": "rw"      // example: allow pushing FBD bodies back\n` +
+			`  }\n\n` +
+			`Valid modes: "r" (pull only), "rw" (pull + push), "off" (skip).\n`,
 	);
 }
 

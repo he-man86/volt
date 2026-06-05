@@ -49,6 +49,7 @@ import { ALL_TESTS, CATEGORIES, type LanguageTest } from "@opencode-ai/volt-lsp/
 import { BridgeClient } from "../bridge/client.js";
 import type { BridgeDiagnostic, PushOp } from "../bridge/types.js";
 import { findExistingFile } from "../cli/_shared.js";
+import { pickExtension } from "../engine/extension-registry.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const LANG_PREFIX_RE = /^(FB|GVL|DUT|ITF)_LANG_/;
@@ -91,12 +92,16 @@ function parseCategoryFilter(raw: string | undefined): ReadonlySet<string> | und
 	return new Set(names);
 }
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
-const CLI_PATH = resolve(THIS_DIR, "bin.js");
-// The catalog + recorded ground truth now live in volt-lsp-st (the LSP
-// is what the recordings verify). From this file's compiled location at
-// `packages/volt-agent/dist/cli/`, three `..` segments climb to `packages/`.
+// This script compiles to `packages/volt-agent/dist/tools/`; the CLI
+// bin (the script that owns `volt init` / `volt push`) lives in the
+// sibling `dist/cli/` directory.
+const CLI_PATH = resolve(THIS_DIR, "..", "cli", "bin.js");
+// The catalog + recorded ground truth live in volt-lsp-st's test tree
+// (the LSP is what the recordings verify). From this file's compiled
+// location at `packages/volt-agent/dist/tools/`, three `..` segments
+// climb to `packages/`.
 const RECORDINGS_DIR = resolve(
-	THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "conformance", "recordings",
+	THIS_DIR, "..", "..", "..", "volt-lsp-st", "src", "tests", "conformance", "recordings",
 );
 
 /** Map the bridge's `health.platform` to its output JSON file under
@@ -118,20 +123,16 @@ function outputPathForPlatform(platform: string): string {
 	}
 }
 
-const KIND_EXT: Record<LanguageTest["kind"], string> = {
-	function_block: "st",
-	function: "st",
-	program: "st",
-	gvl: "gvl",
-	structure: "dut",
-	interface: "itf",
-};
-
-/** Workspace file extension for a test. Conformance fixtures are
- *  all ST now (graphical fixtures moved to volt-agent's transpiler
- *  test inputs at `engine/__fixtures__/`). */
+/** Workspace file extension for a test. Routes through the canonical
+ *  extension registry — same path the engine uses on every pull.
+ *  Conformance fixtures are all ST now (graphical fixtures moved to
+ *  volt-agent's transpiler test inputs at `engine/__fixtures__/`), so
+ *  source POU kinds always get the ST extension. The registry change
+ *  that made body language MANDATORY for POU kinds (no silent fallback)
+ *  means we have to pass it explicitly. */
 function extensionFor(t: LanguageTest): string {
-	return KIND_EXT[t.kind];
+	const isSourcePou = t.kind === "function_block" || t.kind === "function" || t.kind === "program";
+	return pickExtension(t.kind, isSourcePou ? "ST" : undefined);
 }
 
 interface RecordedEntry {
