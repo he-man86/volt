@@ -43,6 +43,7 @@ import { isMergingNow } from "../engine/merge.js";
 import { applyPushToBridge, syncFromBridge } from "../engine/ops.js";
 import { loadConfig, workspacePaths, type WorkspaceConfig } from "../engine/config.js";
 import { isPushable } from "../engine/access.js";
+import { bindingMismatchMessage, verifyProjectBinding } from "../engine/binding.js";
 import {
 	buildWorkspaceTreeSha,
 	computeIncoming,
@@ -55,6 +56,7 @@ import {
 	writeTreeToWorkspace,
 	type ChangeSet,
 } from "../engine/snapshot.js";
+import { srcRoot } from "../engine/workspace-layout.js";
 import { isVoltError, VoltError, wrapEngineError } from "./_error.js";
 import { flagBool, flagString, type VerbFn } from "./_shared.js";
 
@@ -78,6 +80,20 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 			what: "push refused — merge in progress",
 			why: "you have unresolved conflicts from a 3-way merge",
 			hint: "run `volt merge --continue` (after resolving markers) or `volt merge --abort` to back out",
+			exitCode: 2,
+		});
+	}
+
+	// Project-binding integrity. If the bridge is now reporting a
+	// different project identity than `.volt/config.json` recorded,
+	// hard-refuse — pushing would send our edits to the wrong project.
+	const health = await bridge.getHealth();
+	const binding = verifyProjectBinding(cfg, health);
+	if (!binding.ok) {
+		throw new VoltError({
+			what: "push refused — project-binding mismatch",
+			why: bindingMismatchMessage(binding.mismatch),
+			hint: "run `volt init --force` to accept the new name (snapshot history preserved), or point the bridge at the original project",
 			exitCode: 2,
 		});
 	}
@@ -338,13 +354,14 @@ function findPolicyRefusals(
 	const snapshotByPath = new Map<string, string>();
 	for (const e of snapshotEntries) snapshotByPath.set(e.path, e.sha);
 
-	const wsFiles = listWorkspaceFiles(workspaceRoot);
+	const srcAbsRoot = srcRoot(workspaceRoot);
+	const wsFiles = listWorkspaceFiles(srcAbsRoot);
 	for (const wsPath of wsFiles) {
 		const dot = wsPath.lastIndexOf(".");
 		const ext = dot >= 0 ? wsPath.slice(dot).toLowerCase() : "";
 		if (isPushable(ext, cfg)) continue;
 
-		const wsAbs = `${workspaceRoot.replace(/[\\/]+$/, "")}/${wsPath}`;
+		const wsAbs = `${srcAbsRoot.replace(/[\\/]+$/, "")}/${wsPath}`;
 		const wsContent = readFileSync(wsAbs);
 		const wsHash = hashBytes(wsContent);
 		const snapshotSha = snapshotByPath.get(wsPath);
@@ -383,9 +400,10 @@ function printPolicyRefusal(refused: Array<{ path: string; ext: string }>): void
 
 /**
  * List every file under `root`, returning paths relative to `root`
- * with forward slashes. Excludes `.volt/`, `.git/`, and any hidden
- * dotfiles at any depth — same exclusions used by
- * `buildWorkspaceTreeSha` so we walk the same surface.
+ * with forward slashes. Excludes any hidden dotfiles at any depth.
+ * Callers pass `srcRoot(workspaceRoot)` so we walk only the PLC
+ * source tree, mirroring the snapshot's `buildWorkspaceTreeSha`
+ * surface.
  */
 function listWorkspaceFiles(root: string): string[] {
 	const out: string[] = [];

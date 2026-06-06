@@ -15,6 +15,9 @@
  *   - Everything else is plumbed in through the context — no module-
  *     level state.
  */
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import type {
 	CodeActionParams,
 	CompletionItem,
@@ -69,11 +72,11 @@ import type { Workspace } from "../workspace.js";
 
 /**
  * Mutable server state shared by request + notification handlers.
- * Two flags only — keep this lean so the dispatcher doesn't grow
- * cross-handler coupling.
  */
 export interface ServerState {
 	shuttingDown: boolean;
+	/** Workspace root paths collected from the initialize params. */
+	workspaceRoots: string[];
 }
 
 /**
@@ -93,20 +96,32 @@ export interface DispatchContext {
 export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 	try {
 		switch (req.method) {
-			case "initialize": {
-				const params = req.params as InitializeParams | undefined;
-				if (params?.capabilities !== undefined) {
-					ctx.workspace.setClientCapabilities(params.capabilities);
-				}
-				const initOptions = params?.initializationOptions as PlcLspInitOptions | undefined;
-				ctx.workspace.setConfig(resolveConfig(initOptions));
-				const result: InitializeResult = {
-					capabilities: buildServerCapabilities(ctx.workspace.clientCapabilities),
-					serverInfo: { name: "volt-lsp-st", version: "0.0.0" },
-				};
-				ctx.reply(req.id, result);
-				return;
+		case "initialize": {
+			const params = req.params as InitializeParams | undefined;
+			if (params?.capabilities !== undefined) {
+				ctx.workspace.setClientCapabilities(params.capabilities);
 			}
+			const initOptions = params?.initializationOptions as PlcLspInitOptions | undefined;
+			ctx.workspace.setConfig(resolveConfig(initOptions));
+			// Collect workspace roots for the background index on `initialized`.
+			const roots: string[] = [];
+			if (params?.workspaceFolders) {
+				for (const folder of params.workspaceFolders) {
+					try { roots.push(fileURLToPath(folder.uri)); } catch { /* skip non-file URIs */ }
+				}
+			} else if (params?.rootUri) {
+				try { roots.push(fileURLToPath(params.rootUri)); } catch { /* skip */ }
+			} else if (params?.rootPath) {
+				roots.push(params.rootPath);
+			}
+			ctx.state.workspaceRoots = roots;
+			const result: InitializeResult = {
+				capabilities: buildServerCapabilities(ctx.workspace.clientCapabilities),
+				serverInfo: { name: "volt-lsp-st", version: "0.0.0" },
+			};
+			ctx.reply(req.id, result);
+			return;
+		}
 			case "shutdown": {
 				ctx.state.shuttingDown = true;
 				ctx.reply(req.id, null);
@@ -397,8 +412,24 @@ export function handleNotification(
 ): void {
 	try {
 		switch (msg.method) {
-			case "initialized":
-				return;
+		case "initialized": {
+			// Seed the workspace with every .st / type-def file found
+			// under the workspace roots so cross-file types (enums,
+			// structs, FBs defined in files the user hasn't opened yet)
+			// are visible to the symbol table immediately.
+			for (const root of ctx.state.workspaceRoots) {
+				for (const file of walkForStFiles(root)) {
+					// Skip files already opened by the editor via didOpen.
+					const uri = pathToFileURL(file).toString();
+					if (ctx.workspace.getDocument(uri) !== undefined) continue;
+					try {
+						const text = fs.readFileSync(file, "utf-8");
+						ctx.workspace.openDocument(uri, text, 0);
+					} catch { /* unreadable file — skip silently */ }
+				}
+			}
+			return;
+		}
 			case "$/cancelRequest": {
 				const p = msg.params as { id: JsonRpcRequest["id"] } | undefined;
 				if (p?.id === undefined) return;
@@ -447,13 +478,41 @@ export function handleNotification(
 				});
 				return;
 			}
-			case "exit":
-				process.exit(ctx.state.shuttingDown ? 0 : 1);
-			default:
-				// Unknown notifications are silently ignored per LSP convention.
-				return;
-		}
+		case "exit":
+			process.exit(ctx.state.shuttingDown ? 0 : 1);
+		default:
+			// Unknown notifications are silently ignored per LSP convention.
+			return;
+	}
+} catch {
+	// Notifications cannot reply with errors per LSP spec. Swallow.
+}
+}
+
+/**
+ * Recursively walk `dir` and yield absolute paths of every PLC-text
+ * source file found: `.st` (POU bodies) and the type-def extensions
+ * (`.struct` / `.enum` / `.union` / `.alias`) volt-agent materializes
+ * for DUT subkinds. Skips `node_modules` and hidden directories.
+ */
+const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([
+	".st", ".struct", ".enum", ".union", ".alias",
+]);
+function* walkForStFiles(dir: string): Generator<string> {
+	let entries: fs.Dirent[];
+	try {
+		entries = fs.readdirSync(dir, { withFileTypes: true });
 	} catch {
-		// Notifications cannot reply with errors per LSP spec. Swallow.
+		return;
+	}
+	for (const entry of entries) {
+		if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			yield* walkForStFiles(full);
+		} else if (entry.isFile()) {
+			const ext = path.extname(entry.name).toLowerCase();
+			if (ST_LIKE_EXTENSIONS.has(ext)) yield full;
+		}
 	}
 }

@@ -24,18 +24,18 @@ describe("scenario: pull removes retired items", () => {
 	test("an item the bridge deletes disappears from workspace on next pull", async () => {
 		env = makeTestEnv(simple);
 		await runVerb(pullVerb, env);
-		expect(workspaceHasFile(env.workspace, "POUs/Types/DUT_MotorState.dut")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/Types/DUT_MotorState.struct")).toBe(true);
 
-		// Engineer deleted the DUT in CODESYS — bridge no longer
+		// Engineer deleted the DUT in CODESYS Ã¢â‚¬â€ bridge no longer
 		// reports it.
 		env.bridge.items.delete("DUT_MotorState");
 
 		const result = await runVerb(pullVerb, env);
 		expect(result.exitCode).toBe(0);
-		expect(workspaceHasFile(env.workspace, "POUs/Types/DUT_MotorState.dut")).toBe(false);
+		expect(workspaceHasFile(env.workspace, "src/POUs/Types/DUT_MotorState.struct")).toBe(false);
 		// Other items still present.
-		expect(workspaceHasFile(env.workspace, "POUs/FB_Motor.st")).toBe(true);
-		expect(workspaceHasFile(env.workspace, "POUs/GVL_Config.gvl")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/FB_Motor.st")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/GVL_Config.gvl")).toBe(true);
 	});
 
 	test("emptied parent dirs get swept", async () => {
@@ -47,6 +47,6 @@ describe("scenario: pull removes retired items", () => {
 		// The empty Types/ folder should be swept by the post-pull
 		// dir-cleanup pass.
 		const files = listWorkspace(env.workspace);
-		expect(files.some((f) => f.startsWith("POUs/Types/"))).toBe(false);
+		expect(files.some((f) => f.startsWith("src/POUs/Types/"))).toBe(false);
 	});
 });

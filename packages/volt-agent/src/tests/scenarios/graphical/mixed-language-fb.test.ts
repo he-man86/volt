@@ -6,13 +6,13 @@
  *
  * Layout when a POU has graphical children:
  *
- *     POUs/MFB_UN_Unit/MFB_UN_Unit.st     (parent — nested in own folder)
- *     POUs/MFB_UN_Unit/P10_CyclicMotion.sfc  (graphical child — read-only sibling)
+ *     POUs/MFB_UN_Unit/MFB_UN_Unit.st     (parent Ã¢â‚¬â€ nested in own folder)
+ *     POUs/MFB_UN_Unit/P10_CyclicMotion.sfc  (graphical child Ã¢â‚¬â€ read-only sibling)
  *
  * Regression test for the original Lenze MFB_UN_Unit case
  * (P10_CyclicMotion was an FBD action under an ST FB).
  *
- * Uses SFC for the child body to keep tests deterministic — SFC routes
+ * Uses SFC for the child body to keep tests deterministic Ã¢â‚¬â€ SFC routes
  * through the shell path (declaration + "body in IDE" comment + END_KIND).
  * FBD/LD children go through the same transpiler as top-level FBD POUs;
  * that path is covered by `mixed-language-fb-transpile.test.ts` (next door)
@@ -79,29 +79,29 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 		expect(result.exitCode).toBe(0);
 
 		// Parent: nested into its own namespace folder.
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
 		// Old non-nested location must NOT exist.
-		expect(workspaceHas(env.workspace, "POUs/MFB_UN_Unit.st")).toBe(false);
-		const parentText = readWorkspace(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st");
+		expect(workspaceHas(env.workspace, "src/POUs/MFB_UN_Unit.st")).toBe(false);
+		const parentText = readWorkspace(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st");
 		expect(parentText).toBe(PARENT_ST_SOURCE);
-		// NO empty ACTION stub for the graphical child — that would
+		// NO empty ACTION stub for the graphical child Ã¢â‚¬â€ that would
 		// silently mask the IDE's real body if pushed back.
 		expect(parentText).not.toContain("ACTION P10_CyclicMotion");
 
 		// Graphical child: sibling .sfc file under the same folder.
 		expect(
-			workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit/P10_CyclicMotion.sfc"),
+			workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit/P10_CyclicMotion.sfc"),
 		).toBe(true);
 		const childText = readWorkspace(
 			env.workspace,
-			"POUs/MFB_UN_Unit/P10_CyclicMotion.sfc",
+			"src/POUs/MFB_UN_Unit/P10_CyclicMotion.sfc",
 		);
 		expect(childText).toContain("ACTION P10_CyclicMotion");
 		expect(childText).toContain("body authored in IDE");
 		expect(childText).toContain("END_ACTION");
 	});
 
-	test("the graphical child is read-only — push refuses any edit", async () => {
+	test("the graphical child is read-only Ã¢â‚¬â€ push refuses any edit", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -124,7 +124,7 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 		});
 		await runVerb(pullVerb, env);
 		writeFileSync(
-			join(env.workspace, "POUs", "MFB_UN_Unit", "P10_CyclicMotion.sfc"),
+			join(env.workspace, "src", "POUs", "MFB_UN_Unit", "P10_CyclicMotion.sfc"),
 			"corrupted by engineer\n",
 		);
 		const pushResult = await runVerb(pushVerb, env);
@@ -154,7 +154,7 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
 
 		// Engineer removed the action in the IDE; bridge re-emits the
 		// parent with no graphicalChildren.
@@ -164,11 +164,11 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 		expect(second.exitCode).toBe(0);
 
 		// Sibling file gone.
-		expect(workspaceHas(env.workspace, "POUs/MFB_UN_Unit/P10_CyclicMotion.sfc")).toBe(false);
+		expect(workspaceHas(env.workspace, "src/POUs/MFB_UN_Unit/P10_CyclicMotion.sfc")).toBe(false);
 		// Parent moved back to the non-nested layout because no
 		// graphical children means no namespace folder is needed.
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit.st")).toBe(true);
-		expect(workspaceHas(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(false);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit.st")).toBe(true);
+		expect(workspaceHas(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(false);
 	});
 
 	test("adding a graphical child moves the parent INTO its namespace folder", async () => {
@@ -185,9 +185,9 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		// Initial layout — non-nested.
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit.st")).toBe(true);
-		expect(workspaceHas(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(false);
+		// Initial layout Ã¢â‚¬â€ non-nested.
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit.st")).toBe(true);
+		expect(workspaceHas(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(false);
 
 		// Engineer adds a graphical action in the IDE.
 		const stored = env.bridge.items.get("MFB_UN_Unit")!;
@@ -203,9 +203,9 @@ describe("scenario: ST parent FB with an SFC child action (shell path)", () => {
 
 		await runVerb(pullVerb, env);
 		// Parent now lives inside its own folder, alongside the child.
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
-		expect(workspaceHasFile(env.workspace, "POUs/MFB_UN_Unit/P10_CyclicMotion.sfc")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit/MFB_UN_Unit.st")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MFB_UN_Unit/P10_CyclicMotion.sfc")).toBe(true);
 		// Old top-level location swept.
-		expect(workspaceHas(env.workspace, "POUs/MFB_UN_Unit.st")).toBe(false);
+		expect(workspaceHas(env.workspace, "src/POUs/MFB_UN_Unit.st")).toBe(false);
 	});
 });

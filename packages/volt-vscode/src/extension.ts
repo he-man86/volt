@@ -14,7 +14,7 @@
  *      so users can tune diagnostics + hover + completion behavior
  *   3. Expose user-facing commands for the LSP (restart, show output,
  *      open the local CODESYS reference docs)
- *   4. Drive the `volt` CLI from VS Code — buttons + commands + build
+ *   4. Drive the `volt` CLI from VS Code â€” buttons + commands + build
  *      diagnostics into the Problems panel (see ./cli.ts)
  *
  * Syntax highlighting comes from the TextMate grammar and works
@@ -29,6 +29,7 @@ import {
 	LanguageClient,
 	type LanguageClientOptions,
 	type ServerOptions,
+	Trace,
 	TransportKind,
 } from "vscode-languageclient/node";
 import { registerCli } from "./cli.js";
@@ -48,12 +49,12 @@ interface PlcLanguage {
 	 * VS Code language IDs this client subscribes to. The primary
 	 * `languageId` is always implicitly included; this lists the
 	 * ADDITIONAL ones (graphical-POU languages whose files have ST
-	 * text on top + a PLCopenXML body — the LSP parses the text
+	 * text on top + a PLCopenXML body â€” the LSP parses the text
 	 * portion and treats the rest opaquely).
 	 */
 	additionalLanguageIds?: readonly string[];
 	/**
-	 * File-watcher glob — must cover every extension whose contents
+	 * File-watcher glob â€” must cover every extension whose contents
 	 * the LSP wants to know about (for diagnostics refresh, cross-
 	 * file resolution, etc.). Defaults to `**\/*.st` for back-compat.
 	 */
@@ -73,10 +74,10 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 		// declaration on top of the marker block (body XML
 		// parsed by the graphical body parser). SFC and CFC
 		// files still live in workspaces (pulled by the agent)
-		// but the LSP doesn't analyze them — VS Code opens
+		// but the LSP doesn't analyze them â€” VS Code opens
 		// them as plaintext.
 		//
-		// Deliberately NOT in this list (byte-shuttle only — agent
+		// Deliberately NOT in this list (byte-shuttle only â€” agent
 		// syncs them with the bridge, VS Code shows them with their
 		// per-extension icon, no LSP analysis): plc-visualization,
 		// plc-recipes, plc-task, plc-library, plc-textlist,
@@ -84,7 +85,7 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 		// plc-uml, plc-tmc. These are XML / binary config formats
 		// without ST-grammar declarations on top, so the LSP has
 		// nothing to parse. Don't add them here without first
-		// writing a dedicated parser + diagnostics — routing them
+		// writing a dedicated parser + diagnostics â€” routing them
 		// through volt-lsp-st today would just produce noise.
 		additionalLanguageIds: [
 			"plc-interface",
@@ -93,7 +94,7 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 			"plc-fbd",
 			"plc-ld",
 		],
-		fileWatcherGlob: "**/*.{st,gvl,dut,itf,fbd,ld}",
+		fileWatcherGlob: "**/*.{st,gvl,struct,enum,union,alias,itf,fbd,ld}",
 	},
 ];
 
@@ -106,6 +107,12 @@ interface ClientState {
 const clients = new Map<string, ClientState>();
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+	// `volt.workspaceInitialized` gates viewsWelcome: when true, the
+	// "No Volt workspace here / Initialize Volt" CTA disappears and the
+	// tree provider takes over. Kept in sync with `.volt/config.json`
+	// presence across every open workspace folder.
+	registerWorkspaceInitializedContext(context);
+
 	registerCommands(context);
 	registerCli(context);
 	registerConfigXmlFormatter(context);
@@ -114,7 +121,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	for (const lang of PLC_LANGUAGES) {
 		await startLanguageClient(context, lang);
 	}
-	// React to settings changes — restart the affected client so init
+	// React to settings changes â€” restart the affected client so init
 	// options are re-read.
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
@@ -127,12 +134,53 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	);
 }
 
-// ─── XML formatter for plc-config languages ───────────────────────────
+/**
+ * Compute + publish the `volt.workspaceInitialized` context key. True
+ * when ANY open workspace folder has a `.volt/config.json` file. The
+ * `viewsWelcome` contribution reads this to decide whether to show the
+ * "Initialize Volt" CTA.
+ *
+ * Re-runs on three triggers:
+ *   1. activation (initial value)
+ *   2. workspace folders added/removed
+ *   3. `.volt/config.json` created/deleted in any folder (file watcher)
+ *
+ * Cheap to recompute â€” single fs.existsSync per folder. The file
+ * watcher's glob covers the file in any open folder; VS Code's
+ * `RelativePattern` per-folder approach avoids globbing arbitrarily
+ * deep trees.
+ */
+function registerWorkspaceInitializedContext(context: vscode.ExtensionContext): void {
+	const compute = (): boolean => {
+		const folders = vscode.workspace.workspaceFolders;
+		if (folders === undefined) return false;
+		return folders.some((f) => existsSync(join(f.uri.fsPath, ".volt", "config.json")));
+	};
+	const publish = (): void => {
+		void vscode.commands.executeCommand(
+			"setContext",
+			"volt.workspaceInitialized",
+			compute(),
+		);
+	};
+	publish();
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeWorkspaceFolders(publish),
+	);
+	const watcher = vscode.workspace.createFileSystemWatcher(
+		"**/.volt/config.json",
+	);
+	watcher.onDidCreate(publish);
+	watcher.onDidDelete(publish);
+	context.subscriptions.push(watcher);
+}
+
+// â”€â”€â”€ XML formatter for plc-config languages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // The plc-visualization / plc-recipes / plc-task / plc-library /
 // plc-textlist / plc-imagepool / plc-device / plc-trace / plc-cam /
 // plc-alarm / plc-uml / plc-tmc languages exist so each kind gets its
-// own file icon — but they don't have a TextMate XML grammar attached
+// own file icon â€” but they don't have a TextMate XML grammar attached
 // (the source bytes are vendor-emitted XML; we don't bundle the full
 // XML grammar). Without grammar, VS Code's built-in XML formatter
 // doesn't apply, and Format Document fails with "no formatter
@@ -183,12 +231,12 @@ function registerConfigXmlFormatter(context: vscode.ExtensionContext): void {
 
 /**
  * Line-based XML pretty-printer. Splits on `><` boundaries, then walks
- * each line tracking nesting depth — opening tags increase indent,
+ * each line tracking nesting depth â€” opening tags increase indent,
  * closing tags decrease it, self-closing and inline-text tags keep
  * the current depth. Preserves CDATA sections and processing
  * instructions (`<?xml ... ?>`) unchanged.
  *
- * Not a full XML parser — purpose-built for the vendor-emitted single-
+ * Not a full XML parser â€” purpose-built for the vendor-emitted single-
  * line XML our bridges produce (ProduceXml from TwinCAT, export_xml
  * from CODESYS). For pathological inputs (malformed, mixed-content
  * documents) we may indent imperfectly but never corrupt content.
@@ -219,7 +267,7 @@ export async function deactivate(): Promise<void> {
 	clients.clear();
 }
 
-// ─── Client lifecycle ────────────────────────────────────────────────
+// â”€â”€â”€ Client lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function startLanguageClient(
 	context: vscode.ExtensionContext,
@@ -261,6 +309,13 @@ async function startLanguageClient(
 	};
 
 	const languageIds = [lang.languageId, ...(lang.additionalLanguageIds ?? [])];
+	const traceSetting = vscode.workspace
+		.getConfiguration(lang.settingsRoot)
+		.get<"off" | "messages" | "verbose">("trace", "off");
+	const traceOutputChannel = vscode.window.createOutputChannel(
+		`Volt â€” ${lang.displayName} (LSP trace)`,
+	);
+	context.subscriptions.push(traceOutputChannel);
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: languageIds.map((language) => ({ scheme: "file", language })),
 		synchronize: {
@@ -268,7 +323,8 @@ async function startLanguageClient(
 				lang.fileWatcherGlob ?? `**/*.${lang.languageId}`,
 			),
 		},
-		outputChannelName: `Volt — ${lang.displayName}`,
+		outputChannelName: `Volt â€” ${lang.displayName}`,
+		traceOutputChannel,
 		initializationOptions: buildInitializationOptions(lang),
 	};
 
@@ -287,11 +343,16 @@ async function startLanguageClient(
 
 	try {
 		await client.start();
+		await client.setTrace(
+			traceSetting === "verbose" ? Trace.Verbose
+			: traceSetting === "messages" ? Trace.Messages
+			: Trace.Off,
+		);
 		statusItem.text = `$(check) ${lang.displayName}`;
-		statusItem.tooltip = `Volt (${lang.displayName}) — running`;
+		statusItem.tooltip = `Volt (${lang.displayName}) â€” running`;
 	} catch (err) {
 		statusItem.text = `$(error) ${lang.displayName}`;
-		statusItem.tooltip = `Volt (${lang.displayName}) — failed to start`;
+		statusItem.tooltip = `Volt (${lang.displayName}) â€” failed to start`;
 		vscode.window.showErrorMessage(
 			`Volt: ${lang.displayName} LSP failed to start. ${err instanceof Error ? err.message : String(err)}`,
 		);
@@ -311,7 +372,7 @@ async function restartClient(
 	await startLanguageClient(context, lang);
 }
 
-// ─── Settings → initializationOptions ────────────────────────────────
+// â”€â”€â”€ Settings â†’ initializationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PlcLspInitOptions {
 	diagnostics?: Partial<Record<string, boolean>>;
@@ -358,11 +419,11 @@ function buildInitializationOptions(lang: PlcLanguage): PlcLspInitOptionsExtende
 	};
 }
 
-// ─── Commands ────────────────────────────────────────────────────────
+// â”€â”€â”€ Commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function registerCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.restart", async () => {
+		vscode.commands.registerCommand("volt.lsp.restart", async () => {
 			for (const lang of PLC_LANGUAGES) {
 				await restartClient(context, lang);
 			}
@@ -370,17 +431,24 @@ function registerCommands(context: vscode.ExtensionContext): void {
 		}),
 	);
 
-	for (const lang of PLC_LANGUAGES) {
-		context.subscriptions.push(
-			vscode.commands.registerCommand(
-				`volt.${lang.languageId}.showOutput`,
-				() => {
-					const c = clients.get(lang.languageId);
-					if (c !== undefined) c.client.outputChannel.show();
-				},
-			),
-		);
-	}
+	// Single `volt.lsp.showOutput` that opens the active language
+	// server's output channel. Only one language is currently live
+	// (structured-text); if we add more later this can fan out into a
+	// QuickPick.
+	context.subscriptions.push(
+		vscode.commands.registerCommand("volt.lsp.showOutput", () => {
+			for (const lang of PLC_LANGUAGES) {
+				const c = clients.get(lang.languageId);
+				if (c !== undefined) {
+					c.client.outputChannel.show();
+					return;
+				}
+			}
+			vscode.window.showWarningMessage(
+				"Volt: no language server is running. Open an .st / .gvl / .struct / .enum / .union / .alias / .itf / .fbd / .ld file first.",
+			);
+		}),
+	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand("volt.openReference", async () => {
@@ -409,15 +477,13 @@ function registerCommands(context: vscode.ExtensionContext): void {
 				"Cancel",
 			);
 			if (installed === "Run volt init") {
-				const term = vscode.window.createTerminal("volt init");
-				term.show();
-				term.sendText("volt init");
+				await vscode.commands.executeCommand("volt.init");
 			}
 		}),
 	);
 }
 
-// ─── Server module resolution ────────────────────────────────────────
+// â”€â”€â”€ Server module resolution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function resolveServerModule(
 	lang: PlcLanguage,
@@ -429,11 +495,11 @@ function resolveServerModule(
 
 	// 1. Bundled-with-extension LSP server. The extension's build
 	//    script bundles the LSP into `dist/lsp-server.js` so a
-	//    user-installed extension is self-contained — no separate
+	//    user-installed extension is self-contained â€” no separate
 	//    `npm install @opencode-ai/volt-lsp` step required.
 	//
 	// Use `context.extensionPath` (VS Code's authoritative install
-	// dir) — NOT `__filename`. bun's CJS bundler hardcodes __filename
+	// dir) â€” NOT `__filename`. bun's CJS bundler hardcodes __filename
 	// to the build-machine source path, which doesn't exist on the
 	// user's machine and silently breaks resolution.
 	const extDir = join(context.extensionPath, "dist");
@@ -457,7 +523,7 @@ function resolveServerModule(
 		if (hit !== undefined) return hit;
 	}
 
-	// 3. Global npm install fallback (last resort — most users won't
+	// 3. Global npm install fallback (last resort â€” most users won't
 	//    have it set up this way).
 	const globalHit = findGlobalNpmPackage(lang.lspPackage);
 	if (globalHit !== undefined) return globalHit;

@@ -15,6 +15,50 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DIST_DIR="$SCRIPT_DIR/dist"
 
+# Desktop deploy targets. The bridges run from this location during dev
+# (TwinCAT XAE loads `BeckhoffBridge.exe`, CODESYS picks
+# `volt-codesys-bridge.py` from a Tools > Scripting dialog). Every
+# rebuild MUST refresh every copy so we never deploy a stale binary
+# against a freshly-bumped wire protocol.
+#
+# Why a LIST not a single path: on Windows with OneDrive Personal +
+# non-English locale, `%USERPROFILE%\Desktop` is a different folder from
+# what Explorer shows on the user's actual desktop. Common variants:
+#   %USERPROFILE%\Desktop           (classic, exists but often unused)
+#   %USERPROFILE%\OneDrive\Desktop  (OneDrive sync, English locale)
+#   %USERPROFILE%\OneDrive\Bureaublad   (Dutch — "Bureaublad" = "Desktop")
+#   %USERPROFILE%\OneDrive\Schreibtisch (German)
+#   %USERPROFILE%\OneDrive\Bureau   (French)
+#   %USERPROFILE%\OneDrive\Escritorio   (Spanish)
+# Deploying to a single guess silently strands a stale copy on the
+# user's actual desktop — exactly the bug that hid the 5.0.0 → 5.1.0
+# CODESYS-bridge rollout for an entire dev cycle. So we resolve EVERY
+# candidate that exists and copy to all of them. Cheap (one small file)
+# and impossible to miss the right one.
+#
+# `USERPROFILE` works on Git Bash / MSYS; falls back to $HOME on other
+# shells. If neither resolves (CI, headless), the deploy step is
+# skipped cleanly — the build is still useful via `dist/`.
+DESKTOP_DIRS=()
+_USER_HOME="${USERPROFILE:-$HOME}"
+if [ -n "$_USER_HOME" ]; then
+	for sub in \
+		"Desktop" \
+		"OneDrive/Desktop" \
+		"OneDrive/Bureaublad" \
+		"OneDrive/Schreibtisch" \
+		"OneDrive/Bureau" \
+		"OneDrive/Escritorio" \
+		"OneDrive/桌面" \
+		"OneDrive/デスクトップ"
+	do
+		candidate="$_USER_HOME/$sub"
+		if [ -d "$candidate" ]; then
+			DESKTOP_DIRS+=("$candidate")
+		fi
+	done
+fi
+
 # Resolve `dotnet`. On Windows the standard install location is the most
 # reliable — a bare `dotnet` on PATH can point at a broken shim (observed
 # in the wild: gives "No .NET SDKs were found" because the PATH entry is
@@ -89,6 +133,42 @@ build_bridge "Beckhoff Bridge" \
 	"beckhoff" \
 	"-p:PublishTrimmed=false"
 
+deploy_to_desktop() {
+	local artifact="$1"      # path under DIST_DIR
+	local target_subpath="$2" # relative path under each desktop dir
+	if [ ${#DESKTOP_DIRS[@]} -eq 0 ]; then
+		echo "  (no Desktop dir detected — skipping deploy of $artifact)"
+		return
+	fi
+	if [ ! -f "$DIST_DIR/$artifact" ]; then
+		echo "  (artifact $artifact not built — skipping desktop deploy)" >&2
+		return
+	fi
+	# Copy to EVERY detected desktop. The localized OneDrive-synced
+	# folder (Bureaublad / Schreibtisch / Bureau / etc.) is what
+	# Explorer actually shows on Windows with OneDrive Personal;
+	# %USERPROFILE%\Desktop is often a stale shadow folder. Hitting
+	# both means a single rebuild always lands on the user's REAL
+	# desktop regardless of OneDrive/locale setup.
+	for desktop in "${DESKTOP_DIRS[@]}"; do
+		local dest="$desktop/$target_subpath"
+		mkdir -p "$(dirname "$dest")"
+		if cp -f "$DIST_DIR/$artifact" "$dest"; then
+			echo "  -> deployed to $dest"
+		else
+			echo "  !! desktop deploy FAILED for $dest" >&2
+			echo "     (is the running bridge holding the file?)" >&2
+		fi
+	done
+}
+
+# Deploy Beckhoff binary alongside its existing runtime files on the
+# desktop. Single-file bundle (PublishSingleFile=true in csproj), so
+# one .exe is the entire deployment.
+if [[ " ${BUILT[*]} " == *"Beckhoff Bridge"* ]]; then
+	deploy_to_desktop "BeckhoffBridge.exe" "BeckhoffBridge/BeckhoffBridge.exe"
+fi
+
 # CODESYS bridge — IronPython 2.7 inside CODESYS. No compile step;
 # we produce TWO artifacts:
 #   - CodesysBridge.zip       — source tree (for users who want to
@@ -162,6 +242,10 @@ build_codesys_bridge() {
 }
 
 build_codesys_bridge
+
+if [[ " ${BUILT[*]} " == *"CODESYS Bridge"* ]]; then
+	deploy_to_desktop "volt-codesys-bridge.py" "volt-codesys-bridge.py"
+fi
 
 echo "==================================="
 echo "Build summary:"

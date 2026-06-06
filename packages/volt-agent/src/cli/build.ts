@@ -15,10 +15,34 @@
  * stays readable; an extra `summary` field gives a markdown render of
  * the diagnostics for humans who want to skim past the JSON noise.
  */
+import { resolve } from "node:path";
 import type { BridgeDiagnostic } from "../bridge/types.js";
+import { bindingMismatchMessage, verifyProjectBinding } from "../engine/binding.js";
+import { configExists, loadConfig } from "../engine/config.js";
+import { VoltError } from "./_error.js";
 import { flagBool, type VerbFn } from "./_shared.js";
 
-export const build: VerbFn = async ({ bridge, flags }) => {
+export const build: VerbFn = async ({ workspace, bridge, flags }) => {
+	// Project-binding integrity. Only check when the workspace is
+	// actually bound — build can still legitimately run against a
+	// freshly-init'd workspace pre-pull (no .volt/config.json on a
+	// directory the user just cd'd into is a different "not initialized"
+	// failure that flagBool/bridge wiring already surfaces).
+	const root = resolve(workspace);
+	if (configExists(root)) {
+		const cfg = loadConfig(root);
+		const health = await bridge.getHealth();
+		const binding = verifyProjectBinding(cfg, health);
+		if (!binding.ok) {
+			throw new VoltError({
+				what: "build refused — project-binding mismatch",
+				why: bindingMismatchMessage(binding.mismatch),
+				hint: "run `volt init --force` to accept the new name (snapshot history preserved), or point the bridge at the original project",
+				exitCode: 2,
+			});
+		}
+	}
+
 	const full = flagBool(flags, "full");
 	const result = await bridge.build({ buildType: full ? "full" : "incremental" });
 	const errors = result.diagnostics.filter((d) => d.severity === "error").length;

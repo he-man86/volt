@@ -503,11 +503,30 @@ function renderFbInstanceCall(
 	const sortedPorts = [...block.incoming.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 	for (const [port, edge] of sortedPorts) {
 		if (port === "") continue;
+		// Unconnected input: the FBD body has a `<inVariable>` source
+		// node with an empty `<expression />`. In CODESYS this is valid
+		// — leaving an FB input unwired is the standard way to use the
+		// declared default for that parameter. Generated ST simply
+		// omits the parameter from the call, matching CODESYS's own
+		// "implicit default" semantics. Without this skip, a single
+		// unwired input on a 14-input FB would fail the entire body
+		// with a misleading "cannot transpile FB call" error.
+		if (isUnconnectedInput(edge, byId)) continue;
 		const expr = expressionForEdge(edge, byId, cycleGuard);
 		if (expr === undefined) return undefined;
 		argParts.push(`${port} := ${expr}`);
 	}
 	return `${block.instanceName}(${argParts.join(", ")});`;
+}
+
+/** True iff the edge's source is an `<inVariable>` (or `<inOutVariable>`)
+ *  with no `<expression>` text — the FBD shape CODESYS emits for an
+ *  FB-call input port the engineer left unwired in the IDE. */
+function isUnconnectedInput(edge: Edge, byId: Map<string, Node>): boolean {
+	const source = byId.get(edge.fromLocalId);
+	if (source === undefined) return false;
+	if (source.kind !== "inVariable" && source.kind !== "inOutVariable") return false;
+	return source.expression === undefined || source.expression.length === 0;
 }
 
 /**

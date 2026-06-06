@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/volt-vscode",
+  "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.15.26",
+  "version": "1.19.0",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -19,6 +19,7 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:structured-text",
     "onLanguage:plc-interface",
     "onLanguage:plc-gvl",
@@ -26,7 +27,7 @@
     "onLanguage:plc-fbd",
     "onLanguage:plc-ld",
     "workspaceContains:**/.volt/config.json",
-    "workspaceContains:**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc,visu,recipes,task,library,libraries,textlist,imagepool,device,trace,cam,alarm,uml,tmc}"
+    "workspaceContains:**/*.{st,gvl,struct,enum,union,alias,itf,fbd,ld,sfc,cfc,visu,recipes,task,library,libraries,textlist,imagepool,device,trace,cam,alarm,uml,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -63,8 +64,8 @@
       },
       {
         "id": "plc-dut",
-        "aliases": ["PLC Data Unit Type", "DUT"],
-        "extensions": [".dut"],
+        "aliases": ["PLC Data Unit Type", "DUT", "Structure", "Enumeration", "Union", "Alias"],
+        "extensions": [".struct", ".enum", ".union", ".alias"],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": { "light": "./icons/dut.svg", "dark": "./icons/dut.svg" }
       },
@@ -315,228 +316,297 @@
           "type": "string",
           "default": "",
           "description": "Override path to the `volt` CLI binary. When empty (default), the extension assumes `volt` is on PATH (populated by `bun install` via the workspace's node_modules/.bin)."
+        },
+        "volt.bridge.twincatPort": {
+          "type": "number",
+          "default": 8555,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Port the TwinCAT / Beckhoff bridge listens on. Used by the `Initialize for TwinCAT` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
+        },
+        "volt.bridge.codesysPort": {
+          "type": "number",
+          "default": 8556,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
         }
       }
     },
     "commands": [
       {
-        "command": "volt.restart",
+        "command": "volt.init",
+        "title": "Volt: Initialize Workspace",
+        "category": "Volt",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "volt.initTwincat",
+        "title": "Volt: Initialize for TwinCAT (port 8555)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.initCodesys",
+        "title": "Volt: Initialize for CODESYS (port 8556)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.acceptProjectRename",
+        "title": "Volt: Accept Project Rename",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.pull",
+        "title": "Volt: Pull (bridge → workspace)",
+        "category": "Volt",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "volt.push",
+        "title": "Volt: Push (workspace → bridge)",
+        "category": "Volt",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "volt.forcePull",
+        "title": "Volt: Pull --force (discard local edits)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.forcePush",
+        "title": "Volt: Push --force (overwrite IDE)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.status",
+        "title": "Volt: Status",
+        "category": "Volt",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "volt.refresh",
+        "title": "Volt: Refresh",
+        "category": "Volt",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "volt.build",
+        "title": "Volt: Build (writes diagnostics to Problems panel)",
+        "category": "Volt",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "volt.openConfig",
+        "title": "Volt: Open .volt/config.json",
+        "category": "Volt",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "volt.openSettings",
+        "title": "Volt: Open Settings",
+        "category": "Volt",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "volt.showOutput",
+        "title": "Volt: Show Output",
+        "category": "Volt",
+        "icon": "$(output)"
+      },
+      {
+        "command": "volt.discardOutgoing",
+        "title": "Volt: Discard Local Change",
+        "category": "Volt",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "volt.merge.continue",
+        "title": "Volt: Merge — Continue",
+        "category": "Volt",
+        "icon": "$(check)"
+      },
+      {
+        "command": "volt.merge.abort",
+        "title": "Volt: Merge — Abort",
+        "category": "Volt",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "volt.merge.openEditor",
+        "title": "Volt: Open in Merge Editor",
+        "category": "Volt",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "volt.merge.useMine",
+        "title": "Volt: Resolve — Use My Version",
+        "category": "Volt",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "volt.merge.useTheirs",
+        "title": "Volt: Resolve — Use IDE's Version",
+        "category": "Volt",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "volt.merge.useAllMine",
+        "title": "Volt: Resolve All — Use My Version",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.merge.useAllTheirs",
+        "title": "Volt: Resolve All — Use IDE's Version",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.lsp.restart",
         "title": "Volt: Restart Language Server",
         "category": "Volt"
       },
       {
-        "command": "volt.structured-text.showOutput",
-        "title": "Volt: Show Structured Text Output",
+        "command": "volt.lsp.showOutput",
+        "title": "Volt: Show Language Server Output",
         "category": "Volt"
       },
       {
         "command": "volt.openReference",
         "title": "Volt: Open CODESYS Language Reference",
         "category": "Volt"
-      },
+      }
+    ],
+    "submenus": [
       {
-        "command": "volt.cli.status",
-        "title": "Volt: Status",
-        "category": "Volt",
-        "icon": "$(git-pull-request)"
-      },
-      {
-        "command": "volt.cli.pull",
-        "title": "Volt: Pull (bridge → workspace)",
-        "category": "Volt",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "volt.cli.push",
-        "title": "Volt: Push (workspace → bridge)",
-        "category": "Volt",
-        "icon": "$(cloud-upload)"
-      },
-      {
-        "command": "volt.cli.build",
-        "title": "Volt: Build (writes diagnostics to Problems panel)",
-        "category": "Volt",
-        "icon": "$(tools)"
-      },
-      {
-        "command": "volt.cli.init",
-        "title": "Volt: Init Workspace",
-        "category": "Volt",
-        "icon": "$(zap)"
-      },
-      {
-        "command": "volt.cli.configureAccess",
-        "title": "Volt: Configure Extension Access",
-        "category": "Volt",
-        "icon": "$(gear)"
-      },
-      {
-        "command": "volt.scm.refresh",
-        "title": "Volt: Refresh SCM",
-        "category": "Volt",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "volt.scm.showOutput",
-        "title": "Volt: Show SCM Output Log",
-        "category": "Volt",
-        "icon": "$(output)"
-      },
-      {
-        "command": "volt.scm.pull",
-        "title": "Volt: Pull (SCM action)",
-        "category": "Volt",
-        "icon": "$(cloud-download)"
-      },
-      {
-        "command": "volt.scm.push",
-        "title": "Volt: Push (SCM action)",
-        "category": "Volt",
-        "icon": "$(cloud-upload)"
-      },
-      {
-        "command": "volt.scm.forcePull",
-        "title": "Volt: Pull --force (discard local edits)",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.scm.forcePush",
-        "title": "Volt: Push --force (overwrite IDE)",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.scm.mergeContinue",
-        "title": "Volt: Merge — Continue",
-        "category": "Volt",
-        "icon": "$(check)"
-      },
-      {
-        "command": "volt.scm.mergeAbort",
-        "title": "Volt: Merge — Abort",
-        "category": "Volt",
-        "icon": "$(discard)"
-      },
-      {
-        "command": "volt.scm.openMergeEditor",
-        "title": "Volt: Open in Merge Editor",
-        "category": "Volt",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "volt.scm.resolveUseMine",
-        "title": "Volt: Resolve — Use My Version",
-        "category": "Volt",
-        "icon": "$(arrow-left)"
-      },
-      {
-        "command": "volt.scm.resolveUseTheirs",
-        "title": "Volt: Resolve — Use IDE's Version",
-        "category": "Volt",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "volt.scm.resolveAllUseMine",
-        "title": "Volt: Resolve All — Use My Version",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.scm.resolveAllUseTheirs",
-        "title": "Volt: Resolve All — Use IDE's Version",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.scm.discardOutgoing",
-        "title": "Volt: Discard Local Change",
-        "category": "Volt",
-        "icon": "$(discard)"
+        "id": "volt.scm.more",
+        "label": "More Volt Actions…",
+        "icon": "$(ellipsis)"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "volt.initTwincat",
+          "when": "false"
+        },
+        {
+          "command": "volt.initCodesys",
+          "when": "false"
+        },
+        {
+          "command": "volt.acceptProjectRename",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
-          "command": "volt.scm.pull",
-          "when": "view == volt.scm",
+          "command": "volt.pull",
+          "when": "view == volt.scm && volt.workspaceInitialized",
           "group": "navigation@1"
         },
         {
-          "command": "volt.scm.push",
-          "when": "view == volt.scm",
+          "command": "volt.push",
+          "when": "view == volt.scm && volt.workspaceInitialized",
           "group": "navigation@2"
         },
         {
-          "command": "volt.scm.refresh",
-          "when": "view == volt.scm",
+          "command": "volt.refresh",
+          "when": "view == volt.scm && volt.workspaceInitialized",
           "group": "navigation@3"
         },
         {
-          "command": "volt.scm.mergeContinue",
+          "command": "volt.merge.continue",
           "when": "view == volt.scm && volt.merging",
-          "group": "1_merge@1"
+          "group": "navigation@4"
         },
         {
-          "command": "volt.scm.mergeAbort",
+          "command": "volt.merge.abort",
           "when": "view == volt.scm && volt.merging",
-          "group": "1_merge@2"
+          "group": "navigation@5"
         },
         {
-          "command": "volt.scm.resolveAllUseMine",
-          "when": "view == volt.scm && volt.merging",
-          "group": "1_merge@3"
-        },
-        {
-          "command": "volt.scm.resolveAllUseTheirs",
-          "when": "view == volt.scm && volt.merging",
-          "group": "1_merge@4"
-        },
-        {
-          "command": "volt.scm.forcePull",
+          "submenu": "volt.scm.more",
           "when": "view == volt.scm",
+          "group": "navigation@99"
+        }
+      ],
+      "volt.scm.more": [
+        {
+          "command": "volt.init",
+          "when": "!volt.workspaceInitialized",
+          "group": "1_init@1"
+        },
+        {
+          "command": "volt.openSettings",
+          "group": "1_init@2"
+        },
+        {
+          "command": "volt.forcePull",
+          "when": "volt.workspaceInitialized",
           "group": "2_force@1"
         },
         {
-          "command": "volt.scm.forcePush",
-          "when": "view == volt.scm",
+          "command": "volt.forcePush",
+          "when": "volt.workspaceInitialized",
           "group": "2_force@2"
+        },
+        {
+          "command": "volt.merge.useAllMine",
+          "when": "volt.merging",
+          "group": "3_mergeAll@1"
+        },
+        {
+          "command": "volt.merge.useAllTheirs",
+          "when": "volt.merging",
+          "group": "3_mergeAll@2"
+        },
+        {
+          "command": "volt.openConfig",
+          "when": "volt.workspaceInitialized",
+          "group": "9_diag@1"
+        },
+        {
+          "command": "volt.showOutput",
+          "group": "9_diag@2"
         }
       ],
       "view/item/context": [
         {
-          "command": "volt.scm.refresh",
+          "command": "volt.refresh",
           "when": "view == volt.scm && viewItem == volt.health",
           "group": "1_health@1"
         },
         {
-          "command": "volt.scm.showOutput",
+          "command": "volt.showOutput",
           "when": "view == volt.scm && viewItem == volt.health",
           "group": "1_health@2"
         },
         {
-          "command": "volt.scm.resolveUseMine",
+          "command": "volt.merge.useMine",
           "when": "view == volt.scm && viewItem == volt.item.merge",
           "group": "inline@1"
         },
         {
-          "command": "volt.scm.resolveUseTheirs",
+          "command": "volt.merge.useTheirs",
           "when": "view == volt.scm && viewItem == volt.item.merge",
           "group": "inline@2"
         },
         {
-          "command": "volt.scm.resolveUseMine",
+          "command": "volt.merge.useMine",
           "when": "view == volt.scm && viewItem == volt.item.merge",
           "group": "1_resolve@1"
         },
         {
-          "command": "volt.scm.resolveUseTheirs",
+          "command": "volt.merge.useTheirs",
           "when": "view == volt.scm && viewItem == volt.item.merge",
           "group": "1_resolve@2"
         },
         {
-          "command": "volt.scm.openMergeEditor",
+          "command": "volt.merge.openEditor",
           "when": "view == volt.scm && viewItem == volt.item.merge",
           "group": "2_editor@1"
         },
         {
-          "command": "volt.scm.discardOutgoing",
+          "command": "volt.discardOutgoing",
           "when": "view == volt.scm && viewItem == volt.item.outgoing",
           "group": "inline@1"
         }
@@ -568,13 +638,13 @@
     "viewsWelcome": [
       {
         "view": "volt.scm",
-        "contents": "No Volt workspace detected here.\n\nVolt syncs your workspace with the running PLC IDE (CODESYS / TwinCAT).\n\n[Initialize Volt](command:volt.cli.init)\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
-        "when": "workbenchState != empty"
+        "contents": "Open a folder to start using Volt.\n\n[Open Folder](command:vscode.openFolder)",
+        "when": "workbenchState == empty"
       },
       {
         "view": "volt.scm",
-        "contents": "Open a folder to start using Volt.\n\n[Open Folder](command:vscode.openFolder)",
-        "when": "workbenchState == empty"
+        "contents": "No Volt workspace here.\n\nVolt syncs your folder with the running PLC IDE so you can read, edit and merge POU files alongside the rest of your code.\n\nWhich IDE are you targeting?\n\n[Initialize for TwinCAT](command:volt.initTwincat)\n[Initialize for CODESYS](command:volt.initCodesys)\n\nFor a non-standard port, set `volt.bridge.ide` to `custom` and `volt.bridge.port` in [Settings](command:volt.openBridgeSettings).\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
+        "when": "workbenchState != empty && !volt.workspaceInitialized"
       }
     ]
   },

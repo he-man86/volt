@@ -110,10 +110,16 @@ export const EXTENSIONS: readonly ExtensionDef[] = [
 	// Declaration-only source kinds — no body language.
 	{ kind: "interface",   ext: "itf", defaultAccess: "rw", family: "source", describe: "Interface" },
 	{ kind: "gvl",         ext: "gvl", defaultAccess: "rw", family: "source", describe: "Global Variable List" },
-	{ kind: "structure",   ext: "dut", defaultAccess: "rw", family: "source", describe: "Structure" },
-	{ kind: "union",       ext: "dut", defaultAccess: "rw", family: "source", describe: "Union" },
-	{ kind: "enumeration", ext: "dut", defaultAccess: "rw", family: "source", describe: "Enumeration" },
-	{ kind: "alias",       ext: "dut", defaultAccess: "rw", family: "source", describe: "Alias" },
+	// DUT subkinds — each gets its own file extension so the workspace
+	// tree at-a-glance distinguishes a struct from an enum from an
+	// alias (vs the prior `.dut` catch-all where the kind was hidden
+	// inside the TYPE...END_TYPE body). All four use the same TYPE/
+	// END_TYPE grammar so a single language id (`plc-dut`) covers
+	// them in the LSP + VS Code grammar contribution.
+	{ kind: "structure",   ext: "struct", defaultAccess: "rw", family: "source", describe: "Structure" },
+	{ kind: "union",       ext: "union",  defaultAccess: "rw", family: "source", describe: "Union" },
+	{ kind: "enumeration", ext: "enum",   defaultAccess: "rw", family: "source", describe: "Enumeration" },
+	{ kind: "alias",       ext: "alias",  defaultAccess: "rw", family: "source", describe: "Alias" },
 
 	// ─── Config kinds — R (engineer owns these in the IDE) ───────────
 	// Each has a typed extractor on the bridge side that reads
@@ -350,6 +356,24 @@ export function accessForExt(ext: string): DefaultAccess | undefined {
  *  Mainly for diagnostic / introspection (e.g. CLI help, doc gen). */
 export function trackedExtensions(): readonly string[] {
 	return [...BY_EXT.keys()].sort();
+}
+
+/** Build the default `extensionAccess` map for a fresh `.volt/config.json`.
+ *  Lists every tracked extension with its registry-default mode so the
+ *  config is self-documenting: engineers see the full surface and can
+ *  flip any line to `"off"` (skip entirely) or `"rw"` / `"r"` without
+ *  needing to know which extensions exist. The folder-marker `.gitkeep`
+ *  is excluded — it's a structural artifact, not a user-tunable item.
+ *  Order is sorted (deterministic JSON output). */
+export function defaultExtensionAccess(): Record<string, DefaultAccess> {
+	const out: Record<string, DefaultAccess> = {};
+	for (const ext of trackedExtensions()) {
+		if (ext === ".gitkeep") continue;
+		const access = accessForExt(ext);
+		if (access === undefined) continue;
+		out[ext] = access;
+	}
+	return out;
 }
 
 /** Lines for the workspace's `.gitattributes` — LF normalization on

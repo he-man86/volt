@@ -34,7 +34,7 @@ export interface ServerOptions {
 
 export function runServer(opts: ServerOptions): void {
 	const workspace = new Workspace();
-	const state: ServerState = { shuttingDown: false };
+	const state: ServerState = { shuttingDown: false, workspaceRoots: [] };
 
 	/**
 	 * In-flight request ledger. Tracks which request IDs are currently

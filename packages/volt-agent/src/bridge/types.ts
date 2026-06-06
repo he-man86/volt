@@ -261,6 +261,18 @@ export const RefsResponseSchema = z
 		 * vocabulary, so clients stay vendor-agnostic.
 		 */
 		kinds: z.record(z.string()).optional(),
+		/**
+		 * Parallel map of name → slash-joined containing folder in the
+		 * project tree (empty string = item at the project root).
+		 * Required so clients can build accurate workspace URIs without
+		 * a /fetch round-trip — critical for the SCM-view drift preview
+		 * shown right after `volt init`, before any pull has happened.
+		 *
+		 * Folder values are identical to what `/fetch` returns on
+		 * `FetchedItem.folder`; the two endpoints share one tree walk
+		 * on the bridge side.
+		 */
+		folders: z.record(z.string()),
 	})
 	.strict();
 export type RefsResponse = z.infer<typeof RefsResponseSchema>;

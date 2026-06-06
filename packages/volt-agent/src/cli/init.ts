@@ -10,14 +10,20 @@
  * After `init`, `volt pull` / `volt push` / `volt status` / `volt
  * build` all just read the binding.
  */
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { detectVendor, installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp";
+import { verifyProjectBinding } from "../engine/binding.js";
 import { configExists, loadConfig, saveConfig, workspacePaths } from "../engine/config.js";
+import { defaultExtensionAccess } from "../engine/extension-registry.js";
 import { ensureGitignore, ensureSnapshotRepo, reportSnapshotHeal } from "../engine/snapshot.js";
+import { writeWorkspaceScaffold } from "../scaffold/index.js";
 import { flagBool, type VerbFn } from "./_shared.js";
 
 export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 	const force = flagBool(flags, "force");
+	const noScaffold = flagBool(flags, "no-scaffold");
 	const root = resolve(workspace);
 	const paths = workspacePaths(root);
 
@@ -41,27 +47,30 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 	let alreadyInitialized = false;
 	if (configExists(root)) {
 		const existing = loadConfig(root);
-		const sameProject =
-			existing.project.platform === health.platform &&
-			existing.project.projectName === health.projectName &&
-			existing.project.plcProjectName === health.plcProjectName;
-		if (!sameProject && !force) {
+		const check = verifyProjectBinding(existing, health);
+		if (!check.ok && !force) {
+			const m = check.mismatch;
 			throw new Error(
-				`workspace at ${root} is already bound to ${existing.project.platform}/${existing.project.projectName}/${existing.project.plcProjectName}; ` +
-					`bridge has ${health.platform}/${health.projectName}/${health.plcProjectName}. ` +
+				`workspace at ${root} is already bound to ${m.configuredAs.platform}/${m.configuredAs.projectName}/${m.configuredAs.plcProjectName}; ` +
+					`bridge has ${m.bridgeReports.platform}/${m.bridgeReports.projectName}/${m.bridgeReports.plcProjectName}. ` +
 					`re-run with --force to repoint.`,
 			);
 		}
 		reportSnapshotHeal(ensureSnapshotRepo(paths.snapshotPath));
 		ensureGitignore(root);
-		alreadyInitialized = sameProject;
-		if (!sameProject) {
-			// Fall through to overwrite when --force + mismatched project.
-			alreadyInitialized = false;
-		}
+		// Force + mismatched project → fall through to overwrite the config.
+		alreadyInitialized = check.ok;
 	}
 
 	if (!alreadyInitialized) {
+		// Seed `extensionAccess` with every tracked extension's default
+		// mode so the config is self-documenting from the start. The
+		// engineer sees the full surface in `.volt/config.json` and can
+		// flip any line to `"off"` (skip the extension entirely on
+		// pull/push) or override `r ↔ rw` without needing to know which
+		// extensions the registry tracks. Existing workspaces are
+		// untouched (this branch only runs on a fresh init or
+		// --force repoint).
 		saveConfig(root, {
 			bridge: { port },
 			project: {
@@ -70,6 +79,7 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 				plcProjectName: health.plcProjectName,
 			},
 			linkedAt: new Date().toISOString(),
+			extensionAccess: defaultExtensionAccess(),
 		});
 		reportSnapshotHeal(ensureSnapshotRepo(paths.snapshotPath));
 		ensureGitignore(root);
@@ -79,6 +89,15 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 	const detectedVendor = alreadyInitialized
 		? undefined
 		: await tryDetectVendor(root, health.platform);
+
+	const scaffold = noScaffold
+		? undefined
+		: writeWorkspaceScaffold({
+				root,
+				plcProjectName: health.plcProjectName,
+				agentVersion: readAgentVersion(),
+				force,
+			});
 
 	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
 	if (alreadyInitialized) {
@@ -92,11 +111,36 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 			`Language reference: installed ${corpus.filesCopied} files; SKILL.md ${corpus.skillAction}.`,
 		);
 	}
+	if (scaffold !== undefined && scaffold.created.length > 0) {
+		console.log(
+			`Scaffold: wrote ${scaffold.created.length} file(s) (${scaffold.skipped.length} already present).`,
+		);
+		console.log("next: run `bun install` in this folder to install dev dependencies.");
+	}
 	if (detectedVendor !== undefined) {
 		console.log(`Detected vendor: ${detectedVendor}.`);
 	}
 	return 0;
 };
+
+/** Read this package's own `version` field so the scaffold can pin
+ *  `@opencode-ai/volt-agent` in the workspace `package.json` to the
+ *  exact version that wrote it. Failure → `"latest"` (rare, but the
+ *  scaffold should still complete). */
+function readAgentVersion(): string {
+	try {
+		const here = dirname(fileURLToPath(import.meta.url));
+		// Compiled layout is `<pkg>/dist/cli/init.js`; walk two levels
+		// up to find the package root. Dev layout is `<pkg>/src/cli/`
+		// — same shape.
+		const pkgPath = join(here, "..", "..", "package.json");
+		const raw = readFileSync(pkgPath, "utf-8");
+		const m = /"version"\s*:\s*"([^"]+)"/.exec(raw);
+		return m?.[1] ?? "latest";
+	} catch {
+		return "latest";
+	}
+}
 
 /**
  * Detect vendor from workspace files. Fall back to the bridge's

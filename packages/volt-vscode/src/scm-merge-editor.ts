@@ -1,5 +1,5 @@
 /**
- * `volt.scm.openMergeEditor` — opens VS Code's built-in 3-pane merge
+ * `volt.merge.openEditor` — opens VS Code's built-in 3-pane merge
  * editor (introduced in 1.69) against a workspace file mid-merge. The
  * editor gets four URIs:
  *
@@ -16,7 +16,7 @@
  * merge commit.
  *
  * Per-file pick-a-side resolution lives in `scm.ts` under
- * `volt.scm.resolveUseMine` / `…UseTheirs` — those mirror git's
+ * `volt.merge.useMine` / `volt.merge.useTheirs` — those mirror git's
  * `git checkout --ours/--theirs <path>` and are the right tool for
  * graphical conflicts (FBD/LD/SFC/CFC) which can't take inline
  * conflict markers.
@@ -30,7 +30,7 @@ import { buildVoltUri } from "./scm-content-provider.js";
 
 export function registerMergeEditor(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.scm.openMergeEditor", openMergeEditor),
+		vscode.commands.registerCommand("volt.merge.openEditor", openMergeEditor),
 	);
 }
 

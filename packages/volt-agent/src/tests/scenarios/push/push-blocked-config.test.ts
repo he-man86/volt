@@ -1,6 +1,6 @@
 /**
- * Pushing edits to config files (.library, .task, .device, …) is
- * refused by default — those kinds are `r` (read-only) per the
+ * Pushing edits to config files (.library, .task, .device, ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦) is
+ * refused by default ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â those kinds are `r` (read-only) per the
  * registry. The engineer owns them in the IDE; the agent can read
  * them for context but never writes them back.
  */
@@ -29,7 +29,7 @@ describe("scenario: push refuses read-only extensions", () => {
 		writeFileSync(
 			join(
 				env.workspace,
-				"Device/Plc Logic/Application/Library Manager/IoStandard.library",
+				"src/Device/Plc Logic/Application/Library Manager/IoStandard.library",
 			),
 			"resolution = TampedVersion\n",
 			"utf-8",
@@ -38,7 +38,7 @@ describe("scenario: push refuses read-only extensions", () => {
 		const before = env.bridge.items.get("IoStandard")?.sourceText;
 		const result = await runVerb(pushVerb, env);
 		expect(result.exitCode).toBe(2);
-		// Bridge state unchanged — push didn't go through.
+		// Bridge state unchanged ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â push didn't go through.
 		const after = env.bridge.items.get("IoStandard")?.sourceText;
 		expect(after).toBe(before);
 		// Helpful error tells the user how to override if they really want.
@@ -50,7 +50,7 @@ describe("scenario: push refuses read-only extensions", () => {
 		env = makeTestEnv(withConfig);
 		await runVerb(pullVerb, env);
 		writeFileSync(
-			join(env.workspace, "Device.device"),
+			join(env.workspace, "src/Device.device"),
 			"device-id = MUTATED\n",
 			"utf-8",
 		);

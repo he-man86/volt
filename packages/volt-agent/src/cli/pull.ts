@@ -29,6 +29,7 @@ import {
 	resolveRef,
 	updateRef,
 } from "../engine/git-cmds.js";
+import { bindingMismatchMessage, verifyProjectBinding } from "../engine/binding.js";
 import { loadConfig, workspacePaths } from "../engine/config.js";
 import {
 	applyMerge,
@@ -74,6 +75,22 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 			what: "pull refused — merge in progress",
 			why: "a 3-way merge from a previous pull hasn't been finalized yet",
 			hint: "resolve any conflict markers, then run `volt merge --continue` — or `volt merge --abort` to back out",
+			exitCode: 2,
+		});
+	}
+
+	// 0a. Project-binding integrity. If the bridge is now reporting a
+	//     different project identity than `.volt/config.json` recorded,
+	//     hard-refuse — pulling would overwrite local files with content
+	//     from the wrong project. Engineer runs `volt init --force` to
+	//     accept legitimate renames.
+	const health = await bridge.getHealth();
+	const binding = verifyProjectBinding(cfg, health);
+	if (!binding.ok) {
+		throw new VoltError({
+			what: "pull refused — project-binding mismatch",
+			why: bindingMismatchMessage(binding.mismatch),
+			hint: "run `volt init --force` to accept the new name (snapshot history preserved), or point the bridge at the original project",
 			exitCode: 2,
 		});
 	}

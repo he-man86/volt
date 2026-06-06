@@ -22,8 +22,10 @@
  * by a single space.
  */
 import { resolve } from "node:path";
+import { type BindingMismatch, verifyProjectBinding } from "../engine/binding.js";
 import { configExists, loadConfig, workspacePaths } from "../engine/config.js";
 import { listTree } from "../engine/git-cmds.js";
+import { WORKSPACE_SRC_DIR } from "../engine/workspace-layout.js";
 import { isMergingNow, type ConflictEntry } from "../engine/merge.js";
 import { workspaceMatchesBridge } from "../engine/ops.js";
 import { nameFromPath as nameFromPouPath, pickExtension } from "../engine/extension-registry.js";
@@ -62,6 +64,15 @@ interface StatusResult {
 	 * extensions. Paths use forward slashes.
 	 */
 	pathByName: Record<string, string>;
+	/**
+	 * Non-null when the bridge currently reports a different project
+	 * identity than `.volt/config.json` recorded. Status itself doesn't
+	 * refuse on mismatch (it stays informational so the VS Code SCM
+	 * view can render a useful warning), but `pull` / `push` / `build`
+	 * DO refuse — the engineer must `volt init --force` to accept the
+	 * new identity. See `engine/binding.ts`.
+	 */
+	projectMismatch: BindingMismatch | null;
 }
 
 export const status: VerbFn = async ({ workspace, bridge, flags }) => {
@@ -88,6 +99,7 @@ export const status: VerbFn = async ({ workspace, bridge, flags }) => {
 			driftLikelySelfCaused: r.driftLikelySelfCaused,
 			nextAction: r.nextAction,
 			summary: r.summary,
+			projectMismatch: r.projectMismatch,
 		};
 		process.stdout.write(`${JSON.stringify(out)}\n`);
 		return 0;
@@ -173,18 +185,61 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 	const paths = workspacePaths(root);
 
 	const hasConfig = configExists(root);
-	if (hasConfig) loadConfig(root); // throws only on malformed config
+	const cfg = hasConfig ? loadConfig(root) : undefined;
 
 	const refs = await bridge.getRefs();
 
-	if (!hasConfig) {
+	if (!hasConfig || cfg === undefined) {
 		return emptyStatus(refs.projectVersion, "init", "Workspace not initialized — run volt init to bind it to the IDE project.");
 	}
 
+	// Project-binding check: cheap /health round-trip lets us tell the
+	// UI when the bridge is now reporting a different project than
+	// `.volt/config.json` recorded (engineer renamed the project, or
+	// switched IDE focus to a different project entirely). Status stays
+	// informational — `pull`/`push`/`build` are the verbs that refuse.
+	const health = await bridge.getHealth();
+	const bindingCheck = verifyProjectBinding(cfg, health);
+	const projectMismatch = bindingCheck.ok ? null : bindingCheck.mismatch;
+
 	reportSnapshotHeal(ensureSnapshotRepo(paths.snapshotPath));
 	const state = loadState(paths.snapshotPath);
+
+	// Workspace bound but never pulled — compute incoming against an
+	// empty baseline so the SCM view shows every bridge item as an
+	// incoming `added` (i.e. "this would land if you run volt pull").
+	// Without this, the UI sits empty after `volt init` and the
+	// engineer has no preview of what pull would do.
 	if (state === undefined) {
-		return emptyStatus(refs.projectVersion, "pull", "Workspace bound but never pulled — run volt pull to populate.");
+		const incoming = computeIncoming(refs.items, {});
+		const pathByName = computePathByName(
+			paths.snapshotPath,
+			/* commitSha */ undefined,
+			refs.folders,
+			refs.items,
+			refs.kinds ?? {},
+			incoming,
+			{ added: [], removed: [], modified: [], moved: [] },
+		);
+		const summary = hasChanges(incoming)
+			? `IDE has ${formatCounts(incoming)} — run volt pull to populate the workspace.`
+			: "Workspace bound — IDE project is empty. Nothing to pull.";
+		return {
+			initialized: true,
+			ideDrifted: hasChanges(incoming),
+			workspaceDirty: false,
+			incoming,
+			dirtyPaths: [],
+			outgoing: { added: [], removed: [], modified: [], moved: [] },
+			driftLikelySelfCaused: false,
+			bridgeProjectVersion: refs.projectVersion,
+			snapshotProjectVersion: undefined,
+			nextAction: "pull",
+			summary,
+			merging: null,
+			pathByName,
+			projectMismatch,
+		};
 	}
 
 	// Mid-merge check first — it short-circuits the normal status flow.
@@ -192,12 +247,13 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 	// the only sensible next action is to resolve and continue.
 	const mergeState = isMergingNow(paths.snapshotPath);
 	if (mergeState !== undefined) {
-		// Mid-merge: conflicts.paths already give us the workspace
-		// paths directly, so the map is trivial.
+		// Mid-merge: conflicts.paths are vendor-relative (snapshot tree
+		// shape), prefix with `src/` so the UI can join them to the
+		// workspace root.
 		const mergePathByName: Record<string, string> = {};
 		for (const c of mergeState.conflicts) {
 			const name = nameFromPouPath(c.path);
-			if (name !== undefined) mergePathByName[name] = c.path;
+			if (name !== undefined) mergePathByName[name] = `${WORKSPACE_SRC_DIR}/${c.path}`;
 		}
 		return {
 			initialized: true,
@@ -216,6 +272,7 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 				conflicts: mergeState.conflicts,
 			},
 			pathByName: mergePathByName,
+			projectMismatch,
 		};
 	}
 
@@ -241,10 +298,15 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 		driftLikelySelfCaused,
 	);
 
+	// Prefer the bridge's current folder map (refs.folders) over our
+	// recorded snapshot folders — it covers incoming-added items the
+	// agent has never seen, AND reflects engineer-side moves the agent
+	// hasn't yet absorbed. Fall back to state.folders for the rare item
+	// the bridge dropped from /refs between calls.
 	const pathByName = computePathByName(
 		paths.snapshotPath,
 		state.commitSha,
-		state.folders ?? {},
+		{ ...(state.folders ?? {}), ...refs.folders },
 		refs.items,
 		refs.kinds ?? {},
 		incoming,
@@ -265,6 +327,7 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
 		summary,
 		merging: null,
 		pathByName,
+		projectMismatch,
 	};
 }
 
@@ -284,7 +347,7 @@ async function computeStatus(workspaceRoot: string, bridge: Parameters<VerbFn>[0
  */
 function computePathByName(
 	snapshotPath: string,
-	commitSha: string,
+	commitSha: string | undefined,
 	folders: Record<string, string>,
 	bridgeItems: Record<string, string>,
 	bridgeKinds: Record<string, string>,
@@ -293,26 +356,39 @@ function computePathByName(
 ): Record<string, string> {
 	const out: Record<string, string> = {};
 	// 1. Names present in the snapshot tree — authoritative path.
-	for (const entry of listTree(snapshotPath, commitSha)) {
-		const name = nameFromPouPath(entry.path);
-		if (name !== undefined) out[name] = entry.path;
+	//    Skipped pre-first-pull (no commit exists yet). Snapshot stores
+	//    vendor-relative paths (e.g. `POUs/FB.st`); prefix with `src/`
+	//    so the VS Code extension can join straight to workspace root.
+	if (commitSha !== undefined) {
+		for (const entry of listTree(snapshotPath, commitSha)) {
+			const name = nameFromPouPath(entry.path);
+			if (name !== undefined) out[name] = `${WORKSPACE_SRC_DIR}/${entry.path}`;
+		}
 	}
 	// 2. Incoming-added items aren't in the snapshot yet — synthesize
-	//    a path from kinds + folders.
+	//    a path from kinds + folders. Same `src/` prefix as above.
 	const allNames = new Set<string>([
 		...incoming.added, ...incoming.modified, ...incoming.removed,
 		...outgoing.added, ...outgoing.modified, ...outgoing.removed,
 	]);
 	for (const name of allNames) {
 		if (out[name] !== undefined) continue;
-		const kind = bridgeKinds[name];
-		// Best-effort: no kind = treat as ST (most common). If wrong,
-		// the diff click still opens but the workspace URI may point
-		// at a non-existent file — TreeView's content provider handles
+		// Synthesize a path for items we've never materialized (incoming
+		// added). The bridge's `kinds` map doesn't carry a body language
+		// — source POU kinds need one to pick the right ext, so we hint
+		// "ST" (the dominant case for unmaterialized items). If wrong,
+		// the diff click still opens but the workspace URI may point at
+		// a non-existent file — TreeView's content provider handles
 		// missing-file with an empty-RIGHT diff pane.
-		const ext = kind !== undefined ? pickExtension(kind) : "st";
+		const kind = bridgeKinds[name];
+		const ext = kind !== undefined ? pickExtension(kind, "ST") : "st";
+		// `folders` is populated from `refs.folders` (post-protocol-bump),
+		// merged with `state.folders` — so an item known to either side
+		// resolves to its real IDE folder. Items in neither default to
+		// `POUs` (the canonical top-level POU folder in TC + CODESYS).
 		const folder = folders[name] ?? "POUs";
-		out[name] = folder.length > 0 ? `${folder}/${name}.${ext}` : `${name}.${ext}`;
+		const vendorRel = folder.length > 0 ? `${folder}/${name}.${ext}` : `${name}.${ext}`;
+		out[name] = `${WORKSPACE_SRC_DIR}/${vendorRel}`;
 	}
 	return out;
 }
@@ -332,6 +408,7 @@ function emptyStatus(bridgeProjectVersion: string, nextAction: NextAction, summa
 		summary,
 		merging: null,
 		pathByName: {},
+		projectMismatch: null,
 	};
 }
 

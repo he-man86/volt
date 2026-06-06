@@ -23,8 +23,8 @@ describe("scenario: pull --force", () => {
 		env = makeTestEnv(simple);
 		await runVerb(pullVerb, env);
 
-		// User edited a file locally — workspace is now dirty.
-		const fbPath = join(env.workspace, "POUs/FB_Motor.st");
+		// User edited a file locally â€” workspace is now dirty.
+		const fbPath = join(env.workspace, "src/POUs/FB_Motor.st");
 		writeFileSync(fbPath, "// local junk\n", "utf-8");
 
 		// `volt pull` (without --force) would refuse on dirty.
@@ -35,7 +35,7 @@ describe("scenario: pull --force", () => {
 		// `volt pull --force` discards the edit and refetches.
 		const forced = await runVerb(pullVerb, env, { force: true });
 		expect(forced.exitCode).toBe(0);
-		const restored = readWorkspace(env.workspace, "POUs/FB_Motor.st");
+		const restored = readWorkspace(env.workspace, "src/POUs/FB_Motor.st");
 		expect(restored).toContain("FUNCTION_BLOCK FB_Motor");
 		expect(restored).not.toContain("local junk");
 	});

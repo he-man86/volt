@@ -1,5 +1,5 @@
 /**
- * Coverage for the `BridgeClient` HTTP boundary — specifically the
+ * Coverage for the `BridgeClient` HTTP boundary â€” specifically the
  * `.parse()` validation layer added on top of every response. We spin
  * up a real `http.createServer` on an ephemeral port and configure the
  * per-test responder; this exercises the same `node:http` request path
@@ -7,11 +7,11 @@
  *
  * What we lock in:
  *   - happy path round-trips cleanly
- *   - missing required fields  → BridgeError MALFORMED_RESPONSE w/ path
- *   - wrong-typed fields       → BridgeError MALFORMED_RESPONSE w/ path
- *   - extra unknown fields     → BridgeError MALFORMED_RESPONSE (.strict)
- *   - upstream error envelopes → BridgeError with the bridge's code
- *   - PushResponse discriminated union — accepted=true branch validated
+ *   - missing required fields  â†’ BridgeError MALFORMED_RESPONSE w/ path
+ *   - wrong-typed fields       â†’ BridgeError MALFORMED_RESPONSE w/ path
+ *   - extra unknown fields     â†’ BridgeError MALFORMED_RESPONSE (.strict)
+ *   - upstream error envelopes â†’ BridgeError with the bridge's code
+ *   - PushResponse discriminated union â€” accepted=true branch validated
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
@@ -122,7 +122,7 @@ describe("BridgeClient response validation", () => {
 	});
 
 	test("PushResponse discriminated union: accepted=true validates newProjectVersion", async () => {
-		// Missing newProjectVersion on the accepted branch should fail —
+		// Missing newProjectVersion on the accepted branch should fail â€”
 		// the discriminator picks PushAcceptedSchema and required fields are checked.
 		nextReply = { status: 200, body: { accepted: true, newItems: {} } };
 		let caught: unknown;
@@ -150,7 +150,7 @@ describe("BridgeClient response validation", () => {
 	});
 });
 
-// ─── empty-refs disconnect defense ────────────────────────────────────
+// â”€â”€â”€ empty-refs disconnect defense â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Locks in the volt-agent-side check that protects against any bridge
 // (Beckhoff or CODESYS) that returns 200-OK + `{items: {}}` while its
@@ -161,7 +161,7 @@ describe("BridgeClient response validation", () => {
 describe("BridgeClient empty-refs disconnect defense", () => {
 	let multiServer: Server;
 	let multiPort: number;
-	let refsBody: unknown = { items: {}, kinds: {}, projectVersion: "abc", structureVersion: "abc" };
+	let refsBody: unknown = { items: {}, kinds: {}, folders: {}, projectVersion: "abc", structureVersion: "abc" };
 	let healthBody: unknown = { ...VALID_HEALTH };
 
 	beforeEach(async () => {
@@ -190,8 +190,8 @@ describe("BridgeClient empty-refs disconnect defense", () => {
 		return new BridgeClient({ baseUrl: `http://127.0.0.1:${multiPort}`, timeoutMs: 1000 });
 	}
 
-	test("empty refs + /health.connected=false → throws PLC_DISCONNECTED", async () => {
-		refsBody = { items: {}, kinds: {}, projectVersion: "empty", structureVersion: "empty" };
+	test("empty refs + /health.connected=false â†’ throws PLC_DISCONNECTED", async () => {
+		refsBody = { items: {}, kinds: {}, folders: {}, projectVersion: "empty", structureVersion: "empty" };
 		healthBody = { ...VALID_HEALTH, connected: false, status: "unavailable", ideAlive: false };
 		let caught: unknown;
 		try {
@@ -203,21 +203,21 @@ describe("BridgeClient empty-refs disconnect defense", () => {
 		expect((caught as BridgeError).code).toBe("PLC_DISCONNECTED");
 	});
 
-	test("empty refs + /health.connected=true → trusted (project is genuinely empty)", async () => {
-		refsBody = { items: {}, kinds: {}, projectVersion: "fresh", structureVersion: "fresh" };
+	test("empty refs + /health.connected=true â†’ trusted (project is genuinely empty)", async () => {
+		refsBody = { items: {}, kinds: {}, folders: {}, projectVersion: "fresh", structureVersion: "fresh" };
 		healthBody = { ...VALID_HEALTH }; // connected: true
 		const refs = await client().getRefs();
 		expect(Object.keys(refs.items).length).toBe(0);
 		expect(refs.projectVersion).toBe("fresh");
 	});
 
-	test("non-empty refs → /health is NOT consulted (no extra round trip)", async () => {
+	test("non-empty refs â†’ /health is NOT consulted (no extra round trip)", async () => {
 		// If the defense path runs when items is non-empty, this would
-		// observe `connected: false` and throw — proving the gate fires
+		// observe `connected: false` and throw â€” proving the gate fires
 		// only on the empty case.
 		refsBody = {
 			items: { FB_X: "v1" },
-			kinds: { FB_X: "function_block" },
+			kinds: { FB_X: "function_block" }, folders: { FB_X: "POUs" },
 			projectVersion: "v1",
 			structureVersion: "v1",
 		};
@@ -226,12 +226,12 @@ describe("BridgeClient empty-refs disconnect defense", () => {
 		expect(refs.items["FB_X"]).toBe("v1");
 	});
 
-	test("empty refs + /health that throws/times-out → trusts refs (fails open)", async () => {
-		// If we can't reach /health, we can't disprove the bridge —
+	test("empty refs + /health that throws/times-out â†’ trusts refs (fails open)", async () => {
+		// If we can't reach /health, we can't disprove the bridge â€”
 		// fall through and let downstream layers decide. Strict
 		// gating would mean a degraded /health takes down /refs entirely.
-		refsBody = { items: {}, kinds: {}, projectVersion: "empty", structureVersion: "empty" };
-		// Respond malformed so HealthResponseSchema rejects → getHealth throws.
+		refsBody = { items: {}, kinds: {}, folders: {}, projectVersion: "empty", structureVersion: "empty" };
+		// Respond malformed so HealthResponseSchema rejects â†’ getHealth throws.
 		healthBody = { not: "valid" };
 		const refs = await client().getRefs();
 		expect(Object.keys(refs.items).length).toBe(0);

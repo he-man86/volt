@@ -1,6 +1,6 @@
 /**
  * IDE-to-Volt drift detection for textual CHILD elements (ST actions,
- * methods, properties) — the units inside a POU below the top-level
+ * methods, properties) Ã¢â‚¬â€ the units inside a POU below the top-level
  * fetch granularity.
  *
  * Wire contract pinned here: both bridges
@@ -21,7 +21,7 @@
  * flatten, TC via `BlockTypeMapper.FolderSubType` recursion in
  * `GetHandler.CollectChildren`). The bridge MUST flatten that into a
  * single sourceText with all children inline. The agent has no
- * concept of "child folder" — children are always flat from its
+ * concept of "child folder" Ã¢â‚¬â€ children are always flat from its
  * point of view. See `feedback_bridges_must_stay_at_parity`.
  */
 import { afterEach, describe, expect, test } from "bun:test";
@@ -50,7 +50,7 @@ function fbWithChildren(extra: string): string {
 }
 
 describe("scenario: textual child element drift (add / remove / edit)", () => {
-	test("bridge adds an ACTION to an FB → next pull surfaces it in the parent .st", async () => {
+	test("bridge adds an ACTION to an FB Ã¢â€ â€™ next pull surfaces it in the parent .st", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -63,7 +63,7 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		expect(readWorkspace(env.workspace, "POUs/FB_Pump.st")).not.toContain("ACTION Start");
+		expect(readWorkspace(env.workspace, "src/POUs/FB_Pump.st")).not.toContain("ACTION Start");
 
 		const stored = env.bridge.items.get("FB_Pump")!;
 		stored.sourceText = fbWithChildren(
@@ -72,12 +72,12 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 
 		const second = await runVerb(pullVerb, env);
 		expect(second.exitCode).toBe(0);
-		const text = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const text = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 		expect(text).toContain("ACTION Start");
 		expect(text).toContain("speed := 100;");
 	});
 
-	test("bridge removes an ACTION → next pull drops it from the parent .st", async () => {
+	test("bridge removes an ACTION Ã¢â€ â€™ next pull drops it from the parent .st", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -92,16 +92,16 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		expect(readWorkspace(env.workspace, "POUs/FB_Pump.st")).toContain("ACTION Start");
+		expect(readWorkspace(env.workspace, "src/POUs/FB_Pump.st")).toContain("ACTION Start");
 
 		const stored = env.bridge.items.get("FB_Pump")!;
 		stored.sourceText = FB_BASE;
 
 		await runVerb(pullVerb, env);
-		expect(readWorkspace(env.workspace, "POUs/FB_Pump.st")).not.toContain("ACTION Start");
+		expect(readWorkspace(env.workspace, "src/POUs/FB_Pump.st")).not.toContain("ACTION Start");
 	});
 
-	test("bridge edits an ACTION's body → next pull updates the parent .st", async () => {
+	test("bridge edits an ACTION's body Ã¢â€ â€™ next pull updates the parent .st", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -123,12 +123,12 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 		);
 
 		await runVerb(pullVerb, env);
-		const text = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const text = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 		expect(text).toContain("speed := 200;");
 		expect(text).not.toContain("speed := 100;");
 	});
 
-	test("bridge adds a METHOD → next pull surfaces it in the parent .st", async () => {
+	test("bridge adds a METHOD Ã¢â€ â€™ next pull surfaces it in the parent .st", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -148,7 +148,7 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 		);
 
 		await runVerb(pullVerb, env);
-		const text = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const text = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 		expect(text).toContain("METHOD GetSpeed");
 		expect(text).toContain("GetSpeed := speed;");
 	});
@@ -168,7 +168,7 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		expect(readWorkspace(env.workspace, "POUs/FB_Pump.st")).toContain("ACTION OldName");
+		expect(readWorkspace(env.workspace, "src/POUs/FB_Pump.st")).toContain("ACTION OldName");
 
 		const stored = env.bridge.items.get("FB_Pump")!;
 		stored.sourceText = fbWithChildren(
@@ -176,12 +176,12 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 		);
 
 		await runVerb(pullVerb, env);
-		const text = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const text = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 		expect(text).toContain("ACTION NewName");
 		expect(text).not.toContain("ACTION OldName");
 	});
 
-	test("multiple children mutate at once → pull surfaces every change", async () => {
+	test("multiple children mutate at once Ã¢â€ â€™ pull surfaces every change", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -205,7 +205,7 @@ describe("scenario: textual child element drift (add / remove / edit)", () => {
 		);
 
 		await runVerb(pullVerb, env);
-		const text = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const text = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 		expect(text).toContain("ACTION A1");
 		expect(text).toContain("speed := 999;");
 		expect(text).not.toContain("ACTION A2");
@@ -228,15 +228,15 @@ describe("scenario: child folder organization inside a POU is flattened by the b
 			],
 		});
 		await runVerb(pullVerb, env);
-		const a = readWorkspace(env.workspace, "POUs/FB_A.st");
-		const b = readWorkspace(env.workspace, "POUs/FB_B.st");
+		const a = readWorkspace(env.workspace, "src/POUs/FB_A.st");
+		const b = readWorkspace(env.workspace, "src/POUs/FB_B.st");
 		expect(a).toBe(b);
 		expect(a).toContain("ACTION A1");
 		expect(a).toContain("ACTION A2");
 		expect(a).toContain("ACTION A3");
 	});
 
-	test("bridge moves children into a new internal folder → workspace stays byte-stable", async () => {
+	test("bridge moves children into a new internal folder Ã¢â€ â€™ workspace stays byte-stable", async () => {
 		const body = fbWithChildren(
 			"ACTION Start\nspeed := 1;\nEND_ACTION\n" +
 				"ACTION Stop\nspeed := 0;\nEND_ACTION\n",
@@ -248,11 +248,11 @@ describe("scenario: child folder organization inside a POU is flattened by the b
 			],
 		});
 		await runVerb(pullVerb, env);
-		const initialText = readWorkspace(env.workspace, "POUs/FB_Pump.st");
+		const initialText = readWorkspace(env.workspace, "src/POUs/FB_Pump.st");
 
 		env.bridge.items.get("FB_Pump")!.sourceText = body;
 		const second = await runVerb(pullVerb, env);
 		expect(second.exitCode).toBe(0);
-		expect(readWorkspace(env.workspace, "POUs/FB_Pump.st")).toBe(initialText);
+		expect(readWorkspace(env.workspace, "src/POUs/FB_Pump.st")).toBe(initialText);
 	});
 });

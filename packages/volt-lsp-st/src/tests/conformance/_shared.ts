@@ -17,7 +17,7 @@ export const KIND_EXT: Record<LanguageTest["kind"], string> = {
 	function: "st",
 	program: "st",
 	gvl: "gvl",
-	structure: "dut",
+	structure: "struct",
 	interface: "itf",
 };
 

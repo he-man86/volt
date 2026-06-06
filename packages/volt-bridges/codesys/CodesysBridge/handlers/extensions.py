@@ -132,12 +132,20 @@ def _emit_pairs(pairs):
 def format_library_ref(libref):
 	"""Library placeholder reference → text manifest.
 
-	`ScriptPlaceholderReference` exposes name / namespace /
-	effective_resolution / default_resolution / is_managed /
-	is_placeholder / is_redirected / optional / system_library /
-	qualified_only / resolution_info directly as CLR properties.
+	Two layers of data:
+	  1. The REFERENCE itself (`ScriptPlaceholderReference`) — how the
+	     project points at the library: name, namespace, resolution,
+	     placeholder/managed/redirected/optional flags.
+	  2. The MANAGED LIBRARY (`ScriptLibManObject`) the ref resolves to,
+	     when `is_managed` is true — the library's OWN metadata: title,
+	     version, company, default-namespace, categories, dependencies.
+	     This is the canonical "what library is actually loaded" info an
+	     AI needs to know which APIs are available in the project.
+
+	See https://content.helpme-codesys.com/en/ScriptingEngine/ for the
+	property surface — both objects expose CLR properties via getattr.
 	"""
-	return _emit_pairs([
+	pairs = [
 		("name", _safe_attr(libref, "name")),
 		("placeholder", _safe_attr(libref, "placeholder_name")),
 		("namespace", _safe_attr(libref, "namespace")),
@@ -150,7 +158,73 @@ def format_library_ref(libref):
 		("system", _safe_attr(libref, "system_library")),
 		("qualified-only", _safe_attr(libref, "qualified_only")),
 		("resolution-info", _safe_attr(libref, "resolution_info")),
-	])
+	]
+
+	# Managed-library metadata — only present when the reference points
+	# at a concrete library (not a still-unresolved placeholder). The
+	# tuple <company, title, version> is what uniquely identifies the
+	# library in CODESYS's library repository.
+	managed = _safe_attr(libref, "managed_library")
+	if managed is not None:
+		pairs.extend([
+			("title", _safe_attr(managed, "title")),
+			("version", _safe_attr(managed, "version")),
+			("company", _safe_attr(managed, "company")),
+			("default-namespace", _safe_attr(managed, "default_namespace")),
+			("categories", _format_lib_categories(_safe_attr(managed, "categories"))),
+		])
+
+	# Library DEPENDENCIES (other libraries this one transitively needs).
+	# `dependencies` lives on the reference itself per the ScriptingEngine
+	# docs; for a managed lib it mirrors `managed_library.parameters`.
+	# Knowing the dep chain helps an AI reason about transitive symbol
+	# availability without re-walking the full library manager tree.
+	deps = _safe_attr(libref, "dependencies")
+	deps_text = _format_string_list(deps)
+	if deps_text is not None:
+		pairs.append(("dependencies", deps_text))
+
+	return _emit_pairs(pairs)
+
+
+def _format_lib_categories(cats):
+	"""Render a list of LibCategory objects as a semicolon-joined string
+	of their `name` attributes. Returns None on empty/missing input so
+	`_emit_pairs` drops the field entirely — preserves the manifest's
+	stable-shape invariant. Order from the API is preserved (CODESYS
+	itself walks categories deterministically)."""
+	if cats is None:
+		return None
+	try:
+		names = []
+		for c in cats:
+			n = _safe_attr(c, "name")
+			if n is not None:
+				s = str(n).strip()
+				if s:
+					names.append(s)
+		return "; ".join(names) if names else None
+	except Exception:
+		return None
+
+
+def _format_string_list(items):
+	"""Render an iterable of strings as a semicolon-joined value. Skips
+	None / empty entries. Returns None when the input has nothing to
+	emit, so `_emit_pairs` drops the line entirely."""
+	if items is None:
+		return None
+	try:
+		parts = []
+		for s in items:
+			if s is None:
+				continue
+			text = str(s).strip()
+			if text:
+				parts.append(text)
+		return "; ".join(parts) if parts else None
+	except Exception:
+		return None
 
 
 def format_task(task):

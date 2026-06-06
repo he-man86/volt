@@ -45,13 +45,13 @@ describe("scenario: bridge sends UNKNOWN body language", () => {
 			],
 		});
 		const result = await runVerb(pullVerb, env);
-		// Pull succeeds — one bad item doesn't poison the rest.
+		// Pull succeeds Ã¢â‚¬â€ one bad item doesn't poison the rest.
 		expect(result.exitCode).toBe(0);
 		// Good POU materialized.
-		expect(workspaceHasFile(env.workspace, "POUs/GoodPOU.st")).toBe(true);
-		// Weird POU NOT materialized — not as .st, not anywhere.
-		expect(workspaceHas(env.workspace, "POUs/WeirdPOU.st")).toBe(false);
-		expect(workspaceHas(env.workspace, "POUs/WeirdPOU.cfc")).toBe(false);
+		expect(workspaceHasFile(env.workspace, "src/POUs/GoodPOU.st")).toBe(true);
+		// Weird POU NOT materialized Ã¢â‚¬â€ not as .st, not anywhere.
+		expect(workspaceHas(env.workspace, "src/POUs/WeirdPOU.st")).toBe(false);
+		expect(workspaceHas(env.workspace, "src/POUs/WeirdPOU.cfc")).toBe(false);
 		expect(
 			listWorkspace(env.workspace).some((p) => p.includes("WeirdPOU")),
 		).toBe(false);

@@ -35,6 +35,8 @@ import {
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { buildTree, initBareRepo, isRepo, listTree, writeBlob } from "./git-cmds.js";
 import { getByPath, isTrackedPath, nameFromPath } from "./extension-registry.js";
+import { ensureGitignoreEntries, type GitignoreEntry } from "./gitignore.js";
+import { srcRoot } from "./workspace-layout.js";
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -171,15 +173,21 @@ export function saveState(snapshotPath: string, state: RepoState): void {
 // ─── Workspace file I/O ───────────────────────────────────────────────
 
 /**
- * Walk the workspace tree and return one entry per tracked file (every
- * POU file — see `POU_EXTENSIONS` — plus `.gitattributes`), with paths normalized to forward
- * slashes. The caller is responsible for hashing each content into the
- * snapshot bare repo to obtain its blob SHA — this function just
- * enumerates and reads.
+ * Walk the workspace's `src/` subtree and return one entry per tracked
+ * file (every POU file plus `.gitattributes`), with paths normalized to
+ * forward slashes and relative to `src/`. The caller is responsible for
+ * hashing each content into the snapshot bare repo to obtain its blob
+ * SHA — this function just enumerates and reads.
+ *
+ * Paths are vendor-relative (e.g. `POUs/FB_Motor.st`, NOT
+ * `src/POUs/FB_Motor.st`) — the `src/` prefix is the agent ⇄ workspace
+ * I/O boundary, transparent to materializer / push / state. Tooling
+ * files at the project root (`package.json`, `tests/`, `node_modules/`)
+ * are never visited.
  */
 export function listWorkspaceFiles(workspaceRoot: string): Array<{ path: string; content: Buffer }> {
 	const out: Array<{ path: string; content: Buffer }> = [];
-	const rootAbs = resolve(workspaceRoot);
+	const rootAbs = resolve(srcRoot(workspaceRoot));
 
 	function walk(dir: string): void {
 		let entries: string[];
@@ -189,8 +197,6 @@ export function listWorkspaceFiles(workspaceRoot: string): Array<{ path: string;
 			return;
 		}
 		for (const name of entries) {
-			// Skip our own state dir, the user's git dir, and OS detritus.
-			if (name === ".volt" || name === ".git") continue;
 			const abs = join(dir, name);
 			let st: ReturnType<typeof statSync>;
 			try {
@@ -215,23 +221,25 @@ export function listWorkspaceFiles(workspaceRoot: string): Array<{ path: string;
 }
 
 /**
- * Write a tree's contents to the workspace. Creates parent dirs as
- * needed. Does NOT delete any file — caller decides cleanup policy
- * (different for first-import vs subsequent imports).
+ * Write a tree's contents to the workspace, rooted under `src/`. Paths
+ * in `entries` are vendor-relative (e.g. `POUs/FB_Motor.st`); each
+ * lands at `<workspaceRoot>/src/<path>`. Creates parent dirs as needed.
+ * Does NOT delete any file — caller decides cleanup policy.
  */
 export function writeTreeToWorkspace(
 	workspaceRoot: string,
 	entries: ReadonlyArray<{ path: string; content: Buffer | string }>,
 ): void {
+	const srcAbs = srcRoot(workspaceRoot);
 	for (const e of entries) {
-		const abs = join(workspaceRoot, e.path);
+		const abs = join(srcAbs, e.path);
 		mkdirSync(dirname(abs), { recursive: true });
 		writeFileSync(abs, e.content);
 	}
 }
 
 /**
- * Sweep stale empty directories under the workspace root.
+ * Sweep stale empty directories under the workspace's `src/` subtree.
  *
  * `removeFilesFromWorkspace` walks up only when IT just removed a file
  * — so dirs that were ALREADY empty when pull began (left over from a
@@ -239,18 +247,16 @@ export function writeTreeToWorkspace(
  * retired) are never collected. This sweep is a post-pull pass that
  * catches them.
  *
- * Rule: any directory under `workspaceRoot` whose subtree contains
- * ZERO files is stale and removed. The workspace is a Volt-managed
- * surface — folders that don't trace back to an IDE item path are
- * by definition not part of the IDE's state. Folders the engineer
- * created in the IDE arrive as `kind="folder"` items with a `.gitkeep`
- * marker inside, so they have a file and survive this sweep.
- *
- * Skips `.volt/` and `.git/` at the root (Volt's own state + the user's
- * own git repo if any).
+ * Rule: any directory under `src/` whose subtree contains ZERO files
+ * is stale and removed. `src/` is a Volt-managed surface — folders
+ * that don't trace back to an IDE item path are by definition not part
+ * of the IDE's state. Folders the engineer created in the IDE arrive
+ * as `kind="folder"` items with a `.gitkeep` marker inside, so they
+ * have a file and survive this sweep. Returned paths are vendor-
+ * relative (e.g. `POUs/Retired`), not prefixed with `src/`.
  */
 export function sweepEmptyDirs(workspaceRoot: string): string[] {
-	const rootAbs = resolve(workspaceRoot);
+	const rootAbs = resolve(srcRoot(workspaceRoot));
 	const removed: string[] = [];
 
 	function dirHasFiles(abs: string): boolean {
@@ -278,7 +284,6 @@ export function sweepEmptyDirs(workspaceRoot: string): string[] {
 		}
 		for (const e of entries) {
 			if (!e.isDirectory()) continue;
-			if (abs === rootAbs && (e.name === ".volt" || e.name === ".git")) continue;
 			const childAbs = join(abs, e.name);
 			// Depth-first so we collapse from the leaves.
 			walk(childAbs);
@@ -298,12 +303,13 @@ export function sweepEmptyDirs(workspaceRoot: string): string[] {
 }
 
 /**
- * Delete files from the workspace by relative path. Tolerant of missing
- * files. Cleans up empty parent directories left behind, walking upward
- * until a non-empty dir or the workspace root is reached.
+ * Delete files from the workspace's `src/` subtree by vendor-relative
+ * path (e.g. `POUs/FB_Motor.st`). Tolerant of missing files. Cleans up
+ * empty parent directories left behind, walking upward until a non-
+ * empty dir or `src/` is reached.
  */
 export function removeFilesFromWorkspace(workspaceRoot: string, paths: readonly string[]): void {
-	const rootAbs = resolve(workspaceRoot);
+	const rootAbs = resolve(srcRoot(workspaceRoot));
 	for (const rel of paths) {
 		const abs = join(rootAbs, rel);
 		try {
@@ -311,7 +317,7 @@ export function removeFilesFromWorkspace(workspaceRoot: string, paths: readonly 
 		} catch {
 			/* ignore — file already gone */
 		}
-		// Walk up removing empty dirs (stop at workspace root or any
+		// Walk up removing empty dirs (stop at the `src/` root or any
 		// non-empty dir).
 		let dir = dirname(abs);
 		while (dir.startsWith(rootAbs) && dir !== rootAbs) {
@@ -417,38 +423,30 @@ export function hasChanges(c: ChangeSet): boolean {
 // ─── Workspace-local files we manage outside the snapshot ────────────
 
 /**
- * Ensure the workspace's `.gitignore` excludes `.volt/`. The
- * snapshot bare repo + config carry per-machine state (bridge port,
- * snapshot objects keyed by content hashes the bridge produces) that
- * has no business being committed to the user's own git history.
+ * Ensure the workspace's `.gitignore` carries every block Volt owns:
+ *   - `/.volt/`         — snapshot bare repo + per-machine config
+ *   - `/node_modules/`  — installed by `bun install`
  *
- * Policy:
- *   - No `.gitignore` exists       → write a minimal one with the entry.
- *   - Exists, entry already present → no-op.
- *   - Exists without the entry      → append a small block at the end,
- *                                     preserving the user's existing
- *                                     ignores.
- *
- * Safe to call on non-git workspaces too (the file is harmless and
- * costs nothing).
+ * Each block is idempotent; existing user content is preserved. Add a
+ * new tracked surface by adding one entry to `VOLT_GITIGNORE_ENTRIES`.
+ * Write logic lives in `engine/gitignore.ts`.
  */
+const VOLT_GITIGNORE_ENTRIES: readonly GitignoreEntry[] = [
+	{
+		comment: "volt local state — workspace-local snapshot + config",
+		patterns: ["/.volt/"],
+		// Tolerate `/.volt`, `/.volt/`, `.volt`, `.volt/` on its own line.
+		matcher: /^\s*\/?\.volt\/?\s*$/m,
+	},
+	{
+		comment: "bun / node tooling",
+		patterns: ["/node_modules/"],
+		matcher: /^\s*\/?node_modules\/?\s*$/m,
+	},
+];
+
 export function ensureGitignore(workspaceRoot: string): void {
-	const path = join(workspaceRoot, ".gitignore");
-	const block = "# volt local state — workspace-local snapshot + config\n/.volt/\n";
-
-	if (!existsSync(path)) {
-		writeFileSync(path, block, "utf-8");
-		return;
-	}
-
-	// Match `.volt/` (with or without leading slash, trailing
-	// slash optional) on its own line, anywhere in the file.
-	const existing = readFileSync(path, "utf-8");
-	const linePattern = /^\s*\/?\.volt\/?\s*$/m;
-	if (linePattern.test(existing)) return;
-
-	const separator = existing.endsWith("\n") ? "\n" : "\n\n";
-	writeFileSync(path, existing + separator + block, "utf-8");
+	ensureGitignoreEntries(workspaceRoot, VOLT_GITIGNORE_ENTRIES);
 }
 
 // ─── Workspace ⇄ snapshot ─────────────────────────────────────────────

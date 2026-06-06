@@ -52,12 +52,12 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 		});
 		const result = await runVerb(pullVerb, env);
 		expect(result.exitCode).toBe(0);
-		expect(workspaceHasFile(env.workspace, "POUs/MMT.cfc")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MMT.cfc")).toBe(true);
 		// Critical: NOT under the ST extension.
-		expect(workspaceHas(env.workspace, "POUs/MMT.st")).toBe(false);
-		// Content is the bridge's sourceText verbatim — declaration only,
+		expect(workspaceHas(env.workspace, "src/POUs/MMT.st")).toBe(false);
+		// Content is the bridge's sourceText verbatim Ã¢â‚¬â€ declaration only,
 		// no fake transpile attempt for a language we can't transpile.
-		expect(readWorkspace(env.workspace, "POUs/MMT.cfc")).toBe(CFC_SOURCE_TEXT);
+		expect(readWorkspace(env.workspace, "src/POUs/MMT.cfc")).toBe(CFC_SOURCE_TEXT);
 	});
 
 	test("editing the .cfc file is refused on push (read-only by default)", async () => {
@@ -75,7 +75,7 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 		await runVerb(pullVerb, env);
 		// Mutate the workspace file the way an editor would.
 		writeFileSync(
-			join(env.workspace, "POUs", "MMT.cfc"),
+			join(env.workspace, "src", "POUs", "MMT.cfc"),
 			CFC_SOURCE_TEXT + "(* engineer-typed edit *)\n",
 		);
 		const pushResult = await runVerb(pushVerb, env);
@@ -99,7 +99,7 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 		});
 		const result = await runVerb(pullVerb, env);
 		expect(result.exitCode).toBe(0);
-		expect(workspaceHasFile(env.workspace, "POUs/Sequencer.sfc")).toBe(true);
-		expect(workspaceHas(env.workspace, "POUs/Sequencer.st")).toBe(false);
+		expect(workspaceHasFile(env.workspace, "src/POUs/Sequencer.sfc")).toBe(true);
+		expect(workspaceHas(env.workspace, "src/POUs/Sequencer.st")).toBe(false);
 	});
 });

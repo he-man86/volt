@@ -531,6 +531,33 @@ END_FUNCTION_BLOCK
 	},
 
 	{
+		name: "fbd_fb_call_with_unconnected_input",
+		pouName: "FB_LANG_fbd_fb_call_with_unconnected_input",
+		kind: "function_block",
+		feature: "FBD: FB call where one input port is wired and the other is left unconnected (empty <inVariable><expression /></inVariable>) — CODESYS emits this shape when the engineer leaves an FB input unwired in the IDE; the call should use the FB's declared default for that parameter",
+		fromDoc: "14-fbd-elements.md#box",
+		expectTcAccepts: true,
+		plcPrgVar: "fb_fcui : FB_LANG_fbd_fb_call_with_unconnected_input;",
+		plcPrgBody: "fb_fcui();",
+		note: "Regression: a real production POU (MFB_UN_Unit.P10_CyclicMotion at Hauzer/V71_PackML) had 14-input FB calls with several unwired; the transpiler used to bail with a misleading 'cannot transpile FB call' error. Now unwired inputs are simply omitted from the call.",
+		source: fbdProgramWithVar(
+			"FB_LANG_fbd_fb_call_with_unconnected_input",
+			"\tff : SR;\n",
+			`      <inVariable localId="1"><position x="0" y="0" /><connectionPointOut /><expression>TRUE</expression></inVariable>
+      <inVariable localId="2"><position x="0" y="0" /><connectionPointOut /><expression /></inVariable>
+      <block localId="3" typeName="SR" instanceName="ff">
+        <position x="0" y="0" />
+        <inputVariables>
+          <variable formalParameter="SET1"><connectionPointIn><connection refLocalId="1" /></connectionPointIn></variable>
+          <variable formalParameter="RESET"><connectionPointIn><connection refLocalId="2" /></connectionPointIn></variable>
+        </inputVariables>
+        <inOutVariables />
+        <outputVariables><variable formalParameter="Q1"><connectionPointOut /></variable></outputVariables>
+      </block>`,
+		),
+	},
+
+	{
 		name: "fbd_ton_timer",
 		pouName: "FB_LANG_fbd_ton_timer",
 		kind: "function_block",

@@ -11,9 +11,16 @@ namespace BeckhoffBridge.Handlers;
 ///
 /// Response shape:
 ///   {
-///     "projectVersion": "&lt;sha1 short&gt;",
-///     "items": { "FB_RateLimiter": "&lt;sha1&gt;", "PLC_PRG": "&lt;sha1&gt;", ... }
+///     "projectVersion":   "&lt;sha1 short&gt;",
+///     "structureVersion": "&lt;sha1 short&gt;",
+///     "items":   { "FB_RateLimiter": "&lt;sha1&gt;",        ... },
+///     "kinds":   { "FB_RateLimiter": "function_block",  ... },
+///     "folders": { "FB_RateLimiter": "POUs",            ... }
 ///   }
+///
+/// The `folders` map lets clients build accurate workspace URIs without
+/// a /fetch round-trip — critical for the SCM-view drift preview shown
+/// right after `volt init`, before any pull has happened.
 ///
 /// Walks the PLC project tree via <see cref="BeckhoffConnection.WalkProjectTree"/>
 /// — the SAME walker FetchHandler and PushHandler use. Three handlers,
@@ -47,12 +54,15 @@ internal sealed class RefsHandler
 
 		var itemVersions = new Dictionary<string, string>();
 		var itemKinds = new Dictionary<string, string>();
+		var itemFolders = new Dictionary<string, string>();
 		_connection.WalkProjectTree((visit) =>
 		{
+			var folder = visit.FolderPath ?? "";
 			if (visit.IsTopLevelCrud)
 			{
-				itemVersions[visit.Name] = BeckhoffConnection.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
+				itemVersions[visit.Name] = BeckhoffConnection.ComputeItemVersion(visit.Item, folder);
 				itemKinds[visit.Name] = BlockTypeMapper.ToNodeType(visit.ItemType);
+				itemFolders[visit.Name] = folder;
 			}
 			else
 			{
@@ -70,10 +80,11 @@ internal sealed class RefsHandler
 				// `visit.Item` is dynamic → BuildConfigManifest call is late-bound,
 				// return type degrades to dynamic. The DLR auto-unboxes the
 				// Nullable<ValueTuple>, so .Value fails — read named members directly.
-				var manifest = _connection.BuildConfigManifest(visit.Item, configKind, visit.Name, visit.FolderPath ?? "");
+				var manifest = _connection.BuildConfigManifest(visit.Item, configKind, visit.Name, folder);
 				if (manifest is null) return;  // no extractor → skip with log
 				itemVersions[visit.Name] = (string)manifest.Version;
 				itemKinds[visit.Name] = configKind;
+				itemFolders[visit.Name] = folder;
 			}
 		});
 
@@ -82,10 +93,12 @@ internal sealed class RefsHandler
 		// /refs ↔ /fetch hashes agree.
 		_connection.WalkIoDevices((visit) =>
 		{
-			var manifest = _connection.BuildConfigManifest(visit.Item, "device", visit.Name, visit.FolderPath ?? "");
+			var folder = visit.FolderPath ?? "";
+			var manifest = _connection.BuildConfigManifest(visit.Item, "device", visit.Name, folder);
 			if (manifest is null) return;
 			itemVersions[visit.Name] = (string)manifest.Version;
 			itemKinds[visit.Name] = "device";
+			itemFolders[visit.Name] = folder;
 		});
 
 		return new Dictionary<string, object?>
@@ -98,6 +111,11 @@ internal sealed class RefsHandler
 			// per kind (extension picking, future per-type content
 			// handling) without re-inferring from declaration text.
 			["kinds"] = itemKinds,
+			// Per-item containing-folder map (slash-joined, empty = root).
+			// Lets clients build accurate workspace URIs without a /fetch
+			// round-trip — powers the SCM drift preview shown right after
+			// `volt init`.
+			["folders"] = itemFolders,
 		};
 	}
 }

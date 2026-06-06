@@ -19,6 +19,21 @@ export interface ConflictEntry {
 	reason: "both-modified" | "delete-modify" | "modify-delete" | "add-add-differ";
 }
 
+/** Wire shape mirror of `engine/binding.ts` `BindingMismatch`. */
+export interface ProjectMismatch {
+	configuredAs: {
+		platform: string;
+		projectName: string;
+		plcProjectName: string;
+	};
+	bridgeReports: {
+		platform: string;
+		projectName: string;
+		plcProjectName: string;
+	};
+	diffFields: ReadonlyArray<"platform" | "projectName" | "plcProjectName">;
+}
+
 export interface StatusJson {
 	initialized: boolean;
 	merging: { projectVersion: string; conflicts: ConflictEntry[] } | null;
@@ -38,6 +53,13 @@ export interface StatusJson {
 	driftLikelySelfCaused: boolean;
 	nextAction: "init" | "pull" | "push" | "reconcile" | "merge-continue" | null;
 	summary: string;
+	/**
+	 * Non-null when the bridge currently reports a different project
+	 * identity than `.volt/config.json` recorded. `pull`/`push`/`build`
+	 * refuse on mismatch; status is informational so the SCM tree can
+	 * render a warning + the user can `volt init --force` to accept.
+	 */
+	projectMismatch: ProjectMismatch | null;
 }
 
 export function changeCount(c: ChangeSet): number {

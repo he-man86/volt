@@ -1,6 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {},
+  "lsp": {
+    "volt-lsp-st": {
+      "command": ["node", "./packages/volt-lsp-st/dist/bin.js", "--stdio"],
+      "extensions": [".st", ".dut", ".pou", ".gvl", ".gdt", ".tmc", ".io", ".xti", ".hmi"]
+    }
+  },
   "permission": {
     // volt CLI permissions — mirrors opencode's git pattern (gate
     // destructive verbs via bash, leave read-only ones unrestricted).

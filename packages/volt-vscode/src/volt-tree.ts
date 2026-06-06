@@ -16,9 +16,9 @@
  * MERGE_HEAD for merge) is identical to the Source Control panel.
  */
 import * as vscode from "vscode";
-import { type HealthState, healthLabel } from "./bridge-health.js";
+import { describeOffline, type HealthState, healthLabel, isBridgeOnline } from "./bridge-health.js";
 import { buildVoltUri } from "./scm-content-provider.js";
-import { changeCount, type StatusJson } from "./volt-types.js";
+import { changeCount, type ProjectMismatch, type StatusJson } from "./volt-types.js";
 
 /**
  * Minimal subset of `VoltWorkspace` this view needs. Keeps the
@@ -32,6 +32,11 @@ export interface StatusSource {
 	/** True while a `volt status` refresh is in flight. Lets the tree
 	 *  show "Loading…" instead of "No changes" during the initial walk. */
 	isRefreshing(): boolean;
+	/** When the last `volt status --json` exited non-zero, captures the
+	 *  first stderr line so the tree can render it instead of the
+	 *  misleading "in sync" empty state. Undefined when status either
+	 *  hasn't run yet (use isRefreshing) or last ran successfully. */
+	getStatusError(): string | undefined;
 	readonly onDidChangeStatus: vscode.Event<StatusJson | undefined>;
 	readonly onDidChangeHealth: vscode.Event<HealthState>;
 }
@@ -52,7 +57,9 @@ type Node =
 	| { kind: "group"; label: string; group: "incoming" | "outgoing" | "merge"; sourceIdx: number; count: number }
 	| { kind: "item"; label: string; uri: vscode.Uri; group: "incoming" | "outgoing" | "merge"; letter: "A" | "M" | "D"; sourceIdx: number; rel: string }
 	| { kind: "empty"; label: string }
-	| { kind: "loading"; label: string };
+	| { kind: "loading"; label: string }
+	| { kind: "status-error"; label: string; tooltip: string }
+	| { kind: "project-mismatch"; label: string; tooltip: string; sourceIdx: number };
 
 export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.Disposable {
 	private readonly emitter = new vscode.EventEmitter<Node | undefined>();
@@ -107,13 +114,13 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 				? new vscode.ThemeIcon(iconName)
 				: new vscode.ThemeIcon(iconName, new vscode.ThemeColor(colorId));
 			item.tooltip = healthTooltip(node.state);
-			// Click the health row → open the Volt SCM output channel so
-			// the user can see the actual error log when things are red.
-			// Connected / degraded states also benefit — quick way to see
-			// recent pull/push activity.
+			// Click the health row → open the shared Volt output channel
+			// so the user can see the actual error log when things are
+			// red. Connected / degraded states also benefit — quick way
+			// to see recent pull/push activity.
 			item.command = {
-				command: "volt.scm.showOutput",
-				title: "Show Volt SCM log",
+				command: "volt.showOutput",
+				title: "Show Volt output",
 			};
 			return item;
 		}
@@ -130,6 +137,36 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 			// sees that work is in progress rather than thinking the view
 			// is stuck.
 			item.iconPath = new vscode.ThemeIcon("loading~spin");
+			return item;
+		}
+		if (node.kind === "status-error") {
+			// Surfaces real status failures (bridge protocol mismatch,
+			// bridge offline, malformed config) instead of the misleading
+			// "in sync" empty state. Click → reveal the Output channel
+			// where the full stderr lives.
+			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.contextValue = "volt.statusError";
+			item.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("errorForeground"));
+			item.tooltip = node.tooltip;
+			item.command = { command: "volt.showOutput", title: "Show Volt Output" };
+			return item;
+		}
+		if (node.kind === "project-mismatch") {
+			// Yellow warning: bridge reports a different project identity
+			// than `.volt/config.json` recorded. Click runs
+			// `volt.acceptProjectRename` which shells `volt init --force`
+			// against the bound port — snapshot history is preserved.
+			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.contextValue = "volt.projectMismatch";
+			item.iconPath = new vscode.ThemeIcon(
+				"warning",
+				new vscode.ThemeColor("editorWarning.foreground"),
+			);
+			item.tooltip = node.tooltip;
+			item.command = {
+				command: "volt.acceptProjectRename",
+				title: "Accept new project name",
+			};
 			return item;
 		}
 		if (node.kind === "group") {
@@ -174,7 +211,7 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 		const folder = this.options.listSources()[node.sourceIdx]!.getFolder();
 		if (node.group === "merge") {
 			return {
-				command: "volt.scm.openMergeEditor",
+				command: "volt.merge.openEditor",
 				title: "Open Merge Editor",
 				arguments: [node.uri],
 			};
@@ -193,22 +230,46 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 
 	getChildren(node?: Node): Node[] {
 		if (node === undefined) {
-			// Root order: one health header per source (so multi-workspace
-			// users can see which bridge is which), then change groups.
+			// Root order: per source, a single health header. The IDE +
+			// project name shown there ("Connected: CODESYS — …") already
+			// tells the user which bridge they're hitting; a separate
+			// "Bridge: CODESYS on :8556" row would just repeat that.
+			//
+			// When any source has a project-binding mismatch, a yellow
+			// warning row sits between the health line and the change
+			// groups — change groups still render so the engineer can
+			// see what's pending before they decide to rebind.
 			const result: Node[] = [];
 			const sources = this.options.listSources();
 			for (let i = 0; i < sources.length; i++) {
 				result.push({ kind: "health", state: sources[i]!.getHealth(), sourceIdx: i });
+				const mismatch = sources[i]!.getStatus()?.projectMismatch;
+				if (mismatch !== undefined && mismatch !== null) {
+					result.push({
+						kind: "project-mismatch",
+						sourceIdx: i,
+						label: `Project rename detected: "${mismatch.configuredAs.plcProjectName}" → "${mismatch.bridgeReports.plcProjectName}"`,
+						tooltip: formatMismatchTooltip(mismatch),
+					});
+				}
 			}
 			let totalRows = 0;
 			let anySourceRefreshing = false;
 			let anySourceWithoutStatus = false;
+			let firstStatusError: string | undefined;
+			let firstOfflineReason: string | undefined;
 			for (let i = 0; i < sources.length; i++) {
 				const src = sources[i]!;
 				if (src.isRefreshing()) anySourceRefreshing = true;
 				const s = src.getStatus();
 				if (s === undefined) {
 					anySourceWithoutStatus = true;
+					if (firstStatusError === undefined) {
+						firstStatusError = src.getStatusError();
+					}
+					if (firstOfflineReason === undefined && !isBridgeOnline(src.getHealth())) {
+						firstOfflineReason = describeOffline(src.getHealth());
+					}
 					continue;
 				}
 				const m = s.merging?.conflicts.length ?? 0;
@@ -220,14 +281,42 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 				totalRows += m + inc + out;
 			}
 			if (totalRows === 0 && sources.length > 0) {
-				// "Loading…" wins over "No changes" when we genuinely don't
-				// know yet — first refresh in flight, or any source has yet
-				// to produce status. Avoids the misleading "in sync" flash
-				// during the few seconds /refs takes against CODESYS.
+				// Mutually-exclusive empty states, in priority order:
+				//   1. refresh in flight + no status yet → "Loading…"
+				//      (so we don't flash a stale offline / error message
+				//       while a fresh probe is on the wire)
+				//   2. bridge offline → "Bridge offline: <reason>"
+				//      (the refresh deliberately skipped `volt status` —
+				//       this is the honest answer, not a CLI error)
+				//   3. status failed → show the actual stderr
+				//   4. status succeeded with zero changes → "in sync"
+				//   5. no status, no refresh, no error, no offline →
+				//      "Waiting for first refresh…"
+				// Order matters: (2) before (3) so that when the bridge
+				// is down we don't blame the CLI; (1) before everything
+				// so a fresh refresh doesn't flicker through stale states.
 				if (anySourceRefreshing && anySourceWithoutStatus) {
 					result.push({ kind: "loading", label: "Loading changes from IDE…" });
-				} else {
+				} else if (firstOfflineReason !== undefined) {
+					result.push({
+						kind: "status-error",
+						label: `Bridge offline: ${truncate(firstOfflineReason, 80)}`,
+						tooltip:
+							`Volt skipped \`volt status --json\` because the bridge isn't reachable.\n\n` +
+							`Reason: ${firstOfflineReason}\n\n` +
+							`Start your PLC IDE (TwinCAT XAE or CODESYS) and run the bridge, then refresh.\n\n` +
+							`Click to open the Volt Output channel for the full log.`,
+					});
+				} else if (firstStatusError !== undefined) {
+					result.push({
+						kind: "status-error",
+						label: `Status failed: ${truncate(firstStatusError, 80)}`,
+						tooltip: `volt status --json exited non-zero.\n\n${firstStatusError}\n\nClick to open the Volt Output channel for the full log.`,
+					});
+				} else if (!anySourceWithoutStatus) {
 					result.push({ kind: "empty", label: "No changes — workspace and IDE in sync" });
+				} else {
+					result.push({ kind: "loading", label: "Waiting for first refresh…" });
 				}
 			}
 			return result;
@@ -337,4 +426,29 @@ function healthTooltip(state: HealthState): string {
 		case "unknown":
 			return "Probing the bridge…";
 	}
+}
+
+/** Keep tree-row labels readable when the underlying error is a wall
+ *  of text. The full message stays in the tooltip + Output channel. */
+function truncate(s: string, max: number): string {
+	const oneLine = s.replace(/\s+/g, " ").trim();
+	return oneLine.length <= max ? oneLine : `${oneLine.slice(0, max - 1)}…`;
+}
+
+/** Multi-line tooltip for the project-mismatch warning row. Lists each
+ *  field that diverged, then the recovery hint. The exact same wording
+ *  as the agent's stderr (`bindingMismatchMessage`) — single source of
+ *  truth for the user-facing copy. */
+function formatMismatchTooltip(m: ProjectMismatch): string {
+	const lines = [
+		"The bridge is reporting a different project identity than .volt/config.json recorded.",
+		"",
+	];
+	for (const f of m.diffFields) {
+		lines.push(`  ${f}:  "${m.configuredAs[f]}"  →  "${m.bridgeReports[f]}"`);
+	}
+	lines.push("");
+	lines.push("Click to accept the new name (runs `volt init --force`).");
+	lines.push("Snapshot history is preserved.");
+	return lines.join("\n");
 }

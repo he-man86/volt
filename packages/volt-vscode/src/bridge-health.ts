@@ -41,6 +41,25 @@ export type HealthState =
 	| { kind: "disconnected"; health: BridgeHealth }
 	| { kind: "unreachable"; reason: string };
 
+/** True iff the bridge is reachable AND the PLC IDE has a project open
+ *  (= safe to run `volt status --json`). `degraded` counts as online —
+ *  it means "bridge up, PLC up, but with caveats" (slow extractor, etc.)
+ *  which doesn't block status. */
+export function isBridgeOnline(h: HealthState): boolean {
+	return h.kind === "connected" || h.kind === "degraded";
+}
+
+/** Human-readable reason a bridge is NOT online. Empty string when it is. */
+export function describeOffline(h: HealthState): string {
+	if (h.kind === "disconnected") {
+		const detail = h.health.degradedReason ?? h.health.status ?? "PLC disconnected";
+		return String(detail);
+	}
+	if (h.kind === "unreachable") return h.reason;
+	if (h.kind === "unknown") return "probing…";
+	return "";
+}
+
 /** Read `.volt/config.json` and pull the bridge port. Returns undefined
  *  on missing / malformed config — the caller surfaces this as an
  *  "unreachable" state rather than crashing. */

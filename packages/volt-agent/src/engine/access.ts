@@ -37,6 +37,14 @@ export interface AccessOverrides {
  *  extensions return `"off"` — caller should treat as "not tracked".
  */
 export function effectiveAccess(ext: string, cfg: AccessOverrides | undefined): Access {
+	// Folder markers (`.gitkeep`) are pure structural artifacts that
+	// preserve empty engineer-created CODESYS folders so the workspace
+	// tree mirrors the IDE's project tree. They don't go through the
+	// registry — they're produced by the materializer for `kind: folder`
+	// items regardless of the bridge's `ext` value — so the standard
+	// "unknown → off" gate would silently strip every empty folder.
+	// Always pullable, always read-only.
+	if (ext === ".gitkeep") return "r";
 	const def = getByExt(ext);
 	if (def === undefined) return "off";
 	const override = cfg?.extensionAccess?.[ext.toLowerCase()];

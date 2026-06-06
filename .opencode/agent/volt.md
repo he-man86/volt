@@ -43,7 +43,7 @@ Useful flags:
 volt status --porcelain   # see drift; empty stdout = clean
 volt pull --dry-run       # preview if drift incoming
 volt pull                 # apply (will trigger ask permission)
-# ... read/edit .st files in POUs/ as needed ...
+# ... read/edit .st files in src/POUs/ as needed ...
 volt push --dry-run       # preview your outgoing changes
 volt push                 # ship to IDE (will trigger ask permission)
 volt build                # build + diagnostics (JSON on stdout)

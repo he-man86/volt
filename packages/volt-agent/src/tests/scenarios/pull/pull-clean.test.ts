@@ -31,16 +31,16 @@ describe("scenario: pull against a clean workspace", () => {
 
 		const files = listWorkspace(env.workspace);
 		// Source POUs land at their folder + name + per-kind extension.
-		expect(files).toContain("POUs/FB_Motor.st");
-		expect(files).toContain("POUs/GVL_Config.gvl");
-		expect(files).toContain("POUs/Types/DUT_MotorState.dut");
-		// .gitattributes is auto-generated.
-		expect(files).toContain(".gitattributes");
+		expect(files).toContain("src/POUs/FB_Motor.st");
+		expect(files).toContain("src/POUs/GVL_Config.gvl");
+		expect(files).toContain("src/POUs/Types/DUT_MotorState.struct");
+		// .gitattributes is auto-generated under src/ alongside PLC files.
+		expect(files).toContain("src/.gitattributes");
 		// No mystery extras.
-		expect(files.filter((p) => !p.startsWith("."))).toEqual([
-			"POUs/FB_Motor.st",
-			"POUs/GVL_Config.gvl",
-			"POUs/Types/DUT_MotorState.dut",
+		expect(files.filter((p) => !/(^|\/)\./.test(p))).toEqual([
+			"src/POUs/FB_Motor.st",
+			"src/POUs/GVL_Config.gvl",
+			"src/POUs/Types/DUT_MotorState.struct",
 		]);
 	});
 
@@ -50,31 +50,31 @@ describe("scenario: pull against a clean workspace", () => {
 		expect(result.exitCode).toBe(0);
 
 		// Source POU and config kinds coexist.
-		expect(workspaceHasFile(env.workspace, "POUs/FB_Pump.st")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/POUs/FB_Pump.st")).toBe(true);
 		expect(
 			workspaceHasFile(
 				env.workspace,
-				"Device/Plc Logic/Application/Library Manager/IoStandard.library",
+				"src/Device/Plc Logic/Application/Library Manager/IoStandard.library",
 			),
 		).toBe(true);
 		expect(
 			workspaceHasFile(
 				env.workspace,
-				"Device/Plc Logic/Application/Task Configuration/MainTask.task",
+				"src/Device/Plc Logic/Application/Task Configuration/MainTask.task",
 			),
 		).toBe(true);
-		expect(workspaceHasFile(env.workspace, "Device.device")).toBe(true);
-		expect(workspaceHasFile(env.workspace, "Project Information.projectinfo")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/Device.device")).toBe(true);
+		expect(workspaceHasFile(env.workspace, "src/Project Information.projectinfo")).toBe(true);
 	});
 
 	test("config file content matches what the bridge sent verbatim", async () => {
 		env = makeTestEnv(withConfig);
 		await runVerb(pullVerb, env);
-		// The .library file must contain the manifest the bridge produced —
+		// The .library file must contain the manifest the bridge produced ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
 		// the agent is a pass-through for config kinds.
 		const libText = readWorkspace(
 			env.workspace,
-			"Device/Plc Logic/Application/Library Manager/IoStandard.library",
+			"src/Device/Plc Logic/Application/Library Manager/IoStandard.library",
 		);
 		expect(libText).toContain("namespace = IoStandard");
 		expect(libText).toContain("resolution = IoStandard, 3.5.17.0 (System)");

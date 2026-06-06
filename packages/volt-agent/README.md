@@ -33,8 +33,8 @@ The bridge is the only thing that talks to the IDE. The CLI is the only thing th
 ```
   user / AI editor              volt CLI                  vendor bridge              IDE
   ────────────────              ───────                   ─────────────              ───
-  edit POUs/FB_X.st     ───▶  volt push     ──▶  POST /push (atomic batch    ───▶  COM
-  read POUs/FB_X.st     ◀───  volt pull     ◀──    with ifVersion guards)
+  edit src/POUs/FB_X.st ───▶  volt push     ──▶  POST /push (atomic batch    ───▶  COM
+  read src/POUs/FB_X.st ◀───  volt pull     ◀──    with ifVersion guards)
                               volt status   ──▶  GET /refs
                               volt build    ──▶  POST /build                 ───▶  vendor build
 ```
@@ -47,15 +47,15 @@ After `volt init`, your folder contains:
 
 ```
 my-workspace/
-├── POUs/                                       # your `.st` files, mirroring the IDE's tree
-│   └── PLC_PRG.st
-├── docs/codesys-reference/                     # local mirror of the CODESYS ST language reference
-│   ├── 00-index.md                             #   AI sessions read these on demand
-│   └── ... (13 sections)
-├── .claude/skills/st-reference/SKILL.md        # discovery shim — opencode + Claude Code load
-│                                               #   this when working on .st files
-├── .gitattributes                              # auto-created; pins .st to LF for clean diffs
-├── .volt-lsp-st-version                        # records which corpus version is installed
+├── src/                                        # IDE-synced PLC source (`volt pull` materializes here)
+│   ├── POUs/PLC_PRG.st                         #   mirrors the IDE's project tree
+│   └── .gitattributes                          #   auto-created; pins .st to LF for clean diffs
+├── tests/                                      # your TS tests (`bun test`)
+├── scripts/                                    # your TS tooling (optional)
+├── package.json / tsconfig.json / bunfig.toml  # Bun project shell — `bun install`, `bun test`
+├── .claude/skills/st-reference/                # opencode + Claude Code load this when editing .st
+│   ├── SKILL.md                                #   discovery shim
+│   └── codesys-reference/                      #   local mirror of the CODESYS ST language reference
 └── .volt/                                      # Volt's internal state — invisible to your editor
     ├── config.json                             #   workspace ↔ IDE binding (platform, project name, port)
     └── snapshot/                               #   bare git repo: HEAD = last-pulled IDE state
@@ -73,7 +73,7 @@ The `docs/codesys-reference/` + SKILL.md pair makes AI sessions in this workspac
 mkdir motor-controller && cd motor-controller
 volt init                # binds to whatever project the bridge has open
 volt pull                # populates the folder from the IDE
-# ... edit POUs/FB_Motor.st in your editor of choice
+# ... edit src/POUs/FB_Motor.st in your editor of choice
 volt push                # pushes back to the IDE
 volt build               # build + diagnostics
 ```

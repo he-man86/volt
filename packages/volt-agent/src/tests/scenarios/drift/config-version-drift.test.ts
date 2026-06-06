@@ -38,7 +38,7 @@ describe("scenario: config item version is content-aware", () => {
 		// First pull: bring everything in.
 		const first = await runVerb(pullVerb, env);
 		expect(first.exitCode).toBe(0);
-		const taskPath = "Device/Plc Logic/Application/Task Configuration/MainTask.task";
+		const taskPath = "src/Device/Plc Logic/Application/Task Configuration/MainTask.task";
 		expect(readWorkspace(env.workspace, taskPath)).toContain("priority = 1");
 
 		// Engineer edits the task in the IDE (we simulate by mutating
@@ -62,7 +62,7 @@ describe("scenario: config item version is content-aware", () => {
 		await runVerb(pullVerb, env);
 		const before = readWorkspace(
 			env.workspace,
-			"Device/Plc Logic/Application/Library Manager/IoStandard.library",
+			"src/Device/Plc Logic/Application/Library Manager/IoStandard.library",
 		);
 
 		// Second pull WITHOUT any bridge-side change. Same versions →
@@ -71,7 +71,7 @@ describe("scenario: config item version is content-aware", () => {
 		expect(second.exitCode).toBe(0);
 		const after = readWorkspace(
 			env.workspace,
-			"Device/Plc Logic/Application/Library Manager/IoStandard.library",
+			"src/Device/Plc Logic/Application/Library Manager/IoStandard.library",
 		);
 		expect(after).toBe(before);
 	});

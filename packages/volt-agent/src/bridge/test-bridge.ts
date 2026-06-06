@@ -77,7 +77,10 @@ export class TestBridge implements Remote {
 	 */
 	projectVersionOverride: string | null = null;
 	private readonly buildImpl: NonNullable<TestBridgeOptions["build"]>;
-	private readonly healthOverride: Partial<HealthResponse>;
+	/** Mutable across the bridge's lifetime: scenarios simulate the
+	 *  engineer renaming the project mid-session by patching fields here.
+	 *  Read by `getHealth()` on every call. */
+	healthOverride: Partial<HealthResponse>;
 
 	constructor(opts: TestBridgeOptions = {}) {
 		for (const item of opts.initialItems ?? []) {
@@ -88,7 +91,18 @@ export class TestBridge implements Remote {
 		this.healthOverride = opts.health ?? {};
 	}
 
+	/** Patch the in-memory `/health` response — scenarios use this to
+	 *  simulate the engineer renaming the project in the IDE between
+	 *  Volt CLI calls. */
+	mutateHealth(patch: Partial<HealthResponse>): void {
+		this.healthOverride = { ...this.healthOverride, ...patch };
+	}
+
 	async getHealth(): Promise<HealthResponse> {
+		// Defaults match `makeTestEnv`'s saved binding so the binding
+		// check (cli/{pull,push,build,status}.ts → verifyProjectBinding)
+		// passes by default. Tests exercising the mismatch path mutate
+		// these via `healthOverride`.
 		return {
 			status: "healthy",
 			platform: "beckhoff",
@@ -97,8 +111,8 @@ export class TestBridge implements Remote {
 			degraded: false,
 			degradedReason: null,
 			version: "0.0.0-test",
-			projectName: "TestSolution",
-			plcProjectName: "TestPlc",
+			projectName: "ScenarioProject",
+			plcProjectName: "ScenarioPlc",
 			...this.healthOverride,
 		};
 	}
@@ -106,12 +120,17 @@ export class TestBridge implements Remote {
 	async getRefs(): Promise<RefsResponse> {
 		const versions = this.computeVersions();
 		const kinds: Record<string, string> = {};
-		for (const [name, item] of this.items) kinds[name] = item.kind;
+		const folders: Record<string, string> = {};
+		for (const [name, item] of this.items) {
+			kinds[name] = item.kind;
+			folders[name] = item.folder ?? "";
+		}
 		return {
 			projectVersion: this.projectVersionOverride ?? hashMap(versions),
 			structureVersion: hashStructure(versions),
 			items: versions,
 			kinds,
+			folders,
 		};
 	}
 

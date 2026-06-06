@@ -2,7 +2,7 @@
  * Push edits to source files. Verifies the round-trip:
  *   1. pull (so the workspace + snapshot agree on baseline)
  *   2. edit a .st file in the workspace
- *   3. push — bridge receives a pushItem op with the new text
+ *   3. push â€” bridge receives a pushItem op with the new text
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
@@ -25,12 +25,12 @@ describe("scenario: push source-file edits", () => {
 		env = makeTestEnv(simple);
 		await runVerb(pullVerb, env);
 
-		const fbPath = join(env.workspace, "POUs/FB_Motor.st");
+		const fbPath = join(env.workspace, "src/POUs/FB_Motor.st");
 		const updatedBody =
 			"FUNCTION_BLOCK FB_Motor\n" +
 			"VAR_INPUT\n" +
 			"\trun: BOOL;\n" +
-			"\tspeed: REAL;\n" + // ← new field
+			"\tspeed: REAL;\n" + // â† new field
 			"END_VAR\n" +
 			"VAR_OUTPUT\n" +
 			"\trunning: BOOL;\n" +
@@ -44,7 +44,7 @@ describe("scenario: push source-file edits", () => {
 
 		// The bridge received the new text. Real bridges receive
 		// CRLF-normalized text (per the wire convention); the agent
-		// denormalizes LF → CRLF before sending. Strip the CRs for
+		// denormalizes LF â†’ CRLF before sending. Strip the CRs for
 		// comparison so the assertion stays focused on content.
 		const item = env.bridge.items.get("FB_Motor");
 		expect(item?.sourceText.replace(/\r\n/g, "\n")).toBe(updatedBody);

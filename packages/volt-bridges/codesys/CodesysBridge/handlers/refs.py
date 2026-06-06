@@ -5,11 +5,16 @@ GET /refs — project + per-item content versions. Wire equivalent of
 Wire shape mirrors RefsResponse in
 `packages/volt-agent/src/bridge/types.ts`:
   {
-    projectVersion: <sha1>,
+    projectVersion:   <sha1>,
     structureVersion: <sha1>,
-    items: { name → version },
-    kinds: { name → vendor-neutral-kind }
+    items:   { name → version },
+    kinds:   { name → vendor-neutral-kind },
+    folders: { name → slash-joined containing folder }
   }
+
+The `folders` map lets clients build accurate workspace URIs without a
+/fetch round-trip — critical for the SCM-view drift preview shown right
+after `volt init`, before any pull has happened.
 
 Per-item version is a real CONTENT hash:
   * source items  → SHA1(decl + impl + children)         (cheap)
@@ -40,7 +45,8 @@ def handle(connection):
 	def _do():
 		versions = {}
 		kinds = {}
-		for (name, kind, item, is_source, _folder) in connection.iter_all_items():
+		folders = {}
+		for (name, kind, item, is_source, folder) in connection.iter_all_items():
 			try:
 				# Single source of truth for "version of this item".
 				# Lives in fetch.py because /fetch also needs it.
@@ -48,14 +54,16 @@ def handle(connection):
 					item, name, kind, is_source
 				)
 				kinds[name] = kind
+				folders[name] = folder or ""
 			except Exception:
 				continue
-		return versions, kinds
+		return versions, kinds, folders
 
-	versions, kinds = ui_thread.invoke_on_ui(_do)
+	versions, kinds, folders = ui_thread.invoke_on_ui(_do)
 	return {
 		"projectVersion": _conn_mod.CodesysConnection.compute_project_version(versions),
 		"structureVersion": _conn_mod.CodesysConnection.compute_structure_version(versions),
 		"items": versions,
 		"kinds": kinds,
+		"folders": folders,
 	}

@@ -16,18 +16,68 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import * as vscode from "vscode";
-import { type HealthState, probeHealth, readBridgePort } from "./bridge-health.js";
-import { cliBin, spawnCapture } from "./cli.js";
+import { describeOffline, type HealthState, isBridgeOnline, probeHealth, readBridgePort } from "./bridge-health.js";
+import { cliBin, getOutputChannel, spawnCapture } from "./cli.js";
 import { VOLT_URI_SCHEME, VoltContentProvider } from "./scm-content-provider.js";
 import { VoltHistoryProvider } from "./volt-history-tree.js";
 import { changeCount, type StatusJson, totalChanges } from "./volt-types.js";
 import { VoltTreeProvider } from "./volt-tree.js";
 
-/** OutputChannel for Volt — visible in the Output panel under "Volt SCM". */
-let log: vscode.OutputChannel | undefined;
-
+/** Log to the shared "Volt" OutputChannel (the same one cli.ts writes
+ *  CLI invocations to). One channel for the whole extension. */
 function logln(msg: string): void {
-	log?.appendLine(`[${new Date().toISOString()}] ${msg}`);
+	getOutputChannel().appendLine(`[${new Date().toISOString()}] ${msg}`);
+}
+
+/** Fire a single toast when the latest status JSON reveals a NEW
+ *  project-binding mismatch (previous status had none, or there was no
+ *  previous status). Surfaces the rename in the user's face once, then
+ *  stays quiet — the SCM tree's yellow warning row keeps carrying the
+ *  signal. Buttons: "Accept (run init --force)" → `volt.acceptProjectRename`,
+ *  "Show Output" → reveals the Volt OutputChannel. */
+function maybeNotifyProjectMismatch(
+	prev: StatusJson | undefined,
+	next: StatusJson,
+): void {
+	if (next.projectMismatch === null) return;
+	if (prev !== undefined && prev.projectMismatch !== null) return;
+	const m = next.projectMismatch;
+	const from = m.configuredAs.plcProjectName;
+	const to = m.bridgeReports.plcProjectName;
+	const accept = "Accept (run init --force)";
+	const show = "Show Output";
+	void vscode.window
+		.showWarningMessage(
+			`Volt: PLC project renamed in the IDE — "${from}" → "${to}". Pull/push will refuse until you accept the new name.`,
+			accept,
+			show,
+		)
+		.then((pick) => {
+			if (pick === accept) {
+				void vscode.commands.executeCommand("volt.acceptProjectRename");
+			} else if (pick === show) {
+				void vscode.commands.executeCommand("volt.showOutput");
+			}
+		});
+}
+
+/** Pluck the first non-blank line out of multi-line stderr. The CLI's
+ *  error format is "volt: \`volt\` failed unexpectedly\n      <real
+ *  message>\n  hint: ..." — the SECOND line is what the user actually
+ *  needs to see. We return the first non-empty AFTER the boilerplate
+ *  prefix when present, else just the first non-empty line. */
+function firstNonEmptyLine(stderr: string): string | undefined {
+	const lines = stderr
+		.split(/\r?\n/)
+		.map((l) => l.trim())
+		.filter((l) => l.length > 0);
+	if (lines.length === 0) return undefined;
+	// Skip the `volt: failed unexpectedly` boilerplate if it's followed
+	// by a real message; otherwise fall back to whatever we have.
+	if (lines.length > 1 && /^volt:.*failed/i.test(lines[0]!)) {
+		return lines[1];
+	}
+	return lines[0];
 }
 
 /**
@@ -35,8 +85,10 @@ function logln(msg: string): void {
  * Called once from `extension.ts`'s `activate()`.
  */
 export function registerScm(context: vscode.ExtensionContext): void {
-	log = vscode.window.createOutputChannel("Volt SCM");
-	context.subscriptions.push(log);
+	// Shared Volt OutputChannel is lazy-created in cli.ts; touching it
+	// here ensures it shows up in the Output dropdown before any CLI
+	// invocation has run.
+	getOutputChannel();
 	logln(`registerScm: starting. workspaceFolders=${(vscode.workspace.workspaceFolders ?? []).length}`);
 
 	const contentProvider = new VoltContentProvider();
@@ -326,6 +378,10 @@ class VoltWorkspace implements vscode.Disposable {
 	private refreshQueued = false;
 	/** Latest parsed status JSON — surfaced for the activity-bar TreeView. */
 	private latestStatus: StatusJson | undefined;
+	/** Stderr (first non-empty line) captured when `volt status --json`
+	 *  exits non-zero. Cleared on the next successful run. Lets the
+	 *  TreeView show the real failure instead of pretending we're in sync. */
+	private latestStatusError: string | undefined;
 	/** Latest health-probe result — drives the connection badge. */
 	private latestHealth: HealthState = { kind: "unknown" };
 	/** Fires after `doRefresh()` produces new status. The activity-bar
@@ -339,6 +395,11 @@ class VoltWorkspace implements vscode.Disposable {
 	/** Get the most recently observed status (or undefined before the first refresh). */
 	getStatus(): StatusJson | undefined {
 		return this.latestStatus;
+	}
+	/** Get the last `volt status --json` stderr (first line), or undefined
+	 *  if the call hasn't failed since the last success. */
+	getStatusError(): string | undefined {
+		return this.latestStatusError;
 	}
 	/** Get the most recently observed health (or { kind: "unknown" } before the first probe). */
 	getHealth(): HealthState {
@@ -405,27 +466,50 @@ class VoltWorkspace implements vscode.Disposable {
 		maybeNotifyConnectionLoss(this.folder, prev, next);
 	}
 
-	/** Public refresh — runs `volt status --json` AND `/health` in
-	 *  parallel; coalesces concurrent calls. The health probe is cheap
-	 *  enough that bundling it here keeps the badge fresh on every
-	 *  user-driven refresh without an extra round-trip. */
+	/** Public refresh — health probe FIRST, then status conditionally.
+	 *
+	 *  Lifecycle: `probe /health` → if offline, stop (clear stale status,
+	 *  surface offline state). If online, shell `volt status --json`.
+	 *  Running both in parallel was wasteful and confusing — when the
+	 *  bridge is down, the status spawn just produces a cryptic error
+	 *  ("folders: Required" / "bridge unreachable") several seconds
+	 *  after the cheap /health probe already knew the truth.
+	 *
+	 *  Coalesces concurrent calls via `refreshInflight`; debounces
+	 *  bursts via `refreshQueued`. */
 	async refresh(): Promise<void> {
 		if (this.refreshInflight !== undefined) {
 			this.refreshQueued = true;
 			return;
 		}
-		this.refreshInflight = Promise.all([this.doRefresh(), this.probeHealth()])
-			.then(() => undefined)
-			.finally(() => {
-				this.refreshInflight = undefined;
-				// Fire so the tree renders the new (or unchanged) status
-				// AND its just-cleared refreshing state.
-				this.statusEmitter.fire(this.latestStatus);
-				if (this.refreshQueued) {
-					this.refreshQueued = false;
-					void this.refresh();
-				}
-			});
+		this.refreshInflight = (async () => {
+			await this.probeHealth();
+			if (isBridgeOnline(this.latestHealth)) {
+				await this.doRefresh();
+			} else {
+				// Bridge offline — drop any stale status so the tree
+				// shows the offline state instead of last-seen data.
+				// Clear errors too: "Bridge offline" is a clearer story
+				// than re-rendering a status-failed message from when
+				// the bridge died mid-call.
+				logln(
+					`refresh: skipping volt status — bridge is ${this.latestHealth.kind} ` +
+					`(${describeOffline(this.latestHealth)})`,
+				);
+				this.latestStatus = undefined;
+				this.latestStatusError = undefined;
+				this.statusEmitter.fire(undefined);
+			}
+		})().finally(() => {
+			this.refreshInflight = undefined;
+			// Fire so the tree renders the new (or unchanged) status
+			// AND its just-cleared refreshing state.
+			this.statusEmitter.fire(this.latestStatus);
+			if (this.refreshQueued) {
+				this.refreshQueued = false;
+				void this.refresh();
+			}
+		});
 		// Tell the tree provider a refresh started — it can show
 		// "Loading…" while we wait. Re-emits the current cached status
 		// (or undefined on first refresh); isRefreshing() reads true now.
@@ -449,12 +533,25 @@ class VoltWorkspace implements vscode.Disposable {
 		logln(`doRefresh: exit=${result.code} stdout.len=${result.stdout.length} stderr.len=${result.stderr.length}`);
 		if (result.code !== 0) {
 			logln(`doRefresh: non-zero exit, stderr: ${result.stderr.slice(0, 500)}`);
-			// Bridge offline / not initialized. Drop cached status so
-			// the TreeView shows the empty state instead of stale data.
-			// Don't surface an error toast — status failures are common
-			// and self-recovering when the bridge comes back.
+			const firstErrLine = firstNonEmptyLine(result.stderr) ?? `volt status exited ${result.code}`;
+			const transitionedToError = this.latestStatusError === undefined;
 			this.latestStatus = undefined;
+			this.latestStatusError = firstErrLine;
 			this.statusEmitter.fire(undefined);
+			// One-shot toast on the FIRST failure after a working state.
+			// Repeated failures stay quiet — the TreeView's error node
+			// keeps the message visible, and a steady stream of toasts
+			// would be hostile UX during a longer outage.
+			if (transitionedToError) {
+				const action = "Show Output";
+				void vscode.window
+					.showErrorMessage(`Volt: status failed — ${firstErrLine}`, action)
+					.then((pick) => {
+						if (pick === action) {
+							void vscode.commands.executeCommand("volt.showOutput");
+						}
+					});
+			}
 			return;
 		}
 
@@ -462,12 +559,35 @@ class VoltWorkspace implements vscode.Disposable {
 		try {
 			parsed = JSON.parse(result.stdout) as StatusJson;
 		} catch (err) {
-			logln(`doRefresh: JSON parse failed: ${err instanceof Error ? err.message : String(err)} — stdout was: ${result.stdout.slice(0, 200)}`);
+			const msg = err instanceof Error ? err.message : String(err);
+			logln(`doRefresh: JSON parse failed: ${msg} — stdout was: ${result.stdout.slice(0, 200)}`);
+			const transitionedToError = this.latestStatusError === undefined;
+			this.latestStatus = undefined;
+			this.latestStatusError = `volt status produced malformed JSON: ${msg}`;
+			this.statusEmitter.fire(undefined);
+			if (transitionedToError) {
+				const action = "Show Output";
+				void vscode.window
+					.showErrorMessage(`Volt: status produced unreadable JSON — ${msg}`, action)
+					.then((pick) => {
+						if (pick === action) {
+							void vscode.commands.executeCommand("volt.showOutput");
+						}
+					});
+			}
 			return;
 		}
 
-		logln(`doRefresh: parsed OK. merging=${parsed.merging !== null} incoming=${changeCount(parsed.incoming)} outgoing=${changeCount(parsed.outgoing)}`);
+		logln(`doRefresh: parsed OK. merging=${parsed.merging !== null} incoming=${changeCount(parsed.incoming)} outgoing=${changeCount(parsed.outgoing)} projectMismatch=${parsed.projectMismatch !== null}`);
+		const prevStatus = this.latestStatus;
 		this.latestStatus = parsed;
+		this.latestStatusError = undefined;
+		// One-shot toast on the FIRST refresh that surfaces a project
+		// rename. Same pattern as the latestStatusError transition:
+		// repeated polls stay quiet because the TreeView's yellow
+		// warning row keeps the signal visible, and back-to-back toasts
+		// during a long mismatch would be hostile.
+		maybeNotifyProjectMismatch(prevStatus, parsed);
 		// Fire the change event AFTER mutating internal state so listeners
 		// (the activity-bar TreeView) see the new status when they call
 		// getStatus(). One bridge round-trip per poll → the entire Volt
@@ -502,16 +622,21 @@ function registerWorkspaceCommands(
 		return [...repos.values()][0];
 	};
 
-	const runCli = async (args: string[], description: string, progressTitle: string) => {
+	// Run a merge-related CLI verb in the context of the picked repo, with
+	// a Notification progress popup. Forwarding pull/push/forcePull/
+	// forcePush to cli.ts's helpers keeps feedback patterns consistent;
+	// this local runner only handles merge ops (which need workspace
+	// state to refresh on completion).
+	const runMergeOp = async (
+		args: string[],
+		describe: string,
+		progressTitle: string,
+	): Promise<void> => {
 		const repo = pickRepo();
 		if (repo === undefined) {
 			vscode.window.showWarningMessage("Volt: no Volt-bound workspace folder found.");
 			return;
 		}
-		// Wrap the spawn in `vscode.window.withProgress` so the user sees
-		// activity instead of silently waiting. On success: ephemeral
-		// status-bar message. On failure: error toast with a "Show
-		// Output" action that opens the Volt SCM OutputChannel.
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
@@ -520,31 +645,16 @@ function registerWorkspaceCommands(
 			},
 			async () => {
 				const result = await spawnCapture(cliBin(), args, repo.folder.uri.fsPath);
+				logln(`${describe} exit=${result.code}`);
 				if (result.code !== 0) {
-					const firstLine =
-						result.stderr.trim().split("\n")[0] ?? `exit ${result.code}`;
-					logln(`${description} failed (exit ${result.code}): ${result.stderr.trim()}`);
-					// Drift on push is the most common recoverable failure
-					// — engineer touched the IDE between this user's last
-					// pull and push. Offer "Pull first" as the primary
-					// action; "Show Output" stays available for diagnosis.
-					const isDriftOnPush =
-						args[0] === "push" && result.stderr.includes("drift detected");
-					const actions: string[] = isDriftOnPush
-						? ["Pull first", "Show Output"]
-						: ["Show Output"];
-					const message = isDriftOnPush
-						? `Volt: ${description} refused — the IDE has changed since your last pull. Pull first to absorb the engineer's edits, then push again.`
-						: `Volt: ${description} failed: ${firstLine}`;
-					const pick = await vscode.window.showErrorMessage(message, ...actions);
-					if (pick === "Show Output") log?.show(true);
-					if (pick === "Pull first") {
-						await vscode.commands.executeCommand("volt.scm.pull");
-					}
+					const firstLine = result.stderr.trim().split("\n")[0] ?? `exit ${result.code}`;
+					const pick = await vscode.window.showErrorMessage(
+						`Volt: ${describe} failed: ${firstLine}`,
+						"Show Output",
+					);
+					if (pick === "Show Output") getOutputChannel().show(true);
 				} else {
-					const headline =
-						result.stdout.trim().split("\n")[0] ?? `${description} ok`;
-					vscode.window.setStatusBarMessage(`$(check) Volt: ${headline}`, 3000);
+					vscode.window.showInformationMessage(`Volt: ${describe} complete.`);
 				}
 				await repo.refresh();
 			},
@@ -552,49 +662,48 @@ function registerWorkspaceCommands(
 	};
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.scm.refresh", async () => {
+		vscode.commands.registerCommand("volt.refresh", async () => {
 			const repo = pickRepo();
-			if (repo !== undefined) await repo.refresh();
+			if (repo === undefined) return;
+			await repo.refresh();
+			// Acknowledge the click with a 3s status-bar message — the
+			// only visible signal of "refresh ran" when nothing changed.
+			// Activity-bar badge already handles persistent change-count
+			// display; this is just the per-click ack.
+			const status = repo.getStatus();
+			const inc = status === undefined ? 0 : changeCount(status.incoming);
+			const out = status === undefined ? 0 : changeCount(status.outgoing);
+			const msg =
+				inc === 0 && out === 0
+					? "$(check) Volt: refreshed — in sync with IDE"
+					: `$(sync) Volt: refreshed — ${inc} incoming, ${out} outgoing`;
+			vscode.window.setStatusBarMessage(msg, 3000);
 		}),
-		// Health row's click target. Surfaces the OutputChannel so the
-		// user can read the actual error log when the badge is red.
-		// Cheap, side-effect-free — safe to register without a `when`.
-		vscode.commands.registerCommand("volt.scm.showOutput", () => {
-			log?.show(true);
-		}),
-		vscode.commands.registerCommand("volt.scm.pull", () => runCli(["pull"], "pull", "Volt: Pulling from IDE…")),
-		vscode.commands.registerCommand("volt.scm.push", () => runCli(["push"], "push", "Volt: Pushing to IDE…")),
-		vscode.commands.registerCommand("volt.scm.forcePull", () =>
-			runCli(["pull", "--force"], "pull --force", "Volt: Force-pulling from IDE…"),
+		vscode.commands.registerCommand("volt.merge.continue", () =>
+			runMergeOp(["merge", "--continue"], "merge --continue", "Volt: Continuing merge…"),
 		),
-		vscode.commands.registerCommand("volt.scm.forcePush", () =>
-			runCli(["push", "--force"], "push --force", "Volt: Force-pushing to IDE…"),
-		),
-		vscode.commands.registerCommand("volt.scm.mergeContinue", () =>
-			runCli(["merge", "--continue"], "merge --continue", "Volt: Continuing merge…"),
-		),
-		vscode.commands.registerCommand("volt.scm.mergeAbort", async () => {
+		vscode.commands.registerCommand("volt.merge.abort", async () => {
 			const ok = await vscode.window.showWarningMessage(
 				"Abort the merge? Local changes made during the merge will be lost.",
 				{ modal: true },
 				"Abort",
 			);
 			if (ok !== "Abort") return;
-			await runCli(["merge", "--abort"], "merge --abort", "Volt: Aborting merge…");
+			await runMergeOp(["merge", "--abort"], "merge --abort", "Volt: Aborting merge…");
 		}),
-		vscode.commands.registerCommand("volt.scm.resolveUseMine", (arg: unknown) =>
+		vscode.commands.registerCommand("volt.merge.useMine", (arg: unknown) =>
 			resolveOne(arg, "ours"),
 		),
-		vscode.commands.registerCommand("volt.scm.resolveUseTheirs", (arg: unknown) =>
+		vscode.commands.registerCommand("volt.merge.useTheirs", (arg: unknown) =>
 			resolveOne(arg, "theirs"),
 		),
-		vscode.commands.registerCommand("volt.scm.resolveAllUseMine", () =>
+		vscode.commands.registerCommand("volt.merge.useAllMine", () =>
 			resolveAll("ours"),
 		),
-		vscode.commands.registerCommand("volt.scm.resolveAllUseTheirs", () =>
+		vscode.commands.registerCommand("volt.merge.useAllTheirs", () =>
 			resolveAll("theirs"),
 		),
-		vscode.commands.registerCommand("volt.scm.discardOutgoing", (arg: unknown) =>
+		vscode.commands.registerCommand("volt.discardOutgoing", (arg: unknown) =>
 			discardOutgoing(arg),
 		),
 	);
@@ -646,13 +755,13 @@ function registerWorkspaceCommands(
 
 	// ── Per-file resolution helpers ─────────────────────────────────
 	//
-	// Right-click on a Merge Changes item fires `volt.scm.resolveUseMine`
-	// or `…UseTheirs` with the tree Node as the first argument. We
-	// extract the relative path and shell `volt merge --resolve <path>
-	// --use-ours|--use-theirs`. The CLI mirrors git's verbs exactly
-	// (see cli/merge.ts). After the last conflict resolves, the user
-	// still has to click Continue — same two-step as `git add` →
-	// `git commit`.
+	// Right-click on a Merge Changes item fires `volt.merge.useMine`
+	// or `volt.merge.useTheirs` with the tree Node as the first
+	// argument. We extract the relative path and shell `volt merge
+	// --resolve <path> --use-ours|--use-theirs`. The CLI mirrors git's
+	// verbs exactly (see cli/merge.ts). After the last conflict
+	// resolves, the user still has to click Continue — same two-step
+	// as `git add` → `git commit`.
 	async function resolveOne(arg: unknown, side: "ours" | "theirs"): Promise<void> {
 		const target = extractMergeItemPath(arg);
 		if (target === undefined) {
@@ -660,9 +769,9 @@ function registerWorkspaceCommands(
 			return;
 		}
 		const sideFlag = side === "ours" ? "--use-ours" : "--use-theirs";
-		await runCli(
+		await runMergeOp(
 			["merge", "--resolve", target.rel, sideFlag],
-			`merge --resolve ${target.rel} ${sideFlag}`,
+			`merge --resolve ${target.rel} (${side === "ours" ? "mine" : "IDE's"})`,
 			`Volt: Resolving ${target.rel} (use ${side === "ours" ? "mine" : "IDE's"})…`,
 		);
 	}
@@ -797,7 +906,7 @@ function maybeNotifyConnectionLoss(
 		)
 		.then((pick) => {
 			if (pick === "Show Output") {
-				void vscode.commands.executeCommand("volt.scm.showOutput");
+				void vscode.commands.executeCommand("volt.showOutput");
 			}
 		});
 }
