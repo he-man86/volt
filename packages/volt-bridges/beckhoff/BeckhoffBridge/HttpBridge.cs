@@ -247,19 +247,40 @@ internal sealed class HttpBridge
 			// All routes EXCEPT /health require the bridge to be attached
 			// to TwinCAT. /health doubles as the "is the bridge up at all"
 			// probe and must work in the no-IDE state so the frontend can
-			// show "waiting for IDE" instead of a connection error. The
-			// main loop is meanwhile retrying Connect() every ~3s; once it
-			// succeeds, these routes light up automatically.
-			if (
-				path != "/health"
-				&& !_connection.IsConnected
-			)
+			// show "waiting for IDE" instead of a connection error.
+			//
+			// We do NOT trust the cached `_connection.IsConnected` flag
+			// alone — it just checks `_dte != null`, which can stay
+			// non-null for seconds after TwinCAT exits (until the next
+			// /health call probes and tears down). During that window
+			// the walker silently returns 0 items and /refs would lie
+			// with a 200-OK empty refs response, which downstream callers
+			// interpret as "engineer deleted everything." Actively probe
+			// the IDE here (one cheap COM call) and disconnect on failure
+			// so the gate is the same single source of truth /health uses.
+			if (path != "/health")
 			{
-				throw new BridgeException(
-					503,
-					"PLC_DISCONNECTED",
-					"Bridge is waiting for TwinCAT XAE — open Visual Studio or TcXaeShell with a TwinCAT project loaded."
-				);
+				bool ideAlive = _connection.RunOnStaThread(() =>
+				{
+					if (!_connection.IsConnected) return false;
+					bool alive = _connection.ProbeIdeAlive();
+					if (!alive)
+					{
+						// IDE died — drop stale COM refs so subsequent
+						// requests also get the truth. Matches what
+						// BuildHealthSnapshot does on its own probe path.
+						try { _connection.Disconnect(); } catch { /* ignore */ }
+					}
+					return alive;
+				});
+				if (!ideAlive)
+				{
+					throw new BridgeException(
+						503,
+						"PLC_DISCONNECTED",
+						"Bridge is waiting for TwinCAT XAE — open Visual Studio or TcXaeShell with a TwinCAT project loaded."
+					);
+				}
 			}
 
 			// If a prior call caught an RPC failure and flagged the

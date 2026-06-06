@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://127.0.0.1:8555/refs)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('items:', list\\(d.get\\('items',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(VOLT_TEST_BRIDGE_PORT=8555 bun run src/tests/live/create-sandbox.ts)",
+      "Bash(curl *)",
+      "Bash(bun *)",
+      "Bash(awk '$1 ~ /R/ {print $NF}')",
+      "Bash(grep -E \"src/tests/.*\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs -I {} git checkout HEAD -- {})",
+      "Bash(node dist/cli/bin.js --version)",
+      "Bash(VOLT_BRIDGE_PORT=8555 bun run record:language)",
+      "Bash(git mv *)",
+      "Bash(sed -n '149,677p' \"C:/Users/marce/OneDrive/Documenten/Github/volt/packages/volt-lsp-st/src/semantic/symbol-table.ts\")",
+      "Read(//tmp/**)",
+      "Bash(git reset *)",
+      "Bash(git commit -m ' *)",
+      "Bash(awk -F/ '{ *.=)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git log *)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)"
+    ]
+  }
+}

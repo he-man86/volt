@@ -58,4 +58,49 @@ public static class PlcOpenXml
 		body.ReplaceWith(newBody);
 		return (doc.Declaration?.ToString() + "\n" + doc.ToString()).TrimStart('\n');
 	}
+
+	/// <summary>
+	/// Detect the body language from a PLCopenXML `&lt;body&gt;` fragment
+	/// by reading the root child element name. PLCopenXML 2.01 wraps the
+	/// graphical content in a single child: `&lt;FBD&gt;` / `&lt;LD&gt;` /
+	/// `&lt;SFC&gt;` / `&lt;CFC&gt;` / `&lt;ST&gt;` / `&lt;IL&gt;`.
+	///
+	/// Returns the language string TwinCAT's `CreateChild(POU)` accepts
+	/// as vInfo (e.g. "FBD"). Returns null when the body is malformed,
+	/// missing, or carries an unrecognized language tag — caller falls
+	/// back to ST.
+	///
+	/// Used by <see cref="PushHandler"/> on a fresh-create push of a
+	/// graphical POU: agent sends `implementationXml`; the bridge needs
+	/// to know which language tag to pass to CreateChild so the POU
+	/// gets the right editor in TC.
+	/// </summary>
+	public static string? DetectBodyLanguage(string bodyXml)
+	{
+		if (string.IsNullOrWhiteSpace(bodyXml)) return null;
+		try
+		{
+			var elem = XElement.Parse(bodyXml);
+			// elem may BE <body> or it may be <FBD> directly (defensive
+			// against callers passing the inner shape).
+			XElement? langElem = elem.Name == Ns + "body" || elem.Name.LocalName == "body"
+				? elem.Elements().FirstOrDefault()
+				: elem;
+			if (langElem == null) return null;
+			return langElem.Name.LocalName switch
+			{
+				"FBD" => "FBD",
+				"LD" => "LD",
+				"SFC" => "SFC",
+				"CFC" => "CFC",
+				"ST" => "ST",
+				"IL" => "IL",
+				_ => null,
+			};
+		}
+		catch
+		{
+			return null;
+		}
+	}
 }

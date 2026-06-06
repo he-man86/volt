@@ -1815,6 +1815,80 @@
                                               "url":  "_cds_error_c0587.html"
                                           }
                                       ]
+                     },
+                     {
+                         "text":  "FBD/LD/IL Editor Elements",
+                         "url":  "_cds_fbd_il_ld_f_elements.html",
+                         "publication":  "CODESYS LD FBD",
+                         "publicationRoot":  "https://content.helpme-codesys.com/en/CODESYS%20LD%20FBD/",
+                         "children":  [
+                                          {
+                                              "text":  "Element: Network",
+                                              "url":  "_cds_fbd_ld_il_element_network.html"
+                                          },
+                                          {
+                                              "text":  "Element: Box",
+                                              "url":  "_cds_fbd_ld_il_element_box.html"
+                                          },
+                                          {
+                                              "text":  "Element: Assignment",
+                                              "url":  "_cds_fbd_ld_il_element_assignment.html"
+                                          },
+                                          {
+                                              "text":  "Element: Box with EN/ENO",
+                                              "url":  "_cds_fbd_ld_il_element_box_en_eno.html"
+                                          },
+                                          {
+                                              "text":  "Element: Input",
+                                              "url":  "_cds_fbd_ld_il_element_input.html"
+                                          },
+                                          {
+                                              "text":  "Element: Jump Label",
+                                              "url":  "_cds_fbd_ld_il_element_label.html"
+                                          },
+                                          {
+                                              "text":  "Element: Jump",
+                                              "url":  "_cds_fbd_ld_il_element_jump.html"
+                                          },
+                                          {
+                                              "text":  "Element: Return",
+                                              "url":  "_cds_fbd_ld_il_element_return.html"
+                                          },
+                                          {
+                                              "text":  "Element: Branch",
+                                              "url":  "_cds_fbd_ld_il_element_branch.html"
+                                          },
+                                          {
+                                              "text":  "Element: Execute",
+                                              "url":  "_cds_fbd_ld_il_element_execute.html"
+                                          },
+                                          {
+                                              "text":  "LD Element: Contact",
+                                              "url":  "_cds_ld_element_contact.html"
+                                          },
+                                          {
+                                              "text":  "LD Element: Coil",
+                                              "url":  "_cds_ld_element_coil.html"
+                                          },
+                                          {
+                                              "text":  "LD Element: Branch Start/End",
+                                              "url":  "_cds_ld_element_branch_start_end.html"
+                                          },
+                                          {
+                                              "text":  "LD Element: Closed Branch",
+                                              "url":  "_cds_ld_element_closed_branch.html"
+                                          }
+                                      ],
+                         "localFiles":  [
+                                            {
+                                                "text":  "14 — FBD Elements",
+                                                "path":  "./14-fbd-elements.md"
+                                            },
+                                            {
+                                                "text":  "15 — LD Elements",
+                                                "path":  "./15-ld-elements.md"
+                                            }
+                                        ]
                      }
                  ]
 }

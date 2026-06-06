@@ -153,6 +153,77 @@ def extract_graphical_body(item):
 	return extract_body_from_xml(xml_str)
 
 
+def extract_self_member_body(child_item, child_name):
+	# type: (object, str) -> object
+	"""Resolve a member's authoritative body language + body XML by
+	calling `export_xml()` on the MEMBER object itself.
+
+	CODESYS observation (verified against V3.5 SP21): `parent.export_xml()`
+	returns a SHALLOW PLCopenXML document — `<pou>` with just the
+	parent's own `<body>`, no `<actions>` / `<methods>` /
+	`<transitions>` containers (members are stored as external-file
+	objects). `child.export_xml()` returns a DEEP document — the FULL
+	parent `<pou>` AND the child as a nested `<action>` /
+	`<method>` / `<transition>` element whose own `<body>` carries
+	the child-specific language tag.
+
+	So per-child export is the canonical CODESYS-intended way to learn
+	a member's language. Locates the matching member by `name` (XML
+	attribute) and returns `{"kind", "language", "body_xml"}` where
+	kind is one of "action"/"method"/"transition" (matching the
+	PLCopenXML schema's taxonomy) and language is the body element's
+	first-child tag (ST/IL/FBD/LD/SFC/CFC).
+
+	Returns `None` when:
+	  * export_xml raises or returns empty (vendor wrapper / container
+	    object with no XML representation — caller should treat as
+	    "not a graphical member, skip")
+	  * the XML parses but contains no <pou>
+	  * no `<action>`/`<method>`/`<transition>` element matches
+	    `child_name`
+	"""
+	try:
+		xml_str = child_item.export_xml()
+	except Exception:
+		return None
+	if not xml_str:
+		return None
+	if isinstance(xml_str, str) and xml_str.startswith("﻿"):
+		xml_str = xml_str[1:]
+	try:
+		root = _ET.fromstring(xml_str)
+	except Exception:
+		return None
+	pou = root.find(".//" + _tag("pou"))
+	if pou is None:
+		return None
+	# PLCopenXML wraps each kind in a plural container (<actions>,
+	# <methods>, <transitions>); within each, singular elements carry
+	# the actual member. Match by the `name` attribute.
+	for plural, singular in (("actions", "action"), ("methods", "method"), ("transitions", "transition")):
+		container = pou.find(_tag(plural))
+		if container is None:
+			continue
+		for member in container.findall(_tag(singular)):
+			if member.get("name") != child_name:
+				continue
+			body = member.find(_tag("body"))
+			if body is None or len(body) == 0:
+				return None
+			lang_tag = body[0].tag
+			if lang_tag.startswith(_NS_PREFIX):
+				lang_tag = lang_tag[len(_NS_PREFIX):]
+			body_xml = tostring_str(body, log_tag="{0} {1} body".format(singular, child_name))
+			if body_xml is None:
+				return None
+			return {
+				"kind": singular,
+				"language": lang_tag,
+				"body_xml": body_xml,
+			}
+	return None
+
+
 def extract_body_from_xml(xml_str):
 	# type: (object) -> object
 	"""Pure-data version: take an already-fetched PLCopenXML document

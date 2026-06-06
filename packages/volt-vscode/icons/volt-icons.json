@@ -5,9 +5,7 @@
     "_folder_open":      { "iconPath": "./generic-folder-open.svg" },
     "_st":               { "iconPath": "./st.svg" },
     "_fbd":              { "iconPath": "./fbd.svg" },
-    "_ld":               { "iconPath": "./ld.svg" },
-    "_sfc":              { "iconPath": "./sfc.svg" },
-    "_cfc":              { "iconPath": "./cfc.svg" }
+    "_ld":               { "iconPath": "./ld.svg" }
   },
   "file":           "_file",
   "folder":         "_folder",
@@ -18,8 +16,6 @@
   "languageIds": {
     "structured-text": "_st",
     "plc-fbd":         "_fbd",
-    "plc-ld":          "_ld",
-    "plc-sfc":         "_sfc",
-    "plc-cfc":         "_cfc"
+    "plc-ld":          "_ld"
   }
 }

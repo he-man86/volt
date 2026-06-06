@@ -19,7 +19,7 @@ The CODESYS ST language reference is comprehensive but scattered across ~250 ind
 
 ## Sections
 
-The 13 top-level sections under CODESYS *Reference: Programming*. Order matches the CODESYS TOC.
+Sections 01–13 are the top-level sections under CODESYS *Reference: Programming* (order matches the CODESYS TOC for that publication). Sections 14–15 cover the FBD/LD/IL editor element vocabulary from the separate "CODESYS LD FBD" publication.
 
 | # | Section | What's inside | Sub-pages |
 |---|---|---|---|
@@ -36,6 +36,8 @@ The 13 top-level sections under CODESYS *Reference: Programming*. Order matches 
 | 11 | [FB Lifecycle: FB_Init / FB_Reinit / FB_Exit](./11-fb-lifecycle.md) | Instance-lifecycle method semantics: signatures, calling order, override rules | 0 |
 | 12 | [Global Init Slots](./12-global-init-slots.md) | Initialization order for `VAR_GLOBAL`; slot numbers; `call_after_global_init_slot` pragma interaction | 0 |
 | 13 | [Error Messages and Warnings](./13-error-messages.md) | CODESYS compiler diagnostic catalog (C0001–C0587), grouped and indexed | 190+ |
+| 14 | [FBD Elements](./14-fbd-elements.md) | FBD/LD/IL editor element vocabulary — Network, Box, Box w/ EN/ENO, Assignment, Input, Jump, Label, Return, Branch, Execute. Sourced from the "CODESYS LD FBD" publication (retrieved 2026-06-01). | 10 |
+| 15 | [LD Elements](./15-ld-elements.md) | LD-exclusive elements — Contact (normal/negated/edge), Coil (normal/set/reset/edge), Branch Start/End, Closed Branch (OR vs SCE). Power-rail model background. | 4 |
 
 ## Companion files
 

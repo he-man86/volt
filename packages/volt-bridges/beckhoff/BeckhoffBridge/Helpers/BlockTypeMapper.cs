@@ -262,17 +262,19 @@ internal static class BlockTypeMapper
 	}
 
 	/// <summary>
-	/// Map a non-CRUD ItemType code to a vendor-neutral kind string that
-	/// the agent uses to pick a dedicated extension (.visu / .recipes /
-	/// .libraries / .textlist / .imagepool / .task / .library / .uml /
-	/// .tmc, etc.). Same vocabulary the CODESYS bridge emits — pou-files.ts
-	/// CONFIG_KIND_EXT looks up by these strings.
+	/// Map a non-CRUD ItemType code to a vendor-neutral kind string the
+	/// agent recognizes (same vocabulary CODESYS emits, pinned by
+	/// <c>extension-registry.ts</c> + <c>bridge-agent-vocabulary.test.ts</c>).
 	///
-	/// Unknown / unmapped non-CRUD codes fall through to "config" so the
-	/// agent still writes them as opaque `.xml` (no data loss, just no
-	/// dedicated extension).
+	/// Returns <c>null</c> for unmapped codes — callers MUST skip the
+	/// item with a log rather than fall back to opaque XML. The closed
+	/// kind set IS the agent's registry; an unmapped code reaching
+	/// here means either (a) a new TwinCAT ItemType the bridge hasn't
+	/// catalogued yet (probe via /debug, add a constant), or (b) the
+	/// walker incorrectly let a structural-only node through (folder,
+	/// inlined-in-POU — those should be filtered before this call).
 	/// </summary>
-	public static string ToConfigKind(int typeCode)
+	public static string? ToConfigKind(int typeCode)
 	{
 		return typeCode switch
 		{
@@ -288,7 +290,7 @@ internal static class BlockTypeMapper
 			ClassDiagram => "class_diagram",
 			TmcFile => "tmc_file",
 			ExternalTypes => "external_types",
-			_ => "config",
+			_ => null,
 		};
 	}
 

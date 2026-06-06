@@ -153,6 +153,43 @@ export type BuildResponse = z.infer<typeof BuildResponseSchema>;
 export const ImplementationLanguageSchema = z.enum(["ST", "FBD", "LD", "SFC", "CFC", "UNKNOWN"]);
 export type ImplementationLanguage = z.infer<typeof ImplementationLanguageSchema>;
 
+/** Subset of `ImplementationLanguage` that's actually graphical —
+ *  excludes `ST` (textual) and `UNKNOWN` (escalates to skip-with-warn).
+ *  Used by `GraphicalChildSchema` because a graphical-child entry
+ *  must commit to a real graphical language. */
+export const GraphicalLanguageSchema = z.enum(["FBD", "LD", "SFC", "CFC"]);
+export type GraphicalLanguage = z.infer<typeof GraphicalLanguageSchema>;
+
+/**
+ * A non-textual child (action/method/property accessor) inside a
+ * parent POU whose body language differs from the parent. Surfaced
+ * separately from the parent's assembled `sourceText` so the engineer
+ * can SEE the action/method exists, even though we can't round-trip
+ * it back to the IDE (read-only by design).
+ *
+ * The agent materializes one of these as
+ * `<parent_folder>/<parent_name>/<child_name>.<lang_ext>` with the
+ * declaration + raw PLCopenXML body. Push refuses any edit to these
+ * files via the access registry's `.fbd`/`.ld`/`.cfc`/`.sfc` =
+ * read-only default.
+ */
+export const GraphicalChildSchema = z
+	.object({
+		name: z.string(),
+		/** Member-kind taxonomy from the PLCopenXML schema. `transition`
+		 *  is the SFC step-transition; CODESYS exposes it alongside
+		 *  `<action>` and `<method>` as a first-class child element. */
+		kind: z.enum(["method", "action", "transition"]),
+		language: GraphicalLanguageSchema,
+		/** Textual declaration / interface section. Even FBD/LD children
+		 *  have a textual interface (`METHOD foo : INT VAR_INPUT ...`). */
+		declaration: z.string(),
+		/** Raw PLCopenXML `<body>...</body>` element for the child. */
+		implementationXml: z.string(),
+	})
+	.strict();
+export type GraphicalChild = z.infer<typeof GraphicalChildSchema>;
+
 /**
  * Wire-shape v2 (2026-05-29): an item on the wire is one assembled
  * `.st` / `.gvl` / `.dut` / `.itf` file. The bridge owns the split
@@ -190,6 +227,17 @@ export const FetchedItemSchema = z
 		 * grep/diff/LLM-friendly. See `pou-files.ts` write path.
 		 */
 		implementationXml: z.string().nullish(),
+		/**
+		 * Non-textual children of this POU (FBD/LD/SFC/CFC actions or
+		 * methods nested inside an otherwise-ST parent). The bridge
+		 * emits these separately because they can't be folded into the
+		 * parent's assembled `sourceText` — there's no textual form for
+		 * a graphical body. Materialized as read-only sibling files
+		 * under `<parent_name>/`.
+		 *
+		 * Absent / empty for POUs whose children are all textual.
+		 */
+		graphicalChildren: z.array(GraphicalChildSchema).optional(),
 		/** Per-item version stamp (sha1 short). */
 		version: z.string(),
 	})

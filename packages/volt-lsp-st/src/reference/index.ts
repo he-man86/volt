@@ -34,6 +34,7 @@ import { OPERATORS } from "./operators.js";
 import { TYPE_CONVERSIONS } from "./type-conversion.js";
 import { PRAGMAS } from "./pragmas.js";
 import { LIFECYCLE_METHODS } from "./lifecycle.js";
+import { STANDARD_FBS } from "./standard-fbs.js";
 
 export type ReferenceKind =
 	| "keyword"
@@ -41,7 +42,8 @@ export type ReferenceKind =
 	| "operator"
 	| "type-conversion"
 	| "pragma"
-	| "lifecycle-method";
+	| "lifecycle-method"
+	| "standard-fb";
 
 /**
  * Which vendor's ST dialect this entry belongs to.
@@ -102,6 +104,7 @@ export interface ReferenceEntry {
  */
 const LOOKUP_ORDER: ReadonlyArray<Map<string, ReferenceEntry>> = [
 	LIFECYCLE_METHODS, // FB_Init / FB_Reinit / FB_Exit — narrow, specific
+	STANDARD_FBS, // TON / TOF / R_TRIG / CTU / SR / etc. — IEC standard library
 	OPERATORS, // ADD, SIN, __NEW, etc.
 	TYPE_CONVERSIONS, // BOOL_TO_INT, TRUNC, etc.
 	DATA_TYPES, // BOOL, INT, REAL, ARRAY OF, etc.

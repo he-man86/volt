@@ -3,7 +3,7 @@
   "name": "@opencode-ai/volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.15.11",
+  "version": "1.15.26",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -25,8 +25,7 @@
     "onLanguage:plc-dut",
     "onLanguage:plc-fbd",
     "onLanguage:plc-ld",
-    "onLanguage:plc-sfc",
-    "onLanguage:plc-cfc",
+    "workspaceContains:**/.volt/config.json",
     "workspaceContains:**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc,visu,recipes,task,library,libraries,textlist,imagepool,device,trace,cam,alarm,uml,tmc}"
   ],
   "main": "./dist/extension.js",
@@ -79,9 +78,7 @@
         "extensions": [
           ".fbd"
         ],
-        "filenamePatterns": [
-          "**/*.fbd.xml"
-        ],
+        "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {
           "light": "./icons/fbd.svg",
           "dark":  "./icons/fbd.svg"
@@ -97,48 +94,10 @@
         "extensions": [
           ".ld"
         ],
-        "filenamePatterns": [
-          "**/*.ld.xml"
-        ],
+        "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {
           "light": "./icons/ld.svg",
           "dark":  "./icons/ld.svg"
-        }
-      },
-      {
-        "id": "plc-sfc",
-        "aliases": [
-          "Sequential Function Chart",
-          "SFC",
-          "IEC 61131-3 SFC"
-        ],
-        "extensions": [
-          ".sfc"
-        ],
-        "filenamePatterns": [
-          "**/*.sfc.xml"
-        ],
-        "icon": {
-          "light": "./icons/sfc.svg",
-          "dark":  "./icons/sfc.svg"
-        }
-      },
-      {
-        "id": "plc-cfc",
-        "aliases": [
-          "Continuous Function Chart",
-          "CFC",
-          "IEC 61131-3 CFC"
-        ],
-        "extensions": [
-          ".cfc"
-        ],
-        "filenamePatterns": [
-          "**/*.cfc.xml"
-        ],
-        "icon": {
-          "light": "./icons/cfc.svg",
-          "dark":  "./icons/cfc.svg"
         }
       },
       {
@@ -232,6 +191,16 @@
       },
       {
         "language": "plc-dut",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "plc-fbd",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "plc-ld",
         "scopeName": "source.structured-text",
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       }
@@ -394,11 +363,223 @@
         "title": "Volt: Init Workspace",
         "category": "Volt",
         "icon": "$(zap)"
+      },
+      {
+        "command": "volt.cli.configureAccess",
+        "title": "Volt: Configure Extension Access",
+        "category": "Volt",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "volt.scm.refresh",
+        "title": "Volt: Refresh SCM",
+        "category": "Volt",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "volt.scm.showOutput",
+        "title": "Volt: Show SCM Output Log",
+        "category": "Volt",
+        "icon": "$(output)"
+      },
+      {
+        "command": "volt.scm.pull",
+        "title": "Volt: Pull (SCM action)",
+        "category": "Volt",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "volt.scm.push",
+        "title": "Volt: Push (SCM action)",
+        "category": "Volt",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "volt.scm.forcePull",
+        "title": "Volt: Pull --force (discard local edits)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.scm.forcePush",
+        "title": "Volt: Push --force (overwrite IDE)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.scm.mergeContinue",
+        "title": "Volt: Merge — Continue",
+        "category": "Volt",
+        "icon": "$(check)"
+      },
+      {
+        "command": "volt.scm.mergeAbort",
+        "title": "Volt: Merge — Abort",
+        "category": "Volt",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "volt.scm.openMergeEditor",
+        "title": "Volt: Open in Merge Editor",
+        "category": "Volt",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "volt.scm.resolveUseMine",
+        "title": "Volt: Resolve — Use My Version",
+        "category": "Volt",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "volt.scm.resolveUseTheirs",
+        "title": "Volt: Resolve — Use IDE's Version",
+        "category": "Volt",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "volt.scm.resolveAllUseMine",
+        "title": "Volt: Resolve All — Use My Version",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.scm.resolveAllUseTheirs",
+        "title": "Volt: Resolve All — Use IDE's Version",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.scm.discardOutgoing",
+        "title": "Volt: Discard Local Change",
+        "category": "Volt",
+        "icon": "$(discard)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "volt.scm.pull",
+          "when": "view == volt.scm",
+          "group": "navigation@1"
+        },
+        {
+          "command": "volt.scm.push",
+          "when": "view == volt.scm",
+          "group": "navigation@2"
+        },
+        {
+          "command": "volt.scm.refresh",
+          "when": "view == volt.scm",
+          "group": "navigation@3"
+        },
+        {
+          "command": "volt.scm.mergeContinue",
+          "when": "view == volt.scm && volt.merging",
+          "group": "1_merge@1"
+        },
+        {
+          "command": "volt.scm.mergeAbort",
+          "when": "view == volt.scm && volt.merging",
+          "group": "1_merge@2"
+        },
+        {
+          "command": "volt.scm.resolveAllUseMine",
+          "when": "view == volt.scm && volt.merging",
+          "group": "1_merge@3"
+        },
+        {
+          "command": "volt.scm.resolveAllUseTheirs",
+          "when": "view == volt.scm && volt.merging",
+          "group": "1_merge@4"
+        },
+        {
+          "command": "volt.scm.forcePull",
+          "when": "view == volt.scm",
+          "group": "2_force@1"
+        },
+        {
+          "command": "volt.scm.forcePush",
+          "when": "view == volt.scm",
+          "group": "2_force@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "volt.scm.refresh",
+          "when": "view == volt.scm && viewItem == volt.health",
+          "group": "1_health@1"
+        },
+        {
+          "command": "volt.scm.showOutput",
+          "when": "view == volt.scm && viewItem == volt.health",
+          "group": "1_health@2"
+        },
+        {
+          "command": "volt.scm.resolveUseMine",
+          "when": "view == volt.scm && viewItem == volt.item.merge",
+          "group": "inline@1"
+        },
+        {
+          "command": "volt.scm.resolveUseTheirs",
+          "when": "view == volt.scm && viewItem == volt.item.merge",
+          "group": "inline@2"
+        },
+        {
+          "command": "volt.scm.resolveUseMine",
+          "when": "view == volt.scm && viewItem == volt.item.merge",
+          "group": "1_resolve@1"
+        },
+        {
+          "command": "volt.scm.resolveUseTheirs",
+          "when": "view == volt.scm && viewItem == volt.item.merge",
+          "group": "1_resolve@2"
+        },
+        {
+          "command": "volt.scm.openMergeEditor",
+          "when": "view == volt.scm && viewItem == volt.item.merge",
+          "group": "2_editor@1"
+        },
+        {
+          "command": "volt.scm.discardOutgoing",
+          "when": "view == volt.scm && viewItem == volt.item.outgoing",
+          "group": "inline@1"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "volt",
+          "title": "Volt",
+          "icon": "icons/volt-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "volt": [
+        {
+          "id": "volt.scm",
+          "name": "Sync with IDE",
+          "contextualTitle": "Volt"
+        },
+        {
+          "id": "volt.history",
+          "name": "Sync history",
+          "contextualTitle": "Volt"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "volt.scm",
+        "contents": "No Volt workspace detected here.\n\nVolt syncs your workspace with the running PLC IDE (CODESYS / TwinCAT).\n\n[Initialize Volt](command:volt.cli.init)\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
+        "when": "workbenchState != empty"
+      },
+      {
+        "view": "volt.scm",
+        "contents": "Open a folder to start using Volt.\n\n[Open Folder](command:vscode.openFolder)",
+        "when": "workbenchState == empty"
       }
     ]
   },
   "scripts": {
-    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --external=vscode",
+    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-st/src/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs",
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
     "package": "vsce package --no-dependencies"

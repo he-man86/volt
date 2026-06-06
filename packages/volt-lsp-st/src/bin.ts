@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { lex } from "./lexer/lexer.js";
-import { runServer } from "./lsp/server.js";
+import { runServer } from "./lsp/server/index.js";
 
 const VERSION = "0.0.0";
 

@@ -36,7 +36,7 @@ import {
 	planMerge,
 } from "../engine/merge.js";
 import { syncFromBridge } from "../engine/ops.js";
-import { isTrackedPath } from "../engine/pou-files.js";
+import { isTrackedPath } from "../engine/extension-registry.js";
 import {
 	buildWorkspaceTreeSha,
 	computeIncoming,
@@ -49,6 +49,7 @@ import {
 	removeFilesFromWorkspace,
 	reportSnapshotHeal,
 	saveState,
+	sweepEmptyDirs,
 	writeTreeToWorkspace,
 } from "../engine/snapshot.js";
 import { isVoltError, VoltError, wrapEngineError } from "./_error.js";
@@ -61,7 +62,7 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 
 	const root = resolve(workspace);
 	const paths = workspacePaths(root);
-	loadConfig(root); // throws if no workspace; we don't need the value here
+	const cfg = loadConfig(root); // throws if no workspace
 	const heal = ensureSnapshotRepo(paths.snapshotPath);
 	reportSnapshotHeal(heal);
 	ensureGitignore(root);
@@ -201,18 +202,28 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	}
 
 	// 3. Pull the IDE state into the snapshot bare repo.
+	//
+	// Phase logging: /refs and /fetch are each ~10s on a large CODESYS
+	// project (every device's `get_device_identification()`, every
+	// library's `.references`, etc.). Without phase markers the user
+	// stares at silence for 20+ seconds. Each phase prints a one-line
+	// progress note so they know which step is in flight.
+	//
 	// `--force` triggers a full rebuild — the bridge re-sends every
 	// item regardless of cached hash, so the agent re-materializes
 	// every file with the current materializer (e.g. after a transpiler
 	// upgrade). Without --force, fetchChanges skips items whose bridge
-	// hash matches the snapshot's, leaving old materialized output in
-	// the workspace.
-	//
-	// A snapshot heal IMPLIES fullRebuild: state.json was wiped, so
-	// every item is "new" to us and the bridge's hash-skip optimization
-	// would leave us with an empty workspace.
+	// hash matches the snapshot's. A snapshot heal IMPLIES fullRebuild
+	// too (state.json was wiped, so every item is "new" to us).
+	process.stderr.write("  → querying bridge state...\n");
+	let syncSkipped: ReadonlyArray<{ name: string; reason: string }> = [];
 	try {
-		await syncFromBridge(paths.snapshotPath, bridge, { fullRebuild: force || heal.rebuilt });
+		const result = await syncFromBridge(paths.snapshotPath, bridge, {
+			fullRebuild: force || heal.rebuilt,
+			accessOverrides: cfg,
+			onProgress: (event) => process.stderr.write(`  → ${event}\n`),
+		});
+		syncSkipped = result.skipped;
 	} catch (err) {
 		// Pass through VoltErrors (e.g. from transpiler refusals).
 		// Wrap engine/git failures with user-friendly context.
@@ -231,6 +242,7 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	// 4. Write the snapshot tree into the workspace.
 	const newEntries = listTree(paths.snapshotPath, stateAfter.commitSha);
 	const newPaths = new Set(newEntries.map((e) => e.path));
+	process.stderr.write(`  → writing ${newEntries.length} file(s) to workspace...\n`);
 	writeTreeToWorkspace(
 		root,
 		newEntries.map((e) => ({ path: e.path, content: readBlobBytes(paths.snapshotPath, e.sha) })),
@@ -246,12 +258,51 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	}
 	removeFilesFromWorkspace(root, removed);
 
+	// 6. Sweep ANY empty directories left in the workspace. removeFilesFromWorkspace
+	//    walks up only from files it removed in THIS pull — dirs that were
+	//    already empty when pull began (legacy from a classifier change, a
+	//    retired kind, etc.) need this second pass. Folders the engineer
+	//    created in the IDE arrive with a `.gitkeep` marker, so they survive.
+	const removedDirs = sweepEmptyDirs(root);
+
 	const upToDate =
 		preState !== undefined && preState.projectVersion === stateAfter.projectVersion;
-	if (upToDate && newPaths.size > 0 && removed.length === 0) {
+	if (upToDate && newPaths.size > 0 && removed.length === 0 && removedDirs.length === 0) {
 		console.log("already up to date.");
 	} else {
-		console.log(`pulled: ${newPaths.size} file(s), removed: ${removed.length} file(s).`);
+		// Per-extension breakdown so users see WHAT came in, not just
+		// a raw file count. After a fresh init+pull on a big project
+		// "244 files" is a number; "47 libraries, 122 devices, 32 DUTs"
+		// is information.
+		const byExt: Record<string, number> = {};
+		for (const p of newPaths) {
+			const dot = p.lastIndexOf(".");
+			const ext = dot >= 0 ? p.slice(dot + 1) : "(no-ext)";
+			byExt[ext] = (byExt[ext] ?? 0) + 1;
+		}
+		const breakdown = Object.entries(byExt)
+			.sort((a, b) => b[1] - a[1])
+			.map(([ext, count]) => `${count} ${ext}`)
+			.join(", ");
+		const dirSuffix = removedDirs.length > 0
+			? `, swept ${removedDirs.length} empty dir(s): ${removedDirs.join(", ")}`
+			: "";
+		console.log(`pulled: ${newPaths.size} file(s), removed: ${removed.length} file(s)${dirSuffix}.`);
+		if (breakdown.length > 0) console.log(`  (${breakdown})`);
+	}
+	if (syncSkipped.length > 0) {
+		// Items the bridge sent but we couldn't materialize (unknown
+		// body language, transpile failure, etc.). The pull itself
+		// succeeded — these need separate engineer attention.
+		console.log(
+			`\n! skipped ${syncSkipped.length} item(s) the bridge sent but Volt couldn't materialize:`,
+		);
+		for (const s of syncSkipped) {
+			console.log(`  - ${s.name}: ${s.reason}`);
+		}
+		console.log(
+			`  fix the bridge-side cause for each (re-export the POU in the IDE, or report the case), then re-run \`volt pull\`.`,
+		);
 	}
 	return 0;
 };

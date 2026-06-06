@@ -64,11 +64,132 @@ function registerCommands(
 
 	context.subscriptions.push(
 		safe("status", () => runInTerminal(["status"])),
-		safe("pull",   () => runInTerminal(["pull"])),
+		safe("pull",   () => runPullWithToast()),
 		safe("push",   () => confirmPushIfForce()),
 		safe("build",  () => runBuildWithDiagnostics(diagnostics)),
 		safe("init",   () => runInTerminal(["init"])),
+		// Open `.volt/config.json` in the editor with the cursor on
+		// `extensionAccess`. Easier than hunting through the JSON
+		// for the right key.
+		vscode.commands.registerCommand("volt.cli.configureAccess", () =>
+			openConfigAtKey("extensionAccess"),
+		),
 	);
+}
+
+/**
+ * Run `volt pull`, capture output, surface a toast with the per-kind
+ * breakdown. The full stdout/stderr goes to the Volt SCM output
+ * channel so users who want detail can read the log without staring
+ * at a terminal.
+ *
+ * Replaces the old `runInTerminal(["pull"])` which gave no
+ * notification when the pull completed — the SCM tree refreshed on
+ * its own via the file watcher but the user had no signal of "done".
+ */
+async function runPullWithToast(): Promise<void> {
+	const cwd = workspaceCwd();
+	if (cwd === undefined) {
+		vscode.window.showWarningMessage("Volt: open a workspace folder first.");
+		return;
+	}
+	const result = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Window, title: "volt pull" },
+		() => spawnCapture(cliBin(), ["pull"], cwd),
+	);
+	await echoToTerminal("volt pull", `${result.stderr}\n${result.stdout}`);
+	if (result.code !== 0) {
+		vscode.window.showErrorMessage(`Volt: pull failed (exit ${result.code}). See Volt SCM output for details.`);
+		return;
+	}
+	const summary = extractPullSummary(result.stdout);
+	if (summary === undefined) {
+		vscode.window.showInformationMessage("Volt: pull complete — already up to date.");
+		return;
+	}
+	vscode.window.showInformationMessage(`Volt: ${summary}`);
+}
+
+/**
+ * Parse the CLI's pull-completion line — the human-readable summary
+ * the user sees in their terminal. The CLI prints:
+ *
+ *   pulled: 244 file(s), removed: 0 file(s).
+ *     (122 device, 47 library, ...)
+ *
+ * Returns the first line plus the per-kind breakdown joined as one
+ * toast-ready string. Returns undefined when nothing was pulled
+ * (the CLI says "already up to date.") so the caller can show a
+ * different message.
+ */
+function extractPullSummary(stdout: string): string | undefined {
+	const lines = stdout.split(/\r?\n/);
+	const pulledLine = lines.find((l) => l.startsWith("pulled:"));
+	if (pulledLine === undefined) return undefined;
+	const breakdownLine = lines.find((l) => l.startsWith("  ("));
+	return breakdownLine !== undefined ? `${pulledLine} ${breakdownLine.trim()}` : pulledLine;
+}
+
+/**
+ * Run `volt push` with the given extra flags, capture output, show a
+ * toast based on the result. Mirrors `runPullWithToast`. The detailed
+ * output goes to the Volt SCM channel for users who want the log.
+ *
+ * Exit code semantics:
+ *   0 → push went through (or nothing to push); show info toast
+ *   2 → bridge refused (drift, policy block); show warning toast
+ *       with "Show Volt SCM log" action so the user can see why
+ *   other → unexpected failure; show error toast
+ */
+async function runPushWithToast(extraFlags: readonly string[]): Promise<void> {
+	const cwd = workspaceCwd();
+	if (cwd === undefined) {
+		vscode.window.showWarningMessage("Volt: open a workspace folder first.");
+		return;
+	}
+	const result = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Window, title: "volt push" },
+		() => spawnCapture(cliBin(), ["push", ...extraFlags], cwd),
+	);
+	await echoToTerminal(`volt push ${extraFlags.join(" ")}`.trim(), `${result.stderr}\n${result.stdout}`);
+	if (result.code === 0) {
+		const summary = result.stdout.split(/\r?\n/).find((l) => l.startsWith("pushed:"));
+		vscode.window.showInformationMessage(`Volt: ${summary ?? "push complete."}`);
+		return;
+	}
+	if (result.code === 2) {
+		const action = await vscode.window.showWarningMessage(
+			"Volt: push refused — see Volt SCM output for details.",
+			"Show Volt SCM log",
+		);
+		if (action === "Show Volt SCM log") {
+			await vscode.commands.executeCommand("volt.scm.showOutput");
+		}
+		return;
+	}
+	vscode.window.showErrorMessage(`Volt: push failed (exit ${result.code}).`);
+}
+
+/** Open `.volt/config.json` and try to move the cursor onto the
+ *  given key. Falls back to opening the file at line 0 if the key
+ *  isn't present yet. */
+async function openConfigAtKey(key: string): Promise<void> {
+	const cwd = workspaceCwd();
+	if (cwd === undefined) {
+		vscode.window.showWarningMessage("Volt: open a workspace folder first.");
+		return;
+	}
+	const path = `${cwd}/.volt/config.json`;
+	const uri = vscode.Uri.file(path);
+	const doc = await vscode.workspace.openTextDocument(uri);
+	const editor = await vscode.window.showTextDocument(doc);
+	const text = doc.getText();
+	const idx = text.indexOf(`"${key}"`);
+	if (idx >= 0) {
+		const pos = doc.positionAt(idx);
+		editor.selection = new vscode.Selection(pos, pos);
+		editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+	}
 }
 
 /**
@@ -90,7 +211,7 @@ async function confirmPushIfForce(): Promise<void> {
 	if (choice === undefined) return;
 
 	if (choice.verb === "normal") {
-		await runInTerminal(["push"]);
+		await runPushWithToast([]);
 		return;
 	}
 
@@ -101,7 +222,7 @@ async function confirmPushIfForce(): Promise<void> {
 		"Yes, force push",
 	);
 	if (confirm === "Yes, force push") {
-		await runInTerminal(["push", "--force"]);
+		await runPushWithToast(["--force"]);
 	}
 }
 
@@ -173,14 +294,19 @@ async function runBuildWithDiagnostics(
 	await echoToTerminal("volt build", output.stdout);
 }
 
-/** Synchronously spawn the CLI and capture stdout/stderr. */
-function spawnCapture(
+/**
+ * Synchronously spawn the CLI and capture stdout/stderr. Exported so
+ * the SCM provider can reuse it — same shell-out shape across the
+ * extension keeps behavior consistent.
+ */
+export function spawnCapture(
 	cmd: string,
 	args: string[],
 	cwd: string,
 ): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve, reject) => {
-		const proc = spawn(cmd, args, { cwd, shell: process.platform === "win32" });
+		const { spawnCmd, spawnArgs } = prepareSpawn(cmd, args);
+		const proc = spawn(spawnCmd, spawnArgs, { cwd, shell: process.platform === "win32" });
 		let stdout = "";
 		let stderr = "";
 		proc.stdout.on("data", (chunk) => { stdout += chunk.toString("utf-8"); });
@@ -188,6 +314,52 @@ function spawnCapture(
 		proc.on("error", (err) => reject(err));
 		proc.on("close", (code) => resolve({ stdout, stderr, code: code ?? 0 }));
 	});
+}
+
+/**
+ * Same as `spawnCapture` but returns stdout as raw Buffer. Used by the
+ * SCM content provider, which feeds bytes into VS Code's `TextDocumentContentProvider`
+ * without forcing a utf-8 decode (preserves files that might be encoded oddly).
+ */
+export function spawnCaptureBuffer(
+	cmd: string,
+	args: string[],
+	cwd: string,
+): Promise<{ stdout: Buffer; stderr: string; code: number }> {
+	return new Promise((resolve, reject) => {
+		const { spawnCmd, spawnArgs } = prepareSpawn(cmd, args);
+		const proc = spawn(spawnCmd, spawnArgs, { cwd, shell: process.platform === "win32" });
+		const chunks: Buffer[] = [];
+		let stderr = "";
+		proc.stdout.on("data", (chunk: Buffer) => { chunks.push(chunk); });
+		proc.stderr.on("data", (chunk) => { stderr += chunk.toString("utf-8"); });
+		proc.on("error", (err) => reject(err));
+		proc.on("close", (code) => resolve({ stdout: Buffer.concat(chunks), stderr, code: code ?? 0 }));
+	});
+}
+
+/**
+ * On Windows, `spawn(..., { shell: true })` routes through cmd.exe,
+ * which JOINS argv with spaces and re-splits — corrupting any
+ * argument containing whitespace (e.g. a workspace path like
+ * `Device/Plc Logic/Application/FB_X.st`). Node does NOT quote args
+ * for you; that's the caller's responsibility under `shell: true`.
+ *
+ * Fix: when shell mode is on, wrap each whitespace-containing arg
+ * in double quotes. When shell is off (non-Windows), pass args
+ * through verbatim — argv arrays are passed cleanly to the child.
+ */
+function prepareSpawn(
+	cmd: string,
+	args: string[],
+): { spawnCmd: string; spawnArgs: string[] } {
+	if (process.platform !== "win32") {
+		return { spawnCmd: cmd, spawnArgs: args };
+	}
+	return {
+		spawnCmd: quoteArg(cmd),
+		spawnArgs: args.map(quoteArg),
+	};
 }
 
 /** Print the JSON output in the Volt terminal for transparency. */
@@ -325,7 +497,7 @@ function workspaceCwd(): string | undefined {
  * User can override via the `volt.cli.path` setting for non-standard
  * installs.
  */
-function cliBin(): string {
+export function cliBin(): string {
 	const override = vscode.workspace
 		.getConfiguration("volt.cli")
 		.get<string>("path", "")

@@ -52,36 +52,47 @@ def _derive_platform_variant(ide_name):
 def handle(connection, bridge_version):
 	# type: (object, str) -> dict
 	"""Build a HealthResponse dict. Safe to call from the HTTP thread
-	directly — the inner project-name access is the only UI-touching
-	bit and degrades silently when the UI is unavailable."""
-	# Try to read project info via UI; if UI is unavailable, mark as
-	# degraded but still return /health (the whole point of /health is
-	# that it works even when the bridge is in trouble).
+	directly — UI work is invoked through ui_thread.invoke_on_ui and
+	degrades silently when the UI is unavailable.
+
+	`connected` / `ideAlive` reflect the SAME active probe the request
+	gate uses (`probe_ide_alive`), not the import-time scriptengine
+	flag. That way `/health` and the gate agree: if /health says
+	connected=true, /refs will let you through; if false, both fail
+	for the same reason."""
 	project_name = None
 	plc_project_name = None
+	project_dirty = None
+	ide_alive = False
 	if connection.is_connected:
 		try:
-			project_name = ui_thread.invoke_on_ui(connection.get_project_name)
-			plc_project_name = project_name
-			connection.clear_degraded()
+			# Active probe — same one the request gate uses. If a project
+			# is loaded, this is also the cheapest moment to grab its
+			# name for the response payload (one UI roundtrip).
+			ide_alive = ui_thread.invoke_on_ui(connection.probe_ide_alive)
+			if ide_alive:
+				project_name = ui_thread.invoke_on_ui(connection.get_project_name)
+				plc_project_name = project_name
+				project_dirty = ui_thread.invoke_on_ui(connection.get_project_dirty)
+				connection.clear_degraded()
 		except ui_thread.UiThreadUnavailable as e:
 			connection.mark_degraded(str(e))
 		except Exception as e:
 			connection.mark_degraded("project read failed: {0}".format(e))
 
-	if not connection.is_connected:
+	if not connection.is_connected or not ide_alive:
 		status = "unavailable"
 	elif connection.is_degraded:
 		status = "degraded"
 	else:
 		status = "healthy"
 
-	return {
+	response = {
 		"status": status,
 		"platform": "codesys",
 		"platformVariant": _derive_platform_variant(connection.ide_name),
-		"connected": bool(connection.is_connected),
-		"ideAlive": bool(connection.is_connected),
+		"connected": bool(ide_alive),
+		"ideAlive": bool(ide_alive),
 		"degraded": bool(connection.is_degraded),
 		"degradedReason": connection.degraded_reason,
 		"ideName": connection.ide_name,
@@ -89,5 +100,11 @@ def handle(connection, bridge_version):
 		"version": bridge_version,
 		"projectName": project_name,
 		"plcProjectName": plc_project_name,
-		"projectDirty": False,
 	}
+	# `projectDirty` only included when the SP actually exposes it.
+	# The agent's schema marks it `.optional()`, so absence is the
+	# correct "unknown" signal — preferable to a faked false that a
+	# downstream consumer might trust as "engineer has saved everything".
+	if project_dirty is not None:
+		response["projectDirty"] = bool(project_dirty)
+	return response

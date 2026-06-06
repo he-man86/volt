@@ -1,0 +1,49 @@
+FUNCTION_BLOCK POU_ld
+VAR_INPUT
+	start: BOOL;
+	stop: BOOL;
+END_VAR
+VAR_OUTPUT
+	running: BOOL;
+END_VAR
+
+<body xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <LD>
+    <leftPowerRail localId="10000000001">
+      <position x="0" y="0" />
+      <connectionPointOut />
+    </leftPowerRail>
+    <contact localId="10000000002">
+      <position x="0" y="0" />
+      <connectionPointIn>
+        <connection refLocalId="10000000001" />
+      </connectionPointIn>
+      <connectionPointOut />
+      <variable>start</variable>
+    </contact>
+    <contact localId="10000000003" negated="true">
+      <position x="0" y="0" />
+      <connectionPointIn>
+        <connection refLocalId="10000000002" />
+      </connectionPointIn>
+      <connectionPointOut />
+      <variable>stop</variable>
+    </contact>
+    <coil localId="10000000004">
+      <position x="0" y="0" />
+      <connectionPointIn>
+        <connection refLocalId="10000000003" />
+      </connectionPointIn>
+      <connectionPointOut />
+      <variable>running</variable>
+    </coil>
+    <rightPowerRail localId="10000000005">
+      <position x="0" y="0" />
+      <connectionPointIn>
+        <connection refLocalId="10000000004" />
+      </connectionPointIn>
+    </rightPowerRail>
+  </LD>
+</body>
+
+END_FUNCTION_BLOCK

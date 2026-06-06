@@ -32,6 +32,8 @@ import {
 	TransportKind,
 } from "vscode-languageclient/node";
 import { registerCli } from "./cli.js";
+import { registerMergeEditor } from "./scm-merge-editor.js";
+import { registerScm } from "./scm.js";
 
 interface PlcLanguage {
 	languageId: string;
@@ -66,20 +68,32 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 		configKey: "volt.structuredText.lspServer",
 		settingsRoot: "volt.structuredText",
 		referencePath: "docs/codesys-reference/00-index.md",
-		// volt-lsp-st handles every POU language: ST/IL via parsed
-		// source, FBD/LD/SFC/CFC via the text declaration on top of
-		// the marker block (body XML is opaque to the LSP). Single
-		// LSP client serves all.
+		// volt-lsp-st handles every POU language Volt analyzes
+		// today: ST/IL via parsed source, FBD/LD via the text
+		// declaration on top of the marker block (body XML
+		// parsed by the graphical body parser). SFC and CFC
+		// files still live in workspaces (pulled by the agent)
+		// but the LSP doesn't analyze them — VS Code opens
+		// them as plaintext.
+		//
+		// Deliberately NOT in this list (byte-shuttle only — agent
+		// syncs them with the bridge, VS Code shows them with their
+		// per-extension icon, no LSP analysis): plc-visualization,
+		// plc-recipes, plc-task, plc-library, plc-textlist,
+		// plc-imagepool, plc-device, plc-trace, plc-cam, plc-alarm,
+		// plc-uml, plc-tmc. These are XML / binary config formats
+		// without ST-grammar declarations on top, so the LSP has
+		// nothing to parse. Don't add them here without first
+		// writing a dedicated parser + diagnostics — routing them
+		// through volt-lsp-st today would just produce noise.
 		additionalLanguageIds: [
 			"plc-interface",
 			"plc-gvl",
 			"plc-dut",
 			"plc-fbd",
 			"plc-ld",
-			"plc-sfc",
-			"plc-cfc",
 		],
-		fileWatcherGlob: "**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc}",
+		fileWatcherGlob: "**/*.{st,gvl,dut,itf,fbd,ld}",
 	},
 ];
 
@@ -95,6 +109,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	registerCommands(context);
 	registerCli(context);
 	registerConfigXmlFormatter(context);
+	registerScm(context);
+	registerMergeEditor(context);
 	for (const lang of PLC_LANGUAGES) {
 		await startLanguageClient(context, lang);
 	}
@@ -209,7 +225,7 @@ async function startLanguageClient(
 	context: vscode.ExtensionContext,
 	lang: PlcLanguage,
 ): Promise<void> {
-	const serverModule = resolveServerModule(lang);
+	const serverModule = resolveServerModule(lang, context);
 	const statusItem = vscode.window.createStatusBarItem(
 		vscode.StatusBarAlignment.Right,
 		100,
@@ -403,17 +419,35 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
 // ─── Server module resolution ────────────────────────────────────────
 
-function resolveServerModule(lang: PlcLanguage): string | undefined {
+function resolveServerModule(
+	lang: PlcLanguage,
+	context: vscode.ExtensionContext,
+): string | undefined {
 	const cfg = vscode.workspace.getConfiguration();
 	const override = cfg.get<string>(lang.configKey, "").trim();
 	if (override.length > 0 && existsSync(override)) return override;
 
+	// 1. Bundled-with-extension LSP server. The extension's build
+	//    script bundles the LSP into `dist/lsp-server.js` so a
+	//    user-installed extension is self-contained — no separate
+	//    `npm install @opencode-ai/volt-lsp` step required.
+	//
+	// Use `context.extensionPath` (VS Code's authoritative install
+	// dir) — NOT `__filename`. bun's CJS bundler hardcodes __filename
+	// to the build-machine source path, which doesn't exist on the
+	// user's machine and silently breaks resolution.
+	const extDir = join(context.extensionPath, "dist");
+	const bundled = join(extDir, "lsp-server.js");
+	if (existsSync(bundled)) return bundled;
+
+	// 2. node_modules in the workspace folder(s) or alongside the
+	//    extension. Useful for development setups where the LSP is
+	//    being iterated and the dev wants to bypass the bundled copy.
 	const candidates: string[] = [];
 	for (const folder of vscode.workspace.workspaceFolders ?? []) {
 		candidates.push(folder.uri.fsPath);
 	}
-	const extDir = dirname(__filename);
-	candidates.push(extDir);
+	candidates.push(context.extensionPath);
 
 	for (const startDir of candidates) {
 		const hit = findUpward(
@@ -423,6 +457,8 @@ function resolveServerModule(lang: PlcLanguage): string | undefined {
 		if (hit !== undefined) return hit;
 	}
 
+	// 3. Global npm install fallback (last resort — most users won't
+	//    have it set up this way).
 	const globalHit = findGlobalNpmPackage(lang.lspPackage);
 	if (globalHit !== undefined) return globalHit;
 

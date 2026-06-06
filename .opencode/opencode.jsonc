@@ -12,17 +12,6 @@
       "volt push*": "ask",
     },
   },
-  "lsp": {
-    "volt-st": {
-      "enabled": true,
-      // Absolute path via `node` — bun on Windows does not create
-      // node_modules/.bin symlinks for private workspace packages,
-      // so the bare bin name `volt-lsp-st` does not resolve.
-      // Paths are relative to opencode's working directory (repo root).
-      "command": ["node", "packages/volt-lsp-st/dist/bin.js", "--stdio"],
-      "extensions": [".st", ".iecst", ".exp"],
-    },
-  },
   "tools": {
     "github-triage": false,
     "github-pr-search": false,

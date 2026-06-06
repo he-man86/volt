@@ -23,14 +23,13 @@ import { fileURLToPath } from "node:url";
 import { BridgeClient } from "../bridge/client.js";
 import { ALL_TESTS } from "@opencode-ai/volt-lsp/conformance";
 import { findExistingFile } from "../cli/_shared.js";
+// Use the registry — single source of truth. Adding a new kind there
+// is automatically reflected here.
+import { pickExtension } from "../engine/extension-registry.js";
 
 const BRIDGE_PORT = Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555", 10);
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = resolve(THIS_DIR, "bin.js");
-
-const KIND_EXT: Record<string, string> = {
-	function_block: "st", function: "st", program: "st", gvl: "gvl", structure: "dut", interface: "itf",
-};
 
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
@@ -59,7 +58,7 @@ async function main(): Promise<void> {
 
 	// Write each test source.
 	for (const t of tests) {
-		const ext = KIND_EXT[t.kind]!;
+		const ext = pickExtension(t.kind);
 		writeFileSync(join(ws, `${t.pouName}.${ext}`), t.source, "utf-8");
 	}
 

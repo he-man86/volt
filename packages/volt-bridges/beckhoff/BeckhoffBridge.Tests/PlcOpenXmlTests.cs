@@ -130,4 +130,75 @@ public class PlcOpenXmlTests
 		const string notABody = @"<FBD xmlns=""http://www.plcopen.org/xml/tc6_0200""><inVariable localId=""1"" /></FBD>";
 		Assert.Null(PlcOpenXml.ReplaceBodyInPou(TemplateFbdPou, "MyFB", notABody));
 	}
+
+	// ─── DetectBodyLanguage ───────────────────────────────────────────
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_FBD_For_Fbd_Body()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><FBD><inVariable localId=""1""/></FBD></body>";
+		Assert.Equal("FBD", PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_LD_For_Ld_Body()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><LD><leftPowerRail localId=""1""/></LD></body>";
+		Assert.Equal("LD", PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_SFC_For_Sfc_Body()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><SFC><step name=""S1""/></SFC></body>";
+		Assert.Equal("SFC", PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_CFC_For_Cfc_Body()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><CFC><inVariable localId=""1""/></CFC></body>";
+		Assert.Equal("CFC", PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_ST_For_St_Body()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><ST><xhtml xmlns=""http://www.w3.org/1999/xhtml"">x := 1;</xhtml></ST></body>";
+		Assert.Equal("ST", PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Accepts_Naked_Language_Tag()
+	{
+		// Defensive: caller might pass the inner <FBD>...</FBD> directly.
+		const string naked = @"<FBD><inVariable localId=""1""/></FBD>";
+		Assert.Equal("FBD", PlcOpenXml.DetectBodyLanguage(naked));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_Null_For_Empty_String()
+	{
+		Assert.Null(PlcOpenXml.DetectBodyLanguage(""));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_Null_For_Unrecognized_Tag()
+	{
+		const string body = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""><FOO><inVariable localId=""1""/></FOO></body>";
+		Assert.Null(PlcOpenXml.DetectBodyLanguage(body));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_Null_For_Malformed_Xml()
+	{
+		Assert.Null(PlcOpenXml.DetectBodyLanguage("<body><FBD>"));
+	}
+
+	[Fact]
+	public void DetectBodyLanguage_Returns_Null_For_Empty_Body()
+	{
+		const string emptyBody = @"<body xmlns=""http://www.plcopen.org/xml/tc6_0200""></body>";
+		Assert.Null(PlcOpenXml.DetectBodyLanguage(emptyBody));
+	}
 }

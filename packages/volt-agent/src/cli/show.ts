@@ -45,7 +45,7 @@ import {
 	resolveRef,
 } from "../engine/git-cmds.js";
 import { peekBridgeItem } from "../engine/ops.js";
-import { nameFromPouPath } from "../engine/pou-files.js";
+import { nameFromPath as nameFromTrackedPath } from "../engine/extension-registry.js";
 import { ensureSnapshotRepo, reportSnapshotHeal } from "../engine/snapshot.js";
 import { flagString, type VerbFn } from "./_shared.js";
 
@@ -99,19 +99,29 @@ export const show: VerbFn = async ({ workspace, bridge, flags }) => {
 		// Pure-read fetch from the live bridge. peekBridgeItem
 		// guarantees no snapshot or workspace mutation — even if the
 		// user clicks the diff view a hundred times, their local copy
-		// is never silently overwritten. The path must be a tracked
-		// POU file path (e.g., "POUs/FB_X.st") so we can recover the
-		// item name the bridge keys by.
-		const name = nameFromPouPath(pathArg);
+		// is never silently overwritten. The path must be any tracked
+		// workspace path — POU source (`.st`/`.fbd`/`.ld`/...) OR a
+		// config item (`.task`/`.xml`/`.visu`/`.tmc`/...).
+		const name = nameFromTrackedPath(pathArg);
 		if (name === undefined) {
 			process.stderr.write(
-				`BRIDGE ref requires a POU file path (e.g., POUs/FB_X.st); got: ${pathArg}\n`,
+				`BRIDGE ref requires a tracked workspace path (any of .st/.fbd/.ld/.xml/.task/.visu/.tmc/...); got: ${pathArg}\n`,
 			);
 			return 1;
 		}
 		try {
-			const { content } = await peekBridgeItem(bridge, name);
-			process.stdout.write(content);
+			const outputs = await peekBridgeItem(bridge, name);
+			// One bridge item can produce multiple files (parent + any
+			// graphical children). Find the one whose path matches what
+			// the user asked for; fall back to the parent (first entry)
+			// when the path-derived name matched the parent itself.
+			const normalized = pathArg.replace(/\\/g, "/");
+			const match = outputs.find((o) => o.path === normalized) ?? outputs[0];
+			if (match === undefined) {
+				process.stderr.write(`bridge produced no content for ${pathArg}\n`);
+				return 2;
+			}
+			process.stdout.write(match.content);
 			return 0;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);

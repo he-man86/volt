@@ -884,6 +884,55 @@ export function materializeGraphicalPouAsST(
 	return spliceTranspiledBody(item.sourceText, transpiled.st, transpiled.tempDeclarations);
 }
 
+/** Shape of a graphical child (FBD/LD/SFC/CFC action/method/transition
+ *  nested in an otherwise-ST parent) needed by the child materializer. */
+export interface MaterializeGraphicalChildInput {
+	name: string;
+	kind: "action" | "method" | "transition";
+	declaration: string;
+	implementationXml: string;
+}
+
+/**
+ * Sibling helper for `materializeGraphicalPouAsST` — same pipeline
+ * (strip vendor markup → transpile → wrap in declaration shell) but
+ * the shell is `ACTION X / <body> / END_ACTION` (or METHOD/TRANSITION
+ * equivalents) instead of a full POU.
+ *
+ * Throws on transpile failure with the same actionable message shape.
+ * Callable for FBD and LD only — CFC and SFC have no transpiler, so
+ * the materializer caller routes those through a different path.
+ */
+export function materializeGraphicalChildAsST(
+	child: MaterializeGraphicalChildInput,
+): string {
+	const cleaned = stripVendorMarkup(child.implementationXml);
+	const transpiled = transpileGraphicalBodyToST(cleaned);
+	if (!transpiled.ok) {
+		throw new Error(
+			`transpile ${child.name} (${child.kind}): ${transpiled.reason} — cannot produce ST. ` +
+				`Either restructure the body in the IDE so it transpiles, or extend ` +
+				`packages/volt-agent/src/engine/transpile-graphical-to-st.ts to handle this pattern.`,
+		);
+	}
+	const endKeyword = `END_${child.kind.toUpperCase()}`;
+	const lines: string[] = [];
+	// Declaration. ACTIONs and TRANSITIONs are impl-only — the bridge
+	// already synthesizes `ACTION <name>` when textual decl is empty;
+	// methods carry their real `METHOD <name> ...` signature.
+	lines.push(child.declaration.trimEnd());
+	if (transpiled.tempDeclarations.length > 0) {
+		lines.push("VAR_TEMP");
+		for (const decl of transpiled.tempDeclarations) lines.push(`\t${decl}`);
+		lines.push("END_VAR");
+	}
+	if (transpiled.st.length > 0) {
+		lines.push(transpiled.st.trimEnd());
+	}
+	lines.push(endKeyword);
+	return lines.join("\n") + "\n";
+}
+
 /**
  * Insert transpiled ST + optional VAR_TEMP into the declaration shell.
  * Declaration shell looks like:

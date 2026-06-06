@@ -95,10 +95,11 @@ LSP control:
 
 CLI shortcuts (all run in the integrated terminal named "Volt"):
 - `Volt: Status` — `volt status` (read-only drift check)
-- `Volt: Pull (bridge → workspace)` — `volt pull`
-- `Volt: Push (workspace → bridge)` — quick-pick between normal and `--force`; force-push opens a modal confirmation
+- `Volt: Pull (bridge → workspace)` — `volt pull`. Output is captured and surfaced as a toast with the per-kind breakdown so you see what synced.
+- `Volt: Push (workspace → bridge)` — quick-pick between normal and `--force`; force-push opens a modal confirmation. Push refusal (drift, access policy) shows a warning toast with a "Show Volt SCM log" action.
 - `Volt: Build (writes diagnostics to Problems panel)` — runs `volt build`, parses JSON output, populates VS Code's Problems panel + maps errors to `.st` files inline
 - `Volt: Init Workspace` — `volt init`
+- `Volt: Configure Extension Access` — opens `.volt/config.json` at the `extensionAccess` key. Per-extension `r` / `rw` / `off` modes override the registry defaults (e.g. flip `.library` to `"off"` to skip pulling library refs, flip `.fbd` to `"rw"` to allow pushing graphical bodies back).
 
 ## Status bar
 

@@ -39,7 +39,7 @@ import {
 	writeMergeFile,
 } from "./git-cmds.js";
 import { syncFromBridge } from "./ops.js";
-import { isTrackedPath } from "./pou-files.js";
+import { isTrackedPath } from "./extension-registry.js";
 import {
 	buildWorkspaceTreeSha,
 	listWorkspaceFiles,
@@ -171,7 +171,7 @@ export async function planMerge(
 	// commit and then roll the ref + state back so HEAD still points at
 	// the pre-merge base. The blobs / tree / commit objects remain — git
 	// has no garbage collection between calls.
-	const theirsCommitSha = await syncFromBridge(snapshotPath, bridge);
+	const { commitSha: theirsCommitSha } = await syncFromBridge(snapshotPath, bridge);
 	const theirsState = loadState(snapshotPath);
 	if (theirsState === undefined) {
 		throw new Error("internal: syncFromBridge produced no state");

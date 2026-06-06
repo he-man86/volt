@@ -15,6 +15,7 @@ import type {
 	FetchRequest,
 	FetchResponse,
 	FetchedItem,
+	GraphicalChild,
 	HealthResponse,
 	ImplementationLanguage,
 	PushConflict,
@@ -26,19 +27,23 @@ import type {
 import type { Remote } from "./remote.js";
 
 /**
- * Test-fixture shape — the same fields a real bridge would return for
- * a fetched item, but `kind` and `language` are optional so fixtures
- * can omit them (TestBridge infers kind from the declaration line).
+ * Test-fixture shape — same fields a real bridge would return for a
+ * fetched item. `kind` is required: fixtures must declare the bridge
+ * kind explicitly (previously inferred via regex on sourceText, which
+ * duplicated bridge logic and silently broke when new kinds landed).
  */
 export interface TestBridgeItem {
 	name: string;
+	kind: string;
 	folder?: string;
-	kind?: string;
 	language?: ImplementationLanguage;
 	sourceText: string;
 	/** PLCopen TC6 `<body>` XML for graphical POUs. Drives the
 	 *  transpiler path in `materializeItem`. */
 	implementationXml?: string;
+	/** Non-textual children (FBD/LD/SFC/CFC actions/methods nested
+	 *  inside an ST parent) — surfaced as separate read-only files. */
+	graphicalChildren?: GraphicalChild[];
 }
 
 export interface TestBridgeOptions {
@@ -56,6 +61,7 @@ interface StoredItem {
 	language?: ImplementationLanguage;
 	sourceText: string;
 	implementationXml?: string;
+	graphicalChildren?: GraphicalChild[];
 }
 
 export class TestBridge implements Remote {
@@ -126,6 +132,9 @@ export class TestBridge implements Remote {
 				if (item.folder !== undefined) fetched.folder = item.folder;
 				if (item.language !== undefined) fetched.language = item.language;
 				if (item.implementationXml !== undefined) fetched.implementationXml = item.implementationXml;
+				if (item.graphicalChildren !== undefined && item.graphicalChildren.length > 0) {
+					fetched.graphicalChildren = item.graphicalChildren;
+				}
 				changed.push(fetched);
 			}
 		}
@@ -258,7 +267,13 @@ export class TestBridge implements Remote {
 	private applyOp(op: PushOp): void {
 		switch (op.op) {
 			case "pushItem": {
-				const kind = inferKindFromSource(op.sourceText) ?? "function_block";
+				// Keep the existing kind on update; default to
+				// `function_block` for fresh creates (push only sends
+				// source POUs, so FB is a safe baseline — scenarios
+				// that need a different kind for a fresh-created item
+				// can mutate `items` directly).
+				const prior = this.items.get(op.name);
+				const kind = prior?.kind ?? "function_block";
 				const stored: StoredItem = {
 					name: op.name,
 					kind,
@@ -299,41 +314,24 @@ export class TestBridge implements Remote {
 // ─── Fixture normalization ─────────────────────────────────────────────
 
 function normalizeFixture(item: TestBridgeItem): StoredItem {
-	const kind = item.kind ?? inferKindFromSource(item.sourceText);
-	if (kind === undefined) {
+	if (item.kind === undefined) {
 		throw new Error(
-			`TestBridge fixture "${item.name}": cannot infer kind from sourceText; ` +
-				`set fixture's "kind" field explicitly.`,
+			`TestBridge fixture "${item.name}": missing required \`kind\` field. ` +
+				`Declare the bridge kind explicitly; the test bridge no longer infers from sourceText.`,
 		);
 	}
 	const stored: StoredItem = {
 		name: item.name,
-		kind,
+		kind: item.kind,
 		sourceText: item.sourceText,
 	};
 	if (item.folder !== undefined) stored.folder = item.folder;
 	if (item.language !== undefined) stored.language = item.language;
 	if (item.implementationXml !== undefined) stored.implementationXml = item.implementationXml;
+	if (item.graphicalChildren !== undefined && item.graphicalChildren.length > 0) {
+		stored.graphicalChildren = item.graphicalChildren;
+	}
 	return stored;
-}
-
-function inferKindFromSource(src: string): string | undefined {
-	// Strip comments / attributes / leading whitespace before matching.
-	const stripped = src
-		.replace(/\(\*[\s\S]*?\*\)/g, "")
-		.replace(/\/\/[^\n]*/g, "")
-		.replace(/\{[^}]*\}/g, "")
-		.trim();
-	if (/^FUNCTION_BLOCK\b/i.test(stripped)) return "function_block";
-	if (/^FUNCTION\b/i.test(stripped)) return "function";
-	if (/^PROGRAM\b/i.test(stripped)) return "program";
-	if (/^INTERFACE\b/i.test(stripped)) return "interface";
-	if (/\bVAR_GLOBAL\b/i.test(stripped) || /\bVAR_CONFIG\b/i.test(stripped)) return "gvl";
-	if (/^TYPE\b[\s\S]*?:\s*STRUCT\b/i.test(stripped)) return "structure";
-	if (/^TYPE\b[\s\S]*?:\s*\(/i.test(stripped)) return "enumeration";
-	if (/^TYPE\b[\s\S]*?:\s*UNION\b/i.test(stripped)) return "union";
-	if (/^TYPE\b/i.test(stripped)) return "alias";
-	return undefined;
 }
 
 // ─── Hashing ───────────────────────────────────────────────────────────
@@ -345,6 +343,11 @@ function hashItem(item: StoredItem): string {
 	// content-fingerprint convention.
 	h.update(`s=${item.sourceText}\0`);
 	h.update(`f=${item.folder ?? ""}\0`);
+	if (item.graphicalChildren !== undefined) {
+		for (const child of item.graphicalChildren) {
+			h.update(`gc=${child.name}|${child.kind}|${child.language}|${child.declaration}|${child.implementationXml}\0`);
+		}
+	}
 	return h.digest("hex").slice(0, 16);
 }
 

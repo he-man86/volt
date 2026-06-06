@@ -1,6 +1,6 @@
 """
-GET /refs — project + per-item content versions. Cheap (no source
-payload). Wire equivalent of `git ls-remote`.
+GET /refs — project + per-item content versions. Wire equivalent of
+`git ls-remote`.
 
 Wire shape mirrors RefsResponse in
 `packages/volt-agent/src/bridge/types.ts`:
@@ -10,6 +10,16 @@ Wire shape mirrors RefsResponse in
     items: { name → version },
     kinds: { name → vendor-neutral-kind }
   }
+
+Per-item version is a real CONTENT hash:
+  * source items  → SHA1(decl + impl + children)         (cheap)
+  * non-source    → SHA1(item.export_native output)      (1-2s/item)
+  * folders       → constant marker "folder"             (no content)
+
+The non-source path was previously "use the kind string" (= constant
+"task"/"cam"/etc.), which made content drift invisible to pull. That
+hid every Project-Settings / Task / Cam edit. See memory
+`feedback_no_fallbacks` and the rationale at the rewrite.
 """
 # pyright: reportMissingImports=false
 from .. import codesys_connection as _conn_mod
@@ -21,28 +31,22 @@ def handle(connection):
 	if not connection.is_connected:
 		raise RuntimeError("CODESYS Scripting Engine not available")
 
+	# Imported lazily — the single-file bundle loads handlers in the
+	# order listed in bundle.MODULES, and `refs` sits before `fetch`.
+	# Top-level `from . import fetch` would fail at bundle boot time;
+	# resolving inside `handle()` lets the module register first.
+	from . import fetch as _fetch_mod
+
 	def _do():
 		versions = {}
 		kinds = {}
-		# iter_all_items returns BOTH source POUs (LSP-analyzable) and
-		# non-source config items (tasks, visualizations, alarm configs,
-		# etc.). Source items get SHA1(decl + impl) — content-drift
-		# sensitive. Config items get a constant version because
-		# CODESYS exposes no cheap content-hash on them (verified via
-		# /debug/probe: only stable IDs like guid/handle/index exist,
-		# no `modified` / `revision` property). Honest representation
-		# is "no per-item version tracking"; structural add / remove /
-		# rename still surface via structureVersion. Must match the
-		# same branching in fetch.py so /refs and /fetch agree.
-		for (name, kind, item, is_source) in connection.iter_all_items():
+		for (name, kind, item, is_source, _folder) in connection.iter_all_items():
 			try:
-				if is_source:
-					versions[name] = _conn_mod.CodesysConnection.compute_item_version(item)
-				else:
-					# Config items and folder markers: opaque. Use
-					# the kind string as the version so it's stable
-					# AND legible ("config" or "folder").
-					versions[name] = kind
+				# Single source of truth for "version of this item".
+				# Lives in fetch.py because /fetch also needs it.
+				versions[name] = _fetch_mod.compute_item_version(
+					item, name, kind, is_source
+				)
 				kinds[name] = kind
 			except Exception:
 				continue

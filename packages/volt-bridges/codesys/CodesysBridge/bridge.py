@@ -115,6 +115,34 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 	def _dispatch(self, method, path, body, query):
 		conn = _connection_singleton
 		try:
+			# All routes EXCEPT /health and /debug/* (introspection) and
+			# /admin/* (management) require a live IDE+project. /health
+			# itself doubles as the "is the bridge up at all?" probe and
+			# must work in the no-project state so the agent can show
+			# "waiting for IDE" instead of bailing out.
+			#
+			# We do NOT just check `conn.is_connected` — that's an
+			# import-time constant (was scriptengine importable?) and
+			# stays true even after the user closes the project. ACTIVELY
+			# probe via the UI thread so /refs, /fetch, /push, /build
+			# never reach the walker on a project-less IDE. Without this
+			# gate the walker silently returns zero items and downstream
+			# misinterprets it as "engineer deleted everything."
+			gated = path in ("/refs", "/fetch", "/push", "/build")
+			if gated:
+				try:
+					ide_alive = ui_thread.invoke_on_ui(conn.probe_ide_alive)
+				except ui_thread.UiThreadUnavailable as e:
+					self._send_error(503, "PLC_UI_UNAVAILABLE", str(e))
+					return None
+				if not ide_alive:
+					self._send_error(
+						503,
+						"PLC_DISCONNECTED",
+						"Bridge is waiting for a CODESYS project. Open one in the IDE.",
+					)
+					return None
+
 			if path == "/health" and method == "GET":
 				return 200, health_handler.handle(conn, BRIDGE_VERSION)
 			if path == "/refs" and method == "GET":
@@ -129,6 +157,7 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 			# surface. Not part of the agent's wire contract (no zod
 			# schema), just for live diagnosis when a handler returns
 			# unexpected emptiness or a feature seems missing.
+			# Tree-walking endpoints — enumerate the whole project tree.
 			if path == "/debug/project" and method == "GET":
 				return 200, debug_handler.handle_project(conn)
 			if path == "/debug/flat" and method == "GET":
@@ -137,8 +166,14 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 				return 200, debug_handler.handle_tree(conn)
 			if path == "/debug/item" and method == "GET":
 				return 200, debug_handler.handle_item(conn, query)
-			if path == "/debug/probe" and method == "GET":
-				return 200, debug_handler.handle_probe(conn, query)
+			# Single unified introspection endpoint — replaces the
+			# ad-hoc probes (properties/library-refs/modification-
+			# signals/native-overloads/extract/probe). See its
+			# docstring for the query-param contract.
+			if path == "/debug/inspect" and method == "GET":
+				return 200, debug_handler.handle_inspect(conn, query)
+			if path == "/debug/try-attrs" and method == "GET":
+				return 200, debug_handler.handle_try_attrs(conn, query)
 			if path == "/debug/build-id" and method == "GET":
 				return 200, {"buildId": BRIDGE_BUILD_ID, "version": BRIDGE_VERSION}
 			if path == "/debug/cross-bundle-state" and method == "GET":
@@ -207,18 +242,45 @@ def _shutdown_server(server, label):
 	2.7's BaseHTTPServer doesn't fully release sockets on its own:
 
 	  1. server.shutdown()      - stops the serve_forever loop
+	                              (with 3s timeout — if the loop is
+	                              wedged on an in-flight request that's
+	                              stuck on the UI thread, force-close
+	                              the socket instead of waiting forever)
 	  2. server.server_close()  - closes server's view of the socket
 	  3. raw socket.close()     - force-close the underlying socket
 	     (netstat-confirmed: step 2 alone leaves the socket in
 	     LISTENING state on Windows, so we belt-and-braces it)
 
+	Without the shutdown timeout, a re-run while the previous bridge
+	was wedged on a long-running probe (e.g. iter(Library Manager)
+	or export_native dialog) would hang here forever — forcing the
+	user to restart CODESYS entirely. The 3-second budget is enough
+	for any clean shutdown; anything beyond that is a wedge we
+	abandon by force-closing the socket.
+
 	All steps swallow exceptions and log per-step so a single failure
 	doesn't block the rest of the teardown.
 	"""
-	try:
-		server.shutdown()
-	except Exception as e:
-		log.warn("[STARTUP] {0} server.shutdown() raised: {1}".format(label, e))
+	import threading as _th
+	done = _th.Event()
+	err = [None]
+	def _try_shutdown():
+		try:
+			server.shutdown()
+		except Exception as e:
+			err[0] = e
+		finally:
+			done.set()
+	t = _th.Thread(target=_try_shutdown, name="volt-shutdown-watchdog")
+	t.daemon = True
+	t.start()
+	if not done.wait(3.0):
+		log.warn(
+			"[STARTUP] {0} server.shutdown() exceeded 3s (likely wedged "
+			"on an in-flight request); force-closing socket".format(label)
+		)
+	elif err[0] is not None:
+		log.warn("[STARTUP] {0} server.shutdown() raised: {1}".format(label, err[0]))
 	try:
 		server.server_close()
 	except Exception as e:

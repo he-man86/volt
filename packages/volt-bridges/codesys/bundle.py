@@ -54,6 +54,10 @@ MODULES = [
 	("CodesysBridge.helpers.st_assembler", "helpers/st_assembler.py"),
 	("CodesysBridge.ui_thread", "ui_thread.py"),
 	("CodesysBridge.codesys_connection", "codesys_connection.py"),
+	# Type-extension registry — loaded BEFORE the handlers that
+	# consume it (fetch, refs, push). Pure-Python module with no
+	# scripting-engine imports of its own; safe to load early.
+	("CodesysBridge.handlers.extensions", "handlers/extensions.py"),
 	("CodesysBridge.handlers.health", "handlers/health.py"),
 	("CodesysBridge.handlers.refs", "handlers/refs.py"),
 	("CodesysBridge.handlers.fetch", "handlers/fetch.py"),

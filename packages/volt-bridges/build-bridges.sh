@@ -118,11 +118,24 @@ build_codesys_bridge() {
 	find "$bridge_src" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	rm -f "$zip_out" "$single_out"
 
-	# 1. Source-tree zip (inspectable).
+	# 1. Source-tree zip (inspectable). Two paths because `zip` isn't
+	# universally on PATH on Windows dev boxes; Python's shutil works
+	# but needs Windows-style paths (otherwise `/c/Users/...` gets
+	# misread as a UNC root and stat fails).
 	if command -v zip >/dev/null 2>&1; then
 		( cd "$SCRIPT_DIR/codesys" && zip -rq "$zip_out" CodesysBridge -x "*.pyc" -x "*__pycache__*" )
 	else
-		python -c "import shutil; shutil.make_archive('${zip_out%.zip}', 'zip', '$SCRIPT_DIR/codesys', 'CodesysBridge')" \
+		# Convert msys/Git-Bash paths (/c/Users/...) to Windows paths
+		# (C:\Users\...) so Python on Windows doesn't choke on them.
+		if command -v cygpath >/dev/null 2>&1; then
+			local win_zip_base win_zip_root
+			win_zip_base=$(cygpath -w "${zip_out%.zip}")
+			win_zip_root=$(cygpath -w "$SCRIPT_DIR/codesys")
+		else
+			local win_zip_base="${zip_out%.zip}"
+			local win_zip_root="$SCRIPT_DIR/codesys"
+		fi
+		python -c "import shutil; shutil.make_archive(r'$win_zip_base', 'zip', r'$win_zip_root', 'CodesysBridge')" \
 			|| { echo "  !! zip failed (no zip + no python)" >&2; FAILED+=("CODESYS Bridge"); echo; return; }
 	fi
 

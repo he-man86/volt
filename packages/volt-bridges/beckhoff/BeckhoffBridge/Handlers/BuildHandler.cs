@@ -57,8 +57,10 @@ internal sealed class BuildHandler
 			// Save all documents before building so in-memory changes flush to
 			// disk before the compiler reads them. Without this, builds can
 			// produce ghost errors / phantom passes against stale source.
-			try { dte.Documents.SaveAll(); }
-			catch (Exception ex) { Log.Warn($"[Build] Documents.SaveAll failed - build may use stale on-disk code: {ex.Message}"); }
+			// Routed through the connection helper so all "write-side
+			// operations need TC to commit before reading state" paths
+			// share one code site (PushHandler also calls it post-apply).
+			_connection.FlushPendingWrites();
 
 			// Clear the Build pane so we only parse output from THIS build.
 			// Without this, the regex picks up stale diagnostics from earlier

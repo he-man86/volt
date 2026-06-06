@@ -64,22 +64,30 @@ internal sealed class CreateHandler
 		var declaration = body["declaration"]?.GetValue<string>();
 		var implementation = body["implementation"]?.GetValue<string>();
 		var folder = body["folder"]?.GetValue<string>();
+		// `bodyLanguage` selects the implementation language TwinCAT
+		// puts the POU into. Default "ST" — the historical case.
+		// For graphical POUs the caller (PushHandler) detects the
+		// language from the body XML root tag and threads it through
+		// so the POU gets created with the right editor.
+		var bodyLanguage = body["bodyLanguage"]?.GetValue<string>() ?? "ST";
 
 		int subType = BlockTypeMapper.PouTypeToSubType(header.Type);
 		var parent = GetParentFolder(folder);
 
-		// Functions need return type; all POUs use "ST" language via string vInfo
-		// "void" means no return type — treat as untyped
+		// Functions need return type. vInfo shape:
+		//   - "ST" / "FBD" / "LD" / etc. (language string) when no return type
+		//   - string[] { language, returnType } when a return type is set
+		// "void" return type means no return type — treat as untyped.
 		var returnType = header.ReturnType;
 		var effectiveReturnType = string.Equals(returnType, "void", StringComparison.OrdinalIgnoreCase) ? null : returnType;
 		object? vInfo = subType == BlockTypeMapper.FunctionSubType && effectiveReturnType != null
-			? (object)new string[] { "ST", effectiveReturnType }
-			: (object)"ST";
+			? (object)new string[] { bodyLanguage, effectiveReturnType }
+			: (object)bodyLanguage;
 
 		dynamic newItem = ComCall.Invoke(
 			"CreateChild(POU)",
 			() => parent.CreateChild(name, subType, "", vInfo),
-			("name", name), ("subType", subType), ("returnType", effectiveReturnType));
+			("name", name), ("subType", subType), ("language", bodyLanguage), ("returnType", effectiveReturnType));
 
 		SetCode(newItem, declaration, implementation);
 

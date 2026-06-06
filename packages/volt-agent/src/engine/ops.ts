@@ -53,17 +53,19 @@ import {
 } from "./git-cmds.js";
 import { listWorkspaceFiles, loadState, saveState, type RepoState } from "./snapshot.js";
 import {
-	CONFIG_EXTENSIONS,
 	FOLDER_MARKER,
-	POU_EXTENSIONS,
-	asPouKind,
+	getByKind,
+	getByPath,
 	gitattributesContent,
-	isConfigKind,
-	isFolderKind,
-	nameFromPouPath,
+	nameFromPath,
 	pickExtension,
-} from "./pou-files.js";
-import { materializeGraphicalPouAsST } from "./transpile-graphical-to-st.js";
+	sourceExtensions,
+} from "./extension-registry.js";
+import { isPullable, type AccessOverrides } from "./access.js";
+import {
+	materializeGraphicalChildAsST,
+	materializeGraphicalPouAsST,
+} from "./transpile-graphical-to-st.js";
 
 // ─── Bridge → workspace materialization ────────────────────────────────
 
@@ -80,29 +82,71 @@ interface SyncOptions {
 	 * the engineer-added items we adopted but never materialized.
 	 */
 	fullRebuild?: boolean;
+
+	/**
+	 * Per-extension access overrides from `.volt/config.json`. Items
+	 * whose extension resolves to `"off"` are KEPT in `state.items`
+	 * (so subsequent /refs doesn't loop refetching them) but their
+	 * content is NOT materialized to disk — the workspace pretends
+	 * the engineer doesn't have them.
+	 */
+	accessOverrides?: AccessOverrides;
+
+	/**
+	 * Optional callback invoked at phase boundaries during the sync:
+	 * `"bridge state queried (NNN items)"`, `"fetching NNN items..."`,
+	 * `"received NNN items, materializing"`. Used by `volt pull` to
+	 * give the user phase-level progress feedback during long syncs
+	 * (large CODESYS projects can spend 10+ seconds in /refs and /fetch
+	 * each, which would otherwise feel like the command is hung).
+	 */
+	onProgress?: (event: string) => void;
+}
+
+/**
+ * Result of a sync. `commitSha` is the new HEAD; `skipped` is the list
+ * of items the bridge sent but we couldn't materialize (unclassifiable
+ * body language, transpile failure, etc.) — exposed so the CLI can
+ * surface them to the user without parsing stderr.
+ */
+export interface SyncResult {
+	commitSha: string;
+	skipped: ReadonlyArray<{ name: string; reason: string }>;
 }
 
 export async function syncFromBridge(
 	repoPath: string,
 	bridge: Remote,
 	opts: SyncOptions = {},
-): Promise<string> {
+): Promise<SyncResult> {
+	const notify = opts.onProgress ?? (() => {});
 	const refs = await bridge.getRefs();
+	notify(`bridge has ${Object.keys(refs.items).length} items @ projectVersion=${refs.projectVersion.slice(0, 12)}`);
 	const state = loadState(repoPath);
 
 	if (!opts.fullRebuild && state !== undefined && state.projectVersion === refs.projectVersion) {
 		const sha = resolveRef(repoPath, "refs/heads/main");
-		if (sha === state.commitSha) return sha;
+		if (sha === state.commitSha) {
+			notify("already up to date, nothing to fetch");
+			return { commitSha: sha, skipped: [] };
+		}
 	}
 
 	const knownItems = opts.fullRebuild ? {} : (state?.items ?? {});
+	notify(`fetching ${opts.fullRebuild ? "all" : "changed"} items from bridge...`);
 	const fetchResp = await bridge.fetchChanges({ knownItems });
+	notify(`received ${fetchResp.changed.length} item(s), materializing`);
 
 	const entries = new Map<string, IndexEntry>();
 	const folders: Record<string, string> = { ...(state?.folders ?? {}) };
 	const items: Record<string, string> = { ...fetchResp.items };
 
 	// Seed with prev tree entries we haven't been told to change.
+	// Each prev entry resolves to its owning top-level item via
+	// `resolveOwnerItem`, which handles BOTH direct paths
+	// (`<folder>/<name>.<ext>`) AND graphical-child sibling paths
+	// (`<folder>/<name>/<child>.<lang_ext>` — basename matches the
+	// child but the OWNER is the parent directory).
 	if (state !== undefined) {
 		const prevTreeEntries = listTree(repoPath, state.commitSha);
 		for (const entry of prevTreeEntries) {
@@ -110,11 +154,10 @@ export async function syncFromBridge(
 				entries.set(entry.path, { path: entry.path, sha: entry.sha, mode: entry.mode });
 				continue;
 			}
-			const name = nameFromPouPath(entry.path);
-			if (name === undefined) continue;
-			if (fetchResp.removed.includes(name)) continue;
-			if (fetchResp.changed.some((c) => c.name === name)) continue;
-			if (!(name in items)) continue;
+			const owner = resolveOwnerItem(entry.path, items);
+			if (owner === undefined) continue;
+			if (fetchResp.removed.includes(owner)) continue;
+			if (fetchResp.changed.some((c) => c.name === owner)) continue;
 			entries.set(entry.path, { path: entry.path, sha: entry.sha, mode: entry.mode });
 		}
 	}
@@ -134,8 +177,22 @@ export async function syncFromBridge(
 	const skipped: Array<{ name: string; reason: string }> = [];
 	for (const item of fetchResp.changed) {
 		try {
-			const { path, content } = materializeItem(item);
-			entries.set(path, { path, sha: writeBlob(repoPath, normalizeLineEndings(content)) });
+			const outputs = materializeItem(item);
+			// Drop the WHOLE item if its primary file isn't pullable
+			// (config-driven `"off"` or untracked extension). The first
+			// output is always the parent file; subsequent outputs are
+			// graphical children — they ride along iff the parent rides.
+			const primaryExt = outputs[0]!.path.slice(outputs[0]!.path.lastIndexOf("."));
+			if (!isPullable(primaryExt, opts.accessOverrides)) {
+				notify(`skipped (access=off): ${item.name}`);
+				continue;
+			}
+			for (const out of outputs) {
+				entries.set(out.path, {
+					path: out.path,
+					sha: writeBlob(repoPath, normalizeLineEndings(out.content)),
+				});
+			}
 			folders[item.name] = item.folder ?? "";
 		} catch (err) {
 			const reason = err instanceof Error ? err.message : String(err);
@@ -178,17 +235,36 @@ export async function syncFromBridge(
 		folders,
 	});
 
-	return commitSha;
+	return { commitSha, skipped };
+}
+
+/** One file the materializer wants written: workspace-relative path
+ *  + the bytes. A single bridge item can produce multiple outputs
+ *  when it has graphical children (parent `.st` + one `.fbd` per
+ *  non-textual action/method). */
+export interface MaterializedFile {
+	path: string;
+	content: string;
 }
 
 /**
- * Materialize a bridge item into a single workspace file (path + content).
+ * Materialize a bridge item into one-or-more workspace files.
  *
- * Wire-shape v2: the bridge already assembled the file on its side
- * (POU + children → one `.st` blob), so we just route by extension
- * derived from kind/language and drop the `sourceText` into place.
+ * Wire-shape v2: the bridge already assembled the parent file on its
+ * side (POU + textual children → one `.st` blob). When a parent has
+ * non-textual (FBD/LD/SFC/CFC) children, the bridge surfaces those
+ * separately via `graphicalChildren` and we emit each as a read-only
+ * sibling file under `<parent_name>/<child_name>.<lang_ext>`.
+ *
+ * Throws on:
+ *   - unregistered kind
+ *   - source POU kind with unknown / missing body language
+ *   - transpile failure for graphical POU bodies
+ *
+ * Caller (`syncFromBridge`) catches per item so one bad item doesn't
+ * abort the whole pull.
  */
-function materializeItem(item: FetchedItem): { path: string; content: string } {
+function materializeItem(item: FetchedItem): MaterializedFile[] {
 	if (item.kind === undefined || item.kind === null) {
 		throw new Error(
 			`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it`,
@@ -196,50 +272,179 @@ function materializeItem(item: FetchedItem): { path: string; content: string } {
 	}
 	const folder = item.folder ?? "";
 
-	// Non-source config items (tasks, visualizations, library refs,
-	// alarm configs, device tree, etc.) come through with a config
-	// kind. Their `sourceText` is the raw PLCopenXML / native XML
-	// export from the bridge — write verbatim, no assembly, no
-	// graphical-body splicing.
-	if (isConfigKind(item.kind)) {
-		const ext = pickExtension(item.kind);
-		// Empty ext = item name already has the right extension baked in
-		// (e.g. TwinCAT .tmc files arrive as `Foo.tmc` and we'd produce
-		// the ugly double `Foo.tmc.xml` if we appended). Treat empty ext
-		// as "use item.name verbatim".
-		const fileName = ext === "" ? item.name : `${item.name}.${ext}`;
-		const path = joinPath(folder, fileName);
-		return { path, content: item.sourceText };
+	// Look up the registry entry for this kind. Branch by family —
+	// folder / config / source each have their own materialization
+	// path. Unknown kinds throw loudly (no silent fallback, per
+	// `feedback_no_fallbacks` memory).
+	const def = getByKind(item.kind);
+	if (def === undefined) {
+		throw new Error(
+			`bridge sent unregistered kind "${item.kind}" for "${item.name}" — ` +
+				`add it to engine/extension-registry.ts or drop it at the bridge.`,
+		);
 	}
 
 	// Empty CODESYS folder — materialize as `<folder>/<name>/.gitkeep`
-	// so git preserves the otherwise-empty directory. Non-empty folders
-	// are NOT emitted by the bridge (their dir appears naturally via
-	// children's paths), so we never sprinkle redundant `.gitkeep`
+	// so git preserves the otherwise-empty directory. Non-empty
+	// folders are NOT emitted by the bridge (their dir appears
+	// naturally via children's paths), so we never sprinkle redundant
 	// markers inside populated directories.
-	if (isFolderKind(item.kind)) {
-		const path = joinPath(folder, item.name, FOLDER_MARKER);
-		return { path, content: "" };
+	if (def.family === "folder") {
+		return [{ path: joinPath(folder, item.name, FOLDER_MARKER), content: "" }];
 	}
 
-	const kind = asPouKind(item.kind);
-	if (kind === undefined) {
-		throw new Error(
-			`bridge sent unknown kind "${item.kind}" for "${item.name}" — extend KNOWN_KINDS (POU) or treat as config in pou-files.ts`,
-		);
+	// Config kinds — bridge produces a structured manifest as
+	// sourceText (library refs, tasks, devices, …). Write verbatim
+	// with the per-kind extension. TMC files arrive with the
+	// extension already in the item name (e.g. `Foo.tmc`); the
+	// `nameIsVerbatim` flag tells us to skip the suffix append.
+	if (def.family === "config") {
+		const fileName = def.nameIsVerbatim
+			? item.name
+			: `${item.name}.${pickExtension(item.kind)}`;
+		return [{ path: joinPath(folder, fileName), content: item.sourceText }];
 	}
-	const ext = pickExtension(kind, item.language);
-	const path = joinPath(folder, `${item.name}.${ext}`);
-	// Graphical POUs (FBD/LD): the transpiler module owns the full
-	// pipeline (vendor-markup strip → topology walk → ST splice). On
-	// transpile failure it throws with a user-actionable message that
-	// the pull error path surfaces — no silent best-effort writes.
-	// See memory `st-only-workspace`.
+
+	// Source POU branch. Body language picks the disk extension
+	// (.st / .fbd / .ld / .cfc / .sfc). `pickExtension` throws when
+	// the body language is missing or unrecognized — the bridge is
+	// required to commit to a real language.
+	const ext = pickExtension(item.kind, item.language);
+	const hasGraphicalChildren =
+		item.graphicalChildren !== undefined && item.graphicalChildren.length > 0;
+
+	// Layout: when the POU has graphical children, nest its own .st
+	// inside a directory named after the POU, alongside the sibling
+	// `.fbd`/`.ld`/`.sfc`/`.cfc` child files. Engineers landing on
+	// `<name>/` see everything belonging to that POU at once.
+	//
+	//   POUs/FB_Pump.st                      (no graphical children)
+	//   POUs/FB_Motion/FB_Motion.st          (has graphical children)
+	//   POUs/FB_Motion/Cyclic.fbd            (graphical child of FB_Motion)
+	//
+	// When a graphical child is added (or the last one removed), the
+	// parent's .st moves between these two locations. The pull's
+	// retired-files sweep handles the cleanup naturally — the old
+	// path isn't in the new tree, so it gets removed.
+	const parentDir = hasGraphicalChildren ? joinPath(folder, item.name) : folder;
+	const parentPath = joinPath(parentDir, `${item.name}.${ext}`);
+	const parentContent = renderSourcePou(item);
+	const outputs: MaterializedFile[] = [{ path: parentPath, content: parentContent }];
+
+	if (item.graphicalChildren !== undefined) {
+		for (const child of item.graphicalChildren) {
+			outputs.push(renderGraphicalChild(parentDir, child));
+		}
+	}
+	return outputs;
+}
+
+/**
+ * Render the parent file's bytes. FBD/LD bodies go through the
+ * transpiler that emits ST + splices into the declaration shell.
+ * SFC/CFC have no transpile path — we write `sourceText` (declaration
+ * + empty body shell) and rely on the read-only access mode of
+ * `.sfc` / `.cfc` to prevent round-trip-write attempts. ST POUs are
+ * already complete in `sourceText`.
+ */
+function renderSourcePou(item: FetchedItem): string {
+	const language = item.language;
+	const hasBodyXml = item.implementationXml !== undefined && item.implementationXml !== null;
+	if (hasBodyXml && (language === "FBD" || language === "LD")) {
+		return materializeGraphicalPouAsST(item, item.implementationXml!);
+	}
+	// ST / SFC / CFC — write the bridge's sourceText verbatim. For SFC
+	// and CFC this is the declaration shell with no body content; the
+	// engineer keeps the body in the IDE, Volt only tracks the
+	// declarations and the fact the POU exists.
+	return item.sourceText;
+}
+
+/**
+ * Render one graphical child as a workspace file inside the parent's
+ * namespace directory. Same transpile pipeline as top-level graphical
+ * POUs (`materializeGraphicalPouAsST`) — strip vendor markup,
+ * transpile, splice into the declaration shell — so the engineer sees
+ * the SAME shape they'd see for a top-level FBD POU, just wrapped as
+ * `ACTION X / <ST> / END_ACTION` instead of `FUNCTION_BLOCK X / <ST> /
+ * END_FUNCTION_BLOCK`.
+ *
+ * Language-by-language:
+ *   FBD / LD  → transpiled to ST and wrapped (throws on transpile
+ *                failure; the per-item catch in `syncFromBridge`
+ *                skips the WHOLE parent with a clear reason, matching
+ *                the top-level FBD POU error path)
+ *   SFC / CFC → no transpiler exists; emit declaration + END_<KIND>
+ *                with a note that the body lives in the IDE. Read-only
+ *                via the access registry's per-language `r` mode.
+ */
+function renderGraphicalChild(
+	parentDir: string,
+	child: import("../bridge/types.js").GraphicalChild,
+): MaterializedFile {
+	const path = joinPath(parentDir, `${child.name}.${child.language.toLowerCase()}`);
 	const content =
-		item.implementationXml !== undefined && item.implementationXml !== null
-			? materializeGraphicalPouAsST(item, item.implementationXml)
-			: item.sourceText;
+		child.language === "FBD" || child.language === "LD"
+			? materializeGraphicalChildAsST(child)
+			: renderGraphicalChildShell(child);
 	return { path, content };
+}
+
+/**
+ * Resolve which top-level item a workspace path belongs to.
+ *
+ * Two shapes are valid:
+ *   1. Direct          `<folder>/<name>.<ext>`  → owner = name
+ *   2. Graphical child `<folder>/<owner>/<child>.<lang_ext>` → owner = the
+ *      enclosing directory name (the parent POU). Used when the
+ *      parent has graphical members surfaced as read-only siblings.
+ *
+ * Walks the path bottom-up, first checking the basename stem against
+ * known items (direct path), then climbing the directory chain (sibling
+ * file under a parent's namespace folder). Returns the first dir
+ * segment that matches an item name, or `undefined` if no segment
+ * resolves.
+ *
+ * Folder-marker paths (`<folder>/<name>/.gitkeep`) need special
+ * handling and are routed through `nameFromPath` instead.
+ */
+function resolveOwnerItem(relPath: string, items: Record<string, string>): string | undefined {
+	// Folder-marker paths — delegate to the existing helper that
+	// understands the marker convention.
+	if (relPath.endsWith(`/${FOLDER_MARKER}`) || relPath === FOLDER_MARKER) {
+		const name = nameFromPath(relPath);
+		return name !== undefined && name in items ? name : undefined;
+	}
+	const segments = relPath.split("/");
+	const basename = segments[segments.length - 1]!;
+	const dot = basename.lastIndexOf(".");
+	if (dot > 0) {
+		const stem = basename.slice(0, dot);
+		if (stem in items) return stem;
+	}
+	// Climb the directory chain. For `<folder>/<parent>/<child>.fbd`
+	// the parent directory `<parent>` is the owner when it's in items.
+	for (let i = segments.length - 2; i >= 0; i--) {
+		const seg = segments[i]!;
+		if (seg in items) return seg;
+	}
+	return undefined;
+}
+
+/** SFC/CFC graphical-child fallback shell. No transpiler exists for
+ *  these languages, so we emit the declaration + an honest "body
+ *  lives in IDE" comment + the closing END_<KIND>. Read-only by the
+ *  access registry; engineer edits the IDE for content. */
+function renderGraphicalChildShell(
+	child: import("../bridge/types.js").GraphicalChild,
+): string {
+	const endKeyword = `END_${child.kind.toUpperCase()}`;
+	return [
+		child.declaration.trimEnd(),
+		`(* body authored in IDE — Volt has no ${child.language} transpiler *)`,
+		endKeyword,
+		"",
+	].join("\n");
 }
 
 // ─── Pure-read primitive: peekBridgeItem ──────────────────────────────
@@ -272,7 +477,7 @@ function materializeItem(item: FetchedItem): { path: string; content: string } {
 export async function peekBridgeItem(
 	bridge: Remote,
 	name: string,
-): Promise<{ path: string; content: string }> {
+): Promise<MaterializedFile[]> {
 	// Force a full re-fetch of this single item by passing an empty
 	// version string in `knownItems` — the bridge then includes its
 	// current bytes in the `changed` array unconditionally.
@@ -285,7 +490,8 @@ export async function peekBridgeItem(
 	}
 	// Reuse the same materializer the pull path uses, so the diff
 	// shows EXACTLY what a subsequent `volt pull` would write to
-	// the workspace. The return is `{path, content}` — no writes.
+	// the workspace. A POU with graphical children produces multiple
+	// files; the caller picks the one matching the requested path.
 	return materializeItem(item);
 }
 
@@ -327,24 +533,29 @@ export async function workspaceMatchesBridge(
 	// entirely on a single bad item).
 	const expectedPaths = new Set<string>([".gitattributes"]);
 	for (const item of bridgeItems) {
-		let path: string;
-		let content: string;
+		let outputs: MaterializedFile[];
 		try {
-			({ path, content } = materializeItem(item));
+			outputs = materializeItem(item);
 		} catch {
 			return false;
 		}
-		expectedPaths.add(path);
-		const wsContent = wsByPath.get(path);
-		if (wsContent === undefined) return false;
-		if (normalizeLineEndings(content) !== wsContent) return false;
+		for (const out of outputs) {
+			expectedPaths.add(out.path);
+			const wsContent = wsByPath.get(out.path);
+			if (wsContent === undefined) return false;
+			if (normalizeLineEndings(out.content) !== wsContent) return false;
+		}
 	}
 
 	// Workspace must not have any extra POU files beyond what the
 	// bridge has — anything else is a workspace-side addition that
 	// would mean the workspace is AHEAD of the bridge, not in-sync.
+	// We only consider SOURCE files here because config items
+	// (.library/.task/etc.) are read-only by default — extra ones
+	// can't have been added by the agent, only retired by the bridge.
+	const sourceExts = sourceExtensions();
 	for (const wsPath of wsByPath.keys()) {
-		if (!expectedPaths.has(wsPath) && POU_EXTENSIONS.some((e: string) => wsPath.endsWith(e))) return false;
+		if (!expectedPaths.has(wsPath) && sourceExts.some((e) => wsPath.endsWith(e))) return false;
 	}
 
 	return true;
@@ -389,7 +600,11 @@ export async function applyPushToBridge(
 
 	const newFolders: Record<string, string> = {};
 	for (const entry of newTreeEntries) {
-		const name = nameFromPouPath(entry.path);
+		// Recognize every tracked extension, not just POU sources, so
+		// .library / .device / .task / etc. entries land in
+		// state.folders alongside source items. Otherwise drift
+		// detection would lose track of non-source items on every push.
+		const name = nameFromPath(entry.path);
 		if (name === undefined) continue;
 		const segs = entry.path.split("/");
 		newFolders[name] = segs.slice(0, -1).join("/");
@@ -414,7 +629,13 @@ interface PouFile {
 function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	const out = new Map<string, PouFile>();
 	for (const entry of entries) {
-		const name = nameFromPouPath(entry.path);
+		// Push diff is SOURCE-only — config items (.library/.task/…)
+		// are read-only by default and never sent back to the bridge.
+		// Filter by family rather than by extension so adding a new
+		// source kind doesn't require touching this function.
+		const def = getByPath(entry.path);
+		if (def === undefined || def.family !== "source") continue;
+		const name = nameFromPath(entry.path);
 		if (name === undefined) continue;
 		const segs = entry.path.split("/");
 		const folder = segs.slice(0, -1).join("/");

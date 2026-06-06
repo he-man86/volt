@@ -127,7 +127,7 @@ KIND_UNKNOWN = "unknown"
 # `Beckhoff/Helpers/BlockTypeMapper.cs::ToConfigKind`). Agent uses
 # these strings to pick a dedicated extension (.visu / .recipes /
 # .libraries / .textlist / .task / .imagepool / .device / .trace /
-# .cam / .alarm, etc.); unmapped markers fall back to "config" →
+# .alarm, etc.); unmapped markers fall back to "config" →
 # generic `.xml`.
 #
 # Boundary-aware matching: a positive marker like `ScriptTraceObject,`
@@ -155,10 +155,17 @@ _NONSOURCE_MARKER_KINDS = (
 	("ScriptRecipeManObject,", "recipe_manager"),
 	# Text lists
 	("ScriptTextListObject,", "text_list"),
-	# Trace / Cam / Alarms
+	# Trace / Alarms
 	("ScriptTraceObject,", "trace"),
-	("ScriptCamObject,", "cam"),
 	("ScriptAlarmConfigObject,", "alarm_configuration"),
+	# NOTE: `ScriptCamObject,` is intentionally NOT classified. In CODESYS
+	# 3.5.21+, that marker appears on the marker list of EVERY object
+	# regardless of whether it's an actual Cam Builder cam — it's a
+	# capability/wrapper-interface flag, not a per-object kind. Including
+	# it here mis-classifies anything without an earlier matching marker
+	# (most visibly: "Project Settings", which has no positive kind
+	# markers at all) as `.cam`. If/when we need to detect real cams,
+	# do it via the underlying script-object subtype, not this string.
 )
 
 

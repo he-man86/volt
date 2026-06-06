@@ -8,6 +8,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "../bridge/client.js";
+import type { Remote } from "../bridge/remote.js";
 import { formatVoltError, isDebugMode, isVoltError, VoltError } from "./_error.js";
 
 export type Flags = Record<string, string | boolean>;
@@ -17,8 +18,9 @@ export interface VerbContext {
 	workspace: string;
 	/** Bridge HTTP port. */
 	port: number;
-	/** Bridge client constructed against the resolved port. */
-	bridge: BridgeClient;
+	/** Bridge client (HTTP) in production; the in-memory TestBridge in
+	 *  scenario tests. Typed as the `Remote` interface so both fit. */
+	bridge: Remote;
 	/** All flags as parsed; verbs reach in for verb-specific ones (`--force`, `--full`, …). */
 	flags: Flags;
 }

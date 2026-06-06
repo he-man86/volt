@@ -29,19 +29,38 @@ def handle(connection, body):
 	if not connection.is_connected:
 		raise RuntimeError("CODESYS Scripting Engine not available")
 
+	# Imported lazily — same reason as refs.py: bundle load order places
+	# `push` before `fetch`, so top-level `from . import fetch` would
+	# fail at bundle boot.
+	from . import fetch as _fetch_mod
+
 	ops = body.get("ops") if isinstance(body, dict) else None
 	if not isinstance(ops, list):
 		raise ValueError("Missing 'ops' array")
 	expected_project_version = body.get("expectedProjectVersion")
 
 	# Pre-flight: collect current per-item versions on the UI thread.
+	# IMPORTANT — must mirror `refs.py::_do` exactly: same iteration
+	# (iter_all_items, not iter_top_level), same version shape per kind
+	# (compute_item_version for source items, sha1(export_native) for
+	# non-source items, "folder" for folder markers). The
+	# `projectVersion` hash is computed off this map on both sides; ANY
+	# drift in what we iterate or how we tag an item produces phantom
+	# conflicts where nothing has changed in the IDE.
+	#
+	# Pushable item cache stays SOURCE-ONLY because config / folder
+	# items aren't writable through this handler — adding them to the
+	# cache would only inflate memory.
 	def _build_pre_state():
 		versions = {}
 		item_cache = {}
-		for (name, _kind, item) in connection.iter_top_level():
+		for (name, kind, item, is_source, _folder) in connection.iter_all_items():
 			try:
-				versions[name] = _conn_mod.CodesysConnection.compute_item_version(item)
-				item_cache[name] = item
+				versions[name] = _fetch_mod.compute_item_version(
+					item, name, kind, is_source
+				)
+				if is_source:
+					item_cache[name] = item
 			except Exception:
 				continue
 		return versions, item_cache
@@ -134,11 +153,24 @@ def handle(connection, body):
 			elif op_type == "moveItem":
 				_apply_move_item(connection, op, item_cache)
 
-		# Recompute refs after apply.
+		# Recompute refs after apply. MUST use the same
+		# `fetch.compute_item_version` path /refs and /fetch use —
+		# any divergence here produces phantom drift on the very
+		# next push (because the agent compares versionAfterPush
+		# against the next /refs and refuses if they don't match).
+		# Previously this branch used the kind string as the
+		# "version" for non-source items, which was constant per
+		# kind ("task", "library", ...) and disagreed with the
+		# SHA1-of-manifest hash /refs produces.
+		from . import fetch as _fetch_mod
 		new_versions = {}
-		for (n, _k, it) in connection.iter_top_level():
+		for tup in connection.iter_all_items():
+			# iter_all_items yields (name, kind, item, is_source) on
+			# older bundles and (name, kind, item, is_source, folder)
+			# on newer ones — accept either shape.
+			n, k, it, is_source = tup[0], tup[1], tup[2], tup[3]
 			try:
-				new_versions[n] = _conn_mod.CodesysConnection.compute_item_version(it)
+				new_versions[n] = _fetch_mod.compute_item_version(it, n, k, is_source)
 			except Exception:
 				continue
 		return new_versions
@@ -165,14 +197,23 @@ def _apply_push_item(connection, op, item_cache):
 
 	existing = item_cache.get(name) or connection.find_by_name(name)
 	if existing is None:
-		# CREATE path doesn't yet handle graphical POUs from XML —
-		# create_pou(name, kind, language=FBD) needs a separate probe.
-		# Reject the op explicitly so the caller sees the gap.
+		# CREATE path. For graphical POUs (implementation_xml present),
+		# detect the body language from the XML root tag and pass it to
+		# `create_pou` so CODESYS opens the POU in the right editor.
+		# Then splice the body via import_xml (same path as update).
 		if implementation_xml:
-			raise RuntimeError(
-				"creating new graphical POU '{0}' from PLCopenXML not yet supported — "
-				"create the POU in CODESYS first, then re-pull and edit".format(name))
-		_create_item(connection, name, split, folder)
+			body_language = _detect_body_language(implementation_xml)
+			if body_language is None:
+				raise RuntimeError(
+					"creating graphical POU '{0}' but body XML's root child is not "
+					"a recognized language tag (<FBD>/<LD>/<SFC>/<CFC>)".format(name))
+			_create_item(connection, name, split, folder, language=body_language)
+			created = connection.find_by_name(name)
+			if created is None:
+				raise RuntimeError("created '{0}' but couldn't re-resolve for body import".format(name))
+			_apply_graphical_body(created, name, implementation_xml)
+		else:
+			_create_item(connection, name, split, folder)
 	else:
 		_update_item(connection, name, existing, split, folder, implementation_xml)
 
@@ -220,43 +261,105 @@ def _apply_rename_item(connection, op, item_cache):
 
 def _apply_move_item(connection, op, item_cache):
 	# type: (object, dict, dict) -> None
-	# CODESYS doesn't expose a clean cross-folder move primitive on the
-	# Scripting Engine surface — emulate as delete-and-recreate at the
-	# new folder. Same approach the C# bridge uses (BeckhoffBridge
-	# PushHandler.ApplyMoveItem).
+	"""moveItem — delete the item, recreate at the new folder.
+
+	CODESYS doesn't expose a clean cross-folder move primitive on its
+	Scripting Engine surface (no `item.move_to(parent_folder)` on
+	IScriptObject). The bridge emulates as snapshot + delete +
+	recreate, matching `BeckhoffBridge PushHandler.ApplyMoveItem`.
+
+	Safety: if the item has graphical children (FBD/LD/SFC/CFC
+	actions or methods nested inside an otherwise-ST parent), refuse
+	the move with a clear error — the recreate path can't round-trip
+	graphical bodies. The engineer must move the POU in the IDE.
+	Same rule we enforce on Beckhoff.
+	"""
+	from . import fetch as _fetch_mod
 	name = op["name"]
 	new_folder = op.get("newFolder") or ""
 	item = item_cache.get(name) or connection.find_by_name(name)
 	if item is None:
-		return
-	# Snapshot current state, delete, recreate at new folder.
-	# For now, leaves as a TODO — moveItem isn't on the recorder's hot
-	# path and the agent emits it only for true folder-only changes.
-	# Implement when a real consumer hits this branch.
-	raise NotImplementedError(
-		"moveItem on CODESYS not yet implemented — agent rarely emits this op for the recorder path"
-	)
+		raise RuntimeError("moveItem: item '{0}' not found".format(name))
+
+	# Determine kind via the same iter_all_items path /refs uses. We
+	# need it for the recreate call.
+	kind = None
+	for tup in connection.iter_all_items():
+		if tup[0] == name:
+			kind = tup[1]
+			break
+	if kind is None:
+		raise RuntimeError("moveItem: couldn't classify '{0}' for recreate".format(name))
+
+	# Snapshot via the same builder /fetch uses — gets decl, impl,
+	# children (textual) and graphicalChildren (FBD/LD/SFC/CFC).
+	snapshot = _fetch_mod._build_get_result(name, kind, item)
+
+	# Safety net: graphical children can't round-trip through the
+	# delete-recreate dance because the recreate path has no
+	# implementationXml write hook for nested members. Refuse loudly
+	# so the engineer moves the POU in CODESYS instead.
+	gc = snapshot.get("graphicalChildren") or []
+	if gc:
+		raise RuntimeError(
+			"moveItem refused: '{0}' contains {1} graphical child member(s) "
+			"(FBD/LD/SFC/CFC) which can't be round-tripped through Volt yet. "
+			"Move this POU in the CODESYS IDE instead.".format(name, len(gc)))
+
+	# Build the assembled sourceText so the recreate writes a
+	# byte-equivalent POU at the new folder. Use the same st_assembler
+	# fetch.py uses — keeps move + create + fetch round-trip consistent.
+	from ..helpers import st_assembler as _assembler
+	source_text = _assembler.assemble(snapshot)
+
+	# Top-level body XML (CFC/SFC/FBD/LD parent POUs). Threaded
+	# through the recreate so the new POU comes back graphical.
+	implementation_xml = snapshot.get("implementationXml")
+
+	# Delete the existing item.
+	_apply_delete_item(connection, {"name": name}, item_cache)
+
+	# Recreate at the new folder using the regular push-item path.
+	# Setting `op` to None / not passing ifVersion = treat as create-new.
+	create_op = {
+		"name": name,
+		"folder": new_folder,
+		"sourceText": source_text,
+	}
+	if implementation_xml:
+		create_op["implementationXml"] = implementation_xml
+	_apply_push_item(connection, create_op, item_cache)
 
 
-def _create_item(connection, name, split, folder):
-	# type: (object, str, object, object) -> None
+def _create_item(connection, name, split, folder, language=None):
+	# type: (object, str, object, object, object) -> None
 	app = connection.get_application()
 	if app is None:
 		raise RuntimeError("No CODESYS Application to create '{0}' under".format(name))
 	# Multi-signature fallback per PLCAssist prior-art.
 	# Try create_pou / create_function / create_struct / etc. based on kind.
+	# `language` (when not None) selects FBD / LD / SFC / CFC for the POU's
+	# implementation language. Default None → CODESYS uses ST. Graphical
+	# create path threads the detected body language through here.
 	kind = split.pou_kind
+	lang_kwargs = {"language": language} if language is not None else {}
 	created = None
 	try:
 		if kind == "function_block":
-			created = _try_create(app, "create_pou", name, "FunctionBlock") or \
+			created = _try_create(app, "create_pou", name, "FunctionBlock", **lang_kwargs) or \
+				_try_create(app, "create_function_block", name, **lang_kwargs) or \
+				_try_create(app, "create_pou", name, "FunctionBlock") or \
 				_try_create(app, "create_function_block", name)
 		elif kind == "program":
-			created = _try_create(app, "create_pou", name, "Program") or \
+			created = _try_create(app, "create_pou", name, "Program", **lang_kwargs) or \
+				_try_create(app, "create_program", name, **lang_kwargs) or \
+				_try_create(app, "create_pou", name, "Program") or \
 				_try_create(app, "create_program", name)
 		elif kind == "function":
 			rt = "INT"  # default; can read from split.pou_declaration parse if needed
-			created = _try_create(app, "create_function", name, rt) or \
+			created = _try_create(app, "create_function", name, rt, **lang_kwargs) or \
+				_try_create(app, "create_pou", name, "Function", **lang_kwargs) or \
+				_try_create(app, "create_function", name, rt) or \
 				_try_create(app, "create_pou", name, "Function")
 		elif kind == "interface":
 			created = _try_create(app, "create_interface", name)
@@ -386,18 +489,58 @@ def _apply_property_accessors(property_item, child_snapshot):
 # ─── Tiny helpers ────────────────────────────────────────────────────
 
 
-def _try_create(parent, method_name, *args):
-	# type: (object, str, *object) -> object
-	"""Try calling parent.<method_name>(*args); return None on missing
-	attr or exception. Lets callers chain fallbacks across CODESYS SP
-	signature variants."""
+def _try_create(parent, method_name, *args, **kwargs):
+	# type: (object, str, *object, **object) -> object
+	"""Try calling parent.<method_name>(*args, **kwargs); return None on
+	missing attr or exception. Lets callers chain fallbacks across
+	CODESYS SP signature variants (e.g. some SPs accept a `language`
+	kwarg on create_pou, older ones don't)."""
 	fn = getattr(parent, method_name, None)
 	if fn is None:
 		return None
 	try:
-		return fn(*args)
+		return fn(*args, **kwargs)
 	except Exception:
 		return None
+
+
+def _detect_body_language(body_xml):
+	# type: (str) -> object
+	"""Detect the body language from a PLCopenXML `<body>` fragment by
+	reading the root child element name. Returns "FBD" / "LD" / "SFC" /
+	"CFC" / "ST" / "IL", or None when the body is malformed or carries
+	an unrecognized language tag.
+
+	Mirrors `PlcOpenXml.DetectBodyLanguage` in the Beckhoff bridge —
+	both bridges share the same wire shape, so both detection helpers
+	implement the same algorithm in their respective languages.
+	"""
+	if not body_xml or not body_xml.strip():
+		return None
+	# Minimal XML scan: find the first `<TAG` after `<body`. Avoids
+	# pulling in a full XML library for a one-shot tag check.
+	import re
+	# Strip <body ...> opening tag; find the first non-whitespace element after.
+	body_match = re.search(r"<(?:[A-Za-z_][\w.-]*:)?body\b[^>]*>", body_xml)
+	if body_match is None:
+		# Body wrapper missing — maybe caller passed inner content directly.
+		# Try the first element overall.
+		root_match = re.search(r"<(?:[A-Za-z_][\w.-]*:)?([A-Za-z_]\w*)\b", body_xml)
+		if root_match is None:
+			return None
+		tag = root_match.group(1)
+	else:
+		# Find the FIRST child element after </body's-opening>.
+		after = body_xml[body_match.end():]
+		# Skip whitespace + comments + CDATA.
+		stripped = re.sub(r"\s+", "", after, count=0)
+		# Pull out the first opening tag's local name.
+		child_match = re.search(r"<(?:[A-Za-z_][\w.-]*:)?([A-Za-z_]\w*)\b", after)
+		if child_match is None:
+			return None
+		tag = child_match.group(1)
+	mapping = {"FBD": "FBD", "LD": "LD", "SFC": "SFC", "CFC": "CFC", "ST": "ST", "IL": "IL"}
+	return mapping.get(tag)
 
 
 def _write_text(obj, doc_attr, text):

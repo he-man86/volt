@@ -75,6 +75,11 @@ python test_st_splitter.py
 When a wire-shape change or splitter bug fix lands, the matching file in
 the other bridge is obvious by name. Both implementations stay in sync.
 
+The structural contracts that BOTH bridges hold (single walker, post-push
+fetch invariant, itemCache through apply) live in
+[`../INVARIANTS.md`](../INVARIANTS.md). Read that before adding a new
+handler or porting changes between bridges.
+
 ## Threading model
 
 CODESYS COM is STA — every Scripting API call **must** run on the IDE's

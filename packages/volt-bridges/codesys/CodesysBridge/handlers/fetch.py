@@ -12,9 +12,12 @@ version }.
 Mirrors `packages/volt-bridges/beckhoff/BeckhoffBridge/Handlers/FetchHandler.cs`.
 """
 # pyright: reportMissingImports=false
+import hashlib
+
 from .. import codesys_connection as _conn_mod
 from .. import ui_thread
 from ..helpers import block_type_mapper, log, plcopen_xml, st_assembler
+from . import extensions
 
 
 def handle(connection, body):
@@ -32,19 +35,13 @@ def handle(connection, body):
 	def _do():
 		versions = {}
 		changed = []
-		for (name, kind, item, is_source) in connection.iter_all_items():
+		# iter_all_items emits source POUs + folder markers + every
+		# kind the TypeExtension registry claims. The dispatch below
+		# is registry-driven — adding a new kind is a one-entry edit
+		# in extensions.py, NOT four-place changes across handlers.
+		for (name, kind, item, is_source, folder_override) in connection.iter_all_items():
 			try:
-				if is_source:
-					ver = _conn_mod.CodesysConnection.compute_item_version(item)
-				else:
-					# Config items and folder markers: opaque, no
-					# content drift detection. Constant version
-					# (the kind string itself) makes that explicit.
-					# Structural add / remove / rename still surface
-					# via structureVersion (it hashes the `{name:
-					# version}` dict; adding or removing a name
-					# changes the dict shape regardless of values).
-					ver = kind
+				ver = compute_item_version(item, name, kind, is_source)
 			except Exception:
 				continue
 			versions[name] = ver
@@ -56,11 +53,12 @@ def handle(connection, body):
 				elif kind == "folder":
 					slim = _build_folder_item(name, kind, ver, item)
 				else:
-					slim = _build_config_item(name, kind, ver, item)
-				if slim is None:
-					continue
+					ext = extensions.by_kind(kind)
+					if ext is None:
+						log.warn("[FETCH] unregistered kind {0!r} for {1!r}".format(kind, name))
+						continue
+					slim = _build_extension_item(name, kind, ver, item, folder_override, ext)
 			except Exception as e:
-				# Log loud — silent drops mask real bugs.
 				log.warn("[FETCH] dropped {0!r} (kind={1!r}): {2}".format(name, kind, e))
 				continue
 			changed.append(slim)
@@ -102,53 +100,116 @@ def _build_source_item(name, kind, version, item):
 		slim["language"] = result["language"]
 	if result.get("implementationXml"):
 		slim["implementationXml"] = result["implementationXml"]
+	if result.get("graphicalChildren"):
+		slim["graphicalChildren"] = result["graphicalChildren"]
 	return slim
 
 
-def _export_item_native(item, name):
+def compute_item_version(item, name, kind, is_source):
+	# type: (object, str, str, bool) -> str
+	"""Canonical "what's the version of this item?" — used by /refs,
+	/fetch, and /push. All three MUST agree on the version of every
+	item; any drift produces phantom diffs on the next pull. Routed
+	through this one helper.
+
+	Foundation principle: per-item version = SHA1(everything the
+	materializer needs to render this item). That's content +
+	location (folder) + structure. A MOVE in the IDE produces a
+	folder-path change → version bump → /refs sees the change →
+	agent refetches → materializer writes at the new path →
+	retired-files sweep removes the old path. No /move verb, no
+	parallel folder map on /refs.
+
+	Versions:
+	  * source items   → SHA1(folder + decl + impl + child digests + body XML)
+	                     — computed by `CodesysConnection.compute_item_version`
+	  * folder markers → SHA1("folder:" + folder_path)
+	                     — moving an empty folder bumps the version
+	  * config items   → SHA1("folder=" + folder + manifest)
+	                     — moving a task/library/device etc. bumps the version
+
+	If `kind` isn't recognized, raise — iter_all_items should have
+	filtered it. Silent fallbacks (`return kind` for unknown items)
+	are what produced the cam-mis-classification and projectVersion-
+	drift bugs we fixed earlier.
+	"""
+	if is_source:
+		return _conn_mod.CodesysConnection.compute_item_version(item)
+	folder = _conn_mod.CodesysConnection.folder_path_for(item)
+	if kind == "folder":
+		# Empty-folder markers — the folder path IS the content. Hash
+		# it so a move (rename or reparent) bumps the version.
+		h = hashlib.sha1()
+		h.update(("folder:" + folder).encode("utf-8", errors="replace"))
+		return h.hexdigest()[:16]
+	ext = extensions.by_kind(kind)
+	if ext is None:
+		raise ValueError(
+			"compute_item_version called with unknown kind '{0}' for item "
+			"'{1}' — register a TypeExtension or filter at iter_all_items".format(kind, name)
+		)
+	h = hashlib.sha1()
+	h.update(("folder=" + folder + "\x00").encode("utf-8", errors="replace"))
+	h.update(ext.formatter(item).encode("utf-8", errors="replace"))
+	return h.hexdigest()[:16]
+
+
+# Re-export the formatters at module scope so existing callers (and
+# external tests) keep working without changing imports.
+format_library_ref = extensions.format_library_ref
+format_task = extensions.format_task
+
+
+def export_item_native(item, name):
 	# type: (object, str) -> str
-	"""Get the CODESYS-native XML serialization of a config item.
+	"""Get the CODESYS-native XML serialization of a non-source item.
 
-	CODESYS Scripting API: `project.export_native(path, [items],
-	recursive)` writes the native XML for the listed items into a
-	file. Unlike `item.export_xml()` which returns a string for POU
-	items only, the file-based native export handles every object
-	kind (tasks, alarms, visualizations, etc.) — these aren't
-	PLCopenXML-shaped so the no-args xml export returns a generic
-	empty envelope.
+	CODESYS Scripting API. The full .NET signature (per CLR reflection
+	on `IScriptObject7.export_native`) is:
 
-	Returns empty string on failure (logged). Caller treats this as
-	"opaque blob, write verbatim".
+	    void export_native(
+	        String destination,
+	        Boolean includeChildren,
+	        String profileName,
+	        INativeExportReporter reporter
+	    )
+
+	**Why all four args must be passed explicitly:** if you call
+	`item.export_native(path)` with only the destination, IronPython
+	fills the remaining args with .NET defaults — and the default
+	value for `INativeExportReporter` is CODESYS's INTERACTIVE
+	reporter, which pops a modal dialog the user has to ack per item.
+	Verified via /debug/extract: the one-arg call fires a prompt and
+	takes ~1-10s; the four-arg call with `None` reporter is silent and
+	finishes in ~600 ms.
+
+	`includeChildren=False` is the correct choice: children appear as
+	their OWN entries in the project tree and get their own /fetch
+	calls. Passing True duplicates child content into the parent's
+	export (e.g. Device blows up from 26 KB to 403 KB).
+
+	`profileName=None` selects the default profile.
+	`reporter=None` selects a non-interactive default reporter.
+
+	Result is opaque to the agent — written as `.xml` verbatim, never
+	parsed. Returns empty string on failure.
 	"""
 	import os
 	import tempfile
-	from .. import codesys_connection as _conn
+	# tempfile.mkstemp creates a zero-byte file; delete it so export_native
+	# doesn't see an existing target (some CODESYS SPs prompt on overwrite
+	# even with a non-interactive reporter).
 	fd, path = tempfile.mkstemp(prefix="volt-codesys-export-", suffix=".xml")
 	os.close(fd)
 	try:
-		proj = None
 		try:
-			parent_walker = item
-			for _ in range(30):
-				p = getattr(parent_walker, "parent", None)
-				if p is None:
-					proj = parent_walker
-					break
-				parent_walker = p
+			os.unlink(path)
 		except Exception:
 			pass
-		if proj is None:
-			log.warn("[FETCH] config item '{0}': could not find project root".format(name))
-			return ""
 		try:
-			# (path, items, recursive=True) — exports the item and
-			# any descendants in one shot. Recursive matters for
-			# container items (Alarm Configuration, Visualization
-			# Manager) whose own native data plus children's data
-			# live in the same XML.
-			proj.export_native(path, [item], True)
+			item.export_native(path, False, None, None)
 		except Exception as e:
-			log.warn("[FETCH] config item '{0}': proj.export_native failed: {1}".format(name, e))
+			log.warn("[FETCH] config item '{0}': item.export_native failed: {1}".format(name, e))
 			return ""
 		try:
 			with open(path, "rb") as fh:
@@ -158,7 +219,9 @@ def _export_item_native(item, name):
 			return ""
 		if not raw:
 			return ""
-		for enc in ("utf-8", "utf-16", "cp1252", "latin-1"):
+		# CODESYS writes UTF-8 with a BOM in most cases; fall through
+		# legacy encodings if needed for older SPs.
+		for enc in ("utf-8-sig", "utf-8", "utf-16", "cp1252", "latin-1"):
 			try:
 				return raw.decode(enc)
 			except Exception:
@@ -189,102 +252,68 @@ def _build_folder_item(name, kind, version, item):
 	return slim
 
 
-def _build_config_item(name, kind, version, item):
-	# type: (str, str, str, object) -> object
-	"""Build a FetchedItem dict for a non-source config item (task,
-	visualization, alarm config, library manager, device tree, etc.).
+def _build_extension_item(name, kind, version, item, folder_override, ext):
+	# type: (str, str, str, object, str, object) -> object
+	"""Build a FetchedItem dict from a registered TypeExtension.
 
-	Uses `export_native()` — CODESYS's native-XML export — NOT
-	`export_xml()` (PLCopenXML). Reason: PLCopenXML (IEC 61131-10)
-	only covers POU/DUT/GVL kinds; for CODESYS-specific objects it
-	returns an empty 861-byte envelope `<types><dataTypes/><pous/>
-	</types>` with zero actual data. `export_native()` returns the
-	CODESYS-internal XML that carries the object's real settings
-	(task cycle time, alarm class properties, visualization layout,
-	etc.). Verified empirically: with export_xml the disk file was
-	identical-empty across every config item; with export_native each
-	carries its distinct content.
+	`folder_override` (set by iter_all_items for items emitted via a
+	container's drill function — libraries, tasks) trumps the parent-
+	walk because some typed wrappers (ScriptPlaceholderReference)
+	don't expose `.parent` cleanly. For self-typed items (no drill),
+	folder_override is None and we fall back to the parent walk.
 
-	Agent writes the result as opaque `.xml`. No parsing, no
-	per-kind handling — per "opaque passthrough first" until we
-	decide a specific kind needs structured round-trip."""
-	# NOTE: `item.export_xml()` (no args) returns the PLCopenXML envelope.
-	# For POU-shaped items this carries real data; for tasks /
-	# visualizations / alarms / device-tree etc. it returns a generic
-	# empty wrapper. Switching to `proj.export_native(path, [item])` is
-	# the documented path for non-PLCopenXML objects but hangs on some
-	# CODESYS configurations (modal dialog suspected) — see follow-up.
-	# Keeping the simple call for now so extension work can land; data
-	# completeness is a separate fix.
-	xml = ""
-	try:
-		xml = item.export_xml() or ""
-	except Exception as e:
-		log.warn("[FETCH] config item '{0}' ({1}): export_xml failed: {2}".format(name, kind, e))
-	folder = _folder_path_for(item)
-	# Hybrid mode: if this item has children, nest its own file inside
-	# its folder (component-folder convention). So instead of
-	# `RecipeManager.xml` + `RecipeManager/Recipes.xml` side-by-side
-	# in the parent folder, we get `RecipeManager/RecipeManager.xml` +
-	# `RecipeManager/Recipes.xml` — one tree entry per concept in
-	# VS Code's explorer.
-	try:
-		has_children = False
-		try:
-			for _ in item.get_children(recursive=False):
-				has_children = True
-				break
-		except Exception:
-			pass
-		if has_children:
-			folder = folder + "/" + name if folder else name
-	except Exception:
-		pass
+	Hybrid-folder rule: when a self-typed item has children that will
+	appear under `<folder>/<name>/...`, we nest the item's OWN file
+	inside that folder. Example: `EtherCAT_Master.device` lives at
+	`<...>/EtherCAT_Master/EtherCAT_Master.device` (next to its
+	slaves) instead of dangling beside the folder. Reads naturally
+	in any file tree: the dir IS the container, the file inside IS
+	the container's own settings.
+
+	`sourceText` is the formatter's output — same string compute_item
+	_version hashed, byte-stable across calls. /refs and /fetch
+	therefore agree on what's in this item right now."""
 	slim = {
 		"name": name,
 		"kind": kind,
-		"sourceText": xml,
+		"sourceText": ext.formatter(item),
 		"version": version,
 	}
+	folder = folder_override or _folder_path_for(item)
+	# Drill-emitted items (libraries, tasks) already have the
+	# container folder baked into folder_override, so the file
+	# naturally lives inside it. For self-typed items we detect
+	# children ourselves and nest — unless the extension explicitly
+	# opts out (e.g. visualizations whose internal element-children
+	# we don't emit as separate items).
+	if (folder_override is None
+		and getattr(ext, "nest_children", True)
+		and _has_children(item)):
+		folder = (folder + "/" + name) if folder else name
 	if folder:
 		slim["folder"] = folder
 	return slim
 
 
-def _folder_path_for(item):
-	# type: (object) -> str
-	"""Walk up parents to compute the CODESYS folder path for an
-	item — used for BOTH source POUs and non-source config items so
-	the workspace layout mirrors the IDE tree exactly. Stops at the
-	project root (returns empty string for items at the root).
+def _has_children(item):
+	# type: (object) -> bool
+	"""True iff get_children(recursive=False) yields at least one
+	child. Tolerant of CODESYS wrappers that raise on get_children
+	(e.g. leaf items that aren't containers).
 	"""
-	segments = []
 	try:
-		cursor = getattr(item, "parent", None)
-		# Sanity bound — even deep trees don't reach 30.
-		for _ in range(30):
-			if cursor is None:
-				break
-			try:
-				cname = cursor.get_name() if hasattr(cursor, "get_name") else None
-			except Exception:
-				cname = None
-			if cname in (None, "", "/"):
-				break
-			# Stop at the project node itself (its parent is None).
-			parent_of_cursor = None
-			try:
-				parent_of_cursor = getattr(cursor, "parent", None)
-			except Exception:
-				pass
-			if parent_of_cursor is None:
-				break
-			segments.append(cname)
-			cursor = parent_of_cursor
+		for _ in item.get_children(recursive=False):
+			return True
 	except Exception:
-		return ""
-	segments.reverse()
-	return "/".join(segments)
+		return False
+	return False
+
+
+# Folder-path resolution moved to `CodesysConnection.folder_path_for`
+# so `compute_item_version` (in the connection module) can include the
+# folder in its hash. This module-level alias keeps existing call
+# sites (`_build_source_item` etc.) working without a refactor.
+_folder_path_for = _conn_mod.CodesysConnection.folder_path_for
 
 
 def _build_get_result(name, kind, item):
@@ -298,7 +327,29 @@ def _build_get_result(name, kind, item):
 	PLCopenXML — we surface it on the side as `implementationXml`.
 	"""
 	cls = plcopen_xml.classify(item)
-	language = cls.get("language") or "ST"
+	# `language` only applies to POU kinds (function_block / function /
+	# program). Declaration-only kinds — GVL, INTERFACE, STRUCTURE,
+	# UNION, ENUMERATION, ALIAS — have NO body and therefore NO body
+	# language by design. The wire schema makes `language` optional;
+	# omitting it for declaration-only kinds is the truthful signal.
+	#
+	# For POU kinds: when classify() can't determine the body language
+	# (export_xml failed, body element absent, unknown shape), emit
+	# language="UNKNOWN" — no silent ST fallback. The agent treats
+	# UNKNOWN as skip-with-warn so one weird POU doesn't poison the
+	# whole sync.
+	is_pou_kind = kind in ("function_block", "function", "program")
+	classified_language = cls.get("language")
+	language = None
+	if is_pou_kind:
+		language = classified_language
+		if language is None:
+			log.warn(
+				"[fetch] {0} ({1}): plcopen_xml.classify returned no language "
+				"— emitting language=UNKNOWN. Re-export the POU in the IDE if "
+				"it should be ST/FBD/LD/SFC/CFC.".format(name, kind)
+			)
+			language = "UNKNOWN"
 	is_textual = cls.get("is_textual", True)
 	result = {
 		"name": name,
@@ -307,38 +358,51 @@ def _build_get_result(name, kind, item):
 		"implementation": _safe_text(getattr(item, "textual_implementation", None)) if is_textual else "",
 		"children": [],
 		"folder": None,
-		"language": language,
 	}
+	if language is not None:
+		result["language"] = language
 	# Graphical POUs: their implementation isn't ST — surface the raw
 	# PLCopenXML <body> so the agent can either round-trip it or treat
 	# the POU as read-only. Wire consumers that don't recognize the
-	# field will simply ignore it (strict zod on FetchedItem will need
-	# the optional field added before this surfaces to the SaaS, but
-	# the bridge emits it so /debug/fetch already sees it).
+	# field will simply ignore it.
 	if not is_textual:
 		body_xml = plcopen_xml.extract_graphical_body(item)
 		if body_xml:
 			result["implementationXml"] = body_xml
-	# Composite POU children. Use recursive=True so we flatten through
-	# any `folder` container the user has created INSIDE the POU
-	# (CODESYS lets you organize methods/actions under a folder inside
-	# the POU's namespace). The folder itself has no textual marker
-	# so is filtered by is_textual_item; Set/Get accessors get
-	# KIND_UNKNOWN classification and are skipped here — they ride via
-	# _collect_property_accessors when we process their parent Prop.
+	# Composite POU children. Two routes, picked per child by the
+	# documented CODESYS Scripting marker (`ScriptTextualX...`
+	# variants) — see helpers/block_type_mapper.py for the marker
+	# catalog and the CODESYS Scripting API docs at
+	# helpme-codesys.com/en/CODESYS Scripting/.
+	#
+	# Textual child (Script*TextualDeclarationObject /
+	# *TextualImplementationObject / decl+impl variant):
+	#   The scripting API exposes `textual_declaration.text` and
+	#   `textual_implementation.text` directly. Fold into the parent's
+	#   assembled sourceText as today.
+	#
+	# Non-textual child (ScriptNonTextualObject):
+	#   The body lives in PLCopenXML. CODESYS stores each graphical
+	#   member as an external file object; calling
+	#   `child.export_xml()` returns the parent POU document with this
+	#   child as a nested `<action>` / `<method>` / `<transition>`
+	#   element whose own `<body>`'s first child tag is the body
+	#   language (FBD/LD/SFC/CFC/ST/IL). We use that as the canonical
+	#   source — no marker-substring guessing about container vs leaf.
+	#   If `extract_self_member_body` returns None the child is a
+	#   container (no body of its own); the recursive walk already
+	#   yields its leaves separately, so we skip.
+	#
+	# Containers (folders / IEC member containers) appear in the
+	# recursive enumeration but have no body — `extract_self_member_body`
+	# returns None for them and the fall-through `continue` skips.
 	if kind in ("function_block", "function", "program", "interface"):
+		graphical_children = []
 		try:
 			for child in item.get_children(recursive=True):
 				try:
 					marker = str(child)
 				except Exception:
-					continue
-				if not block_type_mapper.is_textual_item(marker):
-					continue
-				cdecl = _safe_text(getattr(child, "textual_declaration", None))
-				cimpl = _safe_text(getattr(child, "textual_implementation", None))
-				child_kind = _classify_child(cdecl, marker)
-				if child_kind == block_type_mapper.KIND_UNKNOWN:
 					continue
 				try:
 					cname = child.get_name() if hasattr(child, "get_name") else ""
@@ -346,25 +410,77 @@ def _build_get_result(name, kind, item):
 					cname = ""
 				if not cname:
 					continue
-				# CODESYS ACTIONs (and TRANSITIONs) are impl-only — they
-				# have no textual_declaration document. The assembler
-				# needs `ACTION <name>` as the declaration line so it
-				# can emit `ACTION X / <impl> / END_ACTION`. Synthesize.
-				if child_kind == block_type_mapper.KIND_ACTION and not cdecl.strip():
-					cdecl = "ACTION {0}".format(cname)
-				child_entry = {
-					"kind": child_kind,
+				cdecl = _safe_text(getattr(child, "textual_declaration", None))
+				cimpl = _safe_text(getattr(child, "textual_implementation", None))
+
+				# Textual route — fastest, no XML parse needed. Uses the
+				# scripting API's documented textual-object capability
+				# markers (block_type_mapper.is_textual_item).
+				if block_type_mapper.is_textual_item(marker):
+					ck = _classify_child(cdecl, marker)
+					if ck == block_type_mapper.KIND_UNKNOWN:
+						continue
+					# Impl-only items (ACTION/TRANSITION) carry no
+					# textual_declaration document. The assembler needs
+					# `ACTION <name>` as a declaration line so it can
+					# emit `ACTION X / <impl> / END_ACTION`. Synthesize.
+					if ck == block_type_mapper.KIND_ACTION and not cdecl.strip():
+						cdecl = "ACTION {0}".format(cname)
+					child_entry = {
+						"kind": ck,
+						"name": cname,
+						"declaration": cdecl,
+						"implementation": cimpl,
+					}
+					if ck == block_type_mapper.KIND_PROPERTY:
+						_collect_property_accessors(child, child_entry)
+					result["children"].append(child_entry)
+					continue
+
+				# Non-textual route — call the child's own export_xml,
+				# locate its nested `<action>`/`<method>`/`<transition>`
+				# element in the returned parent document, read the body
+				# language and body XML from there.
+				self_body = plcopen_xml.extract_self_member_body(child, cname)
+				if self_body is None:
+					# Container (no body of its own) — skip. Its leaf
+					# descendants come through recursive=True
+					# separately.
+					continue
+				schema_kind = self_body["kind"]
+				schema_lang = self_body["language"]
+				if schema_lang in ("FBD", "LD", "SFC", "CFC"):
+					decl_for_child = cdecl if cdecl.strip() else "{0} {1}".format(
+						schema_kind.upper(), cname
+					)
+					graphical_children.append({
+						"name": cname,
+						"kind": schema_kind,
+						"language": schema_lang,
+						"declaration": decl_for_child,
+						"implementationXml": self_body["body_xml"],
+					})
+					continue
+				# Non-textual marker but textual body language (ST/IL).
+				# Unusual combination; surface a warning so we learn
+				# when this happens in the wild rather than silently
+				# dropping data.
+				log.warn(
+					"[fetch] {0}: non-textual child '{1}' reports body language "
+					"'{2}'; surfacing as textual member.".format(name, cname, schema_lang)
+				)
+				if schema_kind in ("action", "transition") and not cdecl.strip():
+					cdecl = "{0} {1}".format(schema_kind.upper(), cname)
+				result["children"].append({
+					"kind": schema_kind,
 					"name": cname,
 					"declaration": cdecl,
 					"implementation": cimpl,
-				}
-				# Property accessors live as nested children — collect
-				# GET / SET from the property's own children.
-				if child_kind == "property":
-					_collect_property_accessors(child, child_entry)
-				result["children"].append(child_entry)
-		except Exception:
-			pass
+				})
+		except Exception as e:
+			log.warn("[fetch] {0}: child walk failed: {1}".format(name, e))
+		if graphical_children:
+			result["graphicalChildren"] = graphical_children
 	return result
 
 
