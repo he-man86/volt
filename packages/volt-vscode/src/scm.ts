@@ -18,10 +18,12 @@ import { join } from "node:path";
 import * as vscode from "vscode";
 import { describeOffline, type HealthState, isBridgeOnline, probeHealth, readBridgePort } from "./bridge-health.js";
 import { cliBin, getOutputChannel, spawnCapture } from "./cli.js";
+import { isMutationInFlight } from "./mutation-gate.js";
 import { VOLT_URI_SCHEME, VoltContentProvider } from "./scm-content-provider.js";
 import { VoltHistoryProvider } from "./volt-history-tree.js";
 import { changeCount, type StatusJson, totalChanges } from "./volt-types.js";
 import { VoltTreeProvider } from "./volt-tree.js";
+import { isPouFile, readStateMtime } from "./workspace-detection.js";
 
 /** Log to the shared "Volt" OutputChannel (the same one cli.ts writes
  *  CLI invocations to). One channel for the whole extension. */
@@ -147,25 +149,6 @@ export function registerScm(context: vscode.ExtensionContext): void {
 	});
 	context.subscriptions.push(tree);
 
-	// Title-bar progress indicator while any workspace's `volt status`
-	// walk is in flight. /refs against CODESYS now does a real per-item
-	// content hash (export_native), which is slower than a stat-only
-	// walk but content-accurate — see `feedback_no_fallbacks`. Surfacing
-	// busy-ness up front prevents the misleading "No changes" flash.
-	const updateBusy = (): void => {
-		let busy = false;
-		for (const ws of workspaces.values()) {
-			if (ws.isRefreshing()) {
-				busy = true;
-				break;
-			}
-		}
-		tree.message = busy ? "Fetching latest from IDE…" : undefined;
-	};
-	context.subscriptions.push(
-		treeProvider.onDidChangeTreeData(() => updateBusy()),
-	);
-
 	// ── Visibility-driven refresh + health heartbeat ────────────────
 	// No more 5s blanket polling. The model now:
 	//   - When the Volt view becomes visible: refresh full status +
@@ -179,25 +162,64 @@ export function registerScm(context: vscode.ExtensionContext): void {
 	let heartbeatHandle: NodeJS.Timeout | undefined;
 	const startHeartbeat = (): void => {
 		if (heartbeatHandle !== undefined) return;
+		logln(`heartbeat: starting (/health every ${HEALTH_HEARTBEAT_MS}ms)`);
 		heartbeatHandle = setInterval(() => {
-			for (const ws of workspaces.values()) void ws.probeHealth();
+			for (const ws of workspaces.values()) {
+				// Skip the probe while a mutating CLI invocation is
+				// running against this workspace — the bridge's COM
+				// thread is busy with /fetch or /push and would time
+				// out the 2s /health probe, causing a spurious
+				// "connection lost" toast mid-pull. The next heartbeat
+				// after the verb finishes catches up.
+				if (isMutationInFlight(ws.folder.uri.fsPath)) continue;
+				void ws.probeHealth();
+			}
 		}, HEALTH_HEARTBEAT_MS);
 	};
 	const stopHeartbeat = (): void => {
-		if (heartbeatHandle !== undefined) {
-			clearInterval(heartbeatHandle);
-			heartbeatHandle = undefined;
-		}
+		if (heartbeatHandle === undefined) return;
+		logln(`heartbeat: stopping (view hidden)`);
+		clearInterval(heartbeatHandle);
+		heartbeatHandle = undefined;
 	};
+
+	// state.json mtime poll — ALWAYS ON, independent of view visibility.
+	//
+	// Why decoupled from the /health heartbeat: /health is an HTTP probe
+	// to the bridge — worth gating on view visibility to avoid useless
+	// network chatter. The mtime poll is a single `statSync` per workspace
+	// per tick — effectively free. Gating it on visibility was a bug: if
+	// the user has the Volt activity-bar collapsed and runs `volt pull`
+	// from a terminal, state.json gets rewritten, no poll runs, and when
+	// they next focus the view they'd see stale data until the
+	// onDidChangeVisibility-driven refresh catches up.
+	//
+	// Polling unconditionally trades ~one stat call every 3s (negligible)
+	// for "the tree is always fresh when the user looks at it". The poll
+	// only fires `ws.refresh()` on actual mtime changes — no extra work
+	// on a quiet workspace.
+	const stateMtimePollHandle = setInterval(() => {
+		for (const ws of workspaces.values()) {
+			if (isMutationInFlight(ws.folder.uri.fsPath)) continue;
+			if (ws.pollStateMtime()) void ws.refresh();
+		}
+	}, STATE_MTIME_POLL_MS);
+	context.subscriptions.push({
+		dispose: () => clearInterval(stateMtimePollHandle),
+	});
 	context.subscriptions.push({
 		dispose: stopHeartbeat,
 	});
 	context.subscriptions.push(
 		tree.onDidChangeVisibility((evt) => {
+			logln(`tree.onDidChangeVisibility: visible=${evt.visible}`);
 			if (evt.visible) {
-				// Snapshot freshness on each focus — user came back, they
-				// want to see what's actually true RIGHT NOW.
-				for (const ws of workspaces.values()) void ws.refresh();
+				// No auto-refresh on view focus. The state.json mtime
+				// poll (always-on) catches external CLI mutations within
+				// 3s; `onDidSaveTextDocument` catches editor saves;
+				// `runCliMutating`'s finally catches UI-driven mutations.
+				// Re-walking /refs every time the user glances at the
+				// sidebar wastes bridge time and surprised the user.
 				startHeartbeat();
 			} else {
 				stopHeartbeat();
@@ -206,6 +228,7 @@ export function registerScm(context: vscode.ExtensionContext): void {
 	);
 	// If the view is already visible at registration time (rare — usually
 	// it activates on first open), kick off the heartbeat immediately.
+	logln(`tree.visible at registration = ${tree.visible}`);
 	if (tree.visible) startHeartbeat();
 
 	// ── Sync history view ────────────────────────────────────────────
@@ -244,37 +267,89 @@ export function registerScm(context: vscode.ExtensionContext): void {
 		// Continue/Abort and bulk-resolve actions when no merge is active.
 		void vscode.commands.executeCommand("setContext", "volt.merging", anyMerging);
 	};
-	// Live IDE/project label next to the "Sync with IDE" header — pulls
-	// the project name from the latest /health response. Multi-workspace
-	// shows the first connected one (rare case; users typically have
-	// one Volt workspace open at a time).
-	const updateTitle = (): void => {
-		let label: string | undefined;
-		for (const ws of workspaces.values()) {
-			const h = ws.getHealth();
-			if (h.kind === "connected" || h.kind === "degraded") {
-				const ide = h.health.ideName ?? "IDE";
-				const project = h.health.plcProjectName ?? h.health.projectName;
-				label = project !== undefined && project !== null ? `${ide} — ${project}` : ide;
-				break;
-			}
-		}
-		tree.description = label;
-	};
+	// The IDE/project name lives on the per-source health row in the
+	// tree itself (the green-dot row at position 0). We deliberately
+	// don't ALSO write it into `tree.description` — same data shown
+	// twice in adjacent surfaces just reads as clutter. Health changes
+	// only need to drive the per-workspace tree re-render (already wired
+	// inside VoltTreeProvider via the health emitter).
 	const subscribePerWorkspace = (ws: VoltWorkspace): void => {
-		context.subscriptions.push(
-			ws.onDidChangeStatus(updateBadge),
-			ws.onDidChangeHealth(updateTitle),
-		);
+		context.subscriptions.push(ws.onDidChangeStatus(updateBadge));
 	};
 	for (const ws of workspaces.values()) subscribePerWorkspace(ws);
 	context.subscriptions.push(
 		sourcesChangedEmitter.event(() => {
 			updateBadge();
-			updateTitle();
 			// Re-subscribe to newly-added workspaces so their first
-			// status/health fires update both surfaces too.
+			// status fires update the badge too.
 			for (const ws of workspaces.values()) subscribePerWorkspace(ws);
+		}),
+	);
+
+	// Editor-save refresh.
+	//
+	// Replaces the .st/.gvl/.struct/... half of the dead FileSystemWatcher.
+	// `onDidSaveTextDocument` fires from VS Code's own document buffer,
+	// not from the OS-level file watcher — so it's reliable on OneDrive-
+	// synced folders. We filter by PLC extension and only refresh the
+	// workspace that owns the saved file.
+	context.subscriptions.push(
+		vscode.workspace.onDidSaveTextDocument((doc) => {
+			if (doc.uri.scheme !== "file") return;
+			if (!isPouFile(doc.uri.fsPath)) return;
+			const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+			if (folder === undefined) return;
+			const ws = workspaces.get(folder.uri.fsPath);
+			if (ws === undefined) return;
+			logln(`onDidSaveTextDocument[${folder.name}] ${vscode.workspace.asRelativePath(doc.uri, false)}`);
+			void ws.refresh();
+		}),
+	);
+
+	// Internal command — apply a CLI-emitted post-state directly to the
+	// workspace, skipping the slow `volt status --json` walk.
+	//
+	// Fired by `runCliMutating` (cli.ts) when the CLI's stdout carried a
+	// `__VOLT_POST_STATE__` sentinel line — pull/push emit it on clean
+	// success because the agent already walked /refs to do the mutation
+	// and knows the post-state is inc=0/out=0. Skipping the extension's
+	// own status walk eliminates the 8s "dead time" the user otherwise
+	// saw between pull completing and the tree clearing on a 243-item
+	// CODESYS project. Same architectural idea as the bridge /health
+	// cache: each layer publishes what it already knows so the next
+	// layer doesn't re-compute it.
+	context.subscriptions.push(
+		vscode.commands.registerCommand("volt._applyPostState", (cwd: unknown, status: unknown) => {
+			if (typeof cwd !== "string") return;
+			const ws = workspaces.get(cwd);
+			if (ws === undefined) return;
+			if (typeof status !== "object" || status === null) return;
+			ws.applyStatus("post-mutation", status as StatusJson);
+		}),
+	);
+
+	// Internal command — refresh a specific workspace by cwd, optionally
+	// skipping the /health probe.
+	//
+	// Fired by `runCliMutating`'s finally (cli.ts) to update the SCM tree
+	// after a UI-driven pull/push/init/rebind completes. Distinct from the
+	// public `volt.refresh` command, which uses `pickRepo()` heuristics —
+	// here cli.ts already knows the exact cwd, so route directly. Marked
+	// `_` to signal "extension-internal, not for human invocation".
+	//
+	// `skipHealthProbe` is passed by the post-mutation caller: the bridge
+	// just talked to us via the CLI body, the probe is redundant, and
+	// running it races the bridge's COM-thread recovery (2s timeout
+	// spuriously flips to "unreachable" right after a clean inc=0).
+	context.subscriptions.push(
+		vscode.commands.registerCommand("volt._refreshFolder", async (cwd: unknown, options?: unknown) => {
+			if (typeof cwd !== "string") return;
+			const ws = workspaces.get(cwd);
+			if (ws === undefined) return;
+			const opts = (typeof options === "object" && options !== null)
+				? options as { skipHealthProbe?: boolean }
+				: {};
+			await ws.refresh(opts);
 		}),
 	);
 
@@ -363,6 +438,23 @@ function watchForVoltConfig(
 const HEALTH_HEARTBEAT_MS = 30_000;
 
 /**
+ * Mtime-poll interval (ms) for `.volt/snapshot/state.json`. Always on,
+ * independent of view visibility — `statSync` is essentially free, and
+ * gating on visibility hid external CLI mutations from users with the
+ * sidebar collapsed. Catches `volt pull/push/init` run from a terminal
+ * on OneDrive-synced folders, where VS Code's RelativePattern watcher
+ * silently drops bulk-write events.
+ *
+ * 3s is the trade-off between responsiveness (user expects the tree
+ * to update soon after a terminal pull) and overhead (each tick is
+ * one stat per workspace — negligible). `lastStateMtime` is updated by
+ * `doRefresh` on success, so a UI-button pull's post-mutation refresh
+ * also claims the new mtime — the next poll tick sees no change and
+ * skips, avoiding a redundant second refresh that would race the bridge.
+ */
+const STATE_MTIME_POLL_MS = 3_000;
+
+/**
  * Per-workspace Volt state — polls the bridge, caches status, fires
  * change events. UI consumers (the activity-bar TreeView, commands)
  * subscribe to `onDidChangeStatus`. There is intentionally NO
@@ -375,7 +467,6 @@ const HEALTH_HEARTBEAT_MS = 30_000;
 class VoltWorkspace implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private refreshInflight: Promise<void> | undefined;
-	private refreshQueued = false;
 	/** Latest parsed status JSON — surfaced for the activity-bar TreeView. */
 	private latestStatus: StatusJson | undefined;
 	/** Stderr (first non-empty line) captured when `volt status --json`
@@ -415,24 +506,37 @@ class VoltWorkspace implements vscode.Disposable {
 		return this.refreshInflight !== undefined;
 	}
 
+	/** Last-seen mtime of `.volt/snapshot/state.json` (ms since epoch).
+	 *  Captured at construction so the first `pollStateMtime` call doesn't
+	 *  trigger a phantom refresh. Updated each time the mtime changes —
+	 *  see `pollStateMtime`. Zero = file didn't exist at last check. */
+	private lastStateMtime = 0;
+
 	constructor(
 		readonly folder: vscode.WorkspaceFolder,
 		private readonly contentProvider: VoltContentProvider,
 	) {
-		// Refresh on local workspace file changes that affect what `volt
-		// status` would report. No timer-based bridge poll runs anymore —
-		// IDE-side change detection is driven by the health heartbeat
-		// (which checks bridge projectVersion via /health) + view focus.
-		const localWatcher = vscode.workspace.createFileSystemWatcher(
-			new vscode.RelativePattern(
-				folder,
-				"{**/*.{st,gvl,dut,itf,fbd,ld,sfc,cfc},.volt/snapshot/state.json,.volt/snapshot/MERGE_HEAD,.volt/snapshot/MERGE_CONFLICTS,.volt/snapshot/ORIG_HEAD}",
-			),
-		);
-		localWatcher.onDidChange(() => this.scheduleRefresh());
-		localWatcher.onDidCreate(() => this.scheduleRefresh());
-		localWatcher.onDidDelete(() => this.scheduleRefresh());
-		this.disposables.push(localWatcher);
+		// No FileSystemWatcher here on purpose.
+		//
+		// We used to subscribe a RelativePattern watcher to every tracked
+		// PLC extension and `.volt/snapshot/state.json`. It silently
+		// dropped bulk-write events on OneDrive-synced workspace folders:
+		// 247 files written by `volt pull`, zero onDidChange callbacks.
+		// (Confirmed live on C:\Users\marce\OneDrive\Bureaublad\hauzer.)
+		//
+		// Single watcher → two purpose-built sources, each reliable in
+		// its domain:
+		//
+		//   - External CLI mutations (terminal `volt pull/push/init`) →
+		//     the `state.json` mtime poll in `registerScm`'s heartbeat
+		//     (3s cadence, `statSync` is reliable on OneDrive).
+		//   - Editor saves on tracked PLC sources → `onDidSaveTextDocument`
+		//     subscription in `registerScm` (VS Code owns the document
+		//     buffer, so the event doesn't go through OneDrive's reparse
+		//     points and never gets dropped).
+		//   - UI-driven mutations (Pull/Push buttons) → explicit refresh
+		//     fired by `runCliMutating`'s finally (cli.ts).
+		this.lastStateMtime = readStateMtime(this.folder.uri.fsPath);
 	}
 
 	dispose(): void {
@@ -466,25 +570,42 @@ class VoltWorkspace implements vscode.Disposable {
 		maybeNotifyConnectionLoss(this.folder, prev, next);
 	}
 
-	/** Public refresh — health probe FIRST, then status conditionally.
+	/** Public refresh — optional /health probe, then status conditionally.
 	 *
-	 *  Lifecycle: `probe /health` → if offline, stop (clear stale status,
-	 *  surface offline state). If online, shell `volt status --json`.
-	 *  Running both in parallel was wasteful and confusing — when the
-	 *  bridge is down, the status spawn just produces a cryptic error
-	 *  ("folders: Required" / "bridge unreachable") several seconds
-	 *  after the cheap /health probe already knew the truth.
+	 *  Lifecycle: optionally `probe /health` → if offline, stop (clear
+	 *  stale status, surface offline state). If online, shell `volt status
+	 *  --json`. Skipping /health is for the post-mutation refresh fired
+	 *  by `runCliMutating`'s finally: the bridge JUST talked to us via
+	 *  the CLI body, so the probe is redundant — and it races the bridge's
+	 *  COM-thread recovery (a 2s /health timeout right after a pull
+	 *  spuriously flips state to "unreachable" and clobbers the clean
+	 *  `inc=0` we just got).
 	 *
-	 *  Coalesces concurrent calls via `refreshInflight`; debounces
-	 *  bursts via `refreshQueued`. */
-	async refresh(): Promise<void> {
+	 *  Coalesces concurrent calls via `refreshInflight`: if a refresh is
+	 *  already in flight, drop the new trigger. No queue — with the
+	 *  watcher gone and visibility-refresh removed, triggers don't burst.
+	 *  Any genuinely-missed mtime change is picked up by the next 3s poll
+	 *  tick since `lastStateMtime` only updates on a successful
+	 *  `doRefresh`. */
+	async refresh(options: { skipHealthProbe?: boolean } = {}): Promise<void> {
 		if (this.refreshInflight !== undefined) {
-			this.refreshQueued = true;
+			// Expected during long refreshes — the 3s mtime poll fires
+			// every tick while volt status walks /refs (~12s on CODESYS),
+			// and each subsequent tick is correctly coalesced into the
+			// in-flight refresh. Logged so the log reads "we noticed and
+			// chose not to spawn a duplicate" rather than "an event was
+			// silently lost".
+			logln(`refresh[${this.folder.name}]: already running — coalesced (in-flight refresh will pick up any change)`);
 			return;
 		}
+		const skipHealth = options.skipHealthProbe ?? false;
+		logln(`refresh[${this.folder.name}]: starting (mutationInFlight=${isMutationInFlight(this.folder.uri.fsPath)} skipHealth=${skipHealth})`);
 		this.refreshInflight = (async () => {
-			await this.probeHealth();
-			if (isBridgeOnline(this.latestHealth)) {
+			if (!skipHealth) {
+				await this.probeHealth();
+				logln(`refresh[${this.folder.name}]: probeHealth done — kind=${this.latestHealth.kind}`);
+			}
+			if (skipHealth || isBridgeOnline(this.latestHealth)) {
 				await this.doRefresh();
 			} else {
 				// Bridge offline — drop any stale status so the tree
@@ -493,22 +614,17 @@ class VoltWorkspace implements vscode.Disposable {
 				// than re-rendering a status-failed message from when
 				// the bridge died mid-call.
 				logln(
-					`refresh: skipping volt status — bridge is ${this.latestHealth.kind} ` +
+					`refresh[${this.folder.name}]: skipping volt status — bridge is ${this.latestHealth.kind} ` +
 					`(${describeOffline(this.latestHealth)})`,
 				);
-				this.latestStatus = undefined;
-				this.latestStatusError = undefined;
-				this.statusEmitter.fire(undefined);
+				this.clearStatusForError(undefined);
 			}
 		})().finally(() => {
 			this.refreshInflight = undefined;
 			// Fire so the tree renders the new (or unchanged) status
 			// AND its just-cleared refreshing state.
+			logln(`refresh[${this.folder.name}]: finished — firing statusEmitter (status=${this.latestStatus === undefined ? "undefined" : `inc=${changeCount(this.latestStatus.incoming)} out=${changeCount(this.latestStatus.outgoing)}`})`);
 			this.statusEmitter.fire(this.latestStatus);
-			if (this.refreshQueued) {
-				this.refreshQueued = false;
-				void this.refresh();
-			}
 		});
 		// Tell the tree provider a refresh started — it can show
 		// "Loading…" while we wait. Re-emits the current cached status
@@ -520,7 +636,60 @@ class VoltWorkspace implements vscode.Disposable {
 	private scheduleRefresh(): void {
 		// Debounce: file-system bursts (e.g. a multi-file pull) fire many
 		// events; we re-coalesce via refreshQueued.
+		logln(`scheduleRefresh[${this.folder.name}]`);
 		void this.refresh();
+	}
+
+	/** Apply a fresh status snapshot from any source — `volt status
+	 *  --json` walk, `volt pull --json` post-state, or any future writer.
+	 *
+	 *  Single write-path into `latestStatus`. Centralizes the four side
+	 *  effects every successful status update must perform:
+	 *    1. Replace the cached status + clear any prior error.
+	 *    2. Claim the current state.json mtime so the mtime poll doesn't
+	 *       re-trigger a redundant refresh.
+	 *    3. Notify on a NEW project-binding mismatch (one-shot toast).
+	 *    4. Fire the status emitter + invalidate `volt://` virtual URIs
+	 *       so any open diff editor refreshes.
+	 *
+	 *  `source` is only for the log line — every source goes through the
+	 *  same side effects so adding a new caller can't drift. */
+	applyStatus(source: "walk" | "post-mutation", status: StatusJson): void {
+		logln(`applyStatus[${this.folder.name}] source=${source} inc=${changeCount(status.incoming)} out=${changeCount(status.outgoing)} projectMismatch=${status.projectMismatch !== null}`);
+		const prevStatus = this.latestStatus;
+		this.latestStatus = status;
+		this.latestStatusError = undefined;
+		this.lastStateMtime = readStateMtime(this.folder.uri.fsPath);
+		maybeNotifyProjectMismatch(prevStatus, status);
+		this.statusEmitter.fire(status);
+		this.contentProvider.notifyAllRefs();
+	}
+
+	/** Single error/offline-clearing path. Drops the cached status so
+	 *  the tree shows the offline/error state instead of stale data.
+	 *  `reason` of undefined = the bridge is offline (red-dot health row
+	 *  carries the message — no separate error row needed); a string is
+	 *  a `volt status` failure (rendered as a status-error row). */
+	private clearStatusForError(reason: string | undefined): void {
+		this.latestStatus = undefined;
+		this.latestStatusError = reason;
+		this.statusEmitter.fire(undefined);
+	}
+
+	/** Returns true when `.volt/snapshot/state.json`'s mtime differs from
+	 *  the cached value. Pure read — does NOT update the cache. The
+	 *  cache is claimed by `doRefresh` on success, so a poll that
+	 *  triggers a refresh which then fails to complete will keep
+	 *  returning true on subsequent ticks (natural retry); the post-
+	 *  mutation refresh ALSO claims the cache on success, which
+	 *  suppresses redundant mtime-poll triggers after a UI-button pull. */
+	pollStateMtime(): boolean {
+		const current = readStateMtime(this.folder.uri.fsPath);
+		if (current !== this.lastStateMtime) {
+			logln(`pollStateMtime[${this.folder.name}]: state.json mtime differs (cached=${this.lastStateMtime} current=${current})`);
+			return true;
+		}
+		return false;
 	}
 
 	private async doRefresh(): Promise<void> {
@@ -535,9 +704,7 @@ class VoltWorkspace implements vscode.Disposable {
 			logln(`doRefresh: non-zero exit, stderr: ${result.stderr.slice(0, 500)}`);
 			const firstErrLine = firstNonEmptyLine(result.stderr) ?? `volt status exited ${result.code}`;
 			const transitionedToError = this.latestStatusError === undefined;
-			this.latestStatus = undefined;
-			this.latestStatusError = firstErrLine;
-			this.statusEmitter.fire(undefined);
+			this.clearStatusForError(firstErrLine);
 			// One-shot toast on the FIRST failure after a working state.
 			// Repeated failures stay quiet — the TreeView's error node
 			// keeps the message visible, and a steady stream of toasts
@@ -562,9 +729,7 @@ class VoltWorkspace implements vscode.Disposable {
 			const msg = err instanceof Error ? err.message : String(err);
 			logln(`doRefresh: JSON parse failed: ${msg} — stdout was: ${result.stdout.slice(0, 200)}`);
 			const transitionedToError = this.latestStatusError === undefined;
-			this.latestStatus = undefined;
-			this.latestStatusError = `volt status produced malformed JSON: ${msg}`;
-			this.statusEmitter.fire(undefined);
+			this.clearStatusForError(`volt status produced malformed JSON: ${msg}`);
 			if (transitionedToError) {
 				const action = "Show Output";
 				void vscode.window
@@ -578,26 +743,7 @@ class VoltWorkspace implements vscode.Disposable {
 			return;
 		}
 
-		logln(`doRefresh: parsed OK. merging=${parsed.merging !== null} incoming=${changeCount(parsed.incoming)} outgoing=${changeCount(parsed.outgoing)} projectMismatch=${parsed.projectMismatch !== null}`);
-		const prevStatus = this.latestStatus;
-		this.latestStatus = parsed;
-		this.latestStatusError = undefined;
-		// One-shot toast on the FIRST refresh that surfaces a project
-		// rename. Same pattern as the latestStatusError transition:
-		// repeated polls stay quiet because the TreeView's yellow
-		// warning row keeps the signal visible, and back-to-back toasts
-		// during a long mismatch would be hostile.
-		maybeNotifyProjectMismatch(prevStatus, parsed);
-		// Fire the change event AFTER mutating internal state so listeners
-		// (the activity-bar TreeView) see the new status when they call
-		// getStatus(). One bridge round-trip per poll → the entire Volt
-		// UI updates from the same data.
-		this.statusEmitter.fire(parsed);
-		// Existing `volt://` virtual URIs may now point at different
-		// content (e.g. after a pull, HEAD moved; after a bridge edit,
-		// the BRIDGE ref's content differs). Fire change events so any
-		// open diff editor refreshes.
-		this.contentProvider.notifyAllRefs();
+		this.applyStatus("walk", parsed);
 	}
 }
 
@@ -891,6 +1037,12 @@ function maybeNotifyConnectionLoss(
 	const isBroken = (s: HealthState): boolean =>
 		s.kind === "disconnected" || s.kind === "unreachable";
 	if (!(isWorking(prev) && isBroken(next))) return;
+	// Suppress the toast when the apparent connection loss happened
+	// while a CLI mutation was in flight — the bridge's COM thread was
+	// busy serving /fetch or /push and just couldn't service the 2s
+	// /health probe in time. It's not a real disconnect; the next
+	// heartbeat after the verb finishes will confirm.
+	if (isMutationInFlight(folder.uri.fsPath)) return;
 
 	const reason =
 		next.kind === "unreachable"

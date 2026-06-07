@@ -53,6 +53,7 @@ import {
 	sweepEmptyDirs,
 	writeTreeToWorkspace,
 } from "../engine/snapshot.js";
+import { buildSyncedPostState, emitCompleteEvent } from "./_post-state.js";
 import { isVoltError, VoltError, wrapEngineError } from "./_error.js";
 import { flagBool, type VerbFn } from "./_shared.js";
 
@@ -60,6 +61,16 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	const force = flagBool(flags, "force");
 	const dryRun = flagBool(flags, "dry-run");
 	const noMerge = flagBool(flags, "no-merge");
+	// `--json` switches stdout from the human-readable "pulled: N files
+	// (M st, ...)" lines to a single NDJSON `complete` event carrying
+	// the post-state JSON the VS Code extension applies directly.
+	// Stderr (progress markers, errors) is unchanged either way.
+	const jsonMode = flagBool(flags, "json");
+	// Wrap human-readable stdout so --json mode silences it cleanly
+	// (one place to gate, no per-call `if (!jsonMode)`).
+	const out = (msg: string): void => {
+		if (!jsonMode) console.log(msg);
+	};
 
 	const root = resolve(workspace);
 	const paths = workspacePaths(root);
@@ -130,11 +141,11 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 				exitCode: 2,
 			});
 		} else if (dryRun) {
-			console.log(`would 3-way merge ${dirty.length} workspace edit(s) with incoming IDE changes:`);
-			for (const n of incoming.added) console.log(`  [IDE] + ${n}`);
-			for (const n of incoming.modified) console.log(`  [IDE] M ${n}`);
-			for (const n of incoming.removed) console.log(`  [IDE] - ${n}`);
-			console.log("dry-run — workspace and snapshot were NOT touched.");
+			out(`would 3-way merge ${dirty.length} workspace edit(s) with incoming IDE changes:`);
+			for (const n of incoming.added) out(`  [IDE] + ${n}`);
+			for (const n of incoming.modified) out(`  [IDE] M ${n}`);
+			for (const n of incoming.removed) out(`  [IDE] - ${n}`);
+			out("dry-run — workspace and snapshot were NOT touched.");
 			return 0;
 		} else {
 			// Run the 3-way merge.
@@ -167,9 +178,7 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 					items: plan.targetState.items,
 					folders: plan.targetState.folders,
 				});
-				console.log(
-					`merged ${plan.auto.length} file(s) cleanly; workspace now reflects IDE@${plan.targetProjectVersion}.`,
-				);
+				out(`merged ${plan.auto.length} file(s) cleanly; workspace now reflects IDE@${plan.targetProjectVersion}.`);
 				return 0;
 			}
 			// Conflicts left — surface them as a structured VoltError so
@@ -207,13 +216,13 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 			!hasChanges(incoming);
 		const incCount = incoming.added.length + incoming.modified.length + incoming.removed.length;
 		if (upToDate || incCount === 0) {
-			console.log("dry-run — already up to date, nothing to pull.");
+			out("dry-run — already up to date, nothing to pull.");
 		} else {
-			console.log("would pull from bridge (dry-run):");
-			for (const n of incoming.added) console.log(`  [IDE] + ${n}  (engineer created)`);
-			for (const n of incoming.modified) console.log(`  [IDE] M ${n}  (engineer edited)`);
-			for (const n of incoming.removed) console.log(`  [IDE] - ${n}  (engineer deleted)`);
-			console.log("dry-run — workspace and snapshot were NOT touched.");
+			out("would pull from bridge (dry-run):");
+			for (const n of incoming.added) out(`  [IDE] + ${n}  (engineer created)`);
+			for (const n of incoming.modified) out(`  [IDE] M ${n}  (engineer edited)`);
+			for (const n of incoming.removed) out(`  [IDE] - ${n}  (engineer deleted)`);
+			out("dry-run — workspace and snapshot were NOT touched.");
 		}
 		return 0;
 	}
@@ -282,10 +291,14 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	//    created in the IDE arrive with a `.gitkeep` marker, so they survive.
 	const removedDirs = sweepEmptyDirs(root);
 
+	// Build the human-readable summary line once — used both for the
+	// non-`--json` console output and for the `complete` event's
+	// `summary` field (which the extension shows in the success toast).
 	const upToDate =
 		preState !== undefined && preState.projectVersion === stateAfter.projectVersion;
+	let summary: string;
 	if (upToDate && newPaths.size > 0 && removed.length === 0 && removedDirs.length === 0) {
-		console.log("already up to date.");
+		summary = "already up to date.";
 	} else {
 		// Per-extension breakdown so users see WHAT came in, not just
 		// a raw file count. After a fresh init+pull on a big project
@@ -304,22 +317,42 @@ export const pullVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 		const dirSuffix = removedDirs.length > 0
 			? `, swept ${removedDirs.length} empty dir(s): ${removedDirs.join(", ")}`
 			: "";
-		console.log(`pulled: ${newPaths.size} file(s), removed: ${removed.length} file(s)${dirSuffix}.`);
-		if (breakdown.length > 0) console.log(`  (${breakdown})`);
+		const headline = `pulled: ${newPaths.size} file(s), removed: ${removed.length} file(s)${dirSuffix}.`;
+		summary = breakdown.length > 0 ? `${headline} (${breakdown})` : headline;
 	}
+	out(summary);
+
 	if (syncSkipped.length > 0) {
 		// Items the bridge sent but we couldn't materialize (unknown
 		// body language, transpile failure, etc.). The pull itself
 		// succeeded — these need separate engineer attention.
-		console.log(
-			`\n! skipped ${syncSkipped.length} item(s) the bridge sent but Volt couldn't materialize:`,
-		);
+		out(`\n! skipped ${syncSkipped.length} item(s) the bridge sent but Volt couldn't materialize:`);
 		for (const s of syncSkipped) {
-			console.log(`  - ${s.name}: ${s.reason}`);
+			out(`  - ${s.name}: ${s.reason}`);
 		}
-		console.log(
-			`  fix the bridge-side cause for each (re-export the POU in the IDE, or report the case), then re-run \`volt pull\`.`,
-		);
+		out("  fix the bridge-side cause for each (re-export the POU in the IDE, or report the case), then re-run `volt pull`.");
+	}
+
+	// Publish the post-mutation state for the VS Code extension. Skipping
+	// the redundant `volt status --json` walk shaves ~8s of dead time off
+	// a 243-item CODESYS pull (the agent already walked /refs to do the
+	// mutation, so the post-state is necessarily inc=0/out=0 with
+	// snapshotProjectVersion == bridgeProjectVersion). Same architectural
+	// idea as the bridge /health cache: each layer publishes what it
+	// already knows so the next layer doesn't re-compute it.
+	//
+	// `status` field only when no items were skipped — partial pulls
+	// still have `incoming` items the extension needs to discover via a
+	// real status walk. `summary` is always emitted so the toast text is
+	// correct either way (and carries the ⚠ skipped marker on partial).
+	if (jsonMode) {
+		const status = syncSkipped.length === 0
+			? buildSyncedPostState(stateAfter.projectVersion)
+			: undefined;
+		const toastSummary = syncSkipped.length === 0
+			? summary
+			: `${summary} — ⚠ ${syncSkipped.length} item(s) skipped (transpile failures; see Output)`;
+		emitCompleteEvent({ status, summary: toastSummary });
 	}
 	return 0;
 };

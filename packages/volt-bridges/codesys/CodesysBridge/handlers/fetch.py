@@ -32,6 +32,18 @@ def handle(connection, body):
 			if isinstance(v, str):
 				known_items[k] = v
 
+	# Optional allowlist — when present, skip materialization for any
+	# item not in this set. Used by the agent's `peekBridgeItem` so the
+	# SCM-tree single-item preview doesn't materialize all ~242 other
+	# items in the project. Absent / empty list = serve every item
+	# (current behavior, backward-compatible).
+	only_items = None
+	raw_only = body.get("onlyItems") if isinstance(body, dict) else None
+	if isinstance(raw_only, list):
+		filtered = [n for n in raw_only if isinstance(n, str)]
+		if len(filtered) > 0:
+			only_items = set(filtered)
+
 	def _do():
 		versions = {}
 		changed = []
@@ -40,6 +52,17 @@ def handle(connection, body):
 		# is registry-driven — adding a new kind is a one-entry edit
 		# in extensions.py, NOT four-place changes across handlers.
 		for (name, kind, item, is_source, folder_override) in connection.iter_all_items():
+			# Allowlist short-circuit — skip BOTH version computation
+			# AND materialization for items outside the requested set.
+			# This is what makes `peekBridgeItem` cheap: without it,
+			# even the per-item version hash is hundreds of COM calls
+			# for a 243-item project. The trade-off: the response's
+			# `items` map and `removed` list become partial when
+			# `onlyItems` is set — callers (peekBridgeItem) ignore
+			# both, reading only `changed`. Normal pull/fetch paths
+			# don't send `onlyItems` and get the wholesale picture.
+			if only_items is not None and name not in only_items:
+				continue
 			try:
 				ver = compute_item_version(item, name, kind, is_source)
 			except Exception:

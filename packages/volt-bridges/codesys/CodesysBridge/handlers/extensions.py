@@ -26,6 +26,7 @@ register dynamically — `dir(item)` doesn't list them, but
 to probe candidate property names before wiring an extractor.
 """
 # pyright: reportMissingImports=false
+import re
 
 
 def _matches_marker(token, marker):
@@ -160,19 +161,50 @@ def format_library_ref(libref):
 		("resolution-info", _safe_attr(libref, "resolution_info")),
 	]
 
-	# Managed-library metadata — only present when the reference points
-	# at a concrete library (not a still-unresolved placeholder). The
-	# tuple <company, title, version> is what uniquely identifies the
-	# library in CODESYS's library repository.
+	# Library identity (title / version / company). Two paths to reach it:
+	#   1. Managed refs (`is_managed=true`) expose a structured
+	#      `ScriptLibManObject` via `managed_library` that carries
+	#      title/version/company/default_namespace/categories as typed
+	#      properties — the canonical source. PREFER this when present.
+	#   2. Placeholder refs (`is_placeholder=true`) — by far the common
+	#      case in real projects — don't surface `managed_library`, even
+	#      when resolved. But the same trio is encoded inside the
+	#      `effective_resolution` STRING:
+	#         "L_MC1P_MotionControlBasic, 3.32.0.192 (Lenze)"
+	#      Parse it as a fallback so AI reading the manifest can still
+	#      see what library is actually loaded.
+	# `categories` and `default-namespace` are genuinely unreachable for
+	# placeholder refs (no structured object), so they only appear when
+	# path 1 succeeds.
+	title = None
+	version = None
+	company = None
+	default_namespace = None
+	categories = None
 	managed = _safe_attr(libref, "managed_library")
 	if managed is not None:
-		pairs.extend([
-			("title", _safe_attr(managed, "title")),
-			("version", _safe_attr(managed, "version")),
-			("company", _safe_attr(managed, "company")),
-			("default-namespace", _safe_attr(managed, "default_namespace")),
-			("categories", _format_lib_categories(_safe_attr(managed, "categories"))),
-		])
+		title = _safe_attr(managed, "title")
+		version = _safe_attr(managed, "version")
+		company = _safe_attr(managed, "company")
+		default_namespace = _safe_attr(managed, "default_namespace")
+		categories = _format_lib_categories(_safe_attr(managed, "categories"))
+	if title is None or version is None or company is None:
+		parsed = _parse_resolution_string(_safe_attr(libref, "effective_resolution"))
+		if parsed is not None:
+			ptitle, pversion, pcompany = parsed
+			if title is None:
+				title = ptitle
+			if version is None:
+				version = pversion
+			if company is None:
+				company = pcompany
+	pairs.extend([
+		("title", title),
+		("version", version),
+		("company", company),
+		("default-namespace", default_namespace),
+		("categories", categories),
+	])
 
 	# Library DEPENDENCIES (other libraries this one transitively needs).
 	# `dependencies` lives on the reference itself per the ScriptingEngine
@@ -185,6 +217,26 @@ def format_library_ref(libref):
 		pairs.append(("dependencies", deps_text))
 
 	return _emit_pairs(pairs)
+
+
+_RESOLUTION_RE = re.compile(r"^\s*([^,]+?)\s*,\s*(\S+?)\s*\(([^)]+)\)\s*$")
+
+
+def _parse_resolution_string(s):
+	"""Pick title/version/company out of CODESYS's resolution string.
+	Format: `"<title>, <version> (<company>)"`. Returns None for unparseable
+	input so the caller falls back to "field unknown" (the line drops via
+	_emit_pairs). Used to recover library identity from placeholder refs
+	which don't expose `managed_library` even when resolved."""
+	if s is None:
+		return None
+	try:
+		m = _RESOLUTION_RE.match(str(s))
+	except Exception:
+		return None
+	if m is None:
+		return None
+	return (m.group(1).strip(), m.group(2).strip(), m.group(3).strip())
 
 
 def _format_lib_categories(cats):

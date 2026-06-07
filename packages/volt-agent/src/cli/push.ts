@@ -57,11 +57,21 @@ import {
 	type ChangeSet,
 } from "../engine/snapshot.js";
 import { srcRoot } from "../engine/workspace-layout.js";
+import { buildSyncedPostState, emitCompleteEvent } from "./_post-state.js";
 import { isVoltError, VoltError, wrapEngineError } from "./_error.js";
 import { flagBool, flagString, type VerbFn } from "./_shared.js";
 
 export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	const force = flagBool(flags, "force");
+	// `--json` switches stdout from the human-readable "pushed: ... |
+	// pushed. snapshot now @ X" lines to a single NDJSON `complete`
+	// event carrying the post-state JSON the VS Code extension applies
+	// directly. Stderr (progress, --force adopted-items header) is
+	// unchanged either way.
+	const jsonMode = flagBool(flags, "json");
+	const out = (msg: string): void => {
+		if (!jsonMode) console.log(msg);
+	};
 	const forceWithLease = flagString(flags, "force-with-lease");
 	const dryRun = flagBool(flags, "dry-run");
 	const noDriftCheck = flagBool(flags, "no-drift-check");
@@ -186,7 +196,18 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 	}
 	const headTreeSha = treeShaOfCommit(paths.snapshotPath, state.commitSha);
 	if (newTreeSha === headTreeSha) {
-		console.log("nothing to push — workspace matches snapshot.");
+		const noopSummary = "nothing to push — workspace matches snapshot.";
+		out(noopSummary);
+		// Still emit on the no-op branch so `--json` consumers see one
+		// `complete` event per invocation regardless of whether work
+		// was done. Keeps the extension's parse path simple: one event
+		// per successful exit, no "did the agent get this far?" guess.
+		if (jsonMode) {
+			emitCompleteEvent({
+				status: buildSyncedPostState(state.projectVersion),
+				summary: noopSummary,
+			});
+		}
 		return 0;
 	}
 
@@ -212,9 +233,11 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 		const adopted = driftAdoptedItems
 			? [...driftAdoptedItems.added, ...driftAdoptedItems.modified].sort()
 			: [];
-		printPushed(pushed, true);
-		if (adopted.length > 0) printAdopted(adopted, true);
-		console.log("dry-run — nothing was sent to the bridge.");
+		if (!jsonMode) {
+			printPushed(pushed, true);
+			if (adopted.length > 0) printAdopted(adopted, true);
+		}
+		out("dry-run — nothing was sent to the bridge.");
 		return 0;
 	}
 
@@ -271,9 +294,23 @@ export const pushVerb: VerbFn = async ({ workspace, bridge, flags }) => {
 		if (adopted.length > 0) adoptedNames = adopted;
 	}
 
-	printPushed(pushed, false);
-	if (adoptedNames !== undefined) printAdopted(adoptedNames, false);
-	console.log(`pushed. snapshot now @ ${result.commitSha.slice(0, 12)}`);
+	if (!jsonMode) {
+		printPushed(pushed, false);
+		if (adoptedNames !== undefined) printAdopted(adoptedNames, false);
+	}
+	const summary = `pushed. snapshot now @ ${result.commitSha.slice(0, 12)}`;
+	out(summary);
+
+	// Publish the post-mutation state for the VS Code extension —
+	// same rationale as pull.ts: skips a redundant `volt status --json`
+	// walk because the agent already knows both sides match. See
+	// `_post-state.ts` for the wire shape and `buildSyncedPostState`.
+	if (jsonMode) {
+		emitCompleteEvent({
+			status: buildSyncedPostState(state.projectVersion),
+			summary,
+		});
+	}
 	return 0;
 };
 

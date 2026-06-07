@@ -136,3 +136,159 @@ describe("init: error cases", () => {
 		).rejects.toThrow(/source corpus not found/i);
 	});
 });
+
+// ── TwinCAT vendor tests ────────────────────────────────────────────────────
+//
+// When vendor="twincat", runInit installs BOTH codesys-reference/ (the shared
+// base — TC was forked from CODESYS) and twincat-reference/ (the deltas).
+// The twincat-reference/ source lives at dirname(sourceDir)/twincat-reference,
+// so the fixture must create that sibling directory alongside the codesys src.
+
+async function makeTcFixture(): Promise<{ tmpDir: string; sourceDir: string }> {
+	const tmpDir = await mkdtemp(join(tmpdir(), "volt-init-tc-"));
+	const sourceDir = join(tmpDir, "src-docs");
+	const sourceTcDir = join(tmpDir, "twincat-reference"); // sibling of src-docs
+	await mkdir(sourceDir, { recursive: true });
+	await mkdir(sourceTcDir, { recursive: true });
+	// Fake CODESYS corpus.
+	await writeFile(join(sourceDir, "00-index.md"), "# CODESYS index\n", "utf-8");
+	await writeFile(join(sourceDir, "07-pragmas.md"), "# shared pragmas\n", "utf-8");
+	// Fake TC corpus (deltas).
+	await writeFile(join(sourceTcDir, "00-index.md"), "# TwinCAT index\n", "utf-8");
+	await writeFile(join(sourceTcDir, "07-pragmas.md"), "# TC pragmas\n", "utf-8");
+	return { tmpDir, sourceDir };
+}
+
+describe("init: TwinCAT vendor — installs both codesys-reference and twincat-reference", () => {
+	it("copies CODESYS and TC files; filesCopied counts both", async () => {
+		const { tmpDir, sourceDir } = await makeTcFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		const result = await runInit({
+			targetDir: target,
+			sourceDir,
+			vendor: "twincat",
+			version: "1.0.0",
+			log: () => {},
+		});
+
+		expect(result.filesCopied).toBe(4); // 2 codesys + 2 TC
+		const codesysFiles = await readdir(result.docsDir);
+		expect(codesysFiles.sort()).toEqual(["00-index.md", "07-pragmas.md"]);
+		const tcDir = join(target, ".claude/skills/st-reference/twincat-reference");
+		const tcFiles = await readdir(tcDir);
+		expect(tcFiles.sort()).toEqual(["00-index.md", "07-pragmas.md"]);
+	});
+
+	it("SKILL.md references twincat-reference/ sections and marks vendor: twincat", async () => {
+		const { tmpDir, sourceDir } = await makeTcFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		const result = await runInit({
+			targetDir: target,
+			sourceDir,
+			vendor: "twincat",
+			version: "1.0.0",
+			log: () => {},
+		});
+
+		const content = await readFile(result.skillPath, "utf-8");
+		expect(content).toContain("twincat-reference/");
+		expect(content).toContain("codesys-reference/");
+		expect(content).toContain("vendor: twincat");
+	});
+
+	it("--update refreshes TC reference files", async () => {
+		const { tmpDir, sourceDir } = await makeTcFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		await runInit({ targetDir: target, sourceDir, vendor: "twincat", version: "1.0.0", log: () => {} });
+		// Add a new TC file in the source.
+		const sourceTcDir = join(tmpDir, "twincat-reference");
+		await writeFile(join(sourceTcDir, "13-error-messages.md"), "# errors\n", "utf-8");
+
+		const result2 = await runInit({
+			targetDir: target,
+			sourceDir,
+			vendor: "twincat",
+			version: "2.0.0",
+			update: true,
+			log: () => {},
+		});
+
+		expect(result2.filesCopied).toBe(5); // 2 codesys + 3 TC
+		const tcDir = join(target, ".claude/skills/st-reference/twincat-reference");
+		const tcFiles = await readdir(tcDir);
+		expect(tcFiles).toContain("13-error-messages.md");
+	});
+});
+
+describe("init: CODESYS vendor (default) — installs only codesys-reference", () => {
+	it("does not create twincat-reference/ dir", async () => {
+		const { tmpDir, sourceDir } = await makeFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		await runInit({ targetDir: target, sourceDir, vendor: "codesys", version: "1.0.0", log: () => {} });
+
+		const tcDir = join(target, ".claude/skills/st-reference/twincat-reference");
+		let exists = false;
+		try {
+			await stat(tcDir);
+			exists = true;
+		} catch { /* expected */ }
+		expect(exists).toBe(false);
+	});
+
+	it("SKILL.md does not mention twincat-reference", async () => {
+		const { tmpDir, sourceDir } = await makeFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		const result = await runInit({ targetDir: target, sourceDir, vendor: "codesys", version: "1.0.0", log: () => {} });
+
+		const content = await readFile(result.skillPath, "utf-8");
+		expect(content).not.toContain("twincat-reference");
+		expect(content).toContain("vendor: codesys");
+	});
+
+	it("omitting vendor defaults to CODESYS-only install", async () => {
+		const { tmpDir, sourceDir } = await makeFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		const result = await runInit({ targetDir: target, sourceDir, version: "1.0.0", log: () => {} });
+
+		expect(result.filesCopied).toBe(3);
+	});
+});
+
+describe("init: missing TC source is non-fatal for TC vendor", () => {
+	it("succeeds with CODESYS-only install when twincat-reference/ source is absent", async () => {
+		// makeFixture creates only the codesys source dir — no twincat-reference sibling.
+		const { tmpDir, sourceDir } = await makeFixture();
+		const target = join(tmpDir, "project");
+		await mkdir(target, { recursive: true });
+
+		// Must not throw — init.ts catches the missing-TC-dir case and logs a warning.
+		const result = await runInit({
+			targetDir: target,
+			sourceDir,
+			vendor: "twincat",
+			version: "1.0.0",
+			log: () => {},
+		});
+
+		expect(result.filesCopied).toBe(3); // CODESYS only
+		const tcDir = join(target, ".claude/skills/st-reference/twincat-reference");
+		let exists = false;
+		try {
+			await stat(tcDir);
+			exists = true;
+		} catch { /* expected */ }
+		expect(exists).toBe(false);
+	});
+});

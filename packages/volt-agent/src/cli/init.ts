@@ -85,10 +85,10 @@ export const init: VerbFn = async ({ workspace, port, bridge, flags }) => {
 		ensureGitignore(root);
 	}
 
-	const corpus = await tryInstallCorpus(root, force);
 	const detectedVendor = alreadyInitialized
 		? undefined
 		: await tryDetectVendor(root, health.platform);
+	const corpus = await tryInstallCorpus(root, force, detectedVendor);
 
 	const scaffold = noScaffold
 		? undefined
@@ -162,19 +162,24 @@ async function tryDetectVendor(
 }
 
 /**
- * Install (or refresh) the CODESYS reference corpus + SKILL.md in
- * the workspace. Failures are non-fatal — `volt init` should still
- * succeed when the corpus is unavailable (e.g. when the LSP package
- * is not installed in the workspace).
+ * Install (or refresh) the reference corpus + SKILL.md in the workspace.
+ * For TwinCAT projects both `codesys-reference/` (the shared base) and
+ * `twincat-reference/` (the deltas) are installed. CODESYS projects get
+ * `codesys-reference/` only.
+ *
+ * Failures are non-fatal — `volt init` should still succeed when the LSP
+ * package is not installed in the workspace.
  */
 async function tryInstallCorpus(
 	root: string,
 	update: boolean,
+	vendor: DetectedVendor | undefined,
 ): Promise<{ filesCopied: number; skillAction: "created" | "updated" | "unchanged" } | undefined> {
 	try {
 		const r = await installCorpus({
 			targetDir: root,
 			update,
+			vendor: vendor ?? "codesys",
 			log: () => {
 				/* silenced; volt init formats its own output */
 			},
@@ -185,7 +190,7 @@ async function tryInstallCorpus(
 		};
 	} catch (err) {
 		console.warn(
-			`warning: could not install CODESYS reference corpus: ${err instanceof Error ? err.message : String(err)}`,
+			`warning: could not install reference corpus: ${err instanceof Error ? err.message : String(err)}`,
 		);
 		return undefined;
 	}

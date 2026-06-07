@@ -232,6 +232,12 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 
 _connection_singleton = codesys_connection.CodesysConnection()
 
+# Warm the IDE-state cache so the first /health request after bridge
+# startup carries real project info instead of an empty placeholder.
+# Fires once on a daemon thread; idempotent — subsequent calls no-op
+# while the probe is in flight. See codesys_connection.trigger_async_probe.
+_connection_singleton.trigger_async_probe()
+
 
 # ─── Lifecycle ────────────────────────────────────────────────────────
 

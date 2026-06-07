@@ -142,16 +142,20 @@ export function healthLabel(state: HealthState): string {
 		case "unknown":
 			return "Probing IDE…";
 		case "connected": {
+			// No "Connected:" prefix — the green dot at position 0 of
+			// the row already carries that. Just the identity.
 			const ide = state.health.ideName ?? "IDE";
 			const project = state.health.plcProjectName ?? state.health.projectName ?? "(no project)";
-			return `Connected: ${ide} — ${project}`;
+			return `${ide} — ${project}`;
 		}
 		case "degraded": {
 			const reason = state.health.degradedReason ?? "previous call failed";
 			return `Degraded: ${reason}`;
 		}
 		case "disconnected":
-			return "Waiting for IDE — open the PLC IDE with a project";
+			// Short. The full "open the PLC IDE with a project loaded"
+			// guidance lives in the row's tooltip — see healthTooltip().
+			return "No project loaded";
 		case "unreachable":
 			return `Bridge unreachable: ${friendlyUnreachableReason(state.reason)}`;
 	}

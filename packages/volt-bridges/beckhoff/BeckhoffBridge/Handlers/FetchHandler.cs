@@ -52,6 +52,7 @@ internal sealed class FetchHandler
 		_connection.FlushPendingWrites();
 
 		var knownItems = ParseKnownItems(body);
+		var onlyItems = ParseOnlyItems(body);  // null = no filter, fetch all
 
 		var currentVersions = new Dictionary<string, string>();
 		var changed = new List<object>();
@@ -62,6 +63,13 @@ internal sealed class FetchHandler
 		// push drift is structurally impossible.
 		_connection.WalkProjectTree((visit) =>
 		{
+			// Allowlist short-circuit — skip COM work entirely for items
+			// outside the requested set. Used by the agent's
+			// `peekBridgeItem` so a SCM-tree preview click materializes
+			// one item instead of every item in the project (saves ~5s
+			// on a 243-item TwinCAT solution).
+			if (onlyItems is not null && !onlyItems.Contains(visit.Name)) return;
+
 			if (visit.IsTopLevelCrud)
 			{
 				EmitSourceItem(visit.Item, visit.Name, visit.FolderPath, knownItems, currentVersions, changed);
@@ -83,6 +91,7 @@ internal sealed class FetchHandler
 		// kind "device" — DeviceExtractor enumerates child boxes inline.
 		_connection.WalkIoDevices((visit) =>
 		{
+			if (onlyItems is not null && !onlyItems.Contains(visit.Name)) return;
 			EmitConfigItem(visit.Item, visit.Name, "device", visit.FolderPath, knownItems, currentVersions, changed);
 		});
 
@@ -259,5 +268,21 @@ internal sealed class FetchHandler
 			}
 		}
 		return result;
+	}
+
+	/// <summary>
+	/// Parse the optional `onlyItems` allowlist. Returns null when absent
+	/// or empty (= no filter, fetch everything). Used by the agent's
+	/// `peekBridgeItem` to confine SCM-tree preview clicks to one item.
+	/// </summary>
+	private static HashSet<string>? ParseOnlyItems(JsonObject body)
+	{
+		if (!body.TryGetPropertyValue("onlyItems", out var node) || node is not JsonArray arr) return null;
+		var result = new HashSet<string>();
+		foreach (var entry in arr)
+		{
+			if (entry is JsonValue v && v.TryGetValue<string>(out var s)) result.Add(s);
+		}
+		return result.Count == 0 ? null : result;
 	}
 }

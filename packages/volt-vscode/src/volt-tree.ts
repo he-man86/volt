@@ -15,10 +15,16 @@
  * diff click experience (HEAD for outgoing, BRIDGE for incoming,
  * MERGE_HEAD for merge) is identical to the Source Control panel.
  */
+import { existsSync } from "node:fs";
 import * as vscode from "vscode";
-import { describeOffline, type HealthState, healthLabel, isBridgeOnline } from "./bridge-health.js";
+import { type HealthState, healthLabel, isBridgeOnline } from "./bridge-health.js";
+import { getOutputChannel } from "./cli.js";
 import { buildVoltUri } from "./scm-content-provider.js";
 import { changeCount, type ProjectMismatch, type StatusJson } from "./volt-types.js";
+
+function logln(msg: string): void {
+	getOutputChannel().appendLine(`[${new Date().toISOString()}] ${msg}`);
+}
 
 /**
  * Minimal subset of `VoltWorkspace` this view needs. Keeps the
@@ -83,9 +89,18 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 	private resubscribe(): void {
 		for (const d of this.perSourceSubs) d.dispose();
 		this.perSourceSubs.length = 0;
-		for (const s of this.options.listSources()) {
-			this.perSourceSubs.push(s.onDidChangeStatus(() => this.emitter.fire(undefined)));
-			this.perSourceSubs.push(s.onDidChangeHealth(() => this.emitter.fire(undefined)));
+		const sources = this.options.listSources();
+		logln(`tree.resubscribe: ${sources.length} source(s)`);
+		for (const s of sources) {
+			const name = s.getFolder().name;
+			this.perSourceSubs.push(s.onDidChangeStatus((st) => {
+				logln(`tree.onDidChangeStatus[${name}]: ${st === undefined ? "undefined" : `inc=${changeCount(st.incoming)} out=${changeCount(st.outgoing)}`} → fire treeData`);
+				this.emitter.fire(undefined);
+			}));
+			this.perSourceSubs.push(s.onDidChangeHealth((h) => {
+				logln(`tree.onDidChangeHealth[${name}]: ${h.kind} → fire treeData`);
+				this.emitter.fire(undefined);
+			}));
 		}
 		// Source set changed → refresh the tree once so newly-added
 		// workspaces render immediately (don't wait for their first poll).
@@ -101,6 +116,15 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 	getTreeItem(node: Node): vscode.TreeItem {
 		if (node.kind === "health") {
 			const item = new vscode.TreeItem(healthLabel(node.state), vscode.TreeItemCollapsibleState.None);
+			// Stable id so VS Code can diff the tree across renders.
+			// Without ids, when a previously-present node (e.g. an expanded
+			// "Incoming Changes (243)" group) drops out of getChildren's
+			// result, VS Code can't identify the removal — it leaves the
+			// old subtree visually rendered even though our data reports
+			// zero rows. Observed live: post-pull, getChildren returns
+			// {health, empty} but the UI keeps showing the stale group +
+			// 243 items until an id-anchored diff lets VS Code drop them.
+			item.id = `health-${node.sourceIdx}`;
 			// Single contextValue (not per-state) so menu when-clauses
 			// don't need regex/startsWith. State is conveyed by the icon
 			// + label, not the contextValue.
@@ -126,11 +150,13 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 		}
 		if (node.kind === "empty") {
 			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.id = "state-empty";
 			item.contextValue = "volt.empty";
 			return item;
 		}
 		if (node.kind === "loading") {
 			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.id = "state-loading";
 			item.contextValue = "volt.loading";
 			// `loading~spin` is VS Code's built-in animated spinner glyph;
 			// shows a rotating ring instead of a static icon so the user
@@ -145,6 +171,7 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 			// "in sync" empty state. Click → reveal the Output channel
 			// where the full stderr lives.
 			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.id = "state-status-error";
 			item.contextValue = "volt.statusError";
 			item.iconPath = new vscode.ThemeIcon("error", new vscode.ThemeColor("errorForeground"));
 			item.tooltip = node.tooltip;
@@ -157,6 +184,7 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 			// `volt.acceptProjectRename` which shells `volt init --force`
 			// against the bound port — snapshot history is preserved.
 			const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+			item.id = `mismatch-${node.sourceIdx}`;
 			item.contextValue = "volt.projectMismatch";
 			item.iconPath = new vscode.ThemeIcon(
 				"warning",
@@ -174,6 +202,7 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 				`${node.label} (${node.count})`,
 				vscode.TreeItemCollapsibleState.Expanded,
 			);
+			item.id = `group-${node.sourceIdx}-${node.group}`;
 			item.contextValue = `volt.group.${node.group}`;
 			item.iconPath = new vscode.ThemeIcon(
 				node.group === "incoming"
@@ -186,6 +215,7 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 		}
 		// kind === "item"
 		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None);
+		item.id = `item-${node.sourceIdx}-${node.group}-${node.rel}`;
 		item.resourceUri = node.uri;
 		item.contextValue = `volt.item.${node.group}`;
 		item.iconPath = new vscode.ThemeIcon(
@@ -221,15 +251,31 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 			node.group === "incoming"
 				? `${node.rel} (Volt: incoming from IDE)`
 				: `${node.rel} (Volt: workspace vs HEAD)`;
+
+		// Right pane choice — `file://` when the file is on disk
+		// (editable, live-tracks unsaved changes), `volt://WORKSPACE/...`
+		// when it isn't. The WORKSPACE ref returns the workspace bytes
+		// when present and an empty string when not (see
+		// VoltContentProvider) — so the diff editor renders a
+		// post-init / pre-pull incoming item as "everything would be
+		// added", which is the correct preview semantics. Without this
+		// fallback, the right pane showed a "File not found" error and
+		// the user couldn't preview anything until they pulled.
+		const workspaceFsPath = node.uri.fsPath;
+		const rightUri = existsSync(workspaceFsPath)
+			? node.uri
+			: buildVoltUri(folder, "WORKSPACE", node.rel);
+
 		return {
 			command: "vscode.diff",
 			title: "Open Diff",
-			arguments: [buildVoltUri(folder, leftRef, node.rel), node.uri, title],
+			arguments: [buildVoltUri(folder, leftRef, node.rel), rightUri, title],
 		};
 	}
 
 	getChildren(node?: Node): Node[] {
 		if (node === undefined) {
+			logln(`tree.getChildren(root)`);
 			// Root order: per source, a single health header. The IDE +
 			// project name shown there ("Connected: CODESYS — …") already
 			// tells the user which bridge they're hitting; a separate
@@ -257,18 +303,16 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 			let anySourceRefreshing = false;
 			let anySourceWithoutStatus = false;
 			let firstStatusError: string | undefined;
-			let firstOfflineReason: string | undefined;
+			let everySourceOffline = sources.length > 0;
 			for (let i = 0; i < sources.length; i++) {
 				const src = sources[i]!;
 				if (src.isRefreshing()) anySourceRefreshing = true;
+				if (isBridgeOnline(src.getHealth())) everySourceOffline = false;
 				const s = src.getStatus();
 				if (s === undefined) {
 					anySourceWithoutStatus = true;
 					if (firstStatusError === undefined) {
 						firstStatusError = src.getStatusError();
-					}
-					if (firstOfflineReason === undefined && !isBridgeOnline(src.getHealth())) {
-						firstOfflineReason = describeOffline(src.getHealth());
 					}
 					continue;
 				}
@@ -280,33 +324,21 @@ export class VoltTreeProvider implements vscode.TreeDataProvider<Node>, vscode.D
 				if (out > 0) result.push({ kind: "group", label: "Changes", group: "outgoing", sourceIdx: i, count: out });
 				totalRows += m + inc + out;
 			}
+			logln(`tree.getChildren(root): sources=${sources.length} totalRows=${totalRows} anySourceRefreshing=${anySourceRefreshing} anySourceWithoutStatus=${anySourceWithoutStatus} everySourceOffline=${everySourceOffline}`);
 			if (totalRows === 0 && sources.length > 0) {
 				// Mutually-exclusive empty states, in priority order:
 				//   1. refresh in flight + no status yet → "Loading…"
-				//      (so we don't flash a stale offline / error message
-				//       while a fresh probe is on the wire)
-				//   2. bridge offline → "Bridge offline: <reason>"
-				//      (the refresh deliberately skipped `volt status` —
-				//       this is the honest answer, not a CLI error)
+				//   2. bridge offline → NO row (the red health row above
+				//      already conveys the offline state + reason; a
+				//      second "Bridge offline" row is pure repetition)
 				//   3. status failed → show the actual stderr
 				//   4. status succeeded with zero changes → "in sync"
-				//   5. no status, no refresh, no error, no offline →
-				//      "Waiting for first refresh…"
-				// Order matters: (2) before (3) so that when the bridge
-				// is down we don't blame the CLI; (1) before everything
-				// so a fresh refresh doesn't flicker through stale states.
+				//   5. no status, no refresh, no error → "Waiting…"
 				if (anySourceRefreshing && anySourceWithoutStatus) {
 					result.push({ kind: "loading", label: "Loading changes from IDE…" });
-				} else if (firstOfflineReason !== undefined) {
-					result.push({
-						kind: "status-error",
-						label: `Bridge offline: ${truncate(firstOfflineReason, 80)}`,
-						tooltip:
-							`Volt skipped \`volt status --json\` because the bridge isn't reachable.\n\n` +
-							`Reason: ${firstOfflineReason}\n\n` +
-							`Start your PLC IDE (TwinCAT XAE or CODESYS) and run the bridge, then refresh.\n\n` +
-							`Click to open the Volt Output channel for the full log.`,
-					});
+				} else if (everySourceOffline) {
+					// Intentionally no row — the red health row above
+					// carries the whole signal.
 				} else if (firstStatusError !== undefined) {
 					result.push({
 						kind: "status-error",

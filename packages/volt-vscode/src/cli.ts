@@ -25,6 +25,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as vscode from "vscode";
+import { withGate } from "./mutation-gate.js";
 
 /** POU extensions volt-agent materializes — used by build diagnostics
  *  to resolve a `BridgeDiagnostic.object` name to its workspace file. */
@@ -72,6 +73,12 @@ function logCli(label: string, stdout: string, stderr: string, code: number): vo
 
 type GuardedOp = "pull" | "push";
 const inflightOps = new Map<string, GuardedOp>();
+
+// `cliMutationsInFlight` lived here as a free-floating Set across
+// cli.ts / scm.ts. Now owned by `./mutation-gate.ts` — `withGate`
+// brackets each mutation so the invariant "flag is set before the
+// CLI spawn AND held through the post-mutation refresh" is enforced
+// by the API shape rather than by reviewer vigilance.
 
 /**
  * Wrap a pull or push body so duplicate invocations against the same
@@ -159,7 +166,57 @@ interface MutatingOptions {
  * "Pull first" recovery on push drift).
  */
 async function runCliMutating(args: string[], options: MutatingOptions): Promise<boolean> {
-	const body = async (): Promise<boolean> => {
+	// Captured stdout of the CLI body — read inside the gate to look for
+	// the `complete` event line pull/push emit on `--json` clean success.
+	let lastCapturedStdout: string | undefined;
+	const body = (): Promise<boolean> => withGate(options.cwd, async () => {
+		const result = await runBody();
+		// Post-mutation refresh runs INSIDE the gate so the /health
+		// probe its refresh path may issue (skipHealthProbe=true skips
+		// the probe entirely on the success branch, but the apply-
+		// status branch also reads the gate via maybeNotifyConnectionLoss
+		// elsewhere) stays under toast suppression. Order matters:
+		// gate is held → refresh → gate releases on withGate's finally.
+		try {
+			// Prefer the agent-emitted post-state when present — `volt
+			// pull --json` / `volt push --json` emit a `complete` event
+			// on clean success carrying the post-state. Applying it
+			// directly skips the extension's own `volt status --json`
+			// walk (~8s on a 243-item CODESYS project — the dead-time
+			// gap users otherwise saw between pull finishing and the
+			// "Incoming Changes (N)" group clearing).
+			//
+			// Fall back to skipHealth refresh when no `complete` event
+			// was emitted (verbs that don't yet emit one, --dry-run,
+			// merge-conflict path).
+			//
+			// skipHealthProbe: the bridge JUST talked to us via the CLI
+			// body — probing /health is redundant, and races CODESYS's
+			// COM-thread recovery window.
+			const postState = lastCapturedStdout === undefined
+				? undefined
+				: parseCompleteEvent(lastCapturedStdout);
+			if (postState !== undefined) {
+				await vscode.commands.executeCommand(
+					"volt._applyPostState",
+					options.cwd,
+					postState,
+				);
+			} else {
+				await vscode.commands.executeCommand(
+					"volt._refreshFolder",
+					options.cwd,
+					{ skipHealthProbe: true },
+				);
+			}
+		} catch {
+			// Swallow — refresh failures are reported via the SCM tree's
+			// status-error row, not via the mutating command's
+			// success/error path.
+		}
+		return result;
+	});
+	const runBody = async (): Promise<boolean> => {
 		const result = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
@@ -168,6 +225,7 @@ async function runCliMutating(args: string[], options: MutatingOptions): Promise
 			},
 			() => spawnCapture(cliBin(), args, options.cwd),
 		);
+		lastCapturedStdout = result.stdout;
 		logCli(`volt ${args.join(" ")}`, result.stdout, result.stderr, result.code);
 
 		if (result.code === 0) {
@@ -353,14 +411,14 @@ async function commandAcceptProjectRename(): Promise<void> {
 		);
 		return;
 	}
-	const ok = await runCliMutating(["init", "--port", String(port), "--force"], {
+	await runCliMutating(["init", "--port", String(port), "--force"], {
 		cwd,
 		progressTitle: "Volt: accepting project rename…",
 		describe: "rebind",
 		successMessage: () => "Volt: project rename accepted. Snapshot history preserved.",
 	});
-	if (!ok) return;
-	await vscode.commands.executeCommand("volt.refresh");
+	// No explicit refresh — runCliMutating's finally fires
+	// `volt._refreshFolder` after every mutation.
 }
 
 /** Read the port a workspace is bound to (from `.volt/config.json`).
@@ -385,36 +443,36 @@ export function readBridgePortFromConfig(cwd: string): number | undefined {
 async function commandPull(): Promise<void> {
 	const cwd = requireCwd();
 	if (cwd === undefined) return;
-	await runCliMutating(["pull"], {
+	await runCliMutating(["pull", "--json"], {
 		cwd,
 		progressTitle: "Volt: Pulling from IDE…",
 		describe: "pull",
 		guardOp: "pull",
-		successMessage: extractPullSummary,
+		successMessage: buildPullToast,
 	});
 }
 
 async function commandForcePull(): Promise<void> {
 	const cwd = requireCwd();
 	if (cwd === undefined) return;
-	await runCliMutating(["pull", "--force"], {
+	await runCliMutating(["pull", "--force", "--json"], {
 		cwd,
 		progressTitle: "Volt: Force-pulling from IDE…",
 		describe: "pull --force",
 		guardOp: "pull",
-		successMessage: extractPullSummary,
+		successMessage: buildPullToast,
 	});
 }
 
 async function commandPush(): Promise<void> {
 	const cwd = requireCwd();
 	if (cwd === undefined) return;
-	await runCliMutating(["push"], {
+	await runCliMutating(["push", "--json"], {
 		cwd,
 		progressTitle: "Volt: Pushing to IDE…",
 		describe: "push",
 		guardOp: "push",
-		successMessage: extractPushSummary,
+		successMessage: buildPushToast,
 		errorActions: (stderr, code) => buildPushErrorActions(stderr, code, false),
 	});
 }
@@ -428,37 +486,69 @@ async function commandForcePush(): Promise<void> {
 		"Yes, force push",
 	);
 	if (confirm !== "Yes, force push") return;
-	await runCliMutating(["push", "--force"], {
+	await runCliMutating(["push", "--force", "--json"], {
 		cwd,
 		progressTitle: "Volt: Force-pushing to IDE…",
 		describe: "push --force",
 		guardOp: "push",
-		successMessage: extractPushSummary,
+		successMessage: buildPushToast,
 	});
 }
 
-/** Parse the first "pulled: ... (breakdown)" pair out of `volt pull` stdout,
- *  and APPEND a warning when the agent reported skipped items so the engineer
- *  doesn't see a green "pull complete" toast when their workspace is actually
- *  missing POUs the transpiler couldn't handle. Without this surfacing, a
- *  partial pull looked identical to a clean pull in the UI. */
-function extractPullSummary(stdout: string): string | undefined {
-	const lines = stdout.split(/\r?\n/);
-	const skippedMatch = stdout.match(/^!?\s*skipped\s+(\d+)\s+item\(s\)/m);
-	const skippedSuffix = skippedMatch === null
-		? ""
-		: ` — ⚠ ${skippedMatch[1]} item(s) skipped (transpile failures; see Output)`;
-	const pulled = lines.find((l) => l.startsWith("pulled:"));
-	if (pulled === undefined) return `Volt: pull complete — already up to date.${skippedSuffix}`;
-	const breakdown = lines.find((l) => l.startsWith("  ("));
-	const body = breakdown !== undefined ? `${pulled} ${breakdown.trim()}` : pulled;
-	return `Volt: ${body}${skippedSuffix}`;
+/** Pull the `status` payload out of a `--json` CLI run's stdout. The
+ *  agent emits one NDJSON line per event; on clean pull/push success
+ *  the final event is `{"event":"complete","status":{...},"summary":"..."}`
+ *  (see `volt-agent/src/cli/_post-state.ts` for the construction).
+ *  Returns undefined when no `complete` event was emitted — caller falls
+ *  back to a full status walk. */
+function parseCompleteEvent(stdout: string): unknown | undefined {
+	for (const line of stdout.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed.startsWith("{")) continue;
+		try {
+			const parsed = JSON.parse(trimmed) as { event?: unknown; status?: unknown };
+			if (parsed.event === "complete" && typeof parsed.status === "object" && parsed.status !== null) {
+				return parsed.status;
+			}
+		} catch {
+			// Not a JSON line we care about — skip.
+		}
+	}
+	return undefined;
 }
 
-/** Parse the "pushed:" headline out of `volt push` stdout. */
-function extractPushSummary(stdout: string): string | undefined {
-	const headline = stdout.split(/\r?\n/).find((l) => l.startsWith("pushed:"));
-	return headline !== undefined ? `Volt: ${headline}` : "Volt: push complete.";
+/** Pull the `summary` field out of a `--json` CLI run's stdout — used
+ *  to populate the success toast when the `--json` mode replaced the
+ *  human-readable lines extractPullSummary used to scrape. */
+function extractJsonSummary(stdout: string): string | undefined {
+	for (const line of stdout.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed.startsWith("{")) continue;
+		try {
+			const parsed = JSON.parse(trimmed) as { event?: unknown; summary?: unknown };
+			if (parsed.event === "complete" && typeof parsed.summary === "string") {
+				return parsed.summary;
+			}
+		} catch {
+			// not JSON
+		}
+	}
+	return undefined;
+}
+
+/** Build the success-toast string for a `volt pull --json` run by
+ *  reading the `summary` field of the agent's `complete` NDJSON event.
+ *  Agent already includes the ⚠ skipped-items marker when applicable
+ *  (see `volt-agent/src/cli/pull.ts`) — no parsing required here. */
+function buildPullToast(stdout: string): string | undefined {
+	const summary = extractJsonSummary(stdout);
+	return summary === undefined ? "Volt: pull complete." : `Volt: ${summary}`;
+}
+
+/** Build the success-toast string for a `volt push --json` run. */
+function buildPushToast(stdout: string): string | undefined {
+	const summary = extractJsonSummary(stdout);
+	return summary === undefined ? "Volt: push complete." : `Volt: ${summary}`;
 }
 
 /** Build the context-aware error UI for push: drift offers "Pull first";

@@ -34,6 +34,47 @@ const KNOWN_DIRECTIVES = new Set([
 	"end_region",
 ]);
 
+/**
+ * TwinCAT namespace prefixes — the ONLY documented vendor prefix
+ * convention we acknowledge for the unknown-pragma bypass.
+ *
+ * The shared catalog is the source of truth for CODESYS pragmas; every
+ * CODESYS-based IDE (Lenze, Wago, Schneider, ABB, Festo, …) uses the
+ * SAME pragma set, so a Lenze project that hits `unknown-pragma` is
+ * either using an unrecognized standard CODESYS attribute (add to
+ * catalog) or genuinely user-defined (the warning is correct).
+ *
+ * TwinCAT is the structural outlier: Beckhoff publishes its own pragma
+ * set (TcContextId, TcLinkTo, TcRpcEnable, ...) and many more exist than
+ * we've catalogued. The `Tc...` / `Tc2_...` / `Tc3_...` namespace IS a
+ * documented Beckhoff convention, so a name in that namespace is
+ * legitimately vendor-extended regardless of catalog state.
+ *
+ * Anything outside this small allowlist falls through to the warning —
+ * which is the correct signal for "either name it Tc..., or add to the
+ * catalog as a documented CODESYS attribute, or fix your typo."
+ */
+const TWINCAT_NAMESPACE_PREFIXES = ["Tc", "Tc2_", "Tc3_"] as const;
+
+/** True when the attribute name lives in the TwinCAT namespace — see
+ *  TWINCAT_NAMESPACE_PREFIXES for the matching rules. */
+function hasTwincatNamespacePrefix(name: string): boolean {
+	for (const prefix of TWINCAT_NAMESPACE_PREFIXES) {
+		if (!name.startsWith(prefix)) continue;
+		const rest = name.slice(prefix.length);
+		if (rest.length === 0) continue;
+		// Underscore-style ends prefix at the underscore (Tc2_LibName).
+		if (prefix.endsWith("_")) return true;
+		// Concatenated style requires the next char to be a digit or
+		// uppercase letter so e.g. "Tcontext" doesn't get classified as
+		// `Tc` + "ontext" — must be a clean CamelCase / version boundary
+		// (TcContextId, TcLinkTo).
+		const next = rest.charCodeAt(0);
+		if ((next >= 0x41 && next <= 0x5a) || (next >= 0x30 && next <= 0x39)) return true;
+	}
+	return false;
+}
+
 export function analyzePragmas(
 	source: string,
 	parseResult: ParseResult,
@@ -131,7 +172,16 @@ export function analyzePragmas(
 				if (pr.attributeName !== undefined) {
 					const entry = PRAGMAS.get(pr.attributeName.toLowerCase());
 					if (entry === undefined) {
-						if (cfg.unknownPragma) {
+						// TwinCAT-namespaced names (`Tc...`/`Tc2_...`/
+						// `Tc3_...`) silently pass — that namespace is a
+						// documented Beckhoff convention and the catalog
+						// only covers the most common entries. CODESYS-
+						// based vendors share the SAME catalog as
+						// CODESYS itself, so unknown attrs in CODESYS
+						// projects are either uncatalogued standards
+						// (file an issue) or genuinely user-defined
+						// (warning is correct).
+						if (cfg.unknownPragma && !hasTwincatNamespacePrefix(pr.attributeName)) {
 							out.push({
 								severity: "warning",
 								span: pr.token.span,

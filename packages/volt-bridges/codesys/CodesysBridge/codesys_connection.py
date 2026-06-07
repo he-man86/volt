@@ -26,6 +26,8 @@ post-push fetch invariant, itemCache through apply).
 """
 # pyright: reportMissingImports=false
 import hashlib
+import threading
+import time
 
 from .helpers import block_type_mapper, log, plcopen_xml
 
@@ -118,6 +120,28 @@ class CodesysConnection(object):
 		self._degraded = False
 		self._degraded_reason = None
 		self._connected_initial = _SCRIPTENGINE_AVAILABLE
+		# ─── IDE-state cache ─────────────────────────────────────────
+		# /health reads from this snapshot WITHOUT invoking COM. Without
+		# the cache, /health called invoke_on_ui directly and serialized
+		# behind any in-flight /refs walk on the single CODESYS UI thread.
+		# A 2s client-side timeout on /health then spuriously flipped the
+		# extension's connection state to "unreachable" during the COM-
+		# thread recovery window after a long /refs walk, clobbering a
+		# clean post-pull tree state.
+		#
+		# Pattern: stale-while-revalidate. /health returns whatever is
+		# cached and triggers `trigger_async_probe()` when the cache is
+		# older than ~5s. The probe runs on a daemon thread that marshals
+		# to the UI thread — if COM is busy, the probe sits queued; if
+		# not, it updates the cache in a few ms. Either way, /health
+		# itself never blocks.
+		self._cache_lock = threading.Lock()
+		self._cached_ide_alive = False
+		self._cached_project_name = None
+		self._cached_plc_project_name = None
+		self._cached_project_dirty = None
+		self._cached_at_ms = 0  # 0 = never populated
+		self._probe_in_flight = False  # collapses bursts of probe requests
 
 	# ─── State ────────────────────────────────────────────────────
 
@@ -182,6 +206,84 @@ class CodesysConnection(object):
 	@property
 	def ide_version(self):
 		return _IDE_VERSION
+
+	# ─── IDE-state cache ──────────────────────────────────────────
+
+	def get_cache_snapshot(self):
+		# type: () -> dict
+		"""Thread-safe snapshot of the cached IDE state. Returns dict
+		with keys ide_alive, project_name, plc_project_name,
+		project_dirty, age_ms. `age_ms` is None when no probe has ever
+		populated the cache."""
+		with self._cache_lock:
+			if self._cached_at_ms == 0:
+				age_ms = None
+			else:
+				age_ms = int(time.time() * 1000) - self._cached_at_ms
+			return {
+				"ide_alive": self._cached_ide_alive,
+				"project_name": self._cached_project_name,
+				"plc_project_name": self._cached_plc_project_name,
+				"project_dirty": self._cached_project_dirty,
+				"age_ms": age_ms,
+			}
+
+	def _replace_cache(self, ide_alive, project_name, plc_project_name, project_dirty):
+		# type: (bool, object, object, object) -> None
+		"""Atomically write a new cache snapshot. Called only from the
+		async probe."""
+		with self._cache_lock:
+			self._cached_ide_alive = bool(ide_alive)
+			self._cached_project_name = project_name
+			self._cached_plc_project_name = plc_project_name
+			self._cached_project_dirty = project_dirty
+			self._cached_at_ms = int(time.time() * 1000)
+
+	def trigger_async_probe(self):
+		# type: () -> None
+		"""Fire a one-shot background probe that updates the cache.
+		No-op if a probe is already in flight (collapses bursts of
+		/health calls into a single COM round-trip). Called by /health
+		on stale-cache reads and once at bridge startup to warm the
+		cache before the first user request."""
+		with self._cache_lock:
+			if self._probe_in_flight:
+				return
+			self._probe_in_flight = True
+		t = threading.Thread(target=self._run_async_probe, name="codesys-cache-probe")
+		t.daemon = True
+		t.start()
+
+	def _run_async_probe(self):
+		# type: () -> None
+		"""Body of the async probe. Marshals to the CODESYS UI thread.
+		If COM is busy (e.g. /refs walk in progress), the probe sits
+		queued on the UI-thread message pump — doesn't affect /health
+		response times, which read the previously-cached state. When
+		COM frees, the probe completes and the cache reflects the new
+		state on the next /health call."""
+		# Local import to dodge a potential circular at module load:
+		# bridge.py imports both modules.
+		from . import ui_thread
+		ide_alive = False
+		project_name = None
+		plc_project_name = None
+		project_dirty = None
+		try:
+			ide_alive = ui_thread.invoke_on_ui(self.probe_ide_alive)
+			if ide_alive:
+				project_name = ui_thread.invoke_on_ui(self.get_project_name)
+				plc_project_name = project_name
+				project_dirty = ui_thread.invoke_on_ui(self.get_project_dirty)
+				self.clear_degraded()
+		except ui_thread.UiThreadUnavailable as e:
+			self.mark_degraded(str(e))
+		except Exception as e:
+			self.mark_degraded("async probe failed: {0}".format(e))
+		finally:
+			self._replace_cache(ide_alive, project_name, plc_project_name, project_dirty)
+			with self._cache_lock:
+				self._probe_in_flight = False
 
 	# ─── Project access (UI THREAD ONLY) ──────────────────────────
 

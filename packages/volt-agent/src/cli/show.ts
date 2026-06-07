@@ -47,7 +47,24 @@ import {
 import { peekBridgeItem } from "../engine/ops.js";
 import { nameFromPath as nameFromTrackedPath } from "../engine/extension-registry.js";
 import { ensureSnapshotRepo, reportSnapshotHeal } from "../engine/snapshot.js";
+import { WORKSPACE_SRC_DIR } from "../engine/workspace-layout.js";
 import { flagString, type VerbFn } from "./_shared.js";
+
+/** Convert an extension-supplied path to the form the snapshot tree
+ *  and bridge-side materializer use internally.
+ *
+ *  The VS Code extension builds `volt://` URIs from workspace-relative
+ *  paths (`src/01_PackML/Foo.enum`), but the snapshot's git tree and
+ *  `materializeItem`'s outputs are vendor-relative — they live under
+ *  `<srcRoot>/...` on disk but `srcRoot` is stripped from the tree's
+ *  path keys. Stripping the `src/` prefix here makes `volt show HEAD
+ *  src/X` work the same as `volt show HEAD X`, so the extension's
+ *  outgoing-diff click resolves correctly. */
+function stripSrcPrefix(p: string): string {
+	const norm = p.replace(/\\/g, "/");
+	const prefix = `${WORKSPACE_SRC_DIR}/`;
+	return norm.startsWith(prefix) ? norm.slice(prefix.length) : norm;
+}
 
 type NamedRef = "HEAD" | "MERGE_HEAD" | "ORIG_HEAD" | "WORKSPACE" | "BRIDGE";
 
@@ -95,6 +112,13 @@ export const show: VerbFn = async ({ workspace, bridge, flags }) => {
 		return 0;
 	}
 
+	// Strip the workspace `src/` prefix that the VS Code extension's
+	// `volt://` URIs carry — snapshot tree paths and `materializeItem`
+	// outputs are vendor-relative, not workspace-relative. CLI users
+	// who already pass vendor-relative paths are unaffected (the helper
+	// only strips when the prefix is actually present).
+	const lookupPath = stripSrcPrefix(pathArg);
+
 	if (refArg === "BRIDGE") {
 		// Pure-read fetch from the live bridge. peekBridgeItem
 		// guarantees no snapshot or workspace mutation — even if the
@@ -102,7 +126,7 @@ export const show: VerbFn = async ({ workspace, bridge, flags }) => {
 		// is never silently overwritten. The path must be any tracked
 		// workspace path — POU source (`.st`/`.fbd`/`.ld`/...) OR a
 		// config item (`.task`/`.xml`/`.visu`/`.tmc`/...).
-		const name = nameFromTrackedPath(pathArg);
+		const name = nameFromTrackedPath(lookupPath);
 		if (name === undefined) {
 			process.stderr.write(
 				`BRIDGE ref requires a tracked workspace path (any of .st/.fbd/.ld/.xml/.task/.visu/.tmc/...); got: ${pathArg}\n`,
@@ -115,8 +139,7 @@ export const show: VerbFn = async ({ workspace, bridge, flags }) => {
 			// graphical children). Find the one whose path matches what
 			// the user asked for; fall back to the parent (first entry)
 			// when the path-derived name matched the parent itself.
-			const normalized = pathArg.replace(/\\/g, "/");
-			const match = outputs.find((o) => o.path === normalized) ?? outputs[0];
+			const match = outputs.find((o) => o.path === lookupPath) ?? outputs[0];
 			if (match === undefined) {
 				process.stderr.write(`bridge produced no content for ${pathArg}\n`);
 				return 2;
@@ -151,7 +174,7 @@ export const show: VerbFn = async ({ workspace, bridge, flags }) => {
 	}
 
 	const tree = listTree(paths.snapshotPath, commitSha);
-	const entry = tree.find((e) => e.path === pathArg);
+	const entry = tree.find((e) => e.path === lookupPath);
 	if (entry === undefined) {
 		process.stderr.write(`not found at ${refArg}: ${pathArg}\n`);
 		return 2;

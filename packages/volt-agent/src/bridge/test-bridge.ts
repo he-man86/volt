@@ -137,8 +137,16 @@ export class TestBridge implements Remote {
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
 		const versions = this.computeVersions();
 		const known = req.knownItems ?? {};
+		// Honor the optional allowlist the same way both real bridges do:
+		// skip materialization for items not in `onlyItems`. Keeps the
+		// in-memory test bridge a faithful stand-in so scenario tests
+		// exercising peekBridgeItem / preview clicks behave like prod.
+		const onlyItems = req.onlyItems !== undefined && req.onlyItems.length > 0
+			? new Set(req.onlyItems)
+			: undefined;
 		const changed: FetchedItem[] = [];
 		for (const [name, version] of Object.entries(versions)) {
+			if (onlyItems !== undefined && !onlyItems.has(name)) continue;
 			if (known[name] !== version) {
 				const item = this.items.get(name);
 				if (item === undefined) continue;

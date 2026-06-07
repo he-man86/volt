@@ -8,7 +8,7 @@ Derived from the [Beckhoff Information System](https://infosys.beckhoff.com/), T
 
 Source root: https://infosys.beckhoff.com/content/1033/tc3_plc_intro/
 
-Retrieval date: **2026-05-26**
+Retrieval date: **2026-06-07**
 
 ## Why this exists separately
 
@@ -22,15 +22,27 @@ The LSP's `vendor` config option (`codesys` / `twincat` / `auto`) selects the ac
 
 ## Sections (deltas only — refer to `codesys-reference/` for shared content)
 
+Mirrors the structure of [`../codesys-reference/00-index.md`](../codesys-reference/00-index.md). Each file covers only what TwinCAT adds or changes relative to CODESYS.
+
 | # | Section | Content |
 |---|---|---|
-| 01 | [Pragmas — TwinCAT additions](./01-pragmas-twincat.md) | 19 `Tc*`-prefixed attribute pragmas + TwinCAT-only inherited attribute names |
-| 02 | [System operators (deltas)](./02-system-operators.md) | Operators where TwinCAT differs from CODESYS (e.g. `__SYSTEM` namespace) |
-| 03 | [Reserved init slots](./03-init-slots.md) | TwinCAT subsystem-reserved `global_init_slot` ranges that differ from CODESYS |
-| 04 | [Library and namespace conventions](./04-libraries.md) | `Tc2_*`/`Tc3_*` library namespace patterns and conventions |
+| 01 | [Programming languages and editors](./01-languages.md) | XAE vs CODESYS IDE, online change, IL deprecation, CFC execution order |
+| 02 | [Variables](./02-variables.md) | `VAR_STAT`, I/O linking via mapping, `PERSISTENT` vs `RETAIN`, ADS symbol visibility |
+| 03 | [Operators](./03-operators.md) | `__NEW`/`__DELETE`, `__ISVALIDREF`, `__VARINFO`, `__QUERY_INTERFACE`/`__QUERY_POINTER`/`__TRY_CAST` |
+| 04 | [Type conversion](./04-type-conversion.md) | `STRING`/`WSTRING` handling, `TcEncoding`, ANY type, strict enums |
+| 05 | [Operands](./05-operands.md) | Direct address vs I/O mapping, `__SYSTEM.GetTimestamp`, `THIS`/`SUPER` |
+| 06 | [Data types](./06-data-types.md) | `OTCID`, `PVOID`, global DUT files, `pack_mode` alignment, string limits |
+| 07 | [Pragmas](./07-pragmas.md) | 19 `Tc*`-prefixed attribute pragmas + TwinCAT-only inherited attribute names |
+| 08 | [Identifiers](./08-identifiers.md) | `__SYSTEM` namespace, `__` prefix reservation, `Tc` prefix convention, naming style |
+| 09 | [Shadowing rules](./09-shadowing.md) | Same search order as CODESYS; method shadow warning; OOP override |
+| 10 | [Keywords](./10-keywords.md) | `INTERFACE`, `IMPLEMENTS`, `EXTENDS`, `ABSTRACT`, `FINAL`, `OVERRIDE`, `PROPERTY` |
+| 11 | [FB_Init, FB_Reinit, FB_Exit](./11-fb-lifecycle.md) | `call_after_online_change_slot`, `__NEW` calling `FB_Init`, ADS handle cleanup in `FB_Exit` |
+| 12 | [Global init slots](./12-global-init-slots.md) | TwinCAT subsystem-reserved ranges (0–999), user range (1000+) |
+| 13 | [Error messages and warnings](./13-error-messages.md) | C/L/W compiler codes, ADS runtime error hex codes, I/O mapping errors |
+| 14 | [Library and namespace conventions](./14-libraries.md) | `Tc2_*`/`Tc3_*` library families, `.tsproj` reference format, CODESYS equivalents |
 
 (Anything not listed here is shared with CODESYS — see [`../codesys-reference/`](../codesys-reference/00-index.md).)
 
 ## Status
 
-Mirror covers TwinCAT 3 (PLC reference docs as of 2026-05-26). TwinCAT 4 is in beta as of late 2025 — if/when it ships, we'll add deltas as a separate section rather than retroactively merge.
+Mirror covers TwinCAT 3.1 Build 4024 (current GA as of 2026-06-07). TwinCAT 4 is in beta as of late 2025 — if/when it ships, we'll add deltas as a separate section rather than retroactively merge.

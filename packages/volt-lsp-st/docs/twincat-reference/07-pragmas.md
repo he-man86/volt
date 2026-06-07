@@ -1,7 +1,7 @@
-# 01 — TwinCAT 3 Attribute Pragmas
+# 07 — Pragmas (TwinCAT Additions)
 
 > **Source:** https://infosys.beckhoff.com/content/1033/tc3_plc_intro/2529567115.html
-> **Retrieved:** 2026-05-26
+> **Retrieved:** 2026-06-07
 > **TwinCAT version:** 3 (current GA)
 
 ## Summary
@@ -9,6 +9,8 @@
 TwinCAT inherits most CODESYS attribute pragmas (see [`../codesys-reference/07-pragmas.md`](../codesys-reference/07-pragmas.md)). This page lists **TwinCAT-specific additions** — pragmas with the `Tc*` prefix, plus a few inherited names TwinCAT documents distinctly that CODESYS does not.
 
 When a user writes a TwinCAT pragma in a CODESYS project (or vice versa), the LSP raises a `wrong-vendor-pragma` warning and suggests the equivalent in the active vendor where one exists.
+
+---
 
 ## TwinCAT-specific (`Tc*` prefix)
 
@@ -34,6 +36,8 @@ When a user writes a TwinCAT pragma in a CODESYS project (or vice versa), the LS
 | `TcSwapWord` | Byte-swap 16-bit words on read/write | Above variable |
 | `Tc2GvlVarNames` | Compatibility: keep TwinCAT 2-style global variable naming | Above `VAR_GLOBAL` |
 
+---
+
 ## Equivalents to CODESYS pragmas
 
 Where a TwinCAT pragma has a roughly-equivalent CODESYS counterpart, the LSP's `wrong-vendor-pragma` diagnostic suggests it:
@@ -45,6 +49,8 @@ Where a TwinCAT pragma has a roughly-equivalent CODESYS counterpart, the LSP's `
 | `TcNoSymbol` | `{attribute 'hide'}` partial | `hide` affects UI; `TcNoSymbol` also excludes symbols |
 | `TcCallAfterOutputUpdate` | `{attribute 'call_after_online_change_slot'}` partial | Different lifecycle hook; no exact equivalent |
 | (no equivalent) | `{attribute 'qualified_only'}` | TwinCAT also has this (shared) |
+
+---
 
 ## Inherited but TwinCAT-documented additions
 
@@ -62,13 +68,11 @@ Pragmas that originate in CODESYS but TwinCAT documents with extensions/differen
 
 These are tagged as `"shared"` in the LSP catalog — both vendors accept them. If we discover TwinCAT-only nuances later, we'll re-tag.
 
+---
+
 ## Notes for tooling
 
 - Each TwinCAT pragma here gets a `vendor: "twincat"` entry in `src/reference/pragmas.ts`.
 - `equivalentIn.codesys` is set for the pragmas in the equivalents table above.
 - The `wrong-vendor-pragma` diagnostic uses these entries to produce the user-facing suggestion.
 - TwinCAT-only inherited pragmas (`c++_compatible`, etc.) are tagged `vendor: "shared"` unless we learn otherwise.
-
-## Sub-pages
-
-This section has no per-pragma sub-pages on the Beckhoff InfoSys (it's a flat table). Per-pragma detail pages exist on InfoSys but are linked from the master table page; we capture the essentials inline above.

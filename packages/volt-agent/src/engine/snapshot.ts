@@ -567,7 +567,15 @@ export function computeOutgoing(
 	for (const [path, content] of wsByPath) {
 		const name = sourceOnly(path);
 		if (name === undefined) continue;
-		const wsSha = writeBlob(snapshotPath, content);
+		// Normalize CRLF→LF before hashing — same as `detectWorkspaceDirty`.
+		// Without this, a Windows-saved file (or one OneDrive briefly
+		// holds with CRLF while pull's LF writes are still settling on
+		// disk) shows as `modified` even when its content is byte-
+		// identical to the snapshot blob. `detectWorkspaceDirty`
+		// normalizes; the two predicates MUST agree, otherwise status
+		// reports "0 dirty, N outgoing" — a contradiction that surfaced
+		// as a phantom out=N right after pull until OneDrive sync settled.
+		const wsSha = writeBlob(snapshotPath, normalizeWorkspaceContent(content));
 		const headSha = headByPath.get(path);
 		if (headSha === undefined) added.set(name, folderOf(path));
 		else if (headSha !== wsSha) modified.add(name);

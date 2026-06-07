@@ -295,7 +295,13 @@ internal sealed class HttpBridge
 
 			object? result = path switch
 			{
-				"/health"  => _connection.RunOnStaThread(() => _health.Handle()),
+				// /health is a pure cache read — DO NOT marshal onto the
+				// STA thread. Doing so serialized /health behind /refs
+				// walks (single COM thread) and tripped the client's 2s
+				// timeout into a spurious "unreachable" state. The cache
+				// is populated by a background probe scheduled inside
+				// BuildHealthResponse when state is stale.
+				"/health"  => _health.Handle(),
 				"/refs"    => _connection.RunOnStaThread(() => _refs.Handle()),
 				"/fetch"   => _connection.RunOnStaThread(() => _fetch.Handle(body ?? new JsonObject())),
 				"/push"    => _connection.RunOnStaThread(() => _push.Handle(body ?? new JsonObject())),

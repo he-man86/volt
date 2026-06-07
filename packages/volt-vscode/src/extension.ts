@@ -68,7 +68,7 @@ const PLC_LANGUAGES: PlcLanguage[] = [
 		displayName: "Structured Text",
 		configKey: "volt.structuredText.lspServer",
 		settingsRoot: "volt.structuredText",
-		referencePath: "docs/codesys-reference/00-index.md",
+		referencePath: ".claude/skills/st-reference/codesys-reference/00-index.md",
 		// volt-lsp-st handles every POU language Volt analyzes
 		// today: ST/IL via parsed source, FBD/LD via the text
 		// declaration on top of the marker block (body XML
@@ -459,10 +459,15 @@ function registerCommands(context: vscode.ExtensionContext): void {
 				);
 				return;
 			}
-			const candidates = PLC_LANGUAGES.map((l) =>
-				vscode.Uri.joinPath(folder.uri, l.referencePath),
-			);
-			for (const uri of candidates) {
+			// TwinCAT project check first — if twincat-reference/ is present,
+			// open its index (the TC-specific deltas). Fall back to the shared
+			// CODESYS reference, then to any language-specific default path.
+			const skillBase = ".claude/skills/st-reference";
+			const prioritised = [
+				vscode.Uri.joinPath(folder.uri, `${skillBase}/twincat-reference/00-index.md`),
+				...PLC_LANGUAGES.map((l) => vscode.Uri.joinPath(folder.uri, l.referencePath)),
+			];
+			for (const uri of prioritised) {
 				try {
 					await vscode.workspace.fs.stat(uri);
 					await vscode.commands.executeCommand("vscode.open", uri);
@@ -472,7 +477,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 				}
 			}
 			const installed = await vscode.window.showWarningMessage(
-				"CODESYS reference not found in this workspace. Run `volt init` to install it?",
+				"Language reference not found in this workspace. Run `volt init` to install it?",
 				"Run volt init",
 				"Cancel",
 			);

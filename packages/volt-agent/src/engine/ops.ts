@@ -478,10 +478,19 @@ export async function peekBridgeItem(
 	bridge: Remote,
 	name: string,
 ): Promise<MaterializedFile[]> {
-	// Force a full re-fetch of this single item by passing an empty
-	// version string in `knownItems` — the bridge then includes its
-	// current bytes in the `changed` array unconditionally.
-	const resp = await bridge.fetchChanges({ knownItems: { [name]: "" } });
+	// Force a full re-fetch of just THIS one item:
+	//   - `knownItems: {[name]: ""}` says "I know this item with an empty
+	//     version" → bridge sees the version mismatch and includes its
+	//     current bytes.
+	//   - `onlyItems: [name]` is the allowlist filter that tells the
+	//     bridge "skip every OTHER item" — without it, the bridge would
+	//     materialize all 243 items in a CODESYS project (each click on
+	//     a SCM-tree preview took ~5s for this reason; with the filter
+	//     it's one item's worth of work).
+	const resp = await bridge.fetchChanges({
+		knownItems: { [name]: "" },
+		onlyItems: [name],
+	});
 	const item = resp.changed.find((i) => i.name === name);
 	if (item === undefined) {
 		throw new Error(

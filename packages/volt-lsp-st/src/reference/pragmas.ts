@@ -652,6 +652,36 @@ const ENTRIES: PragmaEntry[] = [
 		insertLocation: "gvl-top",
 	}),
 	pr({
+		name: "strict",
+		kind: "pragma",
+		category: "attribute",
+		source: SOURCE,
+		vendor: "shared",
+		oneLiner: "Apply strict type-checking to a POU — implicit conversions become errors, not warnings.",
+		syntax: "{attribute 'strict'}",
+		insertLocation: "pou-top",
+		gotchas: [
+			"Project-wide strict mode lives in the compiler settings; this attribute opts a SINGLE POU in even when the project default is permissive.",
+			"Implicit BOOL↔BYTE, signed↔unsigned, narrowing assignments all become errors inside a strict POU — expect refactoring on legacy code.",
+		],
+	}),
+	pr({
+		name: "symbol",
+		kind: "pragma",
+		category: "attribute",
+		source: SOURCE,
+		vendor: "shared",
+		oneLiner: "Per-variable export mode for the Symbol Configuration / OPC UA: 'none' | 'read' | 'write' | 'readwrite'.",
+		// CODESYS accepts both the value-bearing form and a bare presence.
+		// Default to the most common value (readwrite) in the snippet.
+		syntax: "{attribute 'symbol' := '${1|readwrite,read,write,none|}'}",
+		insertLocation: "var-above",
+		gotchas: [
+			"Without an explicit `symbol` attribute, GVL-level Symbol Configuration export status applies (project-wide default).",
+			"Only takes effect when the project actually has a Symbol Configuration / OPC UA Communication object.",
+		],
+	}),
+	pr({
 		name: "subsequent",
 		kind: "pragma",
 		category: "attribute",

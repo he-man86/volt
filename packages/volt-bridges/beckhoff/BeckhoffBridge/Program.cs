@@ -73,6 +73,12 @@ internal static class Program
 		// launch the bridge first, then open Visual Studio / TcXaeShell, and
 		// we'll auto-attach when it appears (within ~3s).
 		var connection = new BeckhoffConnection();
+		// Warm the IDE-state cache so the first /health request after
+		// startup carries real project info instead of an empty
+		// placeholder. The probe queues onto the STA thread (which the
+		// main message-pump loop drains in ProcessQueue); idempotent
+		// while in flight. See BeckhoffConnection.TriggerAsyncProbe.
+		connection.TriggerAsyncProbe();
 		Log.Ide("Looking for TwinCAT XAE...");
 		bool initialIdeFound = TryAttachToIde(connection, quietOnFail: true);
 		if (!initialIdeFound)

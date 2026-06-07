@@ -21,7 +21,15 @@
       "Bash(git fetch *)",
       "Bash(git log *)",
       "Bash(git checkout *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(xargs grep -l \"vendor\")",
+      "Bash(xargs grep -l \"vendor\\\\|activeVendor\\\\|lsp.*vendor\")",
+      "Bash(xargs grep -l \"activeVendor\\\\|vendor\")",
+      "Bash(xargs grep -l \"volt init\\\\|initWorkspace\\\\|copyDocs\\\\|copy.*docs\")",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\marce\\\\OneDrive\\\\Documenten\\\\Github\\\\volt\\\\packages\\\\volt-lsp-st\\\\docs\" -Recurse -File | ForEach-Object { $_.FullName })",
+      "PowerShell([System.IO.Directory]::GetFiles\\(\"C:\\\\Users\\\\marce\\\\OneDrive\\\\Documenten\\\\Github\\\\volt\\\\packages\\\\volt-lsp-st\\\\src\\\\tests\\\\unit\"\\))",
+      "Bash(PowerShell -Command \"Select-String -Path 'src\\\\tests\\\\unit\\\\diagnostics.test.ts' -Pattern 'shadowing|qualified' | head -20\")",
+      "Bash(PowerShell -Command \"Get-Content 'src\\\\lexer\\\\lexer.ts' | Select-String -Pattern 'pragma|attribute' | head -20\")"
     ]
   }
 }

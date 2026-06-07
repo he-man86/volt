@@ -282,6 +282,14 @@ export type RefsResponse = z.infer<typeof RefsResponseSchema>;
 export const FetchRequestSchema = z.object({
 	/** Client's currently-known {name → version} map. Omit / pass {} for "I have nothing". */
 	knownItems: z.record(z.string()).optional(),
+	/** Optional allowlist — when present, the bridge skips work for any
+	 *  item not in this list. Used by the VS Code extension's `peekBridgeItem`
+	 *  to render one preview without materializing the other ~242 items in
+	 *  a CODESYS project (the SCM-tree click was previously ~5s while the
+	 *  bridge built every item; with this filter it's a single item's worth
+	 *  of work). Backward-compatible: absent = fetch everything (current
+	 *  behavior). */
+	onlyItems: z.array(z.string()).optional(),
 });
 export type FetchRequest = z.infer<typeof FetchRequestSchema>;
 

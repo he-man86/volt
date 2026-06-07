@@ -42,6 +42,29 @@ internal sealed class BeckhoffConnection
 
 	private readonly BlockingCollection<Action> _staQueue = new();
 
+	// ─── IDE-state cache ────────────────────────────────────────────────
+	//
+	// /health reads from this cache WITHOUT touching COM, so it never
+	// blocks behind /refs/fetch/push on the STA thread. Without the
+	// cache, /health called ProbeIdeAlive (a COM call) on the STA, which
+	// serialized behind any in-flight /refs walk. A 2s client-side
+	// timeout on /health then flipped the extension's connection state
+	// to "unreachable" during the STA-thread recovery window after a
+	// long /refs walk, clobbering a clean post-pull tree state.
+	//
+	// Pattern: stale-while-revalidate. /health returns whatever is
+	// cached and triggers RunAsyncProbe() when the cache is older than
+	// ~5s. The probe runs on a Task that queues onto the STA; if STA is
+	// busy, the probe sits queued; if not, it updates the cache in a
+	// few ms. /health itself never blocks.
+	private readonly object _cacheLock = new();
+	private bool _cachedIdeAlive;
+	private string? _cachedProjectName;
+	private string? _cachedPlcProjectName;
+	private bool? _cachedProjectDirty;  // null = unknown / SP doesn't expose
+	private long _cachedAtMs;  // 0 = never populated
+	private bool _probeInFlight;  // collapses bursts of probe requests
+
 	// -------------------------------------------------------------------------
 	// Properties
 	// -------------------------------------------------------------------------
@@ -257,24 +280,34 @@ internal sealed class BeckhoffConnection
 	}
 
 	/// <summary>
-	/// Build the consolidated /health response. Probes the IDE; if the probe
-	/// fails, drops cached COM references so subsequent calls report
-	/// disconnected. MUST be called on the STA thread.
+	/// Build the consolidated /health response from the IDE-state cache.
+	/// PURE CACHE READ — does not touch COM, safe to call from any thread.
+	/// Triggers a background async probe when the cache is stale, so the
+	/// NEXT call reflects fresh state without this one blocking.
 	/// </summary>
-	public object BuildHealthSnapshot(string version)
+	public object BuildHealthResponse(string version)
 	{
-		bool ideAlive = ProbeIdeAlive();
-
-		if (!ideAlive && _dte != null)
+		bool ideAlive;
+		string? projectName;
+		string? plcProjectName;
+		bool? projectDirty;
+		long? ageMs;
+		lock (_cacheLock)
 		{
-			// IDE went away — release stale COM refs without throwing.
-			try { Disconnect(); } catch { /* ignore */ }
+			ideAlive = _cachedIdeAlive;
+			projectName = _cachedProjectName;
+			plcProjectName = _cachedPlcProjectName;
+			projectDirty = _cachedProjectDirty;
+			ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
 		}
-		else if (ideAlive && _isDegraded)
+
+		// Stale-while-revalidate: kick off a background probe when we'd
+		// want fresher data. The probe runs on the STA via the queue; if
+		// COM is busy with /refs, it sits queued — doesn't affect this
+		// response.
+		if (ageMs is null || ageMs > _StaleThresholdMs)
 		{
-			// COM channel is responsive again — clear the degraded
-			// gate so the next non-/health call can proceed.
-			ClearDegraded();
+			TriggerAsyncProbe();
 		}
 
 		bool connected = IsConnected;
@@ -289,10 +322,103 @@ internal sealed class BeckhoffConnection
 			ideName = IdeName,
 			ideVersion = IdeVersion,
 			version,
-			projectName = _projectName,
-			plcProjectName = _plcProjectName,
-			projectDirty = ProjectDirty,
+			projectName,
+			plcProjectName,
+			// Schema sends a bool unconditionally; cache may be null when
+			// the SP didn't expose Solution.Saved on the last probe. Use
+			// `false` as the safe default (treats "unknown" as "dirty"
+			// from a "should I prompt the user?" standpoint).
+			projectDirty = projectDirty ?? false,
 		};
+	}
+
+	/// <summary>
+	/// Cache age threshold (ms) above which BuildHealthResponse schedules
+	/// a background probe to refresh IDE state. With the client polling
+	/// /health every 30s, this means the cache is refreshed roughly once
+	/// per heartbeat — fresh enough to track project renames, infrequent
+	/// enough that the STA thread isn't constantly being woken up.
+	/// </summary>
+	private const long _StaleThresholdMs = 5000;
+
+	/// <summary>
+	/// Fire a one-shot background probe that updates the IDE-state cache.
+	/// No-op if a probe is already in flight (collapses bursts of /health
+	/// calls into a single STA round-trip). Called by BuildHealthResponse
+	/// on stale-cache reads and once at bridge startup (Program.cs) to
+	/// warm the cache before the first user request.
+	/// </summary>
+	public void TriggerAsyncProbe()
+	{
+		lock (_cacheLock)
+		{
+			if (_probeInFlight) return;
+			_probeInFlight = true;
+		}
+		_ = Task.Run(RunAsyncProbe);
+	}
+
+	/// <summary>
+	/// Body of the async probe. Queues the actual COM work onto the STA
+	/// thread via RunOnStaThread. If the STA is busy (e.g. /refs in
+	/// progress), this Task waits inside RunOnStaThread — doesn't affect
+	/// /health response times, which read whatever the cache currently
+	/// holds. When STA frees, the probe completes and the cache reflects
+	/// the new state on the next /health call.
+	/// </summary>
+	private void RunAsyncProbe()
+	{
+		bool ideAlive = false;
+		string? projectName = null;
+		string? plcProjectName = null;
+		bool? projectDirty = null;
+
+		try
+		{
+			(ideAlive, projectName, plcProjectName, projectDirty) = RunOnStaThread(() =>
+			{
+				bool alive = ProbeIdeAlive();
+
+				if (!alive && _dte != null)
+				{
+					// IDE went away — release stale COM refs without
+					// throwing. Same side effect the old health handler
+					// performed; preserves cleanup semantics.
+					try { Disconnect(); } catch { /* ignore */ }
+				}
+				else if (alive && _isDegraded)
+				{
+					// COM channel is responsive again — clear the degraded
+					// gate so the next non-/health call can proceed.
+					ClearDegraded();
+				}
+
+				bool? dirty = null;
+				try { dirty = !_dte!.Solution.Saved; } catch { /* SP doesn't expose, leave null */ }
+
+				return (alive, _projectName, _plcProjectName, dirty);
+			});
+		}
+		catch
+		{
+			// Probe failed — leave cache as-is. The next probe (next
+			// /health call) retries. We deliberately don't mark degraded
+			// here because the failure may simply be "STA queue dispatch
+			// faulted"; the per-COM-call degraded paths are owned by the
+			// handlers that hit actual TwinCAT RPCs.
+		}
+		finally
+		{
+			lock (_cacheLock)
+			{
+				_cachedIdeAlive = ideAlive;
+				_cachedProjectName = projectName;
+				_cachedPlcProjectName = plcProjectName;
+				_cachedProjectDirty = projectDirty;
+				_cachedAtMs = Environment.TickCount64;
+				_probeInFlight = false;
+			}
+		}
 	}
 
 	/// <summary>Save the solution.</summary>

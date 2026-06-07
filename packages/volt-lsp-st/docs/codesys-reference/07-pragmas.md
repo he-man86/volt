@@ -655,6 +655,41 @@ Use `*` as a placeholder for "all unspecified names". Without `*`, unspecified p
 
 ---
 
+### `strict`
+
+**Purpose.** Apply strict type-checking to a single POU. Implicit conversions that the compiler would normally warn about become hard errors.
+
+**Syntax.** `{attribute 'strict'}`
+
+**Insert location.** Line above a POU declaration (`FUNCTION_BLOCK`, `FUNCTION`, or `PROGRAM`).
+
+**Effect.** Inside a strict POU the compiler refuses:
+- Implicit BOOL ↔ BYTE conversions
+- Implicit signed ↔ unsigned conversions
+- Implicit narrowing assignments (e.g. `INT` into `SINT` without explicit cast)
+- Implicit STRING ↔ pointer conversions
+
+**Use case.** Opt one new POU into strict checking even when the project's compiler settings are permissive — gradual migration path for legacy code that can't switch project-wide.
+
+---
+
+### `symbol`
+
+**Purpose.** Per-variable override for what the Symbol Configuration / OPC UA Communication object exports. Lets a GVL be marked as fully-exported by default but turn off a single sensitive variable, or vice versa.
+
+**Syntax.** `{attribute 'symbol' := '<mode>'}` where `<mode>` is one of:
+
+- `'none'` — exclude this variable from the symbol configuration
+- `'read'` — read-only export (OPC UA clients can read but not write)
+- `'write'` — write-only export (rare; OPC UA clients can write but not read)
+- `'readwrite'` — full read+write export
+
+**Insert location.** Line above a variable declaration inside a `VAR_GLOBAL` block. Also accepted at GVL-top to set a project-wide default for that GVL.
+
+**Effect.** Overrides the GVL- or project-level export status for the variable that immediately follows. Has no observable effect when the project doesn't actually have a Symbol Configuration / OPC UA object — but stays valid syntax in case one is added later.
+
+---
+
 ### `reflection`
 
 **Purpose.** Marks an FB as "reflective" — required for the compiler to scan its variables looking for `instance-path` or `is_connected` attributes.

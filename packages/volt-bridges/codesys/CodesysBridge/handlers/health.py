@@ -1,15 +1,26 @@
 """
-GET /health — bridge liveness + the stable identifiers `volt init`
-binds a workspace to.
+GET /health — bridge liveness + cached IDE state.
+
+PURE CACHE READ. Never invokes COM, never blocks behind /refs/fetch/push
+on the single CODESYS UI thread. Returns whatever the connection's
+IDE-state cache holds and triggers a background async probe when the
+cache is stale (stale-while-revalidate).
+
+Why decoupled: previously this handler called `ui_thread.invoke_on_ui`
+three times (probe_ide_alive, get_project_name, get_project_dirty). All
+three serialized behind any in-flight /refs walk because CODESYS COM is
+STA — single thread. The client's 2s /health timeout then fired during
+the COM-thread recovery window after a long /refs walk and spuriously
+flipped the extension's connection state to "unreachable", clobbering
+a clean post-pull tree state. Decoupling /health from COM eliminates
+the race entirely.
 
 Wire shape mirrors HealthResponse in
 `packages/volt-agent/src/bridge/types.ts` — zod-validated with
-`.strict()` on the agent side, so any new field this handler
-emits without a matching schema entry surfaces as a loud
-MALFORMED_RESPONSE.
+`.strict()` on the agent side, so any new field this handler emits
+without a matching schema entry surfaces as a loud MALFORMED_RESPONSE.
 """
 # pyright: reportMissingImports=false
-from .. import ui_thread
 
 
 # Map OEM-rebranded CODESYS product names → variant slug. The
@@ -31,6 +42,14 @@ _OEM_VARIANTS = (
 	("kw_software", ("kw-software", "multiprog")),
 )
 
+# Cache age threshold (ms) above which /health schedules a background
+# probe to refresh IDE state. 5s strikes a balance: with the client
+# polling /health every 30s while the SCM view is visible, the cache
+# refreshes once per heartbeat — fresh enough for UI badges to track
+# project renames promptly, infrequent enough that the COM thread isn't
+# constantly being woken up.
+_STALE_THRESHOLD_MS = 5000
+
 
 def _derive_platform_variant(ide_name):
 	# type: (object) -> object
@@ -51,34 +70,21 @@ def _derive_platform_variant(ide_name):
 
 def handle(connection, bridge_version):
 	# type: (object, str) -> dict
-	"""Build a HealthResponse dict. Safe to call from the HTTP thread
-	directly — UI work is invoked through ui_thread.invoke_on_ui and
-	degrades silently when the UI is unavailable.
+	"""Build a HealthResponse dict from the cached IDE state. Safe to
+	call from the HTTP thread; does no UI-thread work."""
+	cache = connection.get_cache_snapshot()
 
-	`connected` / `ideAlive` reflect the SAME active probe the request
-	gate uses (`probe_ide_alive`), not the import-time scriptengine
-	flag. That way `/health` and the gate agree: if /health says
-	connected=true, /refs will let you through; if false, both fail
-	for the same reason."""
-	project_name = None
-	plc_project_name = None
-	project_dirty = None
-	ide_alive = False
-	if connection.is_connected:
-		try:
-			# Active probe — same one the request gate uses. If a project
-			# is loaded, this is also the cheapest moment to grab its
-			# name for the response payload (one UI roundtrip).
-			ide_alive = ui_thread.invoke_on_ui(connection.probe_ide_alive)
-			if ide_alive:
-				project_name = ui_thread.invoke_on_ui(connection.get_project_name)
-				plc_project_name = project_name
-				project_dirty = ui_thread.invoke_on_ui(connection.get_project_dirty)
-				connection.clear_degraded()
-		except ui_thread.UiThreadUnavailable as e:
-			connection.mark_degraded(str(e))
-		except Exception as e:
-			connection.mark_degraded("project read failed: {0}".format(e))
+	# Stale-while-revalidate: trigger a background COM probe when the
+	# cache is empty or aging out. The probe updates the cache for the
+	# NEXT /health call; the current response uses what we already have.
+	age_ms = cache["age_ms"]
+	if age_ms is None or age_ms > _STALE_THRESHOLD_MS:
+		connection.trigger_async_probe()
+
+	ide_alive = cache["ide_alive"]
+	project_name = cache["project_name"]
+	plc_project_name = cache["plc_project_name"]
+	project_dirty = cache["project_dirty"]
 
 	if not connection.is_connected or not ide_alive:
 		status = "unavailable"
