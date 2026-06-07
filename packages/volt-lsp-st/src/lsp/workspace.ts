@@ -141,7 +141,7 @@ export class Workspace {
 	getProjectScope(): Scope {
 		if (this.projectScopeCache !== undefined) return this.projectScopeCache;
 		const project = buildSymbolTable(
-			this.allDocuments().map((d) => ({ uri: d.uri, parseResult: d.parseResult })),
+			this.allDocuments().map((d) => ({ uri: d.uri, parseResult: d.parseResult, source: d.source })),
 		);
 		this.projectScopeCache = project;
 		return project;

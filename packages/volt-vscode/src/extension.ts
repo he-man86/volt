@@ -400,11 +400,23 @@ interface PlcLspInitOptionsExtended extends PlcLspInitOptions {
 	vendor?: "codesys" | "twincat" | "auto";
 }
 
+// Checks that are deliberately opt-in: they are stricter than TC/CODESYS and
+// should not fire unless the user explicitly enables them in settings.json.
+// These must match the flags marked "stricter-than-TC; opt-in" in the LSP's
+// DEFAULT_DIAGNOSTIC_CONFIG (volt-lsp-st/src/lsp/config/index.ts).
+const OPT_IN_DIAGNOSTIC_FLAGS = new Set([
+	"shadowingDeclaration",
+	"unknownPragma",
+	"wrongVendorPragma",
+	"initSlotCollision",
+] as const);
+
 function buildInitializationOptions(lang: PlcLanguage): PlcLspInitOptionsExtended {
 	const cfg = vscode.workspace.getConfiguration(lang.settingsRoot);
 	const diagnostics: Record<string, boolean> = {};
 	for (const flag of DIAGNOSTIC_FLAGS) {
-		diagnostics[flag] = cfg.get<boolean>(`diagnostics.${flag}`, true);
+		const conservativeDefault = !OPT_IN_DIAGNOSTIC_FLAGS.has(flag as never);
+		diagnostics[flag] = cfg.get<boolean>(`diagnostics.${flag}`, conservativeDefault);
 	}
 	const vendor = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto");
 	return {

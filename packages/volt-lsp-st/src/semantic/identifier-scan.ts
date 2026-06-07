@@ -35,6 +35,15 @@ export interface IdentifierOccurrence {
 	isCall: boolean;
 	/** True if this occurrence is preceded by `.` — a member access (qualified). */
 	isMemberAccess: boolean;
+	/**
+	 * True when this identifier is the name of a named parameter in a
+	 * function/FB call: `FB(paramName := value)` or `FB(paramName => dest)`.
+	 * Detection rule: preceded by `(` or `,` AND followed by `:=` or `=>`.
+	 * Named parameter names are not variable references — they live in the
+	 * callee's declaration, not the calling scope — so unresolved-identifier
+	 * must skip them.
+	 */
+	isNamedParam: boolean;
 }
 
 /**
@@ -62,6 +71,7 @@ export function scanReferencesInBody(
 			span: t.span,
 			isCall: next?.kind === "punct" && next.text === "(",
 			isMemberAccess: prev?.kind === "punct" && prev.text === ".",
+			isNamedParam: isNamedParamPosition(prev, next),
 		});
 	}
 	return out;
@@ -81,9 +91,26 @@ export function scanAllIdentifiersInBody(body: BodySpan): IdentifierOccurrence[]
 			span: t.span,
 			isCall: next?.kind === "punct" && next.text === "(",
 			isMemberAccess: prev?.kind === "punct" && prev.text === ".",
+			isNamedParam: isNamedParamPosition(prev, next),
 		});
 	}
 	return out;
+}
+
+/**
+ * True when the identifier is in named-parameter position inside a call
+ * argument list: preceded by `(` or `,` and followed by `:=` or `=>`.
+ *
+ * `FB(paramName := value)` / `FB(paramName => dest)`
+ */
+function isNamedParamPosition(
+	prev: Token | undefined,
+	next: Token | undefined,
+): boolean {
+	if (next?.kind !== "punct") return false;
+	if (next.text !== ":=" && next.text !== "=>") return false;
+	if (prev?.kind !== "punct") return false;
+	return prev.text === "(" || prev.text === ",";
 }
 
 /**

@@ -35,6 +35,13 @@ export interface IdentifierRef {
 	isCall: boolean;
 	/** True when this ref is preceded by `.` (ST member access). */
 	isMemberAccess: boolean;
+	/**
+	 * True when this identifier is the name-side of a named-parameter
+	 * argument: `FB(paramName := value)` or `FB(paramName => dest)`.
+	 * These names are not variable references — skip them in
+	 * unresolved-identifier resolution.
+	 */
+	isNamedParam: boolean;
 	/** The qualifier chain (`["fb"]` for `fb.method`). Undefined when
 	 *  isMemberAccess is false. */
 	qualifier?: string[];
@@ -60,6 +67,7 @@ export function buildBodyModel(st: BodySpan): BodyModel {
 		span: o.span,
 		isCall: o.isCall,
 		isMemberAccess: o.isMemberAccess,
+		isNamedParam: o.isNamedParam,
 	}));
 	const calls: CallSite[] = identifiers
 		.filter((i) => i.isCall)

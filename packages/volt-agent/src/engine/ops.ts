@@ -2,17 +2,17 @@
  * Workspace ↔ bridge translation. Used by `volt pull` and `volt push`
  * (in `cli/pull.ts` / `cli/push.ts`).
  *
- * Workspace layout: ONE FILE PER POU, extension picked by kind/language
- * (see `pou-files.ts`). Every file holds plain ST — bodies authored
- * graphically by the engineer are transpiled to ST at pull time so the
- * workspace stays single-language (memory `st-only-workspace`). The
- * source-language extension is preserved (`.fbd`, `.ld`) so the
- * engineer's intent is visible at a glance. The file is the unit of
- * transfer: it contains the outer POU (FUNCTION_BLOCK / PROGRAM /
- * FUNCTION / INTERFACE) followed by its children (METHOD / ACTION /
- * PROPERTY) as TOP-LEVEL SIBLINGS. Parent association is implicit from
- * the file name (`POUs/FB_Motor.st` contains everything related to
- * `FB_Motor`).
+ * Workspace layout: ONE FILE PER POU, always a `.st` file regardless of
+ * the body language. Every file holds plain ST — bodies authored graphically
+ * (FBD/LD/SFC/CFC) are transpiled or shelled out at pull time so the
+ * workspace stays single-language (memory `st-only-workspace`). Graphical
+ * children are inlined into the parent `.st` file with a
+ * `(* @volt-graphical: LANG *)` marker comment before each generated unit.
+ * The file is the unit of transfer: it contains the outer POU
+ * (FUNCTION_BLOCK / PROGRAM / FUNCTION / INTERFACE) followed by its
+ * children (METHOD / ACTION / PROPERTY) as TOP-LEVEL SIBLINGS. Parent
+ * association is implicit from the file name (`POUs/FB_Motor.st` contains
+ * everything related to `FB_Motor`).
  *
  * Wire-shape v2 (2026-05-29): the bridge owns structural parsing of
  * `.st`. The agent sends a workspace file's raw contents as
@@ -66,6 +66,7 @@ import {
 	materializeGraphicalChildAsST,
 	materializeGraphicalPouAsST,
 } from "./transpile-graphical-to-st.js";
+import { stripGraphicalUnits } from "./graphical-marker.js";
 
 // ─── Bridge → workspace materialization ────────────────────────────────
 
@@ -239,9 +240,8 @@ export async function syncFromBridge(
 }
 
 /** One file the materializer wants written: workspace-relative path
- *  + the bytes. A single bridge item can produce multiple outputs
- *  when it has graphical children (parent `.st` + one `.fbd` per
- *  non-textual action/method). */
+ *  + the bytes. Each bridge item always produces exactly ONE output
+ *  — a `.st` file containing the POU and any inlined graphical children. */
 export interface MaterializedFile {
 	path: string;
 	content: string;
@@ -305,112 +305,78 @@ function materializeItem(item: FetchedItem): MaterializedFile[] {
 		return [{ path: joinPath(folder, fileName), content: item.sourceText }];
 	}
 
-	// Source POU branch. Body language picks the disk extension
-	// (.st / .fbd / .ld / .cfc / .sfc). `pickExtension` throws when
-	// the body language is missing or unrecognized — the bridge is
-	// required to commit to a real language.
+	// Source POU branch. `pickExtension` throws when the body language
+	// is missing or unrecognized — the bridge must commit to a real
+	// language. For source POU kinds (function_block / function /
+	// program) all body languages now resolve to `.st` (see
+	// extension-registry.ts). Declaration-only kinds (gvl, interface,
+	// structure, …) return their own fixed extension.
 	const ext = pickExtension(item.kind, item.language);
-	const hasGraphicalChildren =
-		item.graphicalChildren !== undefined && item.graphicalChildren.length > 0;
+	const parentPath = joinPath(folder, `${item.name}.${ext}`);
+	let content = renderSourcePou(item);
 
-	// Layout: when the POU has graphical children, nest its own .st
-	// inside a directory named after the POU, alongside the sibling
-	// `.fbd`/`.ld`/`.sfc`/`.cfc` child files. Engineers landing on
-	// `<name>/` see everything belonging to that POU at once.
-	//
-	//   POUs/FB_Pump.st                      (no graphical children)
-	//   POUs/FB_Motion/FB_Motion.st          (has graphical children)
-	//   POUs/FB_Motion/Cyclic.fbd            (graphical child of FB_Motion)
-	//
-	// When a graphical child is added (or the last one removed), the
-	// parent's .st moves between these two locations. The pull's
-	// retired-files sweep handles the cleanup naturally — the old
-	// path isn't in the new tree, so it gets removed.
-	const parentDir = hasGraphicalChildren ? joinPath(folder, item.name) : folder;
-	const parentPath = joinPath(parentDir, `${item.name}.${ext}`);
-	const parentContent = renderSourcePou(item);
-	const outputs: MaterializedFile[] = [{ path: parentPath, content: parentContent }];
-
+	// Inline graphical children into the parent `.st` file, each
+	// preceded by a `(* @volt-graphical: LANG *)` marker comment so
+	// the push path can strip them before sending to the bridge.
 	if (item.graphicalChildren !== undefined) {
 		for (const child of item.graphicalChildren) {
-			outputs.push(renderGraphicalChild(parentDir, child));
+			content += "\n" + renderInlineGraphicalChild(child);
 		}
 	}
-	return outputs;
+
+	return [{ path: parentPath, content }];
 }
 
 /**
- * Render the parent file's bytes. FBD/LD bodies go through the
- * transpiler that emits ST + splices into the declaration shell.
- * SFC/CFC have no transpile path — we write `sourceText` (declaration
- * + empty body shell) and rely on the read-only access mode of
- * `.sfc` / `.cfc` to prevent round-trip-write attempts. ST POUs are
- * already complete in `sourceText`.
+ * Render the parent file's bytes. For ST POUs, `sourceText` is
+ * complete and written verbatim. For graphical body languages
+ * (FBD/LD/SFC/CFC) a `(* @volt-graphical: LANG *)` marker is
+ * prepended so the push path knows the body was generated:
+ *
+ *   FBD / LD  → transpiled to ST; marker signals the generated body.
+ *   SFC / CFC → declaration shell from sourceText; body lives in IDE.
  */
 function renderSourcePou(item: FetchedItem): string {
 	const language = item.language;
-	const hasBodyXml = item.implementationXml !== undefined && item.implementationXml !== null;
-	if (hasBodyXml && (language === "FBD" || language === "LD")) {
-		return materializeGraphicalPouAsST(item, item.implementationXml!);
+	if (language === "ST" || language === undefined) {
+		return item.sourceText;
 	}
-	// ST / SFC / CFC — write the bridge's sourceText verbatim. For SFC
-	// and CFC this is the declaration shell with no body content; the
-	// engineer keeps the body in the IDE, Volt only tracks the
-	// declarations and the fact the POU exists.
-	return item.sourceText;
+	const hasBodyXml = item.implementationXml !== undefined && item.implementationXml !== null;
+	const body =
+		hasBodyXml && (language === "FBD" || language === "LD")
+			? materializeGraphicalPouAsST(item, item.implementationXml!)
+			: item.sourceText;
+	return `(* @volt-graphical: ${language} *)\n${body}`;
 }
 
 /**
- * Render one graphical child as a workspace file inside the parent's
- * namespace directory. Same transpile pipeline as top-level graphical
- * POUs (`materializeGraphicalPouAsST`) — strip vendor markup,
- * transpile, splice into the declaration shell — so the engineer sees
- * the SAME shape they'd see for a top-level FBD POU, just wrapped as
- * `ACTION X / <ST> / END_ACTION` instead of `FUNCTION_BLOCK X / <ST> /
- * END_FUNCTION_BLOCK`.
+ * Render one graphical child as an inline text block with a
+ * `(* @volt-graphical: LANG *)` marker. The block is appended to the
+ * parent `.st` content separated by a blank line.
  *
  * Language-by-language:
- *   FBD / LD  → transpiled to ST and wrapped (throws on transpile
- *                failure; the per-item catch in `syncFromBridge`
- *                skips the WHOLE parent with a clear reason, matching
- *                the top-level FBD POU error path)
- *   SFC / CFC → no transpiler exists; emit declaration + END_<KIND>
- *                with a note that the body lives in the IDE. Read-only
- *                via the access registry's per-language `r` mode.
+ *   FBD / LD  → transpiled to ST (throws on failure; per-item catch
+ *                in `syncFromBridge` skips the WHOLE parent)
+ *   SFC / CFC → declaration shell + "body in IDE" comment + END_KIND
  */
-function renderGraphicalChild(
-	parentDir: string,
+function renderInlineGraphicalChild(
 	child: import("../bridge/types.js").GraphicalChild,
-): MaterializedFile {
-	const path = joinPath(parentDir, `${child.name}.${child.language.toLowerCase()}`);
-	const content =
+): string {
+	const body =
 		child.language === "FBD" || child.language === "LD"
 			? materializeGraphicalChildAsST(child)
 			: renderGraphicalChildShell(child);
-	return { path, content };
+	return `(* @volt-graphical: ${child.language} *)\n${body}`;
 }
 
 /**
  * Resolve which top-level item a workspace path belongs to.
  *
- * Two shapes are valid:
- *   1. Direct          `<folder>/<name>.<ext>`  → owner = name
- *   2. Graphical child `<folder>/<owner>/<child>.<lang_ext>` → owner = the
- *      enclosing directory name (the parent POU). Used when the
- *      parent has graphical members surfaced as read-only siblings.
- *
- * Walks the path bottom-up, first checking the basename stem against
- * known items (direct path), then climbing the directory chain (sibling
- * file under a parent's namespace folder). Returns the first dir
- * segment that matches an item name, or `undefined` if no segment
- * resolves.
- *
- * Folder-marker paths (`<folder>/<name>/.gitkeep`) need special
- * handling and are routed through `nameFromPath` instead.
+ * All POUs are now flat `<folder>/<name>.st` — no nested namespace
+ * directories. Direct stem-match only. Folder-marker paths
+ * (`<folder>/<name>/.gitkeep`) route through `nameFromPath`.
  */
 function resolveOwnerItem(relPath: string, items: Record<string, string>): string | undefined {
-	// Folder-marker paths — delegate to the existing helper that
-	// understands the marker convention.
 	if (relPath.endsWith(`/${FOLDER_MARKER}`) || relPath === FOLDER_MARKER) {
 		const name = nameFromPath(relPath);
 		return name !== undefined && name in items ? name : undefined;
@@ -421,12 +387,6 @@ function resolveOwnerItem(relPath: string, items: Record<string, string>): strin
 	if (dot > 0) {
 		const stem = basename.slice(0, dot);
 		if (stem in items) return stem;
-	}
-	// Climb the directory chain. For `<folder>/<parent>/<child>.fbd`
-	// the parent directory `<parent>` is the owner when it's in items.
-	for (let i = segments.length - 2; i >= 0; i--) {
-		const seg = segments[i]!;
-		if (seg in items) return seg;
 	}
 	return undefined;
 }
@@ -693,7 +653,9 @@ function buildPushOps(
 	// 2. Creates + updates.
 	for (const [name, currFile] of curr) {
 		const prevFile = prev.get(name);
-		const currContent = denormalizeLineEndings(readBlob(repoPath, currFile.entry.sha));
+		// Read as LF — stripGraphicalUnits expects LF (normalizes internally).
+		// buildPushItemOp denormalizes LF → CRLF before sending to bridge.
+		const currContent = readBlob(repoPath, currFile.entry.sha);
 
 		if (prevFile === undefined) {
 			// New item — pushItem with ifVersion=null = create-new semantics.
@@ -725,9 +687,10 @@ function buildPushOps(
 /**
  * Construct a `pushItem` op from a workspace file's content.
  *
- * The workspace is ST-only — graphical bodies are transpiled to ST
- * at pull time (memory: `st-only-workspace`). Every push therefore
- * carries plain text the bridge's StSplitter consumes directly.
+ * Graphical-unit blocks (preceded by `(* @volt-graphical: LANG *)`)
+ * are stripped before sending — the bridge owns those bodies via XML
+ * and must never receive transpiled ST back. Only the textual
+ * (ST-authored) portions of the file are pushed.
  *
  * The agent NEVER sends `implementationXml` to the bridge. Graphical
  * bodies live exclusively on the IDE side; the engineer authors them
@@ -740,11 +703,14 @@ function buildPushItemOp(
 	ifVersion: string | null,
 ): PushItemOp {
 	const folderField = currFile.folder.length > 0 ? { folder: currFile.folder } : {};
+	// Strip graphical-unit blocks (LF content → LF result), then
+	// denormalize LF → CRLF for the bridge wire format.
+	const sourceText = denormalizeLineEndings(stripGraphicalUnits(currContent));
 	return {
 		op: "pushItem",
 		name,
 		...folderField,
-		sourceText: currContent,
+		sourceText,
 		ifVersion,
 	};
 }

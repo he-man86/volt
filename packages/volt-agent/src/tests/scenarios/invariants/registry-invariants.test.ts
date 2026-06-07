@@ -63,11 +63,13 @@ describe("extension registry", () => {
 	});
 
 	test("pickExtension respects language overrides", () => {
+		// All body languages now map to .st — graphical bodies are inlined
+		// into the parent .st file with a (* @volt-graphical: LANG *) marker.
 		expect(pickExtension("function_block", "ST")).toBe("st");
-		expect(pickExtension("function_block", "FBD")).toBe("fbd");
-		expect(pickExtension("function_block", "LD")).toBe("ld");
-		expect(pickExtension("function_block", "CFC")).toBe("cfc");
-		expect(pickExtension("function_block", "SFC")).toBe("sfc");
+		expect(pickExtension("function_block", "FBD")).toBe("st");
+		expect(pickExtension("function_block", "LD")).toBe("st");
+		expect(pickExtension("function_block", "CFC")).toBe("st");
+		expect(pickExtension("function_block", "SFC")).toBe("st");
 		// Declaration-only kinds ignore language.
 		expect(pickExtension("gvl", "FBD")).toBe("gvl");
 		expect(pickExtension("interface", "LD")).toBe("itf");
@@ -99,8 +101,10 @@ describe("extension registry", () => {
 
 	test("isTrackedPath recognizes every kind + .gitkeep + .gitattributes", () => {
 		expect(isTrackedPath("POUs/FB_Motor.st")).toBe(true);
-		expect(isTrackedPath("X.fbd")).toBe(true);
-		expect(isTrackedPath("X.ld")).toBe(true);
+		// .fbd/.ld/.sfc/.cfc are no longer tracked — all graphical bodies
+		// are inlined into .st files.
+		expect(isTrackedPath("X.fbd")).toBe(false);
+		expect(isTrackedPath("X.ld")).toBe(false);
 		expect(isTrackedPath("MainTask.task")).toBe(true);
 		expect(isTrackedPath("Project Information.projectinfo")).toBe(true);
 		expect(isTrackedPath("a/b/.gitkeep")).toBe(true);
@@ -135,21 +139,17 @@ describe("extension registry", () => {
 	});
 
 	test("languageOverrides values carry { ext, access }", () => {
-		// Sanity-check the new shape so a partial migration (e.g.
-		// `{ ext: "fbd" }` with no `access`) doesn't slip through.
+		// Sanity-check the shape so a partial migration doesn't slip through.
 		for (const def of EXTENSIONS) {
 			if (def.languageOverrides === undefined) continue;
-			for (const [lang, override] of Object.entries(def.languageOverrides)) {
+			for (const override of Object.values(def.languageOverrides)) {
 				expect(typeof override.ext).toBe("string");
 				expect(override.ext.length).toBeGreaterThan(0);
 				expect(["r", "rw"]).toContain(override.access);
-				// ST is the only RW language; the graphical ones are R
-				// until we ship a stable round-trip path for them.
-				if (lang === "ST") {
-					expect(override.access).toBe("rw");
-				} else {
-					expect(override.access).toBe("r");
-				}
+				// All languages now map to .st (rw) — graphical bodies are
+				// inlined with a (* @volt-graphical: LANG *) marker.
+				expect(override.ext).toBe("st");
+				expect(override.access).toBe("rw");
 			}
 		}
 	});
@@ -167,28 +167,28 @@ describe("access mode resolution", () => {
 		expect(isPushable(".library", undefined)).toBe(false);
 	});
 
-	test("graphical languages default to read-only despite source kind being rw", () => {
-		// `.fbd`/`.ld`/`.cfc`/`.sfc` are reached via language-override on
-		// source kinds whose `defaultAccess` is `rw`. They get their own
-		// `r` via the per-language access mode — the engineer's IDE
-		// owns the graphical body, Volt only carries it.
-		expect(effectiveAccess(".fbd", undefined)).toBe("r");
-		expect(effectiveAccess(".ld", undefined)).toBe("r");
-		expect(effectiveAccess(".cfc", undefined)).toBe("r");
-		expect(effectiveAccess(".sfc", undefined)).toBe("r");
+	test("graphical extensions are untracked — .fbd/.ld/.cfc/.sfc resolve to off", () => {
+		// Graphical bodies are no longer separate files; they are inlined
+		// into the parent .st with a (* @volt-graphical: LANG *) marker.
+		// The old per-language extensions are therefore untracked and
+		// effectiveAccess returns "off" for them.
+		expect(effectiveAccess(".fbd", undefined)).toBe("off");
+		expect(effectiveAccess(".ld", undefined)).toBe("off");
+		expect(effectiveAccess(".cfc", undefined)).toBe("off");
+		expect(effectiveAccess(".sfc", undefined)).toBe("off");
 		expect(isPushable(".fbd", undefined)).toBe(false);
 		expect(isPushable(".cfc", undefined)).toBe(false);
 	});
 
 	test("config override flips access mode", () => {
-		// `.fbd` defaults to read-only now; the override flips it to rw
-		// so engineers can push back through a working FBD round-trip.
-		const cfg = { extensionAccess: { ".library": "off", ".fbd": "rw" } } as const;
+		const cfg = { extensionAccess: { ".library": "off" } } as const;
 		expect(effectiveAccess(".library", cfg)).toBe("off");
 		expect(isPullable(".library", cfg)).toBe(false);
 		expect(isPushable(".library", cfg)).toBe(false);
-		expect(effectiveAccess(".fbd", cfg)).toBe("rw");
-		expect(isPushable(".fbd", cfg)).toBe(true);
+		// .st is rw by default, can be blocked via config.
+		const cfgSt = { extensionAccess: { ".st": "r" } } as const;
+		expect(effectiveAccess(".st", cfgSt)).toBe("r");
+		expect(isPushable(".st", cfgSt)).toBe(false);
 	});
 
 	test("unknown extensions resolve to 'off' regardless of config", () => {

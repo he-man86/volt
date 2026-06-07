@@ -275,6 +275,8 @@ export interface EnumBody {
 	kind: "enum";
 	/** Optional explicit base type — `(VAL1, VAL2) BYTE`. */
 	baseType?: TypeExpr;
+	/** Optional default initializer — `(A, B) := A;` — CODESYS enum type default. */
+	init?: BodySpan;
 	values: EnumValue[];
 	span: Span;
 }

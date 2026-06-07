@@ -85,6 +85,14 @@ export interface Symbol {
 	typeExpr?: TypeExpr;
 	/** VAR section kind for `var` symbols. */
 	varSection?: VarSectionKind;
+	/**
+	 * True when this `gvl_var` belongs to a GVL block that carries
+	 * `{attribute 'qualified_only'}`. Per IEC 61131-3 / CODESYS name resolution,
+	 * such vars are NOT in the bare-name search path — they can only be
+	 * reached as `GvlName.varName`. They therefore cannot shadow locals and
+	 * must be excluded from the shadowing check's outer-scope lookup.
+	 */
+	qualifiedOnly?: boolean;
 	/** Backing AST node (for downstream queries that need more detail). */
 	ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property;
 }

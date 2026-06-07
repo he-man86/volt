@@ -244,10 +244,26 @@ function parseEnumBody(c: Cursor): EnumBody | undefined {
 		}
 	}
 
-	const endSpan = baseType?.span ?? open.span;
+	// Optional default initializer: `(A, B) := A;`
+	// CODESYS allows specifying the default value for variables of this enum type.
+	let init: EnumBody["init"];
+	const assign = c.eatPunct(":=");
+	if (assign !== undefined) {
+		const tokens: Token[] = [];
+		while (!c.atEof()) {
+			const next = c.peek();
+			if (next.kind === "keyword" && next.keyword === "END_TYPE") break;
+			if (next.kind === "punct" && next.text === ";") break;
+			tokens.push(c.consume());
+		}
+		init = bodySpanFromTokens(tokens, assign.span);
+	}
+
+	const endSpan = init?.span ?? baseType?.span ?? open.span;
 	return {
 		kind: "enum",
 		...(baseType !== undefined ? { baseType } : {}),
+		...(init !== undefined ? { init } : {}),
 		values,
 		span: joinSpans(open.span, endSpan),
 	};

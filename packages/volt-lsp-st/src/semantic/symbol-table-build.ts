@@ -44,6 +44,12 @@ export interface SymbolTableInput {
 	/** URI of the source document. Empty string is allowed for unit tests that don't care. */
 	uri: string;
 	parseResult: ParseResult;
+	/**
+	 * Raw source text. Required for detecting file-level pragmas (e.g. `qualified_only`)
+	 * that affect symbol semantics but are stripped from the AST. Optional — callers
+	 * that omit it (e.g. legacy tests) will not have pragma-sensitive behaviour.
+	 */
+	source?: string;
 }
 
 /**
@@ -68,6 +74,7 @@ export function buildSymbolTable(
 			? (file as SymbolTableInput).parseResult
 			: (file as ParseResult);
 		const uri = isInput ? (file as SymbolTableInput).uri : "";
+		const source = isInput ? ((file as SymbolTableInput).source ?? "") : "";
 		// Track the most recent FB/PROGRAM/INTERFACE scope IN THIS FILE so
 		// standalone methods / actions / properties that follow it can be
 		// parented to it. This matches the workspace-file layout: one
@@ -78,7 +85,7 @@ export function buildSymbolTable(
 		// from method scope straight to project, skipping the FB.
 		let currentMemberHost: Scope | undefined;
 		for (const unit of parseResult.units) {
-			const newScope = ingestTopLevel(project, unit, uri, currentMemberHost);
+			const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, source);
 			if (
 				unit.kind === "function_block" ||
 				unit.kind === "program" ||
@@ -99,6 +106,7 @@ function ingestTopLevel(
 	unit: TopLevel,
 	uri: string,
 	memberHost?: Scope,
+	source?: string,
 ): Scope | undefined {
 	switch (unit.kind) {
 		case "function_block":
@@ -120,7 +128,7 @@ function ingestTopLevel(
 			ingestTypeDecl(project, unit, uri);
 			return undefined;
 		case "global_var_list":
-			ingestGlobalVarList(project, unit, uri);
+			ingestGlobalVarList(project, unit, uri, source ?? "");
 			return undefined;
 		case "namespace":
 			ingestNamespace(project, unit, uri);
@@ -451,7 +459,13 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string): v
 	}
 }
 
-function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): void {
+function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, source: string): void {
+	// Per IEC 61131-3 / CODESYS name resolution, {attribute 'qualified_only'} removes
+	// this GVL's vars from the bare-name search path — they are only reachable as
+	// GvlName.varName. We carry that fact on each gvl_var symbol so the shadowing
+	// check can skip them as legitimate outer-scope targets.
+	const qualifiedOnly = /\{attribute\s+'qualified_only'\}/i.test(source);
+
 	// Register the GVL block itself as a top-level symbol named after the
 	// URI's basename. This is what lets `workspace/symbol` find a GVL by
 	// name, and what `GVL_Name.field` references resolve to under
@@ -484,6 +498,7 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): v
 					uri,
 					typeExpr: decl.type,
 					varSection: section.sectionKind,
+					qualifiedOnly: qualifiedOnly || undefined,
 					ast: decl,
 				});
 			}

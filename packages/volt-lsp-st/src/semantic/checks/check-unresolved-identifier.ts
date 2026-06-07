@@ -56,6 +56,12 @@ export function checkUnresolvedIdentifiers(
 				// inference). Skip to avoid false positives.
 				continue;
 			}
+			if (ref.isNamedParam) {
+				// `FB(paramName := value)` — the LHS is a parameter name in
+				// the callee's declaration, not a variable in the calling
+				// scope. Skip: no resolution needed.
+				continue;
+			}
 			const name = ref.name;
 			if (KEYWORD_SET.has(name.toLowerCase())) continue;
 			// Built-in conversion operators (`INT_TO_REAL`, etc.) are

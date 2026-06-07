@@ -422,7 +422,7 @@ def _build_get_result(name, kind, item):
 	if kind in ("function_block", "function", "program", "interface"):
 		graphical_children = []
 		try:
-			for child in item.get_children(recursive=True):
+			for child, child_folder in _walk_children_with_folders(item):
 				try:
 					marker = str(child)
 				except Exception:
@@ -455,6 +455,8 @@ def _build_get_result(name, kind, item):
 						"declaration": cdecl,
 						"implementation": cimpl,
 					}
+					if child_folder:
+						child_entry["folder"] = child_folder
 					if ck == block_type_mapper.KIND_PROPERTY:
 						_collect_property_accessors(child, child_entry)
 					result["children"].append(child_entry)
@@ -467,7 +469,7 @@ def _build_get_result(name, kind, item):
 				self_body = plcopen_xml.extract_self_member_body(child, cname)
 				if self_body is None:
 					# Container (no body of its own) — skip. Its leaf
-					# descendants come through recursive=True
+					# descendants come through the recursive folder walk
 					# separately.
 					continue
 				schema_kind = self_body["kind"]
@@ -476,13 +478,16 @@ def _build_get_result(name, kind, item):
 					decl_for_child = cdecl if cdecl.strip() else "{0} {1}".format(
 						schema_kind.upper(), cname
 					)
-					graphical_children.append({
+					gc_entry = {
 						"name": cname,
 						"kind": schema_kind,
 						"language": schema_lang,
 						"declaration": decl_for_child,
 						"implementationXml": self_body["body_xml"],
-					})
+					}
+					if child_folder:
+						gc_entry["folder"] = child_folder
+					graphical_children.append(gc_entry)
 					continue
 				# Non-textual marker but textual body language (ST/IL).
 				# Unusual combination; surface a warning so we learn
@@ -494,17 +499,48 @@ def _build_get_result(name, kind, item):
 				)
 				if schema_kind in ("action", "transition") and not cdecl.strip():
 					cdecl = "{0} {1}".format(schema_kind.upper(), cname)
-				result["children"].append({
+				child_entry2 = {
 					"kind": schema_kind,
 					"name": cname,
 					"declaration": cdecl,
 					"implementation": cimpl,
-				})
+				}
+				if child_folder:
+					child_entry2["folder"] = child_folder
+				result["children"].append(child_entry2)
 		except Exception as e:
 			log.warn("[fetch] {0}: child walk failed: {1}".format(name, e))
 		if graphical_children:
 			result["graphicalChildren"] = graphical_children
 	return result
+
+
+def _walk_children_with_folders(item, folder_path=""):
+	# type: (object, str) -> object
+	"""Walk a POU's children recursively, tracking organizational folder
+	paths through intermediate ScriptFolderObject nodes. Yields
+	(child, folder_path) pairs where folder_path is a slash-joined
+	string of the folder names between the POU root and the child,
+	or empty string when the child is at the POU root level."""
+	try:
+		for child in item.get_children(recursive=False):
+			try:
+				marker = str(child)
+			except Exception:
+				continue
+			if block_type_mapper.MARKER_FOLDER in marker:
+				try:
+					fname = child.get_name() if hasattr(child, "get_name") else ""
+				except Exception:
+					fname = ""
+				if fname:
+					sub_path = (folder_path + "/" + fname) if folder_path else fname
+					for item2, folder2 in _walk_children_with_folders(child, sub_path):
+						yield item2, folder2
+				continue
+			yield child, folder_path
+	except Exception:
+		pass
 
 
 def _classify_child(decl_text, marker_string=""):

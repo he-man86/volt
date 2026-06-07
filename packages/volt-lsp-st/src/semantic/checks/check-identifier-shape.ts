@@ -82,9 +82,14 @@ function emitIdentifierShapeDiagnostics(
 
 function walkScopeForDuplicates(scope: Scope, out: DiagnosticItem[]): void {
 	for (const [, symbols] of scope.symbols) {
-		if (symbols.length > 1) {
-			for (let i = 1; i < symbols.length; i++) {
-				const sym = symbols[i] as Symbol;
+		// `qualified_only` GVL vars are NOT in the bare-name search path —
+		// they live inside their GVL's own namespace. Two different GVLs may
+		// each declare a var with the same name without conflict, so exclude
+		// them entirely from the flat-scope duplicate check.
+		const bareNameSymbols = symbols.filter((s) => !s.qualifiedOnly);
+		if (bareNameSymbols.length > 1) {
+			for (let i = 1; i < bareNameSymbols.length; i++) {
+				const sym = bareNameSymbols[i] as Symbol;
 				out.push({
 					severity: "error",
 					span: sym.span,

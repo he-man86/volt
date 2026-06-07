@@ -491,12 +491,13 @@ export function handleNotification(
 
 /**
  * Recursively walk `dir` and yield absolute paths of every PLC-text
- * source file found: `.st` (POU bodies) and the type-def extensions
- * (`.struct` / `.enum` / `.union` / `.alias`) volt-agent materializes
- * for DUT subkinds. Skips `node_modules` and hidden directories.
+ * source file found: `.st` (POU bodies), `.gvl` (global variable lists),
+ * and the type-def extensions (`.struct` / `.enum` / `.union` / `.alias`)
+ * volt-agent materializes for DUT subkinds. Skips `node_modules` and
+ * hidden directories.
  */
 const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([
-	".st", ".struct", ".enum", ".union", ".alias",
+	".st", ".struct", ".enum", ".union", ".alias", ".gvl",
 ]);
 function* walkForStFiles(dir: string): Generator<string> {
 	let entries: fs.Dirent[];

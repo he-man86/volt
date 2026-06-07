@@ -392,6 +392,24 @@ describe("parser: TYPE / DUT", () => {
 		expect((body.baseType as NamedType).name.text).toBe("BYTE");
 	});
 
+	it("ENUM with default initializer := Value", () => {
+		// CODESYS allows `(A, B) := A;` to set the type's default initial value.
+		const { units, errors } = parseOne(`
+			TYPE ePackMLStates :
+			(
+				Stopped := 0,
+				Running := 1
+			):=Stopped;
+			END_TYPE
+		`);
+		expect(errors).toEqual([]);
+		const t = units[0] as TypeDecl;
+		const body = t.body as EnumBody;
+		expect(body.kind).toBe("enum");
+		expect(body.values).toHaveLength(2);
+		expect(body.init).toBeDefined();
+	});
+
 	it("UNION", () => {
 		const { units, errors } = parseOne(`
 			TYPE T_Bytes :

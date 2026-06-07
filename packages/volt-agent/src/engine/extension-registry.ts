@@ -64,25 +64,25 @@ export interface ExtensionDef {
  *  kinds (function_block / function / program). Defined once so
  *  the override map doesn't drift between entries.
  *
- *  Access mode is per-language, not per-parent-kind: an FB body in ST
- *  is round-trippable (rw), but an FB body in FBD/LD/SFC/CFC is
- *  read-only by default because we either don't have a stable transpile
- *  back-path (FBD/LD) or no transpile at all (SFC/CFC). Engineers can
- *  flip `.fbd` → `rw` via `.volt/config.json#extensionAccess` once
- *  they're confident in the round-trip. */
+ *  All body languages now resolve to `.st`. Graphical bodies (FBD/LD/SFC/CFC)
+ *  are materialized inline inside the parent `.st` file with a
+ *  `(* @volt-graphical: LANG *)` marker comment. The marker signals which
+ *  units were generated and should not be pushed back to the bridge;
+ *  `stripGraphicalUnits` (engine/graphical-marker.ts) removes them on push. */
 const POU_BODY_LANGUAGES: Record<string, LanguageOverride> = {
 	ST: { ext: "st", access: "rw" },
-	FBD: { ext: "fbd", access: "r" },
-	LD: { ext: "ld", access: "r" },
-	SFC: { ext: "sfc", access: "r" },
-	CFC: { ext: "cfc", access: "r" },
+	FBD: { ext: "st", access: "rw" },
+	LD: { ext: "st", access: "rw" },
+	SFC: { ext: "st", access: "rw" },
+	CFC: { ext: "st", access: "rw" },
 };
 
 export const EXTENSIONS: readonly ExtensionDef[] = [
 	// ─── Source POUs — RW ────────────────────────────────────────────
-	// Bodies can be ST or graphical. Graphical pulls down as ST via
-	// the agent's transpiler but keeps the source-language extension
-	// (.fbd / .ld) so the engineer's intent stays visible.
+	// All bodies resolve to `.st` regardless of source language. Graphical
+	// bodies (FBD/LD/SFC/CFC) are inlined into the parent `.st` with a
+	// `(* @volt-graphical: LANG *)` marker so the engineer sees everything
+	// in one file and the push path can strip the generated sections.
 	{
 		kind: "function_block",
 		ext: "st",

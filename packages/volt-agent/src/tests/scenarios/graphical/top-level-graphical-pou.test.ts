@@ -1,11 +1,13 @@
 /**
- * Scenario: a top-level POU whose body language is CFC. The bridge
- * has no transpile path for CFC, and Volt has no editor for it, so
- * the file MUST land as `<name>.cfc` (NOT silently demoted to `.st`)
- * and MUST be read-only.
+ * Scenario: a top-level POU whose body language is CFC (or SFC).
  *
- * This is the regression test for the MMT case the user reported:
- * MMT is CFC in the IDE but used to materialize as `MMT.st`.
+ * After the graphical-inlining change, ALL body languages resolve to
+ * `.st`. Graphical POUs land as `.st` files with a
+ * `(* @volt-graphical: LANG *)` marker at the top so the push path
+ * knows to strip the generated body and only send the declaration.
+ *
+ * This is the regression test for the MMT case: MMT is CFC in the IDE
+ * and must materialize as `MMT.st` (NOT `MMT.cfc`).
  */
 import { afterEach, describe, expect, test } from "bun:test";
 
@@ -37,8 +39,8 @@ const CFC_SOURCE_TEXT =
 	"END_VAR\n" +
 	"END_FUNCTION_BLOCK\n";
 
-describe("scenario: CFC function block lands as .cfc and is read-only", () => {
-	test("file is materialized at <name>.cfc, not <name>.st", async () => {
+describe("scenario: CFC function block lands as .st with graphical marker", () => {
+	test("file is materialized at <name>.st with (* @volt-graphical: CFC *) marker", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -52,15 +54,18 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 		});
 		const result = await runVerb(pullVerb, env);
 		expect(result.exitCode).toBe(0);
-		expect(workspaceHasFile(env.workspace, "src/POUs/MMT.cfc")).toBe(true);
-		// Critical: NOT under the ST extension.
-		expect(workspaceHas(env.workspace, "src/POUs/MMT.st")).toBe(false);
-		// Content is the bridge's sourceText verbatim Ã¢â‚¬â€ declaration only,
-		// no fake transpile attempt for a language we can't transpile.
-		expect(readWorkspace(env.workspace, "src/POUs/MMT.cfc")).toBe(CFC_SOURCE_TEXT);
+		expect(workspaceHasFile(env.workspace, "src/POUs/MMT.st")).toBe(true);
+		// Critical: NOT under the old .cfc extension.
+		expect(workspaceHas(env.workspace, "src/POUs/MMT.cfc")).toBe(false);
+		const text = readWorkspace(env.workspace, "src/POUs/MMT.st");
+		// Marker is first line.
+		expect(text.startsWith("(* @volt-graphical: CFC *)")).toBe(true);
+		// Declaration body follows the marker.
+		expect(text).toContain("FUNCTION_BLOCK MMT");
+		expect(text).toContain("run: BOOL");
 	});
 
-	test("editing the .cfc file is refused on push (read-only by default)", async () => {
+	test("push strips the graphical marker and sends only the declaration to bridge", async () => {
 		env = makeTestEnv({
 			items: [
 				{
@@ -73,15 +78,24 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 			],
 		});
 		await runVerb(pullVerb, env);
-		// Mutate the workspace file the way an editor would.
+
+		// Engineer adds a new VAR to the declaration section.
+		const stPath = join(env.workspace, "src", "POUs", "MMT.st");
+		const original = readWorkspace(env.workspace, "src/POUs/MMT.st");
 		writeFileSync(
-			join(env.workspace, "src", "POUs", "MMT.cfc"),
-			CFC_SOURCE_TEXT + "(* engineer-typed edit *)\n",
+			stPath,
+			original.replace("run: BOOL;", "run: BOOL;\n\tspeed: REAL;"),
 		);
+
 		const pushResult = await runVerb(pushVerb, env);
-		// Non-zero exit and no push call landed at the bridge.
-		expect(pushResult.exitCode).not.toBe(0);
-		expect(env.bridge.pushCalls.length).toBe(0);
+		expect(pushResult.exitCode).toBe(0);
+
+		// Bridge received the declaration WITHOUT the marker line.
+		const sent = env.bridge.items.get("MMT")?.sourceText.replace(/\r\n/g, "\n");
+		expect(sent).toBeDefined();
+		expect(sent).toContain("FUNCTION_BLOCK MMT");
+		expect(sent).toContain("speed: REAL;");
+		expect(sent).not.toContain("@volt-graphical");
 	});
 
 	test("SFC top-level POU follows the same rule", async () => {
@@ -99,7 +113,9 @@ describe("scenario: CFC function block lands as .cfc and is read-only", () => {
 		});
 		const result = await runVerb(pullVerb, env);
 		expect(result.exitCode).toBe(0);
-		expect(workspaceHasFile(env.workspace, "src/POUs/Sequencer.sfc")).toBe(true);
-		expect(workspaceHas(env.workspace, "src/POUs/Sequencer.st")).toBe(false);
+		expect(workspaceHasFile(env.workspace, "src/POUs/Sequencer.st")).toBe(true);
+		expect(workspaceHas(env.workspace, "src/POUs/Sequencer.sfc")).toBe(false);
+		const text = readWorkspace(env.workspace, "src/POUs/Sequencer.st");
+		expect(text.startsWith("(* @volt-graphical: SFC *)")).toBe(true);
 	});
 });
