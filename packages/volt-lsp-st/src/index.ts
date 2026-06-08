@@ -19,6 +19,13 @@ export { lex } from "./lexer/lexer.js";
 export * from "./parser/ast.js";
 export { parse, parseSource } from "./parser/parser.js";
 
+// ─── Build-diagnostic line mapping ───────────────────────────────────
+// Maps an IDE build diagnostic's (object, line) onto a 0-based line in
+// the single assembled .st file. Shared by volt-agent's `volt build`
+// debug loop and the VS Code extension's Problems-panel display.
+export { bridgeDiagnosticFileLine } from "./bridge-diagnostic-lines.js";
+export type { ObjectDiagnosticRef } from "./bridge-diagnostic-lines.js";
+
 // ─── Semantic — symbol table ─────────────────────────────────────────
 export { buildSymbolTable } from "./semantic/symbol-table-build.js";
 export type { SymbolTableInput } from "./semantic/symbol-table-build.js";
