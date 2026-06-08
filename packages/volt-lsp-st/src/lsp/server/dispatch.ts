@@ -21,6 +21,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import type {
 	CodeActionParams,
 	CompletionItem,
+	DocumentFormattingParams,
 	Position,
 } from "vscode-languageserver-protocol";
 import { computeDiagnostics, type DiagnosticsPusher } from "./diagnostics-push.js";
@@ -38,6 +39,7 @@ import {
 	resolveCompletion,
 } from "../queries/completion.js";
 import { definition as runDefinition } from "../queries/definition.js";
+import { formatDocument, indentOptionsFrom } from "../queries/format.js";
 import { documentHighlight as runDocumentHighlight } from "../queries/document-highlight.js";
 import { buildDocumentSymbols } from "../queries/document-symbol.js";
 import { foldingRanges as runFoldingRanges } from "../queries/folding-range.js";
@@ -368,10 +370,20 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				const p = req.params as CodeActionParams;
 				const doc = ctx.workspace.getDocument(p.textDocument.uri);
 				if (doc === undefined) { ctx.reply(req.id, []); return; }
-				ctx.reply(req.id, runCodeActions({ doc, params: p }));
+				ctx.reply(req.id, runCodeActions({ doc, params: p, project: ctx.workspace.getProjectScope() }));
 				return;
 			}
-			case "textDocument/semanticTokens/full": {
+			case "textDocument/formatting": {
+					const p = req.params as DocumentFormattingParams;
+					const doc = ctx.workspace.getDocument(p.textDocument.uri);
+					if (doc === undefined) { ctx.reply(req.id, []); return; }
+					ctx.reply(
+						req.id,
+						formatDocument({ source: doc.source, options: indentOptionsFrom(p) }),
+					);
+					return;
+				}
+				case "textDocument/semanticTokens/full": {
 				const p = req.params as { textDocument: { uri: string } };
 				const doc = ctx.workspace.getDocument(p.textDocument.uri);
 				if (doc === undefined) { ctx.reply(req.id, { data: [] }); return; }

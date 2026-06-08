@@ -103,6 +103,16 @@ export interface DiagnosticConfig {
 	 */
 	missingInterfaceImplementation: boolean;
 	/**
+	 * When `missingInterfaceImplementation` fires, also verify that the
+	 * present method/property has a compatible signature (param count
+	 * and types). Conservative: skips comparison when either side uses
+	 * an unresolvable type (library type, generic). Defaults ON.
+	 *
+	 * May be disabled independently for projects that intentionally
+	 * override with a different (compatible) signature.
+	 */
+	missingInterfaceSignature: boolean;
+	/**
 	 * Flag simple binary expressions `<id> <op> <id>` (inside an
 	 * assignment) where the operator doesn't accept those operand
 	 * types. Covers `MOD` on non-integer types and arithmetic
@@ -173,6 +183,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	orphanConditionalPragma: true,
 	assignmentTypeMismatch: true,
 	missingInterfaceImplementation: true,
+	missingInterfaceSignature: true,
 	binaryOperatorTypeMismatch: true,
 	varSectionPlacement: true,
 	derefOnNonPointer: true,

@@ -178,11 +178,29 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_real_to_int_valid 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `
+[
+  {
+    "diagCode": "conversion-source-mismatch",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Replace with 'REAL_TO_REAL'",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_dint_to_int_wrong_source 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `
+[
+  {
+    "diagCode": "assignment-type-mismatch",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Wrap with DINT_TO_INT(...)",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_bool_to_int_valid 1`] = `[]`;
 
@@ -206,7 +224,16 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) unresolved_identi
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_conflict_hide_plus_monitoring 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) deref_on_array_type 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) deref_on_array_type 1`] = `
+[
+  {
+    "diagCode": "deref-non-pointer",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Remove \`^\` dereference",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conditional_define_then_if 1`] = `[]`;
 
@@ -298,7 +325,16 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_si
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_wstring_double_quoted 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_to_int_assignment 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_to_int_assignment 1`] = `
+[
+  {
+    "diagCode": "assignment-type-mismatch",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Wrap with STRING_TO_INT(...)",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_empty 1`] = `[]`;
 
@@ -352,7 +388,16 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_var_temp_in_
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_var_constant 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_deref_non_pointer 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_deref_non_pointer 1`] = `
+[
+  {
+    "diagCode": "deref-non-pointer",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Remove \`^\` dereference",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_simple 1`] = `[]`;
 
@@ -406,7 +451,16 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_retain 1`] = 
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_persistent 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_non_retain 1`] = `[]`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_non_retain 1`] = `
+[
+  {
+    "diagCode": "var-section-placement",
+    "file": "pou",
+    "kind": "quickfix",
+    "title": "Remove NON_RETAIN modifier",
+  },
+]
+`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) var_config_address_binding 1`] = `[]`;
 

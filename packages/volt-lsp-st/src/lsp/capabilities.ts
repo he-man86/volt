@@ -43,6 +43,12 @@ export function buildServerCapabilities(clientCaps: ClientCapabilities): ServerC
 		// `prepareProvider` lets clients pre-validate the cursor
 		// position before prompting for a new name.
 		renameProvider: { prepareProvider: true },
+		// Whole-document re-indentation. Conservative formatter: only
+		// leading indentation + trailing whitespace are normalized (see
+		// queries/format.ts). Range formatting is intentionally not
+		// advertised — re-indenting a partial selection needs the
+		// enclosing block depth, which a range alone doesn't carry.
+		documentFormattingProvider: true,
 	};
 
 	if (supportsPullDiagnostics) {

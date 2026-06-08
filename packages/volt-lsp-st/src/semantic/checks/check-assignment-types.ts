@@ -13,6 +13,8 @@
 import type { ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import type { Token } from "../../lexer/tokens.js";
+import { resolveTypeExpr } from "../type-resolver.js";
+import { lookup as resolverLookup } from "../resolver.js";
 import {
 	type DiagnosticItem,
 	getBody,
@@ -26,6 +28,7 @@ export function checkAssignmentTypes(
 	project: Scope,
 	out: DiagnosticItem[],
 ): void {
+	// project is passed through to isAssignable for ENUM-kind resolution.
 	for (const unit of parseResult.units) {
 		const body = getBody(unit);
 		if (body === undefined) continue;
@@ -60,7 +63,7 @@ export function checkAssignmentTypes(
 			const rhsType = classifyRhs(rhsTokens, scope);
 			if (rhsType === undefined) continue;
 
-			if (isAssignable(lhsType, rhsType)) continue;
+			if (isAssignable(lhsType, rhsType, scope, project)) continue;
 
 			out.push({
 				// Error — TC refuses to compile a mismatched assignment
@@ -86,7 +89,7 @@ function classifyRhs(rhs: readonly Token[], scope: Scope): string | undefined {
 	if (rhs.length === 0) return undefined;
 	if (rhs.length === 1) {
 		const t = rhs[0]!;
-		if (t.kind === "identifier") return simpleIdentifierType(scope, t.text);
+		if (t.kind === "identifier") return resolveRhsIdentifierType(scope, t.text);
 		if (t.kind === "string_lit") return "STRING";
 		if (t.kind === "wstring_lit") return "WSTRING";
 		if (t.kind === "time_lit") return "TIME";
@@ -119,6 +122,26 @@ function classifyRhs(rhs: readonly Token[], scope: Scope): string | undefined {
 	return undefined;
 }
 
+/** Sentinel prefix used in isAssignable to mark an enum type name. */
+const ENUM_PREFIX = "__enum__:";
+
+/**
+ * Look up an identifier in scope and return a comparable type key:
+ * - For enum-value symbols: returns `"__enum__:<EnumTypeName>"` so we
+ *   can distinguish different enum types in isAssignable.
+ * - For var/param symbols with a named type: returns the uppercased type name.
+ * - Everything else: delegates to simpleIdentifierType (returns the type name string).
+ */
+function resolveRhsIdentifierType(scope: Scope, name: string): string | undefined {
+	const r = resolverLookup(scope, name);
+	if (r === undefined) return undefined;
+	if (r.symbol.kind === "enum_value") {
+		// The enum_value's owning scope has the enum type name.
+		return `${ENUM_PREFIX}${r.foundIn.name}`;
+	}
+	return simpleIdentifierType(scope, name);
+}
+
 /**
  * IEC 61131-3 assignment compatibility (simplified — only the rules
  * the simple-assignment check exercises).
@@ -132,12 +155,51 @@ function classifyRhs(rhs: readonly Token[], scope: Scope): string | undefined {
  *     narrower type can flow into a wider one (INT → DINT → LINT →
  *     REAL → LREAL). The reverse (DINT → INT) is narrowing — not
  *     accepted implicitly.
+ *   - Enum types: only STRING, BOOL, REAL/LREAL, TIME/DATE families
+ *     are flagged as clearly incompatible. Numeric↔enum and
+ *     enum↔same-enum-type follow the existing equality check above.
  *
  * Returns true when unsure (unknown type names) — we'd rather miss a
  * bug than flag valid code as broken.
  */
-function isAssignable(lhs: string, rhs: string): boolean {
+function isAssignable(lhs: string, rhs: string, scope: Scope, project: Scope): boolean {
 	if (lhs === rhs) return true;
+
+	// Enum handling: lhs or rhs may be tagged with ENUM_PREFIX.
+	const lhsIsEnum = lhs.startsWith(ENUM_PREFIX);
+	const rhsIsEnum = rhs.startsWith(ENUM_PREFIX);
+
+	if (lhsIsEnum || rhsIsEnum) {
+		// Two different enum types → not assignable.
+		if (lhsIsEnum && rhsIsEnum) return false;
+		// Enum ↔ scalar: only reject BOOL, STRING, WSTRING, REAL/LREAL, TIME/DATE families.
+		// TC allows integer↔enum but rejects the above. We stay conservative.
+		const scalar = lhsIsEnum ? rhs : lhs;
+		const ENUM_ISOLATED = new Set([
+			"BOOL", "STRING", "WSTRING",
+			"REAL", "LREAL",
+			"TIME", "LTIME", "DATE", "LDATE", "TIME_OF_DAY", "TOD",
+			"DATE_AND_TIME", "DT", "LDT", "LDATE_AND_TIME", "LTOD",
+		]);
+		return !ENUM_ISOLATED.has(scalar.toUpperCase());
+	}
+
+	// Non-enum path: resolve named types to check enum/struct kinds.
+	// If LHS is a named type that resolves to enum, treat it like ENUM_PREFIX.
+	const lhsSymbol = resolverLookup(scope, lhs);
+	if (lhsSymbol !== undefined && lhsSymbol.symbol.typeExpr !== undefined) {
+		const lhsKind = resolveTypeExpr(lhsSymbol.symbol.typeExpr, project).kind;
+		if (lhsKind === "enum") {
+			const ENUM_ISOLATED = new Set([
+				"BOOL", "STRING", "WSTRING",
+				"REAL", "LREAL",
+				"TIME", "LTIME", "DATE", "LDATE", "TIME_OF_DAY", "TOD",
+				"DATE_AND_TIME", "DT", "LDT", "LDATE_AND_TIME", "LTOD",
+			]);
+			return !ENUM_ISOLATED.has(rhs.toUpperCase());
+		}
+	}
+
 	const ISOLATED = new Set([
 		"BOOL",
 		"STRING",

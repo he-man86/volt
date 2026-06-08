@@ -11,7 +11,9 @@
 import type { BodySpan, ParseResult } from "../../parser/ast.js";
 import type { BodyModel } from "../../semantic/body.js";
 import type { Scope } from "../symbol-table.js";
+import { lookupLocal } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
+import { resolveNamedType } from "../type-resolver.js";
 import { getConversion } from "../../reference/type-conversion.js";
 import { type DiagnosticItem, KEYWORD_SET, getBody, findScopeForUnit } from "./_shared.js";
 
@@ -39,6 +41,7 @@ export function checkUnresolvedIdentifiers(
 		const body = getBody(unit);
 		if (body === undefined) continue;
 		const scope = findScopeForUnit(project, unit);
+		// `project` is passed through to member-access resolution below.
 		if (scope === undefined) continue;
 		// Pragma tokens are kept in body.tokens by the parser (with
 		// kind="pragma"). Scan them directly for conditional-compile
@@ -52,8 +55,40 @@ export function checkUnresolvedIdentifiers(
 		if (model === undefined) continue;
 		for (const ref of model.identifiers) {
 			if (ref.isMemberAccess) {
-				// `x.member` — we don't resolve members yet (requires type
-				// inference). Skip to avoid false positives.
+				// Attempt one-level member resolution when there is exactly
+				// one qualifier element (e.g. `myFb.Run`). Requires:
+				//   1. qualifier[0] resolves to a variable in scope
+				//   2. that variable's type resolves to struct/FB scope
+				//   3. the member name exists in that scope
+				// Any failure falls through silently to avoid false positives.
+				if (
+					ref.qualifier !== undefined &&
+					ref.qualifier.length === 1
+				) {
+					const qualifierName = ref.qualifier[0]!;
+					const qualSym = resolverLookup(scope, qualifierName);
+					if (qualSym !== undefined && qualSym.symbol.typeExpr !== undefined) {
+						const typeExpr = qualSym.symbol.typeExpr;
+						if (typeExpr.kind === "named_type") {
+							const resolved = resolveNamedType(typeExpr.name.text, project);
+							if (
+								(resolved.kind === "struct" || resolved.kind === "function_block") &&
+								resolved.scope !== undefined
+							) {
+								const members = lookupLocal(resolved.scope, ref.name);
+								if (members.length === 0) {
+									out.push({
+										severity: "warning",
+										span: ref.span,
+										source: "volt-lsp-st",
+										code: "unresolved-identifier",
+										message: `'${ref.name}' is not a member of '${typeExpr.name.text}'`,
+									});
+								}
+							}
+						}
+					}
+				}
 				continue;
 			}
 			if (ref.isNamedParam) {

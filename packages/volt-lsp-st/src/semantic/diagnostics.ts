@@ -121,7 +121,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "missing-interface-implementation",
 		enabled: (c) => c.missingInterfaceImplementation,
-		run: (ctx, out) => checkInterfaceImplementations(ctx.parseResult, ctx.project, out),
+		run: (ctx, out) => checkInterfaceImplementations(ctx.parseResult, ctx.project, ctx.config.missingInterfaceSignature, out),
 	},
 	{
 		id: "var-section-placement",

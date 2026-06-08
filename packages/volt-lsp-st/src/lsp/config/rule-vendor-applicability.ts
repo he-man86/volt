@@ -49,6 +49,12 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 */
 	missingInterfaceImplementation: ["twincat"],
 	/**
+	 * Signature check extends missingInterfaceImplementation — same
+	 * vendor applicability: TC validates signatures at parse time,
+	 * CODESYS is silent on the same divergences.
+	 */
+	missingInterfaceSignature: ["twincat"],
+	/**
 	 * `vendorOnlyOperator` exists specifically to error on CODESYS-only
 	 * operators when the workspace targets TwinCAT. By definition, the
 	 * rule must not fire on a CODESYS workspace — those operators are
