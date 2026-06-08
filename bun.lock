@@ -886,8 +886,9 @@
     },
     "packages/volt-vscode": {
       "name": "volt-vscode",
-      "version": "1.16.3",
+      "version": "1.20.5",
       "dependencies": {
+        "@opencode-ai/volt-lsp": "workspace:*",
         "vscode-languageclient": "^9.0.1",
       },
       "devDependencies": {

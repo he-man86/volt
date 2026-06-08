@@ -25,7 +25,9 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as vscode from "vscode";
+import { bridgeDiagnosticFileLine } from "@opencode-ai/volt-lsp";
 import { withGate } from "./mutation-gate.js";
+import type { StatusJson } from "./volt-types.js";
 
 /** POU extensions volt-agent materializes — used by build diagnostics
  *  to resolve a `BridgeDiagnostic.object` name to its workspace file. */
@@ -671,9 +673,18 @@ function commandBuild(diagnostics: vscode.DiagnosticCollection): () => Promise<v
 			if (pick === "Show Output") getOutputChannel().show(true);
 			return;
 		}
-		const byFile = mapDiagnosticsToFiles(parsed.diagnostics ?? [], cwd);
+		// Hide diagnostics for files that have drifted from the IDE since
+		// the build — their reported lines wouldn't match the editor.
+		const driftedNames = await fetchDriftedNames(cwd);
+		const { byFile, skipped } = mapDiagnosticsToFiles(parsed.diagnostics ?? [], cwd, driftedNames);
 		for (const [uri, diags] of byFile) {
 			diagnostics.set(uri, diags);
+		}
+		if (skipped.size > 0) {
+			vscode.window.setStatusBarMessage(
+				`$(warning) Volt: build errors hidden for ${skipped.size} changed file(s) — sync + rebuild to refresh`,
+				6000,
+			);
 		}
 		const counts = `${parsed.errors} error(s), ${parsed.warnings} warning(s)`;
 		const verb = parsed.success ? "ok" : "failed";
@@ -704,27 +715,67 @@ function commandBuild(diagnostics: vscode.DiagnosticCollection): () => Promise<v
 }
 
 /** Group `volt build`'s per-object diagnostics by workspace file URI.
- *  Resolution tries `src/POUs/<name>.<ext>` then `src/<name>.<ext>`
- *  for every POU extension; drops diagnostics whose object can't be
- *  resolved (better to lose a project-level diagnostic than pin it
- *  wrongly). The `src/` prefix reflects the workspace layout volt-agent
- *  materializes into — see `workspace-layout.ts`. */
+ *
+ *  Two things make this non-trivial — both verified live against TwinCAT:
+ *
+ *  1. **Line mapping.** The IDE's `line` is 1-based within the *object's*
+ *     own text (decl+impl, or a property accessor), NOT the single-file
+ *     line. `bridgeDiagnosticFileLine` parses the workspace file to convert
+ *     it (handles methods, the impl blank-strip, and `FB.Prop.Get`/`.Set`).
+ *
+ *  2. **Drift guard.** `volt build` compiles the IDE's content; if a POU
+ *     has drifted from the IDE (local edits not pushed, or unpulled IDE
+ *     edits) its build diagnostics were computed against DIFFERENT text and
+ *     would land on stale lines. Such POUs are in `driftedNames` and are
+ *     SKIPPED — better no squiggle than a misplaced one. The caller tells
+ *     the user to rebuild after syncing.
+ *
+ *  Resolution tries `src/POUs/<name>.<ext>` then `src/<name>.<ext>` for
+ *  every POU extension; drops diagnostics whose object can't be resolved. */
 function mapDiagnosticsToFiles(
 	diagnostics: BridgeDiagnostic[],
 	cwd: string,
-): Map<vscode.Uri, vscode.Diagnostic[]> {
+	driftedNames: ReadonlySet<string>,
+): { byFile: Map<vscode.Uri, vscode.Diagnostic[]>; skipped: Set<string> } {
 	const out = new Map<vscode.Uri, vscode.Diagnostic[]>();
 	const resolveCache = new Map<string, vscode.Uri | undefined>();
+	const contentCache = new Map<string, string | undefined>();
+	const skipped = new Set<string>();
 	for (const d of diagnostics) {
 		const pouName = d.object?.split(".")[0];
 		if (pouName === undefined || pouName.length === 0) continue;
+
+		// Drift guard: the file no longer matches what was built.
+		if (driftedNames.has(pouName)) {
+			skipped.add(pouName);
+			continue;
+		}
+
 		let uri = resolveCache.get(pouName);
 		if (uri === undefined && !resolveCache.has(pouName)) {
 			uri = resolvePouUri(cwd, pouName);
 			resolveCache.set(pouName, uri);
 		}
 		if (uri === undefined) continue;
-		const line = Math.max(0, d.line - 1);
+
+		// Read (cache) the file so we can map the IDE line onto it.
+		let content = contentCache.get(uri.fsPath);
+		if (content === undefined && !contentCache.has(uri.fsPath)) {
+			try {
+				content = readFileSync(uri.fsPath, "utf8");
+			} catch {
+				content = undefined;
+			}
+			contentCache.set(uri.fsPath, content);
+		}
+
+		const mapped =
+			content !== undefined
+				? bridgeDiagnosticFileLine({ object: d.object, line: d.line }, content)
+				: undefined;
+		// Fall back to the raw line only when mapping can't resolve the object
+		// (e.g. a graphical body our parser doesn't model).
+		const line = mapped ?? Math.max(0, d.line - 1);
 		const range = new vscode.Range(line, 0, line, Number.MAX_SAFE_INTEGER);
 		const diag = new vscode.Diagnostic(range, d.message, toVscodeSeverity(d.severity));
 		diag.source = "volt build";
@@ -732,7 +783,25 @@ function mapDiagnosticsToFiles(
 		existing.push(diag);
 		out.set(uri, existing);
 	}
-	return out;
+	return { byFile: out, skipped };
+}
+
+/** Item names that have drifted from the IDE (local edits not pushed, or
+ *  unpulled IDE edits) — their build diagnostics can't be trusted to line
+ *  up. Sourced from `volt status --json`; an empty set on any failure
+ *  (degrade to showing everything rather than hiding real errors). */
+async function fetchDriftedNames(cwd: string): Promise<Set<string>> {
+	try {
+		const r = await spawnCapture(cliBin(), ["status", "--json"], cwd);
+		if (r.code !== 0) return new Set();
+		const s = JSON.parse(r.stdout) as StatusJson;
+		return new Set([
+			...s.outgoing.added, ...s.outgoing.modified, ...s.outgoing.removed,
+			...s.incoming.added, ...s.incoming.modified, ...s.incoming.removed,
+		]);
+	} catch {
+		return new Set();
+	}
 }
 
 function resolvePouUri(cwd: string, pouName: string): vscode.Uri | undefined {

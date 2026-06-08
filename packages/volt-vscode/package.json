@@ -31,6 +31,38 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "colors": [
+      {
+        "id": "volt.driftIncomingForeground",
+        "description": "Volt: a file the IDE changed (pull to absorb). Distinct from git's colors.",
+        "defaults": {
+          "dark": "#3794FF",
+          "light": "#0066BF",
+          "highContrast": "#3794FF",
+          "highContrastLight": "#0066BF"
+        }
+      },
+      {
+        "id": "volt.driftOutgoingForeground",
+        "description": "Volt: a file you changed locally (push to the IDE). Distinct from git's colors.",
+        "defaults": {
+          "dark": "#C586C0",
+          "light": "#8E44AD",
+          "highContrast": "#C586C0",
+          "highContrastLight": "#8E44AD"
+        }
+      },
+      {
+        "id": "volt.driftConflictForeground",
+        "description": "Volt: a file that conflicts with the IDE (resolve before pushing).",
+        "defaults": {
+          "dark": "#E0822D",
+          "light": "#B5670B",
+          "highContrast": "#E0822D",
+          "highContrastLight": "#B5670B"
+        }
+      }
+    ],
     "languages": [
       {
         "id": "structured-text",
@@ -656,6 +688,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "@opencode-ai/volt-lsp": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

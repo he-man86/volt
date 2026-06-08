@@ -22,6 +22,7 @@ import { isMutationInFlight } from "./mutation-gate.js";
 import { VOLT_URI_SCHEME, VoltContentProvider } from "./scm-content-provider.js";
 import { VoltHistoryProvider } from "./volt-history-tree.js";
 import { changeCount, type StatusJson, totalChanges } from "./volt-types.js";
+import { VoltDriftDecorationProvider } from "./drift-decorations.js";
 import { VoltTreeProvider } from "./volt-tree.js";
 import { isPouFile, readStateMtime } from "./workspace-detection.js";
 
@@ -249,6 +250,42 @@ export function registerScm(context: vscode.ExtensionContext): void {
 	});
 	context.subscriptions.push(historyView);
 
+	// ── File-Explorer drift decorations + status-bar count ───────────
+	// Orthogonal to git ("differs from the IDE", not "from last commit").
+	// Both are fed by the same `volt status` poll via `refreshDrift`.
+	const driftDecorations = new VoltDriftDecorationProvider();
+	context.subscriptions.push(driftDecorations);
+	context.subscriptions.push(vscode.window.registerFileDecorationProvider(driftDecorations));
+
+	const driftStatusItem = vscode.window.createStatusBarItem(
+		"volt.drift",
+		vscode.StatusBarAlignment.Left,
+		50,
+	);
+	driftStatusItem.name = "Volt — IDE drift";
+	driftStatusItem.command = "volt.scm.focus"; // reveal the Volt view
+	context.subscriptions.push(driftStatusItem);
+
+	const refreshDrift = (): void => {
+		const c = driftDecorations.refresh(
+			[...workspaces.values()].map((ws) => ({ root: ws.getFolder().uri, status: ws.getStatus() })),
+		);
+		if (c.incoming + c.outgoing + c.conflicts === 0) {
+			driftStatusItem.hide();
+			return;
+		}
+		const parts: string[] = [];
+		if (c.conflicts > 0) parts.push(`$(warning) ${c.conflicts}`);
+		if (c.incoming > 0) parts.push(`$(arrow-down) ${c.incoming}`);
+		if (c.outgoing > 0) parts.push(`$(arrow-up) ${c.outgoing}`);
+		driftStatusItem.text = `$(sync) Volt ${parts.join(" ")}`;
+		driftStatusItem.tooltip =
+			`Volt — vs the IDE: ${c.incoming} to pull, ${c.outgoing} to push` +
+			(c.conflicts > 0 ? `, ${c.conflicts} conflict(s)` : "") +
+			`\nClick to open the Volt view.`;
+		driftStatusItem.show();
+	};
+
 	// Live count badge on the activity-bar icon — VS Code renders it
 	// as a small number badge so the user sees "3 incoming" at a
 	// glance even with the view collapsed.
@@ -266,6 +303,8 @@ export function registerScm(context: vscode.ExtensionContext): void {
 		// Drive `volt.merging` so package.json `when` clauses can hide
 		// Continue/Abort and bulk-resolve actions when no merge is active.
 		void vscode.commands.executeCommand("setContext", "volt.merging", anyMerging);
+		// Explorer decorations + status-bar count off the same poll.
+		refreshDrift();
 	};
 	// The IDE/project name lives on the per-source health row in the
 	// tree itself (the green-dot row at position 0). We deliberately
