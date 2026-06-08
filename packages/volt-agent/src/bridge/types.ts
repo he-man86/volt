@@ -104,22 +104,39 @@ export type BuildRequest = z.infer<typeof BuildRequestSchema>;
  * CODESYS, TIA, …) normalizes its IDE's native error shape to THIS shape
  * at its own boundary — the TS layer never parses vendor-specific paths.
  */
+/**
+ * Well-formed `object`: dot-separated non-empty segments, no leading/
+ * trailing dot, no empty segments. Catches malformed object strings loudly.
+ *
+ * What this does NOT (and CANNOT) enforce — these are covered by the live
+ * bridge-contract test instead, since the schema can't reach project context
+ * or know a number's meaning:
+ *   - container prefix (CODESYS `Application.FB`): the application is
+ *     user-renamable, so there's no fixed string to reject.
+ *   - property accessors carrying the parent FB (`FB.Prop.Get`, not
+ *     `Prop.Get`): `FB.Method` and `Prop.Get` are shape-identical.
+ *   - `section` always populated, and `line` being section-relative: neither
+ *     bridge fully conforms yet, and "what the number means" isn't a shape.
+ */
+const OBJECT_RE = /^[^.]+(?:\.[^.]+)*$/;
+
 export const BridgeDiagnosticSchema = z
 	.object({
 		severity: z.enum(["error", "warning", "info"]),
-		message: z.string(),
+		message: z.string().min(1),
 		/** 1-based line within the object's section. 0 when the IDE didn't supply one. */
-		line: z.number(),
+		line: z.number().int().nonnegative(),
 		/**
 		 * Object the diagnostic belongs to. Bare for top-level (`"FB_X"`,
 		 * `"PLC_PRG"`); dotted for children (`"FB_X.Execute"`,
 		 * `"FB_X.Speed"`). `null` for project-level diagnostics not tied
 		 * to a specific object.
 		 */
-		object: z.string().nullable(),
+		object: z.string().regex(OBJECT_RE).nullable(),
 		/**
 		 * Which section of the object — declaration block or implementation
-		 * body. `null` when the IDE didn't say.
+		 * body. `null` when the IDE didn't say. (Canonical target: always
+		 * `decl`/`impl`; not yet enforceable — bridges still emit `null`.)
 		 */
 		section: z.enum(["decl", "impl"]).nullable(),
 	})
