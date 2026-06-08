@@ -48,18 +48,22 @@ const SOURCE = [
 ].join("\n");
 
 /**
- * Invariants that the canonical contract requires but zod can't enforce.
- * The set per vendor is what's KNOWN-broken today (verified live 2026-06-08).
- * Empty sets are the goal.
+ * Canonical contract = **TwinCAT's shape**: bare / FB-qualified `object`
+ * (`FB`, `FB.Method`, `FB.Prop.Get`) and **combined** `line` (decl+impl
+ * counted straight through, per object) — exactly what
+ * `bridgeDiagnosticFileLine` consumes. `section` is best-effort and ignored
+ * (the mapper derives decl/impl from the parsed source).
+ *
+ * KNOWN_VIOLATIONS per vendor are what's broken vs that contract today
+ * (verified live 2026-06-08). Empty sets are the goal.
  */
 const KNOWN_VIOLATIONS: Record<string, ReadonlySet<string>> = {
-	// TwinCAT: objects are canonical, but section is always null and lines
-	// are combined (decl+impl) rather than section-relative.
-	beckhoff: new Set(["section-populated", "decl-section-correct", "impl-line-section-relative"]),
-	// CODESYS: section/line are good, but the object naming is off — the
-	// `Application.` container prefix on top-level POUs and properties missing
-	// the parent FB. (impl errors also report section=null.)
-	codesys: new Set(["pou-object-exact", "property-object-exact", "section-populated"]),
+	// TwinCAT is the reference — it already emits the canonical shape.
+	beckhoff: new Set<string>(),
+	// CODESYS now conforms too (build.py: object names exclude the
+	// `Application` container + add the FB to property accessors; impl lines
+	// converted section-relative → combined). Verified live 2026-06-08.
+	codesys: new Set<string>(),
 };
 
 const bridge = new BridgeClient({ port: PORT });
@@ -139,16 +143,15 @@ describe.skipIf(!LIVE)("BridgeDiagnostic canonical contract (live, per vendor)",
 		checkInvariant("property-object-exact", byMsg("und_get")?.object === `${FB}.Prop.Get`);
 	});
 
-	test("section-populated: every error has a non-null section", () => {
-		const errs = [byMsg("und_pou"), byMsg("BADTYPE"), byMsg("und_method"), byMsg("und_get")];
-		checkInvariant("section-populated", errs.every((e) => e?.section === "decl" || e?.section === "impl"));
+	test("impl-line-combined: a POU impl error's line is the combined decl+impl line", () => {
+		// FB decl is 4 lines (FUNCTION_BLOCK/VAR/x/END_VAR); the impl's first
+		// line (und_pou) is combined line 5. CODESYS reports section-relative 1.
+		checkInvariant("impl-line-combined", byMsg("und_pou")?.line === 5);
 	});
 
-	test("decl-section-correct: a declaration error reports section=decl", () => {
-		checkInvariant("decl-section-correct", byMsg("BADTYPE")?.section === "decl");
-	});
-
-	test("impl-line-section-relative: a POU impl error's line is section-relative (1), not combined", () => {
-		checkInvariant("impl-line-section-relative", byMsg("und_pou")?.line === 1);
+	test("property-line-combined: a var-less accessor body error counts the phantom 2-line VAR (combined 3)", () => {
+		// GET has no VAR; the canonical model still gives it a 2-line VAR block,
+		// so the body's first line is combined 3. (TwinCAT's value.)
+		checkInvariant("property-line-combined", byMsg("und_get")?.line === 3);
 	});
 });
