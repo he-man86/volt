@@ -584,6 +584,28 @@ async function recordCategory(
 		};
 	}
 
+	// 3b. Safety net: any error/warning the build emitted that attributed
+	//     to NO test in this category. Silent drops here are EXACTLY how
+	//     CODESYS's `Application.`-prefixed objects got recorded as
+	//     "silent" — seeding false TC-only divergences. Surface them loudly
+	//     so object-naming drift can't quietly corrupt the recordings again.
+	const liveNames = new Set(liveTests.map((t) => t.pouName));
+	const unattributed = buildRes.diagnostics.filter((d) => {
+		if (d.severity === "info" || d.object === null) return false;
+		const pou = d.object.split(".")[0]!;
+		if (pou === "PLC_PRG") return false; // the harness's instantiation program
+		return !liveNames.has(pou);
+	});
+	if (unattributed.length > 0) {
+		console.warn(
+			`    ⚠ [${categoryName}] ${unattributed.length} build diagnostic(s) attributed to NO test ` +
+				`(object-naming drift? these were NOT recorded):`,
+		);
+		for (const d of unattributed.slice(0, 8)) {
+			console.warn(`        [${d.severity}] object=${d.object} :: ${d.message}`);
+		}
+	}
+
 	// 4. Record push-rejected fixtures with the bridge's exact error
 	//    text as a synthetic diagnostic. Downstream `language.test.ts`
 	//    treats `buildSuccess: false` uniformly — the LSP is expected

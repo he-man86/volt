@@ -42,6 +42,7 @@ import {
 	type RefsResponse,
 } from "./types.js";
 import type { Remote } from "./remote.js";
+import { canonicalizeDiagnostics } from "./diagnostics-normalize.js";
 
 export interface BridgeClientOptions {
 	/** Bridge daemon port. Defaults to 8555 (the Volt convention). */
@@ -119,7 +120,11 @@ export class BridgeClient implements Remote {
 	}
 
 	async build(req: BuildRequest): Promise<BuildResponse> {
-		return this.request("POST", "/build", BuildResponseSchema, req);
+		const res = await this.request("POST", "/build", BuildResponseSchema, req);
+		// Canonicalize per-vendor object naming (strip CODESYS's
+		// `Application.` container prefix) so every consumer attributes
+		// diagnostics consistently. See diagnostics-normalize.ts.
+		return { ...res, diagnostics: canonicalizeDiagnostics(res.diagnostics) };
 	}
 
 	private async request<T>(
