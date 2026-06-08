@@ -39,7 +39,7 @@ import {
 	resolveCompletion,
 } from "../queries/completion.js";
 import { definition as runDefinition } from "../queries/definition.js";
-import { formatDocument, indentOptionsFrom } from "../queries/format.js";
+import { formatDocument, indentOptionsFrom, resolveFormatOptions } from "../queries/format.js";
 import { documentHighlight as runDocumentHighlight } from "../queries/document-highlight.js";
 import { buildDocumentSymbols } from "../queries/document-symbol.js";
 import { foldingRanges as runFoldingRanges } from "../queries/folding-range.js";
@@ -377,9 +377,17 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 					const p = req.params as DocumentFormattingParams;
 					const doc = ctx.workspace.getDocument(p.textDocument.uri);
 					if (doc === undefined) { ctx.reply(req.id, []); return; }
+					// `.editorconfig` (resolved from the file's path) overrides
+					// the editor's tab settings for the keys it specifies.
+					// Untitled/in-memory docs have no path → editor settings only.
+					let filePath: string | undefined;
+					try { filePath = fileURLToPath(p.textDocument.uri); } catch { filePath = undefined; }
 					ctx.reply(
 						req.id,
-						formatDocument({ source: doc.source, options: indentOptionsFrom(p) }),
+						formatDocument({
+							source: doc.source,
+							options: resolveFormatOptions(filePath, indentOptionsFrom(p)),
+						}),
 					);
 					return;
 				}

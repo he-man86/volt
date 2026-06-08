@@ -10,7 +10,17 @@
  *   4. Multi-line string/comment interiors are emitted verbatim.
  */
 import { describe, expect, it } from "bun:test";
-import { reindentSt, formatDocument, type IndentOptions } from "../../lsp/queries/format.js";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import {
+	reindentSt,
+	formatDocument,
+	mapEditorConfigProps,
+	readEditorConfig,
+	resolveFormatOptions,
+	type IndentOptions,
+} from "../../lsp/queries/format.js";
 import { lex } from "../../lexer/lexer.js";
 import { isTrivia } from "../../lexer/tokens.js";
 
@@ -171,6 +181,107 @@ describe("reindentSt — multi-line token safety", () => {
 	it("keeps the token stream byte-identical across a block comment", () => {
 		const src = "FUNCTION_BLOCK FB\n(* multi\n   line *)\nMETHOD M\nx:=1;\nEND_METHOD\nEND_FUNCTION_BLOCK\n";
 		expect(meaningfulTokens(reindentSt(src, TABS))).toEqual(meaningfulTokens(src));
+	});
+});
+
+describe("reindentSt — editorconfig-driven options", () => {
+	const code = "FUNCTION_BLOCK FB\nVAR\nx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n";
+
+	it("forces CRLF when end_of_line is crlf", () => {
+		const out = reindentSt(code, { tabSize: 4, insertSpaces: false, eol: "\r\n" });
+		expect(out.includes("\r\n")).toBe(true);
+		expect(out).toBe(reindentSt(code, TABS).replace(/\n/g, "\r\n"));
+	});
+
+	it("omits the final newline when insertFinalNewline is false", () => {
+		const out = reindentSt(code, { tabSize: 4, insertSpaces: false, insertFinalNewline: false });
+		expect(out.endsWith("END_FUNCTION_BLOCK")).toBe(true);
+		expect(out.endsWith("\n")).toBe(false);
+	});
+
+	it("keeps trailing whitespace when trimTrailingWhitespace is false", () => {
+		const out = reindentSt(
+			"FUNCTION_BLOCK FB\nx := 1;   \nEND_FUNCTION_BLOCK\n",
+			{ tabSize: 4, insertSpaces: false, trimTrailingWhitespace: false },
+		);
+		expect(out.split("\n")[1]).toBe("\tx := 1;   ");
+	});
+});
+
+describe("mapEditorConfigProps", () => {
+	const LSP = { tabSize: 4, insertSpaces: false };
+
+	it("falls back to editor settings when nothing is specified", () => {
+		expect(mapEditorConfigProps({}, LSP)).toEqual({ tabSize: 4, insertSpaces: false });
+	});
+
+	it("maps indent_style + indent_size", () => {
+		const o = mapEditorConfigProps({ indent_style: "space", indent_size: "2" }, LSP);
+		expect(o.insertSpaces).toBe(true);
+		expect(o.tabSize).toBe(2);
+	});
+
+	it("treats indent_size=tab as follow tab_width", () => {
+		const o = mapEditorConfigProps({ indent_style: "tab", indent_size: "tab", tab_width: "8" }, LSP);
+		expect(o.insertSpaces).toBe(false);
+		expect(o.tabSize).toBe(8);
+	});
+
+	it("maps end_of_line and the boolean rules", () => {
+		const o = mapEditorConfigProps(
+			{ end_of_line: "crlf", trim_trailing_whitespace: "false", insert_final_newline: "false" },
+			LSP,
+		);
+		expect(o.eol).toBe("\r\n");
+		expect(o.trimTrailingWhitespace).toBe(false);
+		expect(o.insertFinalNewline).toBe(false);
+	});
+});
+
+describe("readEditorConfig — directory walk + section matching", () => {
+	it("resolves the nearest .editorconfig and honors more-specific sections", () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "volt-ec-"));
+		try {
+			fs.writeFileSync(
+				path.join(dir, ".editorconfig"),
+				[
+					"root = true",
+					"",
+					"[*]",
+					"indent_style = space",
+					"indent_size = 2",
+					"end_of_line = lf",
+					"",
+					"[*.st]",
+					"indent_style = tab",
+					"indent_size = 4",
+					"",
+				].join("\n"),
+			);
+			const file = path.join(dir, "FB_Demo.st");
+			fs.writeFileSync(file, "FUNCTION_BLOCK FB_Demo\nEND_FUNCTION_BLOCK\n");
+
+			const props = readEditorConfig(file);
+			// [*.st] comes after [*] so it wins for indent_style/size; end_of_line
+			// is only in [*], so it carries through.
+			expect(props.indent_style).toBe("tab");
+			expect(props.indent_size).toBe("4");
+			expect(props.end_of_line).toBe("lf");
+
+			const opts = resolveFormatOptions(file, { tabSize: 99, insertSpaces: true });
+			expect(opts.insertSpaces).toBe(false); // tab wins over the LSP default
+			expect(opts.tabSize).toBe(4);
+			expect(opts.eol).toBe("\n");
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("falls back to LSP options when there is no .editorconfig and for untitled docs", () => {
+		expect(resolveFormatOptions(undefined, { tabSize: 3, insertSpaces: true })).toEqual({
+			tabSize: 3,
+			insertSpaces: true,
+		});
 	});
 });
 
