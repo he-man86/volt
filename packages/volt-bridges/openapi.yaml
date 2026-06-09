@@ -1,0 +1,736 @@
+openapi: "3.1.0"
+info:
+  title: Volt Bridge Protocol
+  version: "1.0.0"
+  description: |
+    Vendor-agnostic HTTP contract for IDE bridges (Beckhoff TwinCAT, CODESYS, TIA, etc.).
+    Every bridge MUST satisfy this spec — identical routes, request/response shapes,
+    status codes, and error formats. The client should not be able to determine which
+    bridge implementation it is talking to from the wire behavior alone.
+
+    Protocol model: git-inspired refs + atomic batched push.
+
+    - GET  /health → liveness + stable identifiers for workspace binding
+    - GET  /refs   → project + per-item content versions (cheap, no payload)
+    - POST /fetch  → items that changed since client's known versions
+    - POST /push   → atomic batch with per-item ifVersion guards
+    - POST /build  → IDE build + diagnostics
+
+servers:
+  - url: "http://127.0.0.1:8555"
+    description: Beckhoff/TwinCAT bridge (default)
+  - url: "http://127.0.0.1:8556"
+    description: CODESYS bridge
+
+paths:
+  # ── /health ───────────────────────────────────────────────────────────────
+  /health:
+    get:
+      operationId: getHealth
+      summary: Bridge liveness + cached IDE state
+      description: |
+        PURE CACHE READ. Never blocks on the IDE thread. Returns cached IDE state
+        with stale-while-revalidate semantics — triggers a background probe when
+        the cache exceeds 5 seconds of age.
+
+        Used by the agent for workspace binding (platform, projectName, plcProjectName)
+        and connection health monitoring.
+      responses:
+        "200":
+          description: Bridge state (may be healthy, degraded, or unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                healthy:
+                  summary: Healthy bridge with live IDE
+                  value:
+                    status: "healthy"
+                    platform: "beckhoff"
+                    platformVariant: null
+                    connected: true
+                    ideAlive: true
+                    degraded: false
+                    degradedReason: null
+                    ideName: "TcXaeShell"
+                    ideVersion: "3.5.21.40"
+                    version: "1.0.0"
+                    projectName: "MyProject"
+                    plcProjectName: "MyPlcProject"
+                    projectDirty: false
+                unavailable:
+                  summary: Bridge running but no IDE attached
+                  value:
+                    status: "unavailable"
+                    platform: "codesys"
+                    platformVariant: null
+                    connected: false
+                    ideAlive: false
+                    degraded: false
+                    degradedReason: null
+                    ideName: null
+                    ideVersion: null
+                    version: "1.0.0"
+                    projectName: null
+                    plcProjectName: null
+
+  # ── /refs ─────────────────────────────────────────────────────────────────
+  /refs:
+    get:
+      operationId: getRefs
+      summary: Project reference map — per-item versions
+      description: |
+        Read-only snapshot of every top-level CRUD item with content fingerprints.
+        Uses the single shared project-tree walker (same as /fetch and /push).
+
+        - projectVersion: SHA1 of sorted (name → version) map — changes on ANY edit
+        - structureVersion: SHA1 of sorted names only — stable across content edits
+        - items: name → content fingerprint map
+        - kinds: name → vendor-neutral kind string (optional)
+        - folders: name → slash-joined folder path
+      responses:
+        "200":
+          description: Current project reference map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefsResponse"
+              example:
+                projectVersion: "a1b2c3d4e5f6a7b8"
+                structureVersion: "9f8e7d6c5b4a3210"
+                items:
+                  PLC_PRG: "a1b2c3d4e5f60001"
+                  FB_Motor: "a1b2c3d4e5f60002"
+                  GVL_Constants: "a1b2c3d4e5f60003"
+                kinds:
+                  PLC_PRG: "program"
+                  FB_Motor: "function_block"
+                  GVL_Constants: "gvl"
+                folders:
+                  PLC_PRG: ""
+                  FB_Motor: "POUs/Motors"
+                  GVL_Constants: ""
+
+  # ── /fetch ────────────────────────────────────────────────────────────────
+  /fetch:
+    post:
+      operationId: fetchChanges
+      summary: Fetch changed items since client's known versions
+      description: |
+        Returns only items whose version differs from (or is absent from) the
+        client's knownItems map. Each returned item carries the assembled sourceText
+        (StAssembler output) — ready to write directly to the workspace.
+
+        Uses the single shared project-tree walker (same as /refs and /push).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FetchRequest"
+            examples:
+              fullFetch:
+                summary: Client has nothing — fetch everything
+                value:
+                  knownItems: {}
+              incremental:
+                summary: Client knows current versions — fetch only changed
+                value:
+                  knownItems:
+                    PLC_PRG: "a1b2c3d4e5f60001"
+                    FB_Motor: "a1b2c3d4e5f60002"
+              singleItem:
+                summary: Allowlist — fetch a single item preview
+                value:
+                  knownItems: {}
+                  onlyItems: ["PLC_PRG"]
+      responses:
+        "200":
+          description: Changed items since client's known versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FetchResponse"
+              example:
+                projectVersion: "b2c3d4e5f6a7b8c9"
+                structureVersion: "9f8e7d6c5b4a3210"
+                changed:
+                  - name: "FB_Motor.st"
+                    folder: "POUs/Motors"
+                    sourceText: "FUNCTION_BLOCK FB_Motor\nVAR\n  speed : INT;\nEND_VAR\n\nspeed := 100;\n"
+                    version: "a1b2c3d4e5f60002"
+                removed: ["PLC_PRG_OLD"]
+                items:
+                  PLC_PRG: "a1b2c3d4e5f60001"
+                  FB_Motor: "a1b2c3d4e5f60002"
+                  GVL_Constants: "a1b2c3d4e5f60003"
+
+  # ── /push ─────────────────────────────────────────────────────────────────
+  /push:
+    post:
+      operationId: pushBatch
+      summary: Atomic batch push with optimistic concurrency
+      description: |
+        Validates ALL ops' ifVersion against pre-batch state, applies in order on success,
+        rejects the whole batch on any conflict.
+
+        Four item-level ops:
+        - pushItem: create (ifVersion=null) or update (ifVersion=string)
+        - deleteItem: remove item (requires ifVersion match)
+        - renameItem: rename item (requires ifVersion match)
+        - moveItem: move item to new folder (requires ifVersion match)
+
+        Batch-level guard: expectedProjectVersion must match current /refs.projectVersion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushRequest"
+            examples:
+              noop:
+                summary: No-op push — validate batch
+                value:
+                  expectedProjectVersion: "a1b2c3d4e5f6a7b8"
+                  ops: []
+              createProgram:
+                summary: Create a new program
+                value:
+                  expectedProjectVersion: "a1b2c3d4e5f6a7b8"
+                  ops:
+                    - op: "pushItem"
+                      name: "PLC_NewProgram"
+                      folder: "POUs"
+                      sourceText: "PROGRAM PLC_NewProgram\nVAR\nEND_VAR\n\n"
+                      ifVersion: null
+              batchEdit:
+                summary: Update + delete + move in one batch
+                value:
+                  expectedProjectVersion: "a1b2c3d4e5f6a7b8"
+                  ops:
+                    - op: "pushItem"
+                      name: "FB_Motor"
+                      folder: "POUs/Motors"
+                      sourceText: "FUNCTION_BLOCK FB_Motor\nVAR\n  speed : INT;\nEND_VAR\n\nspeed := 200;\n"
+                      ifVersion: "a1b2c3d4e5f60002"
+                    - op: "deleteItem"
+                      name: "PLC_PRG_OLD"
+                      ifVersion: "a1b2c3d4e5f69999"
+                    - op: "moveItem"
+                      name: "FB_Motor"
+                      newFolder: "POUs/Drives"
+                      ifVersion: "a1b2c3d4e5f60002"
+      responses:
+        "200":
+          description: Batch result — accepted or rejected with conflicts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushResponse"
+              examples:
+                accepted:
+                  summary: Batch accepted
+                  value:
+                    accepted: true
+                    newProjectVersion: "c3d4e5f6a7b8c9d0"
+                    newItems:
+                      PLC_PRG: "a1b2c3d4e5f60001"
+                      FB_Motor: "a1b2c3d4e5f60007"
+                      PLC_NewProgram: "b2c3d4e5f6a7b8c9"
+                rejected:
+                  summary: Batch rejected — version conflict
+                  value:
+                    accepted: false
+                    conflicts:
+                      - name: "<project>"
+                        yourVersion: "deadbeefdeadbeef"
+                        currentVersion: "a1b2c3d4e5f6a7b8"
+                        reason: "expected project version does not match current project version"
+                    currentProjectVersion: "a1b2c3d4e5f6a7b8"
+
+  # ── /build ────────────────────────────────────────────────────────────────
+  /build:
+    post:
+      operationId: buildProject
+      summary: Trigger IDE build and return diagnostics
+      description: |
+        Triggers a full or incremental IDE build. Returns success status, duration,
+        and normalized diagnostics.
+
+        Diagnostics are vendor-normalized: every bridge maps its native error format
+        to the canonical {severity, message, line, object, section} shape.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildRequest"
+            examples:
+              incremental:
+                value:
+                  buildType: "incremental"
+              full:
+                value:
+                  buildType: "full"
+      responses:
+        "200":
+          description: Build result with diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildResponse"
+              example:
+                success: true
+                duration: 1234
+                diagnostics: []
+              x-error-example:
+                success: false
+                duration: 567
+                diagnostics:
+                  - severity: "error"
+                    message: "Identifier 'speed' not defined"
+                    line: 5
+                    object: "PLC_PRG"
+                    section: "impl"
+
+# ── Schemas ─────────────────────────────────────────────────────────────────
+components:
+  schemas:
+    # ── Health ─────────────────────────────────────────────────────────
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - platform
+        - connected
+        - ideAlive
+        - degraded
+        - degradedReason
+        - version
+      properties:
+        status:
+          type: string
+          enum: ["healthy", "degraded", "unavailable"]
+          description: "Three-way connection state"
+        platform:
+          type: string
+          description: "Vendor identifier — 'beckhoff', 'codesys', 'tia', ..."
+        platformVariant:
+          type: string
+          nullable: true
+          description: "OEM rebrand variant (Lenze, Schneider, Wago, ...) or null"
+        connected:
+          type: boolean
+          description: "True when the bridge has a live handle to the IDE"
+        ideAlive:
+          type: boolean
+          description: "True when the IDE process is reachable"
+        degraded:
+          type: boolean
+          description: "True when the COM channel has had recent errors but is still responsive"
+        degradedReason:
+          type: string
+          nullable: true
+          description: "Human-readable reason for degraded=true; null when not degraded"
+        ideName:
+          type: string
+          nullable: true
+          description: "Friendly IDE name (e.g. 'TcXaeShell')"
+        ideVersion:
+          type: string
+          nullable: true
+          description: "IDE version string"
+        version:
+          type: string
+          description: "Bridge daemon version"
+        projectName:
+          type: string
+          nullable: true
+          description: "Solution-level project name"
+        plcProjectName:
+          type: string
+          nullable: true
+          description: "PLC-project-within-solution name"
+        projectDirty:
+          type: boolean
+          description: "True when the IDE has unsaved changes. Optional — absent when unknown."
+
+    # ── Build ──────────────────────────────────────────────────────────
+    BuildRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - buildType
+      properties:
+        buildType:
+          type: string
+          enum: ["incremental", "full"]
+
+    BridgeDiagnostic:
+      type: object
+      additionalProperties: false
+      required:
+        - severity
+        - message
+        - line
+        - object
+        - section
+      properties:
+        severity:
+          type: string
+          enum: ["error", "warning", "info"]
+        message:
+          type: string
+          minLength: 1
+        line:
+          type: integer
+          minimum: 0
+          description: "1-based line within the object's section; 0 when IDE didn't supply one"
+        object:
+          type: string
+          nullable: true
+          pattern: '^[^.]+(?:\.[^.]+)*$'
+          description: "Bare or dotted object name; null for project-level diagnostics"
+        section:
+          type: string
+          enum: ["decl", "impl"]
+          nullable: true
+          description: "Section of the object — declaration or implementation; null when unknown"
+
+    BuildResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - success
+        - duration
+        - diagnostics
+      properties:
+        success:
+          type: boolean
+          description: "True iff the build completed with zero errors"
+        duration:
+          type: number
+          description: "Build wall time in milliseconds"
+        diagnostics:
+          type: array
+          items:
+            $ref: "#/components/schemas/BridgeDiagnostic"
+
+    # ── Refs ───────────────────────────────────────────────────────────
+    RefsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - projectVersion
+        - structureVersion
+        - items
+        - folders
+      properties:
+        projectVersion:
+          type: string
+          description: "SHA1 of sorted (name → itemVersion) map — changes on ANY edit"
+        structureVersion:
+          type: string
+          description: "SHA1 of sorted item names only — stable across content edits"
+        items:
+          type: object
+          additionalProperties:
+            type: string
+          description: "name → content fingerprint map"
+        kinds:
+          type: object
+          additionalProperties:
+            type: string
+          description: "name → vendor-neutral kind string (optional)"
+        folders:
+          type: object
+          additionalProperties:
+            type: string
+          description: "name → slash-joined folder path (empty string = root)"
+
+    # ── Common item shapes ─────────────────────────────────────────────
+
+    FetchedItem:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - sourceText
+        - version
+      properties:
+        name:
+          type: string
+          description: "Item name with file extension (.st, .gvl, .dut, .itf)"
+        folder:
+          type: string
+          description: "Slash-joined containing folder in the project tree; absent/empty = root"
+        sourceText:
+          type: string
+          description: "Complete assembled file content — ready to write verbatim to workspace"
+        version:
+          type: string
+          description: "Per-item version stamp (SHA1 short)"
+
+    # ── Fetch ──────────────────────────────────────────────────────────
+    FetchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        knownItems:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Client's currently-known {name → version} map. Omit/empty = fetch all."
+        onlyItems:
+          type: array
+          items:
+            type: string
+          description: "Optional allowlist — skip work for items not in this list"
+
+    FetchResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - projectVersion
+        - structureVersion
+        - changed
+        - removed
+        - items
+      properties:
+        projectVersion:
+          type: string
+          description: "Current project version (same as /refs would return)"
+        structureVersion:
+          type: string
+          description: "Current structure version (same as /refs would return)"
+        changed:
+          type: array
+          items:
+            $ref: "#/components/schemas/FetchedItem"
+          description: "Items whose version differs from client's known map"
+        removed:
+          type: array
+          items:
+            type: string
+          description: "Names the client knew about that no longer exist in the IDE"
+        items:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Full ref map — client can replace its cache wholesale"
+
+    # ── Push ops ───────────────────────────────────────────────────────
+    PushItemOp:
+      type: object
+      additionalProperties: false
+      required:
+        - op
+        - name
+        - sourceText
+        - ifVersion
+      properties:
+        op:
+          type: string
+          const: "pushItem"
+        name:
+          type: string
+        folder:
+          type: string
+          description: "Slash-joined target folder; absent/empty = root"
+        sourceText:
+          type: string
+          description: "Full assembled file content"
+        ifVersion:
+          type: string
+          nullable: true
+          description: "null = create new; string = update existing (must match current version)"
+
+    DeleteItemOp:
+      type: object
+      additionalProperties: false
+      required:
+        - op
+        - name
+        - ifVersion
+      properties:
+        op:
+          type: string
+          const: "deleteItem"
+        name:
+          type: string
+        ifVersion:
+          type: string
+          description: "Must match current version of the item"
+
+    RenameItemOp:
+      type: object
+      additionalProperties: false
+      required:
+        - op
+        - name
+        - newName
+        - ifVersion
+      properties:
+        op:
+          type: string
+          const: "renameItem"
+        name:
+          type: string
+        newName:
+          type: string
+        ifVersion:
+          type: string
+          description: "Must match current version of the item"
+
+    MoveItemOp:
+      type: object
+      additionalProperties: false
+      required:
+        - op
+        - name
+        - newFolder
+        - ifVersion
+      properties:
+        op:
+          type: string
+          const: "moveItem"
+        name:
+          type: string
+        newFolder:
+          type: string
+          description: "Target folder path (empty string = root)"
+        ifVersion:
+          type: string
+          description: "Must match current version of the item"
+
+    PushRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ops
+      properties:
+        ops:
+          type: array
+          items:
+            $ref: "#/components/schemas/PushOp"
+        expectedProjectVersion:
+          type: string
+          description: "Batch-level guard — must match current /refs.projectVersion if set"
+
+    PushOp:
+      discriminator:
+        propertyName: op
+        mapping:
+          pushItem: "#/components/schemas/PushItemOp"
+          deleteItem: "#/components/schemas/DeleteItemOp"
+          renameItem: "#/components/schemas/RenameItemOp"
+          moveItem: "#/components/schemas/MoveItemOp"
+      oneOf:
+        - $ref: "#/components/schemas/PushItemOp"
+        - $ref: "#/components/schemas/DeleteItemOp"
+        - $ref: "#/components/schemas/RenameItemOp"
+        - $ref: "#/components/schemas/MoveItemOp"
+
+    PushConflict:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - yourVersion
+        - currentVersion
+        - reason
+      properties:
+        name:
+          type: string
+        yourVersion:
+          type: string
+          nullable: true
+        currentVersion:
+          type: string
+          nullable: true
+        reason:
+          type: string
+
+    PushAccepted:
+      type: object
+      additionalProperties: false
+      required:
+        - accepted
+        - newProjectVersion
+        - newItems
+      properties:
+        accepted:
+          type: boolean
+          const: true
+        newProjectVersion:
+          type: string
+        newItems:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Refreshed ref map — client can adopt as new cache"
+
+    PushRejected:
+      type: object
+      additionalProperties: false
+      required:
+        - accepted
+        - conflicts
+        - currentProjectVersion
+      properties:
+        accepted:
+          type: boolean
+          const: false
+        conflicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PushConflict"
+        currentProjectVersion:
+          type: string
+
+    PushResponse:
+      discriminator:
+        propertyName: accepted
+        mapping:
+          "true": "#/components/schemas/PushAccepted"
+          "false": "#/components/schemas/PushRejected"
+      oneOf:
+        - $ref: "#/components/schemas/PushAccepted"
+        - $ref: "#/components/schemas/PushRejected"
+
+    # ── Error ──────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: "Machine-readable error code"
+              enum:
+                - "NOT_FOUND"
+                - "BAD_REQUEST"
+                - "ALREADY_EXISTS"
+                - "PLC_DISCONNECTED"
+                - "PLC_DEGRADED"
+                - "PLC_UI_UNAVAILABLE"
+                - "PLC_UNAVAILABLE"
+                - "INTERNAL_ERROR"
+                - "MALFORMED_RESPONSE"
+            message:
+              type: string
+              description: "Human-readable error description"
+      example:
+        error:
+          code: "NOT_FOUND"
+          message: "Item 'PLC_PRG' not found"
