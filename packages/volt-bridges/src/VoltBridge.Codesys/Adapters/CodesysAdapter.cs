@@ -5,10 +5,6 @@ using VoltBridge.Core;
 
 namespace VoltBridge.Codesys.Adapters;
 
-/// <summary>
-/// CODESYS Scripting Engine adapter — wraps the CODESYS .NET API.
-/// Installed as a CODESYS package (add-in), runs in-process with the IDE.
-/// </summary>
 public class CodesysAdapter : IAdapter
 {
     private readonly BlockingCollection<Action> _staQueue = new();
@@ -41,8 +37,6 @@ public class CodesysAdapter : IAdapter
     public dynamic GetPlcProjectRoot() => null!;
 
     public dynamic? LookupItemByName(string name) => null;
-
-    // ─── Item type mapping ─────────────────────────────────────────
 
     public string? MapItemType(int typeCode, bool isTopLevelCrud) => null;
 
@@ -106,5 +100,3 @@ public class CodesysAdapter : IAdapter
     public bool Build() => true;
     public List<object> GetBuildDiagnostics() => new();
 }
-
-public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopLevelCrud, string FolderPath);

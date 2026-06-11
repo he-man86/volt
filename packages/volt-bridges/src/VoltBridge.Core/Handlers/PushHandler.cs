@@ -2,11 +2,11 @@ using VoltBridge.Core;
 using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
-namespace VoltBridge.Codesys;
+namespace VoltBridge.Core.Handlers;
 
 public static class PushHandler
 {
-    public static PushResponse Handle(Adapters.CodesysAdapter adapter, PushRequest request)
+    public static PushResponse Handle(IAdapter adapter, PushRequest request)
     {
         if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
 
@@ -124,7 +124,7 @@ public static class PushHandler
         return PushResponse.AcceptedResult(adapter.ComputeProjectVersion(newVersions), newVersions);
     }
 
-    private static void ApplyOp(Adapters.CodesysAdapter adapter, dynamic parent,
+    private static void ApplyOp(IAdapter adapter, dynamic parent,
         Dictionary<string, (dynamic item, string folder)> itemCache, PushOp op)
     {
         var name = op.Name ?? "";
@@ -231,7 +231,7 @@ public static class PushHandler
         return parent.CreateChild(name, 601, "", null);
     }
 
-    private static dynamic? FindChildByName(Adapters.CodesysAdapter adapter, dynamic parent, string name)
+    private static dynamic? FindChildByName(IAdapter adapter, dynamic parent, string name)
     {
         int count;
         try { count = (int)parent.ChildCount; } catch { return null; }
@@ -246,7 +246,7 @@ public static class PushHandler
         return null;
     }
 
-    private static void EnsureAccessor(Adapters.CodesysAdapter adapter, dynamic property, string kind,
+    private static void EnsureAccessor(IAdapter adapter, dynamic property, string kind,
         int itemType, string decl, string impl)
     {
         var existing = FindChildByName(adapter, property, kind);

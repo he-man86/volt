@@ -1,11 +1,11 @@
 using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
-namespace VoltBridge.Beckhoff;
+namespace VoltBridge.Core.Handlers;
 
 public static class HealthHandler
 {
-    public static HealthResponse Handle(Adapters.BeckhoffAdapter adapter)
+    public static HealthResponse Handle(IAdapter adapter)
     {
         var data = adapter.BuildHealthResponse();
         var json = System.Text.Json.JsonSerializer.Serialize(data);
@@ -15,7 +15,7 @@ public static class HealthHandler
         return new HealthResponse
         {
             Status = root.GetProperty("status").GetString() ?? "unavailable",
-            Platform = root.GetProperty("platform").GetString() ?? "beckhoff",
+            Platform = root.GetProperty("platform").GetString() ?? "",
             PlatformVariant = root.TryGetProperty("platformVariant", out var pv) ? pv.GetString() : null,
             Connected = root.GetProperty("connected").GetBoolean(),
             IdeAlive = root.GetProperty("ideAlive").GetBoolean(),

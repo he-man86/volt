@@ -109,7 +109,7 @@ public class BeckhoffAdapter : IAdapter
                     }
                     catch (Exception ex2)
                     {
-// In TcXaeShell, PlcProject might not be directly accessible via dynamic.
+                        // In TcXaeShell, PlcProject might not be directly accessible via dynamic.
                         // Try LookupTreeItem with the plc path.
                         try
                         {
@@ -119,9 +119,8 @@ public class BeckhoffAdapter : IAdapter
                                 try { _plcProjectPath = pp.Child[1]?.ProjectPath ?? pp.Child[1]?.Name; }
                                 catch { }
                             }
-}
-                        catch (Exception ex3) {
-}
+                        }
+                        catch (Exception ex3) { }
                     }
                 }
 
@@ -144,11 +143,10 @@ public class BeckhoffAdapter : IAdapter
 
                 if (_sysManager != null)
                 {
-break;
+                    break;
                 }
             }
-            catch (Exception ex) {
-}
+            catch (Exception ex) { }
         }
 
         if (_sysManager == null) throw new InvalidOperationException("No TwinCAT project found in solution.");
@@ -163,22 +161,20 @@ break;
         {
             dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
             int childCount = tipc.ChildCount;
-for (int i = 1; i <= childCount; i++)
+            for (int i = 1; i <= childCount; i++)
             {
                 try
                 {
                     dynamic plc = tipc.Child[i];
                     string name = plc.Name;
-_plcNode = plc;
+                    _plcNode = plc;
                     _plcProjectPath = name;
                     break;
                 }
-                catch (Exception ex) {
-}
+                catch (Exception ex) { }
             }
         }
-        catch (Exception ex) {
-}
+        catch (Exception ex) { }
 
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
@@ -345,7 +341,7 @@ _plcNode = plc;
         return items;
     }
 
-    private static void WalkInner(dynamic node, string folderPath, List<TreeItemVisit> items,
+    private void WalkInner(dynamic node, string folderPath, List<TreeItemVisit> items,
         HashSet<string>? onlyNames, ref int found)
     {
         // Short-circuit: all requested items found
@@ -399,7 +395,7 @@ _plcNode = plc;
         }
     }
 
-    public static int GetItemType(dynamic item) { try { return (int)item.ItemType; } catch { return 0; } }
+    public int GetItemType(dynamic item) { try { return (int)item.ItemType; } catch { return 0; } }
 
     public int GetChildCount(dynamic parent) { try { return (int)parent.ChildCount; } catch { return 0; } }
 
@@ -410,17 +406,13 @@ _plcNode = plc;
         if (_dte == null) return null;
         try
         {
-            // TwinCAT: PlcOpenExport generates PLCopen XML
             return (string?)_dte.Solution?._SolutionBuild?.PlcOpenExport?.Invoke(item);
         }
         catch { return null; }
     }
 
-    int IAdapter.GetItemType(dynamic item) => GetItemType(item);
-    string IAdapter.ReadDeclaration(dynamic item) => ReadDeclaration(item);
-    string IAdapter.ReadImplementation(dynamic item) => ReadImplementation(item);
-    string? IAdapter.ExportItemBodyAsXml(dynamic item, string itemName) => ExportItemBodyAsXml(item, itemName);
-    string IAdapter.ComputeItemVersion(dynamic item, string folderPath) => ComputeItemVersion(item, folderPath);
+    public string? MapItemType(int typeCode, bool isTopLevelCrud) =>
+        ItemTypes.Map(typeCode, isTopLevelCrud);
 
     // ── Write Operations (COM) ─────────────────────────────────────
 
@@ -559,6 +551,9 @@ _plcNode = plc;
         item.Name = newName;
     }
 
+    public string ReadDeclaration(dynamic item) { try { return (string)item.DeclarationText ?? ""; } catch { return ""; } }
+    public string ReadImplementation(dynamic item) { try { return (string)item.ImplementationText ?? ""; } catch { return ""; } }
+
     public static bool IsTopLevelCrud(int typeCode) =>
         typeCode is 602 or 603 or 604 or 605 or 606 or 615 or 618;
 
@@ -567,7 +562,7 @@ _plcNode = plc;
 
     // ── Version Hashing ─────────────────────────────────────────────
 
-    public static string ComputeItemVersion(dynamic item, string folderPath)
+    public string ComputeItemVersion(dynamic item, string folderPath)
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("folder=").Append(folderPath ?? "").Append('\0');
@@ -576,17 +571,7 @@ _plcNode = plc;
         return ShortSha1(sb.ToString());
     }
 
-    public static string ReadDeclaration(dynamic item) { try { return (string)item.DeclarationText ?? ""; } catch { return ""; } }
-    public static string ReadImplementation(dynamic item) { try { return (string)item.ImplementationText ?? ""; } catch { return ""; } }
-
-    public static string ShortSha1(string content)
-    {
-        using var sha = System.Security.Cryptography.SHA1.Create();
-        byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
-        return Convert.ToHexString(hash).Substring(0, 16).ToLowerInvariant();
-    }
-
-    public static string ComputeProjectVersion(Dictionary<string, string> versions)
+    public string ComputeProjectVersion(Dictionary<string, string> versions)
     {
         var sb = new System.Text.StringBuilder();
         foreach (var kvp in versions.OrderBy(p => p.Key, StringComparer.Ordinal))
@@ -594,13 +579,18 @@ _plcNode = plc;
         return ShortSha1(sb.ToString());
     }
 
-    public static string ComputeStructureVersion(Dictionary<string, string> versions)
+    public string ComputeStructureVersion(Dictionary<string, string> versions)
     {
         var sb = new System.Text.StringBuilder();
         foreach (var name in versions.Keys.OrderBy(n => n, StringComparer.Ordinal))
             sb.Append(name).Append('\n');
         return ShortSha1(sb.ToString());
     }
-}
 
-public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopLevelCrud, string FolderPath);
+    private static string ShortSha1(string content)
+    {
+        using var sha = System.Security.Cryptography.SHA1.Create();
+        byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+        return Convert.ToHexString(hash).Substring(0, 16).ToLowerInvariant();
+    }
+}

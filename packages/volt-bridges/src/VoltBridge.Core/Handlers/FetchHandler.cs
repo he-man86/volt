@@ -2,11 +2,11 @@ using VoltBridge.Core;
 using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
-namespace VoltBridge.Beckhoff;
+namespace VoltBridge.Core.Handlers;
 
 public static class FetchHandler
 {
-    public static FetchResponse Handle(Adapters.BeckhoffAdapter adapter, FetchRequest request)
+    public static FetchResponse Handle(IAdapter adapter, FetchRequest request)
     {
         if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
 
@@ -22,11 +22,11 @@ public static class FetchHandler
         {
             if (onlyItems != null && !onlyItems.Contains(visit.Name)) continue;
 
-            var kind = ItemTypes.Map(visit.ItemType, visit.IsTopLevelCrud);
+            var kind = adapter.MapItemType(visit.ItemType, visit.IsTopLevelCrud);
             if (kind == null) continue;
 
             var folder = visit.FolderPath ?? "";
-            var version = Adapters.BeckhoffAdapter.ComputeItemVersion(visit.Item, folder);
+            var version = adapter.ComputeItemVersion(visit.Item, folder);
             versions[visit.Name] = version;
 
             if (knownItems.TryGetValue(visit.Name, out var known) && known == version)
@@ -61,23 +61,11 @@ public static class FetchHandler
 
         return new FetchResponse
         {
-            ProjectVersion = Adapters.BeckhoffAdapter.ComputeProjectVersion(versions),
-            StructureVersion = Adapters.BeckhoffAdapter.ComputeStructureVersion(versions),
+            ProjectVersion = adapter.ComputeProjectVersion(versions),
+            StructureVersion = adapter.ComputeStructureVersion(versions),
             Changed = changed,
             Removed = removed,
             Items = versions,
-        };
-    }
-
-    private static string MapExtension(string kind)
-    {
-        return kind switch
-        {
-            "program" or "function_block" or "function" => ".st",
-            "gvl" => ".gvl",
-            "structure" or "enumeration" or "union" or "alias" => ".dut",
-            "interface" => ".itf",
-            _ => "",
         };
     }
 }

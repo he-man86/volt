@@ -1,11 +1,11 @@
 using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
-namespace VoltBridge.Codesys;
+namespace VoltBridge.Core.Handlers;
 
 public static class RefsHandler
 {
-    public static RefsResponse Handle(Adapters.CodesysAdapter adapter)
+    public static RefsResponse Handle(IAdapter adapter)
     {
         if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
 
