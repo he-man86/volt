@@ -1,6 +1,6 @@
 using VoltBridge.Beckhoff;
 using VoltBridge.Beckhoff.Adapters;
-using VoltBridge.Core.Http;
+using VoltBridge.Beckhoff.Http;
 
 var adapter = new BeckhoffAdapter();
 var cts = new CancellationTokenSource();

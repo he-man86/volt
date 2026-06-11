@@ -424,8 +424,10 @@ public static class BodyTranspiler
 
         foreach (var n in nodes)
         {
-            foreach (var (port, edge) in n.Incoming)
+            foreach (var kvp in n.Incoming)
             {
+                var port = kvp.Key;
+                var edge = kvp.Value;
                 if (!byId.Contains(edge.FromLocalId))
                 {
                     var portHint = port.Length == 0 ? "" : $" (port '{port}')";
@@ -650,8 +652,10 @@ public static class BodyTranspiler
             .Where(kv => kv.Key.Length > 0)
             .OrderBy(kv => kv.Key, StringComparer.Ordinal);
 
-        foreach (var (port, edge) in sortedPorts)
+        foreach (var kvp in sortedPorts)
         {
+            var port = kvp.Key;
+            var edge = kvp.Value;
             if (IsUnconnectedInput(edge, byId)) continue;
             var expr = ExpressionForEdge(edge, byId, cycleGuard);
             if (expr is null) return null;
@@ -672,7 +676,7 @@ public static class BodyTranspiler
 
     private static string ParenIfComplex(string expr)
     {
-        if (ParenTestRe.IsMatch(expr) && !expr.StartsWith('(') && !expr.EndsWith(')'))
+        if (ParenTestRe.IsMatch(expr) && !expr.StartsWith("(") && !expr.EndsWith(")"))
             return $"({expr})";
         return expr;
     }
@@ -727,8 +731,10 @@ public static class BodyTranspiler
             .Where(kv => kv.Key.Length > 0)
             .OrderBy(kv => kv.Key, StringComparer.Ordinal);
 
-        foreach (var (port, edge) in sortedPorts)
+        foreach (var kvp in sortedPorts)
         {
+            var port = kvp.Key;
+            var edge = kvp.Value;
             var expr = LdConditionFromEdge(edge, ctx);
             if (expr is null) return null;
             args.Add($"{port} := {expr}");

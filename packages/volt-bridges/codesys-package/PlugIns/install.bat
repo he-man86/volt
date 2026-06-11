@@ -1,11 +1,5 @@
 @echo off
-REM VoltBridge CODESYS — starts the bridge HTTP daemon on port 8556.
-REM The bridge connects to the CODESYS Scripting Engine to serve
-REM the volt CLI (pull/push/status/build) over loopback HTTP.
-REM
-REM This script runs once after package installation to register
-REM the bridge with the CODESYS Scripting Engine.
-
-echo VoltBridge installed to %AP_ROOT%\VoltBridge
-echo Start the bridge by running: %AP_ROOT%\VoltBridge\VoltBridge.Codesys.exe
-echo Or configure CODESYS to auto-start it via Tools ^> Scripting ^> Startup Scripts.
+REM VoltBridge CODESYS — registered successfully.
+REM The bridge daemon runs from %AP_ROOT%\VoltBridge\VoltBridge.Codesys.exe
+REM on port 8556. Start it manually or configure CODESYS to auto-start.
+echo VoltBridge v1.0.0 installed to %AP_ROOT%\VoltBridge

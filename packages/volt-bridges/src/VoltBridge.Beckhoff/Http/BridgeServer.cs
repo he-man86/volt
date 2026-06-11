@@ -2,11 +2,12 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using VoltBridge.Core;
 using VoltBridge.Core.Errors;
 using VoltBridge.Core.Handlers;
 using VoltBridge.Core.Models;
 
-namespace VoltBridge.Core.Http;
+namespace VoltBridge.Beckhoff.Http;
 
 public static class BridgeServer
 {

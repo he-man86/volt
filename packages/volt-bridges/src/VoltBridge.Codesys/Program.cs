@@ -1,5 +1,5 @@
 using VoltBridge.Codesys.Adapters;
-using VoltBridge.Core.Http;
+using VoltBridge.Codesys.Http;
 
 var adapter = new CodesysAdapter();
 adapter.Connect();
