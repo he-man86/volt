@@ -12,28 +12,43 @@ public class PushRequest
     public string? ExpectedProjectVersion { get; set; }
 }
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
+[JsonDerivedType(typeof(PushItemOp), "pushItem")]
+[JsonDerivedType(typeof(DeleteItemOp), "deleteItem")]
+[JsonDerivedType(typeof(RenameItemOp), "renameItem")]
+[JsonDerivedType(typeof(MoveItemOp), "moveItem")]
 public class PushOp
 {
-    [JsonPropertyName("op")]
-    public string Op { get; set; } = "";
-
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
+    [JsonPropertyName("ifVersion")]
+    public string? IfVersion { get; set; }
+}
+
+public class PushItemOp : PushOp
+{
     [JsonPropertyName("folder")]
     public string? Folder { get; set; }
 
-    [JsonPropertyName("newName")]
-    public string? NewName { get; set; }
-
-    [JsonPropertyName("newFolder")]
-    public string? NewFolder { get; set; }
-
     [JsonPropertyName("sourceText")]
     public string? SourceText { get; set; }
+}
 
-    [JsonPropertyName("ifVersion")]
-    public string? IfVersion { get; set; }
+public class DeleteItemOp : PushOp
+{
+}
+
+public class RenameItemOp : PushOp
+{
+    [JsonPropertyName("newName")]
+    public string? NewName { get; set; }
+}
+
+public class MoveItemOp : PushOp
+{
+    [JsonPropertyName("newFolder")]
+    public string? NewFolder { get; set; }
 }
 
 public class PushConflict

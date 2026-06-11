@@ -40,7 +40,7 @@
       "outputs": [".artifacts/unit/junit.xml"],
       "passThroughEnv": ["*"]
     },
-    "@opencode-ai/volt-agent#test": {
+    "@opencode-ai/volt-cli#test": {
       "dependsOn": ["^build"],
       "outputs": []
     },

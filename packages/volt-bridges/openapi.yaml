@@ -462,7 +462,7 @@ components:
       properties:
         name:
           type: string
-          description: "Item name with file extension (.st, .gvl, .dut, .itf)"
+          description: "Item name with file extension (.st, .gvl, .itf, .struct, .enum, .union, .alias, .library, .task, .device, .trace, .imagepool, .textlist, .recipemanager, .visumanager, .visualization, .symbolconfig, .projectinfo, .librarymanager, .uml, .exttypes, .tmc)"
         folder:
           type: string
           description: "Slash-joined containing folder in the project tree; absent/empty = root"

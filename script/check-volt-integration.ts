@@ -70,8 +70,8 @@ check("volt-lsp-st dist/bin.js", () => {
 	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-lsp' run build";
 });
 check("volt CLI dist/cli/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-agent/dist/cli/bin.js");
-	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-agent' run build";
+	const path = join(REPO_ROOT, "packages/volt-cli/dist/cli/bin.js");
+	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-cli' run build";
 });
 
 console.log("\nRuntime smoke test");

@@ -305,8 +305,24 @@ _plcNode = plc;
         catch { return false; }
     }
 
-    public void MarkDegraded(string reason) { _isDegraded = true; _degradedReason = reason; }
-    public void ClearDegraded() { _isDegraded = false; _degradedReason = null; }
+    public void MarkDegraded(string reason)
+    {
+        if (!_isDegraded)
+        {
+            Console.Error.WriteLine($"[Connection] DEGRADED: {reason}");
+        }
+        _isDegraded = true;
+        _degradedReason = reason;
+    }
+    public void ClearDegraded()
+    {
+        if (_isDegraded)
+        {
+            Console.Error.WriteLine("[Connection] DEGRADED cleared — COM channel responsive again");
+        }
+        _isDegraded = false;
+        _degradedReason = null;
+    }
 
     public void Disconnect()
     {

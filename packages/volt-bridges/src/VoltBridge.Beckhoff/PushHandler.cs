@@ -14,14 +14,14 @@ public static class PushHandler
 
         var items = adapter.WalkAllItems();
         var currentVersions = new Dictionary<string, string>();
-        var itemCache = new Dictionary<string, dynamic>(StringComparer.OrdinalIgnoreCase);
+        var itemCache = new Dictionary<string, (dynamic item, string folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var visit in items)
         {
             var kind = ItemTypes.Map(visit.ItemType, visit.IsTopLevelCrud);
             if (kind == null) continue;
             var version = Adapters.BeckhoffAdapter.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
             currentVersions[visit.Name] = version;
-            if (visit.IsTopLevelCrud) itemCache[visit.Name] = visit.Item;
+            if (visit.IsTopLevelCrud) itemCache[visit.Name] = (visit.Item, visit.FolderPath ?? "");
         }
 
         var currentProjectVersion = Adapters.BeckhoffAdapter.ComputeProjectVersion(currentVersions);
@@ -45,7 +45,7 @@ public static class PushHandler
             var clientVersion = op.IfVersion;
             var currentVersion = pending.TryGetValue(name, out var v) ? v : null;
 
-            if (op.Op == "pushItem")
+            if (op is PushItemOp)
             {
                 if (clientVersion == null)
                 {
@@ -62,8 +62,8 @@ public static class PushHandler
             {
                 if (clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
-                else if (op.Op == "deleteItem") pending.Remove(name);
-                else if (op.Op == "renameItem" && op.NewName != null) { pending.Remove(name); pending[op.NewName] = ""; }
+                else if (op is DeleteItemOp) pending.Remove(name);
+                else if (op is RenameItemOp renameOp && renameOp.NewName != null) { pending.Remove(name); pending[renameOp.NewName] = ""; }
             }
         }
 
@@ -84,34 +84,63 @@ public static class PushHandler
 
         adapter.FlushPendingWrites();
 
-        var newItems = adapter.WalkAllItems();
-        var newVersions = new Dictionary<string, string>();
-        foreach (var v in newItems)
+        // Recompute versions from cached references — no second tree walk.
+        var deletedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var newItems = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var op in request.Ops)
         {
-            var kind = ItemTypes.Map(v.ItemType, v.IsTopLevelCrud);
-            if (kind == null) continue;
-            newVersions[v.Name] = Adapters.BeckhoffAdapter.ComputeItemVersion(v.Item, v.FolderPath ?? "");
+            var name = op.Name ?? "";
+            if (op is DeleteItemOp) { deletedNames.Add(name); }
+            else if (op is PushItemOp pushOp && !itemCache.ContainsKey(name))
+            {
+                newItems[name] = pushOp.Folder ?? "";
+            }
+            else if (op is RenameItemOp renameOp && renameOp.NewName != null)
+            {
+                deletedNames.Add(name);
+                var folder = itemCache.TryGetValue(name, out var oldCached) ? oldCached.folder : "";
+                itemCache.Remove(name);
+                if (oldCached.item != null) itemCache[renameOp.NewName] = (oldCached.item, folder);
+            }
+            else if (op is MoveItemOp moveOp)
+            {
+                deletedNames.Add(name);
+                newItems[name] = moveOp.NewFolder ?? "";
+            }
+        }
+
+        var newVersions = new Dictionary<string, string>();
+        foreach (var kv in itemCache)
+        {
+            if (deletedNames.Contains(kv.Key)) continue;
+            newVersions[kv.Key] = Adapters.BeckhoffAdapter.ComputeItemVersion(kv.Value.item, kv.Value.folder);
+        }
+        foreach (var kv in newItems)
+        {
+            var found = adapter.LookupItemByName(kv.Key);
+            if (found != null)
+                newVersions[kv.Key] = Adapters.BeckhoffAdapter.ComputeItemVersion(found, kv.Value);
         }
 
         return PushResponse.AcceptedResult(Adapters.BeckhoffAdapter.ComputeProjectVersion(newVersions), newVersions);
     }
 
     private static void ApplyOp(Adapters.BeckhoffAdapter adapter, dynamic parent,
-        Dictionary<string, dynamic> itemCache, PushOp op)
+        Dictionary<string, (dynamic item, string folder)> itemCache, PushOp op)
     {
         var name = op.Name ?? "";
-        var existing = itemCache.TryGetValue(name, out var cached) ? cached : adapter.LookupItemByName(name);
+        var existing = itemCache.TryGetValue(name, out var cached) ? cached.item : adapter.LookupItemByName(name);
 
-        if (op.Op == "pushItem")
+        if (op is PushItemOp pushOp)
         {
-            var src = op.SourceText ?? "";
+            var src = pushOp.SourceText ?? "";
             if (string.IsNullOrWhiteSpace(src))
                 throw new BridgeException(400, "BAD_REQUEST", "pushItem missing 'sourceText'");
             var split = StSplitter.SplitSt(src);
             var decl = split.PouDeclaration ?? "";
             var impl = split.PouImplementation ?? "";
             var itemType = MapPouKindToItemType(split.PouKind);
-            var folder = op.Folder;
+            var folder = pushOp.Folder;
 
             dynamic targetParent = parent;
             if (!string.IsNullOrEmpty(folder))
@@ -162,26 +191,26 @@ public static class PushHandler
                 }
             }
         }
-        else if (op.Op == "deleteItem")
+        else if (op is DeleteItemOp)
         {
             if (existing != null)
                 try { adapter.DeleteChild(GetParent(existing), name); } catch { }
         }
-        else if (op.Op == "renameItem")
+        else if (op is RenameItemOp renameOp)
         {
-            if (existing != null && op.NewName != null)
-                adapter.RenameItem(existing, op.NewName);
+            if (existing != null && renameOp.NewName != null)
+                adapter.RenameItem(existing, renameOp.NewName);
         }
-        else if (op.Op == "moveItem")
+        else if (op is MoveItemOp moveOp)
         {
-            if (existing != null && op.NewFolder != null)
+            if (existing != null && moveOp.NewFolder != null)
             {
                 var decl = Adapters.BeckhoffAdapter.ReadDeclaration(existing);
                 var impl = Adapters.BeckhoffAdapter.ReadImplementation(existing);
                 var itype = Adapters.BeckhoffAdapter.GetItemType(existing);
                 try { adapter.DeleteChild(GetParent(existing), name); } catch { }
                 dynamic tp = parent;
-                foreach (var part in op.NewFolder.Split('/'))
+                foreach (var part in moveOp.NewFolder.Split('/'))
                     tp = FindOrCreateFolder(tp, part);
                 var created = adapter.CreateChild(tp, name, itype);
                 adapter.WriteSourceText(created, decl, impl);

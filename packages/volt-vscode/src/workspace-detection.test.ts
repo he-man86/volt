@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isPouFile, readStateMtime } from "./workspace-detection";
+import { isPouFile, readStateMtime } from "./workspace";
 
 describe("isPouFile", () => {
 	test("matches every tracked PLC extension", () => {
-		for (const ext of ["st", "gvl", "struct", "enum", "union", "alias", "itf", "fbd", "ld", "sfc", "cfc"]) {
+		for (const ext of ["st", "gvl", "struct", "enum", "union", "alias", "itf"]) {
 			expect(isPouFile(`Foo.${ext}`)).toBe(true);
 		}
 	});
@@ -14,7 +14,7 @@ describe("isPouFile", () => {
 	test("is case-insensitive (Windows paths arrive mixed-case)", () => {
 		expect(isPouFile("Foo.ST")).toBe(true);
 		expect(isPouFile("Bar.Struct")).toBe(true);
-		expect(isPouFile("Baz.FBD")).toBe(true);
+		expect(isPouFile("Bar.ITF")).toBe(true);
 	});
 
 	test("rejects untracked extensions", () => {

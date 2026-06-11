@@ -110,7 +110,7 @@ Three items, right-aligned:
 
 ## CLI requirements
 
-The CLI integration assumes the `volt` binary is on `PATH`. `bun install` populates `node_modules/.bin/volt` automatically from the `@opencode-ai/volt-agent` workspace package. For non-standard installs, override via:
+The CLI integration assumes the `volt` binary is on `PATH`. `bun install` populates `node_modules/.bin/volt` automatically from the `@opencode-ai/volt-cli` workspace package. For non-standard installs, override via:
 
 ```json
 {
