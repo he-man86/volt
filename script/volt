@@ -3,7 +3,7 @@
 #
 # bun does not always create node_modules/.bin symlinks for private
 # workspace packages (Windows in particular), so the bare bin name `volt`
-# declared in packages/volt-agent/package.json may not resolve from a
+# declared in packages/volt-cli/package.json may not resolve from a
 # shell. This wrapper bridges the gap: add the directory containing
 # this script to your PATH and `volt <verb>` works from any cwd, exactly
 # like a published CLI.
@@ -12,4 +12,4 @@
 # required, and bun resolves workspace imports natively.
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec bun "${SCRIPT_DIR}/../packages/volt-agent/src/cli/bin.ts" "$@"
+exec bun "${SCRIPT_DIR}/../packages/volt-cli/dist/bin.js" "$@"
