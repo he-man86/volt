@@ -52,14 +52,12 @@ if (Test-Path "$PACKAGE_SRC\PlugIns\install.bat") { Copy-Item "$PACKAGE_SRC\Plug
 Copy-Item "$PACKAGE_SRC\package.manifest" -Destination "$TMP\" -Force
 Copy-Item -Recurse "$PACKAGE_SRC\ScriptLib\*" -Destination "$TMP\ScriptLib\" -Force
 
-# Zip as .zip first, then rename to .package (PowerShell Compress-Archive restriction)
-$ZIP = "$DIST\VoltBridge.zip"
+# Zip with node (clean ZIP, CODESYS-compatible)
 $PKG = "$DIST\VoltBridge-$VERSION.package"
-Remove-Item $ZIP, $PKG -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path "$TMP\*" -DestinationPath $ZIP -Force
-Rename-Item $ZIP $PKG -Force
+$ZIP_BUILDER = "$PSScriptRoot\codesys-package\zip-builder.cjs"
+node $ZIP_BUILDER $TMP $PKG
+$size = if (Test-Path $PKG) { [math]::Round((Get-Item $PKG).Length / 1KB) } else { 0 }
 Remove-Item -Recurse -Force $TMP -ErrorAction SilentlyContinue
-$size = [math]::Round((Get-Item $PKG).Length / 1KB)
 Write-Output "  OK -> dist\VoltBridge-$VERSION.package ($size KB)"
 
 Write-Output ""
