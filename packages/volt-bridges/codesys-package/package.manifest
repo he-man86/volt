@@ -12,20 +12,11 @@
       <General>
         <Selectable>True</Selectable>
         <Id>1</Id>
-        <Name>VoltBridge</Name>
+        <Name>Volt</Name>
         <SelectedByDefault>True</SelectedByDefault>
       </General>
       <ProfileSelectionList ActiveProfileOnly="False" Hide="False" />
-      <Items>
-        <Folder>
-          <TargetFolder>%AP_ROOT%\VoltBridge</TargetFolder>
-          <Path>PlugIns</Path>
-        </Folder>
-        <Folder>
-          <TargetFolder>%AP_ROOT%</TargetFolder>
-          <Path>ScriptLib</Path>
-        </Folder>
-      </Items>
+      <Items />
     </Component>
   </Components>
 </Package>
