@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using VoltBridge.Core;
 
@@ -588,64 +589,45 @@ public class BeckhoffAdapter : IAdapter
         try
         {
             string xml;
-            try { xml = (string)item.ProduceXml(); }
-            catch { xml = ""; }
+            try { xml = (string)item.ProduceXml(); } catch { return "?\n"; }
+            if (string.IsNullOrEmpty(xml)) return "?\n";
 
-            if (string.IsNullOrEmpty(xml))
+            var name = ExtractTag(xml, "ItemName") ?? ExtractTag(xml, "LibItemName") ?? "?";
+            var sb = new StringBuilder();
+            sb.Append("Name=").Append(name).Append('\n');
+
+            if (kind == "task")
             {
-                string name;
-                try { name = (string)item.Name; } catch { name = "?"; }
-                return $"Name={name}\n";
+                var linked = ExtractTag(xml, "LinkedTask");
+                if (linked != null) sb.Append("linked-task=").Append(linked).Append('\n');
             }
 
-            using var reader = new System.IO.StringReader(xml);
-            var doc = System.Xml.Linq.XDocument.Load(reader);
-            var treeItem = doc.Root;
-            if (treeItem == null) return "Name=?\n";
-            var kindElement = treeItem.Elements().FirstOrDefault();
-            if (kindElement == null) return "Name=?\n";
-
-            var sb = new System.Text.StringBuilder();
-            foreach (var el in kindElement.Elements())
+            if (kind == "library")
             {
-                var val = el.Value?.Trim();
-                if (string.IsNullOrEmpty(val)) continue;
-                var tag = el.Name.LocalName;
-                // Friendly naming
-                var key = tag switch
-                {
-                    "Priority" => "priority",
-                    "CycleTime" => "cycle-time-ns",
-                    "AutoStart" => "auto-start",
-                    "Disabled" => "disabled",
-                    "Watchdog" => "watchdog",
-                    "WatchdogStack" => "watchdog-stack",
-                    "ExtEventName" => "ext-event",
-                    "Comment" => "comment",
-                    "Name" => "name",
-                    "Resolution" => "resolution",
-                    "DefaultResolution" => "default-resolution",
-                    "Interval" => "interval",
-                    _ => tag.ToLowerInvariant(),
-                };
-                sb.Append(key).Append('=').Append(val).Append('\n');
+                var ns = ExtractTag(xml, "Namespace");
+                if (ns != null) sb.Append("namespace=").Append(ns).Append('\n');
+                var def = ExtractTag(xml, "DefaultResolution");
+                if (def != null) sb.Append("default-resolution=").Append(def).Append('\n');
+                var ver = ExtractTag(xml, "Version");
+                if (ver != null) sb.Append("version=").Append(ver).Append('\n');
+                var dist = ExtractTag(xml, "Distributor");
+                if (dist != null) sb.Append("distributor=").Append(dist).Append('\n');
             }
 
-            // POU call list for tasks
-            var pouList = kindElement.Element("PouCallList");
-            if (pouList != null)
-            {
-                foreach (var pou in pouList.Elements("Pou"))
-                {
-                    var pname = pou.Value?.Trim();
-                    if (!string.IsNullOrEmpty(pname))
-                        sb.Append("pou=").Append(pname).Append('\n');
-                }
-            }
-
-            return sb.Length > 0 ? sb.ToString() : "Name=?\n";
+            return sb.ToString();
         }
-        catch { return ""; }
+        catch { return "?\n"; }
+    }
+
+    private static string? ExtractTag(string xml, string tag)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(xml, $@"<{tag}[^>]*>([^<]*)</{tag}>");
+        if (m.Success)
+        {
+            var val = m.Groups[1].Value.Trim();
+            if (val.Length > 0) return val;
+        }
+        return null;
     }
 
     private static string ShortSha1(string content)
