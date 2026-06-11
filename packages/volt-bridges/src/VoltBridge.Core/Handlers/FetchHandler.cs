@@ -40,18 +40,22 @@ public static class FetchHandler
                 Version = version,
             };
 
-            if (visit.IsTopLevelCrud)
+            if (kind != null)
             {
                 try
                 {
-                    var buildResult = SourceAssembler.BuildSource(adapter, visit.Name, visit.Item);
-                    item.SourceText = StAssembler.Assemble(buildResult);
+                    var isSource = IsSourceKind(kind);
+                    if (isSource)
+                    {
+                        var buildResult = SourceAssembler.BuildSource(adapter, visit.Name, visit.Item);
+                        item.SourceText = StAssembler.Assemble(buildResult);
+                    }
+                    else
+                    {
+                        item.SourceText = adapter.ReadManifestText(visit.Item, kind);
+                    }
                 }
                 catch { item.SourceText = ""; }
-            }
-            else
-            {
-                item.SourceText = "";
             }
 
             changed.Add(item);
@@ -68,4 +72,11 @@ public static class FetchHandler
             Items = versions,
         };
     }
+
+    private static bool IsSourceKind(string kind) => kind switch
+    {
+        "function_block" or "function" or "program" or "interface" or "gvl" or
+        "structure" or "enumeration" or "union" or "alias" => true,
+        _ => false,
+    };
 }

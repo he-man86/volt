@@ -92,6 +92,8 @@ public class CodesysAdapter : IAdapter
         return Convert.ToHexString(sha.Hash!).ToLowerInvariant()[..16];
     }
 
+    public string ReadManifestText(dynamic item, string kind) => "";
+
     public dynamic CreateChild(dynamic parent, string name, int itemType) => null!;
     public void WriteSourceText(dynamic item, string declaration, string implementation) { }
     public void DeleteChild(dynamic parent, string name) { }

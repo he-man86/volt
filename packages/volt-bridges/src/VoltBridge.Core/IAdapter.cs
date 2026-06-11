@@ -49,6 +49,9 @@ public interface IAdapter
     dynamic GetChildAt(dynamic parent, int index);
     string? ExportItemBodyAsXml(dynamic item, string itemName);
 
+    // ── Config Manifest ───────────────────────────────────────────────
+    string ReadManifestText(dynamic item, string kind);
+
     // ── Build ───────────────────────────────────────────────────────
     void FlushPendingWrites();
     bool Build();

@@ -358,17 +358,17 @@ public class BeckhoffAdapter : IAdapter
             try { name = (string)child.Name; } catch { continue; }
             int itemType = GetItemType(child);
 
-            if (itemType == 601) // Folder
+            if (itemType == 601 || itemType == 617) // Folder or Library Manager
             {
                 var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
                 WalkInner(child, nested, items, onlyNames, ref found);
                 continue;
             }
-            if (IsInlinedInPou(itemType)) continue;
+            if (ItemTypes.IsInlinedInPou(itemType)) continue;
 
             int childCount = 0;
             try { childCount = (int)child.ChildCount; } catch { }
-            bool isTopLevelCrud = IsTopLevelCrud(itemType);
+            bool isTopLevelCrud = ItemTypes.IsTopLevelCrud(itemType);
             bool isHybrid = childCount > 0 && !isTopLevelCrud;
             string emitFolder = isHybrid ? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}") : folderPath;
 
@@ -503,7 +503,7 @@ public class BeckhoffAdapter : IAdapter
             if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase))
             {
                 int itemType = GetItemType(child);
-                if (IsTopLevelCrud(itemType)) return child;
+                if (ItemTypes.IsTopLevelCrud(itemType)) return child;
             }
             if (GetItemType(child) == 601)
             {
@@ -523,7 +523,7 @@ public class BeckhoffAdapter : IAdapter
             string childName;
             try { childName = (string)child.Name; } catch { continue; }
             if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase)
-                && IsTopLevelCrud(GetItemType(child)))
+                && ItemTypes.IsTopLevelCrud(GetItemType(child)))
                 return childName;
         }
         return null;
@@ -554,12 +554,6 @@ public class BeckhoffAdapter : IAdapter
     public string ReadDeclaration(dynamic item) { try { return (string)item.DeclarationText ?? ""; } catch { return ""; } }
     public string ReadImplementation(dynamic item) { try { return (string)item.ImplementationText ?? ""; } catch { return ""; } }
 
-    public static bool IsTopLevelCrud(int typeCode) =>
-        typeCode is 602 or 603 or 604 or 605 or 606 or 615 or 618;
-
-    public static bool IsInlinedInPou(int typeCode) =>
-        typeCode is 608 or 609 or 610 or 611 or 612 or 613 or 614 or 616 or 650 or 654 or 655;
-
     // ── Version Hashing ─────────────────────────────────────────────
 
     public string ComputeItemVersion(dynamic item, string folderPath)
@@ -585,6 +579,73 @@ public class BeckhoffAdapter : IAdapter
         foreach (var name in versions.Keys.OrderBy(n => n, StringComparer.Ordinal))
             sb.Append(name).Append('\n');
         return ShortSha1(sb.ToString());
+    }
+
+    // ── Config Manifest ──────────────────────────────────────────────
+
+    public string ReadManifestText(dynamic item, string kind)
+    {
+        try
+        {
+            string xml;
+            try { xml = (string)item.ProduceXml(); }
+            catch { xml = ""; }
+
+            if (string.IsNullOrEmpty(xml))
+            {
+                string name;
+                try { name = (string)item.Name; } catch { name = "?"; }
+                return $"Name={name}\n";
+            }
+
+            using var reader = new System.IO.StringReader(xml);
+            var doc = System.Xml.Linq.XDocument.Load(reader);
+            var treeItem = doc.Root;
+            if (treeItem == null) return "Name=?\n";
+            var kindElement = treeItem.Elements().FirstOrDefault();
+            if (kindElement == null) return "Name=?\n";
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var el in kindElement.Elements())
+            {
+                var val = el.Value?.Trim();
+                if (string.IsNullOrEmpty(val)) continue;
+                var tag = el.Name.LocalName;
+                // Friendly naming
+                var key = tag switch
+                {
+                    "Priority" => "priority",
+                    "CycleTime" => "cycle-time-ns",
+                    "AutoStart" => "auto-start",
+                    "Disabled" => "disabled",
+                    "Watchdog" => "watchdog",
+                    "WatchdogStack" => "watchdog-stack",
+                    "ExtEventName" => "ext-event",
+                    "Comment" => "comment",
+                    "Name" => "name",
+                    "Resolution" => "resolution",
+                    "DefaultResolution" => "default-resolution",
+                    "Interval" => "interval",
+                    _ => tag.ToLowerInvariant(),
+                };
+                sb.Append(key).Append('=').Append(val).Append('\n');
+            }
+
+            // POU call list for tasks
+            var pouList = kindElement.Element("PouCallList");
+            if (pouList != null)
+            {
+                foreach (var pou in pouList.Elements("Pou"))
+                {
+                    var pname = pou.Value?.Trim();
+                    if (!string.IsNullOrEmpty(pname))
+                        sb.Append("pou=").Append(pname).Append('\n');
+                }
+            }
+
+            return sb.Length > 0 ? sb.ToString() : "Name=?\n";
+        }
+        catch { return ""; }
     }
 
     private static string ShortSha1(string content)
