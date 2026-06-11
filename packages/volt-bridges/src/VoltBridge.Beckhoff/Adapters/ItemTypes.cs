@@ -1,4 +1,4 @@
-namespace VoltBridge.Beckhoff;
+namespace VoltBridge.Beckhoff.Adapters;
 
 public static class ItemTypes
 {
