@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package>
   <Strings>
-    <String Id="GeneralName"><Neutral>VoltBridge</Neutral></String>
+    <String Id="GeneralName">
+      <Neutral>VoltBridge</Neutral>
+    </String>
     <String Id="GeneralDescription">
       <Neutral>Volt IDE Bridge for CODESYS — connects the volt CLI to your CODESYS project via loopback HTTP. Enables git-style pull/push/status/build against the CODESYS Scripting Engine.</Neutral>
     </String>
-    <String Id="GeneralCopyright"><Neutral>Copyright (c) 2025 Volt</Neutral></String>
-    <String Id="VoltMenuPath"><Neutral>Tools::VoltBridge</Neutral></String>
+    <String Id="GeneralCopyright">
+      <Neutral>Copyright (c) 2025 Volt</Neutral>
+    </String>
   </Strings>
   <General>
     <Id>{E43ABC6C-41DA-42E9-AF56-F632F69F6CA5}</Id>
@@ -26,36 +29,12 @@
         <SelectedByDefault>True</SelectedByDefault>
       </General>
       <Items>
-        <!-- Plugin DLL — loaded automatically by CODESYS -->
-        <PlugIn>
-          <Path>VoltBridge\VoltBridge.Codesys.Plugin.dll</Path>
-        </PlugIn>
-        <ProfileChange>
-          <PlugIn>{E43ABC6C-41DA-42E9-AF56-F632F69F6CA5}</PlugIn>
-          <Version>1.0.0.0</Version>
-        </ProfileChange>
-        <!-- Tools → VoltBridge menu -->
-        <AddMenuCommand>
-          <Command>{START_COMMAND_GUID}</Command>
-          <InsertionPath>$VoltMenuPath</InsertionPath>
-          <InsertionPosition><Where>Last</Where></InsertionPosition>
-        </AddMenuCommand>
-        <AddMenuCommand>
-          <Command>{STOP_COMMAND_GUID}</Command>
-          <InsertionPath>$VoltMenuPath</InsertionPath>
-          <InsertionPosition><Where>Last</Where></InsertionPosition>
-        </AddMenuCommand>
-        <AddMenuCommand>
-          <Command>{SETTINGS_COMMAND_GUID}</Command>
-          <InsertionPath>$VoltMenuPath</InsertionPath>
-          <InsertionPosition><Where>Last</Where></InsertionPosition>
-        </AddMenuCommand>
-        <!-- Bridge files -->
+        <!-- Bridge binaries -->
         <Folder>
           <TargetFolder>%AP_ROOT%\VoltBridge</TargetFolder>
           <Path>PlugIns</Path>
         </Folder>
-        <!-- Scripting Engine stubs -->
+        <!-- Scripting Engine stubs for type discovery -->
         <Folder>
           <TargetFolder>%AP_ROOT%</TargetFolder>
           <Path>ScriptLib</Path>

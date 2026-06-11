@@ -35,18 +35,18 @@ Write-Output ""
 Write-Output "[3/3] VoltBridge.Codesys.Plugin + .package"
 $TMP = "$env:TEMP\volt-package-build"
 Remove-Item -Recurse -Force $TMP -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force "$TMP\VoltBridge", "$TMP\ScriptLib\Stubs\scriptengine" | Out-Null
+New-Item -ItemType Directory -Force "$TMP\PlugIns", "$TMP\ScriptLib\Stubs\scriptengine" | Out-Null
 
 # Try building Plugin DLL (needs CODESYS SDK)
 if (-not $SkipCodesys) {
-    & $DOTNET build "$ROOT\src\VoltBridge.Codesys.Plugin\VoltBridge.Codesys.Plugin.csproj" -c Release -o "$TMP\VoltBridge" --nologo -v q 2>&1 | Out-Null
+    & $DOTNET build "$ROOT\src\VoltBridge.Codesys.Plugin\VoltBridge.Codesys.Plugin.csproj" -c Release -o "$TMP\PlugIns" --nologo -v q 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Output "  Plugin DLL skipped (CODESYS not installed)" }
     else { Write-Output "  Plugin DLL built" }
 }
 
-# Copy console EXE to package
-Copy-Item -Recurse "$DIST\Codesys\*" -Destination "$TMP\VoltBridge\" -Force
-if (Test-Path "$PACKAGE_SRC\PlugIns\install.bat") { Copy-Item "$PACKAGE_SRC\PlugIns\install.bat" -Destination "$TMP\VoltBridge\" -Force }
+# Copy console EXE to package (under PlugIns/ as manifest expects)
+Copy-Item -Recurse "$DIST\Codesys\*" -Destination "$TMP\PlugIns\" -Force
+if (Test-Path "$PACKAGE_SRC\PlugIns\install.bat") { Copy-Item "$PACKAGE_SRC\PlugIns\install.bat" -Destination "$TMP\PlugIns\" -Force }
 
 # Copy manifest + stubs
 Copy-Item "$PACKAGE_SRC\package.manifest" -Destination "$TMP\" -Force
