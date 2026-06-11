@@ -1,29 +1,25 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@opencode-ai/volt-bridges",
-  "version": "1.15.11",
+  "version": "1.16.0",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "IDE bridges (Beckhoff TwinCAT, more vendors coming) that the `volt` CLI talks to over loopback HTTP. C# binary.",
+  "description": "Volt IDE bridges — C# binaries with shared Core (Beckhoff TwinCAT, CODESYS, more vendors coming)",
   "type": "module",
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "bash ./build-bridges.sh",
+    "build": "dotnet build src/VoltBridge.Beckhoff/VoltBridge.Beckhoff.csproj -c Release --nologo",
+    "build:all": "dotnet build src/VoltBridge.Beckhoff/VoltBridge.Beckhoff.csproj -c Release --nologo && dotnet build src/VoltBridge.Codesys/VoltBridge.Codesys.csproj -c Release --nologo",
     "test": "bun test",
-    "test:cs": "dotnet test beckhoff/BeckhoffBridge.sln",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
     "typescript": "catalog:"
   }
 }
