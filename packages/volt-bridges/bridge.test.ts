@@ -175,7 +175,7 @@ describe("Beckhoff bridge", () => {
 	})
 
 	describe("/build", () => {
-		it.skip("returns success + diagnostics (builds can be slow)", async () => {
+		it("returns success + diagnostics", async () => {
 			const r = await post("/build", { buildType: "incremental" })
 			expect(r.status).toBe(200)
 			expect(typeof r.body.success).toBe("boolean")
@@ -183,7 +183,7 @@ describe("Beckhoff bridge", () => {
 			expect(Array.isArray(r.body.diagnostics)).toBe(true)
 		})
 
-		it.skip("full build completes (builds can be slow)", async () => {
+		it("full build completes", async () => {
 			const r = await post("/build", { buildType: "full" })
 			expect(r.status).toBe(200)
 		})
