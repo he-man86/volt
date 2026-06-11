@@ -34,7 +34,8 @@ public static class FetchHandler
 
             var item = new FetchedItem
             {
-                Name = visit.Name + MapExtension(kind),
+                Name = visit.Name,
+                Kind = kind,
                 Folder = folder,
                 Version = version,
             };

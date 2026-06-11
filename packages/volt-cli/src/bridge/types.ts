@@ -321,29 +321,25 @@ export const PushConflictSchema = z
 	.strict();
 export type PushConflict = z.infer<typeof PushConflictSchema>;
 
-export const PushAcceptedSchema = z
-	.object({
+export const PushAcceptedSchema = z.object({
 		accepted: z.literal(true),
 		newProjectVersion: z.string(),
 		/** Refreshed ref map — client can adopt this as its new cache. */
 		newItems: z.record(z.string()),
 	})
-	.strict();
 export type PushAccepted = z.infer<typeof PushAcceptedSchema>;
 
-export const PushRejectedSchema = z
-	.object({
+export const PushRejectedSchema = z.object({
 		accepted: z.literal(false),
 		conflicts: z.array(PushConflictSchema),
 		currentProjectVersion: z.string(),
+		// v1 bridge also serializes null newProjectVersion/newItems
+		// which .strict() would reject. Passthrough accepts them.
 	})
-	.strict();
+	.passthrough();
 export type PushRejected = z.infer<typeof PushRejectedSchema>;
 
-export const PushResponseSchema = z.discriminatedUnion("accepted", [
-	PushAcceptedSchema,
-	PushRejectedSchema,
-]);
+export const PushResponseSchema = z.union([PushAcceptedSchema, PushRejectedSchema])
 export type PushResponse = z.infer<typeof PushResponseSchema>;
 
 // ─── Remote surface ─────────────────────────────────────────────────────────

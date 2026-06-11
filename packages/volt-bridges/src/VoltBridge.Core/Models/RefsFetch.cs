@@ -35,6 +35,9 @@ public class FetchedItem
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "";
+
     [JsonPropertyName("folder")]
     public string? Folder { get; set; }
 

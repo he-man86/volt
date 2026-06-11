@@ -36,7 +36,7 @@ public static class ItemTypes
             655 => "interface_property_set",
             657 => "library",
             _ when isTopLevelCrud => null,
-            _ => "config",
+            _ => null,
         };
     }
 }

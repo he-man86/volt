@@ -164,11 +164,9 @@ export async function pull(workspace: string, bridge: Remote, input: PullInput):
 	}
 
 	process.stderr.write("  → querying bridge state...\n")
-	let syncSkipped: ReadonlyArray<{ name: string; reason: string }>
+	let syncResult
 	try {
-		const result = await syncFromBridge(paths.snapshotPath, bridge)
-		syncSkipped = []
-		void result
+		syncResult = await syncFromBridge(paths.snapshotPath, bridge, { fullRebuild: force })
 	} catch (err) {
 		return {
 			kind: "refused",
@@ -224,9 +222,9 @@ export async function pull(workspace: string, bridge: Remote, input: PullInput):
 	}
 	out(summary)
 
-	if (syncSkipped.length > 0) {
-		out(`\n! skipped ${syncSkipped.length} item(s) the bridge sent but Volt couldn't materialize:`)
-		for (const s of syncSkipped) {
+	if (syncResult.skipped.length > 0) {
+		out(`\n! skipped ${syncResult.skipped.length} item(s) the bridge sent but Volt couldn't materialize:`)
+		for (const s of syncResult.skipped) {
 			out(`  - ${s.name}: ${s.reason}`)
 		}
 		out("  fix the bridge-side cause for each (re-export the POU in the IDE, or report the case), then re-run `volt pull`.")
