@@ -1,12 +1,12 @@
 import { statSync } from "node:fs"
 import { join } from "node:path"
 
-const POU_EXTENSIONS = new Set(["st", "gvl", "struct", "enum", "union", "alias", "itf"])
+const EXTS = new Set(["st", "gvl", "struct", "enum", "union", "alias", "itf"])
 
-export function isPouFile(fileName: string): boolean {
-	const idx = fileName.lastIndexOf(".")
-	if (idx < 0) return false
-	return POU_EXTENSIONS.has(fileName.slice(idx + 1).toLowerCase())
+export function isPouFile(path: string): boolean {
+	const dot = path.lastIndexOf(".")
+	if (dot < 0) return false
+	return EXTS.has(path.slice(dot + 1).toLowerCase())
 }
 
 export function readStateMtime(workspaceRoot: string): number {

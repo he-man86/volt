@@ -1,6 +1,3 @@
-/**
- * Mutation gate — prevents concurrent volt CLI operations on the same workspace.
- */
 const inFlight = new Set<string>()
 
 export function isMutationInFlight(workspaceRoot: string): boolean {

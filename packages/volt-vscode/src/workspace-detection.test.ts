@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+﻿import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,9 +38,9 @@ describe("isPouFile", () => {
 	});
 
 	test("only the rightmost extension counts", () => {
-		// state.json.bak — .bak isn't a PLC extension.
+		// state.json.bak ÔÇö .bak isn't a PLC extension.
 		expect(isPouFile("state.json.bak")).toBe(false);
-		// foo.st.bak — last segment is .bak, not .st.
+		// foo.st.bak ÔÇö last segment is .bak, not .st.
 		expect(isPouFile("foo.st.bak")).toBe(false);
 	});
 });
