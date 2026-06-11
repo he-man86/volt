@@ -48,8 +48,9 @@ if (-not $SkipCodesys) {
 Copy-Item -Recurse "$DIST\Codesys\*" -Destination "$TMP\PlugIns\" -Force
 if (Test-Path "$PACKAGE_SRC\PlugIns\install.bat") { Copy-Item "$PACKAGE_SRC\PlugIns\install.bat" -Destination "$TMP\PlugIns\" -Force }
 
-# Copy manifest + stubs
+# Copy manifest + stubs + marker files (required by CODESYS)
 Copy-Item "$PACKAGE_SRC\package.manifest" -Destination "$TMP\" -Force
+Copy-Item "$PACKAGE_SRC\64BitCompatible","$PACKAGE_SRC\Tags","$PACKAGE_SRC\LanguageModelVersion","$PACKAGE_SRC\origin.xml" -Destination "$TMP\" -Force -ErrorAction SilentlyContinue
 Copy-Item -Recurse "$PACKAGE_SRC\ScriptLib\*" -Destination "$TMP\ScriptLib\" -Force
 
 # Zip with node (clean ZIP, CODESYS-compatible)
