@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.20.11",
+  "version": "1.20.12",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -24,10 +24,8 @@
     "onLanguage:plc-interface",
     "onLanguage:plc-gvl",
     "onLanguage:plc-dut",
-    "onLanguage:plc-fbd",
-    "onLanguage:plc-ld",
     "workspaceContains:**/.volt/config.json",
-    "workspaceContains:**/*.{st,gvl,struct,enum,union,alias,itf,fbd,ld,sfc,cfc,visu,recipes,task,library,libraries,textlist,imagepool,device,trace,cam,alarm,uml,tmc}"
+    "workspaceContains:**/*.{st,itf,gvl,struct,union,enum,alias,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -102,48 +100,16 @@
         "icon": { "light": "./icons/dut.svg", "dark": "./icons/dut.svg" }
       },
       {
-        "id": "plc-fbd",
-        "aliases": [
-          "Function Block Diagram",
-          "FBD",
-          "IEC 61131-3 FBD"
-        ],
-        "extensions": [
-          ".fbd"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/fbd.svg",
-          "dark":  "./icons/fbd.svg"
-        }
+        "id": "plc-library",
+        "aliases": ["PLC Library Reference", "LIB"],
+        "extensions": [".library"],
+        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
       },
       {
-        "id": "plc-ld",
-        "aliases": [
-          "Ladder Diagram",
-          "LD",
-          "IEC 61131-3 LD"
-        ],
-        "extensions": [
-          ".ld"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/ld.svg",
-          "dark":  "./icons/ld.svg"
-        }
-      },
-      {
-        "id": "plc-visualization",
-        "aliases": ["PLC Visualization", "VISU"],
-        "extensions": [".visu"],
-        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
-      },
-      {
-        "id": "plc-recipes",
-        "aliases": ["PLC Recipe", "RCPE"],
-        "extensions": [".recipes"],
-        "icon": { "light": "./icons/recipes.svg", "dark": "./icons/recipes.svg" }
+        "id": "plc-library-manager",
+        "aliases": ["PLC Library Manager"],
+        "extensions": [".library_manager"],
+        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
       },
       {
         "id": "plc-task",
@@ -152,52 +118,46 @@
         "icon": { "light": "./icons/task.svg", "dark": "./icons/task.svg" }
       },
       {
-        "id": "plc-library",
-        "aliases": ["PLC Library Reference", "LIB"],
-        "extensions": [".library", ".libraries"],
-        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
-      },
-      {
-        "id": "plc-textlist",
-        "aliases": ["PLC Text List", "TXT"],
-        "extensions": [".textlist"],
-        "icon": { "light": "./icons/textlist.svg", "dark": "./icons/textlist.svg" }
-      },
-      {
-        "id": "plc-imagepool",
+        "id": "plc-image-pool",
         "aliases": ["PLC Image Pool", "IMG"],
-        "extensions": [".imagepool"],
+        "extensions": [".image_pool"],
         "icon": { "light": "./icons/imagepool.svg", "dark": "./icons/imagepool.svg" }
       },
       {
-        "id": "plc-device",
-        "aliases": ["PLC Device", "DEV"],
-        "extensions": [".device"],
-        "icon": { "light": "./icons/device.svg", "dark": "./icons/device.svg" }
+        "id": "plc-text-list",
+        "aliases": ["PLC Text List", "TXT"],
+        "extensions": [".text_list"],
+        "icon": { "light": "./icons/textlist.svg", "dark": "./icons/textlist.svg" }
       },
       {
-        "id": "plc-trace",
-        "aliases": ["PLC Trace", "TRC"],
-        "extensions": [".trace"],
-        "icon": { "light": "./icons/trace.svg", "dark": "./icons/trace.svg" }
+        "id": "plc-recipe-manager",
+        "aliases": ["PLC Recipe Manager", "RCPE"],
+        "extensions": [".recipe_manager"],
+        "icon": { "light": "./icons/recipes.svg", "dark": "./icons/recipes.svg" }
       },
       {
-        "id": "plc-cam",
-        "aliases": ["PLC CAM Profile"],
-        "extensions": [".cam"],
-        "icon": { "light": "./icons/cam.svg", "dark": "./icons/cam.svg" }
+        "id": "plc-visualization",
+        "aliases": ["PLC Visualization Screen", "VISU"],
+        "extensions": [".visualization"],
+        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
       },
       {
-        "id": "plc-alarm",
-        "aliases": ["PLC Alarm", "ALM"],
-        "extensions": [".alarm"],
-        "icon": { "light": "./icons/alarm.svg", "dark": "./icons/alarm.svg" }
+        "id": "plc-visualization-manager",
+        "aliases": ["PLC Visualization Manager"],
+        "extensions": [".visualization_manager"],
+        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
       },
       {
-        "id": "plc-uml",
+        "id": "plc-class-diagram",
         "aliases": ["PLC Class Diagram", "UML"],
-        "extensions": [".uml"],
+        "extensions": [".class_diagram"],
         "icon": { "light": "./icons/uml.svg", "dark": "./icons/uml.svg" }
+      },
+      {
+        "id": "plc-external-types",
+        "aliases": ["PLC External Types"],
+        "extensions": [".external_types"],
+        "icon": { "light": "./icons/generic-file.svg", "dark": "./icons/generic-file.svg" }
       },
       {
         "id": "plc-tmc",
@@ -224,16 +184,6 @@
       },
       {
         "language": "plc-dut",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
-      },
-      {
-        "language": "plc-fbd",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
-      },
-      {
-        "language": "plc-ld",
         "scopeName": "source.structured-text",
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       }
