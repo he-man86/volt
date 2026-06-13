@@ -1,12 +1,21 @@
 import { describe, test, expect } from "bun:test"
 import { join } from "node:path"
-import { existsSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { pull } from "../../commands/pull.js"
 import { init } from "../../commands/init.js"
 import { makeTestEnv } from "../harness/test-env.js"
 import { simple } from "../harness/fixtures.js"
 import { writeMergeFile, deleteMergeFile } from "../../git/plumbing.js"
 import { workspacePaths } from "../../config/workspace.js"
+
+const MOTOR_PATH = ["src", "POUs", "FB_Motor.st"]
+/** Build an FB_Motor bridge item with the given assembled source. */
+const motorItem = (sourceText: string) => ({
+	name: "FB_Motor",
+	kind: "function_block",
+	folder: "POUs",
+	sourceText,
+})
 
 describe("pull", () => {
   test("clean pull on empty workspace returns ok with synced items", async () => {
@@ -125,6 +134,116 @@ describe("pull", () => {
       const result = await pull(workspace, bridge, {})
       expect(result.kind).toBe("ok")
       expect(existsSync(join(workspace, "src", "POUs", "FB_Motor.st"))).toBe(false)
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+// Concurrent edits on BOTH sides between pull/push — the 3-way merge that's the
+// crux of bidirectional sync. base = last pulled snapshot, ours = workspace edit,
+// theirs = IDE edit (simulated via bridge.mutate).
+describe("pull — concurrent edits (3-way merge)", () => {
+  test("non-overlapping edits on both sides auto-merge cleanly", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      const motorPath = join(workspace, ...MOTOR_PATH)
+      const base = readFileSync(motorPath, "utf-8")
+
+      // ours: edit the declaration; theirs: edit the body (5 lines apart).
+      writeFileSync(motorPath, base.replace("speed : INT := 0;", "speed : INT := 5;"))
+      bridge.mutate("FB_Motor", motorItem(base.replace("speed := speed + 1;", "speed := speed + 2;")))
+
+      const result = await pull(workspace, bridge, {})
+      expect(result.kind).toBe("ok")
+
+      // Both edits survive the merge, with no conflict markers.
+      const merged = readFileSync(motorPath, "utf-8")
+      expect(merged).toContain("speed : INT := 5;")
+      expect(merged).toContain("speed := speed + 2;")
+      expect(merged).not.toContain("<<<<<<<")
+    } finally {
+      cleanup()
+    }
+  })
+
+  test("overlapping edits to the same line produce a conflict with markers", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      const motorPath = join(workspace, ...MOTOR_PATH)
+      const base = readFileSync(motorPath, "utf-8")
+
+      // Both sides change the SAME line to different values.
+      writeFileSync(motorPath, base.replace("speed : INT := 0;", "speed : INT := 5;"))
+      bridge.mutate("FB_Motor", motorItem(base.replace("speed : INT := 0;", "speed : INT := 9;")))
+
+      const result = await pull(workspace, bridge, {})
+      expect(result.kind).toBe("conflict")
+      if (result.kind === "conflict") {
+        // Conflict paths are snapshot-tree-relative (src/ is the tree root),
+        // so they materialize at <workspace>/src/POUs/FB_Motor.st on disk.
+        expect(result.paths).toContain("POUs/FB_Motor.st")
+      }
+
+      // Conflict markers materialized on disk for the engineer to resolve.
+      const conflicted = readFileSync(motorPath, "utf-8")
+      expect(conflicted).toContain("<<<<<<<")
+      expect(conflicted).toContain("=======")
+      expect(conflicted).toContain(">>>>>>>")
+      expect(conflicted).toContain("speed : INT := 5;")
+      expect(conflicted).toContain("speed : INT := 9;")
+    } finally {
+      cleanup()
+    }
+  })
+
+  test("IDE deletes an item the workspace edited → modify-delete conflict", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      const motorPath = join(workspace, ...MOTOR_PATH)
+      const base = readFileSync(motorPath, "utf-8")
+
+      // ours: edit; theirs: delete.
+      writeFileSync(motorPath, base.replace("speed : INT := 0;", "speed : INT := 5;"))
+      bridge.mutate("FB_Motor", undefined)
+
+      const result = await pull(workspace, bridge, {})
+      expect(result.kind).toBe("conflict")
+      if (result.kind === "conflict") {
+        // Conflict paths are snapshot-tree-relative (src/ is the tree root),
+        // so they materialize at <workspace>/src/POUs/FB_Motor.st on disk.
+        expect(result.paths).toContain("POUs/FB_Motor.st")
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test("workspace deletes an item the IDE edited → delete-modify conflict", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      const motorPath = join(workspace, ...MOTOR_PATH)
+      const base = readFileSync(motorPath, "utf-8")
+
+      // ours: delete the file; theirs: edit.
+      rmSync(motorPath)
+      bridge.mutate("FB_Motor", motorItem(base.replace("speed := speed + 1;", "speed := speed + 2;")))
+
+      const result = await pull(workspace, bridge, {})
+      expect(result.kind).toBe("conflict")
+      if (result.kind === "conflict") {
+        // Conflict paths are snapshot-tree-relative (src/ is the tree root),
+        // so they materialize at <workspace>/src/POUs/FB_Motor.st on disk.
+        expect(result.paths).toContain("POUs/FB_Motor.st")
+      }
     } finally {
       cleanup()
     }

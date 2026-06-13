@@ -135,3 +135,59 @@ describe("push", () => {
     }
   })
 })
+
+// The push-side of concurrent edits: the engineer changed the IDE after the last
+// pull, and the user tries to push a local edit. Push must NOT clobber the IDE.
+describe("push — IDE drift since last pull", () => {
+  test("push refused when the IDE drifted (changed another item)", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+
+      // Local edit to send...
+      const motorPath = join(workspace, "src", "POUs", "FB_Motor.st")
+      writeFileSync(motorPath, "FUNCTION_BLOCK FB_Motor\nVAR\n\tspeed : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+      // ...but the IDE moved on (a different item changed) since the last pull.
+      bridge.mutate("PLC_PRG", {
+        name: "PLC_PRG",
+        kind: "program",
+        sourceText: "PROGRAM PLC_PRG\nVAR\n\tcycles : INT;\nEND_VAR\ncycles := cycles + 1;\nEND_PROGRAM\n",
+      })
+
+      const result = await push(workspace, bridge, {})
+      expect(result.kind).toBe("rejected")
+      if (result.kind === "rejected") {
+        expect(result.reason).toContain("drift")
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  test("push --force sends the local edit despite IDE drift", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+
+      const motorPath = join(workspace, "src", "POUs", "FB_Motor.st")
+      writeFileSync(motorPath, "FUNCTION_BLOCK FB_Motor\nVAR\n\tspeed : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+      bridge.mutate("PLC_PRG", {
+        name: "PLC_PRG",
+        kind: "program",
+        sourceText: "PROGRAM PLC_PRG\nVAR\n\tcycles : INT;\nEND_VAR\ncycles := cycles + 1;\nEND_PROGRAM\n",
+      })
+
+      const result = await push(workspace, bridge, { force: true })
+      expect(result.kind).toBe("ok")
+      if (result.kind === "ok") {
+        expect(result.items).toContain("FB_Motor")
+      }
+      // The forced push must NOT have clobbered the IDE's drifted item.
+      expect(bridge.items.get("PLC_PRG")?.sourceText).toContain("cycles")
+    } finally {
+      cleanup()
+    }
+  })
+})
