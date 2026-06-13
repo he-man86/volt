@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- The single user-facing Volt app: a Windows system-tray supervisor that owns
+         every vendor bridge. Bridges run as headless worker PROCESSES it spawns
+         (external-attach vendors) or as in-IDE loads it launches (CODESYS). One app,
+         one tray icon, many invisible workers. -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>VoltConnector</AssemblyName>
+    <!-- Deliberately NO reference to any vendor bridge or VoltBridge.Core: the
+         connector only speaks the HTTP wire (/health) to its workers, so it survives
+         however different the vendor internals get (TwinCAT COM vs Siemens Openness
+         vs Allen-Bradley LDSDK). -->
+  </PropertyGroup>
+</Project>
