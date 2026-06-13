@@ -163,7 +163,7 @@ export async function pull(workspace: string, bridge: Remote, input: PullInput):
 		return { kind: "ok", synced: [] }
 	}
 
-	process.stderr.write("  → querying bridge state...\n")
+	if (!jsonMode) process.stderr.write("  → querying bridge state...\n")
 	let syncResult
 	try {
 		syncResult = await syncFromBridge(paths.snapshotPath, bridge, { fullRebuild: force })
@@ -183,7 +183,7 @@ export async function pull(workspace: string, bridge: Remote, input: PullInput):
 
 	const newEntries = listTree(paths.snapshotPath, stateAfter.commitSha)
 	const newPaths = new Set(newEntries.map((e) => e.path))
-	process.stderr.write(`  → writing ${newEntries.length} file(s) to workspace...\n`)
+	if (!jsonMode) process.stderr.write(`  → writing ${newEntries.length} file(s) to workspace...\n`)
 	// Read every blob back in one batched cat-file spawn (not one per file).
 	const newContents = readBlobsBytes(paths.snapshotPath, newEntries.map((e) => e.sha))
 	writeTreeToWorkspace(

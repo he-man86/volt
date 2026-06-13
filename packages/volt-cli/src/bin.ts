@@ -32,12 +32,18 @@ async function main() {
 		}
 		case "pull": {
 			const { pull } = await import("./commands/pull.js")
-			await pull(workspace, bridge, { force: args.includes("--force"), dryRun: args.includes("--dry-run") })
+			const { renderPull, applyEmission } = await import("./output/outcome.js")
+			const json = args.includes("--json")
+			const result = await pull(workspace, bridge, { force: args.includes("--force"), dryRun: args.includes("--dry-run"), json })
+			applyEmission(renderPull(result, json))
 			break
 		}
 		case "push": {
 			const { push } = await import("./commands/push.js")
-			await push(workspace, bridge, { force: args.includes("--force"), dryRun: args.includes("--dry-run") })
+			const { renderPush, applyEmission } = await import("./output/outcome.js")
+			const json = args.includes("--json")
+			const result = await push(workspace, bridge, { force: args.includes("--force"), dryRun: args.includes("--dry-run"), json })
+			applyEmission(renderPush(result, json))
 			break
 		}
 		case "status": {
