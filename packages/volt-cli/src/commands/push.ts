@@ -9,6 +9,7 @@ import {
 	createDeterministicCommit,
 	listTree,
 	readBlobBytes,
+	readBlobsBytes,
 	resolveRef,
 	updateRef,
 } from "../git/plumbing.js"
@@ -204,12 +205,10 @@ export async function push(workspace: string, bridge: Remote, input: PushInput):
 		const postSyncState = loadState(paths.snapshotPath)
 		if (postSyncState !== null) {
 			const tree = listTree(paths.snapshotPath, postSyncState.commitSha)
+			const treeContents = readBlobsBytes(paths.snapshotPath, tree.map((e) => e.sha))
 			writeTreeToWorkspace(
 				root,
-				tree.map((e) => ({
-					path: e.path,
-					content: readBlobBytes(paths.snapshotPath, e.sha),
-				})),
+				tree.map((e, i) => ({ path: e.path, content: treeContents[i]! })),
 			)
 		}
 		const adopted = [

@@ -58,10 +58,12 @@ async function requireAlive(): Promise<void> {
 }
 
 describe("live round-trip", () => {
-	// Live tests drive a real IDE over COM/object-model; full pulls of a non-trivial
-	// project can exceed bun's 5s default (fine on a tiny headless project, slow on a
-	// real TwinCAT solution). Give every test generous headroom.
-	setDefaultTimeout(30_000)
+	// Live tests drive a real IDE; a heavy test runs two full pull cycles. With the
+	// batched git plumbing a pull is ~1s on a small project, but cost scales with
+	// project size — headroom for larger live solutions / slow machines. (Not masking
+	// a hang: pulls are bounded and consistent; bun's 5s default is just too tight
+	// once a real solution has dozens of items.)
+	setDefaultTimeout(15_000)
 
 	beforeAll(async () => {
 		await requireAlive()

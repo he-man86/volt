@@ -5,7 +5,7 @@ import { loadConfig, workspacePaths } from "../config/workspace.js"
 import {
 	createMergeCommit,
 	listTree,
-	readBlobBytes,
+	readBlobsBytes,
 	resolveRef,
 	updateRef,
 } from "../git/plumbing.js"
@@ -184,9 +184,11 @@ export async function pull(workspace: string, bridge: Remote, input: PullInput):
 	const newEntries = listTree(paths.snapshotPath, stateAfter.commitSha)
 	const newPaths = new Set(newEntries.map((e) => e.path))
 	process.stderr.write(`  → writing ${newEntries.length} file(s) to workspace...\n`)
+	// Read every blob back in one batched cat-file spawn (not one per file).
+	const newContents = readBlobsBytes(paths.snapshotPath, newEntries.map((e) => e.sha))
 	writeTreeToWorkspace(
 		root,
-		newEntries.map((e) => ({ path: e.path, content: readBlobBytes(paths.snapshotPath, e.sha) })),
+		newEntries.map((e, i) => ({ path: e.path, content: newContents[i]! })),
 	)
 
 	const removed: string[] = []

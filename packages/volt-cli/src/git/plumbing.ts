@@ -210,12 +210,16 @@ export function buildTree(repoPath: string, entries: readonly IndexEntry[]): str
 	const indexPath = `${repoPath}/volt-index-${process.pid}-${Date.now()}`;
 	const env: Record<string, string> = { GIT_INDEX_FILE: indexPath };
 	try {
-		for (const e of entries) {
-			const mode = e.mode ?? "100644";
-			run(
-				["-C", repoPath, "update-index", "--add", "--cacheinfo", `${mode},${e.sha},${e.path}`],
-				{ env },
-			);
+		if (entries.length > 0) {
+			// One spawn: feed every entry to `update-index --index-info` via stdin
+			// (format: "<mode> <sha>\t<path>") instead of one `update-index` spawn
+			// per entry. A full-rebuild pull builds a tree of one blob per item, and
+			// the per-entry spawn-storm trips MSYS/Cygwin fork limits on Windows —
+			// the same reason writeBlob() is native. Identical resulting tree SHA.
+			const stdin = entries
+				.map((e) => `${e.mode ?? "100644"} ${e.sha}\t${e.path}`)
+				.join("\n") + "\n";
+			run(["-C", repoPath, "update-index", "--index-info"], { env, input: stdin });
 		}
 		return run(["-C", repoPath, "write-tree"], { env }).trim();
 	} finally {
@@ -389,6 +393,41 @@ export function readBlobBytes(repoPath: string, sha: string): Buffer {
 		throw new GitCmdError(`cat-file ${sha}`, result.status ?? -1, result.stderr.toString());
 	}
 	return result.stdout;
+}
+
+/**
+ * Read many blobs' raw bytes in ONE `git cat-file --batch` spawn (results in
+ * input order). A full-rebuild pull reads back one blob per item to write into
+ * the workspace; doing that as one `cat-file -p` spawn each is a Windows
+ * fork-limit spawn-storm. Batch output framing per object:
+ *   "<sha> <type> <size>\n" <size bytes> "\n"
+ */
+export function readBlobsBytes(repoPath: string, shas: readonly string[]): Buffer[] {
+	if (shas.length === 0) return [];
+	const result = spawnSync("git", ["-C", repoPath, "cat-file", "--batch"], {
+		input: `${shas.join("\n")}\n`,
+		maxBuffer: 1024 * 1024 * 256,
+	});
+	if (result.status !== 0) {
+		throw new GitCmdError("cat-file --batch", result.status ?? -1, (result.stderr ?? Buffer.alloc(0)).toString());
+	}
+	const out: Buffer = result.stdout;
+	const blobs: Buffer[] = [];
+	let pos = 0;
+	for (let i = 0; i < shas.length; i++) {
+		const nl = out.indexOf(0x0a, pos); // LF terminating the header line
+		if (nl < 0) throw new GitCmdError("cat-file --batch", -1, "truncated batch output");
+		const header = out.toString("utf-8", pos, nl); // "<sha> <type> <size>" | "<sha> missing"
+		pos = nl + 1;
+		const sp = header.lastIndexOf(" ");
+		if (header.endsWith(" missing")) {
+			throw new GitCmdError("cat-file --batch", -1, `object ${shas[i]} missing`);
+		}
+		const size = Number.parseInt(header.slice(sp + 1), 10);
+		blobs.push(out.subarray(pos, pos + size));
+		pos += size + 1; // content + trailing LF
+	}
+	return blobs;
 }
 
 /**

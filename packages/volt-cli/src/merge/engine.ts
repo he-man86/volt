@@ -32,6 +32,7 @@ import {
 	lookupBlobInCommit,
 	mergeFile as gitMergeFile,
 	readBlobBytes,
+	readBlobsBytes,
 	readMergeFile,
 	resolveRef,
 	updateRef,
@@ -437,9 +438,10 @@ export function abortMerge(snapshotPath: string, workspaceRoot: string): void {
 	// Restore workspace to ORIG_HEAD's tree contents.
 	const origTreeEntries = listTree(snapshotPath, state.origHead);
 	const origPaths = new Set(origTreeEntries.map((e) => e.path));
+	const origContents = readBlobsBytes(snapshotPath, origTreeEntries.map((e) => e.sha));
 	writeTreeToWorkspace(
 		workspaceRoot,
-		origTreeEntries.map((e) => ({ path: e.path, content: readBlobBytes(snapshotPath, e.sha) })),
+		origTreeEntries.map((e, i) => ({ path: e.path, content: origContents[i]! })),
 	);
 	// Remove any tracked workspace files NOT in ORIG_HEAD (i.e. files
 	// added during the merge or already present from a prior dirty
