@@ -3,7 +3,7 @@
  * Creates/edits items on both the TC side (via HTTP API) and the
  * Volt workspace side (via CLI commands), verifying bidirectional sync.
  */
-import { describe, expect, it, beforeAll, afterAll } from "bun:test"
+import { describe, expect, it, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { mkdtempSync } from "node:fs"
 import { tmpdir, platform } from "node:os"
@@ -58,6 +58,11 @@ async function requireAlive(): Promise<void> {
 }
 
 describe("live round-trip", () => {
+	// Live tests drive a real IDE over COM/object-model; full pulls of a non-trivial
+	// project can exceed bun's 5s default (fine on a tiny headless project, slow on a
+	// real TwinCAT solution). Give every test generous headroom.
+	setDefaultTimeout(30_000)
+
 	beforeAll(async () => {
 		await requireAlive()
 		bridge = new BridgeClient({ port: PORT })

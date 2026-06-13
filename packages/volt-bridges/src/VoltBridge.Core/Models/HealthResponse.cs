@@ -23,7 +23,10 @@ public class HealthResponse
     [JsonPropertyName("degraded")]
     public bool Degraded { get; set; }
 
+    // Contract-required + nullable (openapi): must always be present (null when not
+    // degraded), so override the server's global WhenWritingNull omission.
     [JsonPropertyName("degradedReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? DegradedReason { get; set; }
 
     [JsonPropertyName("ideName")]
