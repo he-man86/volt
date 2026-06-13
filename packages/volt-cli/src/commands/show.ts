@@ -16,6 +16,20 @@ export async function show(workspace: string, bridge: Remote, ref: string, path:
 	// workspace path ("src/POUs/Foo.st") — the SCM/diff views do — so neither form fails.
 	const treePath = path.startsWith("src/") ? path.slice(4) : path
 
+	// MERGE_BASE / MERGE_THEIRS / MERGE_OURS — the three sides of an in-progress
+	// merge, for the native 3-way merge editor. A side may have deleted the path
+	// (empty is the correct content there).
+	const mergeSide =
+		ref === "MERGE_BASE" ? "base" : ref === "MERGE_THEIRS" ? "theirs" : ref === "MERGE_OURS" ? "ours" : undefined
+	if (mergeSide !== undefined) {
+		const { mergeSideCommit } = await import("../merge/engine.js")
+		const sideSha = mergeSideCommit(paths.snapshotPath, mergeSide)
+		if (sideSha === undefined) { console.error(`not currently merging (ref ${ref})`); process.exitCode = 2; return }
+		const sideBlob = lookupBlobInCommit(paths.snapshotPath, sideSha, treePath)
+		process.stdout.write(sideBlob !== undefined ? readBlob(paths.snapshotPath, sideBlob) : "")
+		return
+	}
+
 	// BRIDGE = the item's CURRENT content live from the IDE (what a pull would bring).
 	// Lets the editor diff workspace/HEAD ↔ the live IDE without pulling.
 	if (ref === "BRIDGE") {

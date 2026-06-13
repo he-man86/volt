@@ -144,6 +144,27 @@ export function isMergingNow(snapshotPath: string): MergeState | undefined {
 }
 
 /**
+ * The commit/tree SHA for one side of the in-progress merge, for a 3-way view:
+ *   base   → ORIG_HEAD  (the last-synced state — the common ancestor)
+ *   theirs → MERGE_HEAD  (the IDE's incoming version)
+ *   ours   → oursTreeSha (the workspace AT MERGE START — the user's/AI's edits)
+ * These feed `lookupBlobInCommit` (which accepts a commit OR tree sha) so the
+ * editor can show base/theirs/ours for a conflicting path. Returns undefined
+ * when not merging (or the conflicts file is unreadable).
+ */
+export function mergeSideCommit(snapshotPath: string, side: "base" | "theirs" | "ours"): string | undefined {
+	if (side === "base") return readMergeFile(snapshotPath, ORIG_HEAD)?.trim();
+	if (side === "theirs") return readMergeFile(snapshotPath, MERGE_HEAD)?.trim();
+	const raw = readMergeFile(snapshotPath, MERGE_CONFLICTS);
+	if (raw === undefined) return undefined;
+	try {
+		return (JSON.parse(raw) as ConflictsFile).oursTreeSha;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
  * Plan a merge: fetch bridge state into a side commit (objects only,
  * `refs/heads/main` does NOT move), then classify every path as
  * auto-mergeable or conflicting. Does NOT write anything to the
