@@ -1,5 +1,7 @@
 import * as vscode from "vscode"
+import { join } from "node:path"
 import { startLsp } from "./lsp.js"
+import { setBundledCli } from "./cli.js"
 import { registerCommands } from "./commands.js"
 import { VoltStatus, hasVoltConfig, workspaceFolders } from "./state/status.js"
 import { VoltScmTree } from "./views/scm.js"
@@ -11,6 +13,9 @@ import { changeCount } from "./types.js"
 const statuses = new Map<string, VoltStatus>()
 
 export async function activate(context: vscode.ExtensionContext) {
+	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
+	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
+
 	const scmTree = new VoltScmTree()
 	const decorations = new VoltDecorations()
 
