@@ -3,12 +3,25 @@ import type { Remote } from "../bridge/types.js"
 import { loadState } from "../snapshot/repo.js"
 import { readBlob, resolveRef, lookupBlobInCommit } from "../git/plumbing.js"
 import { workspacePaths } from "../config/workspace.js"
+import { nameFromPath } from "../registry/extensions.js"
 
-export async function show(workspace: string, _bridge: Remote, ref: string, path: string): Promise<void> {
+export async function show(workspace: string, bridge: Remote, ref: string, path: string): Promise<void> {
 	const root = resolve(workspace)
 	const paths = workspacePaths(root)
 	const state = loadState(paths.snapshotPath)
 	if (!state) throw new Error("Workspace not initialized — run 'volt init' first")
+
+	// BRIDGE = the item's CURRENT content live from the IDE (what a pull would bring).
+	// Lets the editor diff workspace/HEAD ↔ the live IDE without pulling.
+	if (ref === "BRIDGE") {
+		const name = nameFromPath(path)
+		if (name === undefined) { console.error(`cannot derive item name from path: ${path}`); process.exitCode = 2; return }
+		const fetched = await bridge.fetchChanges({ knownItems: {}, onlyItems: [name] })
+		const item = fetched.changed.find((i) => i.name === name)
+		if (item === undefined) { console.error(`item not found on bridge: ${name}`); process.exitCode = 2; return }
+		process.stdout.write(item.sourceText ?? "")
+		return
+	}
 
 	const resolved = ref === "HEAD" ? state.commitSha : resolveRef(paths.snapshotPath, ref)
 	if (!resolved) {

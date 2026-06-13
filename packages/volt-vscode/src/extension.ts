@@ -62,7 +62,7 @@ function addWorkspace(
 
 	s.onDidChange.event(() => {
 		scmTree.setSources([...statuses.values()].map((st) => ({
-			status: st.cached, health: st.health, error: st.statusError, refCount: 0,
+			status: st.cached, health: st.health, error: st.statusError, refCount: 0, workspaceRoot: st.workspaceRoot,
 		})))
 		if (s.cached !== undefined) decorations.refresh(s.cached, s.workspaceRoot)
 		updateGlobalUi(statusBar)

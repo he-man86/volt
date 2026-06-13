@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { join } from "node:path"
 import { healthLabel, isBridgeOnline, type HealthState } from "../state/health.js"
 import { buildUri } from "../providers/content.js"
 import { changeCount, type StatusJson, type ProjectMismatch } from "../types.js"
@@ -6,7 +7,7 @@ import { changeCount, type StatusJson, type ProjectMismatch } from "../types.js"
 type TreeNode =
 	| { kind: "health"; state: HealthState; idx: number }
 	| { kind: "group"; label: string; group: string; idx: number; count: number }
-	| { kind: "item"; label: string; uri: vscode.Uri; group: string; letter: string; idx: number; rel: string; tooltip: string }
+	| { kind: "item"; label: string; uri: vscode.Uri; group: string; letter: string; idx: number; rel: string; tooltip: string; command: vscode.Command }
 	| { kind: "empty"; label: string }
 	| { kind: "loading"; label: string }
 	| { kind: "error"; label: string; tooltip: string }
@@ -16,7 +17,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 	private readonly emitter = new vscode.EventEmitter<TreeNode | undefined>()
 	readonly onDidChangeTreeData = this.emitter.event
 
-	statuses: readonly { status: StatusJson | undefined; health: HealthState; error: string | undefined; refCount: number }[] = []
+	statuses: readonly { status: StatusJson | undefined; health: HealthState; error: string | undefined; refCount: number; workspaceRoot: string }[] = []
 
 	setSources(sources: typeof this.statuses): void {
 		this.statuses = sources
@@ -58,10 +59,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 		item.description = node.letter
 		item.tooltip = node.tooltip
 		item.resourceUri = node.uri
-		item.command =
-			node.group === "merge"
-				? { command: "volt.merge.openEditor", title: "Open conflict", arguments: [node] }
-				: { command: "vscode.open", title: "Open", arguments: [node.uri] }
+		item.command = node.command
 		return item
 	}
 
@@ -70,7 +68,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			if (node.kind === "group") {
 				const s = this.statuses[node.idx]
 				if (s === undefined || s.status === undefined) return []
-				return renderItems(s.status, node.group, node.idx)
+				return renderItems(s.status, node.group, node.idx, s.workspaceRoot)
 			}
 			return []
 		}
@@ -108,49 +106,56 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 	}
 }
 
-function renderItems(status: StatusJson, group: string, idx: number): TreeNode[] {
-	let names: string[]
-	let letter: string
-	let labelPrefix: string
+function renderItems(status: StatusJson, group: string, idx: number, workspaceRoot: string): TreeNode[] {
+	// Snapshot-tree paths have no `src/` prefix (src is the tree root) — incoming/
+	// outgoing come through pathByName as `src/…`, merge conflicts come tree-relative.
+	// Normalize to the tree path (for `volt show`) + the on-disk file uri.
+	const mk = (rawPath: string): { treePath: string; onDisk: vscode.Uri } => {
+		const treePath = rawPath.startsWith("src/") ? rawPath.slice(4) : rawPath
+		return { treePath, onDisk: vscode.Uri.file(join(workspaceRoot, "src", treePath)) }
+	}
 
 	if (group === "merge") {
-		return (status.merging?.conflicts ?? []).map((c) => ({
-			kind: "item" as const,
-			label: c.path,
-			uri: buildUri("", "HEAD", c.path),
-			group: "merge",
-			letter: "C",
-			idx,
-			rel: c.path,
-			tooltip: `Merge conflict: ${c.kind} ${c.reason}`,
-		}))
+		return (status.merging?.conflicts ?? []).map((c) => {
+			const { treePath, onDisk } = mk(c.path)
+			return {
+				kind: "item" as const,
+				label: treePath,
+				uri: onDisk,
+				group: "merge",
+				letter: "C",
+				idx,
+				rel: treePath,
+				tooltip: `Merge conflict: ${c.kind} ${c.reason}`,
+				command: { command: "volt.merge.openEditor", title: "Resolve", arguments: [{ rel: treePath }] },
+			}
+		})
 	}
 
-	if (group === "incoming") {
-		names = [...status.incoming.added, ...status.incoming.modified, ...status.incoming.removed]
-		letter = "i"
-		labelPrefix = ""
-	} else {
-		names = [...status.outgoing.added, ...status.outgoing.modified, ...status.outgoing.removed]
-		letter = "o"
-		labelPrefix = ""
-	}
+	const dir = group === "incoming" ? "incoming" : "outgoing"
+	const cs = dir === "incoming" ? status.incoming : status.outgoing
+	const names = [...cs.added, ...cs.modified, ...cs.removed]
 
 	return names.map((name) => {
-		const path = status.pathByName[name] ?? name
-		const isAdded = group === "incoming" ? status.incoming.added.includes(name) : status.outgoing.added.includes(name)
-		const isRemoved = group === "incoming" ? status.incoming.removed.includes(name) : status.outgoing.removed.includes(name)
-		const sub = isAdded ? "A" : isRemoved ? "D" : "M"
-		const dir = group === "incoming" ? "incoming" : "outgoing"
+		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
+		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
+		const head = buildUri(workspaceRoot, "HEAD", treePath)
+		// incoming: HEAD (last synced) ↔ BRIDGE (live IDE) — what a pull would bring.
+		// outgoing: HEAD (last synced) ↔ your on-disk file — what a push would send.
+		const command: vscode.Command =
+			dir === "incoming"
+				? { command: "vscode.diff", title: "Diff", arguments: [head, buildUri(workspaceRoot, "BRIDGE", treePath), `${name} — incoming (IDE)`] }
+				: { command: "vscode.diff", title: "Diff", arguments: [head, onDisk, `${name} — outgoing (yours)`] }
 		return {
 			kind: "item" as const,
-			label: path,
-			uri: buildUri("", dir === "incoming" ? "BRIDGE" : "HEAD", path),
+			label: treePath,
+			uri: onDisk,
 			group,
 			letter: sub,
 			idx,
-			rel: path,
+			rel: treePath,
 			tooltip: `${dir} ${sub.toLowerCase()}: ${name}`,
+			command,
 		}
 	})
 }

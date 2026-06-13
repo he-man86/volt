@@ -45,4 +45,42 @@ describe("show", () => {
       cleanup()
     }
   })
+
+  test("show BRIDGE writes the LIVE IDE content (for diffing without a pull)", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      // IDE moves on; BRIDGE must reflect that, not the snapshot.
+      bridge.mutate("FB_Motor", {
+        name: "FB_Motor", kind: "function_block", folder: "POUs",
+        sourceText: "FUNCTION_BLOCK FB_Motor\nVAR\n\tlive : INT := 7;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+      })
+
+      let out = ""
+      const orig = process.stdout.write
+      process.stdout.write = ((s: string | Uint8Array) => { out += s.toString(); return true }) as typeof process.stdout.write
+      try {
+        await show(workspace, bridge, "BRIDGE", "POUs/FB_Motor.st")
+      } finally {
+        process.stdout.write = orig
+      }
+      expect(out).toContain("live : INT := 7")
+    } finally {
+      cleanup()
+    }
+  })
+
+  test("show BRIDGE for an unknown item sets exitCode 2", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      await show(workspace, bridge, "BRIDGE", "POUs/DoesNotExist.st")
+      expect(process.exitCode).toBe(2)
+    } finally {
+      process.exitCode = undefined
+      cleanup()
+    }
+  })
 })
