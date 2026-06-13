@@ -1,16 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Loaded in-process by CODESYS's IronPython (ScriptEngine), .NET Framework 4.x. -->
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <AssemblyName>VoltBridge.Codesys</AssemblyName>
+    <RootNamespace>VoltBridge.Codesys</RootNamespace>
+    <!-- We talk to the CODESYS scripting objects purely by reflection, so this
+         DLL has no CODESYS assembly references and loads in any 3.5.x version.
+         The shared logic comes from VoltBridge.Core (+ its System.Text.Json
+         closure), verified to load in CODESYS IronPython. -->
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\VoltBridge.Core\VoltBridge.Core.csproj" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
   </ItemGroup>
-
 </Project>

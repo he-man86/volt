@@ -1,45 +1,58 @@
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace VoltBridge.Core;
 
+/// <summary>
+/// Canonical content-version hashing, shared by every bridge so the same project
+/// yields identical versions regardless of vendor. Adapters MUST route here rather
+/// than reimplement it — the wire protocol's change-detection depends on a single,
+/// stable hash format.
+/// </summary>
 public static class Hasher
 {
-    public static string ComputeSha1Short(string input)
+    /// <summary>16-hex-char SHA-1 of the input (the building block for all versions).</summary>
+    public static string ComputeSha1Short(string? input)
     {
-        if (input == null) input = "";
         using var sha1 = SHA1.Create();
-        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(input));
-        var hex = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-        return hex.Substring(0, 16);
+        var hash = sha1.ComputeHash(Encoding.UTF8.GetBytes(input ?? ""));
+        return ToHex(hash).Substring(0, 16);
     }
 
+    /// <summary>Per-item content version: hash of folder + declaration + implementation.</summary>
+    public static string ComputeItemVersion(string? folderPath, string? declaration, string? implementation)
+    {
+        var sb = new StringBuilder();
+        sb.Append("folder=").Append(folderPath ?? "").Append('\0');
+        sb.Append("d=").Append(declaration ?? "").Append('\0');
+        sb.Append("i=").Append(implementation ?? "").Append('\0');
+        return ComputeSha1Short(sb.ToString());
+    }
+
+    /// <summary>Project version: ordinal-sorted "name:version" lines (content-sensitive).</summary>
     public static string ComputeProjectVersion(Dictionary<string, string> versions)
     {
-        using var sha1 = SHA1.Create();
-        foreach (var name in new SortedSet<string>(versions.Keys))
-        {
-            var entry = name + "=" + (versions[name] ?? "") + "\0";
-            var bytes = Encoding.UTF8.GetBytes(entry);
-            sha1.TransformBlock(bytes, 0, bytes.Length, null, 0);
-        }
-        sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        var hex = BitConverter.ToString(sha1.Hash).Replace("-", "").ToLowerInvariant();
-        return hex.Substring(0, 16);
+        var sb = new StringBuilder();
+        foreach (var kvp in versions.OrderBy(p => p.Key, System.StringComparer.Ordinal))
+            sb.Append(kvp.Key).Append(':').Append(kvp.Value).Append('\n');
+        return ComputeSha1Short(sb.ToString());
     }
 
+    /// <summary>Structure version: ordinal-sorted names only (changes when items add/remove/rename).</summary>
     public static string ComputeStructureVersion(Dictionary<string, string> versions)
     {
-        using var sha1 = SHA1.Create();
-        foreach (var name in new SortedSet<string>(versions.Keys))
-        {
-            var bytes = Encoding.UTF8.GetBytes(name + "\0");
-            sha1.TransformBlock(bytes, 0, bytes.Length, null, 0);
-        }
-        sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-        var hex = BitConverter.ToString(sha1.Hash).Replace("-", "").ToLowerInvariant();
-        return hex.Substring(0, 16);
+        var sb = new StringBuilder();
+        foreach (var name in versions.Keys.OrderBy(n => n, System.StringComparer.Ordinal))
+            sb.Append(name).Append('\n');
+        return ComputeSha1Short(sb.ToString());
+    }
+
+    private static string ToHex(byte[] bytes)
+    {
+        var sb = new StringBuilder(bytes.Length * 2);
+        foreach (var b in bytes) sb.Append(b.ToString("x2"));
+        return sb.ToString();
     }
 }

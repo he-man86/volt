@@ -94,7 +94,7 @@ public static class SourceAssembler
             try { child = adapter.GetChildAt(parent, i); } catch { continue; }
 
             string childName;
-            try { childName = (string)child.Name; } catch { continue; }
+            try { childName = adapter.GetItemName(child); } catch { continue; }
 
             int itemType = adapter.GetItemType(child);
 
@@ -188,7 +188,7 @@ public static class SourceAssembler
                         dynamic accessor;
                         try { accessor = adapter.GetChildAt(child, j); } catch { continue; }
                         string accName;
-                        try { accName = ((string)accessor.Name).ToLowerInvariant(); } catch { continue; }
+                        try { accName = adapter.GetItemName(accessor).ToLowerInvariant(); } catch { continue; }
                         if (accName is "get" or "set")
                         {
                             var accImpl = adapter.ReadImplementation(accessor)?.Trim() ?? "";

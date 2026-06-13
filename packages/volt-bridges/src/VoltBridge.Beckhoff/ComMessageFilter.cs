@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
-using VoltBridge.Beckhoff.Adapters;
 
-namespace VoltBridge.Beckhoff.Adapters;
+namespace VoltBridge.Beckhoff;
 
 internal static class ComMessageFilter
 {

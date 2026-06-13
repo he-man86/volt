@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core;
 
@@ -21,7 +22,10 @@ public interface IAdapter
     void MarkDegraded(string reason);
     void ClearDegraded();
     void TriggerAsyncProbe();
-    object BuildHealthResponse();
+    HealthResponse BuildHealthResponse();
+    /// <summary>Vendor hook: should this transport/RPC exception flip the adapter
+    /// to degraded? (Beckhoff: dead-COM HRESULTs; CODESYS in-proc: never.)</summary>
+    bool ShouldMarkDegraded(Exception ex);
 
     // ── Threading ───────────────────────────────────────────────────
     T RunOnStaThread<T>(Func<T> fn);
@@ -47,6 +51,8 @@ public interface IAdapter
     int GetItemType(dynamic item);
     int GetChildCount(dynamic item);
     dynamic GetChildAt(dynamic parent, int index);
+    dynamic GetParent(dynamic item);
+    string GetItemName(dynamic item);
     string? ExportItemBodyAsXml(dynamic item, string itemName);
 
     // ── Config Manifest ───────────────────────────────────────────────

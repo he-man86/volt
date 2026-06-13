@@ -1,6 +1,5 @@
 using VoltBridge.Beckhoff;
-using VoltBridge.Beckhoff.Adapters;
-using VoltBridge.Beckhoff.Http;
+using VoltBridge.Core.Http;
 
 var adapter = new BeckhoffAdapter();
 var cts = new CancellationTokenSource();
@@ -8,5 +7,6 @@ var sta = new Thread(() => { ComMessageFilter.Register(); adapter.Connect(); ada
     { IsBackground = true };
 sta.SetApartmentState(ApartmentState.STA);
 sta.Start();
-try { BridgeServer.Run(adapter, "VoltBridge Beckhoff", 8555); }
+// Same shared server the in-proc CODESYS bridge uses.
+try { HttpBridgeServer.RunStandalone(adapter, "VoltBridge Beckhoff", 8555); }
 finally { cts.Cancel(); }

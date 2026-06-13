@@ -1,0 +1,12 @@
+[
+    {
+        "Name": "Start Volt Bridge",
+        "Desc": "Start the Volt bridge HTTP listener inside CODESYS",
+        "Path": "start_bridge.py"
+    },
+    {
+        "Name": "Stop Volt Bridge",
+        "Desc": "Stop the Volt bridge HTTP listener",
+        "Path": "stop_bridge.py"
+    }
+]

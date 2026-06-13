@@ -145,7 +145,7 @@ public static class PushHandler
             if (!string.IsNullOrEmpty(folder))
             {
                 foreach (var part in folder.Split('/'))
-                    targetParent = FindOrCreateFolder(targetParent, part);
+                    targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
             dynamic po;
@@ -166,7 +166,7 @@ public static class PushHandler
                 dynamic childParent = po;
                 if (!string.IsNullOrEmpty(child.Folder))
                     foreach (var part in child.Folder.Split('/'))
-                        childParent = FindOrCreateFolder(childParent, part);
+                        childParent = FindOrCreateFolder(adapter, childParent, part);
 
                 dynamic? existingChild = FindChildByName(adapter, po, child.Name);
                 dynamic childItem;
@@ -189,7 +189,7 @@ public static class PushHandler
         else if (op is DeleteItemOp)
         {
             if (existing != null)
-                try { adapter.DeleteChild(GetParent(existing), name); } catch { }
+                try { adapter.DeleteChild(adapter.GetParent(existing), name); } catch { }
         }
         else if (op is RenameItemOp renameOp)
         {
@@ -203,44 +203,42 @@ public static class PushHandler
                 var decl = adapter.ReadDeclaration(existing);
                 var impl = adapter.ReadImplementation(existing);
                 var itype = adapter.GetItemType(existing);
-                try { adapter.DeleteChild(GetParent(existing), name); } catch { }
+                try { adapter.DeleteChild(adapter.GetParent(existing), name); } catch { }
                 dynamic tp = parent;
                 foreach (var part in moveOp.NewFolder.Split('/'))
-                    tp = FindOrCreateFolder(tp, part);
+                    tp = FindOrCreateFolder(adapter, tp, part);
                 var created = adapter.CreateChild(tp, name, itype);
                 adapter.WriteSourceText(created, decl, impl);
             }
         }
     }
 
-    private static dynamic FindOrCreateFolder(dynamic parent, string name)
+    private static dynamic FindOrCreateFolder(IAdapter adapter, dynamic parent, string name)
     {
-        for (int i = 1; ; i++)
+        int count;
+        try { count = adapter.GetChildCount(parent); } catch { count = 0; }
+        for (int i = 1; i <= count; i++)
         {
             dynamic child;
-            try { child = parent.Child[i]; } catch { break; }
+            try { child = adapter.GetChildAt(parent, i); } catch { continue; }
             string childName;
-            try { childName = (string)child.Name; } catch { continue; }
-            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase))
-            {
-                int itemType;
-                try { itemType = (int)child.ItemType; } catch { itemType = 0; }
-                if (itemType == 601) return child;
-            }
+            try { childName = adapter.GetItemName(child); } catch { continue; }
+            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase) && adapter.GetItemType(child) == 601)
+                return child;
         }
-        return parent.CreateChild(name, 601, "", null);
+        return adapter.CreateChild(parent, name, 601);
     }
 
     private static dynamic? FindChildByName(IAdapter adapter, dynamic parent, string name)
     {
         int count;
-        try { count = (int)parent.ChildCount; } catch { return null; }
+        try { count = adapter.GetChildCount(parent); } catch { return null; }
         for (int i = 1; i <= count; i++)
         {
             dynamic child;
-            try { child = parent.Child[i]; } catch { continue; }
+            try { child = adapter.GetChildAt(parent, i); } catch { continue; }
             string childName;
-            try { childName = (string)child.Name; } catch { continue; }
+            try { childName = adapter.GetItemName(child); } catch { continue; }
             if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase)) return child;
         }
         return null;
@@ -269,6 +267,4 @@ public static class PushHandler
     {
         "method" => 609, "action" => 608, "property" => 611, _ => 608,
     };
-
-    private static dynamic GetParent(dynamic item) => item.Parent;
 }

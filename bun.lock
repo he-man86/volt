@@ -839,12 +839,11 @@
     },
     "packages/volt-bridges": {
       "name": "@opencode-ai/volt-bridges",
-      "version": "1.15.11",
+      "version": "1.16.0",
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
-        "@typescript/native-preview": "catalog:",
         "typescript": "catalog:",
       },
     },

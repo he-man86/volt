@@ -3,10 +3,11 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using VoltBridge.Core;
+using VoltBridge.Core.Models;
 
-namespace VoltBridge.Beckhoff.Adapters;
+namespace VoltBridge.Beckhoff;
 
-public class BeckhoffAdapter : IAdapter
+public class BeckhoffAdapter : AdapterBase, IAdapter
 {
     private readonly BlockingCollection<Action> _staQueue = new();
     private readonly object _cacheLock = new();
@@ -16,7 +17,6 @@ public class BeckhoffAdapter : IAdapter
     private dynamic? _plcNode;
     private string? _projectName;
     private string? _plcProjectPath;
-    private string? _lookupBasePath;
     private string? _ideProgId;
     private string? _ideVersion;
 
@@ -27,14 +27,7 @@ public class BeckhoffAdapter : IAdapter
     private long _cachedAtMs;
     private bool _probeInFlight;
 
-    private volatile bool _isDegraded;
-    private string? _degradedReason;
-
     public bool IsConnected => _dte != null && _sysManager != null && _plcProjectPath != null;
-    public bool IsDegraded => _isDegraded;
-    public string? DegradedReason => _degradedReason;
-
-    public string Version { get; } = "1.0.0";
 
     public string? IdeName => _ideProgId switch
     {
@@ -108,7 +101,7 @@ public class BeckhoffAdapter : IAdapter
                         dynamic plcProj = _sysManager.PlcProject;
                         _plcProjectPath = plcProj?.ProjectPath;
                     }
-                    catch (Exception ex2)
+                    catch
                     {
                         // In TcXaeShell, PlcProject might not be directly accessible via dynamic.
                         // Try LookupTreeItem with the plc path.
@@ -121,7 +114,7 @@ public class BeckhoffAdapter : IAdapter
                                 catch { }
                             }
                         }
-                        catch (Exception ex3) { }
+                        catch { }
                     }
                 }
 
@@ -147,7 +140,7 @@ public class BeckhoffAdapter : IAdapter
                     break;
                 }
             }
-            catch (Exception ex) { }
+            catch { }
         }
 
         if (_sysManager == null) throw new InvalidOperationException("No TwinCAT project found in solution.");
@@ -172,10 +165,10 @@ public class BeckhoffAdapter : IAdapter
                     _plcProjectPath = name;
                     break;
                 }
-                catch (Exception ex) { }
+                catch { }
             }
         }
-        catch (Exception ex) { }
+        catch { }
 
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
@@ -234,7 +227,7 @@ public class BeckhoffAdapter : IAdapter
 
     // ── Health + Cache ──────────────────────────────────────────────
 
-    public object BuildHealthResponse()
+    public HealthResponse BuildHealthResponse()
     {
         bool ideAlive; string? projectName, plcProjectName; bool? projectDirty; long? ageMs;
         lock (_cacheLock)
@@ -247,22 +240,8 @@ public class BeckhoffAdapter : IAdapter
         }
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
 
-        return new
-        {
-            status = IsConnected ? (_isDegraded ? "degraded" : "healthy") : "unavailable",
-            platform = "beckhoff",
-            platformVariant = (string?)null,
-            connected = IsConnected,
-            ideAlive,
-            degraded = _isDegraded,
-            degradedReason = _degradedReason,
-            ideName = IdeName,
-            ideVersion = IdeVersion,
-            version = Version,
-            projectName,
-            plcProjectName,
-            projectDirty = projectDirty ?? false,
-        };
+        return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion,
+            projectName, plcProjectName, projectDirty ?? false);
     }
 
     public void TriggerAsyncProbe()
@@ -276,7 +255,7 @@ public class BeckhoffAdapter : IAdapter
                 {
                     bool alive = ProbeIdeAlive();
                     if (!alive && _dte != null) { try { Disconnect(); } catch { } }
-                    else if (alive && _isDegraded) { ClearDegraded(); }
+                    else if (alive && IsDegraded) { ClearDegraded(); }
                     bool? dirty = null;
                     try { dirty = !_dte!.Solution.Saved; } catch { }
                     return (alive, _projectName, _plcProjectPath, dirty);
@@ -302,23 +281,30 @@ public class BeckhoffAdapter : IAdapter
         catch { return false; }
     }
 
-    public void MarkDegraded(string reason)
+    // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs;
+    // those (and only those) flip the bridge to degraded so it can recover instead
+    // of hard-failing. (Degraded-state plumbing itself is inherited from AdapterBase.)
+    private const uint HResultRpcServerUnavailable = 0x800706BAu;
+    private const uint HResultRpcCallFailed = 0x800706BEu;
+    private const uint HResultRpcCallFailedDidNotExecute = 0x800706BFu;
+    private const uint HResultRpceFamilyMask = 0xFFFFFF00u;
+    private const uint HResultRpceFamily = 0x80010100u;       // RPC_E_* (server died, disconnected, …)
+    private const uint HResultCallRejected = 0x80010001u;     // RPC_E_CALL_REJECTED
+    private const uint HResultServerCallRetryLater = 0x80010108u; // RPC_E_DISCONNECTED
+    private const uint HResultCallCancelled = 0x8001010Au;   // RPC_E_SERVERCALL_RETRYLATER
+
+    public override bool ShouldMarkDegraded(Exception ex)
     {
-        if (!_isDegraded)
+        for (var e = ex; e != null; e = e.InnerException)
         {
-            Console.Error.WriteLine($"[Connection] DEGRADED: {reason}");
+            if (e is not COMException com) continue;
+            var hr = unchecked((uint)com.HResult);
+            if (hr == HResultRpcServerUnavailable) return true;
+            if (hr == HResultRpcCallFailed || hr == HResultRpcCallFailedDidNotExecute) return true;
+            if ((hr & HResultRpceFamilyMask) == HResultRpceFamily) return true;
+            if (hr == HResultCallRejected || hr == HResultServerCallRetryLater || hr == HResultCallCancelled) return true;
         }
-        _isDegraded = true;
-        _degradedReason = reason;
-    }
-    public void ClearDegraded()
-    {
-        if (_isDegraded)
-        {
-            Console.Error.WriteLine("[Connection] DEGRADED cleared — COM channel responsive again");
-        }
-        _isDegraded = false;
-        _degradedReason = null;
+        return false;
     }
 
     public void Disconnect()
@@ -326,8 +312,8 @@ public class BeckhoffAdapter : IAdapter
         if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
         if (_nestedProject != null) { try { Marshal.ReleaseComObject(_nestedProject); } catch { } _nestedProject = null; }
-        _projectName = null; _plcProjectPath = null; _lookupBasePath = null;
-        _isDegraded = false; _degradedReason = null;
+        _projectName = null; _plcProjectPath = null;
+        ClearDegraded();
     }
 
     // ── Tree Walking ────────────────────────────────────────────────
@@ -359,17 +345,17 @@ public class BeckhoffAdapter : IAdapter
             try { name = (string)child.Name; } catch { continue; }
             int itemType = GetItemType(child);
 
-            if (itemType == 601 || itemType == 617) // Folder or Library Manager
+            if (itemType == ItemKind.Folder || itemType == ItemKind.LibraryManager)
             {
                 var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
                 WalkInner(child, nested, items, onlyNames, ref found);
                 continue;
             }
-            if (ItemTypes.IsInlinedInPou(itemType)) continue;
+            if (ItemKind.IsInlinedInPou(itemType)) continue;
 
             int childCount = 0;
             try { childCount = (int)child.ChildCount; } catch { }
-            bool isTopLevelCrud = ItemTypes.IsTopLevelCrud(itemType);
+            bool isTopLevelCrud = ItemKind.IsTopLevelCrud(itemType);
             bool isHybrid = childCount > 0 && !isTopLevelCrud;
             string emitFolder = isHybrid ? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}") : folderPath;
 
@@ -402,6 +388,10 @@ public class BeckhoffAdapter : IAdapter
 
     public dynamic GetChildAt(dynamic parent, int index) { return parent.Child[index]; }
 
+    public dynamic GetParent(dynamic item) { return item.Parent; }
+
+    public string GetItemName(dynamic item) { try { return (string)item.Name ?? ""; } catch { return ""; } }
+
     public string? ExportItemBodyAsXml(dynamic item, string itemName)
     {
         if (_dte == null) return null;
@@ -411,9 +401,6 @@ public class BeckhoffAdapter : IAdapter
         }
         catch { return null; }
     }
-
-    public string? MapItemType(int typeCode, bool isTopLevelCrud) =>
-        ItemTypes.Map(typeCode, isTopLevelCrud);
 
     // ── Write Operations (COM) ─────────────────────────────────────
 
@@ -477,55 +464,32 @@ public class BeckhoffAdapter : IAdapter
         return result;
     }
 
-    public dynamic? LookupItemByName(string name)
-    {
-        if (_lookupBasePath != null)
-        {
-            try
-            {
-                var root = GetPlcProjectRoot();
-                var relPath = FindRelativePath(root, name);
-                if (relPath != null)
-                    return _sysManager!.LookupTreeItem(_lookupBasePath + "^" + relPath);
-            }
-            catch { }
-        }
-        return FindItemByName(GetPlcProjectRoot(), name);
-    }
+    public dynamic? LookupItemByName(string name) => FindItemByName(GetPlcProjectRoot(), name);
 
     private dynamic? FindItemByName(dynamic parent, string name)
     {
-        for (int i = 1; ; i++)
+        // Bound by ChildCount (1-based COM) — accessing Child[ChildCount+1], or
+        // Child[1] on an empty node, throws a NON-COM out-of-range error
+        // ("Index out of range (1...ChildCount)!") that the old COMException-only
+        // catch let escape and kill every create. Mirrors WalkInner/FindOrCreateFolder.
+        int count;
+        try { count = (int)parent.ChildCount; } catch { return null; }
+        for (int i = 1; i <= count; i++)
         {
             dynamic child;
-            try { child = parent.Child[i]; } catch { break; }
+            try { child = parent.Child[i]; } catch { continue; }
             string childName;
             try { childName = (string)child.Name; } catch { continue; }
             if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase))
             {
                 int itemType = GetItemType(child);
-                if (ItemTypes.IsTopLevelCrud(itemType)) return child;
+                if (ItemKind.IsTopLevelCrud(itemType)) return child;
             }
-            if (GetItemType(child) == 601)
+            if (GetItemType(child) == ItemKind.Folder)
             {
                 var found = FindItemByName(child, name);
                 if (found != null) return found;
             }
-        }
-        return null;
-    }
-
-    private string? FindRelativePath(dynamic parent, string name)
-    {
-        for (int i = 1; ; i++)
-        {
-            dynamic child;
-            try { child = parent.Child[i]; } catch { break; }
-            string childName;
-            try { childName = (string)child.Name; } catch { continue; }
-            if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase)
-                && ItemTypes.IsTopLevelCrud(GetItemType(child)))
-                return childName;
         }
         return null;
     }
@@ -552,35 +516,10 @@ public class BeckhoffAdapter : IAdapter
         item.Name = newName;
     }
 
-    public string ReadDeclaration(dynamic item) { try { return (string)item.DeclarationText ?? ""; } catch { return ""; } }
-    public string ReadImplementation(dynamic item) { try { return (string)item.ImplementationText ?? ""; } catch { return ""; } }
+    public override string ReadDeclaration(dynamic item) { try { return (string)item.DeclarationText ?? ""; } catch { return ""; } }
+    public override string ReadImplementation(dynamic item) { try { return (string)item.ImplementationText ?? ""; } catch { return ""; } }
 
-    // ── Version Hashing ─────────────────────────────────────────────
-
-    public string ComputeItemVersion(dynamic item, string folderPath)
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.Append("folder=").Append(folderPath ?? "").Append('\0');
-        sb.Append("d=").Append(ReadDeclaration(item)).Append('\0');
-        sb.Append("i=").Append(ReadImplementation(item)).Append('\0');
-        return ShortSha1(sb.ToString());
-    }
-
-    public string ComputeProjectVersion(Dictionary<string, string> versions)
-    {
-        var sb = new System.Text.StringBuilder();
-        foreach (var kvp in versions.OrderBy(p => p.Key, StringComparer.Ordinal))
-            sb.Append(kvp.Key).Append(':').Append(kvp.Value).Append('\n');
-        return ShortSha1(sb.ToString());
-    }
-
-    public string ComputeStructureVersion(Dictionary<string, string> versions)
-    {
-        var sb = new System.Text.StringBuilder();
-        foreach (var name in versions.Keys.OrderBy(n => n, StringComparer.Ordinal))
-            sb.Append(name).Append('\n');
-        return ShortSha1(sb.ToString());
-    }
+    // Version hashing + MapItemType are inherited from AdapterBase (shared parity).
 
     // ── Config Manifest ──────────────────────────────────────────────
 
@@ -628,12 +567,5 @@ public class BeckhoffAdapter : IAdapter
             if (val.Length > 0) return val;
         }
         return null;
-    }
-
-    private static string ShortSha1(string content)
-    {
-        using var sha = System.Security.Cryptography.SHA1.Create();
-        byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
-        return Convert.ToHexString(hash).Substring(0, 16).ToLowerInvariant();
     }
 }
