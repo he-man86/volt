@@ -82,6 +82,17 @@ namespace VoltBridge.Connector
         };
         private static readonly string[] FamilyPublishers = { "3S-Smart", "3S ", "CODESYS" };
 
+        // CODESYS-family products that are NOT the launchable IDE (installers, gateways,
+        // runtimes, add-ons) — excluded so they don't show up as "open with" targets.
+        private static readonly string[] ExcludeNameTokens =
+        {
+            "Installer", "Gateway", "Automation Server", "Control Win", "Control RTE",
+            "Control SL", "Edge", "Update", "Redistributable", "Profiler", "SVN",
+            "Test Manager", "Static Analysis", "Visualization Style", "Runtime",
+        };
+        // Exe basenames that are clearly not an IDE launcher.
+        private static readonly string[] ExcludeExeTokens = { "installer", "apinstaller", "cli", "gateway", "setup", "update", "uninstall" };
+
         private static IEnumerable<IdeInstall> FromRegistry()
         {
             var roots = new (RegistryHive Hive, string Sub)[]
@@ -122,6 +133,10 @@ namespace VoltBridge.Connector
 
         private static string? MatchVariant(string display, string publisher)
         {
+            // Never a non-IDE product (installer, gateway, runtime, add-on).
+            foreach (var ex in ExcludeNameTokens)
+                if (display.IndexOf(ex, StringComparison.OrdinalIgnoreCase) >= 0) return null;
+
             foreach (var p in FamilyPublishers)
             {
                 if (publisher.IndexOf(p, StringComparison.OrdinalIgnoreCase) < 0) continue;
@@ -134,6 +149,14 @@ namespace VoltBridge.Connector
             return null;
         }
 
+        private static bool IsLauncherExe(string exe)
+        {
+            var name = Path.GetFileNameWithoutExtension(exe).ToLowerInvariant();
+            foreach (var t in ExcludeExeTokens)
+                if (name.Contains(t)) return false;
+            return true;
+        }
+
         private static string? ResolveForkExe(string? displayIcon, string? installLocation)
         {
             if (!string.IsNullOrEmpty(displayIcon))
@@ -142,7 +165,7 @@ namespace VoltBridge.Connector
                 var dot = p.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
                 if (dot >= 0) p = p.Substring(0, dot + 4); // drop any ",iconIndex" suffix
                 p = p.Trim().Trim('"');
-                if (p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(p)) return p;
+                if (p.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(p) && IsLauncherExe(p)) return p;
             }
             if (!string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
             {
@@ -153,7 +176,7 @@ namespace VoltBridge.Connector
                     var codesys = Path.Combine(dir, "CODESYS.exe");
                     if (File.Exists(codesys)) return codesys;
                     string? first = null;
-                    try { first = Directory.EnumerateFiles(dir, "*.exe").FirstOrDefault(); } catch { }
+                    try { first = Directory.EnumerateFiles(dir, "*.exe").Where(IsLauncherExe).FirstOrDefault(); } catch { }
                     if (first != null) return first;
                 }
             }
