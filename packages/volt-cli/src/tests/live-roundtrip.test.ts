@@ -12,7 +12,6 @@ import { BridgeClient } from "../bridge/client.js"
 import { init } from "../commands/init.js"
 import { pull } from "../commands/pull.js"
 import { push } from "../commands/push.js"
-import { status } from "../commands/status.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8555", 10)
 const BASE = `http://127.0.0.1:${PORT}`
@@ -172,37 +171,50 @@ describe("live round-trip", () => {
 		expect(content).toContain("FUNCTION_BLOCK")
 	})
 
-	it("dual-side drift: edit both TC and workspace, status reports both incoming and outgoing", async () => {
+	it("dual-side non-overlapping edits 3-way auto-merge cleanly (round-trip fidelity)", async () => {
 		const name = `${ITEM_PREFIX}_3`
-		const src1 = `FUNCTION_BLOCK ${name}\nVAR\n	a : INT := 10;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
-		const srcTc = `FUNCTION_BLOCK ${name}\nVAR\n	a : INT := 10;\n	b : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
-		const srcWs = `FUNCTION_BLOCK ${name}\nVAR\n	a : INT := 10;\n	c : REAL;\nEND_VAR\nEND_FUNCTION_BLOCK\n`
+		// Distinct, well-separated declaration + body tokens so a clean merge is unambiguous.
+		const src1 = `FUNCTION_BLOCK ${name}\nVAR\n\tcounter : INT := 0;\n\tlimit : INT := 99;\n\tpad1 : INT := 1;\n\tpad2 : INT := 2;\nEND_VAR\n\ncounter := counter + 1;\nEND_FUNCTION_BLOCK\n`
+		const rel = `src/POUs/${name}.st`
 
 		await deleteTcItems(name)
-		const refs = await apiCall("GET", "/refs")
+		let refs = await apiCall("GET", "/refs")
 		const create = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
 			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src1, ifVersion: null }],
 		})
 		expect(create.accepted).toBe(true)
 
-		// Pull into workspace
-		const r = await pull(workspace, bridge, { force: true })
-		expect(r.kind).toBe("ok")
+		// Pull, then work from the ACTUAL pulled bytes (the merge base). This is what
+		// makes the test catch real-bridge round-trip drift: if reassembly reformats
+		// the content, either these markers won't be present, or the later merge
+		// conflicts spuriously — the fake bridge (byte-exact) can never surface that.
+		await pull(workspace, bridge, { force: true })
+		const base = readWorkspace(rel)
+		expect(base).toContain("limit : INT := 99")
+		expect(base).toContain("counter := counter + 1")
 
-		// Edit on TC side
-		const refs2 = await apiCall("GET", "/refs")
+		// theirs (IDE side): edit the BODY, push the workspace-format bytes back.
+		const srcTc = base.replace("counter := counter + 1", "counter := counter + 2")
+		refs = await apiCall("GET", "/refs")
 		const tcEdit = await apiCall("POST", "/push", {
-			expectedProjectVersion: refs2.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: srcTc, ifVersion: refs2.items[name] }],
+			expectedProjectVersion: refs.projectVersion,
+			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: srcTc, ifVersion: refs.items[name] }],
 		})
 		expect(tcEdit.accepted).toBe(true)
 
-		// Edit in workspace
-		writeWorkspace(`src/POUs/${name}.st`, srcWs)
+		// ours (workspace side): edit the DECLARATION, far from the body edit.
+		writeWorkspace(rel, base.replace("limit : INT := 99", "limit : INT := 77"))
 
-		// Status should show drift from both sides
-		await status(workspace, bridge, {})
+		// Non-force pull must 3-way AUTO-MERGE (not conflict): both edits survive,
+		// no markers. A spurious conflict here would mean the bridge isn't round-
+		// tripping content stably enough for concurrent editing.
+		const merged = await pull(workspace, bridge, {})
+		expect(merged.kind).toBe("ok")
+		const after = readWorkspace(rel)
+		expect(after).toContain("limit : INT := 77")
+		expect(after).toContain("counter := counter + 2")
+		expect(after).not.toContain("<<<<<<<")
 	})
 
 	it("delete on TC side, pull removes from workspace", async () => {
