@@ -79,6 +79,22 @@ export function configExists(workspaceRoot: string): boolean {
 	return existsSync(workspacePaths(workspaceRoot).configPath);
 }
 
+/**
+ * The bridge port this workspace is bound to (from .volt/config.json), read
+ * tolerantly (no schema validation). This is what lets the CLI default to the
+ * RIGHT bridge: a CODESYS workspace (8556) must never fall back to the TwinCAT
+ * bridge (8555). Undefined if there's no config or no valid port.
+ */
+export function configuredBridgePort(workspaceRoot: string): number | undefined {
+	try {
+		const raw = readFileSync(workspacePaths(workspaceRoot).configPath, "utf-8");
+		const port = (JSON.parse(raw) as { bridge?: { port?: unknown } }).bridge?.port;
+		return typeof port === "number" && Number.isFinite(port) ? port : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 export function loadConfig(workspaceRoot: string): WorkspaceConfig {
 	const { configPath, root } = workspacePaths(workspaceRoot);
 	if (!existsSync(configPath)) {

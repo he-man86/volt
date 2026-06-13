@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import { BridgeClient } from "./bridge/client.js"
 import { parseArgs } from "./args.js"
+import { configuredBridgePort } from "./config/workspace.js"
 import { formatError, exitCode } from "./output/errors.js"
 
 async function main() {
 	const { verb, operands, workspace, port, has, value } = parseArgs(process.argv.slice(2))
-	const bridge = new BridgeClient({ port })
+	// Resolve the bridge port: explicit flag/env, else the port this workspace is
+	// BOUND to (so a CODESYS workspace talks to 8556, not the 8555 TwinCAT default).
+	const resolvedPort = port ?? configuredBridgePort(workspace) ?? 8555
+	const bridge = new BridgeClient({ port: resolvedPort })
 
 	switch (verb) {
 		case "init": {

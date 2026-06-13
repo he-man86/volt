@@ -14,7 +14,9 @@ export interface ParsedArgs {
 	/** Positionals AFTER the verb (e.g. show's `<ref> <path>`). */
 	operands: string[]
 	workspace: string
-	port: number
+	/** Port from --port/env ONLY (undefined otherwise). The final port is resolved
+	 *  by the caller as: this ?? the workspace's configured port ?? 8555. */
+	port: number | undefined
 	/** True if a boolean flag is present (e.g. --force, --json). */
 	has(flag: string): boolean
 	/** The token following a value-flag (e.g. value("--resolve")), or undefined. */
@@ -39,7 +41,8 @@ export function parseArgs(
 	const operands = positionals.slice(1)
 
 	const workspace = value("--workspace") ?? env.VOLT_WORKSPACE ?? cwd
-	const port = Number.parseInt(value("--port") ?? env.VOLT_BRIDGE_PORT ?? "8555", 10)
+	const portRaw = value("--port") ?? env.VOLT_BRIDGE_PORT
+	const port = portRaw !== undefined ? Number.parseInt(portRaw, 10) : undefined
 
 	return { verb, operands, workspace, port, has, value }
 }

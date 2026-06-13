@@ -40,7 +40,7 @@ describe("parseArgs", () => {
 		expect(p.port).toBe(9000)
 	})
 
-	test("flag default port is 8555 when neither flag nor env set", () => {
-		expect(parseArgs(["status"], {}).port).toBe(8555)
+	test("port is undefined when neither flag nor env set (caller resolves config/8555)", () => {
+		expect(parseArgs(["status"], {}).port).toBeUndefined()
 	})
 })
