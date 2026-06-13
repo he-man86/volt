@@ -4,6 +4,11 @@
  * user leaving the editor or touching the tray. All best-effort: if the connector
  * isn't running, every call resolves to a clear "no-connector" result.
  */
+import * as vscode from "vscode"
+import { spawn } from "node:child_process"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
+
 const CONTROL = "http://127.0.0.1:8550"
 const TIMEOUT_MS = 1500
 
@@ -27,6 +32,42 @@ export async function getConnectorBridges(): Promise<ConnectorBridge[] | undefin
 	} catch {
 		return undefined
 	}
+}
+
+/** Locate VoltConnector.exe: explicit setting, env override, then the conventional
+ *  install path. Returns undefined if none exists (connector not installed yet). */
+function locateConnectorExe(): string | undefined {
+	const cfg = vscode.workspace.getConfiguration("volt").get<string>("connector.path")
+	if (cfg !== undefined && cfg.length > 0 && existsSync(cfg)) return cfg
+	const env = process.env.VOLT_CONNECTOR_EXE
+	if (env !== undefined && env.length > 0 && existsSync(env)) return env
+	const local = process.env.LOCALAPPDATA
+	if (local !== undefined) {
+		const p = join(local, "Programs", "Volt", "VoltConnector.exe")
+		if (existsSync(p)) return p
+	}
+	return undefined
+}
+
+export type EnsureResult = "running" | "started" | "not-found"
+
+/** Ensure the connector is up: probe :8550 and, if silent, launch VoltConnector.exe
+ *  detached and wait briefly for it to bind. The tray app is single-instance, so a
+ *  redundant launch is harmless. */
+export async function ensureConnectorRunning(): Promise<EnsureResult> {
+	if ((await getConnectorBridges()) !== undefined) return "running"
+	const exe = locateConnectorExe()
+	if (exe === undefined) return "not-found"
+	try {
+		spawn(exe, ["--silent"], { detached: true, stdio: "ignore" }).unref()
+	} catch {
+		return "not-found"
+	}
+	for (let i = 0; i < 12; i++) {
+		await new Promise((r) => setTimeout(r, 300))
+		if ((await getConnectorBridges()) !== undefined) return "started"
+	}
+	return "started" // launched; may still be coming up
 }
 
 export type StartResult = "started" | "no-bridge" | "no-connector"

@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.20.6",
+  "version": "1.20.8",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -362,6 +362,11 @@
           "minimum": 1,
           "maximum": 65535,
           "description": "Port the CODESYS bridge listens on. Used by the `Initialize for CODESYS` welcome-view button. Once a workspace is initialized, the port stored in `.volt/config.json` takes precedence for that workspace."
+        },
+        "volt.connector.path": {
+          "type": "string",
+          "default": "",
+          "description": "Full path to VoltConnector.exe. The connector supervises the bridges from the system tray; the extension launches it automatically when needed. Leave empty to use the conventional install location (%LOCALAPPDATA%\\Programs\\Volt\\VoltConnector.exe) or the VOLT_CONNECTOR_EXE environment variable."
         }
       }
     },

@@ -5,7 +5,7 @@ import { spawnVolt, spawnVoltBuffer } from "./cli.js"
 import { withGate } from "./gate.js"
 import { VoltStatus } from "./state/status.js"
 import { readBridgePort } from "./state/health.js"
-import { startBridgeByPort } from "./connector.js"
+import { startBridgeByPort, ensureConnectorRunning } from "./connector.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
 const output = (() => {
@@ -213,17 +213,58 @@ async function discardOutgoing(statuses: Map<string, VoltStatus>, workspaceRoot:
 }
 
 // ── init / build (still simple shell-outs) ──────────────────────────────
-async function doInit(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
-	await withGate(workspaceRoot, async () =>
-		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt init" }, async () => {
-			const r = await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "init", ...(force ? ["--force"] : [])])
-			if (r.code !== 0) {
-				vscode.window.showErrorMessage(`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
+/** The folder to initialize. A not-yet-Volt workspace is absent from `statuses`,
+ *  so resolve it from the open workspace folders (prompt if there are several). */
+async function initTarget(): Promise<string | undefined> {
+	const folders = vscode.workspace.workspaceFolders ?? []
+	if (folders.length === 0) {
+		vscode.window.showErrorMessage("Open a folder first, then initialize a Volt workspace.")
+		return undefined
+	}
+	if (folders.length === 1) return folders[0].uri.fsPath
+	const pick = await vscode.window.showWorkspaceFolderPick({ placeHolder: "Select the folder to initialize as a Volt workspace" })
+	return pick?.uri.fsPath
+}
+
+/** Bridge port for a fresh init, from the per-vendor setting (defaults 8555/8556). */
+function vendorPort(vendor: "twincat" | "codesys"): number {
+	const cfg = vscode.workspace.getConfiguration("volt.bridge")
+	return vendor === "codesys" ? cfg.get<number>("codesysPort", 8556) : cfg.get<number>("twincatPort", 8555)
+}
+
+async function doInit(
+	statuses: Map<string, VoltStatus>,
+	ensureWorkspace: (folder: string) => void,
+	workspaceRoot: string,
+	port: number,
+	force: boolean,
+): Promise<void> {
+	const r = await withGate(workspaceRoot, async () =>
+		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt init" }, async () =>
+			await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "init", "--port", String(port), ...(force ? ["--force"] : [])]),
+		),
+	)
+	if (r.code !== 0) {
+		// init needs a reachable bridge with a project loaded. Offer to bring it up.
+		const pick = await vscode.window.showErrorMessage(
+			`volt init failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`,
+			"Start bridge",
+		)
+		if (pick === "Start bridge") {
+			const ensured = await ensureConnectorRunning()
+			if (ensured === "not-found") {
+				vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it, then click Initialize again.")
 				return
 			}
-			vscode.window.showInformationMessage("Workspace initialized.")
-		}),
-	)
+			await startBridgeByPort(port)
+			vscode.window.showInformationMessage("Starting the bridge — once your PLC project is open in the IDE, click Initialize again.")
+		}
+		return
+	}
+	vscode.window.showInformationMessage("Workspace initialized.")
+	// The folder now has .volt/config.json — register it so the SCM view, status
+	// bar and decorations come alive without a reload.
+	ensureWorkspace(workspaceRoot)
 	await refreshFor(statuses, workspaceRoot)
 }
 
@@ -241,15 +282,15 @@ function firstLine(s: string): string | undefined {
 }
 
 // ── registration (IDs MUST match package.json contributions) ────────────
-export function registerCommands(statuses: Map<string, VoltStatus>): vscode.Disposable[] {
+export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorkspace: (folder: string) => void): vscode.Disposable[] {
 	const ws = (): string | undefined => pickStatus(statuses)?.workspaceRoot
 	const reg = vscode.commands.registerCommand
 
 	return [
-		reg("volt.init", async () => { const w = ws(); if (w) await doInit(statuses, w, false) }),
-		reg("volt.initTwincat", async () => { const w = ws(); if (w) await doInit(statuses, w, false) }),
-		reg("volt.initCodesys", async () => { const w = ws(); if (w) await doInit(statuses, w, false) }),
-		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(statuses, w, true) }),
+		reg("volt.init", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
+		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
+		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("codesys"), false) }),
+		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(statuses, ensureWorkspace, w, readBridgePort(w) ?? vendorPort("twincat"), true) }),
 
 		reg("volt.pull", async () => { const w = ws(); if (w) await doPull(statuses, w, false) }),
 		reg("volt.push", async () => { const w = ws(); if (w) await doPush(statuses, w, false) }),
@@ -275,12 +316,17 @@ export function registerCommands(statuses: Map<string, VoltStatus>): vscode.Disp
 			if (s === undefined) return
 			const port = readBridgePort(s.workspaceRoot)
 			if (port === undefined) { vscode.window.showWarningMessage("No bridge port is configured for this workspace."); return }
+			const ensured = await ensureConnectorRunning()
+			if (ensured === "not-found") {
+				const pick = await vscode.window.showWarningMessage(
+					"Volt Connector isn't installed — it manages the bridges from your system tray.", "Where do I get it?")
+				if (pick === "Where do I get it?")
+					vscode.window.showInformationMessage("Install the Volt Connector (VoltConnector.exe), or set `volt.connector.path` to its location. Then make sure your PLC IDE is open with a project.")
+				return
+			}
 			const result = await startBridgeByPort(port)
 			if (result === "no-connector") {
-				const pick = await vscode.window.showWarningMessage(
-					"Volt Connector isn't running — it manages the bridges from your system tray.", "How to start it")
-				if (pick === "How to start it")
-					vscode.window.showInformationMessage("Run VoltConnector.exe (it lives in the system tray), and make sure your PLC IDE is open with a project.")
+				vscode.window.showWarningMessage("Couldn't reach the Volt Connector even after launching it — give it a moment and try again.")
 			} else if (result === "no-bridge") {
 				vscode.window.showWarningMessage(`The connector has no bridge on port ${port} for this workspace.`)
 			} else {

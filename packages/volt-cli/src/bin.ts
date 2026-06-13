@@ -14,11 +14,15 @@ async function main() {
 	const portFlagIdx = args.indexOf("--port")
 	const port = portFlagIdx >= 0 ? Number.parseInt(args[portFlagIdx + 1]) : Number.parseInt(process.env.VOLT_BRIDGE_PORT ?? "8555")
 
-	const verb = args.find((a) => !a.startsWith("-") && !a.startsWith("--")) ?? "help"
 	const bridge = new BridgeClient({ port })
 
+	// The verb is the first POSITIONAL — not merely the first non-dash arg —
+	// because a flag VALUE (e.g. the path after --workspace) is also non-dash.
+	// Picking the first non-dash arg made `--workspace <path> init` treat <path>
+	// as the verb, so init/build/show/merge silently fell through to help.
 	const flagTakingValue = new Set(["--workspace", "--port", "--resolve", "--limit"])
 	const positionals = args.filter((a, i) => !a.startsWith("-") && (i === 0 || !flagTakingValue.has(args[i - 1]!)))
+	const verb = positionals[0] ?? "help"
 
 	switch (verb) {
 		case "init": {

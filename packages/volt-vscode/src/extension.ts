@@ -22,13 +22,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100)
 	statusBar.command = "volt.status"
 
+	// Bring a (possibly just-initialized) folder online without a reload.
+	const ensureWorkspace = (folderPath: string): void => {
+		if (statuses.has(folderPath)) { void statuses.get(folderPath)?.refresh(true); return }
+		const folder = workspaceFolders().find((f) => f.uri.fsPath === folderPath)
+		if (folder !== undefined && hasVoltConfig(folder)) addWorkspace(folder, scmTree, decorations, statusBar)
+		updateGlobalUi(statusBar)
+	}
+
 	context.subscriptions.push(
 		statusBar,
 		vscode.window.registerTreeDataProvider("volt.scm", scmTree),
 		vscode.window.registerTreeDataProvider("volt.history", new VoltHistoryTree("")),
 		vscode.window.registerFileDecorationProvider(decorations),
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new VoltContentProvider()),
-		...registerCommands(statuses),
+		...registerCommands(statuses, ensureWorkspace),
 	)
 
 	for (const folder of workspaceFolders()) {
