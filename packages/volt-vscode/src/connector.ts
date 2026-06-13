@@ -34,6 +34,15 @@ export async function getConnectorBridges(): Promise<ConnectorBridge[] | undefin
 	}
 }
 
+/** The conventional per-user install location for the connector bundle. THE
+ *  installer must copy VoltConnector.exe (+ its workers) here, and the extension
+ *  launches it from here — keep these in sync. Per-user (%LOCALAPPDATA%) so no
+ *  admin/UAC is needed, matching the HKCU login-item registration. */
+export function defaultConnectorExe(): string | undefined {
+	const local = process.env.LOCALAPPDATA
+	return local === undefined ? undefined : join(local, "Programs", "Volt", "VoltConnector.exe")
+}
+
 /** Locate VoltConnector.exe: explicit setting, env override, then the conventional
  *  install path. Returns undefined if none exists (connector not installed yet). */
 function locateConnectorExe(): string | undefined {
@@ -41,11 +50,8 @@ function locateConnectorExe(): string | undefined {
 	if (cfg !== undefined && cfg.length > 0 && existsSync(cfg)) return cfg
 	const env = process.env.VOLT_CONNECTOR_EXE
 	if (env !== undefined && env.length > 0 && existsSync(env)) return env
-	const local = process.env.LOCALAPPDATA
-	if (local !== undefined) {
-		const p = join(local, "Programs", "Volt", "VoltConnector.exe")
-		if (existsSync(p)) return p
-	}
+	const fallback = defaultConnectorExe()
+	if (fallback !== undefined && existsSync(fallback)) return fallback
 	return undefined
 }
 

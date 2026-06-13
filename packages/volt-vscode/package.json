@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.20.8",
+  "version": "1.20.9",
   "publisher": "volt",
   "private": true,
   "license": "MIT",

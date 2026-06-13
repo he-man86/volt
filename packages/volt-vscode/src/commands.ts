@@ -83,7 +83,7 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 		await vscode.window.withProgress(
 			{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
 			async () => {
-				const r = await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "pull", ...(force ? ["--force"] : []), "--json"])
+				const r = await spawnVolt(workspaceRoot, ["pull", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
 				const outcome = parseJson<PullOutcome>(r.stdout)
 				if (outcome === null) {
 					vscode.window.showErrorMessage(`volt pull failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
@@ -116,7 +116,7 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 		await vscode.window.withProgress(
 			{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
 			async () => {
-				const r = await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "push", ...(force ? ["--force"] : []), "--json"])
+				const r = await spawnVolt(workspaceRoot, ["push", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
 				const outcome = parseJson<PushOutcome>(r.stdout)
 				if (outcome === null) {
 					vscode.window.showErrorMessage(`volt push failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
@@ -168,7 +168,7 @@ async function openConflicts(workspaceRoot: string, paths: readonly string[]): P
 
 // ── merge ───────────────────────────────────────────────────────────────
 async function runMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string, mergeArgs: string[]): Promise<boolean> {
-	const r = await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "merge", ...mergeArgs])
+	const r = await spawnVolt(workspaceRoot, ["merge", ...mergeArgs, "--workspace", workspaceRoot])
 	if (r.code !== 0) {
 		vscode.window.showErrorMessage(`volt merge failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
 		await refreshFor(statuses, workspaceRoot)
@@ -199,7 +199,7 @@ async function discardOutgoing(statuses: Map<string, VoltStatus>, workspaceRoot:
 		"Discard",
 	)
 	if (pick !== "Discard") return
-	const r = await spawnVoltBuffer(workspaceRoot, ["--workspace", workspaceRoot, "show", "HEAD", rel])
+	const r = await spawnVoltBuffer(workspaceRoot, ["show", "HEAD", rel, "--workspace", workspaceRoot])
 	if (r.code !== 0) {
 		vscode.window.showErrorMessage(`Couldn't restore ${rel}: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
 		return
@@ -241,7 +241,7 @@ async function doInit(
 ): Promise<void> {
 	const r = await withGate(workspaceRoot, async () =>
 		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt init" }, async () =>
-			await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "init", "--port", String(port), ...(force ? ["--force"] : [])]),
+			await spawnVolt(workspaceRoot, ["init", "--port", String(port), ...(force ? ["--force"] : []), "--workspace", workspaceRoot]),
 		),
 	)
 	if (r.code !== 0) {
@@ -269,7 +269,7 @@ async function doInit(
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {
-	const r = await spawnVolt(workspaceRoot, ["--workspace", workspaceRoot, "build"])
+	const r = await spawnVolt(workspaceRoot, ["build", "--workspace", workspaceRoot])
 	output().appendLine(r.stdout)
 	if (r.stderr.length > 0) output().appendLine(r.stderr)
 	output().show()
