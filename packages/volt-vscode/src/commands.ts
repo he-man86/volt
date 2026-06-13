@@ -5,7 +5,7 @@ import { spawnVolt, spawnVoltBuffer } from "./cli.js"
 import { withGate } from "./gate.js"
 import { VoltStatus } from "./state/status.js"
 import { readBridgePort } from "./state/health.js"
-import { startBridgeByPort, ensureConnectorRunning } from "./connector.js"
+import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges } from "./connector.js"
 import { buildUri } from "./providers/content.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -268,6 +268,50 @@ function vendorPort(vendor: "twincat" | "codesys"): number {
 	return vendor === "codesys" ? cfg.get<number>("codesysPort", 8556) : cfg.get<number>("twincatPort", 8555)
 }
 
+/** Smart onboarding: detect the running IDE/project via the connector and bind to
+ *  it directly — no "which vendor?" guessing. Falls back to an explicit pick when
+ *  nothing is detected. */
+async function setupWorkspace(statuses: Map<string, VoltStatus>, ensureWorkspace: (folder: string) => void): Promise<void> {
+	const target = await initTarget()
+	if (target === undefined) return
+
+	const ensured = await ensureConnectorRunning()
+	const bridges = ensured === "not-found" ? undefined : await getConnectorBridges()
+	const ready = (bridges ?? []).filter((b) => b.status === "connected") // a project is loaded
+
+	if (ready.length === 1) {
+		await doInit(statuses, ensureWorkspace, target, ready[0]!.port, false)
+		return
+	}
+	if (ready.length > 1) {
+		const pick = await vscode.window.showQuickPick(
+			ready.map((b) => ({ label: b.displayName, description: `port ${b.port}`, port: b.port })),
+			{ placeHolder: "Initialize for which running IDE?" },
+		)
+		if (pick === undefined) return
+		await doInit(statuses, ensureWorkspace, target, pick.port, false)
+		return
+	}
+
+	// Nothing detected — guide, but still let them pick a target explicitly.
+	const choice = await vscode.window.showInformationMessage(
+		"No PLC project detected. Open a project in your IDE (and make sure the bridge is running), then try again — or choose a target:",
+		"Start bridge", "TwinCAT", "CODESYS",
+	)
+	if (choice === "Start bridge") {
+		if (ensured === "not-found") {
+			vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it, then try again.")
+			return
+		}
+		await startBridgeByPort(vendorPort("twincat"))
+		vscode.window.showInformationMessage("Starting the bridge — once your project is open in the IDE, run Set Up again.")
+	} else if (choice === "TwinCAT") {
+		await doInit(statuses, ensureWorkspace, target, vendorPort("twincat"), false)
+	} else if (choice === "CODESYS") {
+		await doInit(statuses, ensureWorkspace, target, vendorPort("codesys"), false)
+	}
+}
+
 async function doInit(
 	statuses: Map<string, VoltStatus>,
 	ensureWorkspace: (folder: string) => void,
@@ -323,6 +367,7 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 	const reg = vscode.commands.registerCommand
 
 	return [
+		reg("volt.setup", async () => { await setupWorkspace(statuses, ensureWorkspace) }),
 		reg("volt.init", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("codesys"), false) }),

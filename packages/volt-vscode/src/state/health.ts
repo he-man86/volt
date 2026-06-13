@@ -35,6 +35,18 @@ export function readBridgePort(workspaceRoot: string): number | undefined {
 	return undefined
 }
 
+/** Per-extension access from .volt/config.json: ".st" → "rw", ".fbd" → "r", etc.
+ *  Drives the read-only badge — graphical/config files the AI reads but can't push. */
+export function readExtensionAccess(workspaceRoot: string): Record<string, "r" | "rw"> {
+	try {
+		const raw = readFileSync(join(workspaceRoot, ".volt", "config.json"), "utf-8")
+		const parsed = JSON.parse(raw) as { extensionAccess?: Record<string, "r" | "rw"> }
+		return parsed.extensionAccess ?? {}
+	} catch {
+		return {}
+	}
+}
+
 export async function probeHealth(port: number, timeoutMs = 2_000): Promise<HealthState> {
 	return new Promise<HealthState>((resolve) => {
 		const req = httpRequest(
