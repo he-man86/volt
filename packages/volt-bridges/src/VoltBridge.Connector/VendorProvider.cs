@@ -35,9 +35,17 @@ namespace VoltBridge.Connector
         public string? WorkerExe { get; set; }
         public string WorkerArgs { get; set; } = "";
 
+        /// <summary>Which IDE instance/project the worker should attach to (TwinCAT). Null
+        /// = first active instance. Pushed to the worker as VOLT_TC_* env on (re)spawn.</summary>
+        public TcTarget? Target { get; set; }
+
         // ── InIdeLoad: how to launch the IDE so its in-process bridge loads ──
         public string? IdeExe { get; set; }
         public string IdeLaunchArgs { get; set; } = "";
+
+        /// <summary>All discovered launchable installs (multiple CODESYS versions + OEM
+        /// forks). IdeExe is the first/default; the tray lets the user pick any of these.</summary>
+        public IReadOnlyList<IdeInstall> Installs { get; set; } = Array.Empty<IdeInstall>();
 
         public bool CanLaunchIde => IdeExe != null && File.Exists(IdeExe);
     }
@@ -58,18 +66,32 @@ namespace VoltBridge.Connector
                     Archetype = Archetype.ExternalAttach,
                     WorkerExe = Resolve("VOLT_TWINCAT_BRIDGE", "BeckhoffBridge.exe", "VoltBridge.Beckhoff"),
                 },
-                new VendorProvider
-                {
-                    Id = "codesys",
-                    DisplayName = "CODESYS",
-                    Port = 8556,
-                    Archetype = Archetype.InIdeLoad,
-                    // Opt-in: enable from the tray menu when you use CODESYS, so an
-                    // unused vendor doesn't keep the aggregate tray icon red.
-                    Enabled = false,
-                    IdeExe = ResolveCodesysExe(),
-                    IdeLaunchArgs = BuildCodesysLaunchArgs(),
-                },
+                CodesysProvider(),
+            };
+        }
+
+        /// <summary>CODESYS, with every discovered install (multiple versions + OEM forks).</summary>
+        private static VendorProvider CodesysProvider()
+        {
+            var installs = CodesysDiscovery.Discover();
+            // Fall back to the VOLT_CODESYS_EXE env override if discovery found nothing.
+            if (installs.Count == 0)
+            {
+                var envExe = ResolveCodesysExe();
+                if (envExe != null) installs = new List<IdeInstall> { new("cds-env", "CODESYS", null, envExe, "CODESYS") };
+            }
+            return new VendorProvider
+            {
+                Id = "codesys",
+                DisplayName = "CODESYS",
+                Port = 8556,
+                Archetype = Archetype.InIdeLoad,
+                // Opt-in: enable from the tray menu when you use CODESYS, so an
+                // unused vendor doesn't keep the aggregate tray icon red.
+                Enabled = false,
+                Installs = installs,
+                IdeExe = installs.Count > 0 ? installs[0].ExePath : null,
+                IdeLaunchArgs = BuildCodesysLaunchArgs(),
             };
         }
 
@@ -96,18 +118,11 @@ namespace VoltBridge.Connector
 
         private static string? ResolveCodesysExe()
         {
+            // Env override only — real installs (any version + OEM forks) come from
+            // CodesysDiscovery (glob/registry/manual), so there are NO hardcoded versions
+            // here to rot when a new CODESYS release ships.
             var env = Environment.GetEnvironmentVariable("VOLT_CODESYS_EXE");
-            if (!string.IsNullOrEmpty(env) && File.Exists(env)) return env;
-            // Best-effort default install location (configurable later).
-            foreach (var p in new[]
-            {
-                @"C:\Program Files\CODESYS 3.5.21.40\CODESYS\Common\CODESYS.exe",
-                @"C:\Program Files\CODESYS 3.5.18.30\CODESYS\Common\CODESYS.exe",
-            })
-            {
-                if (File.Exists(p)) return p;
-            }
-            return null;
+            return !string.IsNullOrEmpty(env) && File.Exists(env) ? env : null;
         }
 
         /// <summary>Launch CODESYS so the in-proc bridge auto-loads: run the start script

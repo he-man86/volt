@@ -5,7 +5,7 @@ import { spawnVolt, spawnVoltBuffer } from "./cli.js"
 import { withGate } from "./gate.js"
 import { VoltStatus } from "./state/status.js"
 import { readBridgePort } from "./state/health.js"
-import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges } from "./connector.js"
+import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges, launchInstall, selectInstance, type TcTargetSel } from "./connector.js"
 import { buildUri } from "./providers/content.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
@@ -348,6 +348,62 @@ async function doInit(
 	await refreshFor(statuses, workspaceRoot)
 }
 
+// ── connector pickers: which CODESYS version / which TwinCAT project ──────
+async function openCodesysVersion(): Promise<void> {
+	if (await ensureConnectorRunning() === "not-found") {
+		vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it.")
+		return
+	}
+	const bridges = await getConnectorBridges()
+	const installs = bridges?.find((b) => b.id === "codesys")?.installs ?? []
+	if (installs.length === 0) {
+		vscode.window.showWarningMessage("No CODESYS install detected — add one from the tray (Open CODESYS ▸ Add install…).")
+		return
+	}
+	const pick = await vscode.window.showQuickPick(
+		installs.map((i) => ({
+			label: i.displayName,
+			description: i.variant === "CODESYS" || i.variant === "Manual" ? (i.version ?? "") : i.variant,
+			id: i.id,
+		})),
+		{ placeHolder: "Open which CODESYS version?" },
+	)
+	if (pick === undefined) return
+	const ok = await launchInstall("codesys", pick.id)
+	vscode.window.showInformationMessage(ok ? `Launching ${pick.label}…` : "Couldn't launch — is the Volt Connector running?")
+}
+
+async function selectTwincatProject(): Promise<void> {
+	if (await ensureConnectorRunning() === "not-found") {
+		vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it.")
+		return
+	}
+	const bridges = await getConnectorBridges()
+	const instances = bridges?.find((b) => b.id === "twincat")?.instances ?? []
+	if (instances.length === 0) {
+		vscode.window.showInformationMessage("No running TwinCAT instances detected — open a project in TwinCAT first.")
+		return
+	}
+	type Item = vscode.QuickPickItem & { target: TcTargetSel }
+	const items: Item[] = [{ label: "Default (first active)", target: { instance: null, project: null, plcProject: null } }]
+	for (const inst of instances) {
+		for (const proj of inst.projects) {
+			const plcs = proj.plcProjects.length > 0 ? proj.plcProjects : [""]
+			for (const plc of plcs) {
+				items.push({
+					label: `${inst.ideName ?? "IDE"} — ${proj.project}${plc ? ` / ${plc}` : ""}`,
+					description: inst.solution ?? undefined,
+					target: { instance: inst.instanceId, project: proj.project, plcProject: plc || null },
+				})
+			}
+		}
+	}
+	const pick = await vscode.window.showQuickPick(items, { placeHolder: "Attach the TwinCAT bridge to which project?" })
+	if (pick === undefined) return
+	const ok = await selectInstance("twincat", pick.target)
+	vscode.window.showInformationMessage(ok ? "Reattaching the TwinCAT bridge…" : "Couldn't switch — is the Volt Connector running?")
+}
+
 async function doBuild(workspaceRoot: string): Promise<void> {
 	const r = await spawnVolt(workspaceRoot, ["build", "--workspace", workspaceRoot])
 	output().appendLine(r.stdout)
@@ -368,6 +424,8 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 
 	return [
 		reg("volt.setup", async () => { await setupWorkspace(statuses, ensureWorkspace) }),
+		reg("volt.openCodesysVersion", async () => { await openCodesysVersion() }),
+		reg("volt.selectTwincatProject", async () => { await selectTwincatProject() }),
 		reg("volt.init", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("codesys"), false) }),

@@ -47,6 +47,13 @@ namespace VoltBridge.Connector
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                 };
+                // The worker reads its attach target from the environment at startup.
+                if (p.Target != null)
+                {
+                    if (!string.IsNullOrEmpty(p.Target.Instance)) psi.EnvironmentVariables["VOLT_TC_INSTANCE"] = p.Target.Instance;
+                    if (!string.IsNullOrEmpty(p.Target.Project)) psi.EnvironmentVariables["VOLT_TC_PROJECT"] = p.Target.Project;
+                    if (!string.IsNullOrEmpty(p.Target.PlcProject)) psi.EnvironmentVariables["VOLT_TC_PLC"] = p.Target.PlcProject;
+                }
                 Process? proc;
                 try { proc = Process.Start(psi); }
                 catch (Exception ex) { AppendLog(log, $"[connector] spawn failed: {ex.Message}"); return; }
@@ -78,17 +85,21 @@ namespace VoltBridge.Connector
             }
         }
 
-        /// <summary>Launch the vendor's IDE (for in-IDE vendors, with the in-proc loader
-        /// arg so the bridge auto-loads). Returns false if the IDE exe is unknown.</summary>
-        public bool LaunchIde(VendorProvider p)
+        /// <summary>Launch the vendor's default IDE (with the in-proc loader arg so the
+        /// bridge auto-loads). Returns false if the IDE exe is unknown.</summary>
+        public bool LaunchIde(VendorProvider p) => p.CanLaunchIde && LaunchIde(p.IdeExe!, p.IdeLaunchArgs);
+
+        /// <summary>Launch a specific install (any discovered CODESYS version/fork) with
+        /// the loader args. Returns false if the exe is missing or launch fails.</summary>
+        public bool LaunchIde(string exePath, string args)
         {
-            if (!p.CanLaunchIde) return false;
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath)) return false;
             try
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = p.IdeExe!,
-                    Arguments = p.IdeLaunchArgs,
+                    FileName = exePath,
+                    Arguments = args,
                     UseShellExecute = true,
                 });
                 return true;

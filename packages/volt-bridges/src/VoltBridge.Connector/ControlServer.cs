@@ -10,7 +10,10 @@ namespace VoltBridge.Connector
     /// the extension gets that from the bridge's own port). Immutable snapshot.</summary>
     public sealed record BridgeView(
         string Id, string DisplayName, int Port, string Archetype,
-        bool Enabled, string Status, bool WorkerRunning);
+        bool Enabled, string Status, bool WorkerRunning,
+        IReadOnlyList<IdeInstall>? Installs = null,    // CODESYS: launchable versions/forks
+        IReadOnlyList<TcInstanceDto>? Instances = null, // TwinCAT: attachable instances/projects
+        TcTarget? Target = null);                       // TwinCAT: current selection
 
     /// <summary>
     /// The connector's CONTROL PLANE: a tiny HTTP API on :8550 so the VS Code extension
@@ -19,9 +22,10 @@ namespace VoltBridge.Connector
     /// the per-vendor bridge ports (855x, where PLC code flows); this is purely
     /// orchestration. Localhost only.
     ///
-    ///   GET  /status                     → { bridges: BridgeView[] }
-    ///   POST /bridges/{id}/restart       → respawn the worker
-    ///   POST /bridges/{id}/launch        → launch the IDE (InIdeLoad: with the loader)
+    ///   GET  /status                       → { bridges: BridgeView[] }
+    ///   POST /bridges/{id}/restart         → respawn the worker
+    ///   POST /bridges/{id}/launch          → launch the IDE; body { installId? } picks a CODESYS install
+    ///   POST /bridges/{id}/select          → body { instanceId, project, plcProject } retargets TwinCAT
     ///   POST /bridges/{id}/enable|disable
     /// </summary>
     public sealed class ControlServer : IDisposable
@@ -31,21 +35,24 @@ namespace VoltBridge.Connector
         private readonly HttpListener _listener = new();
         private readonly Func<IReadOnlyList<BridgeView>> _snapshot;
         private readonly Action<string> _restart;
-        private readonly Func<string, bool> _launch;
+        private readonly Func<string, string?, bool> _launch;
+        private readonly Action<string, TcTarget?> _select;
         private readonly Action<string, bool> _setEnabled;
         private volatile bool _running;
 
-        private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
 
         public ControlServer(
             Func<IReadOnlyList<BridgeView>> snapshot,
             Action<string> restart,
-            Func<string, bool> launch,
+            Func<string, string?, bool> launch,
+            Action<string, TcTarget?> select,
             Action<string, bool> setEnabled)
         {
             _snapshot = snapshot;
             _restart = restart;
             _launch = launch;
+            _select = select;
             _setEnabled = setEnabled;
         }
 
@@ -91,13 +98,34 @@ namespace VoltBridge.Connector
                 switch (parts[2])
                 {
                     case "restart": _restart(id); WriteJson(ctx, 200, new { ok = true }); return;
-                    case "launch": { var ok = _launch(id); WriteJson(ctx, ok ? 200 : 400, new { ok }); return; }
+                    case "launch": { var ok = _launch(id, ReadBody<LaunchBody>(ctx)?.InstallId); WriteJson(ctx, ok ? 200 : 400, new { ok }); return; }
+                    case "select":
+                    {
+                        var b = ReadBody<SelectBody>(ctx);
+                        _select(id, b == null ? null : new TcTarget(b.InstanceId, b.Project, b.PlcProject));
+                        WriteJson(ctx, 200, new { ok = true });
+                        return;
+                    }
                     case "enable": _setEnabled(id, true); WriteJson(ctx, 200, new { ok = true }); return;
                     case "disable": _setEnabled(id, false); WriteJson(ctx, 200, new { ok = true }); return;
                 }
             }
 
             WriteJson(ctx, 404, new { error = $"no route for {method} /{path}" });
+        }
+
+        private sealed record LaunchBody(string? InstallId);
+        private sealed record SelectBody(string? InstanceId, string? Project, string? PlcProject);
+
+        private static T? ReadBody<T>(HttpListenerContext ctx) where T : class
+        {
+            try
+            {
+                using var r = new System.IO.StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var s = r.ReadToEnd();
+                return string.IsNullOrWhiteSpace(s) ? null : JsonSerializer.Deserialize<T>(s, Json);
+            }
+            catch { return null; }
         }
 
         private static void WriteJson(HttpListenerContext ctx, int status, object payload)

@@ -121,6 +121,16 @@ public sealed class HttpBridgeServer
                 WriteText(ctx, 200, "text/html; charset=utf-8", SwaggerHtml);
                 return;
             }
+            // Attachable IDE instances/projects (TwinCAT ROT). Works even when degraded
+            // so the user can re-pick a target; empty for adapters that don't support it.
+            if (path == "/instances" && method == "GET")
+            {
+                var instances = _adapter is IInstanceProvider ip
+                    ? _adapter.RunOnStaThread(() => ip.ListInstances())
+                    : (object)Array.Empty<object>();
+                Write(ctx, 200, new { instances });
+                return;
+            }
 
             if (_adapter.IsDegraded)
             {

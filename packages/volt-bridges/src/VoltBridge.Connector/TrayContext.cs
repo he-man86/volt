@@ -22,6 +22,7 @@ namespace VoltBridge.Connector
         private readonly BridgeSupervisor _supervisor = new();
         private readonly List<VendorProvider> _providers;
         private readonly Dictionary<string, BridgeStatus> _status = new();
+        private readonly Dictionary<string, List<TcInstanceDto>> _instances = new();
         private readonly Dictionary<string, ToolStripMenuItem> _vendorItems = new();
         private readonly ControlServer _control;
         private volatile BridgeView[] _snapshot = Array.Empty<BridgeView>();
@@ -46,7 +47,21 @@ namespace VoltBridge.Connector
             _control = new ControlServer(
                 () => _snapshot,
                 id => { var p = Find(id); if (p != null && p.Archetype == Archetype.ExternalAttach) { _supervisor.StopWorker(id); _supervisor.EnsureWorker(p); } },
-                id => { var p = Find(id); return p != null && _supervisor.LaunchIde(p); },
+                (id, installId) =>
+                {
+                    var p = Find(id); if (p == null) return false;
+                    if (installId != null)
+                    {
+                        var inst = p.Installs.FirstOrDefault(x => x.Id == installId);
+                        if (inst != null) return _supervisor.LaunchIde(inst.ExePath, p.IdeLaunchArgs);
+                    }
+                    return _supervisor.LaunchIde(p);
+                },
+                (id, target) =>
+                {
+                    var p = Find(id); if (p == null || p.Archetype != Archetype.ExternalAttach) return;
+                    p.Target = target; _supervisor.StopWorker(id); _supervisor.EnsureWorker(p);
+                },
                 (id, on) =>
                 {
                     var p = Find(id); if (p == null) return;
@@ -72,6 +87,10 @@ namespace VoltBridge.Connector
                 var now = await HealthProbe.ProbeAsync(p.Port);
                 _status[p.Id] = now;
                 if (now != prev) OnStatusChanged(p, prev, now);
+
+                // Cache the attachable instances so the "Connect to" submenu opens instantly.
+                if (p.Archetype == Archetype.ExternalAttach)
+                    _instances[p.Id] = await InstanceProbe.FetchAsync(p.Port);
             }
             UpdateIcon();
             RefreshMenuLabels();
@@ -81,7 +100,10 @@ namespace VoltBridge.Connector
                 p.Id, p.DisplayName, p.Port, p.Archetype.ToString(),
                 p.Enabled,
                 p.Enabled ? HealthProbe.Describe(_status[p.Id]) : "disabled",
-                p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id))).ToArray();
+                p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id),
+                p.Installs.Count > 0 ? p.Installs : null,
+                _instances.TryGetValue(p.Id, out var insts) ? insts : null,
+                p.Target)).ToArray();
         }
 
         private VendorProvider? Find(string id) => _providers.FirstOrDefault(p => p.Id == id);
@@ -128,19 +150,18 @@ namespace VoltBridge.Connector
                 var item = new ToolStripMenuItem(p.DisplayName);
                 if (p.Archetype == Archetype.ExternalAttach)
                 {
+                    var connect = new ToolStripMenuItem("Connect to");
+                    connect.DropDownOpening += (_, _) => PopulateInstances(p, connect);
+                    item.DropDownItems.Add(connect);
                     item.DropDownItems.Add("Restart bridge", null, (_, _) => { _supervisor.StopWorker(p.Id); _supervisor.EnsureWorker(p); });
                     item.DropDownItems.Add("Stop bridge", null, (_, _) => _supervisor.StopWorker(p.Id));
                 }
-                else // InIdeLoad
+                else // InIdeLoad — a submenu of discovered installs, repopulated on open
                 {
-                    var launch = new ToolStripMenuItem($"Open {p.DisplayName} (Volt)", null, (_, _) =>
-                    {
-                        if (!_supervisor.LaunchIde(p))
-                            _icon.ShowBalloonTip(6000, "Volt",
-                                $"Couldn't launch {p.DisplayName} — set its install path (VOLT_CODESYS_EXE) and the bridge script.", ToolTipIcon.Warning);
-                    })
-                    { Enabled = p.CanLaunchIde };
-                    item.DropDownItems.Add(launch);
+                    var open = new ToolStripMenuItem($"Open {p.DisplayName} (Volt)");
+                    open.DropDownOpening += (_, _) => PopulateInstalls(p, open);
+                    open.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
+                    item.DropDownItems.Add(open);
                 }
                 var toggle = new ToolStripMenuItem("Enabled") { Checked = p.Enabled, CheckOnClick = true };
                 toggle.CheckedChanged += (_, _) =>
@@ -162,6 +183,84 @@ namespace VoltBridge.Connector
             });
             menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
             return menu;
+        }
+
+        // ── CODESYS install picker (versions + forks, re-discovered each open) ──
+        private void PopulateInstalls(VendorProvider p, ToolStripMenuItem open)
+        {
+            open.DropDownItems.Clear();
+            if (p.Installs.Count == 0)
+                open.DropDownItems.Add(new ToolStripMenuItem("No CODESYS install detected") { Enabled = false });
+            foreach (var inst in p.Installs)
+            {
+                var label = inst.Variant is "CODESYS" or "Manual" ? inst.DisplayName : $"{inst.DisplayName}  [{inst.Variant}]";
+                open.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => LaunchInstall(p, inst)));
+            }
+            open.DropDownItems.Add(new ToolStripSeparator());
+            open.DropDownItems.Add(new ToolStripMenuItem("Add install…", null, (_, _) => AddInstall(p)));
+        }
+
+        /// <summary>Manual backup: browse to a CODESYS-family launcher and remember it. Covers
+        /// any version/fork/path that auto-detection (glob + registry) didn't surface.</summary>
+        private void AddInstall(VendorProvider p)
+        {
+            using var dlg = new OpenFileDialog
+            {
+                Title = "Select the CODESYS-family launcher (e.g. CODESYS.exe)",
+                Filter = "Executable (*.exe)|*.exe",
+                CheckFileExists = true,
+            };
+            if (dlg.ShowDialog() != DialogResult.OK) return;
+            CodesysDiscovery.AddManualInstall(dlg.FileName, null);
+            p.Installs = CodesysDiscovery.Discover();
+            if (string.IsNullOrEmpty(p.IdeExe) && p.Installs.Count > 0) p.IdeExe = p.Installs[0].ExePath;
+        }
+
+        private void LaunchInstall(VendorProvider p, IdeInstall inst)
+        {
+            if (!_supervisor.LaunchIde(inst.ExePath, p.IdeLaunchArgs))
+                _icon.ShowBalloonTip(6000, "Volt", $"Couldn't launch {inst.DisplayName}.", ToolTipIcon.Warning);
+        }
+
+        // ── TwinCAT instance/project picker ──
+        private void PopulateInstances(VendorProvider p, ToolStripMenuItem connect)
+        {
+            connect.DropDownItems.Clear();
+            connect.DropDownItems.Add(new ToolStripMenuItem("Default (first active)", null, (_, _) => SelectTarget(p, null)) { Checked = p.Target == null });
+
+            var list = _instances.TryGetValue(p.Id, out var inst) ? inst : new List<TcInstanceDto>();
+            if (list.Count == 0)
+            {
+                connect.DropDownItems.Add(new ToolStripMenuItem("(no running instances detected)") { Enabled = false });
+                return;
+            }
+            connect.DropDownItems.Add(new ToolStripSeparator());
+            foreach (var i in list)
+            {
+                foreach (var proj in i.Projects)
+                {
+                    var plcs = proj.PlcProjects.Count > 0 ? proj.PlcProjects : new List<string> { "" };
+                    foreach (var plc in plcs)
+                    {
+                        var label = $"{i.IdeName ?? "IDE"} — {proj.Project}" + (string.IsNullOrEmpty(plc) ? "" : $" / {plc}");
+                        var target = new TcTarget(i.InstanceId, proj.Project, string.IsNullOrEmpty(plc) ? null : plc);
+                        var current = p.Target != null && p.Target.Instance == target.Instance
+                            && p.Target.Project == target.Project && p.Target.PlcProject == target.PlcProject;
+                        connect.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => SelectTarget(p, target)) { Checked = current });
+                    }
+                }
+            }
+        }
+
+        private void SelectTarget(VendorProvider p, TcTarget? target)
+        {
+            p.Target = target;
+            _supervisor.StopWorker(p.Id);
+            _supervisor.EnsureWorker(p);
+            _icon.ShowBalloonTip(3000, "Volt", target == null
+                ? $"{p.DisplayName}: attaching to the first active project…"
+                : $"{p.DisplayName}: attaching to {target.Project}{(target.PlcProject != null ? " / " + target.PlcProject : "")}…",
+                ToolTipIcon.Info);
         }
 
         private void RefreshMenuLabels()

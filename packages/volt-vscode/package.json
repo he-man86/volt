@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.20.13",
+  "version": "1.20.14",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -326,6 +326,16 @@
         "title": "Volt: Set Up Workspace (detect IDE)",
         "category": "Volt",
         "icon": "$(rocket)"
+      },
+      {
+        "command": "volt.openCodesysVersion",
+        "title": "Volt: Open CODESYS (choose version/fork)",
+        "category": "Volt"
+      },
+      {
+        "command": "volt.selectTwincatProject",
+        "title": "Volt: Select TwinCAT Project to Connect",
+        "category": "Volt"
       },
       {
         "command": "volt.init",

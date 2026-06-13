@@ -76,6 +76,50 @@ paths:
                     plcProjectName: null
 
   # ── /refs ─────────────────────────────────────────────────────────────────
+  /instances:
+    get:
+      operationId: listInstances
+      summary: Attachable IDE instances/projects (for the connector's picker)
+      description: |
+        Lists the IDE instances + projects this bridge could attach to. TwinCAT
+        enumerates the COM Running Object Table (every running TcXaeShell / VS
+        instance and its PLC projects); adapters without multi-instance support
+        return an empty list. Works even when the bridge is degraded so a target
+        can be re-picked. The connector reads this over HTTP — it does no COM.
+      responses:
+        "200":
+          description: Running instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instanceId: { type: string, description: ROT moniker (incl. pid) — the target id }
+                        ideName: { type: string, nullable: true }
+                        ideVersion: { type: string, nullable: true }
+                        solution: { type: string, nullable: true }
+                        projects:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              project: { type: string }
+                              plcProjects: { type: array, items: { type: string } }
+              example:
+                instances:
+                  - instanceId: "!TcXaeShell.DTE.15.0:12345"
+                    ideName: "TcXaeShell"
+                    ideVersion: "15.0"
+                    solution: "C:\\proj\\MachineA.sln"
+                    projects:
+                      - project: "MachineA"
+                        plcProjects: ["PLC1", "PLC2"]
+
   /refs:
     get:
       operationId: getRefs

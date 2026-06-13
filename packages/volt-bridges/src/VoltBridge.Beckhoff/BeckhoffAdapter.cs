@@ -7,7 +7,7 @@ using VoltBridge.Core.Models;
 
 namespace VoltBridge.Beckhoff;
 
-public class BeckhoffAdapter : AdapterBase, IAdapter
+public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
 {
     private readonly BlockingCollection<Action> _staQueue = new();
     private readonly object _cacheLock = new();
@@ -55,27 +55,48 @@ public class BeckhoffAdapter : AdapterBase, IAdapter
 
     // ── Connection ──────────────────────────────────────────────────
 
+    /// <summary>All running TwinCAT instances + projects (for the connector's picker).
+    /// Returns object to satisfy IInstanceProvider without Core knowing TcInstance.</summary>
+    public object ListInstances() => RotInstances.Enumerate();
+
     public void Connect()
     {
-        string[] progIds = ["VisualStudio.DTE.17.0", "VisualStudio.DTE.16.0", "TcXaeShell.DTE.15.0"];
-        foreach (var progId in progIds)
+        // Optional target (set by the connector when the user picks an instance/project).
+        var targetInstance = Environment.GetEnvironmentVariable("VOLT_TC_INSTANCE");
+        var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
+        var targetPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
+
+        if (!string.IsNullOrEmpty(targetInstance))
         {
-            try
+            _dte = RotInstances.Bind(targetInstance);
+            if (_dte != null)
             {
-                _dte = GetComObject(progId);
-                _ideProgId = progId;
+                _ideProgId = RotInstances.ProgId(targetInstance);
                 try { _ideVersion = (string?)_dte!.Version; } catch { }
-                break;
             }
-            catch (COMException) { continue; }
+        }
+        if (_dte == null) // no target (or it vanished) → first active instance, today's behavior
+        {
+            string[] progIds = ["VisualStudio.DTE.17.0", "VisualStudio.DTE.16.0", "TcXaeShell.DTE.15.0"];
+            foreach (var progId in progIds)
+            {
+                try
+                {
+                    _dte = GetComObject(progId);
+                    _ideProgId = progId;
+                    try { _ideVersion = (string?)_dte!.Version; } catch { }
+                    break;
+                }
+                catch (COMException) { continue; }
+            }
         }
         if (_dte == null)
             throw new InvalidOperationException("No running TwinCAT XAE instance found.");
-        FindTwinCatProject();
-        FindPlcProject();
+        FindTwinCatProject(string.IsNullOrEmpty(targetProject) ? null : targetProject);
+        FindPlcProject(string.IsNullOrEmpty(targetPlc) ? null : targetPlc);
     }
 
-    private void FindTwinCatProject()
+    private void FindTwinCatProject(string? wantProject = null)
     {
         // Access Solution.Projects via COM type system (not dynamic)
         dynamic solution = _dte!.Solution;
@@ -87,6 +108,12 @@ public class BeckhoffAdapter : AdapterBase, IAdapter
             try
             {
                 dynamic proj = projects.Item(i);
+                if (wantProject != null) // skip until we hit the requested project
+                {
+                    string nm;
+                    try { nm = (string)proj.Name; } catch { continue; }
+                    if (nm != wantProject) continue;
+                }
                 // In TcXaeShell, proj.Object IS the SystemManager.
                 // In full VS, proj.Object.SystemManager is the SystemManager.
                 dynamic obj = proj.Object;
@@ -146,11 +173,12 @@ public class BeckhoffAdapter : AdapterBase, IAdapter
         if (_sysManager == null) throw new InvalidOperationException("No TwinCAT project found in solution.");
     }
 
-    private void FindPlcProject()
+    private void FindPlcProject(string? wantPlc = null)
     {
-        if (_plcProjectPath != null) { _plcNode = LookupTreeItem(_plcProjectPath); return; }
+        // Honour an explicit PLC selection even if FindTwinCatProject already set a path.
+        if (wantPlc == null && _plcProjectPath != null) { _plcNode = LookupTreeItem(_plcProjectPath); return; }
 
-        // Try LookupTreeItem to find PLC projects under TIPC
+        // Walk TIPC; pick the requested PLC project, or the first one.
         try
         {
             dynamic tipc = _sysManager!.LookupTreeItem("TIPC");
@@ -161,6 +189,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter
                 {
                     dynamic plc = tipc.Child[i];
                     string name = plc.Name;
+                    if (wantPlc != null && name != wantPlc) continue;
                     _plcNode = plc;
                     _plcProjectPath = name;
                     break;
@@ -170,6 +199,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter
         }
         catch { }
 
+        if (_plcNode == null && _plcProjectPath != null) _plcNode = LookupTreeItem(_plcProjectPath);
         if (_plcNode == null) throw new InvalidOperationException("Cannot find PLC project under TIPC.");
     }
 
