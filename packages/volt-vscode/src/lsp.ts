@@ -31,7 +31,14 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<Langua
 
 	await client.start()
 	clients.push(client)
-	vscode.window.showInformationMessage("Volt LSP started")
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand("volt.lsp.restart", async () => {
+			await client.restart()
+			vscode.window.showInformationMessage("Volt LSP restarted")
+		}),
+		vscode.commands.registerCommand("volt.lsp.showOutput", () => { client.outputChannel.show() }),
+	)
 
 	return clients
 }

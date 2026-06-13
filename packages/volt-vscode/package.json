@@ -675,7 +675,7 @@
       },
       {
         "view": "volt.scm",
-        "contents": "No Volt workspace here.\n\nVolt syncs your folder with the running PLC IDE so you can read, edit and merge POU files alongside the rest of your code.\n\nWhich IDE are you targeting?\n\n[Initialize for TwinCAT](command:volt.initTwincat)\n[Initialize for CODESYS](command:volt.initCodesys)\n\nFor a non-standard port, set `volt.bridge.ide` to `custom` and `volt.bridge.port` in [Settings](command:volt.openBridgeSettings).\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
+        "contents": "No Volt workspace here.\n\nVolt syncs your folder with the running PLC IDE so you can read, edit and merge POU files alongside the rest of your code.\n\nWhich IDE are you targeting?\n\n[Initialize for TwinCAT](command:volt.initTwincat)\n[Initialize for CODESYS](command:volt.initCodesys)\n\nFor a non-standard port, set `volt.bridge.twincatPort` or `volt.bridge.codesysPort` in [Settings](command:volt.openSettings).\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
         "when": "workbenchState != empty && !volt.workspaceInitialized"
       }
     ]

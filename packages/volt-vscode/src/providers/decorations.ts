@@ -14,8 +14,11 @@ export class VoltDecorations implements vscode.FileDecorationProvider {
 		this.workspaceRoot = workspaceRoot
 		this.incoming = fileMap(status.incoming, status.pathByName)
 		this.outgoing = fileMap(status.outgoing, status.pathByName)
+		// Conflict paths are snapshot-tree-relative (no `src/`), but provideFileDecoration
+		// compares against asRelativePath(uri) which IS `src/`-prefixed — key them the
+		// same way (incoming/outgoing already match via the src/-prefixed pathByName).
 		const mergePaths = status.merging?.conflicts ?? []
-		this.conflicts = Object.fromEntries(mergePaths.map((c) => [c.path, c.path]))
+		this.conflicts = Object.fromEntries(mergePaths.map((c) => [`src/${c.path}`, c.path]))
 		this.emitter.fire(undefined)
 	}
 

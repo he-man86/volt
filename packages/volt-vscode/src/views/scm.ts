@@ -49,11 +49,19 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 		// node.kind === "item"
 		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None)
 		item.id = `${node.group}-${node.letter}-${node.rel}`
-		item.contextValue = "volt.item"
+		// Per-group contextValue so the inline menus (use-mine/theirs on conflicts,
+		// discard on outgoing) match their `viewItem ==` when-clauses.
+		item.contextValue =
+			node.group === "merge" ? "volt.item.merge"
+			: node.group === "outgoing" ? "volt.item.outgoing"
+			: "volt.item.incoming"
 		item.description = node.letter
 		item.tooltip = node.tooltip
 		item.resourceUri = node.uri
-		item.command = { command: "vscode.diff", title: "Show diff", arguments: [node.uri, node.uri] }
+		item.command =
+			node.group === "merge"
+				? { command: "volt.merge.openEditor", title: "Open conflict", arguments: [node] }
+				: { command: "vscode.open", title: "Open", arguments: [node.uri] }
 		return item
 	}
 
