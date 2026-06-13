@@ -16,6 +16,16 @@ describe("extensions", () => {
     }
   })
 
+  test("config kinds use ext == kind (read-only marker files; no ad-hoc abbreviations)", () => {
+    for (const def of EXTENSIONS) {
+      if (def.family !== "config") continue
+      // The one exception: a kind whose file IS a real on-disk artifact keeps its
+      // real extension (e.g. tmc_file -> .tmc), flagged by nameIsVerbatim.
+      if (def.nameIsVerbatim === true) continue
+      expect(def.ext).toBe(def.kind)
+    }
+  })
+
   test("getByKind returns definition for every known kind", () => {
     for (const def of EXTENSIONS) {
       const found = getByKind(def.kind)

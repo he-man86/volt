@@ -39,19 +39,21 @@ export const EXTENSIONS: readonly ExtensionDef[] = [
 	{ kind: "alias",          ext: "alias",  defaultAccess: "rw", family: "source", describe: "Alias" },
 
 	// Config kinds — R (engineer owns these in the IDE).
-	// This list must stay in lockstep with the bridge's emitted kinds — see
-	// ../../../volt-bridges/item-kinds.json (enforced by vocabulary.test.ts).
-	{ kind: "library",                ext: "library",       defaultAccess: "r", family: "config", describe: "Library reference" },
-	{ kind: "task",                   ext: "task",          defaultAccess: "r", family: "config", describe: "IEC task" },
-	{ kind: "image_pool",             ext: "imagepool",     defaultAccess: "r", family: "config", describe: "Image pool" },
-	{ kind: "text_list",              ext: "textlist",      defaultAccess: "r", family: "config", describe: "Text list" },
-	{ kind: "recipe_manager",         ext: "recipes",       defaultAccess: "r", family: "config", describe: "Recipe manager" },
-	{ kind: "visualization_manager",  ext: "visu",          defaultAccess: "r", family: "config", describe: "Visualization manager" },
-	{ kind: "visualization",          ext: "visualization", defaultAccess: "r", family: "config", describe: "Visualization screen" },
-	{ kind: "library_manager",        ext: "libraries",     defaultAccess: "r", family: "config", describe: "Library manager" },
-	{ kind: "class_diagram",          ext: "uml",           defaultAccess: "r", family: "config", describe: "UML class diagram" },
-	{ kind: "external_types",         ext: "exttypes",      defaultAccess: "r", family: "config", describe: "External types" },
-	{ kind: "tmc_file",               ext: "tmc",           defaultAccess: "r", family: "config", describe: "TMC file", nameIsVerbatim: true },
+	// Convention: ext == kind (read-only marker files; unambiguous and self-syncing,
+	// enforced by extensions.test.ts). The ONE exception is tmc_file, whose `.tmc` is
+	// the real on-disk TwinCAT artifact (nameIsVerbatim). The kind set itself stays in
+	// lockstep with the bridge via item-kinds.json / vocabulary.test.ts.
+	{ kind: "library",                ext: "library",               defaultAccess: "r", family: "config", describe: "Library reference" },
+	{ kind: "task",                   ext: "task",                  defaultAccess: "r", family: "config", describe: "IEC task" },
+	{ kind: "image_pool",             ext: "image_pool",            defaultAccess: "r", family: "config", describe: "Image pool" },
+	{ kind: "text_list",              ext: "text_list",             defaultAccess: "r", family: "config", describe: "Text list" },
+	{ kind: "recipe_manager",         ext: "recipe_manager",        defaultAccess: "r", family: "config", describe: "Recipe manager" },
+	{ kind: "visualization_manager",  ext: "visualization_manager", defaultAccess: "r", family: "config", describe: "Visualization manager" },
+	{ kind: "visualization",          ext: "visualization",         defaultAccess: "r", family: "config", describe: "Visualization screen" },
+	{ kind: "library_manager",        ext: "library_manager",       defaultAccess: "r", family: "config", describe: "Library manager" },
+	{ kind: "class_diagram",          ext: "class_diagram",         defaultAccess: "r", family: "config", describe: "UML class diagram" },
+	{ kind: "external_types",         ext: "external_types",        defaultAccess: "r", family: "config", describe: "External types" },
+	{ kind: "tmc_file",               ext: "tmc",                   defaultAccess: "r", family: "config", describe: "TMC file", nameIsVerbatim: true },
 
 	// Folder marker
 	{ kind: "folder", ext: "", defaultAccess: "r", family: "folder", describe: "Empty engineer folder" },
