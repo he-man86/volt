@@ -80,6 +80,8 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 	let merging = false
 	let incoming = 0
 	let outgoing = 0
+	// Aggregate bridge connection across workspaces (worst wins).
+	let conn: "ok" | "offline" | "noproject" | "degraded" = "ok"
 	for (const s of statuses.values()) {
 		const c = s.cached
 		if (c !== undefined) {
@@ -88,21 +90,42 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 			incoming += changeCount(c.incoming)
 			outgoing += changeCount(c.outgoing)
 		}
+		switch (s.health.kind) {
+			case "unreachable": conn = "offline"; break
+			case "disconnected": if (conn === "ok") conn = "noproject"; break
+			case "degraded": if (conn === "ok") conn = "degraded"; break
+		}
 	}
 
 	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
 	void vscode.commands.executeCommand("setContext", "volt.merging", merging)
 
 	if (!initialized) { statusBar.hide(); return }
+
+	// Reset the actionable bits each pass.
+	statusBar.command = "volt.status"
+	statusBar.backgroundColor = undefined
+
 	if (merging) {
 		statusBar.text = "$(git-merge) Volt: merge"
 		statusBar.tooltip = "Merge in progress — resolve conflicts, then run Volt: Continue Merge"
+	} else if (conn === "offline") {
+		statusBar.text = "$(plug) Volt: bridge offline"
+		statusBar.tooltip = "No bridge on the configured port — click to start it via the connector"
+		statusBar.command = "volt.startBridge"
+		statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground")
+	} else if (conn === "noproject") {
+		statusBar.text = "$(circle-slash) Volt: no project"
+		statusBar.tooltip = "The IDE is running but no project is loaded"
+	} else if (conn === "degraded") {
+		statusBar.text = "$(warning) Volt: degraded"
+		statusBar.tooltip = "The IDE channel had recent errors — read-only-safe; heavy writes may retry"
 	} else if (incoming > 0 || outgoing > 0) {
 		statusBar.text = `$(sync) Volt ${outgoing}↑ ${incoming}↓`
 		statusBar.tooltip = `${outgoing} outgoing, ${incoming} incoming — open the Volt view`
 	} else {
 		statusBar.text = "$(check) Volt"
-		statusBar.tooltip = "In sync with the IDE"
+		statusBar.tooltip = "Connected and in sync with the IDE"
 	}
 	statusBar.show()
 }

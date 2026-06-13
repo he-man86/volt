@@ -4,6 +4,8 @@ import { writeFileSync } from "node:fs"
 import { spawnVolt, spawnVoltBuffer } from "./cli.js"
 import { withGate } from "./gate.js"
 import { VoltStatus } from "./state/status.js"
+import { readBridgePort } from "./state/health.js"
+import { startBridgeByPort } from "./connector.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
 const output = (() => {
@@ -262,6 +264,26 @@ export function registerCommands(statuses: Map<string, VoltStatus>): vscode.Disp
 			output().show()
 		}),
 		reg("volt.refresh", async () => { for (const s of statuses.values()) await s.refresh() }),
+
+		// Start this workspace's bridge via the connector (restart worker / launch IDE).
+		reg("volt.startBridge", async () => {
+			const s = pickStatus(statuses)
+			if (s === undefined) return
+			const port = readBridgePort(s.workspaceRoot)
+			if (port === undefined) { vscode.window.showWarningMessage("No bridge port is configured for this workspace."); return }
+			const result = await startBridgeByPort(port)
+			if (result === "no-connector") {
+				const pick = await vscode.window.showWarningMessage(
+					"Volt Connector isn't running — it manages the bridges from your system tray.", "How to start it")
+				if (pick === "How to start it")
+					vscode.window.showInformationMessage("Run VoltConnector.exe (it lives in the system tray), and make sure your PLC IDE is open with a project.")
+			} else if (result === "no-bridge") {
+				vscode.window.showWarningMessage(`The connector has no bridge on port ${port} for this workspace.`)
+			} else {
+				vscode.window.showInformationMessage("Starting the bridge — give it a moment…")
+				setTimeout(() => { void s.refresh() }, 3000)
+			}
+		}),
 
 		reg("volt.openConfig", () => {
 			const w = ws(); if (!w) return

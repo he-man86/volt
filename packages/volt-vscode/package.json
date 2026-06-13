@@ -422,6 +422,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "volt.startBridge",
+        "title": "Volt: Start Bridge",
+        "category": "Volt",
+        "icon": "$(debug-start)"
+      },
+      {
         "command": "volt.build",
         "title": "Volt: Build (writes diagnostics to Problems panel)",
         "category": "Volt",
@@ -603,14 +609,24 @@
       ],
       "view/item/context": [
         {
+          "command": "volt.startBridge",
+          "when": "view == volt.scm && viewItem == volt.health",
+          "group": "inline@1"
+        },
+        {
           "command": "volt.refresh",
           "when": "view == volt.scm && viewItem == volt.health",
           "group": "1_health@1"
         },
         {
-          "command": "volt.showOutput",
+          "command": "volt.startBridge",
           "when": "view == volt.scm && viewItem == volt.health",
           "group": "1_health@2"
+        },
+        {
+          "command": "volt.showOutput",
+          "when": "view == volt.scm && viewItem == volt.health",
+          "group": "1_health@3"
         },
         {
           "command": "volt.merge.useMine",

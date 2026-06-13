@@ -23,6 +23,8 @@ namespace VoltBridge.Connector
         private readonly List<VendorProvider> _providers;
         private readonly Dictionary<string, BridgeStatus> _status = new();
         private readonly Dictionary<string, ToolStripMenuItem> _vendorItems = new();
+        private readonly ControlServer _control;
+        private volatile BridgeView[] _snapshot = Array.Empty<BridgeView>();
 
         public TrayContext()
         {
@@ -39,6 +41,19 @@ namespace VoltBridge.Connector
 
             // Start the external-attach workers up front.
             foreach (var p in _providers) _supervisor.EnsureWorker(p);
+
+            // Control plane (:8550) — the extension / opencode app see + manage bridges.
+            _control = new ControlServer(
+                () => _snapshot,
+                id => { var p = Find(id); if (p != null && p.Archetype == Archetype.ExternalAttach) { _supervisor.StopWorker(id); _supervisor.EnsureWorker(p); } },
+                id => { var p = Find(id); return p != null && _supervisor.LaunchIde(p); },
+                (id, on) =>
+                {
+                    var p = Find(id); if (p == null) return;
+                    p.Enabled = on;
+                    if (p.Archetype == Archetype.ExternalAttach) { if (on) _supervisor.EnsureWorker(p); else _supervisor.StopWorker(id); }
+                });
+            _control.Start();
 
             _timer = new System.Windows.Forms.Timer { Interval = 4000 };
             _timer.Tick += async (_, _) => await TickAsync();
@@ -60,7 +75,16 @@ namespace VoltBridge.Connector
             }
             UpdateIcon();
             RefreshMenuLabels();
+
+            // Publish the immutable snapshot the control plane serves on :8550.
+            _snapshot = _providers.Select(p => new BridgeView(
+                p.Id, p.DisplayName, p.Port, p.Archetype.ToString(),
+                p.Enabled,
+                p.Enabled ? HealthProbe.Describe(_status[p.Id]) : "disabled",
+                p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id))).ToArray();
         }
+
+        private VendorProvider? Find(string id) => _providers.FirstOrDefault(p => p.Id == id);
 
         private void OnStatusChanged(VendorProvider p, BridgeStatus prev, BridgeStatus now)
         {
@@ -153,6 +177,7 @@ namespace VoltBridge.Connector
         protected override void ExitThreadCore()
         {
             _timer.Stop();
+            _control.Dispose();
             _icon.Visible = false;
             _supervisor.Dispose();
             _icon.Dispose();
