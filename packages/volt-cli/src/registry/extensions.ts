@@ -38,18 +38,16 @@ export const EXTENSIONS: readonly ExtensionDef[] = [
 	{ kind: "enumeration",    ext: "enum",   defaultAccess: "rw", family: "source", describe: "Enumeration" },
 	{ kind: "alias",          ext: "alias",  defaultAccess: "rw", family: "source", describe: "Alias" },
 
-	// Config kinds — R (engineer owns these in the IDE)
+	// Config kinds — R (engineer owns these in the IDE).
+	// This list must stay in lockstep with the bridge's emitted kinds — see
+	// ../../../volt-bridges/item-kinds.json (enforced by vocabulary.test.ts).
 	{ kind: "library",                ext: "library",       defaultAccess: "r", family: "config", describe: "Library reference" },
 	{ kind: "task",                   ext: "task",          defaultAccess: "r", family: "config", describe: "IEC task" },
-	{ kind: "device",                 ext: "device",        defaultAccess: "r", family: "config", describe: "Device tree node" },
-	{ kind: "trace",                  ext: "trace",         defaultAccess: "r", family: "config", describe: "Trace" },
 	{ kind: "image_pool",             ext: "imagepool",     defaultAccess: "r", family: "config", describe: "Image pool" },
 	{ kind: "text_list",              ext: "textlist",      defaultAccess: "r", family: "config", describe: "Text list" },
 	{ kind: "recipe_manager",         ext: "recipes",       defaultAccess: "r", family: "config", describe: "Recipe manager" },
 	{ kind: "visualization_manager",  ext: "visu",          defaultAccess: "r", family: "config", describe: "Visualization manager" },
 	{ kind: "visualization",          ext: "visualization", defaultAccess: "r", family: "config", describe: "Visualization screen" },
-	{ kind: "symbol_config",          ext: "symbols",       defaultAccess: "r", family: "config", describe: "Symbol configuration" },
-	{ kind: "project_info",           ext: "projectinfo",   defaultAccess: "r", family: "config", describe: "Project information" },
 	{ kind: "library_manager",        ext: "libraries",     defaultAccess: "r", family: "config", describe: "Library manager" },
 	{ kind: "class_diagram",          ext: "uml",           defaultAccess: "r", family: "config", describe: "UML class diagram" },
 	{ kind: "external_types",         ext: "exttypes",      defaultAccess: "r", family: "config", describe: "External types" },

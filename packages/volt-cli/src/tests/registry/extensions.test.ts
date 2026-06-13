@@ -8,37 +8,11 @@ import {
 } from "../../registry/extensions.js"
 
 describe("extensions", () => {
-  test("pickExtension returns correct ext for every known kind", () => {
-    const expected: Record<string, string> = {
-      function_block: "st",
-      function: "st",
-      program: "st",
-      interface: "itf",
-      gvl: "gvl",
-      structure: "struct",
-      union: "union",
-      enumeration: "enum",
-      alias: "alias",
-      library: "library",
-      task: "task",
-      device: "device",
-      trace: "trace",
-      image_pool: "imagepool",
-      text_list: "textlist",
-      recipe_manager: "recipes",
-      visualization_manager: "visu",
-      visualization: "visualization",
-      symbol_config: "symbols",
-      project_info: "projectinfo",
-      library_manager: "libraries",
-      class_diagram: "uml",
-      external_types: "exttypes",
-      tmc_file: "tmc",
-      folder: "",
-    }
-
-    for (const [kind, expectedExt] of Object.entries(expected)) {
-      expect(pickExtension(kind)).toBe(expectedExt)
+  test("pickExtension returns the registry ext for every known kind", () => {
+    // Derive from EXTENSIONS rather than a hardcoded copy — the vocabulary contract
+    // (vocabulary.test.ts) is what keeps the registry honest against the bridge.
+    for (const def of EXTENSIONS) {
+      expect(pickExtension(def.kind)).toBe(def.ext)
     }
   })
 
