@@ -55,7 +55,9 @@ function pickStatus(statuses: Map<string, VoltStatus>): VoltStatus | undefined {
 
 async function refreshFor(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
 	const s = statuses.get(workspaceRoot)
-	if (s !== undefined) await s.refresh()
+	// Force past the 1s debounce: an explicit action just changed state, so the
+	// tree must update now (otherwise the item lingers in the diff list).
+	if (s !== undefined) await s.refresh(true)
 }
 
 /** The tree element passed to view/item/context commands carries the bare,
@@ -68,9 +70,11 @@ function nodeRel(arg: unknown): string | undefined {
 	return undefined
 }
 
-/** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root). */
+/** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root).
+ *  Tolerates an already-src/-prefixed rel so we never produce src/src/…. */
 function onDiskPath(workspaceRoot: string, rel: string): string {
-	return join(workspaceRoot, "src", rel)
+	const treePath = rel.startsWith("src/") ? rel.slice(4) : rel
+	return join(workspaceRoot, "src", treePath)
 }
 
 // ── pull / push with outcome-aware UX ───────────────────────────────────

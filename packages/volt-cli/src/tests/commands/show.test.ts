@@ -83,4 +83,24 @@ describe("show", () => {
       cleanup()
     }
   })
+
+  test("show HEAD tolerates the src/-prefixed workspace path (diff left side)", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+      let out = ""
+      const orig = process.stdout.write
+      process.stdout.write = ((s: string | Uint8Array) => { out += s.toString(); return true }) as typeof process.stdout.write
+      try {
+        // The SCM view may pass either form — both must resolve.
+        await show(workspace, bridge, "HEAD", "src/POUs/FB_Motor.st")
+      } finally {
+        process.stdout.write = orig
+      }
+      expect(out).toContain("FUNCTION_BLOCK FB_Motor")
+    } finally {
+      cleanup()
+    }
+  })
 })

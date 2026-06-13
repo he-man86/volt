@@ -43,9 +43,9 @@ export class VoltStatus {
 		this.onDidChange.dispose()
 	}
 
-	async refresh(): Promise<void> {
+	async refresh(force = false): Promise<void> {
 		if (this.isRefreshing) return
-		if (Date.now() - this.lastRefreshMs < 1_000) return
+		if (!force && Date.now() - this.lastRefreshMs < 1_000) return
 		this.lastRefreshMs = Date.now()
 		this.isRefreshing = true
 

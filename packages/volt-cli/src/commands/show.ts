@@ -11,10 +11,15 @@ export async function show(workspace: string, bridge: Remote, ref: string, path:
 	const state = loadState(paths.snapshotPath)
 	if (!state) throw new Error("Workspace not initialized — run 'volt init' first")
 
+	// The snapshot tree is rooted at the workspace's src/, so its paths are
+	// src-relative ("POUs/Foo.st"). Tolerate callers that pass the src/-prefixed
+	// workspace path ("src/POUs/Foo.st") — the SCM/diff views do — so neither form fails.
+	const treePath = path.startsWith("src/") ? path.slice(4) : path
+
 	// BRIDGE = the item's CURRENT content live from the IDE (what a pull would bring).
 	// Lets the editor diff workspace/HEAD ↔ the live IDE without pulling.
 	if (ref === "BRIDGE") {
-		const name = nameFromPath(path)
+		const name = nameFromPath(treePath)
 		if (name === undefined) { console.error(`cannot derive item name from path: ${path}`); process.exitCode = 2; return }
 		const fetched = await bridge.fetchChanges({ knownItems: {}, onlyItems: [name] })
 		const item = fetched.changed.find((i) => i.name === name)
@@ -30,9 +35,9 @@ export async function show(workspace: string, bridge: Remote, ref: string, path:
 		return
 	}
 
-	const blob = lookupBlobInCommit(paths.snapshotPath, resolved, path)
+	const blob = lookupBlobInCommit(paths.snapshotPath, resolved, treePath)
 	if (!blob) {
-		console.error(`path not found in commit ${resolved.slice(0, 8)}: ${path}`)
+		console.error(`path not found in commit ${resolved.slice(0, 8)}: ${treePath}`)
 		process.exitCode = 2
 		return
 	}
