@@ -364,16 +364,33 @@ namespace VoltBridge.Codesys
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
 
         // ── PLCopenXML import / export (the graphical write/read transport) ──────
-        /// <summary>Export an object to PLCopenXML (plain text) and return the document.</summary>
+        private object? _scriptEngine;   // cached APEnvironment.ScriptEngine
+
+        /// <summary>Export an object to PLCopenXML and return the document text — NO file. From the
+        /// decompiled <c>ScriptProject.export_xml(IEnumerable&lt;IExtendedObject&lt;IScriptObject&gt;&gt;,
+        /// stPath, …)</c>: an EMPTY stPath serializes to a MemoryStream and returns the XML string.
+        /// Our tree stores fully-unwrapped <c>IScriptObject</c> nodes, so re-wrap the node into the
+        /// required <c>IExtendedObject&lt;IScriptObject&gt;</c> via the script engine's
+        /// <c>CreateExtendedObject</c> factory (the same call the scripting tree itself uses).</summary>
         public string ExportXml(object node)
         {
-            var sobj = Unwrap(node)!;
-            var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt_x_" + Guid.NewGuid().ToString("N") + ".xml");
-            var m = sobj.GetType().GetMethods(BF).First(x => x.Name == "export_xml"
-                && x.GetParameters().Length == 4 && x.GetParameters()[0].ParameterType == typeof(string));
-            // export_xml(stPath, bRecursive, bExportFolderStructure, bPlainText)
-            InvokeWith(sobj, m, tmp, false, false, true);
-            try { return System.IO.File.ReadAllText(tmp); } finally { try { System.IO.File.Delete(tmp); } catch { } }
+            var proj = PrimaryProject!;
+            var export = proj.GetType().GetMethods(BF).First(x => x.Name == "export_xml" && x.GetParameters().Length == 5
+                && typeof(IEnumerable).IsAssignableFrom(x.GetParameters()[0].ParameterType)
+                && x.GetParameters()[1].ParameterType == typeof(string));
+            var elemType = export.GetParameters()[0].ParameterType.GetGenericArguments()[0];   // IExtendedObject<IScriptObject>
+            var baseType = elemType.GetGenericArguments()[0];                                    // IScriptObject
+
+            var se = _scriptEngine ??= FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")!
+                .GetProperty("ScriptEngine", BF | BindingFlags.Static)!.GetValue(null);
+            var createExt = se!.GetType().GetMethods(BF).First(x => x.Name == "CreateExtendedObject"
+                && x.IsGenericMethodDefinition && x.GetParameters().Length == 1);
+            var wrapped = createExt.MakeGenericMethod(baseType).Invoke(se, new[] { Unwrap(node) });
+
+            var objects = Array.CreateInstance(elemType, 1);
+            objects.SetValue(wrapped, 0);
+            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;   // empty stPath → returns XML
+            return xml.TrimStart('﻿');   // export_xml's UTF8.GetString prepends a BOM that XDocument.Parse rejects
         }
 
         /// <summary>Import PLCopenXML <paramref name="data"/> (a string, not a path), replacing an
