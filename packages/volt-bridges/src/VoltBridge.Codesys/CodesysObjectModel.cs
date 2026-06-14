@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using VoltBridge.Core;
 
@@ -361,6 +362,46 @@ namespace VoltBridge.Codesys
         }
 
         public void Rename(object node, string newName) => InvokeMethod(Unwrap(node), "rename", newName);
+
+        // ── PLCopenXML import / export (the graphical write/read transport) ──────
+        /// <summary>Export an object to PLCopenXML (plain text) and return the document.</summary>
+        public string ExportXml(object node)
+        {
+            var sobj = Unwrap(node)!;
+            var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt_x_" + Guid.NewGuid().ToString("N") + ".xml");
+            var m = sobj.GetType().GetMethods(BF).First(x => x.Name == "export_xml"
+                && x.GetParameters().Length == 4 && x.GetParameters()[0].ParameterType == typeof(string));
+            // export_xml(stPath, bRecursive, bExportFolderStructure, bPlainText)
+            InvokeWith(sobj, m, tmp, false, false, true);
+            try { return System.IO.File.ReadAllText(tmp); } finally { try { System.IO.File.Delete(tmp); } catch { } }
+        }
+
+        /// <summary>Import PLCopenXML <paramref name="data"/> (a string, not a path), replacing an
+        /// existing object of the same name when the IDE offers a conflict resolution.</summary>
+        public void ImportXml(string data)
+        {
+            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project");
+            var t = proj.GetType();
+            var m3 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml" && x.GetParameters().Length == 3
+                && x.GetParameters()[0].ParameterType.IsEnum && x.GetParameters()[1].ParameterType == typeof(string));
+            if (m3 != null)
+            {
+                var et = m3.GetParameters()[0].ParameterType;
+                var pick = Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Replace", StringComparison.OrdinalIgnoreCase) >= 0)
+                        ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (pick != null) { InvokeWith(proj, m3, Enum.Parse(et, pick), data, false); return; }
+            }
+            var m2 = t.GetMethods(BF).First(x => x.Name == "import_xml"
+                && x.GetParameters().Length == 2 && x.GetParameters()[0].ParameterType == typeof(string));
+            InvokeWith(proj, m2, data, false);
+        }
+
+        private static object? InvokeWith(object target, System.Reflection.MethodInfo m, params object?[] args)
+        {
+            try { return m.Invoke(target, args); }
+            catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+        }
+
 
         private static object Create(object container, string method, params object?[] leadingArgs) =>
             Unwrap(InvokeWithOptionals(container, method, leadingArgs))!;

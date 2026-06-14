@@ -67,7 +67,7 @@ public class FbdTcPouTests
         Assert.Equal(
             "aCM_Carrier[1](IModule := THIS^, xStart := (A OR B));\n" +
             "MACD.x[1] := aCM_Carrier[1].x;\n",
-            gb.St);
+            gb.Body);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class FbdTcPouTests
 
         var gb = TcPouReader.ReadGraphicalBody(tc, "RootFbd", Pins);   // the POU itself, not a child
         Assert.NotNull(gb);
-        Assert.Equal("y := (a OR b);\n", gb!.St);
+        Assert.Equal("y := (a OR b);\n", gb!.Body);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class FbdTcPouTests
         var cfc = TcPouReader.ReadGraphicalBody(tc, "ACT_CFC", Pins);
         Assert.NotNull(cfc);
         Assert.Equal("CFC", cfc!.Language);
-        Assert.Equal("", cfc.St);                                  // detected + safe, no ST yet
+        Assert.Equal("", cfc.Body);                                  // detected + safe, no ST yet
 
         Assert.Null(TcPouReader.ReadGraphicalBody(tc, "ACT_ST", Pins));   // textual → not graphical
     }

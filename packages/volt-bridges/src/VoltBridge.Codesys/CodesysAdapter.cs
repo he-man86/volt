@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using VoltBridge.Core;
 using VoltBridge.Core.Fbd;
+using VoltBridge.Core.Http;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Codesys
@@ -160,9 +162,9 @@ namespace VoltBridge.Codesys
 
         // Version hashing + MapItemType are inherited from AdapterBase (shared parity).
 
-        // ── Non-source / graphical (read) ───────────────────────────────────
-        /// <summary>FBD/LD/SFC/CFC child → read-only ST via CODESYS's own renderer
-        /// (Implementation.GetImplementationSnippet), export-free. Null for textual.</summary>
+        // ── Non-source / graphical (read + write) ───────────────────────────
+        /// <summary>FBD/LD → editable VG (export PLCopenXML → graph → VG). CFC/SFC → read-only
+        /// marker (different body model, not transpiled yet). ST/IL → null (textual).</summary>
         public override GraphicalBody? ReadGraphicalBody(dynamic item)
         {
             object? iobj = (object?)_om.ReadObject((object)item);
@@ -173,13 +175,66 @@ namespace VoltBridge.Codesys
             string view;
             try { view = (string)(impl.DefaultViewMode ?? ""); } catch { return null; }
             var lang = view.ToUpperInvariant();
-            // CFC/SFC use different body models we don't transpile yet — emit the marker
-            // only (read-only + push-safe), parity with the TwinCAT reader.
-            if (lang is "CFC" or "SFC") return new GraphicalBody(lang, "");
-            if (lang is not ("FBD" or "LD")) return null;                     // ST / IL → textual
-            string snippet;
-            try { snippet = (string)(impl.GetImplementationSnippet() ?? ""); } catch { snippet = ""; }
-            return new GraphicalBody(lang, FbdSnippet.CleanImplementation(snippet));
+            if (lang is "CFC" or "SFC") return new GraphicalBody(lang, "");    // read-only marker
+            if (lang is not ("FBD" or "LD")) return null;                      // ST / IL → textual
+            try
+            {
+                var fbd = FbdElement(_om.ExportXml((object)item));
+                if (fbd == null) return new GraphicalBody(lang, "");
+                var vg = VoltBridge.Core.Fbd.Vg.VgWriter.Write(VoltBridge.Core.Fbd.PlcOpenReader.ReadBody(fbd));
+                return new GraphicalBody(lang, vg, "vg");
+            }
+            catch { return new GraphicalBody(lang, ""); }                      // fall back to read-only on failure
+        }
+
+        /// <summary>Write an editable VG body: VG → graph → PLCopenXML body, splice into the POU's
+        /// exported XML, re-import. Type names (absent from VG) are resolved from the declaration.
+        /// Throws on non-convertible VG (push then rejected).</summary>
+        public override void WriteGraphicalBody(dynamic item, string vgText, string declaration)
+        {
+            var graph = VoltBridge.Core.Fbd.Vg.VgParser.Parse(vgText);                          // throws on invalid VG
+            var types = ParseInstanceTypes(declaration);
+            var newBody = VoltBridge.Core.Fbd.PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
+
+            var exported = _om.ExportXml((object)item);                                          // full POU XML (for restore)
+            var doc = System.Xml.Linq.XDocument.Parse(exported);
+            var ns = doc.Root!.GetDefaultNamespace();
+            var body = doc.Descendants(ns + "FBD").FirstOrDefault() ?? doc.Descendants(ns + "LD").FirstOrDefault()
+                ?? throw new InvalidOperationException("CODESYS: item has no FBD/LD body to write");
+            body.ReplaceWith(newBody);
+            var outXml = doc.ToString();
+
+            // Replace in place: delete the existing object, then import fresh (a same-name import
+            // with ConflictResolve=Replace leaves the body untouched). If the new import fails,
+            // re-import the original so a bad edit can never lose the POU.
+            var nm = _om.GetName((object)item);
+            var par = _om.ParentOf((object)item);
+            try
+            {
+                if (par != null) _om.DeleteChild(par, nm);
+                _om.ImportXml(outXml);
+            }
+            catch
+            {
+                try { _om.ImportXml(exported); } catch { }
+                throw;
+            }
+        }
+
+        private static System.Xml.Linq.XElement? FbdElement(string xml)
+        {
+            var doc = System.Xml.Linq.XDocument.Parse(xml);
+            var ns = doc.Root!.GetDefaultNamespace();
+            return doc.Descendants(ns + "FBD").FirstOrDefault() ?? doc.Descendants(ns + "LD").FirstOrDefault();
+        }
+
+        private static Dictionary<string, string> ParseInstanceTypes(string decl)
+        {
+            var map = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (System.Text.RegularExpressions.Match m in
+                     System.Text.RegularExpressions.Regex.Matches(decl ?? "", @"(\w+)\s*:\s*([\w\.]+)\s*;"))
+                map[m.Groups[1].Value] = m.Groups[2].Value;
+            return map;
         }
 
         public string ReadManifestText(dynamic item, string kind) =>

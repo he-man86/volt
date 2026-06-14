@@ -10,7 +10,10 @@ public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopL
 /// <paramref name="Language"/> is FBD/LD/SFC/CFC; <paramref name="St"/> is the
 /// transpiled body (CODESYS: its own GetImplementationSnippet; TwinCAT: the shared
 /// FbdTranspiler over the parsed NWL XmlArchive).</summary>
-public sealed record GraphicalBody(string Language, string St);
+/// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to text. <paramref name="Format"/> is
+/// <c>"vg"</c> when <paramref name="Body"/> is the editable VG language (round-trippable to the IDE),
+/// or <c>"st"</c> when it is read-only transpiled ST (the legacy view; SFC/CFC and TwinCAT today).</summary>
+public sealed record GraphicalBody(string Language, string Body, string Format = "st");
 
 public interface IAdapter
 {
@@ -63,6 +66,13 @@ public interface IAdapter
     /// if the item is textual (ST/IL). Used by SourceAssembler to materialize graphical
     /// children with a (* @volt-graphical: LANG *) marker instead of dropping them.</summary>
     GraphicalBody? ReadGraphicalBody(dynamic item);
+
+    /// <summary>Write an editable VG ("@volt-graphical: LANG vg") body back to a graphical item:
+    /// parse VG → graph → PLCopenXML → import into the IDE. <paramref name="declaration"/> is the
+    /// POU's declaration, used to resolve FB instance types (VG doesn't carry them). Throws on
+    /// non-convertible VG (the push is then rejected). Adapters that can't write graphical bodies
+    /// throw NotSupportedException (default).</summary>
+    void WriteGraphicalBody(dynamic item, string vgText, string declaration);
 
     // ── Config Manifest ───────────────────────────────────────────────
     string ReadManifestText(dynamic item, string kind);

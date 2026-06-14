@@ -131,32 +131,30 @@ public static class PushHandler
                     targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
-            // A root graphical POU (whole FBD/LD/CFC/SFC body) is materialized as a READ-ONLY
-            // marked ST view — never write it back over the real graphical body.
-            var pouMarked = impl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal);
+            // A graphical POU body carries the (* @volt-graphical: LANG [vg] *) marker. With the
+            // `vg` tag it is the EDITABLE VG language — parse it and write it back through the IDE's
+            // PLCopen import. Without the tag it is a read-only view (ST / CFC / SFC) — never written.
+            var pouMarked = IsGraphicalMarked(impl);
 
             dynamic po;
             if (existing == null)
             {
-                if (pouMarked) return;   // can't create a graphical POU from its ST view
+                if (pouMarked) return;   // creating a graphical POU from scratch is not supported yet
                 po = adapter.CreateChild(targetParent, name, itemType);
                 adapter.WriteSourceText(po, decl, impl);
             }
             else
             {
                 po = existing;
-                if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
+                if (IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, ExtractVg(impl), decl);
+                else if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
             }
 
             foreach (var child in split.Children)
             {
-                // Graphical children are materialized as a READ-ONLY transpiled-ST view
-                // tagged with (* @volt-graphical: … *). Never write that back over the real
-                // FBD/LD body — skip it entirely (the graphical body stays as the engineer
-                // authored it in the IDE).
-                if (child.Implementation is string cimpl &&
-                    cimpl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal))
-                    continue;
+                var cimpl = child.Implementation as string;
+                // Read-only graphical view (ST / CFC / SFC, no `vg` tag) — never overwrite.
+                if (IsGraphicalMarked(cimpl) && !IsVgMarked(cimpl)) continue;
 
                 var childType = MapChildKindToItemType(child.Kind);
                 dynamic childParent = po;
@@ -169,12 +167,16 @@ public static class PushHandler
                 // an update and we'd try to re-create it, which the IDE rejects as a
                 // duplicate ("an object with the name '…' already exists").
                 dynamic? existingChild = FindChildByName(adapter, childParent, child.Name);
-                dynamic childItem;
-                if (existingChild == null)
-                    childItem = adapter.CreateChild(childParent, child.Name, childType);
-                else
-                    childItem = existingChild;
 
+                // Editable VG graphical child → write through the IDE's PLCopen import. FB instance
+                // types come from the enclosing POU's declaration (the action shares its VARs).
+                if (IsVgMarked(cimpl))
+                {
+                    if (existingChild != null) adapter.WriteGraphicalBody(existingChild, ExtractVg(cimpl!), decl);
+                    continue;   // creating a graphical child from scratch is not supported yet
+                }
+
+                dynamic childItem = existingChild ?? adapter.CreateChild(childParent, child.Name, childType);
                 adapter.WriteSourceText(childItem, child.Declaration, child.Implementation);
 
                 if (child.Kind == "property")
@@ -254,6 +256,29 @@ public static class PushHandler
         else
             acc = existing;
         adapter.WriteSourceText(acc, decl, impl);
+    }
+
+    // ── @volt-graphical marker helpers ──────────────────────────────────
+    private static bool IsGraphicalMarked(string? impl)
+        => impl != null && impl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal);
+
+    /// <summary>True when the marker carries the <c>vg</c> format tag — an EDITABLE body that push
+    /// round-trips (vs. a read-only ST/CFC/SFC view).</summary>
+    private static bool IsVgMarked(string? impl)
+    {
+        if (!IsGraphicalMarked(impl)) return false;
+        var firstLine = impl!.TrimStart();
+        var nl = firstLine.IndexOf('\n');
+        if (nl >= 0) firstLine = firstLine.Substring(0, nl);
+        return firstLine.Contains(" vg *)");
+    }
+
+    /// <summary>The VG body — everything after the marker line.</summary>
+    private static string ExtractVg(string impl)
+    {
+        var t = impl.TrimStart();
+        var nl = t.IndexOf('\n');
+        return nl < 0 ? "" : t.Substring(nl + 1);
     }
 
     private static int MapPouKindToItemType(string kind) => kind switch

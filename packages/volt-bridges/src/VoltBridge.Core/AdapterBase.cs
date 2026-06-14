@@ -62,6 +62,10 @@ public abstract class AdapterBase
     // Graphical-body read: textual by default; graphical vendors override.
     public virtual GraphicalBody? ReadGraphicalBody(dynamic item) => null;
 
+    // Graphical-body write: unsupported by default; CODESYS overrides (VG → PLCopenXML → import).
+    public virtual void WriteGraphicalBody(dynamic item, string vgText, string declaration)
+        => throw new NotSupportedException("this adapter cannot write graphical bodies");
+
     // The two text reads the shared hashing builds on; everything else about IDE
     // access lives on the concrete adapter.
     public abstract string ReadDeclaration(dynamic item);

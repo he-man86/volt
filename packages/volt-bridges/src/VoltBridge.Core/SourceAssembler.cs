@@ -33,8 +33,7 @@ public static class SourceAssembler
         var graphicalBody = adapter.ReadGraphicalBody(item);
         if (graphicalBody is not null)
         {
-            var marker = $"(* @volt-graphical: {graphicalBody.Language} *)";
-            result["implementation"] = string.IsNullOrEmpty(graphicalBody.St) ? marker : marker + "\n" + graphicalBody.St;
+            result["implementation"] = GraphicalImpl(graphicalBody);
             result["language"] = graphicalBody.Language;
         }
         else
@@ -118,9 +117,7 @@ public static class SourceAssembler
                 string? implementation;
                 if (graphicalBody is not null)
                 {
-                    var marker = $"(* @volt-graphical: {graphicalBody.Language} *)";
-                    implementation = string.IsNullOrEmpty(graphicalBody.St)
-                        ? marker : marker + "\n" + graphicalBody.St;
+                    implementation = GraphicalImpl(graphicalBody);
                 }
                 else
                 {
@@ -177,6 +174,16 @@ public static class SourceAssembler
         }
 
         return textual;
+    }
+
+    /// <summary>The marked implementation text for a graphical body: the
+    /// <c>(* @volt-graphical: LANG [vg] *)</c> marker (the <c>vg</c> tag flags an EDITABLE body that
+    /// push round-trips; without it the body is read-only ST) followed by the body text.</summary>
+    private static string GraphicalImpl(GraphicalBody gb)
+    {
+        var tag = gb.Format == "vg" ? $"{gb.Language} vg" : gb.Language;
+        var marker = $"(* @volt-graphical: {tag} *)";
+        return string.IsNullOrEmpty(gb.Body) ? marker : marker + "\n" + gb.Body;
     }
 
     private static bool IsEmptyVarBlock(string decl)
