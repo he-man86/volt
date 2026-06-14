@@ -50,11 +50,11 @@ const FB_WITH_METHODS = (name: string) =>
 	`FUNCTION_BLOCK ${name}\nVAR\n\tspeed : INT;\nEND_VAR\n\nspeed := 100;\nEND_FUNCTION_BLOCK\n\nMETHOD Accelerate : INT\nVAR_INPUT\n\tdelta : INT;\nEND_VAR\n\nAccelerate := speed + delta;\nEND_METHOD\n\nMETHOD Stop\nspeed := 0;\nEND_METHOD\n`
 
 const FB_WITH_PROPERTY = (name: string) =>
-	`FUNCTION_BLOCK ${name}\nVAR\n\t_speed : INT;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\nPROPERTY Speed : INT\n\nGET\n\tSpeed := _speed;\n\nSET\n\t_speed := Speed;\nEND_PROPERTY\n`
+	`FUNCTION_BLOCK ${name}\nVAR\n\t_speed : INT;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\nPROPERTY Speed : INT\nGET\n\tSpeed := _speed;\nEND_GET\nSET\n\t_speed := Speed;\nEND_SET\nEND_PROPERTY\n`
 
 function generateName(id: string): string { return `${PREFIX}_${id}` }
 
-const ALL_TEST_NAMES = ["simple","root","nested","withAction","withMethods","withProp","multiChild","upd1","upd2","upd3","del1","del2","renOld","renNew","batchNew","batchUpd","batchDel","batchRej1","batchRej2","fid1","fid2"].map(generateName)
+const ALL_TEST_NAMES = ["simple","root","nested","withAction","withMethods","withProp","multiChild","folderRT","fidBase","fidComplex","fidIdem","upd1","upd2","upd3","del1","del2","renOld","renNew","batchNew","batchUpd","batchDel","batchRej1","batchRej2","fid1","fid2"].map(generateName)
 
 describe("bridge push API", () => {
 	beforeAll(async () => {
@@ -90,11 +90,17 @@ describe("bridge push API", () => {
 			expect(r.accepted).toBe(true)
 		})
 
-		it("creates in a nested folder", async () => {
+		it("creates in a nested folder and reads the folder back", async () => {
 			const name = generateName("nested")
 			const src = FB_SRC(name, "")
 			const r = await push([{ op: "pushItem", name, folder: "POUs/Sub", sourceText: src, ifVersion: null }])
 			expect(r.accepted).toBe(true)
+
+			// Read back: the project-level nested folder must be preserved, not flattened.
+			const fetched = await post("/fetch", { knownItems: {}, onlyItems: [name] })
+			const item = fetched.changed.find((i: any) => i.name === name)
+			expect(item).toBeDefined()
+			expect(item.folder).toBe("POUs/Sub")
 		})
 	})
 
@@ -293,6 +299,77 @@ describe("bridge push API", () => {
 
 			const fetched = await post("/fetch", { knownItems: {}, onlyItems: [name] })
 			expect(fetched.changed[0].sourceText).toContain("result := 1 + 2 * 3")
+		})
+	})
+
+	// Mirrors the most complex real shapes in the Hauzer project:
+	//   MFB_UN_Unit — FB EXTENDS a base, with several in-POU sub-folders (incl. names with
+	//                 spaces like "MFB01_Basic Functions"), each holding multiple actions.
+	//   CM_Carrier  — actions in an "Errors" sub-folder, inside nested project folders.
+	// The bridge PARSES .st into structure and RE-ASSEMBLES it (children are canonicalised —
+	// e.g. reordered), so arbitrary input is normalised, not stored verbatim. The guarantee
+	// the workspace relies on is that the bridge's OWN output is a fixed point: pushing it
+	// back returns byte-identical text. Workspace .st files ARE bridge output, so this is
+	// what stops `volt push` from silently mangling a POU.
+	describe("structural round-trip fidelity (exact text)", () => {
+		// Mirrors the most complex real shapes in the Hauzer project:
+		//   MFB_UN_Unit     — FB EXTENDS a base, with several in-POU sub-folders (incl. a
+		//                     name with a space, like "MFB01_Basic Functions"), each with
+		//                     multiple actions.
+		//   CM_Carrier      — actions in an "Errors" sub-folder, inside nested project folders.
+		//   PackML_ErrorSet — a PROPERTY with GET/SET accessors (canonical END_GET/END_SET).
+		const COMPLEX = (name: string, base: string) =>
+			`FUNCTION_BLOCK ${name} EXTENDS ${base}\nVAR\n\tx : INT;\nEND_VAR\n\nx := x + 1;\nEND_FUNCTION_BLOCK\n` +
+			`\nACTION A1_First    (* folder: Group One *)\nx := 1;\nEND_ACTION\n` +
+			`\nACTION A2_Second    (* folder: Group One *)\nx := 2;\nEND_ACTION\n` +
+			`\nACTION B1_Other    (* folder: Group Two *)\nx := 3;\nEND_ACTION\n` +
+			`\nMETHOD DoWork : INT\nVAR_INPUT\n\td : INT;\nEND_VAR\nDoWork := x + d;\nEND_METHOD\n` +
+			`\nPROPERTY Speed : INT\nGET\n\tSpeed := x;\nEND_GET\nSET\n\tx := Speed;\nEND_SET\nEND_PROPERTY\n`
+
+		async function ensure(name: string, folder: string, src: string): Promise<void> {
+			const refs = await get("/refs")
+			const r = await push([{ op: "pushItem", name, folder, sourceText: src, ifVersion: refs.items[name] ?? null }])
+			expect(r.accepted).toBe(true)
+		}
+		async function fetchSource(name: string): Promise<string> {
+			const f = await post("/fetch", { knownItems: {}, onlyItems: [name] })
+			return f.changed.find((i: any) => i.name === name).sourceText
+		}
+
+		it("EXTENDS + in-POU sub-folders (incl. a space) + method + property survive read-back", async () => {
+			const base = generateName("fidBase")
+			const name = generateName("fidComplex")
+			await ensure(base, "POUs", FB_SRC(base, "x := 0;"))
+			await ensure(name, "POUs/Deep/Nest", COMPLEX(name, base))
+
+			const item = (await post("/fetch", { knownItems: {}, onlyItems: [name] }))
+				.changed.find((i: any) => i.name === name)
+			expect(item).toBeDefined()
+			expect(item.folder).toBe("POUs/Deep/Nest")                 // deep project folder preserved
+			const st: string = item.sourceText
+			expect(st).toContain(`EXTENDS ${base}`)                    // inheritance
+			expect(st).toMatch(/ACTION A1_First\s+\(\* folder: Group One \*\)/)
+			expect(st).toMatch(/ACTION A2_Second\s+\(\* folder: Group One \*\)/)
+			expect(st).toMatch(/ACTION B1_Other\s+\(\* folder: Group Two \*\)/) // sub-folder name w/ space
+			expect(st).toContain("METHOD DoWork")
+			expect(st).toMatch(/PROPERTY Speed[\s\S]*END_GET[\s\S]*END_SET[\s\S]*END_PROPERTY/) // property accessors
+		})
+
+		it("the whole complex POU is an EXACT text fixed point — push it back → byte-identical", async () => {
+			// The strong guarantee the workspace relies on: re-pushing the bridge's own
+			// output never changes anything — folders, sub-folders, EXTENDS, actions,
+			// methods AND property accessors. Also exercises the sub-foldered-child UPDATE
+			// path (the child must be found in its sub-folder, not re-created → "already
+			// exists"), which is the bug this test originally caught.
+			const base = generateName("fidBase")
+			const name = generateName("fidIdem")
+			await ensure(base, "POUs", FB_SRC(base, "x := 0;"))
+			await ensure(name, "POUs/Deep/Nest", COMPLEX(name, base))
+
+			const s1 = await fetchSource(name)             // bridge canonical form
+			await ensure(name, "POUs/Deep/Nest", s1)       // push it back verbatim (UPDATE path)
+			const s2 = await fetchSource(name)
+			expect(s2).toBe(s1)                            // exact text match — no drift, no mangling
 		})
 	})
 })

@@ -84,41 +84,24 @@ public static class PushHandler
 
         adapter.FlushPendingWrites();
 
-        var deletedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var newItems = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var op in request.Ops)
-        {
-            var name = op.Name ?? "";
-            if (op is DeleteItemOp) { deletedNames.Add(name); }
-            else if (op is PushItemOp pushOp && !itemCache.ContainsKey(name))
-            {
-                newItems[name] = pushOp.Folder ?? "";
-            }
-            else if (op is RenameItemOp renameOp && renameOp.NewName != null)
-            {
-                deletedNames.Add(name);
-                var folder = itemCache.TryGetValue(name, out var oldCached) ? oldCached.folder : "";
-                itemCache.Remove(name);
-                if (oldCached.item != null) itemCache[renameOp.NewName] = (oldCached.item, folder);
-            }
-            else if (op is MoveItemOp moveOp)
-            {
-                deletedNames.Add(name);
-                newItems[name] = moveOp.NewFolder ?? "";
-            }
-        }
-
+        // Build the receipt with a fresh walk — byte-for-byte how /refs (RefsHandler)
+        // builds it — so the version map the client stores is EXACTLY what the next
+        // getRefs returns. Two reasons this must be a cold re-walk, not a recompute from
+        // the pre-applied `itemCache`:
+        //   1. itemCache only holds IsTopLevelCrud source POUs, so it would omit every
+        //      read-only item (libraries, visus, image pools) → the client loses them
+        //      from state.items → phantom "added" drift on the next status.
+        //   2. Recomputing from the cached, just-written item references reads each POU
+        //      from its transiently-dirty post-write state; for large POUs that differs
+        //      from a cold read, so the receipt records versions getRefs won't match
+        //      → phantom "M" drift on every push. (Verified live: a cold /refs is stable
+        //      across a push; the post-write recompute is not.)
         var newVersions = new Dictionary<string, string>();
-        foreach (var kv in itemCache)
+        foreach (var visit in adapter.WalkAllItems())
         {
-            if (deletedNames.Contains(kv.Key)) continue;
-            newVersions[kv.Key] = adapter.ComputeItemVersion(kv.Value.item, kv.Value.folder);
-        }
-        foreach (var kv in newItems)
-        {
-            var found = adapter.LookupItemByName(kv.Key);
-            if (found != null)
-                newVersions[kv.Key] = adapter.ComputeItemVersion(found, kv.Value);
+            var kind = adapter.MapItemType(visit.ItemType, visit.IsTopLevelCrud);
+            if (kind == null) continue;
+            newVersions[visit.Name] = adapter.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
         }
 
         return PushResponse.AcceptedResult(adapter.ComputeProjectVersion(newVersions), newVersions);
@@ -168,7 +151,11 @@ public static class PushHandler
                     foreach (var part in child.Folder.Split('/'))
                         childParent = FindOrCreateFolder(adapter, childParent, part);
 
-                dynamic? existingChild = FindChildByName(adapter, po, child.Name);
+                // Look for the existing child under its ACTUAL parent (the sub-folder),
+                // not the POU root — otherwise a sub-foldered action/method isn't found on
+                // an update and we'd try to re-create it, which the IDE rejects as a
+                // duplicate ("an object with the name '…' already exists").
+                dynamic? existingChild = FindChildByName(adapter, childParent, child.Name);
                 dynamic childItem;
                 if (existingChild == null)
                     childItem = adapter.CreateChild(childParent, child.Name, childType);

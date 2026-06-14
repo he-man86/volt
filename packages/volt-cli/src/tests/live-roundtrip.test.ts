@@ -12,6 +12,8 @@ import { BridgeClient } from "../bridge/client.js"
 import { init } from "../commands/init.js"
 import { pull } from "../commands/pull.js"
 import { push } from "../commands/push.js"
+import { workspacePaths } from "../config/workspace.js"
+import { loadState } from "../snapshot/repo.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8555", 10)
 const BASE = `http://127.0.0.1:${PORT}`
@@ -118,6 +120,28 @@ describe("live round-trip", () => {
 		// Verify TC has it
 		const refs = await apiCall("GET", "/refs")
 		expect(refs.items).toHaveProperty(name)
+	})
+
+	it("push receipt matches a cold getRefs exactly — no phantom drift (regression)", async () => {
+		// Reproduces two phantom-drift bugs in the bridge's push receipt (newItems):
+		//   1. Omitting read-only items (libraries/visus/image pools, which aren't in the
+		//      IsTopLevelCrud itemCache) → state.items shrinks → spurious "added" drift.
+		//   2. Recomputing versions from the just-written item references → large POUs with
+		//      sub-foldered children hash differently than a cold read → spurious "M" drift.
+		// Both are fixed by building the receipt from a fresh cold walk identical to /refs.
+		// Invariant: after any accepted push, the CLI's recorded state.items (the receipt)
+		// MUST equal the bridge's full getRefs item map — same keys AND same versions.
+		await pull(workspace, bridge, { force: true })
+
+		const name = `${ITEM_PREFIX}_5`
+		writeWorkspace(`src/POUs/${name}.st`, `FUNCTION_BLOCK ${name}\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK\n`)
+		const r = await push(workspace, bridge, {})
+		expect(r.kind).toBe("ok")
+
+		const refs = await apiCall("GET", "/refs")
+		const state = loadState(workspacePaths(workspace).snapshotPath)
+		expect(state).not.toBeNull()
+		expect(state!.items).toEqual(refs.items)
 	})
 
 	it("TC → workspace: create item on TC side, pull surfaces it", async () => {
