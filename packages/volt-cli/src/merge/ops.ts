@@ -26,8 +26,8 @@ import {
 	getByKind,
 	getByPath,
 	gitattributesContent,
+	isSourcePou,
 	nameFromPath,
-	pickExtension,
 	sourceExtensions,
 } from "../registry/extensions.js";
 import { isPullable, type AccessOverrides } from "../registry/access.js";
@@ -163,19 +163,16 @@ function materializeItem(item: FetchedItem): MaterializedFile[] {
 		);
 	}
 
-	if (def.family === "folder") {
+	// The folder placeholder is the only kind with no extension.
+	if (def.ext.length === 0) {
 		return [{ path: joinPath(folder, item.name, FOLDER_MARKER), content: "" }];
 	}
 
-	if (def.family === "config") {
-		const fileName = def.nameIsVerbatim
-			? item.name
-			: `${item.name}.${pickExtension(item.kind)}`;
-		return [{ path: joinPath(folder, fileName), content: item.sourceText }];
-	}
-
-	const ext = pickExtension(item.kind);
-	return [{ path: joinPath(folder, `${item.name}.${ext}`), content: item.sourceText }];
+	// Every other kind materializes one file from sourceText. Source POUs and
+	// read-only reference items are identical here — they differ only in whether
+	// the filename is verbatim (e.g. tmc_file) or `name.ext`.
+	const fileName = def.nameIsVerbatim ? item.name : `${item.name}.${def.ext}`;
+	return [{ path: joinPath(folder, fileName), content: item.sourceText }];
 }
 
 function resolveOwnerItem(relPath: string, items: Record<string, string>): string | undefined {
@@ -304,7 +301,7 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	const out = new Map<string, PouFile>();
 	for (const entry of entries) {
 		const def = getByPath(entry.path);
-		if (def === undefined || def.family !== "source") continue;
+		if (def === undefined || !isSourcePou(def)) continue;
 		const name = nameFromPath(entry.path);
 		if (name === undefined) continue;
 		const segs = entry.path.split("/");

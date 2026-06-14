@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test"
 import {
   pickExtension,
   getByKind,
+  isSourcePou,
   sourceExtensions,
   FOLDER_MARKER,
   EXTENSIONS,
@@ -16,9 +17,10 @@ describe("extensions", () => {
     }
   })
 
-  test("config kinds use ext == kind (read-only marker files; no ad-hoc abbreviations)", () => {
+  test("reference kinds use ext == kind (read-only marker files; no ad-hoc abbreviations)", () => {
     for (const def of EXTENSIONS) {
-      if (def.family !== "config") continue
+      // Reference items are the read-only, non-folder kinds.
+      if (isSourcePou(def) || def.ext.length === 0) continue
       // The one exception: a kind whose file IS a real on-disk artifact keeps its
       // real extension (e.g. tmc_file -> .tmc), flagged by nameIsVerbatim.
       if (def.nameIsVerbatim === true) continue
@@ -31,7 +33,7 @@ describe("extensions", () => {
       const found = getByKind(def.kind)
       expect(found).toBeDefined()
       expect(found!.ext).toBe(def.ext)
-      expect(found!.family).toBe(def.family)
+      expect(found!.defaultAccess).toBe(def.defaultAccess)
     }
   })
 
@@ -45,13 +47,13 @@ describe("extensions", () => {
     expect(exts).toContain(".enum")
     expect(exts).toContain(".alias")
 
-    // Source extensions should NOT include config types
+    // Source extensions should NOT include read-only reference types
     for (const ext of exts) {
       const def = getByKind(
         EXTENSIONS.find((e) => `.${e.ext}` === ext)?.kind ?? "",
       )
       if (def) {
-        expect(def.family).toBe("source")
+        expect(isSourcePou(def)).toBe(true)
       }
     }
   })

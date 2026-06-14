@@ -1,11 +1,11 @@
 import { describe, test, expect } from "bun:test"
 import { join } from "node:path"
-import { writeFileSync, unlinkSync, renameSync, mkdirSync } from "node:fs"
+import { writeFileSync, readFileSync, unlinkSync, renameSync, mkdirSync } from "node:fs"
 import { push } from "../../commands/push.js"
 import { pull } from "../../commands/pull.js"
 import { init } from "../../commands/init.js"
 import { makeTestEnv } from "../harness/test-env.js"
-import { simple } from "../harness/fixtures.js"
+import { simple, withConfig } from "../harness/fixtures.js"
 import { writeMergeFile, deleteMergeFile } from "../../git/plumbing.js"
 import { workspacePaths } from "../../config/workspace.js"
 
@@ -100,6 +100,41 @@ describe("push", () => {
       expect(result.kind).toBe("ok")
       if (result.kind === "ok") {
         expect(result.items).toContain("FB_Motor")
+      }
+    } finally {
+      cleanup()
+    }
+  })
+
+  // Regression: on Windows the working-copy files often land on disk as CRLF
+  // while the snapshot is canonically LF. Read-only files that are byte-identical
+  // (modulo line endings) must NOT be flagged as policy refusals.
+  test("read-only files with CRLF line endings are not refused", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(withConfig)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+
+      // Rewrite the read-only library/task files with CRLF — same content, LF→CRLF.
+      const roPaths = [
+        join(workspace, "src", "Device", "Plc Logic", "Application", "Library Manager", "IoStandard.library"),
+        join(workspace, "src", "Device", "Plc Logic", "Application", "MainTask.task"),
+      ]
+      for (const p of roPaths) {
+        const lf = readFileSync(p, "utf-8")
+        writeFileSync(p, lf.replace(/\n/g, "\r\n"))
+      }
+
+      // A genuine edit to a pushable file so push isn't a no-op.
+      const pumpPath = join(workspace, "src", "POUs", "FB_Pump.st")
+      writeFileSync(pumpPath, "FUNCTION_BLOCK FB_Pump\nVAR\n\tspeed : INT := 50;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+
+      const result = await push(workspace, bridge, {})
+      expect(result.kind).toBe("ok")
+      if (result.kind === "ok") {
+        expect(result.items).toContain("FB_Pump")
+        expect(result.items).not.toContain("IoStandard")
+        expect(result.items).not.toContain("MainTask")
       }
     } finally {
       cleanup()

@@ -18,6 +18,7 @@ import { applyPushToBridge, syncFromBridge } from "../merge/ops.js"
 import {
 	buildWorkspaceTreeSha,
 	listWorkspaceFiles,
+	normalizeWorkspaceContent,
 	writeTreeToWorkspace,
 	WORKSPACE_SRC_DIR,
 } from "../snapshot/workspace.js"
@@ -275,11 +276,10 @@ function findPolicyRefusals(
 		const ext = dot >= 0 ? wsFile.path.slice(dot).toLowerCase() : ""
 		if (isPushable(ext, cfg)) continue
 
-		const wsContent = wsFile.content
-		const wsHash = hashBytes(wsContent)
+		const wsHash = hashBytes(normalizeWorkspaceContent(wsFile.content))
 		const snapshotSha = snapshotByPath.get(wsFile.path)
 		if (snapshotSha !== undefined) {
-			const snapHash = hashBytes(readBlobBytes(snapshotPath, snapshotSha))
+			const snapHash = hashBytes(normalizeWorkspaceContent(readBlobBytes(snapshotPath, snapshotSha)))
 			if (wsHash === snapHash) continue
 		}
 		refused.push({ path: wsFile.path, ext: ext.length > 0 ? ext : "(no ext)" })

@@ -141,7 +141,7 @@ export function buildWorkspaceTreeSha(workspaceRoot: string, snapshotPath: strin
 	const files = listWorkspaceFiles(workspaceRoot)
 	const indexEntries = files.map((f) => ({
 		path: f.path,
-		sha: writeBlob(snapshotPath, f.content),
+		sha: writeBlob(snapshotPath, normalizeWorkspaceContent(f.content)),
 	}))
 	return buildTree(snapshotPath, indexEntries)
 }

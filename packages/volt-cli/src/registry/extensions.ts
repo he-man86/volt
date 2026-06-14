@@ -6,57 +6,66 @@
  * For each tracked kind:
  *   - `kind`          vendor-neutral string the bridge wire speaks
  *   - `ext`           workspace file extension WITHOUT a leading dot
- *   - `defaultAccess` baseline `r` (pull only) or `rw` (pull+push)
- *   - `family`        source, config, or folder
- *   - `describe`      human-readable label for CLI output / docs
+ *                     (empty string === the folder placeholder kind)
+ *   - `defaultAccess` baseline `r` (pull only) or `rw` (pull+push). This is
+ *                     also what marks a round-trippable source POU: the items
+ *                     `volt push` writes back are exactly the `rw` ones
+ *                     (see `isSourcePou`). Read-only reference items are `r`.
  *
  * Invariants enforced by test:
  *   1. Every `kind` is unique.
- *   2. Every extension resolves back to exactly one entry.
+ *   2. Every extension resolves back to exactly one entry (same access).
  */
-export type Family = "source" | "config" | "folder";
 export type DefaultAccess = "r" | "rw";
 
 export interface ExtensionDef {
 	readonly kind: string;
 	readonly ext: string;
 	readonly defaultAccess: DefaultAccess;
-	readonly family: Family;
-	readonly describe: string;
 	readonly nameIsVerbatim?: boolean;
 }
 
-export const EXTENSIONS: readonly ExtensionDef[] = [
-	// Source POUs — RW
-	{ kind: "function_block", ext: "st",    defaultAccess: "rw", family: "source", describe: "Function block" },
-	{ kind: "function",       ext: "st",    defaultAccess: "rw", family: "source", describe: "Function" },
-	{ kind: "program",        ext: "st",    defaultAccess: "rw", family: "source", describe: "Program" },
-	{ kind: "interface",      ext: "itf",   defaultAccess: "rw", family: "source", describe: "Interface" },
-	{ kind: "gvl",            ext: "gvl",   defaultAccess: "rw", family: "source", describe: "Global Variable List" },
-	{ kind: "structure",      ext: "struct", defaultAccess: "rw", family: "source", describe: "Structure" },
-	{ kind: "union",          ext: "union",  defaultAccess: "rw", family: "source", describe: "Union" },
-	{ kind: "enumeration",    ext: "enum",   defaultAccess: "rw", family: "source", describe: "Enumeration" },
-	{ kind: "alias",          ext: "alias",  defaultAccess: "rw", family: "source", describe: "Alias" },
+/**
+ * A round-trippable source POU — the only items `volt push` writes back to the
+ * IDE (everything else is pulled read-only). This is exactly the writable set,
+ * keyed off the *registry default* (not effective access), so a user `rw`
+ * override on a reference extension never silently turns it into a push target.
+ */
+export function isSourcePou(def: ExtensionDef): boolean {
+	return def.defaultAccess === "rw";
+}
 
-	// Config kinds — R (engineer owns these in the IDE).
+export const EXTENSIONS: readonly ExtensionDef[] = [
+	// Source POUs — RW (round-tripped; `volt push` writes these back)
+	{ kind: "function_block", ext: "st",     defaultAccess: "rw" },
+	{ kind: "function",       ext: "st",     defaultAccess: "rw" },
+	{ kind: "program",        ext: "st",     defaultAccess: "rw" },
+	{ kind: "interface",      ext: "itf",    defaultAccess: "rw" },
+	{ kind: "gvl",            ext: "gvl",    defaultAccess: "rw" },
+	{ kind: "structure",      ext: "struct", defaultAccess: "rw" },
+	{ kind: "union",          ext: "union",  defaultAccess: "rw" },
+	{ kind: "enumeration",    ext: "enum",   defaultAccess: "rw" },
+	{ kind: "alias",          ext: "alias",  defaultAccess: "rw" },
+
+	// Reference items — R (engineer owns these in the IDE; pulled to read, never pushed).
 	// Convention: ext == kind (read-only marker files; unambiguous and self-syncing,
 	// enforced by extensions.test.ts). The ONE exception is tmc_file, whose `.tmc` is
 	// the real on-disk TwinCAT artifact (nameIsVerbatim). The kind set itself stays in
 	// lockstep with the bridge via item-kinds.json / vocabulary.test.ts.
-	{ kind: "library",                ext: "library",               defaultAccess: "r", family: "config", describe: "Library reference" },
-	{ kind: "task",                   ext: "task",                  defaultAccess: "r", family: "config", describe: "IEC task" },
-	{ kind: "image_pool",             ext: "image_pool",            defaultAccess: "r", family: "config", describe: "Image pool" },
-	{ kind: "text_list",              ext: "text_list",             defaultAccess: "r", family: "config", describe: "Text list" },
-	{ kind: "recipe_manager",         ext: "recipe_manager",        defaultAccess: "r", family: "config", describe: "Recipe manager" },
-	{ kind: "visualization_manager",  ext: "visualization_manager", defaultAccess: "r", family: "config", describe: "Visualization manager" },
-	{ kind: "visualization",          ext: "visualization",         defaultAccess: "r", family: "config", describe: "Visualization screen" },
-	{ kind: "library_manager",        ext: "library_manager",       defaultAccess: "r", family: "config", describe: "Library manager" },
-	{ kind: "class_diagram",          ext: "class_diagram",         defaultAccess: "r", family: "config", describe: "UML class diagram" },
-	{ kind: "external_types",         ext: "external_types",        defaultAccess: "r", family: "config", describe: "External types" },
-	{ kind: "tmc_file",               ext: "tmc",                   defaultAccess: "r", family: "config", describe: "TMC file", nameIsVerbatim: true },
+	{ kind: "library",               ext: "library",               defaultAccess: "r" },
+	{ kind: "task",                  ext: "task",                  defaultAccess: "r" },
+	{ kind: "image_pool",            ext: "image_pool",            defaultAccess: "r" },
+	{ kind: "text_list",             ext: "text_list",             defaultAccess: "r" },
+	{ kind: "recipe_manager",        ext: "recipe_manager",        defaultAccess: "r" },
+	{ kind: "visualization_manager", ext: "visualization_manager", defaultAccess: "r" },
+	{ kind: "visualization",         ext: "visualization",         defaultAccess: "r" },
+	{ kind: "library_manager",       ext: "library_manager",       defaultAccess: "r" },
+	{ kind: "class_diagram",         ext: "class_diagram",         defaultAccess: "r" },
+	{ kind: "external_types",        ext: "external_types",        defaultAccess: "r" },
+	{ kind: "tmc_file",              ext: "tmc",                   defaultAccess: "r", nameIsVerbatim: true },
 
-	// Folder marker
-	{ kind: "folder", ext: "", defaultAccess: "r", family: "folder", describe: "Empty engineer folder" },
+	// Folder placeholder — the only kind with no extension.
+	{ kind: "folder", ext: "", defaultAccess: "r" },
 ] as const;
 
 const BY_KIND: ReadonlyMap<string, ExtensionDef> = new Map(
@@ -70,10 +79,10 @@ const BY_EXT: ReadonlyMap<string, ExtensionDef> = (() => {
 		const extWithDot = `.${def.ext.toLowerCase()}`;
 		const existing = m.get(extWithDot);
 		if (existing !== undefined) {
-			if (existing.family !== def.family) {
+			if (existing.defaultAccess !== def.defaultAccess) {
 				throw new Error(
-					`registry: extension '${extWithDot}' has incompatible family — ` +
-						`'${existing.kind}' (${existing.family}) vs '${def.kind}' (${def.family})`,
+					`registry: extension '${extWithDot}' has incompatible access — ` +
+						`'${existing.kind}' (${existing.defaultAccess}) vs '${def.kind}' (${def.defaultAccess})`,
 				);
 			}
 		} else {
@@ -129,7 +138,7 @@ export function isTrackedPath(relPath: string): boolean {
 export function sourceExtensions(): readonly string[] {
 	const out = new Set<string>();
 	for (const def of EXTENSIONS) {
-		if (def.family !== "source" || def.ext.length === 0) continue;
+		if (!isSourcePou(def) || def.ext.length === 0) continue;
 		out.add(`.${def.ext}`);
 	}
 	return [...out].sort();
