@@ -59,6 +59,9 @@ public abstract class AdapterBase
     public string ComputeProjectVersion(Dictionary<string, string> versions) => Hasher.ComputeProjectVersion(versions);
     public string ComputeStructureVersion(Dictionary<string, string> versions) => Hasher.ComputeStructureVersion(versions);
 
+    // Graphical-body read: textual by default; graphical vendors override.
+    public virtual GraphicalBody? ReadGraphicalBody(dynamic item) => null;
+
     // The two text reads the shared hashing builds on; everything else about IDE
     // access lives on the concrete adapter.
     public abstract string ReadDeclaration(dynamic item);

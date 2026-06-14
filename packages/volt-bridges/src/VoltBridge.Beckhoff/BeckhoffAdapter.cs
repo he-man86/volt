@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using VoltBridge.Core;
+using VoltBridge.Core.Fbd;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Beckhoff;
@@ -422,14 +423,52 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
 
     public string GetItemName(dynamic item) { try { return (string)item.Name ?? ""; } catch { return ""; } }
 
-    public string? ExportItemBodyAsXml(dynamic item, string itemName)
+    /// <summary>FBD/LD/SFC/CFC child → read-only ST. The body lives in the enclosing POU's
+    /// .TcPOU as an NWL XmlArchive (same model CODESYS exposes as objects); we parse it with
+    /// the shared FbdXmlReader/FbdTranspiler. Null for textual children.</summary>
+    public override GraphicalBody? ReadGraphicalBody(dynamic item)
     {
-        if (_dte == null) return null;
-        try
+        string childName;
+        try { childName = GetItemName(item); } catch { return null; }
+
+        // Walk up to the enclosing POU (FB / function / program / interface).
+        dynamic pou = item;
+        for (var hops = 0; hops < 32; hops++)
         {
-            return (string?)_dte.Solution?._SolutionBuild?.PlcOpenExport?.Invoke(item);
+            int t; try { t = GetItemType(pou); } catch { return null; }
+            if (t is 602 or 603 or 604 or 618) break;
+            try { pou = GetParent(pou); } catch { return null; }
+            if (pou == null) return null;
         }
-        catch { return null; }
+
+        var path = TcPouPath(pou);
+        if (path == null || !System.IO.File.Exists(path)) return null;
+        string xml;
+        try { xml = System.IO.File.ReadAllText(path); } catch { return null; }
+
+        return TcPouReader.ReadGraphicalBody(xml, childName, ResolvePins);
+    }
+
+    private string? TcPouPath(dynamic pou)
+    {
+        string? meta;
+        try { meta = (string?)((dynamic)pou).ProduceXml(); } catch { return null; }
+        if (string.IsNullOrEmpty(meta)) return null;
+        var m = Regex.Match(meta!, @"<Name>FullPath</Name>\s*<Value>([^<]+)</Value>", RegexOptions.IgnoreCase);
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>Resolve a box type's pin names from its FB/function declaration in the
+    /// project (null for operators / unknown — rendered positionally).</summary>
+    private (System.Collections.Generic.IReadOnlyList<string>, System.Collections.Generic.IReadOnlyList<string>)? ResolvePins(string boxType)
+    {
+        dynamic? fb;
+        try { fb = LookupItemByName(boxType); } catch { return null; }
+        if (fb == null) return null;
+        string decl;
+        try { decl = ReadDeclaration(fb); } catch { return null; }
+        var (ins, outs) = FbdPins.FromDeclaration(decl);
+        return ins.Count == 0 && outs.Count == 0 ? null : (ins, outs);
     }
 
     // ── Write Operations (COM) ─────────────────────────────────────

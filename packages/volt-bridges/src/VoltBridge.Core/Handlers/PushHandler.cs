@@ -145,6 +145,14 @@ public static class PushHandler
 
             foreach (var child in split.Children)
             {
+                // Graphical children are materialized as a READ-ONLY transpiled-ST view
+                // tagged with (* @volt-graphical: … *). Never write that back over the real
+                // FBD/LD body — skip it entirely (the graphical body stays as the engineer
+                // authored it in the IDE).
+                if (child.Implementation is string cimpl &&
+                    cimpl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal))
+                    continue;
+
                 var childType = MapChildKindToItemType(child.Kind);
                 dynamic childParent = po;
                 if (!string.IsNullOrEmpty(child.Folder))

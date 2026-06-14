@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using VoltBridge.Core;
+using VoltBridge.Core.Fbd;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Codesys
@@ -160,7 +161,24 @@ namespace VoltBridge.Codesys
         // Version hashing + MapItemType are inherited from AdapterBase (shared parity).
 
         // ── Non-source / graphical (read) ───────────────────────────────────
-        public string? ExportItemBodyAsXml(dynamic item, string itemName) => null; // graphical body export — next slice
+        /// <summary>FBD/LD/SFC/CFC child → read-only ST via CODESYS's own renderer
+        /// (Implementation.GetImplementationSnippet), export-free. Null for textual.</summary>
+        public override GraphicalBody? ReadGraphicalBody(dynamic item)
+        {
+            object? iobj = (object?)_om.ReadObject((object)item);
+            if (iobj is null) return null;
+            dynamic? impl;
+            try { impl = ((dynamic)iobj).Implementation; } catch { return null; }
+            if (impl is null) return null;
+            string view;
+            try { view = (string)(impl.DefaultViewMode ?? ""); } catch { return null; }
+            var lang = view.ToUpperInvariant();
+            if (lang is not ("FBD" or "LD" or "SFC" or "CFC")) return null;   // ST / IL → textual
+            string snippet;
+            try { snippet = (string)(impl.GetImplementationSnippet() ?? ""); } catch { snippet = ""; }
+            return new GraphicalBody(lang, FbdSnippet.CleanImplementation(snippet));
+        }
+
         public string ReadManifestText(dynamic item, string kind) =>
             (object)item is LibRefNode lib ? lib.Manifest : $"{kind}\n";   // library refs carry a real manifest; others staged
 

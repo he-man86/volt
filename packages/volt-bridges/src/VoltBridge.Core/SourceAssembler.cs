@@ -29,8 +29,6 @@ public static class SourceAssembler
         var language = DetectLanguage(implementation);
 
         var children = CollectChildren(adapter, item);
-        var textualChildren = children.Item1;
-        var graphicalChildren = children.Item2;
 
         var result = new Dictionary<string, object?>
         {
@@ -41,11 +39,8 @@ public static class SourceAssembler
         if (language == "ST" && !string.IsNullOrEmpty(implementation))
             result["implementation"] = implementation;
 
-        if (textualChildren.Count > 0)
-            result["children"] = textualChildren;
-
-        if (graphicalChildren.Count > 0)
-            result["graphicalChildren"] = graphicalChildren;
+        if (children.Count > 0)
+            result["children"] = children;
 
         return result;
     }
@@ -63,11 +58,8 @@ public static class SourceAssembler
     private static Dictionary<string, object?> BuildInterface(IAdapter adapter, string name, dynamic item, string declaration)
     {
         var children = CollectChildren(adapter, item, parentIsInterface: true);
-        var textualChildren = children.Item1;
-        var graphicalChildren = children.Item2;
         var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
-        if (textualChildren.Count > 0) result["children"] = textualChildren;
-        if (graphicalChildren.Count > 0) result["graphicalChildren"] = graphicalChildren;
+        if (children.Count > 0) result["children"] = children;
         return result;
     }
 
@@ -76,17 +68,14 @@ public static class SourceAssembler
         return new Dictionary<string, object?> { ["declaration"] = declaration.TrimEnd() };
     }
 
-    private static (
-        List<Dictionary<string, object?>> textual,
-        List<Dictionary<string, object?>> graphical)
+    private static List<Dictionary<string, object?>>
         CollectChildren(IAdapter adapter, dynamic parent, bool parentIsInterface = false, string folderPath = "")
     {
         var textual = new List<Dictionary<string, object?>>();
-        var graphical = new List<Dictionary<string, object?>>();
 
         int count;
         try { count = adapter.GetChildCount(parent); }
-        catch { return (textual, graphical); }
+        catch { return textual; }
 
         for (int i = 1; i <= count; i++)
         {
@@ -102,9 +91,7 @@ public static class SourceAssembler
             if (itemType == 601)
             {
                 var subPath = string.IsNullOrEmpty(folderPath) ? childName : $"{folderPath}/{childName}";
-                var children = CollectChildren(adapter, child, parentIsInterface, subPath);
-                textual.AddRange(children.Item1);
-                graphical.AddRange(children.Item2);
+                textual.AddRange(CollectChildren(adapter, child, parentIsInterface, subPath));
                 continue;
             }
 
@@ -117,59 +104,33 @@ public static class SourceAssembler
             var decl = adapter.ReadDeclaration(child);
             var impl = adapter.ReadImplementation(child);
 
-            if (isMethod)
+            if (isMethod || isAction)
             {
-                var methodLang = DetectLanguage(impl);
-                if (IsGraphical(methodLang))
+                // Graphical (FBD/LD/SFC/CFC) children are rendered to READ-ONLY ST and
+                // tagged with a marker the LSP and PushHandler recognise — instead of
+                // being dropped. Textual (ST) children carry their source as-is.
+                var graphicalBody = adapter.ReadGraphicalBody(child);
+                string? implementation;
+                if (graphicalBody is not null)
                 {
-                    var bodyXml = adapter.ExportItemBodyAsXml(child, childName);
-                    if (!string.IsNullOrEmpty(bodyXml))
-                    {
-                        graphical.Add(new Dictionary<string, object?>
-                        {
-                            ["name"] = childName, ["kind"] = "method", ["language"] = methodLang,
-                            ["declaration"] = decl.Trim(), ["implementationXml"] = bodyXml,
-                        });
-                    }
+                    var marker = $"(* @volt-graphical: {graphicalBody.Language} *)";
+                    implementation = string.IsNullOrEmpty(graphicalBody.St)
+                        ? marker : marker + "\n" + graphicalBody.St;
                 }
                 else
                 {
-                    var entry = new Dictionary<string, object?>
-                    {
-                        ["name"] = childName, ["kind"] = "method",
-                        ["declaration"] = decl.Trim(), ["language"] = methodLang,
-                    };
-                    if (!string.IsNullOrEmpty(impl)) entry["implementation"] = impl.Trim();
-                    if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;
-                    textual.Add(entry);
+                    implementation = string.IsNullOrEmpty(impl) ? null : impl.Trim();
                 }
-            }
-            else if (isAction)
-            {
-                var actionLang = DetectLanguage(impl);
-                if (IsGraphical(actionLang))
+
+                var entry = new Dictionary<string, object?>
                 {
-                    var bodyXml = adapter.ExportItemBodyAsXml(child, childName);
-                    if (!string.IsNullOrEmpty(bodyXml))
-                    {
-                        graphical.Add(new Dictionary<string, object?>
-                        {
-                            ["name"] = childName, ["kind"] = "action", ["language"] = actionLang,
-                            ["declaration"] = $"ACTION {childName}", ["implementationXml"] = bodyXml,
-                        });
-                    }
-                }
-                else
-                {
-                    var entry = new Dictionary<string, object?>
-                    {
-                        ["name"] = childName, ["kind"] = "action",
-                        ["declaration"] = $"ACTION {childName}", ["language"] = actionLang,
-                    };
-                    if (!string.IsNullOrEmpty(impl)) entry["implementation"] = impl.Trim();
-                    if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;
-                    textual.Add(entry);
-                }
+                    ["name"] = childName,
+                    ["kind"] = isMethod ? "method" : "action",
+                    ["declaration"] = isAction ? $"ACTION {childName}" : decl.Trim(),
+                };
+                if (implementation is not null) entry["implementation"] = implementation;
+                if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;
+                textual.Add(entry);
             }
             else if (isProperty)
             {
@@ -210,7 +171,7 @@ public static class SourceAssembler
             }
         }
 
-        return (textual, graphical);
+        return textual;
     }
 
     private static string DetectLanguage(string? implementation)
@@ -222,9 +183,6 @@ public static class SourceAssembler
                 return kw;
         return "ST";
     }
-
-    private static bool IsGraphical(string language) =>
-        language is "FBD" or "LD" or "SFC" or "CFC";
 
     private static bool IsEmptyVarBlock(string decl)
     {

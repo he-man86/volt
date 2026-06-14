@@ -6,6 +6,12 @@ namespace VoltBridge.Core;
 
 public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopLevelCrud, string FolderPath);
 
+/// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to read-only ST.
+/// <paramref name="Language"/> is FBD/LD/SFC/CFC; <paramref name="St"/> is the
+/// transpiled body (CODESYS: its own GetImplementationSnippet; TwinCAT: the shared
+/// FbdTranspiler over the parsed NWL XmlArchive).</summary>
+public sealed record GraphicalBody(string Language, string St);
+
 public interface IAdapter
 {
     // ── Connection ─────────────────────────────────────────────────
@@ -53,7 +59,10 @@ public interface IAdapter
     dynamic GetChildAt(dynamic parent, int index);
     dynamic GetParent(dynamic item);
     string GetItemName(dynamic item);
-    string? ExportItemBodyAsXml(dynamic item, string itemName);
+    /// <summary>Read a child's graphical (FBD/LD/SFC/CFC) body as read-only ST, or null
+    /// if the item is textual (ST/IL). Used by SourceAssembler to materialize graphical
+    /// children with a (* @volt-graphical: LANG *) marker instead of dropping them.</summary>
+    GraphicalBody? ReadGraphicalBody(dynamic item);
 
     // ── Config Manifest ───────────────────────────────────────────────
     string ReadManifestText(dynamic item, string kind);
