@@ -25,19 +25,24 @@ public static class SourceAssembler
 
     private static Dictionary<string, object?> BuildPou(IAdapter adapter, string name, dynamic item, string declaration)
     {
-        var implementation = adapter.ReadImplementation(item)?.Trim() ?? "";
-        var language = DetectLanguage(implementation);
-
         var children = CollectChildren(adapter, item);
+        var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
 
-        var result = new Dictionary<string, object?>
+        // The POU's OWN body may be graphical (a root FBD/LD/CFC/SFC function/FB) — render it
+        // read-only with the (* @volt-graphical: LANG *) marker, exactly like graphical children.
+        var graphicalBody = adapter.ReadGraphicalBody(item);
+        if (graphicalBody is not null)
         {
-            ["declaration"] = declaration.Trim(),
-            ["language"] = language,
-        };
-
-        if (language == "ST" && !string.IsNullOrEmpty(implementation))
-            result["implementation"] = implementation;
+            var marker = $"(* @volt-graphical: {graphicalBody.Language} *)";
+            result["implementation"] = string.IsNullOrEmpty(graphicalBody.St) ? marker : marker + "\n" + graphicalBody.St;
+            result["language"] = graphicalBody.Language;
+        }
+        else
+        {
+            var implementation = adapter.ReadImplementation(item)?.Trim() ?? "";
+            result["language"] = "ST";
+            if (!string.IsNullOrEmpty(implementation)) result["implementation"] = implementation;
+        }
 
         if (children.Count > 0)
             result["children"] = children;
@@ -172,16 +177,6 @@ public static class SourceAssembler
         }
 
         return textual;
-    }
-
-    private static string DetectLanguage(string? implementation)
-    {
-        if (string.IsNullOrWhiteSpace(implementation)) return "ST";
-        var trimmed = implementation.TrimStart();
-        foreach (var kw in new[] { "FBD", "LD", "SFC", "CFC" })
-            if (trimmed.StartsWith(kw, System.StringComparison.OrdinalIgnoreCase))
-                return kw;
-        return "ST";
     }
 
     private static bool IsEmptyVarBlock(string decl)

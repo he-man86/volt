@@ -66,8 +66,11 @@ public static class FbdTranspiler
             return;
         }
 
-        // A bare function/operator at network top level → an expression statement.
-        sb.Append(RenderBox(box, resolve)).Append(";\n");
+        // A function/operator at network top level → assign its value to the wired output
+        // (e.g. y := (a OR b);), or a bare expression statement if nothing is wired.
+        var expr = RenderBox(box, resolve);
+        var target = box.Outputs.FirstOrDefault(o => !string.IsNullOrEmpty(o));
+        sb.Append(string.IsNullOrEmpty(target) ? expr : $"{target} := {expr}").Append(";\n");
     }
 
     private static string RenderSource(FbdSource src, PinResolver resolve) => src switch

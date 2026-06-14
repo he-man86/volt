@@ -173,7 +173,10 @@ namespace VoltBridge.Codesys
             string view;
             try { view = (string)(impl.DefaultViewMode ?? ""); } catch { return null; }
             var lang = view.ToUpperInvariant();
-            if (lang is not ("FBD" or "LD" or "SFC" or "CFC")) return null;   // ST / IL → textual
+            // CFC/SFC use different body models we don't transpile yet — emit the marker
+            // only (read-only + push-safe), parity with the TwinCAT reader.
+            if (lang is "CFC" or "SFC") return new GraphicalBody(lang, "");
+            if (lang is not ("FBD" or "LD")) return null;                     // ST / IL → textual
             string snippet;
             try { snippet = (string)(impl.GetImplementationSnippet() ?? ""); } catch { snippet = ""; }
             return new GraphicalBody(lang, FbdSnippet.CleanImplementation(snippet));

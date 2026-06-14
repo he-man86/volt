@@ -74,6 +74,65 @@ public class FbdTcPouTests
     public void Returns_null_for_a_textual_action()
     {
         Assert.Null(TcPouReader.ReadGraphicalBody(TcPou, "POU", Pins));        // not an action
-        Assert.Null(TcPouReader.FindChildNwl(TcPou, "DoesNotExist"));
+        Assert.Null(TcPouReader.FindChildBody(TcPou, "DoesNotExist"));
+    }
+
+    [Fact]
+    public void Root_POU_body_in_FBD_is_transpiled_with_output_assignment()
+    {
+        const string tc = """
+        <TcPlcObject>
+          <POU Name="RootFbd">
+            <Implementation>
+              <NWL><XmlArchive><Data>
+                <o t="NWLImplementationObject">
+                  <v n="DefaultViewMode">"Fbd"</v>
+                  <l2 n="NetworkList" cet="Network"><o>
+                    <l2 n="NetworkItems" cet="BoxTreeBox"><o>
+                      <v n="BoxType">"OR"</v>
+                      <o n="Instance" t="Operand"><n n="Operand" /></o>
+                      <o n="OutputItems" t="OutputItemList"><l2 n="OutputItems"><o><v n="Operand">"y"</v></o></l2></o>
+                      <l2 n="InputItems" cet="BoxTreeOperand">
+                        <o><o n="Operand" t="Operand"><v n="Operand">"a"</v></o></o>
+                        <o><o n="Operand" t="Operand"><v n="Operand">"b"</v></o></o>
+                      </l2>
+                    </o></l2>
+                  </o></l2>
+                </o>
+              </Data></XmlArchive></NWL>
+            </Implementation>
+          </POU>
+        </TcPlcObject>
+        """;
+
+        var gb = TcPouReader.ReadGraphicalBody(tc, "RootFbd", Pins);   // the POU itself, not a child
+        Assert.NotNull(gb);
+        Assert.Equal("y := (a OR b);\n", gb!.St);
+    }
+
+    [Fact]
+    public void CFC_and_SFC_are_marker_only_not_transpiled()
+    {
+        const string tc = """
+        <TcPlcObject>
+          <POU Name="P">
+            <Action Name="ACT_CFC">
+              <Implementation><CFC><XmlArchive><Data>
+                <o t="CFCImplementationObject" />
+              </Data></XmlArchive></CFC></Implementation>
+            </Action>
+            <Action Name="ACT_ST">
+              <Implementation><ST><![CDATA[x := 1;]]></ST></Implementation>
+            </Action>
+          </POU>
+        </TcPlcObject>
+        """;
+
+        var cfc = TcPouReader.ReadGraphicalBody(tc, "ACT_CFC", Pins);
+        Assert.NotNull(cfc);
+        Assert.Equal("CFC", cfc!.Language);
+        Assert.Equal("", cfc.St);                                  // detected + safe, no ST yet
+
+        Assert.Null(TcPouReader.ReadGraphicalBody(tc, "ACT_ST", Pins));   // textual → not graphical
     }
 }

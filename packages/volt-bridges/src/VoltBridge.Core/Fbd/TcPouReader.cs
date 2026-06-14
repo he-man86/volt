@@ -11,28 +11,46 @@ namespace VoltBridge.Core.Fbd;
 /// </summary>
 public static class TcPouReader
 {
-    /// <summary>The child's graphical body as read-only ST, or null if the child is
-    /// textual / not found. <paramref name="resolvePins"/> names box pins from each box
-    /// type's interface (see <see cref="FbdTranspiler.PinResolver"/>).</summary>
+    /// <summary>The child's graphical body as read-only ST, or null if textual / absent.
+    /// FBD/LD (the <c>&lt;NWL&gt;</c> network model) is transpiled; CFC/SFC are graphical
+    /// but use different body models we don't transpile yet, so they come back with an
+    /// empty body (marker only) — still read-only and push-safe. <paramref name="resolvePins"/>
+    /// names box pins from each box type's interface.</summary>
     public static GraphicalBody? ReadGraphicalBody(string tcPouXml, string childName, FbdTranspiler.PinResolver resolvePins)
     {
-        var nwl = FindChildNwl(tcPouXml, childName);
-        if (nwl is null) return null;
-        var body = FbdXmlReader.Read(nwl.ToString());
-        return new GraphicalBody(body.Language, FbdTranspiler.ToSt(body, resolvePins));
+        var body = FindChildBody(tcPouXml, childName);
+        if (body is null) return null;
+        switch (body.Name.LocalName)
+        {
+            case "ST":
+            case "IL":
+                return null;                                   // textual
+            case "NWL":                                        // FBD / LD network language
+                var fbd = FbdXmlReader.Read(body.ToString());
+                return new GraphicalBody(fbd.Language, FbdTranspiler.ToSt(fbd, resolvePins));
+            case "CFC":
+            case "SFC":
+                return new GraphicalBody(body.Name.LocalName, "");  // marker only — not transpiled yet
+            default:
+                return new GraphicalBody(body.Name.LocalName.ToUpperInvariant(), "");
+        }
     }
 
-    /// <summary>The raw <c>&lt;NWL&gt;</c> element for a named Action/Method, or null if it
-    /// is textual (<c>&lt;ST&gt;</c>) or absent. Exposed for tests/diagnostics.</summary>
-    public static XElement? FindChildNwl(string tcPouXml, string childName)
+    /// <summary>The body element (&lt;ST&gt; / &lt;NWL&gt; / &lt;CFC&gt; / &lt;SFC&gt;) for a
+    /// named member — an Action/Method OR the POU/Interface itself (root body) — or null if
+    /// absent. Exposed for tests/diagnostics.</summary>
+    public static XElement? FindChildBody(string tcPouXml, string childName)
     {
         XDocument doc;
         try { doc = XDocument.Parse(tcPouXml); } catch { return null; }
+        // Match by Name attribute, on any member that carries an <Implementation> — the POU
+        // itself (root body) as well as its Actions/Methods. Names are unique within a file.
         var member = doc.Descendants()
             .FirstOrDefault(e =>
-                (e.Name.LocalName == "Action" || e.Name.LocalName == "Method") &&
-                (string?)e.Attribute("Name") == childName);
+                (string?)e.Attribute("Name") == childName &&
+                e.Elements().Any(c => c.Name.LocalName == "Implementation"));
         var impl = member?.Elements().FirstOrDefault(e => e.Name.LocalName == "Implementation");
-        return impl?.Elements().FirstOrDefault(e => e.Name.LocalName == "NWL");
+        return impl?.Elements().FirstOrDefault(e =>
+            e.Name.LocalName is "ST" or "IL" or "NWL" or "CFC" or "SFC" or "LD" or "FBD");
     }
 }

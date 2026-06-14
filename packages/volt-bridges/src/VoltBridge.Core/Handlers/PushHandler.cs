@@ -131,16 +131,21 @@ public static class PushHandler
                     targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
+            // A root graphical POU (whole FBD/LD/CFC/SFC body) is materialized as a READ-ONLY
+            // marked ST view — never write it back over the real graphical body.
+            var pouMarked = impl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal);
+
             dynamic po;
             if (existing == null)
             {
+                if (pouMarked) return;   // can't create a graphical POU from its ST view
                 po = adapter.CreateChild(targetParent, name, itemType);
                 adapter.WriteSourceText(po, decl, impl);
             }
             else
             {
                 po = existing;
-                adapter.WriteSourceText(existing, decl, impl);
+                if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
             }
 
             foreach (var child in split.Children)
