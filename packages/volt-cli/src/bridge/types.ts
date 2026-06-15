@@ -154,6 +154,9 @@ export const FetchedItemSchema = z
 		 *  "interface" / "gvl" / "structure" / "enumeration" / "union" /
 		 *  "alias"). */
 		kind: z.string(),
+		/** Root body language (ST/FBD/LD/CFC/SFC) — picks the workspace file extension
+		 *  (.st/.fbd/.ld/.cfc/.sfc). Absent for non-POU kinds (DUTs, GVL, reference items). */
+		language: z.string().optional(),
 		/** Slash-joined containing folder in the project tree (e.g. "POUs/Motors").
 		 *  Empty/absent = item at the project root. */
 		folder: z.string().optional(),

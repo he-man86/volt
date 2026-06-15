@@ -2,38 +2,48 @@ import { describe, test, expect } from "bun:test"
 import {
   pickExtension,
   getByKind,
+  getByExt,
+  getByPath,
   isSourcePou,
+  isTrackedPath,
+  knownKinds,
+  POU_KINDS,
   sourceExtensions,
   FOLDER_MARKER,
-  EXTENSIONS,
 } from "../../registry/extensions.js"
 
 describe("extensions", () => {
-  test("pickExtension returns the registry ext for every known kind", () => {
-    // Derive from EXTENSIONS rather than a hardcoded copy — the vocabulary contract
+  test("pickExtension resolves every known kind to an extension", () => {
+    // Derive from knownKinds() rather than a hardcoded copy — the vocabulary contract
     // (vocabulary.test.ts) is what keeps the registry honest against the bridge.
-    for (const def of EXTENSIONS) {
-      expect(pickExtension(def.kind)).toBe(def.ext)
+    for (const kind of knownKinds()) {
+      if (POU_KINDS.has(kind)) {
+        expect(pickExtension(kind)).toBe("st") // ST / no language default
+        continue
+      }
+      expect(pickExtension(kind)).toBe(getByKind(kind)!.ext)
     }
   })
 
-  test("reference kinds use ext == kind (read-only marker files; no ad-hoc abbreviations)", () => {
-    for (const def of EXTENSIONS) {
-      // Reference items are the read-only, non-folder kinds.
-      if (isSourcePou(def) || def.ext.length === 0) continue
-      // The one exception: a kind whose file IS a real on-disk artifact keeps its
-      // real extension (e.g. tmc_file -> .tmc), flagged by nameIsVerbatim.
-      if (def.nameIsVerbatim === true) continue
-      expect(def.ext).toBe(def.kind)
+  test("reference kinds use kind == ext (no ad-hoc abbreviations)", () => {
+    // The extension IS the identity. A read-only reference kind must NOT abbreviate: its kind
+    // resolves straight back to the same extension. (interface/structure/enumeration and the tmc
+    // artifact are the only sanctioned abbreviations — none of them read-only marker files.)
+    for (const kind of knownKinds()) {
+      if (POU_KINDS.has(kind)) continue // POU bodies resolve by language, not as a kind
+      const def = getByKind(kind)!
+      if (isSourcePou(def) || def.ext.length === 0) continue // not a reference kind / folder
+      if (def.nameIsVerbatim === true) continue // tmc keeps its real artifact extension
+      expect(pickExtension(kind)).toBe(kind) // kind resolves straight back to itself (== ext)
     }
   })
 
-  test("getByKind returns definition for every known kind", () => {
-    for (const def of EXTENSIONS) {
-      const found = getByKind(def.kind)
+  test("getByKind returns a definition for every non-POU kind", () => {
+    for (const kind of knownKinds()) {
+      if (POU_KINDS.has(kind)) continue // POU kinds resolve by language, not via getByKind
+      const found = getByKind(kind)
       expect(found).toBeDefined()
-      expect(found!.ext).toBe(def.ext)
-      expect(found!.defaultAccess).toBe(def.defaultAccess)
+      expect(pickExtension(kind)).toBe(found!.ext)
     }
   })
 
@@ -47,18 +57,50 @@ describe("extensions", () => {
     expect(exts).toContain(".enum")
     expect(exts).toContain(".alias")
 
-    // Source extensions should NOT include read-only reference types
+    // Every source extension must resolve to a writable (rw) row; no read-only refs leak in.
     for (const ext of exts) {
-      const def = getByKind(
-        EXTENSIONS.find((e) => `.${e.ext}` === ext)?.kind ?? "",
-      )
-      if (def) {
-        expect(isSourcePou(def)).toBe(true)
-      }
+      const def = getByExt(ext)
+      expect(def).toBeDefined()
+      expect(isSourcePou(def!)).toBe(true)
     }
   })
 
   test("FOLDER_MARKER is .gitkeep", () => {
     expect(FOLDER_MARKER).toBe(".gitkeep")
+  })
+
+  describe("body-language extensions", () => {
+    test("a POU's extension follows its body language", () => {
+      for (const kind of ["program", "function", "function_block"]) {
+        expect(pickExtension(kind)).toBe("st")            // ST / no language → .st
+        expect(pickExtension(kind, "ST")).toBe("st")
+        expect(pickExtension(kind, "FBD")).toBe("fbd")
+        expect(pickExtension(kind, "LD")).toBe("ld")
+        expect(pickExtension(kind, "CFC")).toBe("cfc")
+        expect(pickExtension(kind, "SFC")).toBe("sfc")
+      }
+    })
+
+    test("language only affects POU kinds, not DUTs/gvl/interface", () => {
+      expect(pickExtension("gvl", "FBD")).toBe("gvl")
+      expect(pickExtension("structure", "FBD")).toBe("struct")
+      expect(pickExtension("interface", "FBD")).toBe("itf")
+    })
+
+    test(".fbd/.ld are editable source; .cfc/.sfc are read-only", () => {
+      expect(isSourcePou(getByPath("POUs/X.fbd")!)).toBe(true)
+      expect(isSourcePou(getByPath("POUs/X.ld")!)).toBe(true)
+      expect(isSourcePou(getByPath("POUs/X.cfc")!)).toBe(false)
+      expect(isSourcePou(getByPath("POUs/X.sfc")!)).toBe(false)
+    })
+
+    test("graphical extensions are tracked; editable ones are source extensions", () => {
+      for (const p of ["a.fbd", "a.ld", "a.cfc", "a.sfc"]) expect(isTrackedPath(p)).toBe(true)
+      const src = sourceExtensions()
+      expect(src).toContain(".fbd")
+      expect(src).toContain(".ld")
+      expect(src).not.toContain(".cfc")   // read-only, never pushed
+      expect(src).not.toContain(".sfc")
+    })
   })
 })

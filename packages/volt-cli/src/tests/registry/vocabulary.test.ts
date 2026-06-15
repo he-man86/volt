@@ -12,7 +12,7 @@
 import { describe, test, expect } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { EXTENSIONS } from "../../registry/extensions.js"
+import { knownKinds } from "../../registry/extensions.js"
 
 const BRIDGES = join(import.meta.dir, "..", "..", "..", "..", "volt-bridges")
 const ITEMKIND_CS = join(BRIDGES, "src", "VoltBridge.Core", "ItemKind.cs")
@@ -27,7 +27,9 @@ const contract = (
 
 const contractKinds = contract.map((k) => k.kind)
 const fileKinds = contract.filter((k) => k.family === undefined).map((k) => k.kind)
-const registryKinds = EXTENSIONS.map((e) => e.kind)
+// Every kind the registry recognizes — the POU kinds plus each row's resolved kind.
+// (POU body languages .fbd/.ld/… are not kinds; knownKinds() already excludes them.)
+const registryKinds = knownKinds()
 
 // Map() is the only place in ItemKind.cs that returns kind STRINGS (the predicates
 // compare int constants), so every `=> "kind"` arm is a kind the bridge can emit.

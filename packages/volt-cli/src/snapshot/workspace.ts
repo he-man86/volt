@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve, sep } from "node:path"
 import { buildTree, listTree, writeBlob } from "../git/plumbing.js"
-import { getByPath, isTrackedPath, nameFromPath, sourceExtensions } from "../registry/extensions.js"
+import { getByPath, gitattributesContent, isTrackedPath, nameFromPath } from "../registry/extensions.js"
 
 export const WORKSPACE_SRC_DIR = "src"
 
@@ -197,7 +197,7 @@ export function ensureGitignore(workspaceRoot: string): void {
 	}
 
 	const gaPath = join(workspaceRoot, ".gitattributes")
-	const gaContent = sourceExtensions().map((e) => `*${e} text eol=lf`).join("\n") + "\n"
+	const gaContent = gitattributesContent()
 	if (!existsSync(gaPath) || readFileSync(gaPath, "utf-8") !== gaContent) {
 		writeFileSync(gaPath, gaContent, "utf-8")
 	}

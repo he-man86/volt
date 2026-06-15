@@ -23,11 +23,13 @@ import { loadState, saveState, type RepoState } from "../snapshot/repo.js";
 import { listWorkspaceFiles } from "../snapshot/workspace.js";
 import {
 	FOLDER_MARKER,
-	getByKind,
 	getByPath,
 	gitattributesContent,
+	isKnownKind,
 	isSourcePou,
 	nameFromPath,
+	nameIsVerbatim,
+	pickExtension,
 	sourceExtensions,
 } from "../registry/extensions.js";
 import { isPullable, type AccessOverrides } from "../registry/access.js";
@@ -156,22 +158,22 @@ function materializeItem(item: FetchedItem): MaterializedFile[] {
 	}
 	const folder = item.folder ?? "";
 
-	const def = getByKind(item.kind);
-	if (def === undefined) {
+	if (!isKnownKind(item.kind)) {
 		throw new Error(
 			`bridge sent unregistered kind "${item.kind}" for "${item.name}" — add it to registry/extensions.ts`,
 		);
 	}
 
-	// The folder placeholder is the only kind with no extension.
-	if (def.ext.length === 0) {
+	// A POU's extension follows its root body language (.st/.fbd/.ld/.cfc/.sfc); every other kind
+	// uses its registry extension. The folder placeholder is the only kind with no extension.
+	const ext = pickExtension(item.kind, item.language ?? undefined);
+	if (ext.length === 0) {
 		return [{ path: joinPath(folder, item.name, FOLDER_MARKER), content: "" }];
 	}
 
-	// Every other kind materializes one file from sourceText. Source POUs and
-	// read-only reference items are identical here — they differ only in whether
+	// Source POUs and read-only reference items are identical here — they differ only in whether
 	// the filename is verbatim (e.g. tmc_file) or `name.ext`.
-	const fileName = def.nameIsVerbatim ? item.name : `${item.name}.${def.ext}`;
+	const fileName = nameIsVerbatim(item.kind) ? item.name : `${item.name}.${ext}`;
 	return [{ path: joinPath(folder, fileName), content: item.sourceText }];
 }
 
