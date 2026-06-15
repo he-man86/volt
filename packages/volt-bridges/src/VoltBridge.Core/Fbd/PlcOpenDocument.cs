@@ -50,9 +50,34 @@ namespace VoltBridge.Core.Fbd
                     "refusing to write this graphical body: it contains element(s) the editor cannot " +
                     "represent yet (" + string.Join(", ", lost) + "). Edit this POU in the IDE instead.");
 
+            // Safety: a DISABLED (out-commented) network is omitted from the export entirely — it
+            // leaves no element for the check above, only a gap in the localId-derived network
+            // numbering (network index = localId / 10^10). Replacing the whole body would delete it
+            // with nothing to detect. If the surviving networks aren't contiguous, a hidden network
+            // sat in the gap → refuse, so the push is rejected cleanly instead of silently dropping
+            // it. (Caveat: a disabled FIRST or LAST network leaves no interior gap and is invisible
+            // here — the PLCopen export carries no network count to catch that. An enabled-but-empty
+            // network also reads as a gap and is refused, which is safe.)
+            var indices = body.Elements()
+                .Select(e => (long?)e.Attribute("localId"))
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value / NetworkStride)
+                .Distinct()
+                .OrderBy(i => i)
+                .ToList();
+            if (indices.Count > 1 && indices[indices.Count - 1] - indices[0] + 1 != indices.Count)
+                throw new InvalidOperationException(
+                    "refusing to write this graphical body: there is a gap in the network numbering, " +
+                    "which means a disabled or hidden network the editor cannot see would be lost. " +
+                    "Edit this POU in the IDE instead.");
+
             body.ReplaceWith(newBody);
             return doc.ToString();
         }
+
+        /// <summary>Network index lives in the high digits of every localId (mirrors
+        /// <see cref="PlcOpenReader"/>'s grouping: network index = localId / 10^10).</summary>
+        private const long NetworkStride = 10_000_000_000L;
 
         private static readonly System.Collections.Generic.HashSet<string> Representable =
             new() { "inVariable", "outVariable", "block", "label", "jump", "return", "vendorElement" };

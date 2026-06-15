@@ -79,6 +79,44 @@ public class PlcOpenDocumentTests
     }
 
     [Fact]
+    public void Splice_refuses_a_gap_in_the_network_numbering()
+    {
+        // Networks 1, 2 and 4 are present (localId / 10^10) — network 3 is missing, i.e. a disabled
+        // network the export omitted. Replacing the body would silently drop it: refuse instead.
+        const string withGap = """
+        <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">
+          <body><FBD>
+            <inVariable localId="10000000000"><expression>a</expression></inVariable>
+            <inVariable localId="20000000000"><expression>b</expression></inVariable>
+            <inVariable localId="40000000000"><expression>d</expression></inVariable>
+          </FBD></body>
+        </pou>
+        """;
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SpliceFbdLdBody(withGap, new XElement("FBD")));
+        Assert.Contains("gap", ex.Message);
+    }
+
+    [Fact]
+    public void Splice_allows_contiguous_networks()
+    {
+        // Networks 1, 2, 3 — no gap, so the splice proceeds (a disabled network would break this).
+        const string contiguous = """
+        <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">
+          <body><FBD>
+            <inVariable localId="10000000000"><expression>a</expression></inVariable>
+            <inVariable localId="20000000000"><expression>b</expression></inVariable>
+            <inVariable localId="30000000000"><expression>c</expression></inVariable>
+          </FBD></body>
+        </pou>
+        """;
+        XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(contiguous, new XElement(ns + "FBD",
+            new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
+        Assert.Contains("outVariable", outXml);
+    }
+
+    [Fact]
     public void InstanceTypes_parses_declaration()
     {
         var m = PlcOpenDocument.InstanceTypes("VAR\n\ttmr : TON;\n\ttrig : Tc2_Standard.R_TRIG;\nEND_VAR");
