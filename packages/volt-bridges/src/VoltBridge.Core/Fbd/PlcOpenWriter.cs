@@ -14,6 +14,8 @@ namespace VoltBridge.Core.Fbd
     public static class PlcOpenWriter
     {
         public static readonly XNamespace Ns = "http://www.plcopen.org/xml/tc6_0200";
+        private static readonly XNamespace Xhtml = "http://www.w3.org/1999/xhtml";
+        private const long NetworkStride = 10_000_000_000L;   // network index = localId / 10^10 (mirrors PlcOpenReader)
 
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
@@ -21,13 +23,22 @@ namespace VoltBridge.Core.Fbd
         {
             var root = new XElement(Ns + (body.Language == "LD" ? "LD" : "FBD"));
             int row = 0;
-            long commentId = 900_000_000_000L;   // high, throwaway localIds for synthesized comment boxes
+            int commentSeq = 0;
             foreach (var net in body.Networks)
             {
                 if (!string.IsNullOrEmpty(net.Comment))
+                {
+                    // The comment must live in its network's localId range (index = localId / 10^10),
+                    // high within it to avoid colliding with the content nodes — a stray index (e.g.
+                    // an out-of-range localId) makes CODESYS reject the whole import.
+                    long netIndex = net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0;
+                    long commentId = netIndex * NetworkStride + 9_000_000L + commentSeq++;
                     root.Add(new XElement(Ns + "comment",
-                        new XAttribute("localId", commentId++), Pos(row++),
-                        new XElement(Ns + "content", net.Comment)));
+                        new XAttribute("localId", commentId), new XAttribute("height", 0), new XAttribute("width", 0),
+                        Pos(row++),
+                        // TC6 comment content is xhtml, not plain text — CODESYS rejects bare text.
+                        new XElement(Ns + "content", new XElement(Xhtml + "xhtml", net.Comment))));
+                }
                 foreach (var node in net.Nodes)
                     root.Add(WriteNode(node, resolveType, row++));
             }

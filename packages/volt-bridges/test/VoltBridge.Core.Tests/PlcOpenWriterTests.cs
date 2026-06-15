@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Xml.Linq;
 using VoltBridge.Core.Fbd;
 using VoltBridge.Core.Fbd.Vg;
@@ -106,6 +107,22 @@ public class PlcOpenWriterTests
         Assert.Equal("LD", g.Language);
         Assert.StartsWith("%LANG LD", VgWriter.Write(g));
         Assert.Equal("LD", PlcOpenWriter.WriteBody(g).Name.LocalName);   // wrapper mirrors the language
+    }
+
+    /// <summary>Regression (caught by a live CODESYS push): a network comment must be written as
+    /// xhtml content with an in-network localId — bare text or a stray localId makes CODESYS reject
+    /// the whole import.</summary>
+    [Fact]
+    public void Comment_writes_codesys_importable_form()
+    {
+        var g = new GraphBody("FBD", new[]
+        {
+            new GraphNetwork(0, null, "hi", false, new GraphNode[] { new InVar(1, null, "a", Mods.None) }),
+        });
+        var comment = PlcOpenWriter.WriteBody(g).Elements().First(e => e.Name.LocalName == "comment");
+        Assert.Equal("hi", comment.Value.Trim());                                    // text present…
+        Assert.Equal("xhtml", comment.Element(XName.Get("content", Ns))!.Elements().First().Name.LocalName);  // …wrapped in xhtml
+        Assert.True((long)comment.Attribute("localId")! / 10_000_000_000L == 0);     // in network 0 (with the content)
     }
 
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
