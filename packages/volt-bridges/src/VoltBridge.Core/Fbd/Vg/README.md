@@ -33,9 +33,12 @@ through the same pipeline. Two specifics:
 - `SpliceFbdLdBody` preserves the original `<FBD>`/`<LD>` wrapper on push (swaps contents only), so a
   graphical push never flips the wrapper or changes the editor's view.
 
-Genuine LD-only elements (`<contact>`/`<coil>`/power rails) are NOT modeled — but TwinCAT/CODESYS
-appear to serialize ladder logic as blocks via PLCopen, so they may never occur. If they do, the P0
-write-loss guard refuses the push (they're not in the representable set) rather than dropping them.
+Genuine LD-only elements (`<contact>`/`<coil>`/power rails) DO occur (a captured TwinCAT `<LD>` body
+had them). They are **read-lowered** to the same boolean graph as the FBD twin so ladder READS as VG:
+series contacts → `AND`, parallel branches → `OR`, normally-closed → `NOT`, coil → assignment, S/R
+coil → `SET`/`RESET`, and a function block placed in a rung keeps its wiring. This is **read-only**:
+the original `<contact>`/`<coil>` keeps the push guard refusing (no reverse lowering yet), so ladder
+can never be corrupted — only viewed. (`PlcOpenReader.LowerLadder`.)
 
 ## Structure
 ```
@@ -91,9 +94,9 @@ Operators live in `FbdOperators.cs` (type↔symbol): `OR AND XOR ADD(+) SUB(-) M
 
 ## DEFERRED (not yet in VG — bodies using these are read-incomplete and refused on push)
 - **Free comment boxes** (`<comment>`) — only network `//` comments exist.
-- **LD-only elements** (`<contact>`/`<coil>`/power rails) — LD *logic* round-trips as blocks (see
-  "FBD and LD are the same structure"); these literal ladder elements aren't modeled and, if they
-  ever appear, the push is refused (not in the representable set).
+- **LD-only elements** (`<contact>`/`<coil>`/power rails) — now **read-lowered** to boolean VG
+  (`PlcOpenReader.LowerLadder`), so ladder READS as `AND`/`OR`/`NOT`/assignment. Still read-only:
+  push is refused (no reverse lowering yet), so they remain on this list for the WRITE direction.
 - **Connectors / continuations** (`<connector>`/`<continuation>`).
 - **FB-call in-out pin wiring** (`<block><inOutVariables>`) — VAR_IN_OUT *declarations* already
   round-trip as plain decl text; only the graphical wiring of an in-out pin is unhandled.

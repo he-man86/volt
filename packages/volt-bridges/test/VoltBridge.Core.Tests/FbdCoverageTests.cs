@@ -120,6 +120,32 @@ public class FbdCoverageTests
         Assert.Contains("hello world", g2.Networks.SelectMany(n => new[] { n.Comment }).FirstOrDefault(c => c != null) ?? "");
     }
 
+    /// <summary>LD-native rungs LOWER to the same boolean VG as the FBD twin so ladder READS (series
+    /// contacts = AND, coil = assignment, negated contact = NOT). It stays READ-ONLY: the original
+    /// &lt;contact&gt; means a push is still refused (no reverse lowering), so it can never corrupt.</summary>
+    [Theory]
+    [InlineData(
+        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+        "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
+        "<contact localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
+        "<coil localId='4'><connectionPointIn><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
+        "(a AND b)")]  // two contacts in series → AND
+    [InlineData(
+        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+        "<contact localId='2' negated='true'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
+        "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
+        "NOT a")]      // normally-closed contact → NOT
+    public void Ld_rung_lowers_to_boolean_vg(string inner, string expect)
+    {
+        var doc = Doc("LD", inner);
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        Assert.Contains(expect, vg);
+        Assert.Contains("out :=", vg);   // coil → assignment
+        // read-only: a push is still refused (ladder reverse-lowering isn't built)
+        Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SpliceFbdLdBody(doc, new XElement("FBD")));
+    }
+
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard
     /// allows it (it's representable) but VG doesn't carry it, so a push drops it. Documented here so
     /// the exception to "never silently dropped" is explicit and intentional.</summary>
