@@ -394,11 +394,15 @@ namespace VoltBridge.Codesys
         }
 
         /// <summary>Import PLCopenXML <paramref name="data"/> (a string, not a path), replacing an
-        /// existing object of the same name when the IDE offers a conflict resolution.</summary>
-        public void ImportXml(string data)
+        /// existing object of the same name when the IDE offers a conflict resolution. Imports INTO
+        /// <paramref name="into"/> when supplied (else at the project root) — PLCopenXML carries no
+        /// folder membership, so a project-level import of a single POU would land it at the root and
+        /// relocate it out of its folder. import_xml is available on object/folder nodes too.</summary>
+        public void ImportXml(string data, object? into = null)
         {
-            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project");
-            var t = proj.GetType();
+            var target = into != null ? Unwrap(into)!
+                : (PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project"));
+            var t = target.GetType();
             var m3 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml" && x.GetParameters().Length == 3
                 && x.GetParameters()[0].ParameterType.IsEnum && x.GetParameters()[1].ParameterType == typeof(string));
             if (m3 != null)
@@ -406,11 +410,11 @@ namespace VoltBridge.Codesys
                 var et = m3.GetParameters()[0].ParameterType;
                 var pick = Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Replace", StringComparison.OrdinalIgnoreCase) >= 0)
                         ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0);
-                if (pick != null) { InvokeWith(proj, m3, Enum.Parse(et, pick), data, false); return; }
+                if (pick != null) { InvokeWith(target, m3, Enum.Parse(et, pick), data, false); return; }
             }
             var m2 = t.GetMethods(BF).First(x => x.Name == "import_xml"
                 && x.GetParameters().Length == 2 && x.GetParameters()[0].ParameterType == typeof(string));
-            InvokeWith(proj, m2, data, false);
+            InvokeWith(target, m2, data, false);
         }
 
         private static object? InvokeWith(object target, System.Reflection.MethodInfo m, params object?[] args)

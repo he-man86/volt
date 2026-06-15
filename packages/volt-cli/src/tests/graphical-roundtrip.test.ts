@@ -80,6 +80,7 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 		const edited = original.replace(flip[0]!, flip[1]!)
 		expect(edited).not.toBe(original)   // the fixture POU must contain a boolean operand
 
+		const relBefore = f0.slice(workspace.length)
 		try {
 			writeFileSync(f0, edited, "utf-8")
 			const pr = await push(workspace, bridge, {})
@@ -87,10 +88,10 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 			expect(pr.kind).toBe("ok")
 
 			await pull(workspace, bridge, { force: true })
-			// Re-find: the value round-trip is what matters here (graphical write may currently
-			// relocate the POU's folder on re-import — tracked separately, not asserted on path).
-			const after = readFileSync(findGraphical()!, "utf-8")
-			expect(after).toContain(flip[1]!)   // the edit landed in the IDE and came back
+			const f1 = findGraphical()!
+			const after = readFileSync(f1, "utf-8")
+			expect(after).toContain(flip[1]!)              // the edit landed in the IDE and came back
+			expect(f1.slice(workspace.length)).toBe(relBefore)  // and the POU kept its folder (no relocate-on-import)
 		} finally {
 			const cur = findGraphical()
 			if (cur) {

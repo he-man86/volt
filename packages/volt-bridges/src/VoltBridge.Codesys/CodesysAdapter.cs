@@ -200,18 +200,21 @@ namespace VoltBridge.Codesys
             var outXml = VoltBridge.Core.Fbd.PlcOpenDocument.SpliceFbdLdBody(exported, newBody); // throws if no FBD/LD body
 
             // Replace in place: delete the existing object, then import fresh (a same-name import
-            // with ConflictResolve=Replace leaves the body untouched). If the new import fails,
-            // re-import the original so a bad edit can never lose the POU.
+            // with ConflictResolve=Replace leaves the body untouched). Import INTO the original
+            // parent — PLCopenXML carries no folder membership, so a project-level import would
+            // relocate the POU to the root. If the new import fails, re-import the original (into the
+            // same parent) so a bad edit can never lose the POU or move it.
             var nm = _om.GetName((object)item);
             var par = _om.ParentOf((object)item);
             try
             {
                 if (par != null) _om.DeleteChild(par, nm);
-                _om.ImportXml(outXml);
+                _om.ImportXml(outXml, par);
             }
             catch
             {
-                try { _om.ImportXml(exported); } catch { }
+                try { _om.ImportXml(exported, par); }
+                catch { try { _om.ImportXml(exported); } catch { } }
                 throw;
             }
         }
