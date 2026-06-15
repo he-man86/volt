@@ -6,22 +6,18 @@ using System.Text;
 namespace VoltBridge.Core.Fbd.Vg
 {
     /// <summary>
-    /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text
-    /// dialect: one operation per statement, every gate/FB result named, leaf operands inline. The
-    /// output is valid ST (the existing ST LSP reads it) AND round-trippable (<c>VgParser</c>
-    /// reverses it). Emission is deterministic (topological, tie-broken by localId) so
-    /// VG→graph→VG is a fixed point.
+    /// Renders a <see cref="GraphBody"/> to VG text — a canonical, constrained Structured-Text-LIKE
+    /// dialect: one operation per statement, every gate/FB result named, leaf operands inline. It
+    /// reads as ST and the ST LSP loads it, but pin modifiers are VG EXTENSIONS, not standard ST:
+    /// <c>NOT operand</c> (negation — this one IS valid ST), and the suffixes <c>RISING</c>/
+    /// <c>FALLING</c> (edge) and <c>SET</c>/<c>RESET</c> (storage), which keep the modifier visible
+    /// right at the pin rather than synthesizing hidden R_TRIG/SR instances. Round-trippable
+    /// (<c>VgParser</c> reverses it); emission is deterministic so VG→graph→VG is a fixed point.
     /// </summary>
     public static class VgWriter
     {
         // Operator box types render infix; everything else is an FB call or function call.
-        private static readonly Dictionary<string, string> Operators = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["OR"] = "OR", ["AND"] = "AND", ["XOR"] = "XOR",
-            ["ADD"] = "+", ["SUB"] = "-", ["MUL"] = "*", ["DIV"] = "/", ["MOD"] = "MOD",
-            ["GT"] = ">", ["LT"] = "<", ["GE"] = ">=", ["LE"] = "<=", ["EQ"] = "=", ["NE"] = "<>",
-        };
-
+        // Canonical operator table lives in FbdOperators (shared with the transpiler + parser).
         public static string Write(GraphBody body)
         {
             var sb = new StringBuilder();
@@ -55,7 +51,39 @@ namespace VoltBridge.Core.Fbd.Vg
 
             foreach (var ov in net.Nodes.OfType<OutVar>())
                 sb.Append("  ").Append(ov.Expression).Append(" := ")
-                  .Append(RenderConn(ov.Source, byId, names)).Append(";\n");
+                  .Append(ApplyMods(RenderConn(ov.Source, byId, names), ov.Mods)).Append(";\n");
+
+            // Control flow (valid CODESYS ST): a label is "name:"; a jump/return is bare when
+            // unconditional, else wrapped in IF … THEN … END_IF (its condition is a wire).
+            foreach (var node in net.Nodes)
+                switch (node)
+                {
+                    case Label lb: sb.Append("  ").Append(lb.Name).Append(":\n"); break;
+                    case Jump jp: EmitGoto(sb, "JMP " + jp.Target, jp.Condition, jp.Mods, byId, names); break;
+                    case Return rt: EmitGoto(sb, "RETURN", rt.Condition, rt.Mods, byId, names); break;
+                }
+        }
+
+        private static void EmitGoto(StringBuilder sb, string action, Conn? cond, Mods mods,
+            IReadOnlyDictionary<long, GraphNode> byId, IReadOnlyDictionary<long, string> names)
+        {
+            if (cond is null) { sb.Append("  ").Append(action).Append(";\n"); return; }
+            var c = ApplyMods(RenderConn(cond, byId, names), mods);   // NOT cond when negated
+            sb.Append("  IF ").Append(c).Append(" THEN ").Append(action).Append("; END_IF\n");
+        }
+
+        /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix (negation), trailing
+        /// <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/<c>RESET</c> (storage). Inverse
+        /// of <see cref="VgParser"/>'s modifier parsing.</summary>
+        private static string ApplyMods(string value, Mods m)
+        {
+            if (m.IsNone) return value;
+            if (m.Negated) value = "NOT " + value;
+            if (m.Edge == EdgeMod.Rising) value += " RISING";
+            else if (m.Edge == EdgeMod.Falling) value += " FALLING";
+            if (m.Storage == StorageMod.Set) value += " SET";
+            else if (m.Storage == StorageMod.Reset) value += " RESET";
+            return value;
         }
 
         private static void EmitBlock(StringBuilder sb, Block b,
@@ -64,7 +92,7 @@ namespace VoltBridge.Core.Fbd.Vg
             var args = b.Inputs.Where(p => p.Source != null)
                 .Select(p => RenderPinArg(p, byId, names)).ToList();
 
-            if (Operators.TryGetValue(b.TypeName, out var op))           // operator → infix
+            if (FbdOperators.TypeToSymbol.TryGetValue(b.TypeName, out var op))   // operator → infix
             {
                 sb.Append("  ").Append(names[b.LocalId]).Append(" := (")
                   .Append(string.Join($" {op} ", args.Select(a => a.Value))).Append(");\n");
@@ -83,7 +111,7 @@ namespace VoltBridge.Core.Fbd.Vg
 
         private static (string Pin, string Value) RenderPinArg(Pin p,
             IReadOnlyDictionary<long, GraphNode> byId, IReadOnlyDictionary<long, string> names)
-            => (p.FormalParameter, RenderConn(p.Source, byId, names));
+            => (p.FormalParameter, ApplyMods(RenderConn(p.Source, byId, names), p.Mods));
 
         /// <summary>A wire → text: a leaf inVariable inlines its expression; a block reference uses
         /// the block's name (and <c>.Pin</c> for a selected output).</summary>
@@ -103,7 +131,7 @@ namespace VoltBridge.Core.Fbd.Vg
         }
 
         private static bool IsOperatorOrFunction(Block b)
-            => Operators.ContainsKey(b.TypeName) || string.IsNullOrEmpty(b.InstanceName);
+            => FbdOperators.TypeToSymbol.ContainsKey(b.TypeName) || string.IsNullOrEmpty(b.InstanceName);
 
         /// <summary>Order blocks so every block appears after the blocks feeding its inputs;
         /// ties broken by localId for determinism. Cycles (shouldn't occur in FBD) fall back to

@@ -35,7 +35,12 @@ namespace VoltBridge.Connector
 
             lock (_gate)
             {
-                if (_workers.TryGetValue(p.Id, out var existing) && !existing.HasExited) return;
+                if (_workers.TryGetValue(p.Id, out var existing))
+                {
+                    if (!existing.HasExited) return;
+                    existing.Dispose();          // crashed worker — dispose before respawning
+                    _workers.Remove(p.Id);
+                }
 
                 var log = Path.Combine(LogDir, $"{p.Id}.log");
                 var psi = new ProcessStartInfo
@@ -80,6 +85,7 @@ namespace VoltBridge.Connector
                 if (_workers.TryGetValue(id, out var proc))
                 {
                     KillTree(proc);
+                    proc.Dispose();
                     _workers.Remove(id);
                 }
             }
@@ -111,7 +117,7 @@ namespace VoltBridge.Connector
         {
             lock (_gate)
             {
-                foreach (var (_, proc) in _workers) KillTree(proc);
+                foreach (var (_, proc) in _workers) { KillTree(proc); proc.Dispose(); }
                 _workers.Clear();
             }
         }

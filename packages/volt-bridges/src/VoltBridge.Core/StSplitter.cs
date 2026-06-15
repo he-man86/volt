@@ -291,9 +291,9 @@ public static class StSplitter
 				ctx.Update(after[i]);
 				if (!ctx.InsideTrivia)
 				{
-					if (StartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "method", "END_METHOD")); break; }
-					if (StartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "action", "END_ACTION")); break; }
-					if (StartsWithKeyword(after[i], "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
+					if (LineStartsWithKeyword(after[i], "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "method", "END_METHOD")); break; }
+					if (LineStartsWithKeyword(after[i], "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, "action", "END_ACTION")); break; }
+					if (LineStartsWithKeyword(after[i], "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart)); break; }
 					throw new BridgeException(400, "INVALID_ST",
 						$"Expected METHOD/ACTION/PROPERTY at line {i + 1}, got: {Truncate(after[i], 80)}");
 				}
@@ -498,7 +498,7 @@ public static class StSplitter
 			if (!m.Success)
 				throw new BridgeException(400, "INVALID_ST", $"Cannot parse METHOD signature: {Truncate(sig, 80)}");
 			var name = m.Groups[2].Value;
-			var acl = ExtractAcl(m.Groups[1].Value);
+			var acl = CodeHelper.ExtractAcl(m.Groups[1].Value);
 			var rt  = m.Groups[3].Success ? m.Groups[3].Value.Trim() : null;
 			return (name, acl, rt, folder);
 		}
@@ -530,17 +530,6 @@ public static class StSplitter
 		if (!m.Success) return null;
 		var f = m.Groups[1].Value.Trim();
 		return f.Length == 0 ? null : f;
-	}
-
-	private static string? ExtractAcl(string modifierList)
-	{
-		if (string.IsNullOrWhiteSpace(modifierList)) return null;
-		foreach (var token in modifierList.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
-		{
-			var u = token.ToUpperInvariant();
-			if (u is "PUBLIC" or "PRIVATE" or "PROTECTED" or "INTERNAL") return u;
-		}
-		return null;
 	}
 
 	// ─── Line scanning helpers ───────────────────────────────────────
@@ -608,11 +597,6 @@ public static class StSplitter
 		char after = trimmed[keyword.Length];
 		// Keyword boundary — must be whitespace, comment, or end.
 		return !char.IsLetterOrDigit(after) && after != '_';
-	}
-
-	private static bool StartsWithKeyword(string line, string keyword)
-	{
-		return LineStartsWithKeyword(line, keyword);
 	}
 
 	private static List<string> NormalizeLines(string source)

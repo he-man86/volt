@@ -179,7 +179,7 @@ namespace VoltBridge.Codesys
             if (lang is not ("FBD" or "LD")) return null;                      // ST / IL → textual
             try
             {
-                var fbd = FbdElement(_om.ExportXml((object)item));
+                var fbd = VoltBridge.Core.Fbd.PlcOpenDocument.FindFbdLdBody(_om.ExportXml((object)item));
                 if (fbd == null) return new GraphicalBody(lang, "");
                 var vg = VoltBridge.Core.Fbd.Vg.VgWriter.Write(VoltBridge.Core.Fbd.PlcOpenReader.ReadBody(fbd));
                 return new GraphicalBody(lang, vg, "vg");
@@ -193,16 +193,11 @@ namespace VoltBridge.Codesys
         public override void WriteGraphicalBody(dynamic item, string vgText, string declaration)
         {
             var graph = VoltBridge.Core.Fbd.Vg.VgParser.Parse(vgText);                          // throws on invalid VG
-            var types = ParseInstanceTypes(declaration);
+            var types = VoltBridge.Core.Fbd.PlcOpenDocument.InstanceTypes(declaration);
             var newBody = VoltBridge.Core.Fbd.PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
             var exported = _om.ExportXml((object)item);                                          // full POU XML (for restore)
-            var doc = System.Xml.Linq.XDocument.Parse(exported);
-            var ns = doc.Root!.GetDefaultNamespace();
-            var body = doc.Descendants(ns + "FBD").FirstOrDefault() ?? doc.Descendants(ns + "LD").FirstOrDefault()
-                ?? throw new InvalidOperationException("CODESYS: item has no FBD/LD body to write");
-            body.ReplaceWith(newBody);
-            var outXml = doc.ToString();
+            var outXml = VoltBridge.Core.Fbd.PlcOpenDocument.SpliceFbdLdBody(exported, newBody); // throws if no FBD/LD body
 
             // Replace in place: delete the existing object, then import fresh (a same-name import
             // with ConflictResolve=Replace leaves the body untouched). If the new import fails,
@@ -219,22 +214,6 @@ namespace VoltBridge.Codesys
                 try { _om.ImportXml(exported); } catch { }
                 throw;
             }
-        }
-
-        private static System.Xml.Linq.XElement? FbdElement(string xml)
-        {
-            var doc = System.Xml.Linq.XDocument.Parse(xml);
-            var ns = doc.Root!.GetDefaultNamespace();
-            return doc.Descendants(ns + "FBD").FirstOrDefault() ?? doc.Descendants(ns + "LD").FirstOrDefault();
-        }
-
-        private static Dictionary<string, string> ParseInstanceTypes(string decl)
-        {
-            var map = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (System.Text.RegularExpressions.Match m in
-                     System.Text.RegularExpressions.Regex.Matches(decl ?? "", @"(\w+)\s*:\s*([\w\.]+)\s*;"))
-                map[m.Groups[1].Value] = m.Groups[2].Value;
-            return map;
         }
 
         public string ReadManifestText(dynamic item, string kind) =>

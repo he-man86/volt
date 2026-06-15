@@ -12,10 +12,9 @@ public static class SourceAssembler
         var result = header.Type switch
         {
             "function_block" or "function" or "program" => BuildPou(adapter, name, item, declaration),
-            "gvl" => BuildGvl(name, declaration),
-            "structure" or "enumeration" or "union" or "alias" => BuildDut(name, declaration, header.Type),
             "interface" => BuildInterface(adapter, name, item, declaration),
-            _ => BuildSimple(name, header.Type, declaration),
+            // gvl, DUTs (structure/enumeration/union/alias) and anything else are declaration-only.
+            _ => BuildDeclOnly(declaration),
         };
 
         result["name"] = name;
@@ -28,35 +27,39 @@ public static class SourceAssembler
         var children = CollectChildren(adapter, item);
         var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
 
-        // The POU's OWN body may be graphical (a root FBD/LD/CFC/SFC function/FB) — render it
-        // read-only with the (* @volt-graphical: LANG *) marker, exactly like graphical children.
+        // The POU's OWN body may be graphical (a root FBD/LD/CFC/SFC function/FB). The body's
+        // LANGUAGE travels as a field (→ the CLI's .fbd/.ld/.cfc/.sfc extension), so a root body
+        // carries NO (* @volt-graphical *) marker — that marker is only for graphical CHILDREN
+        // embedded in a file whose root language differs. Editable FBD/LD bodies are the VG text
+        // (starts with %LANG); CFC/SFC come back empty (read-only view, extension says the rest).
         var graphicalBody = adapter.ReadGraphicalBody(item);
         if (graphicalBody is not null)
         {
-            result["implementation"] = GraphicalImpl(graphicalBody);
+            if (!string.IsNullOrEmpty(graphicalBody.Body)) result["implementation"] = graphicalBody.Body;
             result["language"] = graphicalBody.Language;
         }
         else
         {
             var implementation = adapter.ReadImplementation(item)?.Trim() ?? "";
-            result["language"] = "ST";
-            if (!string.IsNullOrEmpty(implementation)) result["implementation"] = implementation;
+            var graphicalLang = GraphicalLangOrNull(implementation);
+            if (graphicalLang is not null)
+            {
+                // A graphical body we couldn't transpile (e.g. body file unreadable) — emit a
+                // read-only marker, NEVER the raw XML serialization as if it were ST.
+                result["implementation"] = GraphicalImpl(new GraphicalBody(graphicalLang, "", "st"));
+                result["language"] = graphicalLang;
+            }
+            else
+            {
+                result["language"] = "ST";
+                if (!string.IsNullOrEmpty(implementation)) result["implementation"] = implementation;
+            }
         }
 
         if (children.Count > 0)
             result["children"] = children;
 
         return result;
-    }
-
-    private static Dictionary<string, object?> BuildGvl(string name, string declaration)
-    {
-        return new Dictionary<string, object?> { ["declaration"] = declaration.TrimEnd() };
-    }
-
-    private static Dictionary<string, object?> BuildDut(string name, string declaration, string kind)
-    {
-        return new Dictionary<string, object?> { ["declaration"] = declaration.TrimEnd() };
     }
 
     private static Dictionary<string, object?> BuildInterface(IAdapter adapter, string name, dynamic item, string declaration)
@@ -67,10 +70,9 @@ public static class SourceAssembler
         return result;
     }
 
-    private static Dictionary<string, object?> BuildSimple(string name, string kind, string declaration)
-    {
-        return new Dictionary<string, object?> { ["declaration"] = declaration.TrimEnd() };
-    }
+    /// <summary>GVL, DUTs and other leaf kinds carry only a declaration (no body, no children).</summary>
+    private static Dictionary<string, object?> BuildDeclOnly(string declaration) =>
+        new() { ["declaration"] = declaration.TrimEnd() };
 
     private static List<Dictionary<string, object?>>
         CollectChildren(IAdapter adapter, dynamic parent, bool parentIsInterface = false, string folderPath = "")
@@ -92,17 +94,18 @@ public static class SourceAssembler
             int itemType = adapter.GetItemType(child);
 
             // Folder within POU — recurse
-            if (itemType == 601)
+            if (itemType == ItemKind.Folder)
             {
                 var subPath = string.IsNullOrEmpty(folderPath) ? childName : $"{folderPath}/{childName}";
                 textual.AddRange(CollectChildren(adapter, child, parentIsInterface, subPath));
                 continue;
             }
 
-            // Only methods, actions, properties ride as children
-            bool isMethod = itemType == 609 || itemType == 610;
-            bool isAction = itemType == 608 || itemType == 616;
-            bool isProperty = itemType == 611 || itemType == 612;
+            // Only methods, actions, properties ride as children.
+            // NOTE: transitions are folded in with actions (emitted as kind "action").
+            bool isMethod = itemType is ItemKind.Method or ItemKind.InterfaceMethod;
+            bool isAction = itemType is ItemKind.Action or ItemKind.Transition;
+            bool isProperty = itemType is ItemKind.Property or ItemKind.InterfaceProperty;
             if (!isMethod && !isAction && !isProperty) continue;
 
             var decl = adapter.ReadDeclaration(child);
@@ -121,7 +124,12 @@ public static class SourceAssembler
                 }
                 else
                 {
-                    implementation = string.IsNullOrEmpty(impl) ? null : impl.Trim();
+                    var trimmed = impl?.Trim();
+                    var graphicalLang = GraphicalLangOrNull(trimmed);
+                    // Never emit a graphical serialization as if it were ST (no-fallback guard).
+                    implementation = graphicalLang is not null
+                        ? GraphicalImpl(new GraphicalBody(graphicalLang, "", "st"))
+                        : string.IsNullOrEmpty(trimmed) ? null : trimmed;
                 }
 
                 var entry = new Dictionary<string, object?>
@@ -184,6 +192,21 @@ public static class SourceAssembler
         var tag = gb.Format == "vg" ? $"{gb.Language} vg" : gb.Language;
         var marker = $"(* @volt-graphical: {tag} *)";
         return string.IsNullOrEmpty(gb.Body) ? marker : marker + "\n" + gb.Body;
+    }
+
+    /// <summary>If <paramref name="impl"/> is a graphical body serialization (a TwinCAT
+    /// <c>&lt;NWL&gt;</c>/<c>&lt;CFC&gt;</c>/… archive) rather than ST text, the graphical language
+    /// it represents; otherwise null. Used to refuse dumping raw graphical XML as if it were ST.</summary>
+    internal static string? GraphicalLangOrNull(string? impl)
+    {
+        if (string.IsNullOrEmpty(impl)) return null;
+        var t = impl!.TrimStart();
+        if (t.StartsWith("<NWL", System.StringComparison.Ordinal)) return "FBD";   // NWL = FBD/LD
+        if (t.StartsWith("<FBD", System.StringComparison.Ordinal)) return "FBD";
+        if (t.StartsWith("<LD", System.StringComparison.Ordinal)) return "LD";
+        if (t.StartsWith("<CFC", System.StringComparison.Ordinal)) return "CFC";
+        if (t.StartsWith("<SFC", System.StringComparison.Ordinal)) return "SFC";
+        return null;
     }
 
     private static bool IsEmptyVarBlock(string decl)

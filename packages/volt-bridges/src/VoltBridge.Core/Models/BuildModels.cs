@@ -19,12 +19,6 @@ public class BridgeDiagnostic
 
     [JsonPropertyName("line")]
     public int Line { get; set; }
-
-    [JsonPropertyName("object")]
-    public string? Object { get; set; }
-
-    [JsonPropertyName("section")]
-    public string? Section { get; set; }
 }
 
 public class BuildResponse

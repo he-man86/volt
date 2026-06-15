@@ -12,16 +12,26 @@ namespace VoltBridge.Core.Fbd
     /// </summary>
     public static class PlcOpenReader
     {
+        // CODESYS/TwinCAT have no <network> wrapper in the flat PLCopenXML body; instead they encode
+        // the engineer's network index in the high digits of every localId (localId / 10^10 = the
+        // network it belongs to). We split on that so the VG mirrors the editor's networks 1:1.
+        private const long NetworkStride = 10_000_000_000L;   // 10^10
+
         public static GraphBody ReadBody(XElement fbdOrLd)
         {
             var ns = fbdOrLd.Name.Namespace;
             var lang = fbdOrLd.Name.LocalName.ToUpperInvariant();          // FBD | LD
             var nodes = fbdOrLd.Elements().Select(el => ReadNode(el, ns)).ToList();
-            // NOTE(networks): PLCopenXML FBD is a flat element list — CODESYS network boundaries are
-            // not delimited in the body. Phase 1 treats the whole body as a single network; splitting
-            // into the engineer's networks is a later refinement.
-            var net = new GraphNetwork(null, null, null, false, nodes);
-            return new GraphBody(lang, new[] { net });
+
+            var networks = nodes
+                .GroupBy(n => n.LocalId / NetworkStride)                    // network index from localId
+                .OrderBy(g => g.Key)                                        // engineer's top-to-bottom order
+                .Select(g => new GraphNetwork((int)g.Key, null, null, false, g.ToList()))
+                .ToList();
+            // A body always has at least one network (empty FBD → one empty network).
+            if (networks.Count == 0) networks.Add(new GraphNetwork(0, null, null, false, nodes));
+
+            return new GraphBody(lang, networks);
         }
 
         private static GraphNode ReadNode(XElement el, XNamespace ns)
@@ -33,6 +43,9 @@ namespace VoltBridge.Core.Fbd
                 case "inVariable":  return new InVar(id, order, Expr(el, ns), ReadMods(el));
                 case "outVariable": return new OutVar(id, order, Expr(el, ns), ReadMods(el), ReadSource(el, ns));
                 case "block":       return ReadBlock(el, ns, id, order);
+                case "label":       return new Label(id, order, (string?)el.Attribute("label") ?? "");
+                case "jump":        return new Jump(id, order, (string?)el.Attribute("label") ?? "", ReadSource(el, ns), ReadMods(el));
+                case "return":      return new Return(id, order, ReadSource(el, ns), ReadMods(el));
                 default:            return new OpaqueNode(id, order, el.Name.LocalName, el.ToString());
             }
         }

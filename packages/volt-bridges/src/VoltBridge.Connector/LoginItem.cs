@@ -28,25 +28,5 @@ namespace VoltBridge.Connector
             }
             catch { /* registration is best-effort */ }
         }
-
-        public static void Unregister()
-        {
-            try
-            {
-                using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-                key?.DeleteValue(ValueName, throwOnMissingValue: false);
-            }
-            catch { /* best-effort */ }
-        }
-
-        public static bool IsRegistered()
-        {
-            try
-            {
-                using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
-                return key?.GetValue(ValueName) is string;
-            }
-            catch { return false; }
-        }
     }
 }

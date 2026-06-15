@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using VoltBridge.Core;
 using VoltBridge.Core.Fbd;
+using VoltBridge.Core.Fbd.Vg;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Beckhoff;
@@ -14,7 +15,6 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
     private readonly object _cacheLock = new();
     private dynamic? _dte;
     private dynamic? _sysManager;
-    private dynamic? _nestedProject;
     private dynamic? _plcNode;
     private string? _projectName;
     private string? _plcProjectPath;
@@ -216,7 +216,6 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
             try { return _plcNode.NestedProject; }
             catch { }
         }
-        if (_nestedProject != null) return _nestedProject;
         if (_plcProjectPath == null) throw new InvalidOperationException("No PLC project found");
         return LookupTreeItem(_plcProjectPath);
     }
@@ -320,9 +319,9 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
     private const uint HResultRpcCallFailedDidNotExecute = 0x800706BFu;
     private const uint HResultRpceFamilyMask = 0xFFFFFF00u;
     private const uint HResultRpceFamily = 0x80010100u;       // RPC_E_* (server died, disconnected, …)
-    private const uint HResultCallRejected = 0x80010001u;     // RPC_E_CALL_REJECTED
-    private const uint HResultServerCallRetryLater = 0x80010108u; // RPC_E_DISCONNECTED
-    private const uint HResultCallCancelled = 0x8001010Au;   // RPC_E_SERVERCALL_RETRYLATER
+    private const uint HResultCallRejected = 0x80010001u;        // RPC_E_CALL_REJECTED
+    private const uint HResultDisconnected = 0x80010108u;        // RPC_E_DISCONNECTED
+    private const uint HResultServerCallRetryLater = 0x8001010Au; // RPC_E_SERVERCALL_RETRYLATER
 
     public override bool ShouldMarkDegraded(Exception ex)
     {
@@ -333,7 +332,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
             if (hr == HResultRpcServerUnavailable) return true;
             if (hr == HResultRpcCallFailed || hr == HResultRpcCallFailedDidNotExecute) return true;
             if ((hr & HResultRpceFamilyMask) == HResultRpceFamily) return true;
-            if (hr == HResultCallRejected || hr == HResultServerCallRetryLater || hr == HResultCallCancelled) return true;
+            if (hr == HResultCallRejected || hr == HResultDisconnected || hr == HResultServerCallRetryLater) return true;
         }
         return false;
     }
@@ -342,7 +341,6 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
     {
         if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
-        if (_nestedProject != null) { try { Marshal.ReleaseComObject(_nestedProject); } catch { } _nestedProject = null; }
         _projectName = null; _plcProjectPath = null;
         ClearDegraded();
     }
@@ -423,55 +421,84 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
 
     public string GetItemName(dynamic item) { try { return (string)item.Name ?? ""; } catch { return ""; } }
 
-    /// <summary>FBD/LD/SFC/CFC child → read-only ST. The body lives in the enclosing POU's
-    /// .TcPOU as an NWL XmlArchive (same model CODESYS exposes as objects); we parse it with
-    /// the shared FbdXmlReader/FbdTranspiler. Null for textual children.</summary>
+    /// <summary>FBD/LD body → editable VG, mirroring CODESYS: export the POU as PLCopenXML, parse the
+    /// graphical body (<see cref="PlcOpenReader"/>) and render VG (<see cref="VgWriter"/>). CFC/SFC →
+    /// read-only marker; ST/IL → null. The cheap language check uses the in-memory
+    /// <c>ImplementationText</c> endpoint so textual bodies never trigger an export.</summary>
     public override GraphicalBody? ReadGraphicalBody(dynamic item)
     {
-        string childName;
-        try { childName = GetItemName(item); } catch { return null; }
+        string impl;
+        try { impl = ReadImplementation(item); } catch { return null; }
+        var lang = TcPouReader.LanguageOf(impl);
+        if (lang is null) return null;                                  // textual ST/IL
+        if (lang is "CFC" or "SFC") return new GraphicalBody(lang, ""); // read-only marker (not transpiled)
 
-        // Walk up to the enclosing POU (FB / function / program / interface).
-        dynamic pou = item;
-        for (var hops = 0; hops < 32; hops++)
+        var pou = EnclosingPou(item);
+        if (pou is null) return new GraphicalBody(lang, "");
+        try
         {
-            int t; try { t = GetItemType(pou); } catch { return null; }
-            if (t is 602 or 603 or 604 or 618) break;
-            try { pou = GetParent(pou); } catch { return null; }
-            if (pou == null) return null;
+            var xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));
+            var fbd = PlcOpenDocument.FindFbdLdBody(xml);
+            if (fbd is null) return new GraphicalBody(lang, "");
+            var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd));
+            return new GraphicalBody(lang, vg, "vg");
         }
-
-        var path = TcPouPath(pou);
-        if (path == null || !System.IO.File.Exists(path)) return null;
-        string xml;
-        try { xml = System.IO.File.ReadAllText(path); } catch { return null; }
-
-        return TcPouReader.ReadGraphicalBody(xml, childName, ResolvePins);
-    }
-
-    private string? TcPouPath(dynamic pou)
-    {
-        string? meta;
-        try { meta = (string?)((dynamic)pou).ProduceXml(); } catch { return null; }
-        if (string.IsNullOrEmpty(meta)) return null;
-        var m = Regex.Match(meta!, @"<Name>FullPath</Name>\s*<Value>([^<]+)</Value>", RegexOptions.IgnoreCase);
-        return m.Success ? m.Groups[1].Value : null;
-    }
-
-    /// <summary>Resolve a box type's pin names from its FB/function declaration in the
-    /// project (null for operators / unknown — rendered positionally).</summary>
-    private (System.Collections.Generic.IReadOnlyList<string>, System.Collections.Generic.IReadOnlyList<string>)? ResolvePins(string boxType)
-    {
-        dynamic? fb;
-        try { fb = LookupItemByName(boxType); } catch { return null; }
-        if (fb == null) return null;
-        string decl;
-        try { decl = ReadDeclaration(fb); } catch { return null; }
-        var (ins, outs) = FbdPins.FromDeclaration(decl);
-        return ins.Count == 0 && outs.Count == 0 ? null : (ins, outs);
+        catch { return new GraphicalBody(lang, ""); }                   // export failed → read-only (parity w/ CODESYS)
     }
 
     // ── Write Operations (COM) ─────────────────────────────────────
+
+    /// <summary>Write an editable VG body, mirroring CODESYS: VG → graph → PLCopenXML body, spliced
+    /// into the POU's exported PLCopen, re-imported (same-name replace). On import failure the
+    /// original is re-imported so a bad edit can't lose the POU. Throws on non-convertible VG.</summary>
+    public override void WriteGraphicalBody(dynamic item, string vgText, string declaration)
+    {
+        var graph = VgParser.Parse(vgText);                            // throws on invalid VG
+        var types = PlcOpenDocument.InstanceTypes(declaration);
+        var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
+
+        var pou = EnclosingPou(item) ?? throw new InvalidOperationException("TwinCAT: no enclosing POU for graphical write");
+        var plc = GetPlcProjectRoot();
+        var selection = PouSelectionPath(pou);
+        var exported = TcPlcOpen.Export(plc, selection);              // full POU PLCopen (also the restore copy)
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(exported, newBody); // throws if no FBD/LD body
+
+        try { TcPlcOpen.Import(plc, outXml); }
+        catch { try { TcPlcOpen.Import(plc, exported); } catch { } throw; }
+    }
+
+    /// <summary>Walk up to the enclosing POU (FB / function / program / interface).</summary>
+    private dynamic? EnclosingPou(dynamic item)
+    {
+        dynamic node = item;
+        for (var hops = 0; hops < 32; hops++)
+        {
+            int t; try { t = GetItemType(node); } catch { return null; }
+            if (t is ItemKind.Program or ItemKind.Function or ItemKind.FunctionBlock or ItemKind.Interface) return node;
+            try { node = GetParent(node); } catch { return null; }
+            if (node == null) return null;
+        }
+        return null;
+    }
+
+    /// <summary>PLC-project-relative selection path for PlcOpenExport (the POU name today).
+    /// NEEDS LIVE VERIFICATION: the exact selection grammar (possibly folder-qualified,
+    /// '.'-separated) isn't confirmed; if a bare name is rejected this must include the folder chain.</summary>
+    private string PouSelectionPath(dynamic pou)
+    {
+        // PlcOpenExport wants the item path RELATIVE to the PLC project, '.'-separated
+        // (e.g. "POUs.PLC_PRG"). TwinCAT PathName is "^"-separated and absolute
+        // ("TIPC^Untitled2^Untitled2 Project^POUs^PLC_PRG"); strip the PLC-project prefix.
+        try
+        {
+            string pouPath = (string)pou.PathName;
+            string plcPath = (string)GetPlcProjectRoot().PathName;
+            if (pouPath.StartsWith(plcPath + "^", System.StringComparison.Ordinal))
+                return pouPath.Substring(plcPath.Length + 1).Replace('^', '.');
+            return pouPath.Replace('^', '.');
+        }
+        catch { try { return (string)pou.Name; } catch { return ""; } }
+    }
 
     public void FlushPendingWrites()
     {

@@ -93,7 +93,9 @@ public static class CodeHelper
             $"Unrecognized code header: {(headerLine.Length > 80 ? headerLine.Substring(0, 80) + "..." : headerLine)}");
     }
 
-    private static string? ExtractAcl(string modifierList)
+    /// <summary>The first access modifier (PUBLIC/PRIVATE/PROTECTED/INTERNAL) in a
+    /// space-separated modifier list, upper-cased; null if none.</summary>
+    public static string? ExtractAcl(string modifierList)
     {
         if (string.IsNullOrWhiteSpace(modifierList)) return null;
         foreach (var token in modifierList.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))

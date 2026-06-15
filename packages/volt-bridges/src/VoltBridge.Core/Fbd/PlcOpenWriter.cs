@@ -35,12 +35,12 @@ namespace VoltBridge.Core.Fbd
                     return XElement.Parse(op.RawXml);
 
                 case InVar iv:
-                    return new XElement(Ns + "inVariable", IdAttrs(iv),
+                    return new XElement(Ns + "inVariable", IdAttrs(iv), ModAttrs(iv.Mods),
                         Pos(row), new XElement(Ns + "connectionPointOut"),
                         new XElement(Ns + "expression", iv.Expression));
 
                 case OutVar ov:
-                    return new XElement(Ns + "outVariable", IdAttrs(ov),
+                    return new XElement(Ns + "outVariable", IdAttrs(ov), ModAttrs(ov.Mods),
                         Pos(row), ConnIn(ov.Source),
                         new XElement(Ns + "expression", ov.Expression));
 
@@ -54,12 +54,31 @@ namespace VoltBridge.Core.Fbd
                     el.Add(Pos(row));
                     el.Add(new XElement(Ns + "inputVariables", b.Inputs.Select(p =>
                         new XElement(Ns + "variable", new XAttribute("formalParameter", p.FormalParameter),
-                            ConnIn(p.Source)))));
+                            ModAttrs(p.Mods), ConnIn(p.Source)))));
                     el.Add(new XElement(Ns + "inOutVariables"));
                     el.Add(new XElement(Ns + "outputVariables", b.OutputPins.Select(o =>
                         new XElement(Ns + "variable", new XAttribute("formalParameter", o),
                             new XElement(Ns + "connectionPointOut")))));
+                    // Re-emit the CODESYS/TwinCAT fbdcalltype hint (operator / function / functionblock)
+                    // so a written-back block carries the same vendor metadata the IDE exported.
+                    if (!string.IsNullOrEmpty(b.CallType))
+                        el.Add(new XElement(Ns + "addData",
+                            new XElement(Ns + "data",
+                                new XAttribute("name", "http://www.3s-software.com/plcopenxml/fbdcalltype"),
+                                new XAttribute("handleUnknown", "implementation"),
+                                new XElement("CallType", b.CallType))));   // empty-ns child, matching the IDE format
                     return el;
+
+                case Label lb:
+                    return new XElement(Ns + "label", IdAttrs(lb), new XAttribute("label", lb.Name), Pos(row));
+
+                case Jump jp:
+                    return new XElement(Ns + "jump", IdAttrs(jp), new XAttribute("label", jp.Target),
+                        ModAttrs(jp.Mods), Pos(row), jp.Condition != null ? ConnIn(jp.Condition) : null);
+
+                case Return rt:
+                    return new XElement(Ns + "return", IdAttrs(rt), ModAttrs(rt.Mods),
+                        Pos(row), rt.Condition != null ? ConnIn(rt.Condition) : null);
 
                 default:
                     return new XElement(Ns + "inVariable", IdAttrs(node), Pos(row),
@@ -71,6 +90,17 @@ namespace VoltBridge.Core.Fbd
         {
             yield return new XAttribute("localId", n.LocalId);
             if (n.ExecOrder.HasValue) yield return new XAttribute("executionOrderId", n.ExecOrder.Value);
+        }
+
+        /// <summary>The PLCopen pin/element modifier attributes (negation, edge, set/reset storage),
+        /// the inverse of <see cref="PlcOpenReader"/>'s ReadMods. None emitted when <c>IsNone</c>.</summary>
+        private static IEnumerable<XAttribute> ModAttrs(Mods m)
+        {
+            if (m.Negated) yield return new XAttribute("negated", "true");
+            if (m.Edge == EdgeMod.Rising) yield return new XAttribute("edge", "rising");
+            else if (m.Edge == EdgeMod.Falling) yield return new XAttribute("edge", "falling");
+            if (m.Storage == StorageMod.Set) yield return new XAttribute("storage", "set");
+            else if (m.Storage == StorageMod.Reset) yield return new XAttribute("storage", "reset");
         }
 
         private static XElement Pos(int row)

@@ -1,5 +1,4 @@
 using VoltBridge.Core;
-using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core.Handlers;
@@ -8,7 +7,7 @@ public static class PushHandler
 {
     public static PushResponse Handle(IAdapter adapter, PushRequest request)
     {
-        if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
+        if (!adapter.IsConnected) throw BridgeException.PlcDisconnected();
 
         adapter.FlushPendingWrites();
 
@@ -131,22 +130,25 @@ public static class PushHandler
                     targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
-            // A graphical POU body carries the (* @volt-graphical: LANG [vg] *) marker. With the
-            // `vg` tag it is the EDITABLE VG language — parse it and write it back through the IDE's
-            // PLCopen import. Without the tag it is a read-only view (ST / CFC / SFC) — never written.
+            // A ROOT FBD/LD body is the EDITABLE VG language and arrives as VG text (starts with
+            // %LANG) — its .fbd/.ld extension, not a marker, says it's graphical. Write it back via
+            // the IDE's PLCopen import. (A legacy (* @volt-graphical: … vg *) marker is still
+            // honored. A marker WITHOUT `vg` is a read-only view — never written.)
+            var pouVg = IsVgBody(impl);
             var pouMarked = IsGraphicalMarked(impl);
 
             dynamic po;
             if (existing == null)
             {
-                if (pouMarked) return;   // creating a graphical POU from scratch is not supported yet
+                if (pouVg || pouMarked) return;   // creating a graphical POU from scratch is not supported yet
                 po = adapter.CreateChild(targetParent, name, itemType);
                 adapter.WriteSourceText(po, decl, impl);
             }
             else
             {
                 po = existing;
-                if (IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, ExtractVg(impl), decl);
+                if (pouVg) adapter.WriteGraphicalBody(existing, impl, decl);
+                else if (IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, ExtractVg(impl), decl);
                 else if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
             }
 
@@ -261,6 +263,11 @@ public static class PushHandler
     // ── @volt-graphical marker helpers ──────────────────────────────────
     private static bool IsGraphicalMarked(string? impl)
         => impl != null && impl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal);
+
+    /// <summary>True when a body IS the editable VG language (a root .fbd/.ld POU body), recognized
+    /// by its leading <c>%LANG</c> header — no marker needed, the file extension conveys it.</summary>
+    private static bool IsVgBody(string? impl)
+        => impl != null && impl.TrimStart().StartsWith("%LANG", StringComparison.Ordinal);
 
     /// <summary>True when the marker carries the <c>vg</c> format tag — an EDITABLE body that push
     /// round-trips (vs. a read-only ST/CFC/SFC view).</summary>

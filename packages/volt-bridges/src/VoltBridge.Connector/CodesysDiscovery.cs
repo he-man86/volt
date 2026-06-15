@@ -241,7 +241,6 @@ namespace VoltBridge.Connector
         {
             public string? DisplayName { get; set; }
             public string? ExePath { get; set; }
-            public string? ScriptArgs { get; set; }
         }
     }
 }

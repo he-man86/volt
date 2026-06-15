@@ -189,27 +189,20 @@ describe("Beckhoff bridge", () => {
 		})
 	})
 
-	describe("Swagger", () => {
-		it("generates all schemas", async () => {
-			const r = await fetch(`${BASE}/swagger/v1/swagger.json`)
-			const spec = (await r.json()) as any
-			expect(spec.components.schemas).toHaveProperty("PushOp")
-			expect(spec.components.schemas).toHaveProperty("PushItemOp")
-			expect(spec.components.schemas).toHaveProperty("DeleteItemOp")
-			expect(spec.components.schemas).toHaveProperty("RenameItemOp")
-			expect(spec.components.schemas).toHaveProperty("MoveItemOp")
-			expect(spec.components.schemas).toHaveProperty("FetchRequest")
-			expect(spec.components.schemas).toHaveProperty("BuildRequest")
+	// The bridge serves a hand-maintained OpenAPI contract at /openapi.yaml (the single source of
+	// truth) + a static Swagger UI at /swagger — NOT a generated /swagger/v1/swagger.json.
+	describe("OpenAPI contract", () => {
+		it("serves the contract with all push-op schemas", async () => {
+			const yaml = await (await fetch(`${BASE}/openapi.yaml`)).text()
+			for (const schema of ["PushOp", "PushItemOp", "DeleteItemOp", "RenameItemOp", "MoveItemOp", "FetchRequest", "BuildRequest"])
+				expect(yaml).toContain(`${schema}:`)
 		})
 
-		it("PushOp has discriminator + oneOf", async () => {
-			const r = await fetch(`${BASE}/swagger/v1/swagger.json`)
-			const spec = (await r.json()) as any
-			const pushOp = spec.components.schemas.PushOp
-			expect(pushOp.discriminator).toBeDefined()
-			expect(pushOp.discriminator.propertyName).toBe("op")
-			expect(Array.isArray(pushOp.oneOf)).toBe(true)
-			expect(pushOp.oneOf.length).toBe(4)
+		it("PushOp is a discriminated union of the 4 ops", async () => {
+			const yaml = await (await fetch(`${BASE}/openapi.yaml`)).text()
+			expect(yaml).toContain("propertyName: op")
+			for (const op of ["PushItemOp", "DeleteItemOp", "RenameItemOp", "MoveItemOp"])
+				expect(yaml).toContain(`#/components/schemas/${op}`)
 		})
 	})
 

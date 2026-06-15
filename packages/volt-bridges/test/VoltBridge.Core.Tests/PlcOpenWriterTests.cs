@@ -59,6 +59,32 @@ public class PlcOpenWriterTests
             <outVariable localId="6"><expression>result</expression><connectionPointIn><connection refLocalId="5"/></connectionPointIn></outVariable>
             """);
 
+    /// <summary>Regression: a negated block input is read into Mods, must surface in VG as NOT, and
+    /// must be RE-EMITTED as negated="true" on write (it was silently dropped before).</summary>
+    [Fact]
+    public void Negated_input_survives_read_then_write()
+    {
+        const string fbd = """
+            <inVariable localId="1"><expression>a</expression></inVariable>
+            <inVariable localId="2"><expression>b</expression></inVariable>
+            <block localId="3" typeName="AND">
+              <inputVariables>
+                <variable formalParameter="IN1" negated="true"><connectionPointIn><connection refLocalId="1"/></connectionPointIn></variable>
+                <variable formalParameter="IN2"><connectionPointIn><connection refLocalId="2"/></connectionPointIn></variable>
+              </inputVariables>
+              <outputVariables><variable formalParameter="OUT"><connectionPointOut/></variable></outputVariables>
+            </block>
+            <outVariable localId="4"><expression>out</expression><connectionPointIn><connection refLocalId="3"/></connectionPointIn></outVariable>
+            """;
+        var g1 = PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbd}</FBD>"));
+        var vg1 = VgWriter.Write(g1);
+        Assert.Contains("NOT a", vg1);                                   // negation surfaces in VG
+
+        var xml2 = PlcOpenWriter.WriteBody(g1);
+        Assert.Contains("negated=\"true\"", xml2.ToString());           // re-emitted, not dropped
+        Assert.Equal(vg1, VgWriter.Write(PlcOpenReader.ReadBody(xml2))); // fixed point
+    }
+
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
     /// with FB types supplied by the declaration resolver.</summary>
     [Fact]

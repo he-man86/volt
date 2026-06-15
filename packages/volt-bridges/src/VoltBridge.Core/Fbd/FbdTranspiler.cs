@@ -6,10 +6,10 @@ using System.Text;
 namespace VoltBridge.Core.Fbd;
 
 /// <summary>
-/// Renders a vendor-neutral <see cref="FbdBody"/> to Structured Text — the single,
-/// shared FBD/LD→ST transpiler both bridges use, so the same network yields identical
-/// ST regardless of vendor. Validated against CODESYS's own
-/// <c>GetImplementationSnippet()</c> rendering as the correctness oracle.
+/// Renders a vendor-neutral <see cref="FbdBody"/> to read-only Structured Text. This is the
+/// TwinCAT graphical path (NWL XmlArchive → <see cref="FbdBody"/> → ST); CODESYS uses the
+/// lossless <c>GraphBody</c>/VG path instead. The ST shape mirrors CODESYS's own rendering so the
+/// two vendors read alike.
 ///
 /// Convention (matching CODESYS): an FB box renders as a call carrying only its INPUTS,
 /// followed by one assignment per connected OUTPUT:
@@ -46,7 +46,9 @@ public static class FbdTranspiler
         // FB instance: a call with named inputs, then one assignment per wired output.
         if (box.Instance is not null)
         {
-            var inNames = pins?.Inputs;
+            // Pin names the IDE serialized on the box are authoritative (they cover library FBs
+            // like TON whose declaration isn't in the project); the resolver is only a fallback.
+            var inNames = box.InputPins.Count > 0 ? box.InputPins : pins?.Inputs;
             var args = new List<string>();
             for (var i = 0; i < box.Inputs.Count; i++)
             {
@@ -56,7 +58,7 @@ public static class FbdTranspiler
             }
             sb.Append(box.Instance).Append('(').Append(string.Join(", ", args)).Append(");\n");
 
-            var outNames = pins?.Outputs;
+            var outNames = box.OutputPins.Count > 0 ? box.OutputPins : pins?.Outputs;
             for (var i = 0; i < box.Outputs.Count; i++)
             {
                 if (string.IsNullOrEmpty(box.Outputs[i])) continue;
@@ -84,8 +86,12 @@ public static class FbdTranspiler
     {
         var operands = box.Inputs.Where(s => !IsUnconnected(s)).Select(s => RenderSource(s, resolve)).ToList();
 
+        // Direct operand passthrough (a BoxTreeAssign whose RValue is a plain operand: y := value).
+        if (string.IsNullOrEmpty(box.Type))
+            return operands.Count == 1 ? operands[0] : string.Join(", ", operands);
+
         // Operator → infix, parenthesised:  (a OR b OR c)
-        if (Operators.TryGetValue(box.Type.ToUpperInvariant(), out var op))
+        if (FbdOperators.TypeToSymbol.TryGetValue(box.Type, out var op))
             return "(" + string.Join($" {op} ", operands) + ")";
 
         // Function → functional:  NAME(a, b)
@@ -93,11 +99,4 @@ public static class FbdTranspiler
     }
 
     private static bool IsUnconnected(FbdSource s) => s is FbdOperand o && string.IsNullOrEmpty(o.Text);
-
-    private static readonly Dictionary<string, string> Operators = new()
-    {
-        ["OR"] = "OR", ["AND"] = "AND", ["XOR"] = "XOR",
-        ["ADD"] = "+", ["SUB"] = "-", ["MUL"] = "*", ["DIV"] = "/", ["MOD"] = "MOD",
-        ["GT"] = ">", ["LT"] = "<", ["GE"] = ">=", ["LE"] = "<=", ["EQ"] = "=", ["NE"] = "<>",
-    };
 }

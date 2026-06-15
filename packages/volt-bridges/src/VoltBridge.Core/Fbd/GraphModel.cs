@@ -50,8 +50,23 @@ namespace VoltBridge.Core.Fbd
         IReadOnlyList<Pin> Inputs, IReadOnlyList<string> OutputPins, string? CallType)
         : GraphNode(LocalId, ExecOrder);
 
-    /// <summary>A node kind the FBD reader recognises but Phase 1 does not model yet (label, jump,
-    /// return, contact, coil, connector, continuation, vendorElement). Preserved opaquely so the
+    /// <summary>A jump target — PLCopen <c>&lt;label&gt;</c>. Renders as the ST label <c>name:</c>.</summary>
+    public sealed record Label(long LocalId, int? ExecOrder, string Name)
+        : GraphNode(LocalId, ExecOrder);
+
+    /// <summary>A jump to a <see cref="Label"/> — PLCopen <c>&lt;jump&gt;</c>. <paramref name="Condition"/>
+    /// is the (optional) wired condition; null = unconditional. <paramref name="Mods"/> carries the
+    /// condition's negation. Renders as <c>JMP name;</c> or <c>IF cond THEN JMP name; END_IF</c>.</summary>
+    public sealed record Jump(long LocalId, int? ExecOrder, string Target, Conn? Condition, Mods Mods)
+        : GraphNode(LocalId, ExecOrder);
+
+    /// <summary>An early return — PLCopen <c>&lt;return&gt;</c>. <paramref name="Condition"/> optional.
+    /// Renders as <c>RETURN;</c> or <c>IF cond THEN RETURN; END_IF</c>.</summary>
+    public sealed record Return(long LocalId, int? ExecOrder, Conn? Condition, Mods Mods)
+        : GraphNode(LocalId, ExecOrder);
+
+    /// <summary>A node kind the FBD reader recognises but does not model yet (contact, coil,
+    /// connector, continuation, power rails, comment, vendorElement). Preserved opaquely so the
     /// reader stays TOTAL over the XSD and the writer can round-trip it.</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);

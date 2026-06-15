@@ -1,19 +1,19 @@
+using System;
 using System.Collections.Generic;
 
 namespace VoltBridge.Core.Fbd;
 
 /// <summary>
-/// Vendor-neutral model of a graphical (FBD/LD) POU body — the shared CODESYS /
-/// TwinCAT "NWL" (NetWork Language) shape. Both IDEs store the IDENTICAL model
-/// because TwinCAT 3 is built on the CODESYS runtime:
-///   • CODESYS  — read live from the scripting object model (INWLImplementationObject).
-///   • TwinCAT  — parsed from the .TcPOU <NWL><XmlArchive> serialization.
+/// The TwinCAT graphical (FBD/LD) body model, parsed from the <c>.TcPOU</c>
+/// <c>&lt;NWL&gt;&lt;XmlArchive&gt;</c> serialization (a recursive "BoxTree"). It feeds the one-way
+/// read-only <see cref="FbdTranspiler"/> (NWL → ST). (CODESYS uses a different serialization —
+/// the flat PLCopenXML <c>localId</c> graph — and its own lossless <c>GraphBody</c>/VG path, so
+/// this model is TwinCAT-only.)
 ///
 /// A body is a list of networks; a network is a list of top-level boxes; a box is a
 /// function-block / function / operator call whose inputs are operands or NESTED boxes
-/// (the box "tree"). <see cref="FbdTranspiler"/> renders this to ST. The model is pure
-/// data — no pin names, no ST: naming is resolved at transpile time from each box
-/// type's interface, so the model stays vendor- and language-neutral.
+/// (the box "tree"). Pin names the IDE serialized on each box (<see cref="FbdBox.InputPins"/>/
+/// <see cref="FbdBox.OutputPins"/>) are authoritative; the transpiler uses them directly.
 /// </summary>
 public sealed record FbdBody(string Language, IReadOnlyList<FbdNetwork> Networks);
 
@@ -37,7 +37,17 @@ public sealed record FbdBox(
     string Type,                         // "CM_Carrier", "OR", "ADD", "EXECUTE", …
     string? Instance,                    // FB instance variable, or null for functions/operators
     IReadOnlyList<FbdSource> Inputs,     // pin order; FbdOperand("") == an unconnected pin
-    IReadOnlyList<string> Outputs);      // pin order; "" == an unconnected output pin
+    IReadOnlyList<string> Outputs)       // pin order; "" == an unconnected output pin
+{
+    /// <summary>Formal input pin names the IDE serialized for this box (authoritative — e.g. a
+    /// library TON carries <c>IN</c>, <c>PT</c>). Empty for operators and for boxes that didn't
+    /// carry names; the transpiler then renders positionally.</summary>
+    public IReadOnlyList<string> InputPins { get; init; } = Array.Empty<string>();
+
+    /// <summary>Formal output pin names the IDE serialized for this box (authoritative — e.g. TON
+    /// carries <c>Q</c>, <c>ET</c>). Empty for operators / unnamed boxes.</summary>
+    public IReadOnlyList<string> OutputPins { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>What is wired to a box input pin: a plain operand, or a nested box.</summary>
 public abstract record FbdSource;

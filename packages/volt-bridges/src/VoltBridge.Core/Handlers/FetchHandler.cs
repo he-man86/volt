@@ -1,5 +1,4 @@
 using VoltBridge.Core;
-using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core.Handlers;
@@ -8,7 +7,7 @@ public static class FetchHandler
 {
     public static FetchResponse Handle(IAdapter adapter, FetchRequest request)
     {
-        if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
+        if (!adapter.IsConnected) throw BridgeException.PlcDisconnected();
 
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
         var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
@@ -40,23 +39,21 @@ public static class FetchHandler
                 Version = version,
             };
 
-            if (kind != null)
+            try
             {
-                try
+                if (IsSourceKind(kind))
                 {
-                    var isSource = IsSourceKind(kind);
-                    if (isSource)
-                    {
-                        var buildResult = SourceAssembler.BuildSource(adapter, visit.Name, visit.Item);
-                        item.SourceText = StAssembler.Assemble(buildResult);
-                    }
-                    else
-                    {
-                        item.SourceText = adapter.ReadManifestText(visit.Item, kind);
-                    }
+                    var buildResult = SourceAssembler.BuildSource(adapter, visit.Name, visit.Item);
+                    item.SourceText = StAssembler.Assemble(buildResult);
+                    // The root body language (ST/FBD/LD/CFC/SFC) drives the CLI's file extension.
+                    if (buildResult.TryGetValue("language", out object? lang)) item.Language = lang as string;
                 }
-                catch { item.SourceText = ""; }
+                else
+                {
+                    item.SourceText = adapter.ReadManifestText(visit.Item, kind);
+                }
             }
+            catch { item.SourceText = ""; }
 
             changed.Add(item);
         }

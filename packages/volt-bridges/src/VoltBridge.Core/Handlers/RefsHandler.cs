@@ -1,4 +1,3 @@
-using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core.Handlers;
@@ -7,7 +6,7 @@ public static class RefsHandler
 {
     public static RefsResponse Handle(IAdapter adapter)
     {
-        if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
+        if (!adapter.IsConnected) throw BridgeException.PlcDisconnected();
 
         var items = adapter.WalkAllItems();
         var itemVersions = new Dictionary<string, string>();

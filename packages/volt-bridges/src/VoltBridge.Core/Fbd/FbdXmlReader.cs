@@ -7,8 +7,7 @@ namespace VoltBridge.Core.Fbd;
 
 /// <summary>
 /// Parses the TwinCAT <c>.TcPOU</c> <c>&lt;NWL&gt;&lt;XmlArchive&gt;</c> serialization
-/// of an FBD/LD body into the neutral <see cref="FbdBody"/>. (CODESYS produces the same
-/// model from its live object model — see the CODESYS front-end.)
+/// of an FBD/LD body into <see cref="FbdBody"/>.
 ///
 /// The XmlArchive is a generic object graph:
 ///   <code>
@@ -41,7 +40,22 @@ public static class FbdXmlReader
         Empty(Scalar(net, "Label")),
         Empty(Scalar(net, "Comment")),
         Scalar(net, "OutCommented") == "true",
-        ListItems(net, "NetworkItems").Select(ReadBox).ToList());
+        ListItems(net, "NetworkItems").Select(ReadNetworkItem).ToList());
+
+    /// <summary>A network item is either a <c>BoxTreeBox</c> (the box is the item, its own
+    /// OutputItems are the wired targets) or a <c>BoxTreeAssign</c> (an assignment whose
+    /// OutputItems are the l-value targets and whose <c>RValue</c> is the source box —
+    /// e.g. <c>xtest := (FALSE AND TRUE)</c>).</summary>
+    private static FbdBox ReadNetworkItem(XElement item)
+    {
+        var rvalue = Field(item, "RValue");
+        if (rvalue is null) return ReadBox(item);                 // BoxTreeBox: the box is the item
+        var targets = ReadOutputs(item);                          // BoxTreeAssign: l-value targets
+        // RValue is a box (var := (a OP b)) or a plain operand (var := someValue).
+        return (string?)rvalue.Attribute("t") == "BoxTreeBox"
+            ? ReadBox(rvalue) with { Outputs = targets }
+            : new FbdBox("", null, new[] { ReadSource(rvalue) }, targets);   // direct operand assignment
+    }
 
     private static FbdBox ReadBox(XElement box)
     {
@@ -50,7 +64,22 @@ public static class FbdXmlReader
         var instance = inst is null ? null : Empty(Scalar(inst, "Operand"));
         var inputs = ListItems(box, "InputItems").Select(ReadSource).ToList();
         var outputs = ReadOutputs(box);
-        return new FbdBox(type, instance, inputs, outputs);
+        return new FbdBox(type, instance, inputs, outputs)
+        {
+            InputPins = ReadParamNames(box, "InputParam"),
+            OutputPins = ReadParamNames(box, "OutputParam"),
+        };
+    }
+
+    /// <summary>The formal pin names from a box's <c>InputParam</c>/<c>OutputParam</c>
+    /// <c>ParamList.Names</c> — these are unquoted strings (e.g. <c>&lt;v&gt;IN&lt;/v&gt;</c>),
+    /// unlike the quoted scalar fields. Empty when the box carries no named pins (operators).</summary>
+    private static IReadOnlyList<string> ReadParamNames(XElement box, string paramField)
+    {
+        var param = Field(box, paramField);
+        var names = param?.Elements("l2").FirstOrDefault(l => (string?)l.Attribute("n") == "Names");
+        if (names is null) return Array.Empty<string>();
+        return names.Elements("v").Select(v => v.Value).ToList();
     }
 
     private static FbdSource ReadSource(XElement el)
@@ -95,9 +124,5 @@ public static class FbdXmlReader
 
     private static string? Empty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 
-    private static string NormLang(string s)
-    {
-        var u = s.ToUpperInvariant();
-        return u is "FBD" or "LD" or "SFC" or "CFC" or "IL" or "ST" ? u : u;
-    }
+    private static string NormLang(string s) => s.ToUpperInvariant();
 }

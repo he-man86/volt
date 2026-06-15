@@ -6,13 +6,10 @@ namespace VoltBridge.Core;
 
 public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopLevelCrud, string FolderPath);
 
-/// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to read-only ST.
-/// <paramref name="Language"/> is FBD/LD/SFC/CFC; <paramref name="St"/> is the
-/// transpiled body (CODESYS: its own GetImplementationSnippet; TwinCAT: the shared
-/// FbdTranspiler over the parsed NWL XmlArchive).</summary>
-/// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to text. <paramref name="Format"/> is
-/// <c>"vg"</c> when <paramref name="Body"/> is the editable VG language (round-trippable to the IDE),
-/// or <c>"st"</c> when it is read-only transpiled ST (the legacy view; SFC/CFC and TwinCAT today).</summary>
+/// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to text. <paramref name="Language"/> is
+/// FBD/LD/SFC/CFC. <paramref name="Format"/> is <c>"vg"</c> when <paramref name="Body"/> is the
+/// editable VG language (round-trippable to the IDE — CODESYS FBD/LD), or <c>"st"</c> when it is
+/// read-only transpiled ST (SFC/CFC, and all TwinCAT graphical bodies today).</summary>
 public sealed record GraphicalBody(string Language, string Body, string Format = "st");
 
 public interface IAdapter

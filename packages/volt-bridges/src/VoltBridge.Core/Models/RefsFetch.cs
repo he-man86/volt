@@ -38,6 +38,11 @@ public class FetchedItem
     [JsonPropertyName("kind")]
     public string Kind { get; set; } = "";
 
+    /// <summary>The POU's ROOT body language (ST/FBD/LD/CFC/SFC) — picks the workspace file
+    /// extension on the CLI side. Null for non-POU kinds (DUTs, GVL, reference items).</summary>
+    [JsonPropertyName("language")]
+    public string? Language { get; set; }
+
     [JsonPropertyName("folder")]
     public string? Folder { get; set; }
 

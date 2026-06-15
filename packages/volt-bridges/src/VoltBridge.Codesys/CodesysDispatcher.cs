@@ -26,7 +26,7 @@ namespace VoltBridge.Codesys
 
         public static CodesysDispatcher? TryCreate()
         {
-            var siType = FindType("_3S.CoDeSys.Core.SystemInstances");
+            var siType = Reflection.FindType("_3S.CoDeSys.Core.SystemInstances");
             var engine = siType?.GetProperty("Engine", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
             if (engine == null) return null;
 
@@ -60,17 +60,6 @@ namespace VoltBridge.Codesys
             {
                 m = itf.GetMethod("InvokeInPrimaryThread", sig);
                 if (m != null) return m;
-            }
-            return null;
-        }
-
-        private static Type? FindType(string fullName)
-        {
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type? t = null;
-                try { t = a.GetType(fullName, false); } catch { }
-                if (t != null) return t;
             }
             return null;
         }

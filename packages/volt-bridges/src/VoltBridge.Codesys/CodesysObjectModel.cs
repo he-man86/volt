@@ -381,7 +381,7 @@ namespace VoltBridge.Codesys
             var elemType = export.GetParameters()[0].ParameterType.GetGenericArguments()[0];   // IExtendedObject<IScriptObject>
             var baseType = elemType.GetGenericArguments()[0];                                    // IScriptObject
 
-            var se = _scriptEngine ??= FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")!
+            var se = _scriptEngine ??= Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")!
                 .GetProperty("ScriptEngine", BF | BindingFlags.Static)!.GetValue(null);
             var createExt = se!.GetType().GetMethods(BF).First(x => x.Name == "CreateExtendedObject"
                 && x.IsGenericMethodDefinition && x.GetParameters().Length == 1);
@@ -438,22 +438,11 @@ namespace VoltBridge.Codesys
         private object Container(object parent, string simpleTypeName)
         {
             var baseObj = Unwrap(parent)!;
-            var t = FindType("_3S.CoDeSys.ScriptDriverProjects." + simpleTypeName)
+            var t = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects." + simpleTypeName)
                     ?? throw new InvalidOperationException(simpleTypeName + " type not found");
             return Activator.CreateInstance(t,
                 BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
                 null, new object[] { baseObj }, null)!;
-        }
-
-        private static Type? FindType(string fullName)
-        {
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                Type? t = null;
-                try { t = a.GetType(fullName, false); } catch { }
-                if (t != null) return t;
-            }
-            return null;
         }
 
         /// <summary>Invoke a scripting factory method supplying only the leading

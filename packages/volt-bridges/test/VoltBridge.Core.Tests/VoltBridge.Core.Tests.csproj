@@ -18,4 +18,8 @@
     <ProjectReference Include="..\..\src\VoltBridge.Core\VoltBridge.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

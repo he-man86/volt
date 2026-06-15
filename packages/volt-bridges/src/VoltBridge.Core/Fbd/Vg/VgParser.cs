@@ -17,14 +17,7 @@ namespace VoltBridge.Core.Fbd.Vg
     /// </summary>
     public static class VgParser
     {
-        private static readonly HashSet<string> InfixOps = new(StringComparer.OrdinalIgnoreCase)
-        { "OR", "AND", "XOR", "+", "-", "*", "/", "MOD", ">", "<", ">=", "<=", "=", "<>" };
-
-        private static readonly Dictionary<string, string> OpWordToType = new(StringComparer.OrdinalIgnoreCase)
-        { ["OR"] = "OR", ["AND"] = "AND", ["XOR"] = "XOR", ["+"] = "ADD", ["-"] = "SUB",
-          ["*"] = "MUL", ["/"] = "DIV", ["MOD"] = "MOD", [">"] = "GT", ["<"] = "LT",
-          [">="] = "GE", ["<="] = "LE", ["="] = "EQ", ["<>"] = "NE" };
-
+        // Canonical operator table (symbol ↔ type) lives in FbdOperators, shared with the writer.
         public static GraphBody Parse(string text)
         {
             string lang = "FBD";
@@ -72,6 +65,7 @@ namespace VoltBridge.Core.Fbd.Vg
             public void AddStatement(string stmt)
             {
                 if (stmt.Length == 0) return;
+                if (TryControlFlow(stmt)) return;             // label / JMP / RETURN (control flow)
                 var asg = SplitAssignment(stmt);              // (lhs, rhs) or null for a bare FB call
                 if (asg == null) { ParseFbCall(stmt); return; }
                 var (lhs, rhs) = asg.Value;
@@ -81,7 +75,35 @@ namespace VoltBridge.Core.Fbd.Vg
                 else if (IsCall(rhs))                                 // named function block
                     ParseFunction(lhs, rhs);
                 else                                                  // outVariable := <ref/operand>
-                    _nodes.Add(new OutVar(_nextId++, null, lhs, Mods.None, RefOf(rhs)));
+                {
+                    var (core, mods) = ExtractMods(rhs);
+                    _nodes.Add(new OutVar(_nextId++, null, lhs, mods, RefOf(core)));
+                }
+            }
+
+            /// <summary>Control flow as valid CODESYS ST: <c>name:</c> (label), <c>JMP name;</c>,
+            /// <c>RETURN;</c>, and the conditional <c>IF cond THEN JMP name; END_IF</c> /
+            /// <c>IF cond THEN RETURN; END_IF</c>. Returns false if the statement is not control flow.</summary>
+            private bool TryControlFlow(string stmt)
+            {
+                var lbl = Regex.Match(stmt, @"^(\w+)\s*:$");
+                if (lbl.Success) { _nodes.Add(new Label(_nextId++, null, lbl.Groups[1].Value)); return true; }
+
+                var cif = Regex.Match(stmt, @"^IF\s+(.+?)\s+THEN\s+(JMP\s+(\w+)|RETURN)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
+                if (cif.Success)
+                {
+                    var (core, mods) = ExtractMods(cif.Groups[1].Value);
+                    if (cif.Groups[3].Success) _nodes.Add(new Jump(_nextId++, null, cif.Groups[3].Value, RefOf(core), mods));
+                    else _nodes.Add(new Return(_nextId++, null, RefOf(core), mods));
+                    return true;
+                }
+
+                var jmp = Regex.Match(stmt, @"^JMP\s+(\w+)$", RegexOptions.IgnoreCase);
+                if (jmp.Success) { _nodes.Add(new Jump(_nextId++, null, jmp.Groups[1].Value, null, Mods.None)); return true; }
+                if (string.Equals(stmt, "RETURN", StringComparison.OrdinalIgnoreCase))
+                { _nodes.Add(new Return(_nextId++, null, null, Mods.None)); return true; }
+
+                return false;
             }
 
             // ── statement kinds ───────────────────────────────────────────
@@ -92,7 +114,8 @@ namespace VoltBridge.Core.Fbd.Vg
                 {
                     var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
                     if (p.Length != 2) throw new VgParseException("FB call arg needs 'pin := value': " + a);
-                    return new Pin(p[0].Trim(), RefOf(p[1].Trim()), Mods.None);
+                    var (core, mods) = ExtractMods(p[1].Trim());
+                    return new Pin(p[0].Trim(), RefOf(core), mods);
                 }).ToList();
                 var id = _nextId++;
                 _blockByName[name] = id;
@@ -102,11 +125,20 @@ namespace VoltBridge.Core.Fbd.Vg
             private void ParseOperator(string name, string inner)
             {
                 // split on a single infix operator; reject mixed operators (ambiguous topology)
-                var toks = Regex.Split(inner.Trim(), @"\s+").Where(t => t.Length > 0).ToList();
+                var rawToks = Regex.Split(inner.Trim(), @"\s+").Where(t => t.Length > 0).ToList();
+                // Merge a leading NOT onto the operand it negates, so the even=operand / odd=operator
+                // split still holds for negated inputs ("NOT a AND b").
+                var toks = new List<string>();
+                for (int i = 0; i < rawToks.Count; i++)
+                {
+                    if (string.Equals(rawToks[i], "NOT", StringComparison.OrdinalIgnoreCase) && i + 1 < rawToks.Count)
+                    { toks.Add("NOT " + rawToks[i + 1]); i++; }
+                    else toks.Add(rawToks[i]);
+                }
                 if (toks.Count < 3 || toks.Count % 2 == 0)
                     throw new VgParseException("operator statement must be 'a OP b [OP c …]': " + inner);
                 var op = toks[1];
-                if (!InfixOps.Contains(op)) throw new VgParseException("unknown operator '" + op + "'");
+                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'");
                 var operands = new List<string>();
                 for (int i = 0; i < toks.Count; i++)
                 {
@@ -116,14 +148,22 @@ namespace VoltBridge.Core.Fbd.Vg
                 }
                 var id = _nextId++;
                 _blockByName[name] = id;
-                var pins = operands.Select((o, k) => new Pin("IN" + (k + 1), RefOf(o), Mods.None)).ToList();
-                _nodes.Add(new Block(id, null, OpWordToType[op], null, pins, new List<string> { "OUT" }, "operator"));
+                var pins = operands.Select((o, k) =>
+                {
+                    var (core, mods) = ExtractMods(o);
+                    return new Pin("IN" + (k + 1), RefOf(core), mods);
+                }).ToList();
+                _nodes.Add(new Block(id, null, FbdOperators.SymbolToType[op], null, pins, new List<string> { "OUT" }, "operator"));
             }
 
             private void ParseFunction(string name, string call)
             {
                 var (fn, inner) = SplitCall(call);
-                var pins = SplitArgs(inner).Select((a, k) => new Pin("IN" + (k + 1), RefOf(a.Trim()), Mods.None)).ToList();
+                var pins = SplitArgs(inner).Select((a, k) =>
+                {
+                    var (core, mods) = ExtractMods(a.Trim());
+                    return new Pin("IN" + (k + 1), RefOf(core), mods);
+                }).ToList();
                 var id = _nextId++;
                 _blockByName[name] = id;
                 _nodes.Add(new Block(id, null, fn, null, pins, new List<string> { "OUT" }, "function"));
@@ -151,6 +191,42 @@ namespace VoltBridge.Core.Fbd.Vg
 
             public GraphNetwork Build()
                 => new(null, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
+
+            /// <summary>Strip pin/operand modifiers from a VG operand — leading <c>NOT</c>
+            /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/
+            /// <c>RESET</c> (storage) — returning the bare operand + its <see cref="Mods"/>. Inverse
+            /// of <c>VgWriter.ApplyMods</c>.</summary>
+            private static (string Core, Mods Mods) ExtractMods(string token)
+            {
+                token = token.Trim();
+                bool neg = false;
+                var edge = EdgeMod.None;
+                var storage = StorageMod.None;
+
+                if (StartsWithWord(token, "NOT")) { neg = true; token = token.Substring(3).Trim(); }
+
+                bool stripped = true;
+                while (stripped)
+                {
+                    stripped = false;
+                    if (EndsWithWord(token, "RISING")) { edge = EdgeMod.Rising; token = Chop(token, 6); stripped = true; }
+                    else if (EndsWithWord(token, "FALLING")) { edge = EdgeMod.Falling; token = Chop(token, 7); stripped = true; }
+                    else if (EndsWithWord(token, "SET")) { storage = StorageMod.Set; token = Chop(token, 3); stripped = true; }
+                    else if (EndsWithWord(token, "RESET")) { storage = StorageMod.Reset; token = Chop(token, 5); stripped = true; }
+                }
+
+                var mods = (!neg && edge == EdgeMod.None && storage == StorageMod.None)
+                    ? Mods.None : new Mods(neg, edge, storage);
+                return (token, mods);
+            }
+
+            private static string Chop(string s, int n) => s.Substring(0, s.Length - n).Trim();
+
+            private static bool StartsWithWord(string s, string word) =>
+                s.Length > word.Length && s.StartsWith(word, StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(s[word.Length]);
+
+            private static bool EndsWithWord(string s, string word) =>
+                s.Length > word.Length && s.EndsWith(word, StringComparison.OrdinalIgnoreCase) && char.IsWhiteSpace(s[s.Length - word.Length - 1]);
 
             // ── tiny helpers ──────────────────────────────────────────────
             private static (string lhs, string rhs)? SplitAssignment(string s)

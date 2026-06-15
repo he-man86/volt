@@ -1,4 +1,3 @@
-using VoltBridge.Core.Errors;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core.Handlers;
@@ -7,7 +6,7 @@ public static class BuildHandler
 {
     public static BuildResponse Handle(IAdapter adapter, BuildRequest request)
     {
-        if (!adapter.IsConnected) throw ErrorResponse.PlcDisconnectedException();
+        if (!adapter.IsConnected) throw BridgeException.PlcDisconnected();
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try

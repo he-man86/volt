@@ -16,4 +16,9 @@ public class BridgeException : Exception
         ErrorCode = errorCode;
         Cause = cause;
     }
+
+    /// <summary>The bridge is up but no IDE project is loaded yet — every project-touching
+    /// endpoint rejects with this until a project is attached.</summary>
+    public static BridgeException PlcDisconnected() =>
+        new(503, "PLC_DISCONNECTED", "Bridge is waiting for an IDE project");
 }
