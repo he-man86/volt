@@ -85,6 +85,29 @@ public class PlcOpenWriterTests
         Assert.Equal(vg1, VgWriter.Write(PlcOpenReader.ReadBody(xml2))); // fixed point
     }
 
+    /// <summary>FBD and LD share the PLCopen element set — only the wrapper/view differs. An LD body
+    /// reads its language from the wrapper, surfaces as %LANG LD, and re-emits an &lt;LD&gt; wrapper.</summary>
+    [Fact]
+    public void Ld_body_reads_and_writes_as_ld()
+    {
+        const string inner = """
+            <inVariable localId="1"><expression>a</expression></inVariable>
+            <inVariable localId="2"><expression>b</expression></inVariable>
+            <block localId="3" typeName="AND">
+              <inputVariables>
+                <variable formalParameter="IN1"><connectionPointIn><connection refLocalId="1"/></connectionPointIn></variable>
+                <variable formalParameter="IN2"><connectionPointIn><connection refLocalId="2"/></connectionPointIn></variable>
+              </inputVariables>
+              <outputVariables><variable formalParameter="OUT"><connectionPointOut/></variable></outputVariables>
+            </block>
+            <outVariable localId="4"><expression>out</expression><connectionPointIn><connection refLocalId="3"/></connectionPointIn></outVariable>
+            """;
+        var g = PlcOpenReader.ReadBody(XElement.Parse($"<LD xmlns=\"{Ns}\">{inner}</LD>"));
+        Assert.Equal("LD", g.Language);
+        Assert.StartsWith("%LANG LD", VgWriter.Write(g));
+        Assert.Equal("LD", PlcOpenWriter.WriteBody(g).Name.LocalName);   // wrapper mirrors the language
+    }
+
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
     /// with FB types supplied by the declaration resolver.</summary>
     [Fact]

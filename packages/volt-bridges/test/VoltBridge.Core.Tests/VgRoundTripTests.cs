@@ -12,6 +12,8 @@ public class VgRoundTripTests
     [InlineData("%LANG FBD\nNETWORK\n  g1 := (A AND B);\n  g2 := (g1 OR C);\n  result := g2;\n")]
     [InlineData("%LANG FBD\nNETWORK\n  t1(IN := start, PT := pt);\n  running := t1.Q;\n  elapsed := t1.ET;\n")]
     [InlineData("%LANG FBD\nNETWORK \"my label\"\n  g1 := (a OR b);\n  out := g1;\n")]
+    // LD is the same structure as FBD — only the language header differs (the view is a toggle).
+    [InlineData("%LANG LD\nNETWORK\n  g1 := (a AND b);\n  out := g1;\n")]
     // modifiers: negation (NOT), edge (RISING/FALLING), storage (SET/RESET)
     [InlineData("%LANG FBD\nNETWORK\n  g1 := (NOT a AND b);\n  out := g1;\n")]
     [InlineData("%LANG FBD\nNETWORK\n  t1(CLK := clk RISING);\n")]

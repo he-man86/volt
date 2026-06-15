@@ -62,6 +62,21 @@ public class PlcOpenDocumentTests
     }
 
     [Fact]
+    public void Splice_preserves_the_original_wrapper_element()
+    {
+        // TwinCAT exports an LD body with an <FBD> wrapper; writing it back must NOT flip the wrapper
+        // to <LD> (that would change the editor view / be rejected on import). Only contents swap.
+        XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
+        var newLd = new XElement(ns + "LD",
+            new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z")));
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, newLd);   // Pou has an <FBD> body
+        Assert.Contains("<FBD", outXml);        // wrapper preserved
+        Assert.DoesNotContain("<LD>", outXml);  // not flipped to LD
+        Assert.Contains("outVariable", outXml); // contents swapped in
+        Assert.DoesNotContain("inVariable", outXml);
+    }
+
+    [Fact]
     public void Splice_allows_cosmetic_vendorElement()
     {
         // vendorElement (FBD editor attributes) is safe to drop — the splice must NOT refuse it.

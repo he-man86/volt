@@ -21,6 +21,22 @@ engineer read/edit VG; the bridge round-trips it to the IDE's PLCopenXML (`PlcOp
 A pure-graphical-root POU is one file; the `(* @volt-graphical: LANG vg *)` marker is used **only**
 for a graphical CHILD (action/method) embedded in a file whose root language differs.
 
+### FBD and LD are the same structure (IMPLEMENTED)
+FBD and LD share ONE internal model — in the IDE the FBD↔LD switch is just a view toggle on the same
+network. At the PLCopen level the body uses the SAME elements (`block`/`inVariable`/`outVariable`/…)
+for both; only the wrapper/view differs. Confirmed live: the identical network as an FBD action and an
+LD action round-trips to byte-identical VG. So LD needs no separate transpiler — it reads/writes
+through the same pipeline. Two specifics:
+- The authoritative language is the IDE's `DefaultViewMode` (CODESYS object property; TwinCAT
+  `LanguageOf` on the NWL impl), threaded into the VG `%LANG` header — **TwinCAT serializes an LD body
+  with an `<FBD>` wrapper**, so the wrapper name alone can't be trusted.
+- `SpliceFbdLdBody` preserves the original `<FBD>`/`<LD>` wrapper on push (swaps contents only), so a
+  graphical push never flips the wrapper or changes the editor's view.
+
+Genuine LD-only elements (`<contact>`/`<coil>`/power rails) are NOT modeled — but TwinCAT/CODESYS
+appear to serialize ladder logic as blocks via PLCopen, so they may never occur. If they do, the P0
+write-loss guard refuses the push (they're not in the representable set) rather than dropping them.
+
 ## Structure
 ```
 %LANG FBD                 header: FBD | LD
@@ -75,7 +91,9 @@ Operators live in `FbdOperators.cs` (type↔symbol): `OR AND XOR ADD(+) SUB(-) M
 
 ## DEFERRED (not yet in VG — bodies using these are read-incomplete and refused on push)
 - **Free comment boxes** (`<comment>`) — only network `//` comments exist.
-- **LD contacts / coils / power rails** (`<contact>`/`<coil>`/rails).
+- **LD-only elements** (`<contact>`/`<coil>`/power rails) — LD *logic* round-trips as blocks (see
+  "FBD and LD are the same structure"); these literal ladder elements aren't modeled and, if they
+  ever appear, the push is refused (not in the representable set).
 - **Connectors / continuations** (`<connector>`/`<continuation>`).
 - **FB-call in-out pin wiring** (`<block><inOutVariables>`) — VAR_IN_OUT *declarations* already
   round-trip as plain decl text; only the graphical wiring of an in-out pin is unhandled.

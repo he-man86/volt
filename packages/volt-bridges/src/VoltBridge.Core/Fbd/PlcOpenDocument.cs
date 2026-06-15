@@ -71,7 +71,12 @@ namespace VoltBridge.Core.Fbd
                     "which means a disabled or hidden network the editor cannot see would be lost. " +
                     "Edit this POU in the IDE instead.");
 
-            body.ReplaceWith(newBody);
+            // Keep the ORIGINAL <FBD>/<LD> wrapper (its name + attributes) and only swap the body
+            // contents. The vendor chose the wrapper — TwinCAT exports an LD body as <FBD> and keeps
+            // its ladder view in separate DefaultViewMode metadata — so replacing the element could
+            // flip the editor's view or be rejected on import. The element name is cosmetic to us;
+            // the children ARE the body.
+            body.ReplaceNodes(newBody.Elements());
             return doc.ToString();
         }
 

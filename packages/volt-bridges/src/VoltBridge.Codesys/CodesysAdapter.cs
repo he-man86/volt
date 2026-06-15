@@ -181,7 +181,10 @@ namespace VoltBridge.Codesys
             {
                 var fbd = VoltBridge.Core.Fbd.PlcOpenDocument.FindFbdLdBody(_om.ExportXml((object)item));
                 if (fbd == null) return new GraphicalBody(lang, "");
-                var vg = VoltBridge.Core.Fbd.Vg.VgWriter.Write(VoltBridge.Core.Fbd.PlcOpenReader.ReadBody(fbd));
+                // Use the authoritative language (DefaultViewMode) for the VG header — the PLCopen
+                // wrapper alone can't be trusted (TwinCAT serializes an LD body as <FBD>).
+                var body = VoltBridge.Core.Fbd.PlcOpenReader.ReadBody(fbd) with { Language = lang };
+                var vg = VoltBridge.Core.Fbd.Vg.VgWriter.Write(body);
                 return new GraphicalBody(lang, vg, "vg");
             }
             catch { return new GraphicalBody(lang, ""); }                      // fall back to read-only on failure

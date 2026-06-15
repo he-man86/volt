@@ -437,10 +437,13 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
         if (pou is null) return new GraphicalBody(lang, "");
         try
         {
-            var xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));
+            string xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));  // string, not dynamic
             var fbd = PlcOpenDocument.FindFbdLdBody(xml);
             if (fbd is null) return new GraphicalBody(lang, "");
-            var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd));
+            // Use the authoritative language (DefaultViewMode via LanguageOf) for the VG header —
+            // TwinCAT serializes an LD body with an <FBD> wrapper, so the wrapper alone lies.
+            var body = PlcOpenReader.ReadBody(fbd) with { Language = lang };
+            var vg = VgWriter.Write(body);
             return new GraphicalBody(lang, vg, "vg");
         }
         catch { return new GraphicalBody(lang, ""); }                   // export failed → read-only (parity w/ CODESYS)
