@@ -103,7 +103,7 @@ namespace VoltBridge.Core.Fbd
         private const long NetworkStride = 10_000_000_000L;
 
         private static readonly System.Collections.Generic.HashSet<string> Representable =
-            new() { "inVariable", "outVariable", "block", "label", "jump", "return", "vendorElement" };
+            new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement" };
 
         /// <summary>A pin <c>&lt;variable&gt;</c> carries a modifier VG can't reproduce on an output
         /// (negation / edge / set-reset storage). "none"/absent = no modifier.</summary>

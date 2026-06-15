@@ -21,9 +21,16 @@ namespace VoltBridge.Core.Fbd
         {
             var root = new XElement(Ns + (body.Language == "LD" ? "LD" : "FBD"));
             int row = 0;
+            long commentId = 900_000_000_000L;   // high, throwaway localIds for synthesized comment boxes
             foreach (var net in body.Networks)
+            {
+                if (!string.IsNullOrEmpty(net.Comment))
+                    root.Add(new XElement(Ns + "comment",
+                        new XAttribute("localId", commentId++), Pos(row++),
+                        new XElement(Ns + "content", net.Comment)));
                 foreach (var node in net.Nodes)
                     root.Add(WriteNode(node, resolveType, row++));
+            }
             return root;
         }
 

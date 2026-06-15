@@ -21,18 +21,35 @@ namespace VoltBridge.Core.Fbd
         {
             var ns = fbdOrLd.Name.Namespace;
             var lang = fbdOrLd.Name.LocalName.ToUpperInvariant();          // FBD | LD
-            var nodes = fbdOrLd.Elements().Select(el => ReadNode(el, ns)).ToList();
+            var all = fbdOrLd.Elements().ToList();
 
-            var networks = nodes
-                .GroupBy(n => n.LocalId / NetworkStride)                    // network index from localId
-                .OrderBy(g => g.Key)                                        // engineer's top-to-bottom order
-                .Select(g => new GraphNetwork((int)g.Key, null, null, false, g.ToList()))
+            // <comment> boxes carry a network's annotation (and, in the flat scheme, its title). Fold
+            // them into the owning network (by localId index) as the network Comment; the logic nodes
+            // are everything else.
+            var comments = all.Where(e => e.Name.LocalName == "comment")
+                .GroupBy(c => ((long?)c.Attribute("localId") ?? 0) / NetworkStride)
+                .ToDictionary(g => g.Key, g => string.Join("\n", g.Select(CommentText).Where(t => t.Length > 0)));
+            var nodes = all.Where(e => e.Name.LocalName != "comment").Select(el => ReadNode(el, ns)).ToList();
+
+            var keys = nodes.Select(n => n.LocalId / NetworkStride)
+                .Concat(comments.Keys).Distinct().OrderBy(k => k).ToList();   // engineer's top-to-bottom order
+            var networks = keys
+                .Select(k => new GraphNetwork(
+                    (int)k, null,
+                    comments.TryGetValue(k, out var c) && c.Length > 0 ? c : null,
+                    false,
+                    nodes.Where(n => n.LocalId / NetworkStride == k).ToList()))
                 .ToList();
             // A body always has at least one network (empty FBD → one empty network).
             if (networks.Count == 0) networks.Add(new GraphNetwork(0, null, null, false, nodes));
 
             return new GraphBody(lang, networks);
         }
+
+        /// <summary>A comment box's text, taken from ALL its text content regardless of the
+        /// (vendor-varying) wrapper (&lt;content&gt;, xhtml, …) so the text is never lost.</summary>
+        private static string CommentText(XElement c) =>
+            string.Concat(c.DescendantNodes().OfType<XText>().Select(t => t.Value)).Trim();
 
         private static GraphNode ReadNode(XElement el, XNamespace ns)
         {

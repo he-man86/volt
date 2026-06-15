@@ -71,7 +71,6 @@ public class FbdCoverageTests
     // ── Not modeled yet: push must be REFUSED, never silently dropped ──
     [Theory]
     // common-objects group
-    [InlineData("FBD", "comment",      "<comment localId='1'><content>x</content></comment>")]
     [InlineData("FBD", "connector",    "<connector localId='1' name='C'><connectionPointIn><connection refLocalId='9'/></connectionPointIn></connector>")]
     [InlineData("FBD", "continuation", "<continuation localId='1' name='C'><connectionPointOut/></continuation>")]
     [InlineData("FBD", "error",        "<error localId='1'/>")]
@@ -100,6 +99,25 @@ public class FbdCoverageTests
         _ = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader stays TOTAL (no throw)
         Assert.Throws<System.InvalidOperationException>(
             () => PlcOpenDocument.SpliceFbdLdBody(doc, new XElement("FBD")));
+    }
+
+    /// <summary>A comment box round-trips its TEXT through the full edit path (XML → VG // line →
+    /// XML), even though the box position is dropped. Text extraction is robust to the wrapper.</summary>
+    [Fact]
+    public void Comment_text_round_trips()
+    {
+        var doc = Doc("FBD",
+            "<comment localId='1'><content>hello world</content></comment>" +
+            "<inVariable localId='2'><expression>a</expression></inVariable>" +
+            "<outVariable localId='3'><expression>o</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
+        // through VG and back
+        var g = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);
+        Assert.Contains("// hello world", VgWriter.Write(g));     // surfaced as a VG comment
+        var outXml = RoundTripBody(doc);                          // NOT refused (returns the full pou doc)
+        Assert.Contains("hello world", outXml);                  // text preserved on push
+        // and re-reading the written body recovers the comment text
+        var g2 = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(outXml)!);
+        Assert.Contains("hello world", g2.Networks.SelectMany(n => new[] { n.Comment }).FirstOrDefault(c => c != null) ?? "");
     }
 
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard
