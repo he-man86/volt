@@ -28,15 +28,19 @@ public class FbdCorpusRoundTripTests
     private readonly ITestOutputHelper _out;
     public FbdCorpusRoundTripTests(ITestOutputHelper o) => _out = o;
 
-    private static readonly string CorpusDir =
-        Path.Combine(AppContext.BaseDirectory, "fixtures", "corpus");
+    // Two sources: a COMMITTED set of representative bodies (runs in CI), plus the LOCAL harvested
+    // corpus (gitignored — real captured projects, runs when you've harvested).
+    private static readonly string[] CorpusDirs =
+    {
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "roundtrip"),
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "corpus"),
+    };
 
     [Fact]
     public void Captured_bodies_round_trip_or_are_refused_never_silently_dropped()
     {
-        if (!Directory.Exists(CorpusDir)) { _out.WriteLine("no corpus dir yet — harvest a project first"); return; }
-        var files = Directory.GetFiles(CorpusDir, "*.xml");
-        if (files.Length == 0) { _out.WriteLine("corpus empty — harvest a project first"); return; }
+        var files = CorpusDirs.Where(Directory.Exists).SelectMany(d => Directory.GetFiles(d, "*.xml")).ToArray();
+        if (files.Length == 0) { _out.WriteLine("no fixtures — add to fixtures/roundtrip or harvest a project"); return; }
 
         int bodies = 0, covered = 0, refused = 0;
         var refusedConstructs = new SortedSet<string>();
@@ -76,7 +80,11 @@ public class FbdCorpusRoundTripTests
                 var lost = before.Except(after).ToList();
                 Assert.True(lost.Count == 0,
                     $"{Path.GetFileName(file)}: silently dropped on push: {string.Join(", ", lost)}");
-                Assert.Equal(vg0, VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(spliced)!)));
+                // HASH DRIFT guard: the VG (what the bridge hashes) must be a fixed point through the
+                // full push round-trip — else an unchanged body would re-hash differently and be
+                // falsely flagged as edited (scaffolding we add: localIds/positions/xhtml/typeNames).
+                Assert.True(vg0 == VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(spliced)!)),
+                    $"{Path.GetFileName(file)}: hash drift — round-trip changed the VG");
             }
         }
 

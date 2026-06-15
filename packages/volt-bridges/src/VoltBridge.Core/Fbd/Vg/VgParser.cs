@@ -17,12 +17,18 @@ namespace VoltBridge.Core.Fbd.Vg
     /// </summary>
     public static class VgParser
     {
+        // localIds must encode the network index (index = localId / 10^10), mirroring PlcOpenReader,
+        // so a multi-network body's nodes don't collide across networks (they would otherwise all
+        // restart at 1 → duplicate localIds → networks collapse / import breaks on push).
+        private const long NetworkStride = 10_000_000_000L;
+
         // Canonical operator table (symbol ↔ type) lives in FbdOperators, shared with the writer.
         public static GraphBody Parse(string text)
         {
             string lang = "FBD";
             var networks = new List<GraphNetwork>();
             NetworkBuilder? cur = null;
+            int ordinal = 0;
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
             foreach (var raw in text.Replace("\r", "").Split('\n'))
@@ -33,7 +39,7 @@ namespace VoltBridge.Core.Fbd.Vg
                 if (line.StartsWith("NETWORK"))
                 {
                     Flush();
-                    cur = new NetworkBuilder(line.Substring("NETWORK".Length).Trim());
+                    cur = new NetworkBuilder(line.Substring("NETWORK".Length).Trim(), ordinal++ * NetworkStride + 1);
                     continue;
                 }
                 if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
@@ -51,10 +57,11 @@ namespace VoltBridge.Core.Fbd.Vg
             private readonly List<string> _comments = new();
             private readonly List<GraphNode> _nodes = new();
             private readonly Dictionary<string, long> _blockByName = new(StringComparer.Ordinal);
-            private long _nextId = 1;
+            private long _nextId;
 
-            public NetworkBuilder(string header)
+            public NetworkBuilder(string header, long baseId)
             {
+                _nextId = baseId;   // network-encoded so nodes are unique across networks
                 _disabled = Regex.IsMatch(header, @"\bDISABLED\b");
                 var m = Regex.Match(header, "\"([^\"]*)\"");
                 _label = m.Success ? m.Groups[1].Value : null;

@@ -125,6 +125,17 @@ public class PlcOpenWriterTests
         Assert.True((long)comment.Attribute("localId")! / 10_000_000_000L == 0);     // in network 0 (with the content)
     }
 
+    /// <summary>Regression: a MULTI-network body must round-trip through XML without colliding
+    /// localIds. Each VgParser network used to restart numbering at 1, so a 2nd network duplicated
+    /// ids → networks collapsed / the IDE import broke on push. localIds now encode the network.</summary>
+    [Fact]
+    public void Multi_network_vg_round_trips_through_xml()
+    {
+        const string vg = "%LANG FBD\nNETWORK\n  g1 := (a AND b);\n  x := g1;\nNETWORK\n  g1 := (c OR d);\n  y := g1;\n";
+        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
+        Assert.Equal(vg, back);   // a true fixed point — no hash drift, no collapse
+    }
+
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
     /// with FB types supplied by the declaration resolver.</summary>
     [Fact]
