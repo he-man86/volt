@@ -134,8 +134,8 @@ public static class PushHandler
             // %LANG) — its .fbd/.ld extension, not a marker, says it's graphical. Write it back via
             // the IDE's PLCopen import. (A legacy (* @volt-graphical: … vg *) marker is still
             // honored. A marker WITHOUT `vg` is a read-only view — never written.)
-            var pouVg = IsVgBody(impl);
-            var pouMarked = IsGraphicalMarked(impl);
+            var pouVg = GraphicalMarker.IsVgBody(impl);
+            var pouMarked = GraphicalMarker.IsMarked(impl);
 
             dynamic po;
             if (existing == null)
@@ -148,7 +148,7 @@ public static class PushHandler
             {
                 po = existing;
                 if (pouVg) adapter.WriteGraphicalBody(existing, impl, decl);
-                else if (IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, ExtractVg(impl), decl);
+                else if (GraphicalMarker.IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, GraphicalMarker.ExtractBody(impl), decl);
                 else if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
             }
 
@@ -156,7 +156,7 @@ public static class PushHandler
             {
                 var cimpl = child.Implementation as string;
                 // Read-only graphical view (ST / CFC / SFC, no `vg` tag) — never overwrite.
-                if (IsGraphicalMarked(cimpl) && !IsVgMarked(cimpl)) continue;
+                if (GraphicalMarker.IsMarked(cimpl) && !GraphicalMarker.IsVgMarked(cimpl)) continue;
 
                 var childType = MapChildKindToItemType(child.Kind);
                 dynamic childParent = po;
@@ -172,9 +172,9 @@ public static class PushHandler
 
                 // Editable VG graphical child → write through the IDE's PLCopen import. FB instance
                 // types come from the enclosing POU's declaration (the action shares its VARs).
-                if (IsVgMarked(cimpl))
+                if (GraphicalMarker.IsVgMarked(cimpl))
                 {
-                    if (existingChild != null) adapter.WriteGraphicalBody(existingChild, ExtractVg(cimpl!), decl);
+                    if (existingChild != null) adapter.WriteGraphicalBody(existingChild, GraphicalMarker.ExtractBody(cimpl!), decl);
                     continue;   // creating a graphical child from scratch is not supported yet
                 }
 
@@ -258,34 +258,6 @@ public static class PushHandler
         else
             acc = existing;
         adapter.WriteSourceText(acc, decl, impl);
-    }
-
-    // ── @volt-graphical marker helpers ──────────────────────────────────
-    private static bool IsGraphicalMarked(string? impl)
-        => impl != null && impl.TrimStart().StartsWith("(* @volt-graphical:", StringComparison.Ordinal);
-
-    /// <summary>True when a body IS the editable VG language (a root .fbd/.ld POU body), recognized
-    /// by its leading <c>%LANG</c> header — no marker needed, the file extension conveys it.</summary>
-    private static bool IsVgBody(string? impl)
-        => impl != null && impl.TrimStart().StartsWith("%LANG", StringComparison.Ordinal);
-
-    /// <summary>True when the marker carries the <c>vg</c> format tag — an EDITABLE body that push
-    /// round-trips (vs. a read-only ST/CFC/SFC view).</summary>
-    private static bool IsVgMarked(string? impl)
-    {
-        if (!IsGraphicalMarked(impl)) return false;
-        var firstLine = impl!.TrimStart();
-        var nl = firstLine.IndexOf('\n');
-        if (nl >= 0) firstLine = firstLine.Substring(0, nl);
-        return firstLine.Contains(" vg *)");
-    }
-
-    /// <summary>The VG body — everything after the marker line.</summary>
-    private static string ExtractVg(string impl)
-    {
-        var t = impl.TrimStart();
-        var nl = t.IndexOf('\n');
-        return nl < 0 ? "" : t.Substring(nl + 1);
     }
 
     private static int MapPouKindToItemType(string kind) => kind switch

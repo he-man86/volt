@@ -184,15 +184,9 @@ public static class SourceAssembler
         return textual;
     }
 
-    /// <summary>The marked implementation text for a graphical body: the
-    /// <c>(* @volt-graphical: LANG [vg] *)</c> marker (the <c>vg</c> tag flags an EDITABLE body that
-    /// push round-trips; without it the body is read-only ST) followed by the body text.</summary>
-    private static string GraphicalImpl(GraphicalBody gb)
-    {
-        var tag = gb.Format == "vg" ? $"{gb.Language} vg" : gb.Language;
-        var marker = $"(* @volt-graphical: {tag} *)";
-        return string.IsNullOrEmpty(gb.Body) ? marker : marker + "\n" + gb.Body;
-    }
+    /// <summary>The marked implementation text for a graphical body — see <see cref="GraphicalMarker"/>.</summary>
+    private static string GraphicalImpl(GraphicalBody gb) =>
+        GraphicalMarker.Wrap(gb.Language, gb.Format == "vg", gb.Body);
 
     /// <summary>If <paramref name="impl"/> is a graphical body serialization (a TwinCAT
     /// <c>&lt;NWL&gt;</c>/<c>&lt;CFC&gt;</c>/… archive) rather than ST text, the graphical language
