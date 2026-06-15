@@ -131,6 +131,70 @@ public class PlcOpenDocumentTests
         Assert.Contains("outVariable", outXml);
     }
 
+    // ── guard blind-spots: structure INSIDE a block the element-name guard can't see ──
+    private const string Ns = "http://www.plcopen.org/xml/tc6_0200";
+    private static string Fbd(string inner) =>
+        $"<pou xmlns=\"{Ns}\" name=\"P\"><body><FBD>{inner}</FBD></body></pou>";
+
+    [Fact]
+    public void Splice_refuses_a_block_in_out_pin()
+    {
+        var xml = Fbd("""
+            <block localId="1" typeName="F">
+              <inOutVariables><variable formalParameter="buf"><connectionPointIn/></variable></inOutVariables>
+            </block>
+            """);
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+        Assert.Contains("in-out", ex.Message);
+    }
+
+    [Fact]
+    public void Splice_refuses_an_output_pin_modifier()
+    {
+        var xml = Fbd("""
+            <block localId="1" typeName="F">
+              <outputVariables><variable formalParameter="Q" negated="true"><connectionPointOut/></variable></outputVariables>
+            </block>
+            """);
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+        Assert.Contains("output pin", ex.Message);
+    }
+
+    [Fact]
+    public void Splice_refuses_a_pin_wired_from_multiple_sources()
+    {
+        var xml = Fbd("""
+            <inVariable localId="1"><expression>a</expression></inVariable>
+            <inVariable localId="2"><expression>b</expression></inVariable>
+            <outVariable localId="3"><expression>o</expression>
+              <connectionPointIn><connection refLocalId="1"/><connection refLocalId="2"/></connectionPointIn></outVariable>
+            """);
+        var ex = Assert.Throws<System.InvalidOperationException>(
+            () => PlcOpenDocument.SpliceFbdLdBody(xml, new XElement("FBD")));
+        Assert.Contains("multiple sources", ex.Message);
+    }
+
+    [Fact]
+    public void Splice_allows_a_normal_block_with_empty_inOutVariables()
+    {
+        // The shape every real export has: input pins, an empty <inOutVariables/>, plain outputs.
+        var xml = Fbd("""
+            <inVariable localId="1"><expression>a</expression></inVariable>
+            <block localId="2" typeName="AND">
+              <inputVariables><variable formalParameter="IN1"><connectionPointIn><connection refLocalId="1"/></connectionPointIn></variable></inputVariables>
+              <inOutVariables/>
+              <outputVariables><variable formalParameter="OUT"><connectionPointOut/></variable></outputVariables>
+            </block>
+            """);
+        XNamespace ns = Ns;
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(xml,
+            new XElement(ns + "FBD", new XElement(ns + "outVariable",
+                new XAttribute("localId", 9), new XElement(ns + "expression", "z"))));
+        Assert.Contains("outVariable", outXml);   // splice proceeded
+    }
+
     [Fact]
     public void InstanceTypes_parses_declaration()
     {

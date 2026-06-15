@@ -71,6 +71,24 @@ namespace VoltBridge.Core.Fbd
                     "which means a disabled or hidden network the editor cannot see would be lost. " +
                     "Edit this POU in the IDE instead.");
 
+            // The element-name guard above only sees TOP-LEVEL nodes — it is blind to structure
+            // INSIDE a <block> and to per-pin attributes. VG models a block's input pins (with their
+            // modifiers), its output pin NAMES, and single-wire inputs — but NOT: in-out pins, output-
+            // pin modifiers, or a pin wired from multiple sources. Overwriting such a block would
+            // silently drop them, so refuse here too (same policy as the element guard).
+            var ns = body.Name.Namespace;
+            var blind = new List<string>();
+            if (body.Descendants(ns + "inOutVariables").Any(io => io.Elements(ns + "variable").Any()))
+                blind.Add("a block in-out pin (<inOutVariables>)");
+            if (body.Descendants(ns + "outputVariables").Elements(ns + "variable").Any(HasPinMod))
+                blind.Add("a modifier on a block output pin (negated/edge/storage)");
+            if (body.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
+                blind.Add("a pin wired from multiple sources");
+            if (blind.Count > 0)
+                throw new InvalidOperationException(
+                    "refusing to write this graphical body: it has structure the editor cannot " +
+                    "represent yet (" + string.Join("; ", blind.Distinct()) + "). Edit this POU in the IDE instead.");
+
             // Keep the ORIGINAL <FBD>/<LD> wrapper (its name + attributes) and only swap the body
             // contents. The vendor chose the wrapper — TwinCAT exports an LD body as <FBD> and keeps
             // its ladder view in separate DefaultViewMode metadata — so replacing the element could
@@ -86,6 +104,16 @@ namespace VoltBridge.Core.Fbd
 
         private static readonly System.Collections.Generic.HashSet<string> Representable =
             new() { "inVariable", "outVariable", "block", "label", "jump", "return", "vendorElement" };
+
+        /// <summary>A pin <c>&lt;variable&gt;</c> carries a modifier VG can't reproduce on an output
+        /// (negation / edge / set-reset storage). "none"/absent = no modifier.</summary>
+        private static bool HasPinMod(XElement v)
+        {
+            if ((string?)v.Attribute("negated") == "true") return true;
+            if ((string?)v.Attribute("edge") is { } e && e is not ("" or "none")) return true;
+            if ((string?)v.Attribute("storage") is { } s && s is not ("" or "none")) return true;
+            return false;
+        }
 
         private static XElement? FindFbdLd(XDocument doc)
         {
