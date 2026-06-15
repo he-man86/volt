@@ -470,6 +470,20 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
         catch { try { TcPlcOpen.Import(plc, exported); } catch { } throw; }
     }
 
+    /// <summary>Raw PLCopen of the whole POU (corpus capture / coverage). Same export the graphical
+    /// read uses; null on failure or for non-exportable items.</summary>
+    public override string? ExportRawPou(dynamic item)
+    {
+        try
+        {
+            var pou = EnclosingPou(item);
+            if (pou is null) return null;
+            string xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));
+            return xml;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Walk up to the enclosing POU (FB / function / program / interface).</summary>
     private dynamic? EnclosingPou(dynamic item)
     {

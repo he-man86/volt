@@ -66,6 +66,9 @@ public abstract class AdapterBase
     public virtual void WriteGraphicalBody(dynamic item, string vgText, string declaration)
         => throw new NotSupportedException("this adapter cannot write graphical bodies");
 
+    // Raw PLCopen export for corpus capture (/raw); graphical vendors override.
+    public virtual string? ExportRawPou(dynamic item) => null;
+
     // The two text reads the shared hashing builds on; everything else about IDE
     // access lives on the concrete adapter.
     public abstract string ReadDeclaration(dynamic item);

@@ -64,6 +64,11 @@ public interface IAdapter
     /// children with a (* @volt-graphical: LANG *) marker instead of dropping them.</summary>
     GraphicalBody? ReadGraphicalBody(dynamic item);
 
+    /// <summary>Raw PLCopenXML export of an item's whole POU — the exact bytes the IDE emits, for
+    /// corpus capture / coverage diagnostics (the <c>/raw</c> route), NOT the normal pull path.
+    /// Null if the adapter can't export it. Default: null.</summary>
+    string? ExportRawPou(dynamic item);
+
     /// <summary>Write an editable VG ("@volt-graphical: LANG vg") body back to a graphical item:
     /// parse VG → graph → PLCopenXML → import into the IDE. <paramref name="declaration"/> is the
     /// POU's declaration, used to resolve FB instance types (VG doesn't carry them). Throws on

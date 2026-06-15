@@ -144,6 +144,9 @@ public sealed class HttpBridgeServer
                 case "GET /refs":
                     result = _adapter.RunOnStaThread(() => (object)RefsHandler.Handle(_adapter));
                     break;
+                case "GET /raw":   // corpus capture (diagnostic): every POU's raw PLCopenXML
+                    result = _adapter.RunOnStaThread(() => (object)RawHandler.Handle(_adapter));
+                    break;
                 case "POST /fetch":
                     var fetchReq = ReadBody<FetchRequest>(ctx) ?? new FetchRequest();
                     result = _adapter.RunOnStaThread(() => (object)FetchHandler.Handle(_adapter, fetchReq));

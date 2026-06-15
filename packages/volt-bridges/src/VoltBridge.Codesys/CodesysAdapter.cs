@@ -222,6 +222,13 @@ namespace VoltBridge.Codesys
             }
         }
 
+        /// <summary>Raw PLCopen of the whole POU (corpus capture / coverage). Same export the
+        /// graphical read uses; null on failure or for non-exportable items.</summary>
+        public override string? ExportRawPou(dynamic item)
+        {
+            try { return _om.ExportXml((object)item); } catch { return null; }
+        }
+
         public string ReadManifestText(dynamic item, string kind) =>
             (object)item is LibRefNode lib ? lib.Manifest : $"{kind}\n";   // library refs carry a real manifest; others staged
 
