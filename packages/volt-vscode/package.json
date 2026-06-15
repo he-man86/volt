@@ -70,7 +70,11 @@
           "IEC 61131-3"
         ],
         "extensions": [
-          ".st"
+          ".st",
+          ".fbd",
+          ".ld",
+          ".cfc",
+          ".sfc"
         ],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {

@@ -3,8 +3,10 @@ import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, TransportKind } from "vscode-languageclient/node"
 
+// Graphical bodies (.fbd/.ld/.cfc/.sfc) are associated with the structured-text language
+// (their VG/declaration content is ST-shaped), so structured-text covers them here too.
 const LANGUAGE_IDS = [
-	"structured-text", "plc-interface", "plc-gvl", "plc-dut", "plc-fbd", "plc-ld",
+	"structured-text", "plc-interface", "plc-gvl", "plc-dut",
 ]
 
 export async function startLsp(context: vscode.ExtensionContext): Promise<LanguageClient[]> {
@@ -14,7 +16,7 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<Langua
 	const config = vscode.workspace.getConfiguration("volt.lsp")
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: LANGUAGE_IDS.map((id) => ({ language: id })),
-		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{st,gvl,struct,enum,union,alias,itf,fbd,ld}") },
+		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{st,gvl,struct,enum,union,alias,itf,fbd,ld,cfc,sfc}") },
 		initializationOptions: {
 			maxNumberOfProblems: config.get("maxNumberOfProblems"),
 			trace: config.get("trace"),
