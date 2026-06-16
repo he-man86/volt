@@ -153,15 +153,16 @@ public static class StAssembler
 	private static string AssembleChild(ChildSnapshot child)
 	{
 		if (child.Kind == "property") return AssembleProperty(child);
-		var decl = WithFolderAnnotation(child.Declaration, child.Folder).TrimEnd();
-		var impl = (child.Implementation ?? "").Trim();
+		var decl = child.Declaration.TrimEnd();
+		var impl = PrependFolderDirective(child.Folder, (child.Implementation ?? "").Trim());
 		var endKw = child.Kind == "method" ? "END_METHOD" : "END_ACTION";
 		return impl.Length == 0 ? $"{decl}\n{endKw}" : $"{decl}\n{impl}\n{endKw}";
 	}
 
 	private static string AssembleProperty(ChildSnapshot child)
 	{
-		var parts = new List<string> { WithFolderAnnotation(child.Declaration, child.Folder).TrimEnd() };
+		var parts = new List<string> { child.Declaration.TrimEnd() };
+		if (!string.IsNullOrEmpty(child.Folder)) parts.Add($"%FOLDER {child.Folder}");
 		if (child.GetterCode is not null || child.GetterDeclaration is not null)
 			parts.Add(AssembleAccessor("GET", child.GetterDeclaration, child.GetterCode));
 		if (child.SetterCode is not null || child.SetterDeclaration is not null)
@@ -181,22 +182,13 @@ public static class StAssembler
 		return string.Join("\n", lines);
 	}
 
-	/// <summary>
-	/// Inject the `(* folder: X *)` marker on the SIGNATURE line of a
-	/// METHOD / ACTION / PROPERTY declaration. Idempotent: strips any
-	/// existing folder annotation before re-adding.
-	/// </summary>
-	private static string WithFolderAnnotation(string declaration, string? folder)
+	/// <summary>Prepend a `%FOLDER &lt;path&gt;` directive to a child body — the child's sub-folder
+	/// within the POU. The signature line stays a clean identifier; this joins the body's `%LANG`
+	/// directive (if graphical) in one directive block at the top of the body.</summary>
+	private static string PrependFolderDirective(string? folder, string impl)
 	{
-		var trimmed = declaration.TrimEnd();
-		if (string.IsNullOrEmpty(folder)) return trimmed;
-		var lines = trimmed.Split('\n');
-		if (lines.Length == 0) return trimmed;
-		// Strip any existing folder annotation, then append the new one.
-		var cleaned = System.Text.RegularExpressions.Regex.Replace(
-			lines[0], @"\(\*\s*folder\s*:\s*[^*]*?\*\)", "",
-			System.Text.RegularExpressions.RegexOptions.IgnoreCase).TrimEnd();
-		lines[0] = $"{cleaned}    (* folder: {folder} *)";
-		return string.Join("\n", lines);
+		if (string.IsNullOrEmpty(folder)) return impl;
+		var dir = $"%FOLDER {folder}";
+		return impl.Length == 0 ? dir : $"{dir}\n{impl}";
 	}
 }

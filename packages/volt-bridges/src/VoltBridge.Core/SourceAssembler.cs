@@ -184,9 +184,11 @@ public static class SourceAssembler
         return textual;
     }
 
-    /// <summary>The marked implementation text for a graphical body — see <see cref="GraphicalMarker"/>.</summary>
+    /// <summary>A graphical child's implementation text: the VG body, whose first line is its
+    /// `%LANG &lt;lang&gt;` header (see <see cref="VgBody"/>). Editable FBD/LD bodies already carry the
+    /// header; a read-only CFC/SFC view has no body, so emit a bare `%LANG &lt;lang&gt;`.</summary>
     private static string GraphicalImpl(GraphicalBody gb) =>
-        GraphicalMarker.Wrap(gb.Language, gb.Format == "vg", gb.Body);
+        string.IsNullOrEmpty(gb.Body) ? $"%LANG {gb.Language}" : gb.Body;
 
     /// <summary>If <paramref name="impl"/> is a graphical body serialization (a TwinCAT
     /// <c>&lt;NWL&gt;</c>/<c>&lt;CFC&gt;</c>/… archive) rather than ST text, the graphical language

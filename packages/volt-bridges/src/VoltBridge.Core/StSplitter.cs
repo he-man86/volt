@@ -70,8 +70,6 @@ public static class StSplitter
 		string PouImplementation,
 		List<StChild> Children);
 
-	private static readonly Regex FolderRe = new(@"\(\*\s*folder\s*:\s*([^*]*?)\s*\*\)", RegexOptions.IgnoreCase);
-
 	/// <summary>
 	/// Split a workspace `.st` file into its TwinCAT primitives.
 	/// </summary>
@@ -328,13 +326,16 @@ public static class StSplitter
 
 		// Parse header of the signature line for name + access mods + return type.
 		var sig = lines[sigLine];
-		var (name, accessModifier, returnType, folder) = ParseMethodOrActionSignature(sig, kind);
+		var (name, accessModifier, returnType) = ParseMethodOrActionSignature(sig, kind);
 
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
 		var (decl, impl) = SplitDeclImplOfChild(inner);
-		return new StChild(kind, name, decl, impl, Folder: folder, AccessModifier: accessModifier, ReturnType: returnType);
+		// The body begins with an optional Volt directive block; %FOLDER is ours (the child's
+		// sub-folder), %LANG stays in the body for graphical detection.
+		var (folder, body) = PeelFolderDirective(impl);
+		return new StChild(kind, name, decl, body, Folder: folder, AccessModifier: accessModifier, ReturnType: returnType);
 	}
 
 	private static StChild ReadProperty(IList<string> lines, ref int i, int blockStart)
@@ -380,13 +381,14 @@ public static class StSplitter
 		i = endLine.Value + 1;
 
 		var sig = lines[sigLine];
-		var (name, accessModifier, dataType, folder) = ParsePropertySignature(sig);
+		var (name, accessModifier, dataType) = ParsePropertySignature(sig);
 
 		// Declaration of the property itself: from blockStart up to (but
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
 		int declEnd = accessorBoundaries.Count > 0 ? accessorBoundaries[0].start - 1 : endLine.Value - 1;
 		var declSlice = SliceLines(lines, blockStart, declEnd);
-		var propDecl = string.Join("\n", declSlice).TrimEnd();
+		// A %FOLDER directive may sit just under the signature — peel it into the folder field.
+		var (folder, propDecl) = PeelFolderDirective(string.Join("\n", declSlice).TrimEnd());
 
 		StAccessor? getter = null, setter = null;
 		foreach (var (gStart, gEnd, gKind) in accessorBoundaries)
@@ -485,11 +487,9 @@ public static class StSplitter
 
 	// ─── Signature parsing helpers (METHOD/ACTION/PROPERTY headers) ──
 
-	private static (string name, string? accessModifier, string? returnType, string? folder) ParseMethodOrActionSignature(string sig, string kind)
+	private static (string name, string? accessModifier, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
 	{
-		string? folder = ExtractFolder(sig);
-		var clean = FolderRe.Replace(sig, "").TrimEnd();
-
+		var clean = sig.TrimEnd();
 		if (kind == "method")
 		{
 			var m = Regex.Match(clean,
@@ -500,20 +500,18 @@ public static class StSplitter
 			var name = m.Groups[2].Value;
 			var acl = CodeHelper.ExtractAcl(m.Groups[1].Value);
 			var rt  = m.Groups[3].Success ? m.Groups[3].Value.Trim() : null;
-			return (name, acl, rt, folder);
+			return (name, acl, rt);
 		}
 		// action
 		var ma = Regex.Match(clean, @"^ACTION\s+(\w+)\s*$", RegexOptions.IgnoreCase);
 		if (!ma.Success)
 			throw new BridgeException(400, "INVALID_ST", $"Cannot parse ACTION signature: {Truncate(sig, 80)}");
-		return (ma.Groups[1].Value, null, null, folder);
+		return (ma.Groups[1].Value, null, null);
 	}
 
-	private static (string name, string? accessModifier, string dataType, string? folder) ParsePropertySignature(string sig)
+	private static (string name, string? accessModifier, string dataType) ParsePropertySignature(string sig)
 	{
-		string? folder = ExtractFolder(sig);
-		var clean = FolderRe.Replace(sig, "").TrimEnd();
-		var m = Regex.Match(clean,
+		var m = Regex.Match(sig.TrimEnd(),
 			@"^PROPERTY\s+(?:(PUBLIC|PRIVATE|PROTECTED|INTERNAL)\s+)?(\w+)\s*:\s*(.+?)\s*;?\s*$",
 			RegexOptions.IgnoreCase);
 		if (!m.Success)
@@ -521,15 +519,29 @@ public static class StSplitter
 		var name = m.Groups[2].Value;
 		var acl  = m.Groups[1].Success ? m.Groups[1].Value.ToUpperInvariant() : null;
 		var dt   = m.Groups[3].Value.Trim();
-		return (name, acl, dt, folder);
+		return (name, acl, dt);
 	}
 
-	private static string? ExtractFolder(string line)
+	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
+	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER and the
+	/// graphical `%LANG` form the body's top directive block.</summary>
+	private static (string? folder, string rest) PeelFolderDirective(string text)
 	{
-		var m = FolderRe.Match(line);
-		if (!m.Success) return null;
-		var f = m.Groups[1].Value.Trim();
-		return f.Length == 0 ? null : f;
+		var lines = text.Replace("\r", "").Split('\n');
+		string? folder = null;
+		var kept = new List<string>(lines.Length);
+		foreach (var line in lines)
+		{
+			var t = line.Trim();
+			if (folder is null && t.StartsWith("%FOLDER ", StringComparison.Ordinal))
+			{
+				var f = t.Substring("%FOLDER ".Length).Trim();
+				folder = f.Length == 0 ? null : f;
+				continue;
+			}
+			kept.Add(line);
+		}
+		return (folder, string.Join("\n", kept).Trim());
 	}
 
 	// ─── Line scanning helpers ───────────────────────────────────────

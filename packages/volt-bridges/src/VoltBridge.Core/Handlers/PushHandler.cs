@@ -130,17 +130,15 @@ public static class PushHandler
                     targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
-            // A ROOT FBD/LD body is the EDITABLE VG language and arrives as VG text (starts with
-            // %LANG) — its .fbd/.ld extension, not a marker, says it's graphical. Write it back via
-            // the IDE's PLCopen import. (A legacy (* @volt-graphical: … vg *) marker is still
-            // honored. A marker WITHOUT `vg` is a read-only view — never written.)
-            var pouVg = GraphicalMarker.IsVgBody(impl);
-            var pouMarked = GraphicalMarker.IsMarked(impl);
+            // A ROOT FBD/LD body IS the editable VG language (it starts with %LANG; its .fbd/.ld
+            // extension conveys that). Write it back via the IDE's PLCopen import. (Root CFC/SFC are
+            // read-only in the registry, so they never reach push.)
+            var pouVg = VgBody.Is(impl);
 
             dynamic po;
             if (existing == null)
             {
-                if (pouVg || pouMarked) return;   // creating a graphical POU from scratch is not supported yet
+                if (pouVg) return;   // creating a graphical POU from scratch is not supported yet
                 po = adapter.CreateChild(targetParent, name, itemType);
                 adapter.WriteSourceText(po, decl, impl);
             }
@@ -148,15 +146,14 @@ public static class PushHandler
             {
                 po = existing;
                 if (pouVg) adapter.WriteGraphicalBody(existing, impl, decl);
-                else if (GraphicalMarker.IsVgMarked(impl)) adapter.WriteGraphicalBody(existing, GraphicalMarker.ExtractBody(impl), decl);
-                else if (!pouMarked) adapter.WriteSourceText(existing, decl, impl);
+                else adapter.WriteSourceText(existing, decl, impl);
             }
 
             foreach (var child in split.Children)
             {
                 var cimpl = child.Implementation as string;
-                // Read-only graphical view (ST / CFC / SFC, no `vg` tag) — never overwrite.
-                if (GraphicalMarker.IsMarked(cimpl) && !GraphicalMarker.IsVgMarked(cimpl)) continue;
+                // Read-only graphical view (CFC/SFC) — never overwrite or create.
+                if (VgBody.Is(cimpl) && !VgBody.IsEditable(VgBody.LanguageOf(cimpl))) continue;
 
                 var childType = MapChildKindToItemType(child.Kind);
                 dynamic childParent = po;
@@ -170,11 +167,11 @@ public static class PushHandler
                 // duplicate ("an object with the name '…' already exists").
                 dynamic? existingChild = FindChildByName(adapter, childParent, child.Name);
 
-                // Editable VG graphical child → write through the IDE's PLCopen import. FB instance
-                // types come from the enclosing POU's declaration (the action shares its VARs).
-                if (GraphicalMarker.IsVgMarked(cimpl))
+                // Editable VG graphical child (FBD/LD, leading %LANG) → write through the IDE's PLCopen
+                // import. FB instance types come from the enclosing POU's declaration (shared VARs).
+                if (VgBody.Is(cimpl))
                 {
-                    if (existingChild != null) adapter.WriteGraphicalBody(existingChild, GraphicalMarker.ExtractBody(cimpl!), decl);
+                    if (existingChild != null) adapter.WriteGraphicalBody(existingChild, cimpl!, decl);
                     continue;   // creating a graphical child from scratch is not supported yet
                 }
 
