@@ -1,0 +1,15 @@
+# .NET build outputs — bin/ and obj/ explode with each build. Ship via
+# build-bridges.ps1 into dist/ instead.
+**/bin/
+**/obj/
+
+# .NET tooling caches
+*.user
+*.suo
+.vs/
+
+# Build bundles produced by build-bridges.ps1
+dist/
+
+# Turbo cache
+.turbo/

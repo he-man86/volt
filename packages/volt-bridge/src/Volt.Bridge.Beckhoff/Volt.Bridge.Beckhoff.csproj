@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Standalone headless worker attaching to a running TwinCAT XAE via COM. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Volt.Bridge.Beckhoff</AssemblyName>
+    <RootNamespace>Volt.Bridge.Beckhoff</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+  </ItemGroup>
+</Project>

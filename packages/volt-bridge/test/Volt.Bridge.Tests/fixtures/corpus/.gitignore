@@ -1,0 +1,5 @@
+# Harvested raw PLCopen from live projects (script/harvest-corpus.ts) — may contain proprietary
+# machine code, so it stays LOCAL. The committed coverage lives in FbdCoverageTests (synthetic
+# fixtures from the schema/real shapes); this dir is a local measurement corpus only.
+*.xml
+!.gitignore

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Loaded in-process by CODESYS's IronPython (ScriptEngine), .NET Framework 4.x.
+         Talks to the CODESYS scripting/object model purely by reflection, so this DLL
+         has NO CODESYS assembly references and loads in any 3.5.x. -->
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <AssemblyName>Volt.Bridge.Codesys</AssemblyName>
+    <RootNamespace>Volt.Bridge.Codesys</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Bridge.Core\Volt.Bridge.Core.csproj" />
+  </ItemGroup>
+</Project>
