@@ -283,6 +283,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
             {
                 var r = RunOnStaThread(() =>
                 {
+                    if (_dte == null) { try { Connect(); } catch { } }   // (re)attach when TwinCAT appears
                     bool alive = ProbeIdeAlive();
                     if (!alive && _dte != null) { try { Disconnect(); } catch { } }
                     else if (alive && IsDegraded) { ClearDegraded(); }
