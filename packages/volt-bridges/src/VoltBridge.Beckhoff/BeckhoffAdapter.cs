@@ -438,7 +438,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
         if (pou is null) return new GraphicalBody(lang, "");
         try
         {
-            string xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));  // string, not dynamic
+            string xml = TcPlcOpen.ExportXmlString(GetPlcProjectRoot(), PouSelectionPath(pou));  // string, not dynamic
             var fbd = PlcOpenDocument.FindFbdLdBody(xml);
             if (fbd is null) return new GraphicalBody(lang, "");
             // Use the authoritative language (DefaultViewMode via LanguageOf) for the VG header —
@@ -464,11 +464,11 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
         var pou = EnclosingPou(item) ?? throw new InvalidOperationException("TwinCAT: no enclosing POU for graphical write");
         var plc = GetPlcProjectRoot();
         var selection = PouSelectionPath(pou);
-        var exported = TcPlcOpen.Export(plc, selection);              // full POU PLCopen (also the restore copy)
+        var exported = TcPlcOpen.ExportXmlString(plc, selection);              // full POU PLCopen (also the restore copy)
         var outXml = PlcOpenDocument.SpliceFbdLdBody(exported, newBody); // throws if no FBD/LD body
 
-        try { TcPlcOpen.Import(plc, outXml); }
-        catch { try { TcPlcOpen.Import(plc, exported); } catch { } throw; }
+        try { TcPlcOpen.ImportXmlString(plc, outXml); }
+        catch { try { TcPlcOpen.ImportXmlString(plc, exported); } catch { } throw; }
     }
 
     /// <summary>Raw PLCopen of the whole POU (corpus capture / coverage). Same export the graphical
@@ -479,7 +479,7 @@ public class BeckhoffAdapter : AdapterBase, IAdapter, IInstanceProvider
         {
             var pou = EnclosingPou(item);
             if (pou is null) return null;
-            string xml = TcPlcOpen.Export(GetPlcProjectRoot(), PouSelectionPath(pou));
+            string xml = TcPlcOpen.ExportXmlString(GetPlcProjectRoot(), PouSelectionPath(pou));
             return xml;
         }
         catch { return null; }

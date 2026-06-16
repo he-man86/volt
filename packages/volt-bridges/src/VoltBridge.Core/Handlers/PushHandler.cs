@@ -18,7 +18,7 @@ public static class PushHandler
         {
             var kind = adapter.MapItemType(visit.ItemType, visit.IsTopLevelCrud);
             if (kind == null) continue;
-            var version = adapter.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
+            var (version, _) = SourceAssembler.VersionedMaterialize(adapter, visit.Name, kind, (object)visit.Item, visit.FolderPath ?? "");
             currentVersions[visit.Name] = version;
             if (visit.IsTopLevelCrud) itemCache[visit.Name] = (visit.Item, visit.FolderPath ?? "");
         }
@@ -100,7 +100,8 @@ public static class PushHandler
         {
             var kind = adapter.MapItemType(visit.ItemType, visit.IsTopLevelCrud);
             if (kind == null) continue;
-            newVersions[visit.Name] = adapter.ComputeItemVersion(visit.Item, visit.FolderPath ?? "");
+            newVersions[visit.Name] = SourceAssembler
+                .VersionedMaterialize(adapter, visit.Name, kind, (object)visit.Item, visit.FolderPath ?? "").Version;
         }
 
         return PushResponse.AcceptedResult(adapter.ComputeProjectVersion(newVersions), newVersions);
@@ -130,9 +131,9 @@ public static class PushHandler
                     targetParent = FindOrCreateFolder(adapter, targetParent, part);
             }
 
-            // A ROOT FBD/LD body IS the editable VG language (it starts with %LANG; its .fbd/.ld
-            // extension conveys that). Write it back via the IDE's PLCopen import. (Root CFC/SFC are
-            // read-only in the registry, so they never reach push.)
+            // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker; its
+            // .fbd/.ld extension conveys that). Write it back via the IDE's PLCopen import. (Root CFC/SFC
+            // are read-only in the registry, so they never reach push.)
             var pouVg = VgBody.Is(impl);
 
             dynamic po;
@@ -167,7 +168,7 @@ public static class PushHandler
                 // duplicate ("an object with the name '…' already exists").
                 dynamic? existingChild = FindChildByName(adapter, childParent, child.Name);
 
-                // Editable VG graphical child (FBD/LD, leading %LANG) → write through the IDE's PLCopen
+                // Editable VG graphical child (FBD/LD, leading NETWORK marker) → write through the IDE's PLCopen
                 // import. FB instance types come from the enclosing POU's declaration (shared VARs).
                 if (VgBody.Is(cimpl))
                 {

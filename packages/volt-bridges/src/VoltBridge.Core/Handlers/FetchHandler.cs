@@ -25,37 +25,23 @@ public static class FetchHandler
             if (kind == null) continue;
 
             var folder = visit.FolderPath ?? "";
-            var version = adapter.ComputeItemVersion(visit.Item, folder);
+            // Materialize ONCE: the version is a hash of this exact text, and (if changed) it IS the
+            // shipped source — so version and content can never diverge.
+            var (version, mat) = SourceAssembler.VersionedMaterialize(adapter, visit.Name, kind, (object)visit.Item, folder);
             versions[visit.Name] = version;
 
             if (knownItems.TryGetValue(visit.Name, out var known) && known == version)
                 continue;
 
-            var item = new FetchedItem
+            changed.Add(new FetchedItem
             {
                 Name = visit.Name,
                 Kind = kind,
                 Folder = folder,
                 Version = version,
-            };
-
-            try
-            {
-                if (IsSourceKind(kind))
-                {
-                    var buildResult = SourceAssembler.BuildSource(adapter, visit.Name, visit.Item);
-                    item.SourceText = StAssembler.Assemble(buildResult);
-                    // The root body language (ST/FBD/LD/CFC/SFC) drives the CLI's file extension.
-                    if (buildResult.TryGetValue("language", out object? lang)) item.Language = lang as string;
-                }
-                else
-                {
-                    item.SourceText = adapter.ReadManifestText(visit.Item, kind);
-                }
-            }
-            catch { item.SourceText = ""; }
-
-            changed.Add(item);
+                SourceText = mat.Text,
+                Language = mat.Language,   // ST/FBD/LD/CFC/SFC → drives the CLI's file extension
+            });
         }
 
         var removed = knownItems.Keys.Where(k => !versions.ContainsKey(k)).ToList();
@@ -69,11 +55,4 @@ public static class FetchHandler
             Items = versions,
         };
     }
-
-    private static bool IsSourceKind(string kind) => kind switch
-    {
-        "function_block" or "function" or "program" or "interface" or "gvl" or
-        "structure" or "enumeration" or "union" or "alias" => true,
-        _ => false,
-    };
 }

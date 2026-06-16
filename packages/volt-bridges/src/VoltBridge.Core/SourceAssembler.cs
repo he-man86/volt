@@ -2,37 +2,88 @@ using System.Collections.Generic;
 
 namespace VoltBridge.Core;
 
+/// <summary>An item's materialized workspace content: the exact text the CLI writes to the file, plus
+/// the body language (drives the file extension) for source kinds.</summary>
+public sealed record MaterializedItem(string Text, string? Language);
+
 public static class SourceAssembler
 {
-    public static Dictionary<string, object?> BuildSource(IAdapter adapter, string name, dynamic item)
+    /// <summary>The single source of truth for an item's workspace file content — used for BOTH the
+    /// content version (hashed) and the fetched source, so they can never diverge. Source kinds
+    /// assemble declaration + implementation (+ children); non-source kinds (libraries, tasks, …) use
+    /// their manifest text.</summary>
+    public static MaterializedItem Materialize(IAdapter adapter, string name, string kind, object item)
     {
-        var declaration = adapter.ReadDeclaration(item);
-        var header = CodeHelper.ParseCodeHeader(declaration);
-
-        var result = header.Type switch
+        if (IsSourceKind(kind))
         {
-            "function_block" or "function" or "program" => BuildPou(adapter, name, item, declaration),
-            "interface" => BuildInterface(adapter, name, item, declaration),
-            // gvl, DUTs (structure/enumeration/union/alias) and anything else are declaration-only.
-            _ => BuildDeclOnly(declaration),
-        };
+            var build = BuildSource(adapter, name, item, kind);
+            var text = StAssembler.Assemble(build);
+            var lang = build.TryGetValue("language", out var l) ? l as string : null;
+            return new MaterializedItem(text, lang);
+        }
+        return new MaterializedItem(adapter.ReadManifestText(item, kind), null);
+    }
+
+    /// <summary>Materialize an item and hash it into its content version, in one resilient step — the
+    /// shared basis for <c>/refs</c>, <c>/fetch</c>, and the push receipt (so all three agree). A
+    /// failed read yields empty text (version = hash of folder only) rather than crashing the walk.</summary>
+    public static (string Version, MaterializedItem Mat) VersionedMaterialize(
+        IAdapter adapter, string name, string kind, object item, string folder)
+    {
+        MaterializedItem mat;
+        try { mat = Materialize(adapter, name, kind, item); }
+        catch { mat = new MaterializedItem("", null); }
+        return (Hasher.ComputeItemVersion(folder, mat.Text), mat);
+    }
+
+    /// <summary>Kinds whose content is assembled source text (vs a manifest).</summary>
+    public static bool IsSourceKind(string kind) => kind switch
+    {
+        "function_block" or "function" or "program" or "interface" or "gvl" or
+        "structure" or "enumeration" or "union" or "alias" => true,
+        _ => false,
+    };
+
+    public static Dictionary<string, object?> BuildSource(IAdapter adapter, string name, dynamic item, string kind)
+    {
+        Dictionary<string, object?> result;
+        string resultKind;
+        // POUs: read the graphical body FIRST. If it's graphical, its declaration comes from the SAME
+        // PLCopen export (gb.Declaration) — so we never touch the object-model Interface aspect, which on
+        // a just-reimported graphical POU (right after a push) damages the body we just read. Textual POUs
+        // and all non-POUs use the (faster) aspect read; only graphical POUs go through the export.
+        if (kind is "program" or "function_block" or "function")
+        {
+            var graphicalBody = adapter.ReadGraphicalBody(item);
+            var declaration = graphicalBody?.Declaration ?? adapter.ReadDeclaration(item);
+            result = BuildPou(adapter, name, item, declaration, graphicalBody);
+            resultKind = CodeHelper.ParseCodeHeader(declaration).Type;
+        }
+        else
+        {
+            var declaration = adapter.ReadDeclaration(item);
+            var header = CodeHelper.ParseCodeHeader(declaration);
+            result = header.Type == "interface"
+                ? BuildInterface(adapter, name, item, declaration)
+                : BuildDeclOnly(declaration);   // gvl, DUTs (structure/enumeration/union/alias), …
+            resultKind = header.Type;
+        }
 
         result["name"] = name;
-        result["kind"] = header.Type;
+        result["kind"] = resultKind;
         return result;
     }
 
-    private static Dictionary<string, object?> BuildPou(IAdapter adapter, string name, dynamic item, string declaration)
+    private static Dictionary<string, object?> BuildPou(
+        IAdapter adapter, string name, dynamic item, string declaration, GraphicalBody? graphicalBody)
     {
         var children = CollectChildren(adapter, item);
         var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
 
-        // The POU's OWN body may be graphical (a root FBD/LD/CFC/SFC function/FB). The body's
-        // LANGUAGE travels as a field (→ the CLI's .fbd/.ld/.cfc/.sfc extension), so a root body
-        // carries NO (* @volt-graphical *) marker — that marker is only for graphical CHILDREN
-        // embedded in a file whose root language differs. Editable FBD/LD bodies are the VG text
-        // (starts with %LANG); CFC/SFC come back empty (read-only view, extension says the rest).
-        var graphicalBody = adapter.ReadGraphicalBody(item);
+        // The POU's OWN body may be graphical (a root FBD/LD/CFC/SFC function/FB). The body's LANGUAGE
+        // travels as a field (→ the CLI's .fbd/.ld/.cfc/.sfc extension). The body was already read by the
+        // caller (graphical-first, so its declaration came from the same export without touching the
+        // poisoning aspect); editable FBD/LD bodies lead with the NETWORK marker, CFC/SFC come back empty.
         if (graphicalBody is not null)
         {
             if (!string.IsNullOrEmpty(graphicalBody.Body)) result["implementation"] = graphicalBody.Body;
@@ -108,14 +159,13 @@ public static class SourceAssembler
             bool isProperty = itemType is ItemKind.Property or ItemKind.InterfaceProperty;
             if (!isMethod && !isAction && !isProperty) continue;
 
-            var decl = adapter.ReadDeclaration(child);
-            var impl = adapter.ReadImplementation(child);
-
             if (isMethod || isAction)
             {
-                // Graphical (FBD/LD/SFC/CFC) children are rendered to READ-ONLY ST and
-                // tagged with a marker the LSP and PushHandler recognise — instead of
-                // being dropped. Textual (ST) children carry their source as-is.
+                // Graphical (FBD/LD/SFC/CFC) children are rendered to READ-ONLY ST and tagged with a
+                // marker the LSP and PushHandler recognise — instead of being dropped; textual (ST)
+                // children carry their source as-is. Read the graphical body FIRST: its declaration
+                // comes from the same export, so we don't touch the object-model aspect before exporting
+                // — doing so poisons a just-reimported graphical child's in-session body.
                 var graphicalBody = adapter.ReadGraphicalBody(child);
                 string? implementation;
                 if (graphicalBody is not null)
@@ -124,7 +174,7 @@ public static class SourceAssembler
                 }
                 else
                 {
-                    var trimmed = impl?.Trim();
+                    var trimmed = adapter.ReadImplementation(child)?.Trim();
                     var graphicalLang = GraphicalLangOrNull(trimmed);
                     // Never emit a graphical serialization as if it were ST (no-fallback guard).
                     implementation = graphicalLang is not null
@@ -132,11 +182,17 @@ public static class SourceAssembler
                         : string.IsNullOrEmpty(trimmed) ? null : trimmed;
                 }
 
+                // Actions synthesize their signature; a method needs its real declaration (from the
+                // graphical export when graphical, else the aspect).
+                var declText = isAction
+                    ? $"ACTION {childName}"
+                    : (graphicalBody?.Declaration ?? adapter.ReadDeclaration(child)).Trim();
+
                 var entry = new Dictionary<string, object?>
                 {
                     ["name"] = childName,
                     ["kind"] = isMethod ? "method" : "action",
-                    ["declaration"] = isAction ? $"ACTION {childName}" : decl.Trim(),
+                    ["declaration"] = declText,
                 };
                 if (implementation is not null) entry["implementation"] = implementation;
                 if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;
@@ -144,6 +200,7 @@ public static class SourceAssembler
             }
             else if (isProperty)
             {
+                var decl = adapter.ReadDeclaration(child);   // properties have no graphical body
                 var entry = new Dictionary<string, object?>
                 {
                     ["name"] = childName, ["kind"] = "property",
@@ -184,9 +241,9 @@ public static class SourceAssembler
         return textual;
     }
 
-    /// <summary>A graphical child's implementation text: the VG body, whose first line is its
-    /// `%LANG &lt;lang&gt;` header (see <see cref="VgBody"/>). Editable FBD/LD bodies already carry the
-    /// header; a read-only CFC/SFC view has no body, so emit a bare `%LANG &lt;lang&gt;`.</summary>
+    /// <summary>A graphical child's implementation text (see <see cref="VgBody"/>). Editable FBD/LD
+    /// bodies are the VG text, which leads with its `NETWORK &lt;n&gt; &lt;LANG&gt;` marker; a read-only
+    /// CFC/SFC view has no body, so emit a bare `%LANG &lt;lang&gt;` placeholder.</summary>
     private static string GraphicalImpl(GraphicalBody gb) =>
         string.IsNullOrEmpty(gb.Body) ? $"%LANG {gb.Language}" : gb.Body;
 

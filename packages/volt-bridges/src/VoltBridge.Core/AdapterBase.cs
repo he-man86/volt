@@ -46,16 +46,11 @@ public abstract class AdapterBase
     // ── identity ─────────────────────────────────────────────────────────
     public virtual string Version => "1.0.0";
 
-    // ── shared classification + version hashing (forward to the Core statics) ──
+    // ── shared classification + version aggregation (forward to the Core statics) ──
     public string? MapItemType(int typeCode, bool isTopLevelCrud) => ItemKind.Map(typeCode, isTopLevelCrud);
 
-    public string ComputeItemVersion(dynamic item, string folderPath)
-    {
-        // Erase dynamic so the text reads dispatch as plain virtual calls.
-        var node = (object)item;
-        return Hasher.ComputeItemVersion(folderPath, ReadDeclaration(node), ReadImplementation(node));
-    }
-
+    // Per-item versions are content hashes of the materialized text, computed in the handlers
+    // (Hasher.ComputeItemVersion over SourceAssembler.Materialize). These aggregate that map.
     public string ComputeProjectVersion(Dictionary<string, string> versions) => Hasher.ComputeProjectVersion(versions);
     public string ComputeStructureVersion(Dictionary<string, string> versions) => Hasher.ComputeStructureVersion(versions);
 

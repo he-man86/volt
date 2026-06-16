@@ -4,10 +4,19 @@ VG is the editable, **ST-like** text projection of a graphical (FBD/LD) POU body
 engineer read/edit VG; the bridge round-trips it to the IDE's PLCopenXML (`PlcOpenReader` ↔
 `PlcOpenWriter`) and CODESYS/TwinCAT re-lay-out the diagram on import.
 
+> **VG is ISOMORPHIC to the PLCopen node graph.** Every node is its own named statement — one
+> statement ⇄ one XML node — and operands are *only* names or literals, never a nested
+> sub-expression. inVariable leaves are named `i*`, operator/function results `g*`, and both are
+> declared in a per-network `VAR_TEMP`; FB instances and outVariable sinks keep their real names.
+> This shrinks the "expressible in VG but not in FBD" gap to ~zero (there's no syntax for a non-FBD
+> shape), makes round-trip identical in all cases (fan-out preserved by shared names), and lets the
+> LSP validate the whole body as a flat assignment list.
+
 > VG reads as ST and the ST LSP loads it, but it is **not strictly valid ST** — a few pin
 > modifiers (edge/storage) are VG extensions chosen so the modifier stays visible *at the pin*
-> rather than synthesizing hidden `R_TRIG`/`SR` instances. This is a deliberate trade (clarity over
-> ST-purity). Keep this file in sync whenever the language changes.
+> rather than synthesizing hidden `R_TRIG`/`SR` instances, and `NETWORK`/`END_NETWORK` are VG
+> keywords. This is a deliberate trade (clarity over ST-purity). Keep this file in sync whenever the
+> language changes.
 
 ## File extensions (CLI `registry/extensions.ts`)
 | Body language | ext | access |
@@ -18,8 +27,10 @@ engineer read/edit VG; the bridge round-trips it to the IDE's PLCopenXML (`PlcOp
 | CFC | `.cfc` | r (read-only view, not transpiled) |
 | SFC | `.sfc` | r (read-only view, not transpiled) |
 
-A pure-graphical-root POU is one file; the `(* @volt-graphical: LANG vg *)` marker is used **only**
-for a graphical CHILD (action/method) embedded in a file whose root language differs.
+A pure-graphical-root POU is one file. Graphical bodies are detected by their opening marker (see
+`VgBody`): editable FBD/LD lead with `NETWORK <n> <LANG>`; read-only CFC/SFC (no networks) are a bare
+`%LANG <lang>` placeholder. A graphical CHILD (action/method) embedded in a `.st` carries its
+sub-folder as a leading `%FOLDER <path>` directive, then the body's own marker.
 
 ### FBD and LD are the same structure (IMPLEMENTED)
 FBD and LD share ONE internal model — in the IDE the FBD↔LD switch is just a view toggle on the same
@@ -28,8 +39,8 @@ for both; only the wrapper/view differs. Confirmed live: the identical network a
 LD action round-trips to byte-identical VG. So LD needs no separate transpiler — it reads/writes
 through the same pipeline. Two specifics:
 - The authoritative language is the IDE's `DefaultViewMode` (CODESYS object property; TwinCAT
-  `LanguageOf` on the NWL impl), threaded into the VG `%LANG` header — **TwinCAT serializes an LD body
-  with an `<FBD>` wrapper**, so the wrapper name alone can't be trusted.
+  `LanguageOf` on the NWL impl), threaded into the `NETWORK <n> <LANG>` marker — **TwinCAT serializes
+  an LD body with an `<FBD>` wrapper**, so the wrapper name alone can't be trusted.
 - `SpliceFbdLdBody` preserves the original `<FBD>`/`<LD>` wrapper on push (swaps contents only), so a
   graphical push never flips the wrapper or changes the editor's view.
 
@@ -42,23 +53,36 @@ can never be corrupted — only viewed. (`PlcOpenReader.LowerLadder`.)
 
 ## Structure
 ```
-%LANG FBD                 header: FBD | LD
-NETWORK                   one self-contained dataflow island; a body is a stack of these
-  <statement>;
-NETWORK "label"           optional network label
-  // comment              network comment (one or more // lines under the header)
-NETWORK DISABLED          an out-commented network
+NETWORK 0 FBD             block header: NETWORK <index> <LANG (FBD|LD)>; index = real PLCopen
+  // comment              network index (localId / 10^10), preserved verbatim (gaps and all)
+  VAR_TEMP                decl section: declares this network's synthetic temps (i*, g*)
+    i1 : BOOL;            — leaf inVariable temps and operator/function result temps, with types
+    g1 : BOOL;              from the IDE's param-types (else BOOL). A VG-only construct: stripped on
+  END_VAR                  push, regenerated on pull (never load-bearing for round-trip).
+  i1 := a;                impl section: every node is one statement
+  g1 := (i1 AND ...);
+END_NETWORK               explicit block terminator
+
+NETWORK 1 FBD "label"     optional network label after the language
+NETWORK 1 FBD DISABLED    an out-commented network
 ```
+A body is a stack of `NETWORK … END_NETWORK` blocks. A network with no temps (control-flow-only /
+empty) omits the `VAR_TEMP` block entirely.
 
 ## Statements (IMPLEMENTED)
 | Form | Example | Meaning |
 |---|---|---|
-| Operator (infix) | `g1 := (a AND b);` | operator box; result named `g1` (gates renumber per network) |
-| Function call | `g1 := LIMIT(mn, x, mx);` | stateless function box |
-| FB instance call | `tmr(IN := run, PT := t#5s);` | FB instance; inputs as `pin := value` |
+| Leaf input | `i1 := a;` | one `inVariable`; RHS is opaque pin text (literal/variable/expression, e.g. `a + 1`) |
+| Operator (infix) | `g1 := (i1 AND i2);` | operator box; result named `g1`; operands are names only |
+| Function call | `g1 := LIMIT(i1, i2, i3);` | stateless function box |
+| FB instance call | `tmr(IN := i1, PT := i2);` | FB instance; inputs as `pin := value` |
 | Block output ref | `done := tmr.Q;` | read a block's named output pin |
 | Output assignment | `y := g1;` | outVariable sink (a wire feeding a variable) |
-| Branch / fan-out | `out := g.Q1;` + `out2 := g.Q1;` | one output feeding many sinks (just reference it twice) |
+| Branch / fan-out | `out := g1;` + `out2 := g1;` | one node feeding many sinks — reference the name twice (one node, exactly) |
+
+Operands are **always** a declared name (`i*`/`g*`/FB instance) or appear as their own leaf — never a
+nested sub-expression and never a bare inline literal (`g1 := (TRUE AND i2)` is rejected; `TRUE` must
+be its own `i*` leaf). This is what the parser enforces as the VG ⊆ FBD gate.
 
 ### Pin / operand modifiers (IMPLEMENTED — VG extensions)
 | Modifier | Syntax | PLCopen attr | Valid ST? |
@@ -69,7 +93,8 @@ NETWORK DISABLED          an out-commented network
 | Set storage | `src SET` | `storage="set"` | no (VG extension) |
 | Reset storage | `src RESET` | `storage="reset"` | no (VG extension) |
 
-Example (live TwinCAT): `SR_0(SET1 := NOT xtest, RESET := xtestr1 RISING);`
+Example (live TwinCAT) — note operands are named leaves: `i1 := xtest;` `i2 := xtestr1;`
+`SR_0(SET1 := NOT i1, RESET := i2 RISING);`
 
 ### Control flow (IMPLEMENTED — valid CODESYS ST)
 | Element | VG | PLCopen |
@@ -86,7 +111,13 @@ Operators live in `FbdOperators.cs` (type↔symbol): `OR AND XOR ADD(+) SUB(-) M
 
 ## Round-trip guarantees
 - `VgWriter`→`VgParser`→`VgWriter` is a **fixed point** (deterministic emission).
-- `PlcOpenReader`→`PlcOpenWriter` re-emits `fbdcalltype` + the modifier attributes above.
+- Round-trip is **structurally identical in all cases**: node identity is the name, so a fanned-out
+  node round-trips as one node, and gapped network indices are preserved by the `NETWORK <n>` marker.
+- The `VAR_TEMP` block is **stripped on push** (VgParser consumes it into no graph nodes) — CODESYS/
+  TwinCAT reconstruct the param-types, and never receive temp declarations. Types are writer-owned
+  and parser-ignored, so they can never cause drift.
+- `PlcOpenReader`→`PlcOpenWriter` re-emits `fbdcalltype`, `inputparamtypes`/`outputparamtypes`, and
+  the modifier attributes above.
 - **Write-loss guard** (`PlcOpenDocument.SpliceFbdLdBody`): a push of a body containing any element
   VG can't yet represent (see Deferred) is **refused**, never silently dropped. Allowed body
   elements today: `inVariable`, `outVariable`, `block`, `label`, `jump`, `return`
@@ -100,6 +131,10 @@ Operators live in `FbdOperators.cs` (type↔symbol): `OR AND XOR ADD(+) SUB(-) M
 - **Connectors / continuations** (`<connector>`/`<continuation>`).
 - **FB-call in-out pin wiring** (`<block><inOutVariables>`) — VAR_IN_OUT *declarations* already
   round-trip as plain decl text; only the graphical wiring of an in-out pin is unhandled.
+- **Multi-output stateless functions** — an operator/function result is referenced as the bare temp
+  `g1` (one output), so a stateless FUNCTION with several `VAR_OUTPUT`s can't be represented. This is
+  **refused on push** by the write-loss guard (never silently dropped); such a POU stays a read-only
+  view. (Rare — multi-output blocks are normally FB *instances*, which DO round-trip via `inst.pin`.)
 
 ## Jump encoding (reference — IMPLEMENTED, see "Control flow" above)
 Confirmed against a real TwinCAT export (fixture `fixtures/tc-fbd/PLC_PRG_jump_sr.plcopen.xml`):

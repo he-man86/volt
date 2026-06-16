@@ -7,13 +7,15 @@ namespace VoltBridge.Core.Fbd.Vg
 {
     /// <summary>
     /// Parses VG text back into a <see cref="GraphBody"/> — the inverse of <see cref="VgWriter"/>.
-    /// The bridge uses this purely as a VALIDATING GATE: anything outside the constrained form
-    /// (control flow, multi-operator statements, unresolved references) throws
-    /// <see cref="VgParseException"/> and the push is rejected. (Preventing such input is the LSP's
-    /// job; the bridge only checks and errors.) Leaf operands become <c>inVariable</c> nodes; named
-    /// statements become blocks; bare assignments become <c>outVariable</c> nodes. FB-call type
-    /// names are NOT in VG (they live in the POU declaration) — they're left empty here and resolved
-    /// by the writer.
+    /// The bridge uses this purely as a VALIDATING GATE: anything outside the strict form (nested
+    /// sub-expressions, inline literals/variables as operands, multi-operator statements, unresolved
+    /// references) throws <see cref="VgParseException"/> and the push is rejected. (Preventing such
+    /// input is the LSP's job; the bridge only checks and errors.) Every node is its own statement:
+    /// a <c>VAR_TEMP</c>-declared <c>i*</c> := … is a leaf <c>inVariable</c>; a named <c>g*</c> := op
+    /// /call is a block; a bare <c>name</c> := ref is an <c>outVariable</c> sink. The per-network
+    /// <c>VAR_TEMP</c> block is consumed (names only — types ignored) and produces no nodes, so it is
+    /// stripped on push. FB-call type names are NOT in VG (they live in the POU declaration) — left
+    /// empty here and resolved by the writer.
     /// </summary>
     public static class VgParser
     {
@@ -29,21 +31,44 @@ namespace VoltBridge.Core.Fbd.Vg
             var networks = new List<GraphNetwork>();
             NetworkBuilder? cur = null;
             int ordinal = 0;
+            bool inTemp = false;
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
             foreach (var raw in text.Replace("\r", "").Split('\n'))
             {
                 var line = raw.Trim();
                 if (line.Length == 0) continue;
-                if (line.StartsWith("%LANG ")) { lang = line.Substring(6).Trim(); continue; }
+                if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase)) { Flush(); inTemp = false; continue; }
                 if (line.StartsWith("NETWORK"))
                 {
                     Flush();
-                    cur = new NetworkBuilder(line.Substring("NETWORK".Length).Trim(), ordinal++ * NetworkStride + 1);
+                    inTemp = false;
+                    // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
+                    // network index (preserved verbatim so gapped bodies don't re-number; it bases the
+                    // localIds index*10^10+1…, mirroring PlcOpenReader); the next word is the body
+                    // language (FBD/LD), carried here instead of a separate %LANG header.
+                    var header = line.Substring("NETWORK".Length).Trim();
+                    var nm = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
+                    int order = nm.Groups[1].Success ? int.Parse(nm.Groups[1].Value) : ordinal;
+                    if (nm.Groups[2].Success) lang = nm.Groups[2].Value;
+                    cur = new NetworkBuilder(nm.Success ? header.Substring(nm.Length) : header,
+                        order, order * NetworkStride + 1);
+                    ordinal++;
                     continue;
                 }
                 if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
                 if (line.StartsWith("//")) { cur.AddComment(line.Substring(2).Trim()); continue; }
+                // The per-network VAR_TEMP block declares the synthetic temps (i*/g*). It's a VG-only
+                // construct: we record the NAMES (to tell a leaf assignment from an outVariable sink)
+                // and IGNORE the declared types — types are writer-owned, never load-bearing — then the
+                // block creates no nodes and is dropped (stripped on push).
+                if (line.Equals("VAR_TEMP", StringComparison.OrdinalIgnoreCase)) { inTemp = true; continue; }
+                if (inTemp)
+                {
+                    if (line.Equals("END_VAR", StringComparison.OrdinalIgnoreCase)) { inTemp = false; continue; }
+                    cur.AddTemp(line);
+                    continue;
+                }
                 cur.AddStatement(line.TrimEnd(';').Trim());
             }
             Flush();
@@ -52,15 +77,18 @@ namespace VoltBridge.Core.Fbd.Vg
 
         private sealed class NetworkBuilder
         {
+            private readonly int _order;
             private readonly string? _label;
             private readonly bool _disabled;
             private readonly List<string> _comments = new();
             private readonly List<GraphNode> _nodes = new();
             private readonly Dictionary<string, long> _blockByName = new(StringComparer.Ordinal);
+            private readonly HashSet<string> _temps = new(StringComparer.Ordinal);
             private long _nextId;
 
-            public NetworkBuilder(string header, long baseId)
+            public NetworkBuilder(string header, int order, long baseId)
             {
+                _order = order;
                 _nextId = baseId;   // network-encoded so nodes are unique across networks
                 _disabled = Regex.IsMatch(header, @"\bDISABLED\b");
                 var m = Regex.Match(header, "\"([^\"]*)\"");
@@ -68,6 +96,16 @@ namespace VoltBridge.Core.Fbd.Vg
             }
 
             public void AddComment(string c) => _comments.Add(c);
+
+            /// <summary>Record a VAR_TEMP declaration line (<c>name : TYPE;</c>) — the NAME only; the
+            /// type is ignored (writer-owned). Marks the name as a synthetic temp so a later
+            /// <c>name := …</c> is read as a leaf inVariable, not an outVariable sink.</summary>
+            public void AddTemp(string decl)
+            {
+                var i = decl.IndexOf(':');
+                var name = (i >= 0 ? decl.Substring(0, i) : decl.TrimEnd(';')).Trim();
+                if (name.Length > 0) _temps.Add(name);
+            }
 
             public void AddStatement(string stmt)
             {
@@ -81,10 +119,17 @@ namespace VoltBridge.Core.Fbd.Vg
                     ParseOperator(lhs, rhs.Substring(1, rhs.Length - 2));
                 else if (IsCall(rhs))                                 // named function block
                     ParseFunction(lhs, rhs);
-                else                                                  // outVariable := <ref/operand>
+                else
                 {
                     var (core, mods) = ExtractMods(rhs);
-                    _nodes.Add(new OutVar(_nextId++, null, lhs, mods, RefOf(core)));
+                    if (_temps.Contains(lhs))                         // declared temp → leaf inVariable
+                    {
+                        var iv = new InVar(_nextId++, null, core, mods);   // RHS is opaque pin text
+                        _blockByName[lhs] = iv.LocalId;
+                        _nodes.Add(iv);
+                    }
+                    else                                             // not a temp → outVariable sink
+                        _nodes.Add(new OutVar(_nextId++, null, lhs, mods, RefOf(core)));
                 }
             }
 
@@ -176,9 +221,10 @@ namespace VoltBridge.Core.Fbd.Vg
                 _nodes.Add(new Block(id, null, fn, null, pins, new List<string> { "OUT" }, "function"));
             }
 
-            /// <summary>Resolve an operand token to a wire: a reference to a named block (optionally
-            /// <c>name.Pin</c>) becomes a <see cref="Conn"/> to that block; anything else is a leaf
-            /// operand and becomes a fresh <c>inVariable</c>.</summary>
+            /// <summary>Resolve an operand to a wire. EVERY operand must be a NAME — a declared temp
+            /// (<c>i*</c>/<c>g*</c>) or an FB instance (optionally <c>name.Pin</c>). Inline literals
+            /// (`TRUE`), bare variables, or un-named expressions are REJECTED: each must be its own
+            /// declared leaf. This is what keeps VG isomorphic to FBD (no syntax for a non-FBD shape).</summary>
             private Conn RefOf(string token)
             {
                 token = token.Trim();
@@ -186,18 +232,12 @@ namespace VoltBridge.Core.Fbd.Vg
                 var baseName = dot >= 0 ? token.Substring(0, dot) : token;
                 if (_blockByName.TryGetValue(baseName, out var bid))
                     return new Conn(bid, dot >= 0 ? token.Substring(dot + 1) : null);
-                // A leaf operand must be a single token — an un-named expression (multiple tokens,
-                // e.g. "A AND B OR C") is not convertible and is rejected.
-                if (token.Length == 0 || Regex.IsMatch(token, @"\s"))
-                    throw new VgParseException("operand must be a single value or named reference; "
-                        + "wrap operators in their own statement: '" + token + "'");
-                var iv = new InVar(_nextId++, null, token, Mods.None);
-                _nodes.Add(iv);
-                return new Conn(iv.LocalId, null);
+                throw new VgParseException("operand must reference a declared temp or FB instance "
+                    + "(literals/variables must be their own leaf statement): '" + token + "'");
             }
 
             public GraphNetwork Build()
-                => new(null, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
+                => new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
 
             /// <summary>Strip pin/operand modifiers from a VG operand — leading <c>NOT</c>
             /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/

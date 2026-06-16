@@ -38,9 +38,17 @@ public class VgWriterTests
             """);
 
         Assert.Equal(
-            "%LANG FBD\n" +
-            "NETWORK\n" +
-            "  Config(xFASTSystemInTaskMidPrio := FALSE, xLogErrorTypeInformation := TRUE, xLogErrorTypeWarning := TRUE);\n",
+            "NETWORK 1 FBD\n" +
+            "  VAR_TEMP\n" +
+            "    i1 : BOOL;\n" +
+            "    i2 : BOOL;\n" +
+            "    i3 : BOOL;\n" +
+            "  END_VAR\n" +
+            "  i1 := FALSE;\n" +
+            "  i2 := TRUE;\n" +
+            "  i3 := TRUE;\n" +
+            "  Config(xFASTSystemInTaskMidPrio := i1, xLogErrorTypeInformation := i2, xLogErrorTypeWarning := i3);\n" +
+            "END_NETWORK\n",
             vg);
     }
 
@@ -70,11 +78,21 @@ public class VgWriterTests
             """);
 
         Assert.Equal(
-            "%LANG FBD\n" +
-            "NETWORK\n" +
-            "  g1 := (A AND B);\n" +
-            "  g2 := (g1 OR C);\n" +
-            "  result := g2;\n",
+            "NETWORK 0 FBD\n" +
+            "  VAR_TEMP\n" +
+            "    i1 : BOOL;\n" +
+            "    i2 : BOOL;\n" +
+            "    i3 : BOOL;\n" +
+            "    g1 : BOOL;\n" +
+            "    g2 : BOOL;\n" +
+            "  END_VAR\n" +
+            "  i1 := A;\n" +
+            "  i2 := B;\n" +
+            "  i3 := C;\n" +
+            "  g1 := (i1 AND i2);\n" +
+            "  g2 := (g1 OR i3);\n" +
+            "  result := g2;\n" +
+            "END_NETWORK\n",
             vg);
     }
 
@@ -100,11 +118,17 @@ public class VgWriterTests
             """);
 
         Assert.Equal(
-            "%LANG FBD\n" +
-            "NETWORK\n" +
-            "  t1(IN := start, PT := pt);\n" +
+            "NETWORK 0 FBD\n" +
+            "  VAR_TEMP\n" +
+            "    i1 : BOOL;\n" +
+            "    i2 : BOOL;\n" +
+            "  END_VAR\n" +
+            "  i1 := start;\n" +
+            "  i2 := pt;\n" +
+            "  t1(IN := i1, PT := i2);\n" +
             "  running := t1.Q;\n" +
-            "  elapsed := t1.ET;\n",
+            "  elapsed := t1.ET;\n" +
+            "END_NETWORK\n",
             vg);
     }
 }

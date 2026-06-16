@@ -79,7 +79,7 @@ public class PlcOpenWriterTests
             """;
         var g1 = PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbd}</FBD>"));
         var vg1 = VgWriter.Write(g1);
-        Assert.Contains("NOT a", vg1);                                   // negation surfaces in VG
+        Assert.Contains("NOT i1", vg1);                                  // negation surfaces in VG (on the named leaf ref)
 
         var xml2 = PlcOpenWriter.WriteBody(g1);
         Assert.Contains("negated=\"true\"", xml2.ToString());           // re-emitted, not dropped
@@ -105,7 +105,7 @@ public class PlcOpenWriterTests
             """;
         var g = PlcOpenReader.ReadBody(XElement.Parse($"<LD xmlns=\"{Ns}\">{inner}</LD>"));
         Assert.Equal("LD", g.Language);
-        Assert.StartsWith("%LANG LD", VgWriter.Write(g));
+        Assert.StartsWith("NETWORK 0 LD", VgWriter.Write(g));            // language rides on the NETWORK marker
         Assert.Equal("LD", PlcOpenWriter.WriteBody(g).Name.LocalName);   // wrapper mirrors the language
     }
 
@@ -156,9 +156,29 @@ public class PlcOpenWriterTests
     [Fact]
     public void Multi_network_vg_round_trips_through_xml()
     {
-        const string vg = "%LANG FBD\nNETWORK\n  g1 := (a AND b);\n  x := g1;\nNETWORK\n  g1 := (c OR d);\n  y := g1;\n";
+        const string vg =
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
+            "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
+            "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
+            "  i1 := c;\n  i2 := d;\n  g1 := (i1 OR i2);\n  y := g1;\nEND_NETWORK\n";
         var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
         Assert.Equal(vg, back);   // a true fixed point — no hash drift, no collapse
+    }
+
+    /// <summary>Regression: VG carries an FB output only on the CONSUMER (`done := t1.Q`), never on the
+    /// block's call. The writer must still declare `Q` as an output pin on the block — otherwise the
+    /// connection names a pin the block doesn't have and the IDE drops it on import (the `out := ;` bug).</summary>
+    [Fact]
+    public void Fb_output_referenced_only_on_consumer_is_declared_on_the_block()
+    {
+        const string vg =
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := clk;\n  t1(CLK := i1);\n  done := t1.Q;\nEND_NETWORK\n";
+        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg), inst => inst == "t1" ? "R_TRIG" : null);
+        var blk = xml.Descendants(XName.Get("block", Ns)).First(b => (string?)b.Attribute("instanceName") == "t1");
+        var outPins = blk.Element(XName.Get("outputVariables", Ns))!.Elements()
+            .Select(v => (string?)v.Attribute("formalParameter")).ToList();
+        Assert.Contains("Q", outPins);                                          // the block declares Q
+        Assert.Equal(vg, VgWriter.Write(PlcOpenReader.ReadBody(xml)));          // and it round-trips
     }
 
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
@@ -166,7 +186,9 @@ public class PlcOpenWriterTests
     [Fact]
     public void Vg_through_xml_back_to_vg_with_type_resolver()
     {
-        const string vg = "%LANG FBD\nNETWORK\n  t1(IN := start, PT := pt);\n  running := t1.Q;\n";
+        const string vg =
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n  END_VAR\n" +
+            "  i1 := start;\n  i2 := pt;\n  t1(IN := i1, PT := i2);\n  running := t1.Q;\nEND_NETWORK\n";
         var graph = VgParser.Parse(vg);
         var xml = PlcOpenWriter.WriteBody(graph, inst => inst == "t1" ? "TON" : null);
         Assert.Contains("typeName=\"TON\"", xml.ToString());

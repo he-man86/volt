@@ -21,13 +21,15 @@ public static class Hasher
         return ToHex(hash).Substring(0, 16);
     }
 
-    /// <summary>Per-item content version: hash of folder + declaration + implementation.</summary>
-    public static string ComputeItemVersion(string? folderPath, string? declaration, string? implementation)
+    /// <summary>Per-item content version: hash of the item's FOLDER + its MATERIALIZED workspace text
+    /// (the exact <c>.st</c>/<c>.fbd</c>/<c>.enum</c> bytes the CLI writes, or the manifest for
+    /// non-source kinds). Content-addressed: same version ⇔ same file content, identical across both
+    /// bridges. Folder is included so a move re-versions the item.</summary>
+    public static string ComputeItemVersion(string? folderPath, string? materializedText)
     {
         var sb = new StringBuilder();
         sb.Append("folder=").Append(folderPath ?? "").Append('\0');
-        sb.Append("d=").Append(declaration ?? "").Append('\0');
-        sb.Append("i=").Append(implementation ?? "").Append('\0');
+        sb.Append("src=").Append(materializedText ?? "").Append('\0');
         return ComputeSha1Short(sb.ToString());
     }
 

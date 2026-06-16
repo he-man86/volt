@@ -206,6 +206,38 @@ public static class StSplitter
 
 	// ─── POU decl/impl split ─────────────────────────────────────────
 
+	/// <summary>Index of the first line that begins the body content: a GRAPHICAL-body marker —
+	/// <c>NETWORK &lt;n&gt; …</c> (editable VG) or <c>%LANG …</c> (read-only CFC/SFC) — and, when
+	/// <paramref name="includeFolder"/> (children), also a leading <c>%FOLDER</c> directive (it's
+	/// prepended to the impl and must stay there for PeelFolderDirective). -1 for a plain textual body.
+	/// Trivia (comments/strings) is skipped so a comment mentioning these can't false-match.</summary>
+	private static int FirstMarkerLine(IList<string> lines, bool includeFolder)
+	{
+		var ctx = new ScanContext();
+		for (int i = 0; i < lines.Count; i++)
+		{
+			ctx.Update(lines[i]);
+			if (ctx.InsideTrivia) continue;
+			var t = lines[i].TrimStart();
+			if (t.StartsWith("%LANG", System.StringComparison.Ordinal)) return i;
+			if (includeFolder && t.StartsWith("%FOLDER", System.StringComparison.Ordinal)) return i;
+			if (t.StartsWith("NETWORK ", System.StringComparison.Ordinal) && t.Length > 8 && char.IsDigit(t[8]))
+				return i;
+		}
+		return -1;
+	}
+
+	/// <summary>Split at a line index: lines before it are the declaration, the line and everything
+	/// after are the implementation.</summary>
+	private static (string decl, string impl) SplitAtLine(IList<string> lines, int implStart)
+	{
+		var d = new StringBuilder();
+		for (int i = 0; i < implStart; i++) { if (i > 0) d.Append('\n'); d.Append(lines[i]); }
+		var im = new StringBuilder();
+		for (int i = implStart; i < lines.Count; i++) { if (i > implStart) im.Append('\n'); im.Append(lines[i]); }
+		return (d.ToString().TrimEnd(), im.ToString().Trim());
+	}
+
 	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string kind)
 	{
 		if (kind == "interface")
@@ -213,6 +245,13 @@ public static class StSplitter
 			// INTERFACE has no impl body; the entire range is declaration.
 			return (string.Join("\n", pouLines).TrimEnd(), "");
 		}
+
+		// A GRAPHICAL (VG) body — NETWORK <n> <LANG> … (editable) or a %LANG placeholder (CFC/SFC) — is
+		// the IMPLEMENTATION in full, INCLUDING its own VAR_TEMP block. Split BEFORE that marker so the
+		// VG's VAR_TEMP is never mistaken for a POU declaration var (the END_VAR scan below would pull it
+		// into the decl, writing temp vars into the POU and corrupting it on push).
+		int gfx = FirstMarkerLine(pouLines, includeFolder: false);
+		if (gfx >= 0) return SplitAtLine(pouLines, gfx);
 
 		// Walk backward: declaration ends at the LAST END_VAR (the parent POU's
 		// own var sections, not a child's). Anything after is implementation.
@@ -333,7 +372,8 @@ public static class StSplitter
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
 		var (decl, impl) = SplitDeclImplOfChild(inner);
 		// The body begins with an optional Volt directive block; %FOLDER is ours (the child's
-		// sub-folder), %LANG stays in the body for graphical detection.
+		// sub-folder) and is peeled off. The graphical marker (NETWORK …, or %LANG for CFC/SFC) stays
+		// in the body for graphical detection.
 		var (folder, body) = PeelFolderDirective(impl);
 		return new StChild(kind, name, decl, body, Folder: folder, AccessModifier: accessModifier, ReturnType: returnType);
 	}
@@ -441,6 +481,12 @@ public static class StSplitter
 
 	private static (string decl, string impl) SplitDeclImplOfChild(IList<string> innerLines)
 	{
+		// Same guard as the root POU, plus %FOLDER: a child's impl is everything from the first
+		// %FOLDER/graphical marker (its VG body — incl. VAR_TEMP — and the %FOLDER directive that
+		// PeelFolderDirective will strip). Real VAR sections stay in the decl before it.
+		int gfx = FirstMarkerLine(innerLines, includeFolder: true);
+		if (gfx >= 0) return SplitAtLine(innerLines, gfx);
+
 		var ctx = new ScanContext();
 		int lastEndVar = -1;
 		// Find the signature line first — first non-trivia line.
@@ -523,8 +569,8 @@ public static class StSplitter
 	}
 
 	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
-	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER and the
-	/// graphical `%LANG` form the body's top directive block.</summary>
+	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER leads the
+	/// body's top directive block, ahead of the graphical content (NETWORK …, or %LANG for CFC/SFC).</summary>
 	private static (string? folder, string rest) PeelFolderDirective(string text)
 	{
 		var lines = text.Replace("\r", "").Split('\n');

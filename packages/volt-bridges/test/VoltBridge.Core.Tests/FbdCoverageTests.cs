@@ -83,6 +83,10 @@ public class FbdCoverageTests
     [InlineData("FBD", "block output modifier",
         "<block localId='1' typeName='F'><outputVariables>" +
         "<variable formalParameter='Q' negated='true'><connectionPointOut/></variable></outputVariables></block>")]
+    [InlineData("FBD", "multi-output stateless function",
+        "<block localId='1' typeName='F'><outputVariables>" +
+        "<variable formalParameter='O1'><connectionPointOut/></variable>" +
+        "<variable formalParameter='O2'><connectionPointOut/></variable></outputVariables></block>")]
     [InlineData("FBD", "pin from multiple sources",
         "<inVariable localId='1'><expression>a</expression></inVariable>" +
         "<inVariable localId='2'><expression>b</expression></inVariable>" +
@@ -129,12 +133,12 @@ public class FbdCoverageTests
         "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<contact localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
         "<coil localId='4'><connectionPointIn><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
-        "(a AND b)")]  // two contacts in series → AND
+        "(i1 AND i2)")]  // two contacts in series → AND (vars are named leaves i1=a, i2=b)
     [InlineData(
         "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
         "<contact localId='2' negated='true'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
-        "NOT a")]      // normally-closed contact → NOT
+        "NOT i1")]      // normally-closed contact → NOT (var is the named leaf i1=a)
     public void Ld_rung_lowers_to_boolean_vg(string inner, string expect)
     {
         var doc = Doc("LD", inner);

@@ -31,8 +31,10 @@ namespace VoltBridge.Core.Fbd
     public sealed record Conn(long RefLocalId, string? FormalParameter);
 
     /// <summary>One input pin of a block: its formal name, the wire feeding it (or null if
-    /// unconnected), and any modifiers on that pin.</summary>
-    public sealed record Pin(string FormalParameter, Conn? Source, Mods Mods);
+    /// unconnected), any modifiers on that pin, and (when the IDE supplies it) the pin's declared
+    /// type from the block's <c>inputparamtypes</c> addData. <see cref="Type"/> is read-only metadata
+    /// — VgWriter uses it to declare a leaf temp; it is NOT load-bearing for round-trip.</summary>
+    public sealed record Pin(string FormalParameter, Conn? Source, Mods Mods, string? Type = null);
 
     public abstract record GraphNode(long LocalId, int? ExecOrder);
 
@@ -45,9 +47,12 @@ namespace VoltBridge.Core.Fbd
         : GraphNode(LocalId, ExecOrder);
 
     /// <summary>block — an FB instance call, function call, or operator. <paramref name="CallType"/>
-    /// is the CODESYS hint (functionblock / function / operator) when present.</summary>
+    /// is the CODESYS hint (functionblock / function / operator) when present. <paramref name="OutputTypes"/>
+    /// is the positional output-type list (from <c>outputparamtypes</c>) — read-only IDE metadata used
+    /// to declare the result temp (the result type is <c>OutputTypes[0]</c>); not load-bearing for round-trip.</summary>
     public sealed record Block(long LocalId, int? ExecOrder, string TypeName, string? InstanceName,
-        IReadOnlyList<Pin> Inputs, IReadOnlyList<string> OutputPins, string? CallType)
+        IReadOnlyList<Pin> Inputs, IReadOnlyList<string> OutputPins, string? CallType,
+        IReadOnlyList<string>? OutputTypes = null)
         : GraphNode(LocalId, ExecOrder);
 
     /// <summary>A jump target — PLCopen <c>&lt;label&gt;</c>. Renders as the ST label <c>name:</c>.</summary>

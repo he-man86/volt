@@ -1,3 +1,4 @@
+using VoltBridge.Core;
 using VoltBridge.Core.Models;
 
 namespace VoltBridge.Core.Handlers;
@@ -19,7 +20,7 @@ public static class RefsHandler
             if (kind == null) continue;
 
             var folder = visit.FolderPath ?? "";
-            var version = adapter.ComputeItemVersion(visit.Item, folder);
+            var (version, _) = SourceAssembler.VersionedMaterialize(adapter, visit.Name, kind, (object)visit.Item, folder);
 
             itemVersions[visit.Name] = version;
             itemKinds[visit.Name] = kind;

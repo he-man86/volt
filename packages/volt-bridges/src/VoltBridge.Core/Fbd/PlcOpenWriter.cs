@@ -30,6 +30,26 @@ namespace VoltBridge.Core.Fbd
             string? OutPin(long id) => byId.TryGetValue(id, out var n) && n is Block bl && bl.OutputPins.Count > 0
                 ? bl.OutputPins[0] : null;
 
+            // Output pins REFERENCED by a connection's formalParameter (an FB output like `inst.Q`). VG
+            // lists a block's CALL but not its output pins, so a parsed FB block has no OutputPins; without
+            // this the `inst.Q` connection would name a pin the block doesn't declare and the IDE would
+            // DROP it on import (the `out := ;` bug). Emit these as the block's outputVariables too.
+            var refPins = new Dictionary<long, List<string>>();
+            void NoteRef(Conn? c)
+            {
+                if (c?.FormalParameter == null) return;
+                if (!refPins.TryGetValue(c.RefLocalId, out var list)) refPins[c.RefLocalId] = list = new List<string>();
+                if (!list.Contains(c.FormalParameter)) list.Add(c.FormalParameter);
+            }
+            foreach (var n in body.Networks.SelectMany(x => x.Nodes))
+                switch (n)
+                {
+                    case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break;
+                    case OutVar o: NoteRef(o.Source); break;
+                    case Jump j: NoteRef(j.Condition); break;
+                    case Return r: NoteRef(r.Condition); break;
+                }
+
             int row = 0;
             int commentSeq = 0;
             foreach (var net in body.Networks)
@@ -48,13 +68,13 @@ namespace VoltBridge.Core.Fbd
                         new XElement(Ns + "content", new XElement(Xhtml + "xhtml", net.Comment))));
                 }
                 foreach (var node in net.Nodes)
-                    root.Add(WriteNode(node, resolveType, OutPin, row++));
+                    root.Add(WriteNode(node, resolveType, OutPin, refPins, row++));
             }
             return root;
         }
 
         private static XElement WriteNode(GraphNode node, System.Func<string, string?>? resolveType,
-            System.Func<long, string?> outPin, int row)
+            System.Func<long, string?> outPin, Dictionary<long, List<string>> refPins, int row)
         {
             switch (node)
             {
@@ -83,17 +103,23 @@ namespace VoltBridge.Core.Fbd
                         new XElement(Ns + "variable", new XAttribute("formalParameter", p.FormalParameter),
                             ModAttrs(p.Mods), ConnIn(p.Source, outPin)))));
                     el.Add(new XElement(Ns + "inOutVariables"));
-                    el.Add(new XElement(Ns + "outputVariables", b.OutputPins.Select(o =>
+                    // Output pins = the block's own, UNION any referenced by an `inst.Q` connection
+                    // (which VG carries on the consumer, not the block) so the connection stays valid.
+                    var outs = new List<string>(b.OutputPins);
+                    if (refPins.TryGetValue(b.LocalId, out var extra))
+                        foreach (var p in extra) if (!outs.Contains(p)) outs.Add(p);
+                    el.Add(new XElement(Ns + "outputVariables", outs.Select(o =>
                         new XElement(Ns + "variable", new XAttribute("formalParameter", o),
                             new XElement(Ns + "connectionPointOut")))));
-                    // Re-emit the CODESYS/TwinCAT fbdcalltype hint (operator / function / functionblock)
-                    // so a written-back block carries the same vendor metadata the IDE exported.
+                    // Re-emit the CODESYS/TwinCAT vendor metadata so a written-back block carries what
+                    // the IDE exported: the fbdcalltype hint (operator / function / functionblock) plus
+                    // the input/output param-type lists. Types are read-only metadata — on the push path
+                    // VG doesn't carry them, so these come out empty and the IDE reconstructs them.
                     if (!string.IsNullOrEmpty(b.CallType))
                         el.Add(new XElement(Ns + "addData",
-                            new XElement(Ns + "data",
-                                new XAttribute("name", "http://www.3s-software.com/plcopenxml/fbdcalltype"),
-                                new XAttribute("handleUnknown", "implementation"),
-                                new XElement("CallType", b.CallType))));   // empty-ns child, matching the IDE format
+                            VendorData("fbdcalltype", "CallType", b.CallType),
+                            VendorData("inputparamtypes", "InputParamTypes", JoinTypes(b.Inputs.Select(p => p.Type))),
+                            VendorData("outputparamtypes", "OutputParamTypes", JoinTypes(b.OutputTypes))));
                     return el;
 
                 case Label lb:
@@ -132,6 +158,23 @@ namespace VoltBridge.Core.Fbd
 
         private static XElement Pos(int row)
             => new(Ns + "position", new XAttribute("x", 0), new XAttribute("y", row * 40));
+
+        /// <summary>A 3S vendor <c>&lt;data&gt;</c> addData child with an empty-namespace inner element
+        /// (matching the IDE format). A null/empty value yields a self-closing inner element.</summary>
+        private static XElement VendorData(string nameSuffix, string innerName, string? value)
+            => new(Ns + "data",
+                new XAttribute("name", "http://www.3s-software.com/plcopenxml/" + nameSuffix),
+                new XAttribute("handleUnknown", "implementation"),
+                string.IsNullOrEmpty(value) ? new XElement(innerName) : new XElement(innerName, value));
+
+        /// <summary>Space-join a positional type list for the param-types addData; null when the list
+        /// is absent or every entry is empty (operators export empty input types).</summary>
+        private static string? JoinTypes(IEnumerable<string?>? types)
+        {
+            if (types == null) return null;
+            var list = types.Select(t => t ?? "").ToList();
+            return list.Any(t => t.Length > 0) ? string.Join(" ", list) : null;
+        }
 
         private static XElement ConnIn(Conn? c, System.Func<long, string?> outPin)
         {

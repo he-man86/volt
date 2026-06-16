@@ -11,8 +11,8 @@ namespace VoltBridge.Core.Fbd
     /// replacing the <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body inside an exported POU document, and
     /// recovering FB instance→type names from a declaration (VG omits them). Keeping this in Core
     /// keeps CODESYS and TwinCAT byte-identical on the read/write transform; only the vendor's
-    /// export/import transport differs (CODESYS object-model ExportXml/ImportXml vs TwinCAT
-    /// ITcPlcIECProject PlcOpenExport/PlcOpenImport).
+    /// PLCopen-string transport differs (CODESYS object-model ExportXmlString/ImportXmlString,
+    /// in-memory; TwinCAT ITcPlcIECProject PlcOpenExport/PlcOpenImport, via a temp file).
     /// </summary>
     public static class PlcOpenDocument
     {
@@ -23,6 +23,38 @@ namespace VoltBridge.Core.Fbd
             XDocument doc;
             try { doc = XDocument.Parse(xml); } catch { return null; }
             return FindFbdLd(doc);
+        }
+
+        /// <summary>The language of a POU's graphical body, read from the exported PLCopen alone (the
+        /// body element's name): <c>FBD</c>/<c>LD</c> (editable) or <c>CFC</c>/<c>SFC</c> (read-only).
+        /// Null for a textual body (ST/IL) or none. Lets the graphical read rely solely on the
+        /// (in-memory) export — no extra object-model read that could return a stale post-import body.</summary>
+        public static string? GraphicalBodyLang(string xml)
+        {
+            XDocument doc;
+            try { doc = XDocument.Parse(xml); } catch { return null; }
+            var ns = doc.Root!.GetDefaultNamespace();
+            foreach (var name in new[] { "FBD", "LD", "CFC", "SFC" })
+                if (doc.Descendants(ns + name).Any()) return name;
+            return null;
+        }
+
+        /// <summary>The POU's declaration, read from the exported PLCopen's <c>interfaceasplaintext</c>
+        /// addData (the xhtml-wrapped plaintext interface), or null if absent. Matches the object-model
+        /// Interface aspect text exactly — so it's a drift-free substitute that AVOIDS touching the
+        /// aspect, which on a just-reimported graphical POU (right after a push) damages its in-session
+        /// graphical export. Entity decoding is handled by <see cref="XElement.Value"/>.</summary>
+        public static string? DeclFromExport(string xml)
+        {
+            XDocument doc;
+            try { doc = XDocument.Parse(xml); } catch { return null; }
+            var iapt = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+            if (iapt == null) return null;
+            // The text lives in an inner <xhtml> element; take its value (not the addData wrapper's, to
+            // avoid pretty-print whitespace around it).
+            var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
+            var text = inner.Value;
+            return string.IsNullOrEmpty(text) ? null : text;
         }
 
         /// <summary>Replace the document's <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body with
@@ -84,6 +116,12 @@ namespace VoltBridge.Core.Fbd
                 blind.Add("a modifier on a block output pin (negated/edge/storage)");
             if (body.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
                 blind.Add("a pin wired from multiple sources");
+            // A stateless function (no instanceName) with several outputs can't be referenced by pin in
+            // VG (an operator/function result is the bare temp gN); only FB INSTANCES round-trip their
+            // multiple outputs (inst.Q/inst.ET). Refuse rather than silently drop the extra outputs.
+            if (body.Descendants(ns + "block").Any(b => (string?)b.Attribute("instanceName") == null
+                    && (b.Element(ns + "outputVariables")?.Elements(ns + "variable").Count() ?? 0) > 1))
+                blind.Add("a stateless function with multiple outputs");
             if (blind.Count > 0)
                 throw new InvalidOperationException(
                     "refusing to write this graphical body: it has structure the editor cannot " +

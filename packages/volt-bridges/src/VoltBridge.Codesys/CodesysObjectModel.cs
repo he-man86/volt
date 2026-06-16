@@ -208,7 +208,7 @@ namespace VoltBridge.Codesys
 
         // ── structural ─────────────────────────────────────────────────────────
         /// <summary>The Application node — default parent for new POUs.</summary>
-        public object? FindApplication() => FindByInterface(PrimaryProject, "IApplicationObject", 0);
+        public object? FindApplication() => FindByObjectInterface(PrimaryProject, "IApplicationObject", 0);
 
         public object? FindByName(string name) => FindByName(PrimaryProject, name, 0);
 
@@ -226,13 +226,13 @@ namespace VoltBridge.Codesys
             return null;
         }
 
-        private object? FindByInterface(object? node, string ifaceName, int depth)
+        private object? FindByObjectInterface(object? node, string ifaceName, int depth)
         {
             if (node == null || depth > 14) return null;
             foreach (var child in GetChildren(node))
             {
                 if (!IsFolder(child) && ObjectInterfaceNames(ReadObject(child)).Contains(ifaceName)) return child;
-                var hit = FindByInterface(child, ifaceName, depth + 1);
+                var hit = FindByObjectInterface(child, ifaceName, depth + 1);
                 if (hit != null) return hit;
             }
             return null;
@@ -366,13 +366,13 @@ namespace VoltBridge.Codesys
         // ── PLCopenXML import / export (the graphical write/read transport) ──────
         private object? _scriptEngine;   // cached APEnvironment.ScriptEngine
 
-        /// <summary>Export an object to PLCopenXML and return the document text — NO file. From the
-        /// decompiled <c>ScriptProject.export_xml(IEnumerable&lt;IExtendedObject&lt;IScriptObject&gt;&gt;,
-        /// stPath, …)</c>: an EMPTY stPath serializes to a MemoryStream and returns the XML string.
-        /// Our tree stores fully-unwrapped <c>IScriptObject</c> nodes, so re-wrap the node into the
-        /// required <c>IExtendedObject&lt;IScriptObject&gt;</c> via the script engine's
+        /// <summary>Serialize an object to a PLCopenXML <b>string</b>, fully IN-MEMORY — NO temp file.
+        /// From the decompiled <c>ScriptProject.export_xml(IEnumerable&lt;IExtendedObject&lt;IScriptObject&gt;&gt;,
+        /// filePath, …)</c>: passing an EMPTY file path makes it serialize to a MemoryStream and return
+        /// the XML string. Our tree stores fully-unwrapped <c>IScriptObject</c> nodes, so re-wrap the
+        /// node into the required <c>IExtendedObject&lt;IScriptObject&gt;</c> via the script engine's
         /// <c>CreateExtendedObject</c> factory (the same call the scripting tree itself uses).</summary>
-        public string ExportXml(object node)
+        public string ExportXmlString(object node)
         {
             var proj = PrimaryProject!;
             var export = proj.GetType().GetMethods(BF).First(x => x.Name == "export_xml" && x.GetParameters().Length == 5
@@ -389,16 +389,16 @@ namespace VoltBridge.Codesys
 
             var objects = Array.CreateInstance(elemType, 1);
             objects.SetValue(wrapped, 0);
-            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;   // empty stPath → returns XML
+            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;   // empty file path → returns the XML string in-memory
             return xml.TrimStart('﻿');   // export_xml's UTF8.GetString prepends a BOM that XDocument.Parse rejects
         }
 
-        /// <summary>Import PLCopenXML <paramref name="data"/> (a string, not a path), replacing an
-        /// existing object of the same name when the IDE offers a conflict resolution. Imports INTO
-        /// <paramref name="into"/> when supplied (else at the project root) — PLCopenXML carries no
-        /// folder membership, so a project-level import of a single POU would land it at the root and
-        /// relocate it out of its folder. import_xml is available on object/folder nodes too.</summary>
-        public void ImportXml(string data, object? into = null)
+        /// <summary>Import a PLCopenXML <b>string</b> <paramref name="data"/> (NOT a file path) IN-MEMORY,
+        /// replacing an existing object of the same name when the IDE offers a conflict resolution.
+        /// Imports INTO <paramref name="into"/> when supplied (else at the project root) — PLCopenXML
+        /// carries no folder membership, so a project-level import of a single POU would land it at the
+        /// root and relocate it out of its folder. import_xml is available on object/folder nodes too.</summary>
+        public void ImportXmlString(string data, object? into = null)
         {
             var target = into != null ? Unwrap(into)!
                 : (PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project"));

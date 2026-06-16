@@ -27,10 +27,13 @@ public class PlcOpenTcFixtureTests
         Assert.NotNull(fbd);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd!));
 
-        Assert.Contains("SR_0(SET1 := NOT xtest, RESET := xtestr1 RISING)", vg);  // SR FB + negation + edge
+        Assert.Contains("i1 := xtest;", vg);                                      // operands are named leaves
+        Assert.Contains("i2 := xtestr1;", vg);
+        Assert.Contains("SR_0(SET1 := NOT i1, RESET := i2 RISING)", vg);          // SR FB + negation + edge
         Assert.Contains("out := SR_0.Q1", vg);                                    // branch / fan-out...
         Assert.Contains("out2 := SR_0.Q1", vg);                                   // ...same output, two sinks
-        Assert.Contains("IF adfdsa THEN JMP jump12; END_IF", vg);                 // conditional jump (valid ST)
+        Assert.Contains("i1 := adfdsa;", vg);                                     // jump condition is a named leaf
+        Assert.Contains("IF i1 THEN JMP jump12; END_IF", vg);                     // conditional jump (valid ST)
         Assert.Contains("jump12:", vg);                                           // label (valid ST)
     }
 
@@ -57,10 +60,12 @@ public class PlcOpenTcFixtureTests
         Assert.NotNull(fbd);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd!));
 
-        Assert.Contains("%LANG FBD", vg);
-        Assert.Contains("(FALSE AND TRUE)", vg);
-        Assert.Contains("(TRUE AND TRUE)", vg);
-        Assert.Contains("(FALSE OR TRUE)", vg);
+        Assert.Matches(@"NETWORK \d+ FBD", vg);   // language rides on the network marker
+        // Literals are now named leaves (i* := FALSE/TRUE), combined by a single operator per statement.
+        Assert.Contains(":= FALSE;", vg);
+        Assert.Contains(":= TRUE;", vg);
+        Assert.Contains(" AND ", vg);
+        Assert.Contains(" OR ", vg);
         foreach (var target in new[] { "xtest", "xtest1", "xtest3" })
             Assert.Contains(target, vg);
     }
@@ -72,7 +77,8 @@ public class PlcOpenTcFixtureTests
         Assert.Equal(3, body.Networks.Count);   // PLC_PRG's action is three FBD networks
 
         var vg = VgWriter.Write(body);
-        Assert.Equal(3, vg.Split("NETWORK").Length - 1);   // one NETWORK block per network
+        // one "NETWORK <n> <LANG>" header per network (don't count the END_NETWORK terminators)
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(vg, @"(?m)^NETWORK \d").Count);
 
         // Each network is independent: its target sits with its own gate (gates renumber per network).
         // The gate is an operator → its result is referenced directly (valid ST), not `g1.Out1`.

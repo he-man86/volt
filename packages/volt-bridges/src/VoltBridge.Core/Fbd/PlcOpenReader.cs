@@ -107,14 +107,18 @@ namespace VoltBridge.Core.Fbd
                     }
                     case "block":
                     {
+                        var inTypes = ReadParamTypes(el, ns, "inputparamtypes");
+                        var outTypes = ReadParamTypes(el, ns, "outputparamtypes");
                         var ins = (el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
-                            .Select(v => { var s = CombineIn(v);
-                                return new Pin((string?)v.Attribute("formalParameter") ?? "", s.Conn, Merge(s.Mods, ReadMods(v))); })
+                            .Select((v, k) => { var s = CombineIn(v);
+                                return new Pin((string?)v.Attribute("formalParameter") ?? "", s.Conn, Merge(s.Mods, ReadMods(v)),
+                                    k < inTypes.Count ? inTypes[k] : null); })
                             .ToList();
                         var outs = (el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                             .Select(v => (string?)v.Attribute("formalParameter") ?? "").ToList();
                         var blk = new Block(next++, null, (string?)el.Attribute("typeName") ?? "",
-                            (string?)el.Attribute("instanceName"), ins, outs, ReadCallType(el, ns));
+                            (string?)el.Attribute("instanceName"), ins, outs, ReadCallType(el, ns),
+                            outTypes.Count > 0 ? outTypes : null);
                         nodes.Add(blk);
                         r = (new Conn(blk.LocalId, null), Mods.None);   // consumers carry the output-pin selector
                         break;
@@ -219,14 +223,18 @@ namespace VoltBridge.Core.Fbd
 
         private static Block ReadBlock(XElement el, XNamespace ns, long id, int? order)
         {
+            var inTypes = ReadParamTypes(el, ns, "inputparamtypes");
+            var outTypes = ReadParamTypes(el, ns, "outputparamtypes");
             var inputs = (el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
-                .Select(v => new Pin((string?)v.Attribute("formalParameter") ?? "", ReadSource(v, ns), ReadMods(v)))
+                .Select((v, k) => new Pin((string?)v.Attribute("formalParameter") ?? "", ReadSource(v, ns), ReadMods(v),
+                    k < inTypes.Count ? inTypes[k] : null))
                 .ToList();
             var outs = (el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                 .Select(v => (string?)v.Attribute("formalParameter") ?? "")
                 .ToList();
             return new Block(id, order, (string?)el.Attribute("typeName") ?? "",
-                (string?)el.Attribute("instanceName"), inputs, outs, ReadCallType(el, ns));
+                (string?)el.Attribute("instanceName"), inputs, outs, ReadCallType(el, ns),
+                outTypes.Count > 0 ? outTypes : null);
         }
 
         private static Conn? ReadSource(XElement el, XNamespace ns)
@@ -253,6 +261,18 @@ namespace VoltBridge.Core.Fbd
                 if (((string?)d.Attribute("name"))?.EndsWith("fbdcalltype") == true)
                     return d.Descendants().FirstOrDefault(x => x.Name.LocalName == "CallType")?.Value;
             return null;
+        }
+
+        /// <summary>The whitespace-separated type list from the 3S <c>inputparamtypes</c> /
+        /// <c>outputparamtypes</c> addData (CODESYS and TwinCAT both emit it; operators leave inputs
+        /// empty). Positionally aligned to the block's input/output pins. Read-only metadata.</summary>
+        private static IReadOnlyList<string> ReadParamTypes(XElement el, XNamespace ns, string suffix)
+        {
+            foreach (var d in el.Element(ns + "addData")?.Elements(ns + "data") ?? Enumerable.Empty<XElement>())
+                if (((string?)d.Attribute("name"))?.EndsWith(suffix) == true)
+                    return (d.Elements().FirstOrDefault()?.Value ?? "")
+                        .Split(new[] { ' ', '\t', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
+            return System.Array.Empty<string>();
         }
     }
 }

@@ -9,8 +9,11 @@ public record TreeItemVisit(string Name, dynamic Item, int ItemType, bool IsTopL
 /// <summary>A graphical (FBD/LD/SFC/CFC) body rendered to text. <paramref name="Language"/> is
 /// FBD/LD/SFC/CFC. <paramref name="Format"/> is <c>"vg"</c> when <paramref name="Body"/> is the
 /// editable VG language (round-trippable to the IDE — CODESYS FBD/LD), or <c>"st"</c> when it is
-/// read-only transpiled ST (SFC/CFC, and all TwinCAT graphical bodies today).</summary>
-public sealed record GraphicalBody(string Language, string Body, string Format = "st");
+/// read-only transpiled ST (SFC/CFC, and all TwinCAT graphical bodies today). <paramref name="Declaration"/>,
+/// when non-null, is the POU's declaration recovered from the SAME PLCopen export as the body — so a
+/// graphical POU's declaration is read WITHOUT a separate object-model aspect access (that access on a
+/// just-reimported POU damages its in-session graphical export).</summary>
+public sealed record GraphicalBody(string Language, string Body, string Format = "st", string? Declaration = null);
 
 public interface IAdapter
 {
@@ -42,8 +45,10 @@ public interface IAdapter
     dynamic? LookupItemByName(string name);
     string? MapItemType(int typeCode, bool isTopLevelCrud);
 
-    // ── Version computation ─────────────────────────────────────────
-    string ComputeItemVersion(dynamic item, string folderPath);
+    // ── Version aggregation ─────────────────────────────────────────
+    // Per-item versions are content hashes of the materialized text (Hasher.ComputeItemVersion over
+    // SourceAssembler.Materialize), computed in the handlers — NOT here, since the adapter has no
+    // item name/kind. These two aggregate the resulting {name → version} map.
     string ComputeProjectVersion(Dictionary<string, string> versions);
     string ComputeStructureVersion(Dictionary<string, string> versions);
 

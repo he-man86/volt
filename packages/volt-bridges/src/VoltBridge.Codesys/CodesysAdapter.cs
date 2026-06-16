@@ -167,27 +167,27 @@ namespace VoltBridge.Codesys
         /// marker (different body model, not transpiled yet). ST/IL → null (textual).</summary>
         public override GraphicalBody? ReadGraphicalBody(dynamic item)
         {
-            object? iobj = (object?)_om.ReadObject((object)item);
-            if (iobj is null) return null;
-            dynamic? impl;
-            try { impl = ((dynamic)iobj).Implementation; } catch { return null; }
-            if (impl is null) return null;
-            string view;
-            try { view = (string)(impl.DefaultViewMode ?? ""); } catch { return null; }
-            var lang = view.ToUpperInvariant();
-            if (lang is "CFC" or "SFC") return new GraphicalBody(lang, "");    // read-only marker
-            if (lang is not ("FBD" or "LD")) return null;                      // ST / IL → textual
+            // PURE in-memory export. Do NOT call the object-model read (GetObjectToRead) first: on a
+            // just-reimported object (right after a graphical push) that read returns a stale/partial
+            // body and poisons this export. The exported PLCopen alone tells us everything — the body
+            // element's name IS the language (FBD/LD editable, CFC/SFC read-only). For CODESYS the
+            // wrapper is authoritative (unlike TwinCAT, which serializes an LD body as <FBD>).
+            string xml;
+            try { xml = _om.ExportXmlString((object)item); } catch { return null; }
+            var lang = VoltBridge.Core.Fbd.PlcOpenDocument.GraphicalBodyLang(xml);
+            if (lang is null) return null;                                     // ST / IL / no graphical body → textual
+            // The declaration comes from the SAME export (interfaceasplaintext) — so the caller can use
+            // it INSTEAD of the object-model Interface aspect, which would otherwise poison this body.
+            var decl = VoltBridge.Core.Fbd.PlcOpenDocument.DeclFromExport(xml);
+            if (lang is "CFC" or "SFC") return new GraphicalBody(lang, "", "st", decl);   // read-only marker
             try
             {
-                var fbd = VoltBridge.Core.Fbd.PlcOpenDocument.FindFbdLdBody(_om.ExportXml((object)item));
-                if (fbd == null) return new GraphicalBody(lang, "");
-                // Use the authoritative language (DefaultViewMode) for the VG header — the PLCopen
-                // wrapper alone can't be trusted (TwinCAT serializes an LD body as <FBD>).
+                var fbd = VoltBridge.Core.Fbd.PlcOpenDocument.FindFbdLdBody(xml);
+                if (fbd == null) return new GraphicalBody(lang, "", "st", decl);
                 var body = VoltBridge.Core.Fbd.PlcOpenReader.ReadBody(fbd) with { Language = lang };
-                var vg = VoltBridge.Core.Fbd.Vg.VgWriter.Write(body);
-                return new GraphicalBody(lang, vg, "vg");
+                return new GraphicalBody(lang, VoltBridge.Core.Fbd.Vg.VgWriter.Write(body), "vg", decl);
             }
-            catch { return new GraphicalBody(lang, ""); }                      // fall back to read-only on failure
+            catch { return new GraphicalBody(lang, "", "st", decl); }          // fall back to read-only on failure
         }
 
         /// <summary>Write an editable VG body: VG → graph → PLCopenXML body, splice into the POU's
@@ -199,7 +199,7 @@ namespace VoltBridge.Codesys
             var types = VoltBridge.Core.Fbd.PlcOpenDocument.InstanceTypes(declaration);
             var newBody = VoltBridge.Core.Fbd.PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
-            var exported = _om.ExportXml((object)item);                                          // full POU XML (for restore)
+            var exported = _om.ExportXmlString((object)item);                                          // full POU XML (for restore)
             var outXml = VoltBridge.Core.Fbd.PlcOpenDocument.SpliceFbdLdBody(exported, newBody); // throws if no FBD/LD body
 
             // Replace in place: delete the existing object, then import fresh (a same-name import
@@ -212,12 +212,12 @@ namespace VoltBridge.Codesys
             try
             {
                 if (par != null) _om.DeleteChild(par, nm);
-                _om.ImportXml(outXml, par);
+                _om.ImportXmlString(outXml, par);
             }
             catch
             {
-                try { _om.ImportXml(exported, par); }
-                catch { try { _om.ImportXml(exported); } catch { } }
+                try { _om.ImportXmlString(exported, par); }
+                catch { try { _om.ImportXmlString(exported); } catch { } }
                 throw;
             }
         }
@@ -226,7 +226,7 @@ namespace VoltBridge.Codesys
         /// graphical read uses; null on failure or for non-exportable items.</summary>
         public override string? ExportRawPou(dynamic item)
         {
-            try { return _om.ExportXml((object)item); } catch { return null; }
+            try { return _om.ExportXmlString((object)item); } catch { return null; }
         }
 
         public string ReadManifestText(dynamic item, string kind) =>
