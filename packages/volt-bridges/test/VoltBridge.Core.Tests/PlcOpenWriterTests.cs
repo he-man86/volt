@@ -125,6 +125,31 @@ public class PlcOpenWriterTests
         Assert.True((long)comment.Attribute("localId")! / 10_000_000_000L == 0);     // in network 0 (with the content)
     }
 
+    /// <summary>An operator/function result is referenced by its bare name (valid ST: `out := g1`),
+    /// NOT `g1.Out1` (member access on a BOOL isn't ST). FB-instance outputs keep their pin (`t1.Q`).
+    /// On write the operator's output pin is re-derived so the PLCopen connection stays named.</summary>
+    [Fact]
+    public void Operator_result_is_referenced_without_a_pin_suffix()
+    {
+        const string inner = """
+            <inVariable localId="1"><expression>a</expression></inVariable>
+            <inVariable localId="2"><expression>b</expression></inVariable>
+            <block localId="3" typeName="OR">
+              <inputVariables>
+                <variable formalParameter="IN1"><connectionPointIn><connection refLocalId="1"/></connectionPointIn></variable>
+                <variable formalParameter="IN2"><connectionPointIn><connection refLocalId="2"/></connectionPointIn></variable>
+              </inputVariables>
+              <outputVariables><variable formalParameter="Out1"><connectionPointOut/></variable></outputVariables>
+            </block>
+            <outVariable localId="4"><expression>out</expression><connectionPointIn><connection refLocalId="3" formalParameter="Out1"/></connectionPointIn></outVariable>
+            """;
+        var g = PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
+        var vg = VgWriter.Write(g);
+        Assert.Contains("out := g1;", vg);   // operator result referenced directly
+        Assert.DoesNotContain(".Out1", vg);  // no non-ST pin suffix
+        Assert.Equal(vg, VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg)))));  // fixed point
+    }
+
     /// <summary>Regression: a MULTI-network body must round-trip through XML without colliding
     /// localIds. Each VgParser network used to restart numbering at 1, so a 2nd network duplicated
     /// ids → networks collapsed / the IDE import broke on push. localIds now encode the network.</summary>

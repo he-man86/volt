@@ -22,6 +22,14 @@ namespace VoltBridge.Core.Fbd
         public static XElement WriteBody(GraphBody body, System.Func<string, string?>? resolveType = null)
         {
             var root = new XElement(Ns + (body.Language == "LD" ? "LD" : "FBD"));
+            // A connection back to an operator/function result carries no output-pin name in VG (it's
+            // `g1`, not `g1.Out1`). Re-derive the producer block's single output pin so the PLCopen
+            // connection still names the output the IDE expects.
+            var byId = new Dictionary<long, GraphNode>();
+            foreach (var n in body.Networks.SelectMany(x => x.Nodes)) byId[n.LocalId] = n;
+            string? OutPin(long id) => byId.TryGetValue(id, out var n) && n is Block bl && bl.OutputPins.Count > 0
+                ? bl.OutputPins[0] : null;
+
             int row = 0;
             int commentSeq = 0;
             foreach (var net in body.Networks)
@@ -40,12 +48,13 @@ namespace VoltBridge.Core.Fbd
                         new XElement(Ns + "content", new XElement(Xhtml + "xhtml", net.Comment))));
                 }
                 foreach (var node in net.Nodes)
-                    root.Add(WriteNode(node, resolveType, row++));
+                    root.Add(WriteNode(node, resolveType, OutPin, row++));
             }
             return root;
         }
 
-        private static XElement WriteNode(GraphNode node, System.Func<string, string?>? resolveType, int row)
+        private static XElement WriteNode(GraphNode node, System.Func<string, string?>? resolveType,
+            System.Func<long, string?> outPin, int row)
         {
             switch (node)
             {
@@ -59,7 +68,7 @@ namespace VoltBridge.Core.Fbd
 
                 case OutVar ov:
                     return new XElement(Ns + "outVariable", IdAttrs(ov), ModAttrs(ov.Mods),
-                        Pos(row), ConnIn(ov.Source),
+                        Pos(row), ConnIn(ov.Source, outPin),
                         new XElement(Ns + "expression", ov.Expression));
 
                 case Block b:
@@ -72,7 +81,7 @@ namespace VoltBridge.Core.Fbd
                     el.Add(Pos(row));
                     el.Add(new XElement(Ns + "inputVariables", b.Inputs.Select(p =>
                         new XElement(Ns + "variable", new XAttribute("formalParameter", p.FormalParameter),
-                            ModAttrs(p.Mods), ConnIn(p.Source)))));
+                            ModAttrs(p.Mods), ConnIn(p.Source, outPin)))));
                     el.Add(new XElement(Ns + "inOutVariables"));
                     el.Add(new XElement(Ns + "outputVariables", b.OutputPins.Select(o =>
                         new XElement(Ns + "variable", new XAttribute("formalParameter", o),
@@ -92,11 +101,11 @@ namespace VoltBridge.Core.Fbd
 
                 case Jump jp:
                     return new XElement(Ns + "jump", IdAttrs(jp), new XAttribute("label", jp.Target),
-                        ModAttrs(jp.Mods), Pos(row), jp.Condition != null ? ConnIn(jp.Condition) : null);
+                        ModAttrs(jp.Mods), Pos(row), jp.Condition != null ? ConnIn(jp.Condition, outPin) : null);
 
                 case Return rt:
                     return new XElement(Ns + "return", IdAttrs(rt), ModAttrs(rt.Mods),
-                        Pos(row), rt.Condition != null ? ConnIn(rt.Condition) : null);
+                        Pos(row), rt.Condition != null ? ConnIn(rt.Condition, outPin) : null);
 
                 default:
                     return new XElement(Ns + "inVariable", IdAttrs(node), Pos(row),
@@ -124,13 +133,16 @@ namespace VoltBridge.Core.Fbd
         private static XElement Pos(int row)
             => new(Ns + "position", new XAttribute("x", 0), new XAttribute("y", row * 40));
 
-        private static XElement ConnIn(Conn? c)
+        private static XElement ConnIn(Conn? c, System.Func<long, string?> outPin)
         {
             var cpi = new XElement(Ns + "connectionPointIn");
             if (c != null)
             {
                 var conn = new XElement(Ns + "connection", new XAttribute("refLocalId", c.RefLocalId));
-                if (c.FormalParameter != null) conn.Add(new XAttribute("formalParameter", c.FormalParameter));
+                // VG drops an operator/function result's pin (`g1`, not `g1.Out1`); re-derive it so the
+                // connection still names the producer's output. FB-instance refs already carry the pin.
+                var fp = c.FormalParameter ?? outPin(c.RefLocalId);
+                if (fp != null) conn.Add(new XAttribute("formalParameter", fp));
                 cpi.Add(conn);
             }
             return cpi;

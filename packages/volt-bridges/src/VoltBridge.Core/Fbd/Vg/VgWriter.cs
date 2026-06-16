@@ -125,7 +125,10 @@ namespace VoltBridge.Core.Fbd.Vg
                 case InVar iv: return iv.Expression;
                 case Block b:
                     var nm = names[b.LocalId];
-                    return c.FormalParameter != null ? nm + "." + c.FormalParameter : nm;
+                    // An FB instance output is real ST member access (inst.Q). An operator/function
+                    // result is a single anonymous value named gN — `.Out1` on it is NOT valid ST, so
+                    // reference the value directly.
+                    return (c.FormalParameter != null && !IsOperatorOrFunction(b)) ? nm + "." + c.FormalParameter : nm;
                 default: return "";
             }
         }

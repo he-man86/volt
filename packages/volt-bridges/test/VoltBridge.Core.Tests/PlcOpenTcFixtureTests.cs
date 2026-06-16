@@ -75,9 +75,10 @@ public class PlcOpenTcFixtureTests
         Assert.Equal(3, vg.Split("NETWORK").Length - 1);   // one NETWORK block per network
 
         // Each network is independent: its target sits with its own gate (gates renumber per network).
-        Assert.Contains("xtest := g1.Out1", vg);
-        Assert.Contains("xtest1 := g1.Out1", vg);
-        Assert.Contains("xtest3 := g1.Out1", vg);
+        // The gate is an operator → its result is referenced directly (valid ST), not `g1.Out1`.
+        Assert.Contains("xtest := g1;", vg);
+        Assert.Contains("xtest1 := g1;", vg);
+        Assert.Contains("xtest3 := g1;", vg);
     }
 
     [Fact]
