@@ -26,6 +26,10 @@ namespace Volt.Bridge.Codesys
     {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+        // Placeholder type CODESYS requires at create-time for a function (return_type) / alias (baseType);
+        // immaterial because WriteSourceText immediately sets the real declaration (and type) afterward.
+        private const string SeedType = "INT";
+
         private readonly object? _projects;
         private readonly object? _objMgr;   // _3S.CoDeSys.Core.Objects.IObjectManager (SystemInstances.ObjectMgr)
 
@@ -344,12 +348,20 @@ namespace Volt.Bridge.Codesys
             switch (itemType)
             {
                 case ItemKind.Program: return Create(c, "create_pou", name, EnumValue("PouType", "Program"));
-                case ItemKind.Function: return Create(c, "create_pou", name, EnumValue("PouType", "Function"));
+                // A function REQUIRES a non-null return_type at create; CODESYS errors without one. The
+                // VALUE is immaterial — WriteSourceText then sets the real declaration and the return type
+                // with it (same as methods, which create with no return_type and get theirs from the
+                // written declaration). So seed "INT", bound by name (it sits behind optional `language`).
+                case ItemKind.Function: return CreateNamed(c, "create_pou",
+                    ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType));
                 case ItemKind.FunctionBlock: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
                 case ItemKind.Enumeration: return Create(c, "create_dut", name, EnumValue("DutType", "Enumeration"));
                 case ItemKind.Structure: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
                 case ItemKind.Union: return Create(c, "create_dut", name, EnumValue("DutType", "Union"));
-                case ItemKind.Alias: return Create(c, "create_dut", name, EnumValue("DutType", "Alias"));
+                // An alias REQUIRES a non-null baseType at create; same story — WriteSourceText overwrites
+                // it with the real base type from the declaration. Seed "INT", bound by name.
+                case ItemKind.Alias: return CreateNamed(c, "create_dut",
+                    ("name", name), ("type", EnumValue("DutType", "Alias")), ("baseType", SeedType));
                 case ItemKind.Gvl: return Create(c, "create_gvl", name);
                 case ItemKind.Interface: return Create(c, "create_interface", name);
                 // Inline POU children (method/action/property) live on a DIFFERENT
@@ -450,6 +462,31 @@ namespace Volt.Bridge.Codesys
 
         private static object Create(object container, string method, params object?[] leadingArgs) =>
             Unwrap(InvokeWithOptionals(container, method, leadingArgs))!;
+
+        /// <summary>Invoke a scripting factory binding the given arguments to parameters BY NAME
+        /// (case-insensitive); every other (optional) parameter is left at its default. Use this when a
+        /// param that matters sits behind optional ones — e.g. <c>create_pou</c>'s <c>return_type</c> is
+        /// 4th, behind an optional <c>language</c>. By-name is robust to a CODESYS version reordering the
+        /// optionals and is self-documenting, unlike positional <see cref="Type.Missing"/> padding.</summary>
+        private static object CreateNamed(object container, string method, params (string Name, object? Value)[] args)
+        {
+            foreach (var m in container.GetType().GetMethods(BF))
+            {
+                if (m.Name != method) continue;
+                var ps = m.GetParameters();
+                if (!Array.TrueForAll(args, a => Array.Exists(ps, p => string.Equals(p.Name, a.Name, StringComparison.OrdinalIgnoreCase))))
+                    continue;   // this overload doesn't expose every named arg → try the next
+                var values = new object?[ps.Length];
+                for (int i = 0; i < ps.Length; i++)
+                {
+                    var hit = Array.FindIndex(args, a => string.Equals(a.Name, ps[i].Name, StringComparison.OrdinalIgnoreCase));
+                    values[i] = hit >= 0 ? args[hit].Value : Type.Missing;
+                }
+                try { return Unwrap(m.Invoke(container, BindingFlags.OptionalParamBinding, null, values, null))!; }
+                catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+            }
+            throw new MissingMethodException($"No '{method}' overload exposing [{string.Join(", ", Array.ConvertAll(args, a => a.Name))}] on {container.GetType().FullName}");
+        }
 
         /// <summary>Container for top-level objects (POU/DUT/GVL/interface) under the
         /// parent.</summary>

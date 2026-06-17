@@ -75,14 +75,15 @@ async function fetchSource(name: string): Promise<string> { return (await fetchI
 // ── source builders (textual ST) ────────────────────────────────────────────
 const fb = (name: string, opts: { vars?: string; body?: string; children?: string } = {}) =>
 	`FUNCTION_BLOCK ${name}\n${opts.vars ?? "VAR\n\tx : INT;\nEND_VAR"}\n\n${opts.body ?? "x := x + 1;"}\nEND_FUNCTION_BLOCK\n${opts.children ?? ""}`
-const func = (name: string) => `FUNCTION ${name} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n\n${name} := a * 2;\nEND_FUNCTION\n`
+// Non-INT return/base types on purpose: the create seeds "INT", so these prove WriteText corrects it.
+const func = (name: string) => `FUNCTION ${name} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n\n${name} := a > 0;\nEND_FUNCTION\n`
 const prog = (name: string) => `PROGRAM ${name}\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 1;\nEND_PROGRAM\n`
 const iface = (name: string, members = "") => `INTERFACE ${name}\nEND_INTERFACE\n${members}`
 const gvl = (name: string) => `VAR_GLOBAL\n\t${name}_g : INT := 7;\nEND_VAR\n`
 const structDut = (name: string) => `TYPE ${name} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\nEND_STRUCT\nEND_TYPE\n`
 const enumDut = (name: string) => `TYPE ${name} :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE\n`
 const unionDut = (name: string) => `TYPE ${name} :\nUNION\n\ti : INT;\n\tr : REAL;\nEND_UNION\nEND_TYPE\n`
-const aliasDut = (name: string) => `TYPE ${name} : INT;\nEND_TYPE\n`
+const aliasDut = (name: string) => `TYPE ${name} : DWORD;\nEND_TYPE\n`
 
 const METHOD = (n: string, body?: string) => `\nMETHOD ${n} : INT\nVAR_INPUT\n\td : INT;\nEND_VAR\n${body ?? `${n} := d;`}\nEND_METHOD\n`
 const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${body}\nEND_ACTION\n`
@@ -102,9 +103,11 @@ describe(`bridge push API (${BASE})`, () => {
 		// Kinds whose `kind` classification is identical on both vendors.
 		const classified: [string, (n: string) => string, string][] = [
 			["fb", fb, "function_block"],
+			["func", func, "function"],
 			["prog", prog, "program"],
 			["iface", (n) => iface(n), "interface"],
 			["gvl", gvl, "gvl"],
+			["alias", aliasDut, "alias"],
 		]
 		for (const [key, build, kind] of classified) {
 			it(`creates a ${kind}`, async () => {
@@ -115,6 +118,18 @@ describe(`bridge push API (${BASE})`, () => {
 				expect(item.sourceText.length).toBeGreaterThan(0)
 			})
 		}
+		// The create seeds a default type (functions need a return_type, aliases a baseType at create);
+		// these assert the REAL non-INT type survives — i.e. WriteText corrects the seed.
+		it("a function keeps its (non-INT) return type", async () => {
+			const name = id("k_funcRet")
+			await create(name, func(name))
+			expect(await fetchSource(name)).toMatch(/FUNCTION \w+ : BOOL/)
+		})
+		it("an alias keeps its (non-INT) base type", async () => {
+			const name = id("k_aliasBase")
+			await create(name, aliasDut(name))
+			expect(await fetchSource(name)).toContain("DWORD")
+		})
 		// DUT subtypes: create + content round-trip on BOTH vendors, but the exact `kind` differs —
 		// CODESYS refines struct/enum/union/alias from the declaration, TwinCAT reports a single DUT
 		// kind (a known parity gap). So assert the distinguishing CONTENT, not the kind field.
@@ -128,16 +143,6 @@ describe(`bridge push API (${BASE})`, () => {
 				const name = id(`k_${key}`)
 				await create(name, build(name))
 				expect(await fetchSource(name)).toMatch(token)
-			})
-		}
-		// KNOWN BRIDGE GAP (CODESYS): create_pou(function) / create_dut(alias) need a return-type /
-		// base-type the bridge's CreateChild doesn't supply ("return_type out of range" / "baseType
-		// cannot be null"). Tracked so the situation isn't forgotten; un-skip when the create path
-		// threads the type through (needs the CODESYS scripting docs).
-		for (const [key, build] of [["func", func], ["alias", aliasDut]] as [string, (n: string) => string][]) {
-			it.skip(`creates a ${key}  [bridge gap: CODESYS create needs return/base type]`, async () => {
-				const name = id(`k_${key}`)
-				await create(name, build(name))
 			})
 		}
 	})
