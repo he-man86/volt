@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Workspace;
+using Volt.Bridge.Core.Workspace.SourceText;
 
 namespace Volt.Bridge.Beckhoff;
 
@@ -31,7 +32,7 @@ public sealed partial class BeckhoffDriver
             try { child = _om.ChildAt(node, i); } catch { continue; }
             string name;
             try { name = _om.GetName(child); } catch { continue; }
-            int itemType = _om.ItemType(child);
+            int itemType = ClassifiedKind(child);
 
             if (itemType == ItemKind.Folder || itemType == ItemKind.LibraryManager)
             {
@@ -64,7 +65,7 @@ public sealed partial class BeckhoffDriver
             try { device = _om.ChildAt(tiid, i); } catch { continue; }
             string name;
             try { name = _om.GetName(device); } catch { continue; }
-            items.Add(new ProjectItem(name, new ItemRef(device), _om.ItemType(device), false, "I/O Devices"));
+            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), false, "I/O Devices"));
         }
     }
 
@@ -97,9 +98,28 @@ public sealed partial class BeckhoffDriver
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
     public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));
     public string Name(ItemRef item) { try { return _om.GetName(item.Native); } catch { return ""; } }
-    public int KindCode(ItemRef item) => _om.ItemType(item.Native);
+    public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode) => new(_om.CreateChild(parent.Native, name, kindCode));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
+
+    // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.Alias) — the struct/enum/union/alias
+    // distinction lives only in the declaration. Refine it from the decl (shared CodeHelper, the same
+    // basis CODESYS uses), so the wire kind matches across vendors. Only a DUT pays the extra decl read.
+    private int ClassifiedKind(object node)
+    {
+        int raw = _om.ItemType(node);
+        if (raw != ItemKind.Alias) return raw;
+        try { return DutCode(CodeHelper.ParseCodeHeader(_om.ReadDeclaration(node)).Type); }
+        catch { return raw; }
+    }
+
+    private static int DutCode(string type) => type switch
+    {
+        "structure" => ItemKind.Structure,
+        "union" => ItemKind.Union,
+        "enumeration" => ItemKind.Enumeration,
+        _ => ItemKind.Alias,
+    };
 }
