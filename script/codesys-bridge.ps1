@@ -92,7 +92,9 @@ function Stop-Codesys {
 
 function Invoke-Down {
     Write-Host "Stopping bridge ..."
-    try { & curl.exe -s --max-time 4 -X POST "$base/shutdown" | Out-Null } catch {}
+    # `--data ""` sends an explicit Content-Length: 0. A body-less POST is rejected by HTTP.sys with
+    # 411 before it reaches the handler (the production connector uses fetch(), which sets it for us).
+    try { & curl.exe -s --max-time 4 -X POST --data "" "$base/shutdown" | Out-Null } catch {}
     New-Item -ItemType File -Path $stopFlag -Force | Out-Null   # backup signal for the pump loop
     Start-Sleep -Milliseconds 800
     Stop-Codesys

@@ -43,6 +43,21 @@ Graphical/  graphical materialize ─ PlcOpen XML  ⇄  VG text
 Top-level `BridgeException` (the error type the wire boundary catches) and `Polyfills`
 (`init`-setter shim for netstandard2.0) are leaf utilities used everywhere.
 
+### Protocol invariant: the item **name** is the identity
+
+The whole wire is keyed by bare item name — `/refs` `items`/`kinds`/`folders`, `/fetch`
+`knownItems`, every push op, `structureVersion` (hash of sorted *names*), and the workspace's
+"one item per file" layout. This is deliberate and load-bearing across the bridge, `volt-cli`
+(merge/snapshot/commands) and `volt-vscode`.
+
+Consequence: two items with the **same name** collapse in the version map (last-write-wins). This
+is a non-issue for **source** items (POUs/DUTs/GVLs/interfaces) — IEC guarantees their names are
+unique within a PLC project. It *can* happen for **opaque non-source** items (e.g. CODESYS surfaces
+one `Library Manager` per device/application), which the AI never edits. Keying by `folder+name`
+would fix it but is a breaking redesign of the core identity across all three packages — not worth
+it for opaque-metadata-only collisions, so the bare-name key stands. **Do not add a "duplicate name"
+guard that throws** — a real project legitimately repeats these names, and throwing breaks `/refs`.
+
 ---
 
 ## A bridge — three parts
