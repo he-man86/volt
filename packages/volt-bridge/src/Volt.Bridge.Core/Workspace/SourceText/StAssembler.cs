@@ -55,18 +55,29 @@ public static class StAssembler
 		{
 			sb.Append('\n').Append('\n').Append(implTrim);
 		}
-		sb.Append('\n').Append('\n').Append(EndKeyword(kind));
 
-		var children = NormalizeChildren(childrenRaw);
-		var sorted = children
+		var children = NormalizeChildren(childrenRaw)
 			.OrderBy(ch => KindOrder(ch.Kind))
 			.ThenBy(ch => ch.Name, StringComparer.Ordinal)
 			.ToList();
 
-		foreach (var child in sorted)
+		void AppendChildren()
 		{
-			sb.Append('\n').Append('\n');
-			sb.Append(AssembleChild(child));
+			foreach (var child in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(child)); }
+		}
+
+		// An interface's members live INSIDE the INTERFACE…END_INTERFACE block (StSplitter parses them
+		// from there); an FB's methods are siblings AFTER END_FUNCTION_BLOCK. Emit accordingly, or the
+		// two disagree and interface members are dropped on the next split.
+		if (kind == "interface")
+		{
+			AppendChildren();
+			sb.Append('\n').Append('\n').Append(EndKeyword(kind));
+		}
+		else
+		{
+			sb.Append('\n').Append('\n').Append(EndKeyword(kind));
+			AppendChildren();
 		}
 
 		sb.Append('\n'); // trailing newline

@@ -78,7 +78,8 @@ const fb = (name: string, opts: { vars?: string; body?: string; children?: strin
 // Non-INT return/base types on purpose: the create seeds "INT", so these prove WriteText corrects it.
 const func = (name: string) => `FUNCTION ${name} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n\n${name} := a > 0;\nEND_FUNCTION\n`
 const prog = (name: string) => `PROGRAM ${name}\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 1;\nEND_PROGRAM\n`
-const iface = (name: string, members = "") => `INTERFACE ${name}\nEND_INTERFACE\n${members}`
+// Interface members live INSIDE the INTERFACE…END_INTERFACE block (not after, like FB methods).
+const iface = (name: string, members = "") => `INTERFACE ${name}\n${members}END_INTERFACE\n`
 const gvl = (name: string) => `VAR_GLOBAL\n\t${name}_g : INT := 7;\nEND_VAR\n`
 const structDut = (name: string) => `TYPE ${name} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\nEND_STRUCT\nEND_TYPE\n`
 const enumDut = (name: string) => `TYPE ${name} :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE\n`
@@ -189,11 +190,9 @@ describe(`bridge push API (${BASE})`, () => {
 			expect(s).toContain("ACTION A1")
 			expect(s).toContain("PROPERTY P1")
 		})
-		// KNOWN BRIDGE GAP (CODESYS): pushing an interface with members creates the interface but not its
-		// methods/properties (comes back empty). Tracked; un-skip when interface-member create works.
-		it.skip("interface with a method + property  [bridge gap: members not created on CODESYS]", async () => {
+		it("interface with a method + property (members inside the block)", async () => {
 			const name = id("cIface")
-			await create(name, iface(name, `\nMETHOD DoIt : INT\nEND_METHOD\n` + `\nPROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\n`))
+			await create(name, iface(name, `METHOD DoIt : INT\nEND_METHOD\nPROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\n`))
 			const s = await fetchSource(name)
 			expect(s).toContain("METHOD DoIt")
 			expect(s).toContain("PROPERTY Ready")
