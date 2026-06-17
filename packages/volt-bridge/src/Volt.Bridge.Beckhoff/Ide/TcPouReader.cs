@@ -37,6 +37,8 @@ internal static class TcPouReader
         var v = impl?.Elements("v").FirstOrDefault(e => (string?)e.Attribute("n") == "DefaultViewMode")?.Value
                 ?? "\"FBD\"";
         if (v.Length >= 2 && v[0] == '"' && v[v.Length - 1] == '"') v = v.Substring(1, v.Length - 2);
-        return v.ToUpperInvariant();
+        // An NWL body is FBD or LD only. Clamp to the two known values rather than passing an unexpected
+        // (future/typo) view-mode through as if it were a valid graphical language; default to FBD.
+        return v.ToUpperInvariant() == "LD" ? "LD" : "FBD";
     }
 }

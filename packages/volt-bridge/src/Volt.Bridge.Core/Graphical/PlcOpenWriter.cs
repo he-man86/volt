@@ -58,8 +58,10 @@ namespace Volt.Bridge.Core.Graphical
                 {
                     // The comment must live in its network's localId range (index = localId / 10^10),
                     // high within it to avoid colliding with the content nodes — a stray index (e.g.
-                    // an out-of-range localId) makes CODESYS reject the whole import.
-                    long netIndex = net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0;
+                    // an out-of-range localId) makes CODESYS reject the whole import. Use the network's
+                    // authoritative Order (not the first node's localId, which is absent for an
+                    // empty/comment-only network → would wrongly land the comment in network 0).
+                    long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
                     long commentId = netIndex * NetworkStride + 9_000_000L + commentSeq++;
                     root.Add(new XElement(Ns + "comment",
                         new XAttribute("localId", commentId), new XAttribute("height", 0), new XAttribute("width", 0),

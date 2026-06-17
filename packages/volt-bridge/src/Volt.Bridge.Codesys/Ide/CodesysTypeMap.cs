@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Volt.Bridge.Core.Workspace;
 
 namespace Volt.Bridge.Codesys
@@ -92,7 +93,9 @@ namespace Volt.Bridge.Codesys
             var u = (decl ?? "").ToUpperInvariant();
             if (u.IndexOf("STRUCT", StringComparison.Ordinal) >= 0) return ItemKind.Structure;
             if (u.IndexOf("UNION", StringComparison.Ordinal) >= 0) return ItemKind.Union;
-            if (u.IndexOf('(') >= 0 && u.IndexOf(':') >= 0) return ItemKind.Enumeration;  // TYPE x : (a,b,c);
+            // Enum value-list form `TYPE x : (a,b,c);` — match the colon IMMEDIATELY followed by '(', not
+            // any '(' anywhere (an alias whose comment contains a paren would otherwise misclassify).
+            if (Regex.IsMatch(u, @":\s*\(")) return ItemKind.Enumeration;
             return ItemKind.Alias;
         }
 

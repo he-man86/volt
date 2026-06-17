@@ -54,7 +54,7 @@ const FB_WITH_PROPERTY = (name: string) =>
 
 function generateName(id: string): string { return `${PREFIX}_${id}` }
 
-const ALL_TEST_NAMES = ["simple","root","nested","withAction","withMethods","withProp","multiChild","folderRT","fidBase","fidComplex","fidIdem","upd1","upd2","upd3","del1","del2","renOld","renNew","batchNew","batchUpd","batchDel","batchRej1","batchRej2","fid1","fid2"].map(generateName)
+const ALL_TEST_NAMES = ["simple","root","nested","withAction","withMethods","withProp","multiChild","folderRT","fidBase","fidComplex","fidIdem","upd1","upd2","upd3","del1","del2","renOld","renNew","mv1","mv2","batchNew","batchUpd","batchDel","batchRej1","batchRej2","fid1","fid2"].map(generateName)
 
 describe("bridge push API", () => {
 	beforeAll(async () => {
@@ -228,6 +228,62 @@ describe("bridge push API", () => {
 		})
 	})
 
+	describe("moveItem", () => {
+		it("moves a simple FB to a new folder", async () => {
+			const name = generateName("mv1")
+			await push([{ op: "pushItem", name, folder: "POUs", sourceText: FB_SRC(name, "speed := 1;"), ifVersion: null }])
+
+			const refs = await get("/refs")
+			const r = await push([{ op: "moveItem", name, newFolder: "POUs/Moved", ifVersion: refs.items[name] }])
+			expect(r.accepted).toBe(true)
+
+			const fetched = await post("/fetch", { knownItems: {}, onlyItems: [name] })
+			const item = fetched.changed.find((i: any) => i.name === name)
+			expect(item).toBeDefined()
+			expect(item.folder).toBe("POUs/Moved")              // relocated
+			expect(item.sourceText).toContain("speed := 1")     // body preserved
+		})
+
+		it("moving an FB with methods preserves its children (the data-loss regression)", async () => {
+			const name = generateName("mv2")
+			await push([{ op: "pushItem", name, folder: "POUs", sourceText: FB_WITH_METHODS(name), ifVersion: null }])
+
+			const refs = await get("/refs")
+			const r = await push([{ op: "moveItem", name, newFolder: "POUs/Relocated", ifVersion: refs.items[name] }])
+			expect(r.accepted).toBe(true)
+
+			const fetched = await post("/fetch", { knownItems: {}, onlyItems: [name] })
+			const item = fetched.changed.find((i: any) => i.name === name)
+			expect(item).toBeDefined()
+			expect(item.folder).toBe("POUs/Relocated")          // relocated
+			expect(item.sourceText).toContain("METHOD Accelerate")  // children survived the move
+			expect(item.sourceText).toContain("METHOD Stop")
+		})
+	})
+
+	// Graphical bodies (FBD/LD) CANNOT be created from scratch — the bridge authors ST only and
+	// round-trips EXISTING IDE-authored graphical POUs as VG text. So this discovers a graphical POU
+	// already in the project and verifies that pushing its VG back is a byte-identical fixed point (the
+	// guarantee the workspace relies on). It MUTATES the discovered POU, so it is safe ONLY against a
+	// throwaway/headless project — never a live engineering session. Skips cleanly if the project has no
+	// POU of that language (e.g. most projects have no LD).
+	describe("graphical round-trip (FBD/LD)", () => {
+		async function roundTripExisting(lang: string): Promise<void> {
+			const all = await fetchAll()
+			const g = all.changed.find((i: any) => i.language === lang)
+			if (!g) { console.warn(`no ${lang} POU in project — skipping ${lang} round-trip`); return }
+			const s1: string = g.sourceText
+			expect(s1).toContain("NETWORK")                        // it really is a graphical network body
+			const refs = await get("/refs")
+			const r = await push([{ op: "pushItem", name: g.name, folder: g.folder, sourceText: s1, ifVersion: refs.items[g.name] }])
+			expect(r.accepted).toBe(true)
+			const s2: string = (await post("/fetch", { knownItems: {}, onlyItems: [g.name] })).changed.find((i: any) => i.name === g.name).sourceText
+			expect(s2).toBe(s1)                                    // VG round-trip is a fixed point — no drift
+		}
+		it("an existing FBD POU is a byte-identical fixed point", async () => { await roundTripExisting("FBD") })
+		it("an existing LD POU is a byte-identical fixed point", async () => { await roundTripExisting("LD") })
+	})
+
 	describe("batch operations", () => {
 		it("create + update + delete in one batch", async () => {
 			const newName = generateName("batchNew")
@@ -318,11 +374,13 @@ describe("bridge push API", () => {
 		//                     multiple actions.
 		//   CM_Carrier      — actions in an "Errors" sub-folder, inside nested project folders.
 		//   PackML_ErrorSet — a PROPERTY with GET/SET accessors (canonical END_GET/END_SET).
+		// Child sub-folders ride as a `%FOLDER <path>` directive at the TOP of the child body (the current
+		// form — it replaced the old inline `(* folder: … *)` signature comment).
 		const COMPLEX = (name: string, base: string) =>
 			`FUNCTION_BLOCK ${name} EXTENDS ${base}\nVAR\n\tx : INT;\nEND_VAR\n\nx := x + 1;\nEND_FUNCTION_BLOCK\n` +
-			`\nACTION A1_First    (* folder: Group One *)\nx := 1;\nEND_ACTION\n` +
-			`\nACTION A2_Second    (* folder: Group One *)\nx := 2;\nEND_ACTION\n` +
-			`\nACTION B1_Other    (* folder: Group Two *)\nx := 3;\nEND_ACTION\n` +
+			`\nACTION A1_First\n%FOLDER Group One\nx := 1;\nEND_ACTION\n` +
+			`\nACTION A2_Second\n%FOLDER Group One\nx := 2;\nEND_ACTION\n` +
+			`\nACTION B1_Other\n%FOLDER Group Two\nx := 3;\nEND_ACTION\n` +
 			`\nMETHOD DoWork : INT\nVAR_INPUT\n\td : INT;\nEND_VAR\nDoWork := x + d;\nEND_METHOD\n` +
 			`\nPROPERTY Speed : INT\nGET\n\tSpeed := x;\nEND_GET\nSET\n\tx := Speed;\nEND_SET\nEND_PROPERTY\n`
 
@@ -348,9 +406,9 @@ describe("bridge push API", () => {
 			expect(item.folder).toBe("POUs/Deep/Nest")                 // deep project folder preserved
 			const st: string = item.sourceText
 			expect(st).toContain(`EXTENDS ${base}`)                    // inheritance
-			expect(st).toMatch(/ACTION A1_First\s+\(\* folder: Group One \*\)/)
-			expect(st).toMatch(/ACTION A2_Second\s+\(\* folder: Group One \*\)/)
-			expect(st).toMatch(/ACTION B1_Other\s+\(\* folder: Group Two \*\)/) // sub-folder name w/ space
+			expect(st).toMatch(/ACTION A1_First\s+%FOLDER Group One/)
+			expect(st).toMatch(/ACTION A2_Second\s+%FOLDER Group One/)
+			expect(st).toMatch(/ACTION B1_Other\s+%FOLDER Group Two/) // sub-folder name w/ space
 			expect(st).toContain("METHOD DoWork")
 			expect(st).toMatch(/PROPERTY Speed[\s\S]*END_GET[\s\S]*END_SET[\s\S]*END_PROPERTY/) // property accessors
 		})

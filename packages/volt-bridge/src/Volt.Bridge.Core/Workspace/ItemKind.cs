@@ -76,7 +76,9 @@ public static class ItemKind
     public const int TaskConfig = 693;     // Task Configuration → its tasks emit as `task`
 
     // ── sentinels ───────────────────────────────────────────────────────
-    public const int Unknown = 0;
+    // Distinct from SystemRoot (0, a real TwinCAT code): a node we couldn't classify must NOT collapse
+    // onto system_root and get phantom-emitted — it maps to null (skip). See Map()'s default arm.
+    public const int Unknown = -2;
     public const int Skip = -1;            // transient/hidden/unrecognized → never emitted
 
     /// <summary>Code → vendor-neutral kind string (null = not a tracked wire item).</summary>

@@ -129,15 +129,30 @@ public static class PushService
                 ide.Rename(ren, newName);
                 break;
             case MoveItemOp { NewFolder: { } newFolder } when existing is { } mv:
-                var decl = ide.ReadDeclaration(mv);
-                var impl = ide.ReadImplementation(mv);
-                var itype = ide.KindCode(mv);
-                ide.Delete(ide.Parent(mv), name);
-                var tp = ResolveFolder(ide, parent, newFolder);
-                var created = ide.CreateChild(tp, name, itype);
-                ide.WriteText(created, decl, impl);
+                MoveItem(ide, parent, name, mv, newFolder);
                 break;
         }
+    }
+
+    /// <summary>Move an item to a new folder by full-fidelity recreate (declaration + implementation +
+    /// children), so a moved FB never loses its methods/actions/properties the way a text-only recreate
+    /// would. Graphical bodies can't be recreated from scratch, so a move of a graphical item is REFUSED
+    /// before any deletion rather than silently corrupting it — reorganize those in the IDE, then pull.</summary>
+    private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder)
+    {
+        var code = ide.KindCode(item);
+        var kind = ItemKind.Map(code, ItemKind.IsTopLevelCrud(code));
+        if (kind == null || !Materializer.IsSourceKind(kind))
+            throw new BridgeException(400, "UNSUPPORTED", $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
+
+        var src = Materializer.Materialize(ide, name, kind, item).Text;
+        var split = StSplitter.SplitSt(src);
+        if (VgBody.Is(split.PouImplementation) || split.Children.Any(c => VgBody.Is(c.Implementation)))
+            throw new BridgeException(400, "UNSUPPORTED",
+                $"cannot move graphical item '{name}' — reorganize it in the IDE, then pull");
+
+        ide.Delete(ide.Parent(item), name);
+        WriteItemFromSource(ide, parent, name, existing: null, src, newFolder);
     }
 
     private static void ApplyPushItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, PushItemOp pushOp)
@@ -145,12 +160,18 @@ public static class PushService
         var src = pushOp.SourceText ?? "";
         if (string.IsNullOrWhiteSpace(src))
             throw new BridgeException(400, "BAD_REQUEST", "pushItem missing 'sourceText'");
+        WriteItemFromSource(ide, parent, name, existing, src, pushOp.Folder);
+    }
 
+    /// <summary>Create-or-update an item and its children from full canonical .st source. Shared by
+    /// pushItem and the moveItem recreate, so both apply identical full-fidelity write semantics.</summary>
+    private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
+    {
         var split = StSplitter.SplitSt(src);
         var decl = split.PouDeclaration ?? "";
         var impl = split.PouImplementation ?? "";
         var itemType = PouKindToCode(split.PouKind);
-        var targetParent = ResolveFolder(ide, parent, pushOp.Folder);
+        var targetParent = ResolveFolder(ide, parent, folder);
 
         // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
@@ -189,7 +210,10 @@ public static class PushService
             }
 
             var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, ChildKindToCode(child.Kind));
-            ide.WriteText(childItem, child.Declaration, child.Implementation);
+            // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
+            // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
+            var childDecl = child.Kind == "action" ? null : child.Declaration;
+            ide.WriteText(childItem, childDecl, child.Implementation);
 
             if (child.Kind == "property")
             {

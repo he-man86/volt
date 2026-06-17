@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
 
@@ -22,7 +21,6 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     private readonly object _cacheLock = new();
     private string? _projectName;
     private bool _projectDirty;
-    private bool _probeInFlight;
 
     public CodesysDriver(object? projects)
     {
@@ -51,20 +49,11 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         return BuildHealth("codesys", IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, name, dirty);
     }
 
-    public void TriggerAsyncProbe()
+    public void TriggerAsyncProbe() => RunProbeOnce(() =>
     {
-        lock (_cacheLock) { if (_probeInFlight) return; _probeInFlight = true; }
-        Task.Run(() =>
-        {
-            try
-            {
-                var (n, d) = RunOnStaThread(() => (_om.ProjectName, _om.ProjectDirty));
-                lock (_cacheLock) { _projectName = n; _projectDirty = d; }
-            }
-            catch { /* probe is best-effort — health keeps the last snapshot (sanctioned degraded-state plumbing) */ }
-            finally { lock (_cacheLock) _probeInFlight = false; }
-        });
-    }
+        var (n, d) = RunOnStaThread(() => (_om.ProjectName, _om.ProjectDirty));
+        lock (_cacheLock) { _projectName = n; _projectDirty = d; }
+    });
 
     public void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 

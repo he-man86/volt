@@ -57,6 +57,16 @@ internal static class RotInstances
         return null;
     }
 
+    /// <summary>The first running DTE instance as (rotDisplayName, dteObject), or null if none are
+    /// running. Version-agnostic — whatever the ROT lists (any Visual Studio / TcXaeShell), so the
+    /// no-target auto-attach future-proofs the same way the instance picker already does. The display
+    /// name is the instance id understood by <see cref="Bind"/> and <see cref="ProgId"/>.</summary>
+    public static (string InstanceId, object Dte)? First()
+    {
+        foreach (var hit in RunningDtes()) return hit;
+        return null;
+    }
+
     /// <summary>All running instances + their projects/PLC projects.</summary>
     public static List<TcInstance> Enumerate()
     {
@@ -110,10 +120,18 @@ internal static class RotInstances
         return plcs;
     }
 
-    public static string? IdeName(string moniker) =>
-        moniker.IndexOf("DTE.17", StringComparison.OrdinalIgnoreCase) >= 0 ? "Visual Studio 2022" :
-        moniker.IndexOf("DTE.16", StringComparison.OrdinalIgnoreCase) >= 0 ? "Visual Studio 2019" :
-        moniker.IndexOf("TcXaeShell", StringComparison.OrdinalIgnoreCase) >= 0 ? "TcXaeShell" : null;
+    /// <summary>A coarse host-FAMILY name derived from a ProgID/moniker — "Visual Studio" / "TcXaeShell"
+    /// / the raw string for anything else. Deliberately NO per-version table (e.g. 17.0→"2022"): that is
+    /// hardcoded version knowledge that goes stale every IDE release, and the exact version is already
+    /// carried separately (DTE.Version). Substring family detection is forward-proof — a newer Visual
+    /// Studio / TcXaeShell still resolves correctly.</summary>
+    public static string? IdeName(string? progIdOrMoniker)
+    {
+        if (string.IsNullOrEmpty(progIdOrMoniker)) return null;
+        if (progIdOrMoniker!.IndexOf("TcXaeShell", StringComparison.OrdinalIgnoreCase) >= 0) return "TcXaeShell";
+        if (progIdOrMoniker.IndexOf("VisualStudio.DTE", StringComparison.OrdinalIgnoreCase) >= 0) return "Visual Studio";
+        return progIdOrMoniker;
+    }
 
     /// <summary>"!VisualStudio.DTE.17.0:1234" → "VisualStudio.DTE.17.0".</summary>
     public static string? ProgId(string moniker)

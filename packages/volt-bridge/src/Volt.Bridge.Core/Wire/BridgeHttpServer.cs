@@ -94,7 +94,7 @@ public sealed class BridgeHttpServer
         if (!_running) return;
         HttpListenerContext ctx;
         try { ctx = _listener!.EndGetContext(ar); }
-        catch { return; }
+        catch { if (_running) ArmNext(); return; }   // transient accept error (not shutdown) → keep listening
         ArmNext();
         try { Handle(ctx); } catch { /* never let a handler kill the accept loop */ }
     }
@@ -165,26 +165,25 @@ public sealed class BridgeHttpServer
     }
 
     private static void Write(HttpListenerContext ctx, int status, object payload)
-    {
-        var buf = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload, Json));
-        ctx.Response.StatusCode = status;
-        ctx.Response.ContentType = "application/json; charset=utf-8";
-        ctx.Response.ContentLength64 = buf.Length;
-        ctx.Response.OutputStream.Write(buf, 0, buf.Length);
-        ctx.Response.OutputStream.Close();
-    }
+        => WriteBytes(ctx, status, "application/json; charset=utf-8",
+            Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload, Json)));
 
     private static void WriteError(HttpListenerContext ctx, int status, string code, string message) =>
         Write(ctx, status, new { error = new { code, message } });
 
     private static void WriteText(HttpListenerContext ctx, int status, string contentType, string body)
+        => WriteBytes(ctx, status, contentType, Encoding.UTF8.GetBytes(body));
+
+    private static void WriteBytes(HttpListenerContext ctx, int status, string contentType, byte[] buf)
     {
-        var buf = Encoding.UTF8.GetBytes(body);
         ctx.Response.StatusCode = status;
         ctx.Response.ContentType = contentType;
         ctx.Response.ContentLength64 = buf.Length;
-        ctx.Response.OutputStream.Write(buf, 0, buf.Length);
-        ctx.Response.OutputStream.Close();
+        // Always close the response, even if the write fails mid-stream (client disconnect) — otherwise
+        // the request leaks. The serialize-then-set-headers order above means a serialization failure
+        // never half-sends a response; only a transport write can throw here.
+        try { ctx.Response.OutputStream.Write(buf, 0, buf.Length); }
+        finally { try { ctx.Response.OutputStream.Close(); } catch { /* already torn down */ } }
     }
 
     // The hand-maintained OpenAPI contract is embedded (see the .csproj EmbeddedResource); the server
