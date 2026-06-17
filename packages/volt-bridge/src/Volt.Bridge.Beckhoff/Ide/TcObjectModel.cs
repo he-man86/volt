@@ -188,8 +188,15 @@ internal sealed class TcObjectModel
     // — that's the real SystemRoot code), so an unreadable node is skipped, never phantom-emitted.
     public int ItemType(object node) { try { return (int)((dynamic)node).ItemType; } catch { return ItemKind.Unknown; } }
 
-    public object CreateChild(object parent, string name, int kindCode) =>
-        (object)((dynamic)parent).CreateChild(name, kindCode, "", "ST");
+    public object CreateChild(object parent, string name, int kindCode)
+    {
+        // The 4th arg (vInfo) is the implementation language for a POU body. TwinCAT rejects ANY String
+        // vInfo for a FUNCTION ("vInfo (Type: String) not supported"); a function takes no body-language
+        // vInfo, so omit it (Type.Missing) for functions and pass the language for everything else.
+        return kindCode == ItemKind.Function
+            ? (object)((dynamic)parent).CreateChild(name, kindCode, "", System.Type.Missing)
+            : (object)((dynamic)parent).CreateChild(name, kindCode, "", "ST");
+    }
     public void DeleteChild(object parent, string name) => ((dynamic)parent).DeleteChild(name);
     public void Rename(object node, string newName) => ((dynamic)node).Name = newName;
 

@@ -124,10 +124,7 @@ describe(`bridge push API (${BASE})`, () => {
 				expect(item.sourceText.length).toBeGreaterThan(0)
 			})
 		}
-		// `function` create: works on CODESYS; TwinCAT rejects the vInfo for a function POU
-		// ("vInfo (Type: String) is not supported") — a TC create-API gap, tracked, see memory.
 		it("creates a function", async () => {
-			if (await isTwinCAT()) { console.warn("TC: function create vInfo gap — skipping"); return }
 			const name = id("k_func")
 			await create(name, func(name))
 			expect((await fetchItem(name)).kind).toBe("function")
@@ -135,7 +132,6 @@ describe(`bridge push API (${BASE})`, () => {
 		// The create seeds a default type (functions need a return_type, aliases a baseType at create);
 		// these assert the REAL non-INT type survives — i.e. WriteText corrects the seed.
 		it("a function keeps its (non-INT) return type", async () => {
-			if (await isTwinCAT()) { console.warn("TC: function create vInfo gap — skipping"); return }
 			const name = id("k_funcRet")
 			await create(name, func(name))
 			expect(await fetchSource(name)).toMatch(/FUNCTION \w+ : BOOL/)
