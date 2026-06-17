@@ -60,40 +60,46 @@ namespace Volt.Bridge.Core.Graphical
             return string.IsNullOrEmpty(text) ? null : text;
         }
 
-        /// <summary>Replace the document's <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c> body with
-        /// <paramref name="newBody"/> and return the updated XML. Throws if there is no graphical
-        /// body to replace (a loud failure — never a silent no-op).</summary>
+        /// <summary>
+        /// Replace or insert a graphical body. When the document already has an <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
+        /// body, the existing body is validated (nothing silently lost) and replaced in-place — the original
+        /// wrapper element (name + attributes) is kept, only children are swapped. When no graphical body
+        /// exists (first write onto a textual POU), the new body is inserted directly into the
+        /// <c>&lt;body&gt;</c> parent — there is nothing to validate because the original ST body is
+        /// discarded in its entirety.</summary>
         public static string SpliceFbdLdBody(string xml, XElement newBody)
         {
             var doc = XDocument.Parse(xml);
-            var body = FindFbdLd(doc)
-                ?? throw new InvalidOperationException("PLCopen document has no FBD/LD body to write");
+            var existing = FindFbdLd(doc);
+            if (existing is not null)
+            {
+                ValidateExisting(doc, existing);
+                existing.ReplaceNodes(newBody.Elements());
+            }
+            else
+            {
+                InlineInsert(doc, newBody);
+            }
+            return doc.ToString();
+        }
 
-            // Safety: replacing the body would silently DROP any element the VG editor can't
-            // reproduce. The round-trip can only reproduce inVariable/outVariable/block
-            // (vendorElement is cosmetic editor metadata, safe to drop). Anything else
-            // (jump/label/return/comment/contact/coil/power rails/connector/continuation/
-            // inOutVariable) would be lost — refuse the write instead, so the push is rejected
-            // cleanly and the original is kept. (Lift this as each feature gains VG support.)
-            var lost = body.Elements()
+        /// <summary>Validate an existing body before replacing it: no element the VG editor cannot
+        /// reproduce is silently dropped, no disabled/hidden network is lost, and no block structure
+        /// the editor cannot round-trip is overwritten. These checks run ONLY on the existing-body path
+        /// — a first write has nothing to lose, so validation is skipped.</summary>
+        private static void ValidateExisting(XDocument doc, XElement existing)
+        {
+            var lost = existing.Elements()
                 .Select(e => e.Name.LocalName)
-                .Where(n => !Representable.Contains(n))
+                .Where(n => !SafeToDrop.Contains(n))
                 .Distinct()
                 .ToList();
             if (lost.Count > 0)
                 throw new InvalidOperationException(
-                    "refusing to write this graphical body: it contains element(s) the editor cannot " +
+                    "refusing to write this graphical body: it contains element(s) the VG editor cannot " +
                     "represent yet (" + string.Join(", ", lost) + "). Edit this POU in the IDE instead.");
 
-            // Safety: a DISABLED (out-commented) network is omitted from the export entirely — it
-            // leaves no element for the check above, only a gap in the localId-derived network
-            // numbering (network index = localId / 10^10). Replacing the whole body would delete it
-            // with nothing to detect. If the surviving networks aren't contiguous, a hidden network
-            // sat in the gap → refuse, so the push is rejected cleanly instead of silently dropping
-            // it. (Caveat: a disabled FIRST or LAST network leaves no interior gap and is invisible
-            // here — the PLCopen export carries no network count to catch that. An enabled-but-empty
-            // network also reads as a gap and is refused, which is safe.)
-            var indices = body.Elements()
+            var indices = existing.Elements()
                 .Select(e => (long?)e.Attribute("localId"))
                 .Where(id => id.HasValue)
                 .Select(id => id!.Value / NetworkStride)
@@ -103,48 +109,52 @@ namespace Volt.Bridge.Core.Graphical
             if (indices.Count > 1 && indices[indices.Count - 1] - indices[0] + 1 != indices.Count)
                 throw new InvalidOperationException(
                     "refusing to write this graphical body: there is a gap in the network numbering, " +
-                    "which means a disabled or hidden network the editor cannot see would be lost. " +
+                    "which means a disabled or hidden network would be lost. " +
                     "Edit this POU in the IDE instead.");
 
-            // The element-name guard above only sees TOP-LEVEL nodes — it is blind to structure
-            // INSIDE a <block> and to per-pin attributes. VG models a block's input pins (with their
-            // modifiers), its output pin NAMES, and single-wire inputs — but NOT: in-out pins, output-
-            // pin modifiers, or a pin wired from multiple sources. Overwriting such a block would
-            // silently drop them, so refuse here too (same policy as the element guard).
-            var ns = body.Name.Namespace;
+            var ns = existing.Name.Namespace;
             var blind = new List<string>();
-            if (body.Descendants(ns + "inOutVariables").Any(io => io.Elements(ns + "variable").Any()))
+            if (existing.Descendants(ns + "inOutVariables").Any(io => io.Elements(ns + "variable").Any()))
                 blind.Add("a block in-out pin (<inOutVariables>)");
-            if (body.Descendants(ns + "outputVariables").Elements(ns + "variable").Any(HasPinMod))
+            if (existing.Descendants(ns + "outputVariables").Elements(ns + "variable").Any(HasPinMod))
                 blind.Add("a modifier on a block output pin (negated/edge/storage)");
-            if (body.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
+            if (existing.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
                 blind.Add("a pin wired from multiple sources");
-            // A stateless function (no instanceName) with several outputs can't be referenced by pin in
-            // VG (an operator/function result is the bare temp gN); only FB INSTANCES round-trip their
-            // multiple outputs (inst.Q/inst.ET). Refuse rather than silently drop the extra outputs.
-            if (body.Descendants(ns + "block").Any(b => (string?)b.Attribute("instanceName") == null
+            if (existing.Descendants(ns + "block").Any(b => (string?)b.Attribute("instanceName") == null
                     && (b.Element(ns + "outputVariables")?.Elements(ns + "variable").Count() ?? 0) > 1))
                 blind.Add("a stateless function with multiple outputs");
             if (blind.Count > 0)
                 throw new InvalidOperationException(
-                    "refusing to write this graphical body: it has structure the editor cannot " +
+                    "refusing to write this graphical body: it has structure the VG editor cannot " +
                     "represent yet (" + string.Join("; ", blind.Distinct()) + "). Edit this POU in the IDE instead.");
+        }
 
-            // Keep the ORIGINAL <FBD>/<LD> wrapper (its name + attributes) and only swap the body
-            // contents. The vendor chose the wrapper — TwinCAT exports an LD body as <FBD> and keeps
-            // its ladder view in separate DefaultViewMode metadata — so replacing the element could
-            // flip the editor's view or be rejected on import. The element name is cosmetic to us;
-            // the children ARE the body.
-            body.ReplaceNodes(newBody.Elements());
-            return doc.ToString();
+        /// <summary>Insert a graphical body for the first time — replace whatever is inside
+        /// <c>&lt;body&gt;</c> (typically an ST body) with the new FBD/LD element. No validation
+        /// needed: the original textual body is discarded and nothing of value is lost.</summary>
+        private static void InlineInsert(XDocument doc, XElement newBody)
+        {
+            var ns = doc.Root!.GetDefaultNamespace();
+            var pouBody = doc.Descendants(ns + "body").FirstOrDefault()
+                ?? throw new InvalidOperationException("PLCopen document has no <body> element");
+            pouBody.RemoveNodes();
+            pouBody.Add(newBody);
         }
 
         /// <summary>Network index lives in the high digits of every localId (mirrors
         /// <see cref="PlcOpenReader"/>'s grouping: network index = localId / 10^10).</summary>
         private const long NetworkStride = 10_000_000_000L;
 
-        private static readonly System.Collections.Generic.HashSet<string> Representable =
-            new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement" };
+        /// <summary>Elements the VG editor either represents explicitly (inVariable, outVariable, block)
+        /// or can safely discard because they are cosmetic presentation metadata, not functional logic.
+        /// <c>vendorElement</c> is editor-specific rendering info. <c>leftPowerRail</c>/<c>rightPowerRail</c>
+        /// are CODESYS LD power rails that the IDE regenerates on import (TwinCAT wraps LD in an
+        /// <c>&lt;FBD&gt;</c> body and stores ladder view in separate metadata, so they never appear).
+        /// Adding a genuinely structural element here without VG support would silently drop it — every
+        /// entry in this set must be affirmatively confirmed as cosmetic.</summary>
+        private static readonly System.Collections.Generic.HashSet<string> SafeToDrop =
+            new() { "inVariable", "outVariable", "block", "label", "jump", "return", "comment", "vendorElement",
+                    "leftPowerRail", "rightPowerRail" };
 
         /// <summary>A pin <c>&lt;variable&gt;</c> carries a modifier VG can't reproduce on an output
         /// (negation / edge / set-reset storage). "none"/absent = no modifier.</summary>

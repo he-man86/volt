@@ -22,13 +22,23 @@ public sealed partial class BeckhoffDriver
 
     public string ReadXml(ItemRef item) => _om.ExportPouXml(item.Native);
 
-    /// <summary>Import a full PLCopen POU (same-name replace). Capture the original first and restore it
-    /// once on a failed import, then rethrow — a bad edit can't lose the POU.</summary>
+    /// <summary>Import a full PLCopen POU (same-name replace). Delete the existing POU first
+    /// (TC's PlcOpenImport does not replace in-place — it adds, and a name collision fails).
+    /// Capture the original XML before deletion so a failed import can restore it.</summary>
     public void WriteXml(ItemRef item, string xml)
     {
-        var original = _om.ExportPouXml(item.Native);   // restore copy
+        var original = _om.ExportPouXml(item.Native);
+        var parent = _om.Parent(item.Native);
+        var name = _om.GetName(item.Native);
+        _om.DeleteChild(parent, name);
         try { _om.ImportPlcOpenXml(xml); }
-        catch { _om.ImportPlcOpenXml(original); throw; } // single restore attempt, then rethrow
+        catch
+        {
+            // Restore: re-import the original POU. If this also fails, the POU is lost —
+            // a loud failure is correct.
+            _om.ImportPlcOpenXml(original);
+            throw;
+        }
     }
 
     // ── non-source manifest ──

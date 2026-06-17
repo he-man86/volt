@@ -59,7 +59,7 @@ public sealed partial class CodesysDriver
     public ItemRef Parent(ItemRef item) => new(_om.ParentOf(item.Native)!);
     public string Name(ItemRef item) => item.Native is LibRefNode lib ? lib.Name : _om.GetName(item.Native);
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode) => new(_om.CreateChild(parent.Native, name, kindCode));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 

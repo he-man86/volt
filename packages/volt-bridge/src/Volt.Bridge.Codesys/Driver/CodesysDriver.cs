@@ -69,6 +69,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
                 Severity = m.TryGetValue("severity", out var s) ? s as string ?? "info" : "info",
                 Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
                 Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
+                Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
             };
         }).ToList();
 }

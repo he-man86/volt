@@ -19,6 +19,9 @@ public class BridgeDiagnostic
 
     [JsonPropertyName("line")]
     public int Line { get; set; }
+
+    [JsonPropertyName("column")]
+    public int Column { get; set; }
 }
 
 public class BuildResponse

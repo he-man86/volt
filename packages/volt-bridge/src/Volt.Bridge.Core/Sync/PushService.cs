@@ -180,10 +180,22 @@ public static class PushService
         ItemRef pou;
         if (existing is not { } existingPou)
         {
-            if (pouVg) throw new BridgeException(400, "UNSUPPORTED",
-                $"cannot create graphical POU '{name}' from scratch — author it in the IDE, then pull");
-            pou = ide.CreateChild(targetParent, name, itemType);
-            ide.WriteText(pou, decl, impl);
+            if (pouVg)
+            {
+                // The language comes from the VG NETWORK header (FBD/LD). TC's CreateChild uses this
+                // to set the implementation language at creation. CODESYS's create_pou has no
+                // implementation-language parameter, so it falls through to default ST — the subsequent
+                // GraphicalCode.Write sets the correct language via PLCopen import (the <FBD>/<LD>
+                // wrapper element on the body dictates the IDE's POU language).
+                var lang = VgBody.LanguageOf(impl) ?? "FBD";
+                pou = ide.CreateChild(targetParent, name, itemType, lang ?? "ST");
+                GraphicalCode.Write(ide, pou, impl, decl);
+            }
+            else
+            {
+                pou = ide.CreateChild(targetParent, name, itemType);
+                ide.WriteText(pou, decl, impl);
+            }
         }
         else
         {

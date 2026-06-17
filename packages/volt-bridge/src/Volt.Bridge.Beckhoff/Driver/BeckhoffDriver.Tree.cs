@@ -100,7 +100,7 @@ public sealed partial class BeckhoffDriver
     public string Name(ItemRef item) { try { return _om.GetName(item.Native); } catch { return ""; } }
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode) => new(_om.CreateChild(parent.Native, name, kindCode));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => new(_om.CreateChild(parent.Native, name, kindCode, language));
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 

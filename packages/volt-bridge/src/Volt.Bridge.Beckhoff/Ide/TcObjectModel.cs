@@ -188,14 +188,16 @@ internal sealed class TcObjectModel
     // — that's the real SystemRoot code), so an unreadable node is skipped, never phantom-emitted.
     public int ItemType(object node) { try { return (int)((dynamic)node).ItemType; } catch { return ItemKind.Unknown; } }
 
-    public object CreateChild(object parent, string name, int kindCode)
+    public object CreateChild(object parent, string name, int kindCode, string? language = null)
     {
         // The 4th arg (vInfo) is the implementation language for a POU body. TwinCAT rejects ANY String
         // vInfo for a FUNCTION ("vInfo (Type: String) not supported"); a function takes no body-language
         // vInfo, so omit it (Type.Missing) for functions and pass the language for everything else.
+        // TC normalises LD → FBD (the PLCopen export wraps both in <FBD>; ladder is a view mode).
+        var lang = language is "LD" ? "FBD" : (language ?? "ST");
         return kindCode == ItemKind.Function
             ? (object)((dynamic)parent).CreateChild(name, kindCode, "", System.Type.Missing)
-            : (object)((dynamic)parent).CreateChild(name, kindCode, "", "ST");
+            : (object)((dynamic)parent).CreateChild(name, kindCode, "", lang);
     }
     public void DeleteChild(object parent, string name) => ((dynamic)parent).DeleteChild(name);
     public void Rename(object node, string newName) => ((dynamic)node).Name = newName;
@@ -302,18 +304,20 @@ internal sealed class TcObjectModel
                 string text = (string)ep.GetText(td.EndPoint);
                 if (string.IsNullOrEmpty(text)) continue;
                 var regex = new Regex(
-                    @"^(.+?)(?:\((\d+)\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
+                    @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
                     RegexOptions.IgnoreCase | RegexOptions.Multiline);
                 foreach (Match m in regex.Matches(text))
                 {
-                    int lineNum = 0;
+                    int lineNum = 0, colNum = 0;
                     if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
-                    var sev = m.Groups[3].Value.ToLowerInvariant();
+                    if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
+                    var sev = m.Groups[4].Value.ToLowerInvariant();
                     result.Add(new BridgeDiagnostic
                     {
                         Severity = sev == "message" ? "info" : sev,
-                        Message = m.Groups[4].Value.Trim(),
+                        Message = m.Groups[5].Value.Trim(),
                         Line = lineNum,
+                        Column = colNum,
                     });
                 }
             }

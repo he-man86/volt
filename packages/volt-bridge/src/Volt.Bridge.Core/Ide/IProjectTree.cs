@@ -23,7 +23,7 @@ public interface IProjectTree
     /// <summary>The item's vendor-neutral kind code (see <c>ItemKind</c>).</summary>
     int KindCode(ItemRef item);
 
-    ItemRef CreateChild(ItemRef parent, string name, int kindCode);
+    ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null);
     void Delete(ItemRef parent, string name);
     void Rename(ItemRef item, string newName);
 }
