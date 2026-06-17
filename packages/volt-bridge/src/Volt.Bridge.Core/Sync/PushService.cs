@@ -217,10 +217,53 @@ public static class PushService
 
             if (child.Kind == "property")
             {
+                // Upsert the accessors present in the push; remove one that was dropped (GET-only ⇄ GET+SET).
                 if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", ItemKind.PropertyGet, child.Getter.Declaration, child.Getter.Implementation);
+                else RemoveChildIfPresent(ide, childItem, "Get");
                 if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", ItemKind.PropertySet, child.Setter.Declaration, child.Setter.Implementation);
+                else RemoveChildIfPresent(ide, childItem, "Set");
             }
         }
+
+        // Delete children that no longer exist in the pushed source. The upsert loop above only ever
+        // touches children PRESENT in the push, so without this a child removed in the workspace (a
+        // deleted method/action/property) would orphan in the IDE and reappear on the next pull — the
+        // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
+        // as %LANG placeholders, so they are kept, not deleted.
+        //
+        // Only for a textual root POU: a graphical (VG) body push goes through GraphicalCode.Write, which
+        // deletes-and-reimports the object (staleing `pou`), and the VG sourceText carries no textual
+        // child list to reconcile against — so child reconciliation doesn't apply there.
+        if (!pouVg)
+        {
+            var keep = new HashSet<string>(split.Children.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+            RemoveOrphanChildren(ide, pou, keep);
+        }
+    }
+
+    /// <summary>Walk the POU subtree and delete in-POU children (method/action/property/transition) whose
+    /// name is not in <paramref name="keep"/>. Folders are descended (recursed first, so a deletion never
+    /// invalidates a not-yet-visited folder handle); accessors live under properties and are handled
+    /// per-property, not here, so we never recurse into a property.</summary>
+    private static void RemoveOrphanChildren(IIdeDriver ide, ItemRef parent, ISet<string> keep)
+    {
+        var count = ide.ChildCount(parent);
+        var snapshot = new List<(ItemRef Ref, int Kind, string Name)>();
+        for (int i = 1; i <= count; i++)
+        {
+            var c = ide.ChildAt(parent, i);
+            snapshot.Add((c, ide.KindCode(c), ide.Name(c)));
+        }
+        foreach (var s in snapshot)
+            if (s.Kind == ItemKind.Folder) RemoveOrphanChildren(ide, s.Ref, keep);
+        foreach (var s in snapshot)
+            if (s.Kind != ItemKind.Folder && ItemKind.IsInlinedInPou(s.Kind) && !keep.Contains(s.Name))
+                ide.Delete(parent, s.Name);
+    }
+
+    private static void RemoveChildIfPresent(IIdeDriver ide, ItemRef parent, string name)
+    {
+        if (FindChild(ide, parent, name) is not null) ide.Delete(parent, name);
     }
 
     private static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder)
