@@ -1,10 +1,12 @@
 /** /refs — determinism and the parallel items/kinds/folders maps. */
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, createItem, FOLDER, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { bridge, id, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / refs (${BASE})`, () => {
-	beforeAll(async () => { await requireHealthy(); await cleanup() })
+	beforeAll(async () => { await requireHealthy() })
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
 	it("returns projectVersion + structureVersion + items/kinds/folders", async () => {
@@ -26,6 +28,7 @@ describe(`endpoints / refs (${BASE})`, () => {
 	it("the parallel maps are consistent for a created item", async () => {
 		const name = id("r_maps")
 		await createItem(name, fb(name), "POUs/Sub")
+		await ensureCompiles(name)
 		const r = await bridge.refs()
 		expect(r.items).toHaveProperty(name)
 		expect(r.kinds[name]).toBe("function_block")

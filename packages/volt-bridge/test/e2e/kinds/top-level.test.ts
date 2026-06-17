@@ -1,11 +1,13 @@
 /** Top-level kinds the lifecycle doesn't fully cover: function/alias type fidelity, interface, folders.
  *  (The CRUD lifecycle already asserts kind for fb/prog/gvl/struct/enum/union/alias.) */
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, createItem, fetchItem, fetchSource, isTwinCAT, FOLDER, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { bridge, id, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, isTwinCAT, FOLDER, BASE } from "../harness"
 import { func, aliasDut, iface, fb } from "../fixtures"
 
 describe(`kinds / top-level (${BASE})`, () => {
-	beforeAll(async () => { await requireHealthy(); await cleanup() })
+	beforeAll(async () => { await requireHealthy() })
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
 	// function create: works on CODESYS; on TwinCAT it needs the omitted-vInfo create (see vendor-notes).
@@ -44,7 +46,9 @@ describe(`kinds / top-level (${BASE})`, () => {
 	it("creates at the project root and in a nested folder", async () => {
 		const root = id("k_root"), nested = id("k_nested")
 		await createItem(root, fb(root), "")
+		await ensureCompiles(root)
 		await createItem(nested, fb(nested), "POUs/Sub/Deep")
+		await ensureCompiles(nested)
 		expect((await fetchItem(root)).folder ?? "").toBe("")
 		expect((await fetchItem(nested)).folder).toBe("POUs/Sub/Deep")
 	})

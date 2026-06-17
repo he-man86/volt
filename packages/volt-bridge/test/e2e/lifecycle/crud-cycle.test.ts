@@ -10,12 +10,14 @@
  *   move   → item version Δ (folder ∈ hash), structure same, project Δ (move)
  *   delete → assert {item:gone, project:Δ, structure:Δ}     (delete)
  */
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
-import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, FOLDER, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
-	beforeAll(async () => { await requireHealthy(); await cleanup() })
+	beforeAll(async () => { await requireHealthy() })
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
 	for (const k of LIFECYCLE_KINDS) {
@@ -28,6 +30,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 2. CREATE
 			await createItem(name, k.create(name))
+			if (k.key === "fb" || k.key === "fbChildren") await ensureCompiles(name)
 			const s1 = await snapshot()
 			assertDelta(s0, s1, name, { item: "new", project: true, structure: true })
 

@@ -1,16 +1,19 @@
 /** POU children lifecycle: add / change / DELETE methods, actions, properties + drop a GET/SET accessor.
  *  The delete cases are the regression for the orphan-removal fix (a removed child must not reappear). */
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
-import { id, cleanup, requireHealthy, createItem, updateItem, fetchSource, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { id, cleanup, requireHealthy, createItem, updateItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 import { fb, METHOD, ACTION, PROPERTY } from "../fixtures"
 
 describe(`lifecycle / children (${BASE})`, () => {
-	beforeAll(async () => { await requireHealthy(); await cleanup() })
+	beforeAll(async () => { await requireHealthy() })
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
 	it("changes a method body in place", async () => {
 		const name = id("ch_mbody")
 		await createItem(name, fb(name, { children: METHOD("Compute", "Compute := 1;") }))
+		await ensureCompiles(name)
 		await updateItem(name, fb(name, { children: METHOD("Compute", "Compute := 42;") }))
 		expect(await fetchSource(name)).toMatch(/Compute := 42/)
 	})
@@ -18,6 +21,7 @@ describe(`lifecycle / children (${BASE})`, () => {
 	it("adds a method to an existing POU", async () => {
 		const name = id("ch_add")
 		await createItem(name, fb(name, { children: METHOD("First") }))
+		await ensureCompiles(name)
 		await updateItem(name, fb(name, { children: METHOD("First") + METHOD("Second") }))
 		const s = await fetchSource(name)
 		expect(s).toContain("METHOD First"); expect(s).toContain("METHOD Second")
@@ -31,6 +35,7 @@ describe(`lifecycle / children (${BASE})`, () => {
 		it(`deletes a ${kindName} (no orphan reappears on pull)`, async () => {
 			const name = id(`ch_del_${kindName}`)
 			await createItem(name, fb(name, { children: build("Keep") + build("Remove") }))
+			await ensureCompiles(name)
 			expect(await fetchSource(name)).toContain(gone)
 			await updateItem(name, fb(name, { children: build("Keep") }))
 			const s = await fetchSource(name)
@@ -42,6 +47,7 @@ describe(`lifecycle / children (${BASE})`, () => {
 	it("drops a property's SET accessor (GET+SET → GET only)", async () => {
 		const name = id("ch_acc")
 		await createItem(name, fb(name, { children: PROPERTY("Speed", true, true) }))
+		await ensureCompiles(name)
 		expect(await fetchSource(name)).toContain("END_SET")
 		await updateItem(name, fb(name, { children: PROPERTY("Speed", true, false) }))
 		const s = await fetchSource(name)
@@ -53,6 +59,7 @@ describe(`lifecycle / children (${BASE})`, () => {
 		const name = id("ch_subfolder")
 		const children = `\nACTION A1\n%FOLDER Group One\nx := 1;\nEND_ACTION\n` + `\nACTION B1\n%FOLDER Group Two\nx := 2;\nEND_ACTION\n`
 		await createItem(name, fb(name, { children }))
+		await ensureCompiles(name)
 		const s = await fetchSource(name)
 		expect(s).toMatch(/ACTION A1\s+%FOLDER Group One/)
 		expect(s).toMatch(/ACTION B1\s+%FOLDER Group Two/)

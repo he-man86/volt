@@ -81,6 +81,75 @@ export async function fetchItem(name: string): Promise<any> {
 }
 export async function fetchSource(name: string): Promise<string> { return (await fetchItem(name)).sourceText }
 
+// ── PLC_PRG instantiation (required by CODESYS to compile FBs) ────────────────
+let _plcPrgOriginal: string | null = null
+
+const PLC_PRG = "PLC_PRG"
+
+/** Strip any test-prefixed instance declarations from PLC_PRG so it compiles cleanly. */
+export async function fixPlcPrg(): Promise<void> {
+	const item = await fetchItem(PLC_PRG)
+	if (!item.sourceText.includes(PREFIX)) return
+	const lines = item.sourceText.split("\n")
+	const clean = lines.filter((l: string) => !l.includes(PREFIX))
+	const newSrc = clean.join("\n")
+	const r = await pushOps([{
+		op: "pushItem",
+		name: PLC_PRG,
+		folder: "",
+		sourceText: newSrc,
+		ifVersion: item.version,
+	}])
+	if (!r.accepted) console.warn("fixPlcPrg rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+}
+
+export async function savePlcPrg(): Promise<void> {
+	_plcPrgOriginal = (await fetchItem(PLC_PRG)).sourceText
+}
+
+export async function restorePlcPrg(): Promise<void> {
+	if (!_plcPrgOriginal) return
+	const current = await fetchItem(PLC_PRG)
+	if (current.sourceText === _plcPrgOriginal) { _plcPrgOriginal = null; return }
+	const r = await pushOps([{
+		op: "pushItem",
+		name: PLC_PRG,
+		folder: "",
+		sourceText: _plcPrgOriginal,
+		ifVersion: current.version,
+	}])
+	if (!r.accepted) console.warn("restorePlcPrg rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+	_plcPrgOriginal = null
+}
+
+/** Add an instance of a FB to PLC_PRG's VAR section so the CODESYS compiler reaches it. */
+export async function instantiateInPlcPrg(fbName: string): Promise<void> {
+	const item = await fetchItem(PLC_PRG)
+	const lines = item.sourceText.split("\n")
+	const endVarIdx = lines.findIndex((l: string) => l.trim() === "END_VAR")
+	if (endVarIdx === -1) throw new Error("PLC_PRG has no END_VAR")
+	const varName = `inst_${fbName.replace(PREFIX + "_", "")}`
+	lines.splice(endVarIdx, 0, `\t${varName} : ${fbName};`)
+	const r = await pushOps([{
+		op: "pushItem",
+		name: PLC_PRG,
+		folder: "",
+		sourceText: lines.join("\n"),
+		ifVersion: item.version,
+	}])
+	expect(r.accepted).toBe(true)
+}
+
+/** Instantiate an FB in PLC_PRG and verify the project compiles with zero errors. */
+export async function ensureCompiles(fbName: string): Promise<void> {
+	await instantiateInPlcPrg(fbName)
+	const r = await bridge.build()
+	expect(r.success).toBe(true)
+	const errors = r.diagnostics.filter((d: any) => d.severity === "error")
+	if (errors.length > 0) console.warn("unexpected compile errors:", JSON.stringify(errors).slice(0, 300))
+	expect(errors.length).toBe(0)
+}
+
 // ── version snapshots + delta assertions (the hash-stability spine) ───────────
 export type Snapshot = { project: string; structure: string; items: Record<string, string> }
 export async function snapshot(): Promise<Snapshot> {
