@@ -18,4 +18,9 @@
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The OpenAPI contract is the single source of truth; the shared server serves it
+         (+ a static Swagger UI) at /openapi.yaml and /swagger for both bridges. -->
+    <EmbeddedResource Include="..\..\openapi.yaml" Link="openapi.yaml" />
+  </ItemGroup>
 </Project>

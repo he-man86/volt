@@ -108,6 +108,9 @@ public sealed class BridgeHttpServer
             // Health is cache-only (off the marshalled thread) and reports degraded state, never gated by it.
             if (path == "/health" && method == "GET") { Write(ctx, 200, _ide.BuildHealthResponse()); return; }
             if (path == "/shutdown" && method == "POST") { Write(ctx, 200, new { stopped = true }); ThreadPool.QueueUserWorkItem(_ => Stop()); return; }
+            // The OpenAPI contract (single source of truth) + a static Swagger UI.
+            if (path == "/openapi.yaml" && method == "GET") { WriteText(ctx, 200, "application/yaml; charset=utf-8", OpenApiYaml.Value); return; }
+            if ((path == "/swagger" || path == "/swagger/" || path == "/swagger/index.html") && method == "GET") { WriteText(ctx, 200, "text/html; charset=utf-8", SwaggerHtml); return; }
             // Attachable instances — works even when degraded so the user can re-pick a target.
             if (path == "/instances" && method == "GET")
             {
@@ -173,4 +176,35 @@ public sealed class BridgeHttpServer
 
     private static void WriteError(HttpListenerContext ctx, int status, string code, string message) =>
         Write(ctx, status, new { error = new { code, message } });
+
+    private static void WriteText(HttpListenerContext ctx, int status, string contentType, string body)
+    {
+        var buf = Encoding.UTF8.GetBytes(body);
+        ctx.Response.StatusCode = status;
+        ctx.Response.ContentType = contentType;
+        ctx.Response.ContentLength64 = buf.Length;
+        ctx.Response.OutputStream.Write(buf, 0, buf.Length);
+        ctx.Response.OutputStream.Close();
+    }
+
+    // The hand-maintained OpenAPI contract is embedded (see the .csproj EmbeddedResource); the server
+    // hands it out verbatim plus a static Swagger UI that points at it.
+    private static readonly Lazy<string> OpenApiYaml = new(LoadOpenApiYaml);
+    private static string LoadOpenApiYaml()
+    {
+        var asm = typeof(BridgeHttpServer).Assembly;
+        var name = Array.Find(asm.GetManifestResourceNames(), n => n.EndsWith("openapi.yaml", StringComparison.OrdinalIgnoreCase));
+        if (name == null) return "openapi: 3.1.0\ninfo:\n  title: Volt Bridge\n  version: 1.0.0\n";
+        using var s = asm.GetManifestResourceStream(name)!;
+        using var r = new StreamReader(s);
+        return r.ReadToEnd();
+    }
+
+    private const string SwaggerHtml =
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Volt Bridge API</title>" +
+        "<link rel=\"stylesheet\" href=\"https://unpkg.com/swagger-ui-dist@5/swagger-ui.css\"></head>" +
+        "<body><div id=\"swagger-ui\"></div>" +
+        "<script src=\"https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js\"></script>" +
+        "<script>window.ui=SwaggerUIBundle({url:'/openapi.yaml',dom_id:'#swagger-ui'});</script>" +
+        "</body></html>";
 }

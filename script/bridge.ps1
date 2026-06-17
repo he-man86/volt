@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Build + (re)launch the Beckhoff standalone bridge from the repo, attaching to a
-# running TwinCAT (TcXaeShell). CODESYS is NOT launchable here: VoltBridge.Codesys is
+# running TwinCAT (TcXaeShell). CODESYS is NOT launchable here: Volt.Bridge.Codesys is
 # an OutputType=Library loaded in-process — use script/codesys-bridge.ps1 for it.
 param([string]$Port = "8555", [string]$Project = "Beckhoff")
 
@@ -10,9 +10,9 @@ if ($Project -ne "Beckhoff") {
 }
 
 # The project/folder/csproj name differs from the AssemblyName (= the produced exe).
-$projName = "VoltBridge.Beckhoff"
+$projName = "Volt.Bridge.Beckhoff"
 $asmName  = "BeckhoffBridge"
-$csproj = "C:\Users\marce\OneDrive\Documenten\Github\volt\packages\volt-bridges\src\$projName\$projName.csproj"
+$csproj = "C:\Users\marce\OneDrive\Documenten\Github\volt\packages\volt-bridge\src\$projName\$projName.csproj"
 $outDir = "C:\Users\marce\AppData\Local\Temp\opencode\bridge-$($Project.ToLower())"
 $logDir = "C:\Users\marce\AppData\Local\Temp\opencode"
 

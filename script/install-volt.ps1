@@ -20,7 +20,7 @@
 .EXAMPLE
   powershell -File script/install-volt.ps1
   # Build first if needed:
-  #   packages/volt-bridges/build-bridges.ps1
+  #   packages/volt-bridge/build-bridges.ps1
   #   (cd packages/volt-vscode; bun run build; vsce package --no-dependencies --allow-missing-repository)
 #>
 [CmdletBinding()]
@@ -36,13 +36,13 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-$repoBridges = Join-Path $PSScriptRoot "..\packages\volt-bridges"
+$repoBridges = Join-Path $PSScriptRoot "..\packages\volt-bridge"
 $repoVscode  = Join-Path $PSScriptRoot "..\packages\volt-vscode"
 
 # --- Resolve the connector bundle ---
 if (-not $ConnectorSource) { $ConnectorSource = Join-Path $repoBridges "dist\Connector" }
 if (-not (Test-Path (Join-Path $ConnectorSource "VoltConnector.exe"))) {
-    throw "VoltConnector.exe not found under '$ConnectorSource'. Build it first: packages\volt-bridges\build-bridges.ps1"
+    throw "VoltConnector.exe not found under '$ConnectorSource'. Build it first: packages\volt-bridge\build-bridges.ps1"
 }
 
 # --- Stop the connector AND its bridge workers so their files aren't locked ---

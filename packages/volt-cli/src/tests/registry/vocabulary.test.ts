@@ -2,7 +2,7 @@
  * Cross-language item-kind vocabulary contract.
  *
  * Three definitions must agree, or kinds silently drift:
- *   1. packages/volt-bridges/item-kinds.json   — the shared contract (source of truth)
+ *   1. packages/volt-bridge/item-kinds.json   — the shared contract (source of truth)
  *   2. ItemKind.cs `Map()`                      — what the BRIDGE actually emits
  *   3. registry/extensions.ts `EXTENSIONS`      — what the CLI materializes as files
  *
@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { knownKinds } from "../../registry/extensions.js"
 
-const BRIDGES = join(import.meta.dir, "..", "..", "..", "..", "volt-bridges")
-const ITEMKIND_CS = join(BRIDGES, "src", "VoltBridge.Core", "ItemKind.cs")
+const BRIDGES = join(import.meta.dir, "..", "..", "..", "..", "volt-bridge")
+const ITEMKIND_CS = join(BRIDGES, "src", "Volt.Bridge.Core", "Workspace", "ItemKind.cs")
 
 // A bare contract entry is a file-producing kind (needs a CLI registry entry);
 // only the exceptions that never become files carry a `family` tag.

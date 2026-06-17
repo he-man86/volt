@@ -20,7 +20,7 @@ param([switch] $SkipBuild)
 $ErrorActionPreference = "Stop"
 
 $repo    = Split-Path $PSScriptRoot -Parent
-$bridges = Join-Path $repo "packages\volt-bridges"
+$bridges = Join-Path $repo "packages\volt-bridge"
 $vscode  = Join-Path $repo "packages\volt-vscode"
 $iss     = Join-Path $bridges "installer\volt-connector.iss"
 

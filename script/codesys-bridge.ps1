@@ -45,10 +45,10 @@ $ErrorActionPreference = "Stop"
 
 # ── paths ────────────────────────────────────────────────────────────────────
 $repo    = Split-Path $PSScriptRoot -Parent
-$proj  = Join-Path $repo "packages\volt-bridges\src\VoltBridge.Codesys"
-$csproj  = Join-Path $proj "VoltBridge.Codesys.csproj"
-$dll     = Join-Path $proj "bin\Release\net48\VoltBridge.Codesys.dll"
-$scriptPy = Join-Path $repo "packages\volt-bridges\codesys-scriptcommands\run_bridge_headless.py"
+$proj  = Join-Path $repo "packages\volt-bridge\src\Volt.Bridge.Codesys"
+$csproj  = Join-Path $proj "Volt.Bridge.Codesys.csproj"
+$dll     = Join-Path $proj "bin\Release\net48\Volt.Bridge.Codesys.dll"
+$scriptPy = Join-Path $repo "packages\volt-bridge\codesys-scriptcommands\run_bridge_headless.py"
 
 $dotnet  = "C:\Program Files\dotnet\dotnet.exe"
 $install = if ($Version -eq "21") { "C:\Program Files\CODESYS 3.5.21.40" } else { "C:\Program Files\CODESYS 3.5.18.30" }
@@ -116,7 +116,7 @@ function Invoke-Up {
     Remove-Item $stopFlag -ErrorAction SilentlyContinue
 
     if (-not $NoBuild) {
-        Write-Host "Building VoltBridge.Codesys (Release) ..."
+        Write-Host "Building Volt.Bridge.Codesys (Release) ..."
         & $dotnet build $csproj -c Release --nologo -v q
         if ($LASTEXITCODE -ne 0) { throw "Build failed." }
     }

@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "KS5p4hsECnkVyiE7NiYmo+hSDg6hhkZxERjILdU/tMY=",
+  "Source": "VoltBridge.Core",
+  "BasePath": "_content/VoltBridge.Core",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

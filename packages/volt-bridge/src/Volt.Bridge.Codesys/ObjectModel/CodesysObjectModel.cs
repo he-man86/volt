@@ -79,6 +79,11 @@ namespace Volt.Bridge.Codesys
         {
             if (_objMgr == null) return null;
             var meta = InvokeMethod(_objMgr, "GetObjectToRead", HandleOf(node), GuidOf(node));
+            // INTENTIONAL, load-bearing: the returned IMetaObject (a READ checkout) is deliberately
+            // NOT released. Disposing/releasing it invalidates the .Object IObject for every subsequent
+            // read — a dispose attempt was tried and BROKE all following reads, so it was reverted. We
+            // keep only .Object and let the checkout lapse with the object; the per-read cost is accepted.
+            // (Contrast WriteSourceText, which MUST close its WRITE transaction via SetObject.)
             return GetMember(meta, "Object") ?? meta;   // .Object is an explicit IMetaObject member
         }
 
@@ -113,6 +118,9 @@ namespace Volt.Bridge.Codesys
             foreach (var item in items)
             {
                 if (item == null) continue;
+                // Best-effort by design: a library reference is READ-ONLY metadata (never a push target),
+                // so one malformed entry must not abort the whole /refs tree walk. This is NOT a
+                // source/version path, so the zero-fallback policy that governs those doesn't apply here.
                 try { refs.Add(ToLibRef(item)); } catch { /* skip a malformed ref */ }
             }
             return refs;
@@ -192,7 +200,10 @@ namespace Volt.Bridge.Codesys
             }
             catch
             {
-                try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { } // roll back the checkout
+                // Roll back the checkout (SetObject with success=false). Swallow ITS error on purpose:
+                // we rethrow the ORIGINAL write failure below — that's the diagnostic the caller needs,
+                // not a secondary rollback error that would mask it.
+                try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { }
                 throw;
             }
         }
@@ -374,17 +385,24 @@ namespace Volt.Bridge.Codesys
         /// <c>CreateExtendedObject</c> factory (the same call the scripting tree itself uses).</summary>
         public string ExportXmlString(object node)
         {
-            var proj = PrimaryProject!;
-            var export = proj.GetType().GetMethods(BF).First(x => x.Name == "export_xml" && x.GetParameters().Length == 5
+            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
+            // Each reflection pick below is a VERSION-SHAPE assumption (the object-model API has no
+            // compile-time reference here). Resolve loudly with a named error rather than a cryptic
+            // "Sequence contains no matching element" if a CODESYS version changes the shape.
+            var export = proj.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "export_xml" && x.GetParameters().Length == 5
                 && typeof(IEnumerable).IsAssignableFrom(x.GetParameters()[0].ParameterType)
-                && x.GetParameters()[1].ParameterType == typeof(string));
+                && x.GetParameters()[1].ParameterType == typeof(string))
+                ?? throw new InvalidOperationException("CODESYS export_xml(IEnumerable, string, …) overload not found — object-model version mismatch");
             var elemType = export.GetParameters()[0].ParameterType.GetGenericArguments()[0];   // IExtendedObject<IScriptObject>
             var baseType = elemType.GetGenericArguments()[0];                                    // IScriptObject
 
-            var se = _scriptEngine ??= Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")!
-                .GetProperty("ScriptEngine", BF | BindingFlags.Static)!.GetValue(null);
-            var createExt = se!.GetType().GetMethods(BF).First(x => x.Name == "CreateExtendedObject"
-                && x.IsGenericMethodDefinition && x.GetParameters().Length == 1);
+            var apEnv = Reflection.FindType("_3S.CoDeSys.ScriptDriverProjects.APEnvironment")
+                ?? throw new InvalidOperationException("CODESYS APEnvironment type not found — object-model version mismatch");
+            var se = _scriptEngine ??= apEnv.GetProperty("ScriptEngine", BF | BindingFlags.Static)?.GetValue(null)
+                ?? throw new InvalidOperationException("CODESYS APEnvironment.ScriptEngine not available");
+            var createExt = se.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "CreateExtendedObject"
+                && x.IsGenericMethodDefinition && x.GetParameters().Length == 1)
+                ?? throw new InvalidOperationException("CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
             var wrapped = createExt.MakeGenericMethod(baseType).Invoke(se, new[] { Unwrap(node) });
 
             var objects = Array.CreateInstance(elemType, 1);
@@ -403,6 +421,11 @@ namespace Volt.Bridge.Codesys
             var target = into != null ? Unwrap(into)!
                 : (PrimaryProject ?? throw new InvalidOperationException("CODESYS: no project"));
             var t = target.GetType();
+            // Prefer the 3-arg import with an explicit conflict-resolution enum, selecting the
+            // Replace/Overwrite member by name. NOTE: the only caller (CodesysDriver.WriteXml) DELETES
+            // the existing object before importing, so there is no name conflict and the conflict mode
+            // is effectively moot — hence the fall-through to the 2-arg overload (default conflict mode)
+            // is safe even if a future version renames the enum member so the substring match misses.
             var m3 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml" && x.GetParameters().Length == 3
                 && x.GetParameters()[0].ParameterType.IsEnum && x.GetParameters()[1].ParameterType == typeof(string));
             if (m3 != null)
@@ -412,8 +435,9 @@ namespace Volt.Bridge.Codesys
                         ?? Enum.GetNames(et).FirstOrDefault(n => n.IndexOf("Overwrite", StringComparison.OrdinalIgnoreCase) >= 0);
                 if (pick != null) { InvokeWith(target, m3, Enum.Parse(et, pick), data, false); return; }
             }
-            var m2 = t.GetMethods(BF).First(x => x.Name == "import_xml"
-                && x.GetParameters().Length == 2 && x.GetParameters()[0].ParameterType == typeof(string));
+            var m2 = t.GetMethods(BF).FirstOrDefault(x => x.Name == "import_xml"
+                && x.GetParameters().Length == 2 && x.GetParameters()[0].ParameterType == typeof(string))
+                ?? throw new InvalidOperationException("CODESYS import_xml(string, …) overload not found — object-model version mismatch");
             InvokeWith(target, m2, data, false);
         }
 
@@ -518,6 +542,9 @@ namespace Volt.Bridge.Codesys
         private static object? InvokeMethod(object? o, string name, params object?[] args)
         {
             if (o == null) return null;
+            // Matches by name + ARG COUNT only (the first such overload). This is safe for every CODESYS
+            // surface we call — none has two same-arity overloads of the same name — but it is the reason
+            // not to point this at an arbitrary overloaded API without checking.
             foreach (var m in o.GetType().GetMethods(BF))
                 if (m.Name == name && m.GetParameters().Length == args.Length)
                 {

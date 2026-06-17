@@ -4,7 +4,7 @@
  *
  *   bun script/harvest-corpus.ts [port]      # default 8556 (CODESYS); 8555 = TwinCAT
  *
- * Writes packages/volt-bridges/test/VoltBridge.Core.Tests/fixtures/corpus/<name>.plcopen.xml,
+ * Writes packages/volt-bridge/test/Volt.Bridge.Tests/fixtures/corpus/<name>.plcopen.xml,
  * which FbdCorpusRoundTripTests then measures. Re-run on any project to grow the corpus.
  */
 import { mkdirSync, writeFileSync } from "node:fs"
@@ -13,7 +13,7 @@ import { join } from "node:path"
 const port = process.argv[2] ?? "8556"
 const corpus = join(
 	import.meta.dir, "..",
-	"packages", "volt-bridges", "test", "VoltBridge.Core.Tests", "fixtures", "corpus",
+	"packages", "volt-bridge", "test", "Volt.Bridge.Tests", "fixtures", "corpus",
 )
 mkdirSync(corpus, { recursive: true })
 

@@ -1,0 +1,5 @@
+is_global = true
+build_property.RootNamespace = VoltBridge.Codesys
+build_property.ProjectDir = C:\Users\marce\OneDrive\Documenten\Github\volt\packages\volt-bridges\src\VoltBridge.Codesys\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
