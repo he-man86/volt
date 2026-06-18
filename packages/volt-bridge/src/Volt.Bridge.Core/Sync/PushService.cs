@@ -222,11 +222,14 @@ public static class PushService
                 continue;
             }
 
-            var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, ChildKindToCode(child.Kind));
+            var childKindCode = ChildKindToCode(child.Kind, itemType == ItemKind.Interface);
+            var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, childKindCode);
             // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
             // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
             var childDecl = child.Kind == "action" ? null : child.Declaration;
-            ide.WriteText(childItem, childDecl, child.Implementation);
+            // Interface members are declaration-only on TwinCAT — writing an implementation crashes COM.
+            var childImpl = child.Kind is "interface_method" or "interface_property" ? null : child.Implementation;
+            ide.WriteText(childItem, childDecl, childImpl);
 
             if (child.Kind == "property")
             {
@@ -325,9 +328,13 @@ public static class PushService
         _ => ItemKind.Program,
     };
 
-    private static int ChildKindToCode(string kind) => kind switch
+    private static int ChildKindToCode(string kind, bool isInterface = false) => kind switch
     {
-        "method" => ItemKind.Method, "action" => ItemKind.Action, "property" => ItemKind.Property,
+        "method" => isInterface ? ItemKind.InterfaceMethod : ItemKind.Method,
+        "action" => ItemKind.Action,
+        "property" => isInterface ? ItemKind.InterfaceProperty : ItemKind.Property,
+        "interface_method" => ItemKind.InterfaceMethod,
+        "interface_property" => ItemKind.InterfaceProperty,
         _ => ItemKind.Action,
     };
 }

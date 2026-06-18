@@ -1,7 +1,7 @@
 /** Top-level kinds the lifecycle doesn't fully cover: function/alias type fidelity, interface, folders.
  *  (The CRUD lifecycle already asserts kind for fb/prog/gvl/struct/enum/union/alias.) */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, isTwinCAT, FOLDER, BASE } from "../harness"
+import { bridge, id, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { func, aliasDut, iface, fb } from "../fixtures"
 
 describe(`kinds / top-level (${BASE})`, () => {
@@ -31,10 +31,8 @@ describe(`kinds / top-level (${BASE})`, () => {
 		expect(await fetchSource(name)).toContain("INTERFACE")
 	})
 
-	// Interface members crash TwinCAT (interface members are declaration-only; the materializer's
-	// implementation read kills the COM channel — see memory). Works on CODESYS.
+	// Interface members test declaration-only method + property create + round-trip.
 	it("interface with a method + property (members inside the block)", async () => {
-		if (await isTwinCAT()) { console.warn("TC: interface-member create crashes the COM channel — skipping (see memory)"); return }
 		const name = id("k_iface_m")
 		await createItem(name, iface(name, `METHOD DoIt : INT\nEND_METHOD\nPROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\n`))
 		const s = await fetchSource(name)

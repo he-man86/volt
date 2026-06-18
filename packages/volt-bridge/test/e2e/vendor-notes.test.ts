@@ -6,19 +6,17 @@
  * create on TwinCAT. This asserts a function actually creates + round-trips on whatever bridge runs.
  */
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
-import { id, cleanup, requireHealthy, createItem, fetchItem, isTwinCAT, BASE } from "./harness"
+import { id, cleanup, requireHealthy, createItem, fetchItem, BASE } from "./harness"
 import { func } from "./fixtures"
 
 describe(`vendor notes (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy(); await cleanup() })
 	afterAll(cleanup)
 
-	it("a function creates + round-trips (TwinCAT: proves the omit-vInfo create still works)", async () => {
-		const tc = await isTwinCAT()
+	it("a function creates + round-trips", async () => {
 		const name = id("vn_func")
 		await createItem(name, func(name))
 		const item = await fetchItem(name)
 		expect(item.sourceText).toMatch(/FUNCTION \w+ : BOOL/)
-		if (tc) console.info("TwinCAT function create OK — the omit-vInfo (Type.Missing) path holds")
 	})
 })

@@ -17,8 +17,8 @@ public static class RefsService
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
-        var versions = new Dictionary<string, string>();      // bare-name keys for aggregate hashing
-        var fullVersions = new Dictionary<string, string>();  // full-name keys for wire Items
+        var versions = new Dictionary<string, string>();
+        var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
 
         foreach (var it in ide.WalkItems())

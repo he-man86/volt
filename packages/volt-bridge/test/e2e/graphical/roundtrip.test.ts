@@ -3,7 +3,7 @@
  * CFC/SFC are read-only (surfaced as a %LANG placeholder, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, isTwinCAT, BASE } from "../harness"
+import { bridge, id, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 async function discover(lang: string): Promise<any | null> {
 	const all = await bridge.fetch({ knownItems: {} })
@@ -61,7 +61,6 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
-			if (lang === "LD" && await isTwinCAT()) return // TC creates LD as FBD internally — skip creation, exercise via discover instead
 			const name = id(`vg_${lang.toLowerCase()}`)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
@@ -86,20 +85,20 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	it("an existing POU round-trips byte-identical (covers pre-existing graphical POUs)", async () => {
 		const g = (await discover("FBD")) ?? (await discover("LD"))
-		if (!g) { console.warn("no pre-existing FBD/LD POU in project — skipping"); return }
-		const s1: string = g.sourceText
+		expect(g).not.toBeNull()
+		const s1: string = g!.sourceText
 		expect(s1).toContain("NETWORK")
-		const bareName = g.name.substring(0, g.name.lastIndexOf("."))
+		const bareName = g!.name.substring(0, g!.name.lastIndexOf("."))
 		const refs = await bridge.refs()
-		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: bareName, folder: g.folder, sourceText: s1, ifVersion: refs.items[g.name] }] })
-		if (!r.accepted) { console.warn("existing POU roundtrip rejected (VG editor limitation):", JSON.stringify(r.conflicts)); return }
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [bareName] })).changed.find((i: any) => i.name === g.name)
-		expect(after.sourceText).toBe(s1)
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: bareName, folder: g!.folder, sourceText: s1, ifVersion: refs.items[g!.name] }] })
+		expect(r.accepted).toBe(true)
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [bareName] })).changed.find((i: any) => i.name === g!.name)
+		expect(after!.sourceText).toBe(s1)
 	})
 
 	it("read-only CFC/SFC surface as a %LANG placeholder (no NETWORK, never editable)", async () => {
 		const g = (await discover("CFC")) ?? (await discover("SFC"))
-		if (!g) { console.warn("no CFC/SFC POU in project — skipping"); return }
-		expect(g.sourceText).not.toContain("NETWORK ")
+		expect(g).not.toBeNull()
+		expect(g!.sourceText).not.toContain("NETWORK ")
 	})
 })

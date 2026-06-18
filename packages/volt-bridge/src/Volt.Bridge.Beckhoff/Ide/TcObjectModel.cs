@@ -205,7 +205,11 @@ internal sealed class TcObjectModel
 
     // ── source text ─────────────────────────────────────────────────
     public string ReadDeclaration(object node) => (string)((dynamic)node).DeclarationText ?? "";
-    public string ReadImplementation(object node) => (string)((dynamic)node).ImplementationText ?? "";
+    public string ReadImplementation(object node)
+    {
+        try { return (string)((dynamic)node).ImplementationText ?? ""; }
+        catch { return ""; }
+    }
 
     public void WriteText(object node, string? declaration, string? implementation)
     {
