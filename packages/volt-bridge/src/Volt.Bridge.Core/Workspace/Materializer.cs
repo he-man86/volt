@@ -131,19 +131,10 @@ public static class Materializer
 
             if (isMethod || isAction)
             {
-                // Graphical children → VG (editable) or a read-only %LANG marker; textual children carry
-                // their source as-is. GraphicalCode returns null for textual and, for graphical, the real
-                // declaration from the same export (never touching the aspect before exporting).
-                // Interface members are declaration-only — TwinCAT COM crashes on ImplementationText.
-                bool isInterfaceChild = itemType is ItemKind.InterfaceMethod or ItemKind.InterfaceProperty
-                    or ItemKind.InterfacePropertyGet or ItemKind.InterfacePropertySet
-                    || ide.KindCode(parent) == ItemKind.Interface;
                 var graphical = GraphicalCode.Read(ide, child);
-                string? implementation = isInterfaceChild
-                    ? null
-                    : graphical is not null
-                        ? GraphicalImpl(graphical)
-                        : NullIfEmpty(ide.ReadImplementation(child)?.Trim());
+                string? implementation = graphical is not null
+                    ? GraphicalImpl(graphical)
+                    : NullIfEmpty(ide.ReadImplementation(child)?.Trim());
 
                 // Actions synthesize their signature; a method needs its real declaration.
                 var declText = isAction
@@ -153,9 +144,7 @@ public static class Materializer
                 var entry = new Dictionary<string, object?>
                 {
                     ["name"] = childName,
-                    ["kind"] = itemType is ItemKind.InterfaceMethod or ItemKind.InterfaceProperty
-                        ? (isMethod ? "interface_method" : "interface_property")
-                        : (isMethod ? "method" : "action"),
+                    ["kind"] = isMethod ? "method" : "action",
                     ["declaration"] = declText,
                 };
                 if (implementation is not null) entry["implementation"] = implementation;
@@ -164,16 +153,14 @@ public static class Materializer
             }
             else // property
             {
-                bool isInterfaceProp = itemType is ItemKind.InterfaceProperty;
                 var entry = new Dictionary<string, object?>
                 {
                     ["name"] = childName,
-                    ["kind"] = isInterfaceProp ? "interface_property" : "property",
+                    ["kind"] = "property",
                     ["declaration"] = ide.ReadDeclaration(child).Trim(),
                 };
 
-                // Accessor children (Get/Set). Interface accessors are declaration-only — TwinCAT COM
-                // crashes on ImplementationText, so skip the implementation read for interface properties.
+                // Accessor children (Get/Set)
                 int accCount = ide.ChildCount(child);
                 for (int j = 1; j <= accCount; j++)
                 {
@@ -181,8 +168,7 @@ public static class Materializer
                     var accName = ide.Name(accessor).ToLowerInvariant();
                     if (accName is "get" or "set")
                     {
-                        if (!isInterfaceProp)
-                            entry[accName == "get" ? "getterCode" : "setterCode"] = ide.ReadImplementation(accessor)?.Trim() ?? "";
+                        entry[accName == "get" ? "getterCode" : "setterCode"] = ide.ReadImplementation(accessor)?.Trim() ?? "";
                         var accDecl = ide.ReadDeclaration(accessor)?.Trim() ?? "";
                         if (!string.IsNullOrEmpty(accDecl) && !IsEmptyVarBlock(accDecl))
                             entry[accName == "get" ? "getterDeclaration" : "setterDeclaration"] = accDecl;

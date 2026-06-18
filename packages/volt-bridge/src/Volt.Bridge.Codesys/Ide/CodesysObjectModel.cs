@@ -406,8 +406,10 @@ namespace Volt.Bridge.Codesys
                 // also auto-creates the Get/Set accessors. (Decompiled from
                 // ScriptDriverProjects.ScriptIecLanguageMemberContainer.)
                 case ItemKind.Method: return Create(MemberContainer(parent), "create_method", name);
+                case ItemKind.InterfaceMethod: return Create(MemberContainer(parent), "create_method", name);
                 case ItemKind.Action: return Create(MemberContainer(parent), "create_action", name);
                 case ItemKind.Property: return Create(MemberContainer(parent), "create_property", name);
+                case ItemKind.InterfaceProperty: return Create(MemberContainer(parent), "create_property", name);
                 default: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
             }
         }

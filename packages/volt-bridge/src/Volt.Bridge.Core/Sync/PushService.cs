@@ -227,16 +227,22 @@ public static class PushService
             // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
             // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
             var childDecl = child.Kind == "action" ? null : child.Declaration;
-            // Interface members are declaration-only on TwinCAT — writing an implementation crashes COM.
-            var childImpl = child.Kind is "interface_method" or "interface_property" ? null : child.Implementation;
+            // Interface members are declaration-only — COM rejects ImplementationText on them.
+            var isInterface = itemType == ItemKind.Interface;
+            var childImpl = isInterface ? null : child.Implementation;
             ide.WriteText(childItem, childDecl, childImpl);
 
             if (child.Kind == "property")
             {
-                // Upsert the accessors present in the push; remove one that was dropped (GET-only ⇄ GET+SET).
-                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", ItemKind.PropertyGet, child.Getter.Declaration, child.Getter.Implementation);
+                // TC interface property references are stale after CreateChild — re-find.
+                if (isInterface && existingChild is null)
+                    childItem = FindChild(ide, childParent, child.Name) ?? childItem;
+
+                var getCode = isInterface ? ItemKind.InterfacePropertyGet : ItemKind.PropertyGet;
+                var setCode = isInterface ? ItemKind.InterfacePropertySet : ItemKind.PropertySet;
+                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Implementation);
                 else RemoveChildIfPresent(ide, childItem, "Get");
-                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", ItemKind.PropertySet, child.Setter.Declaration, child.Setter.Implementation);
+                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Implementation);
                 else RemoveChildIfPresent(ide, childItem, "Set");
             }
         }
