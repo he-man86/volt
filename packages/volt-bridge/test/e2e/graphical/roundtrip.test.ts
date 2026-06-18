@@ -61,6 +61,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
+			if (lang === "LD" && await isTwinCAT()) return // TC creates LD as FBD internally — skip creation, exercise via discover instead
 			const name = id(`vg_${lang.toLowerCase()}`)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
@@ -69,8 +70,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: src, ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
-			const wireExt = await isTwinCAT() && lang === "LD" ? "fbd" : lang.toLowerCase()
-			const fullName = name + "." + wireExt
+			const fullName = name + "." + lang.toLowerCase()
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
 			expect(after.sourceText).toContain("NETWORK")

@@ -102,7 +102,7 @@ namespace Volt.Bridge.Core.Graphical
             var indices = existing.Elements()
                 .Select(e => (long?)e.Attribute("localId"))
                 .Where(id => id.HasValue)
-                .Select(id => id!.Value / NetworkStride)
+                .Select(id => id!.Value / GraphConstants.NetworkStride)
                 .Distinct()
                 .OrderBy(i => i)
                 .ToList();
