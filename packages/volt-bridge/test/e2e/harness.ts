@@ -65,9 +65,6 @@ export async function cleanup(): Promise<void> {
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
 	if (!r.accepted) console.warn("cleanup:", JSON.stringify(r.conflicts).slice(0, 200))
-	// TC filesystem is async — deleted files may persist on disk for a moment.
-	// Without this pause, a subsequent rename can collide with the stale file.
-	await new Promise(r => setTimeout(r, 500))
 }
 
 function bareName(full: string): string {

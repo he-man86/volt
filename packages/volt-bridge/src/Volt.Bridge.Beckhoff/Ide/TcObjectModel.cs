@@ -267,6 +267,11 @@ internal sealed class TcObjectModel
     public void FlushPendingWrites()
     {
         if (_dte == null) return;
+        // DTE.Documents.SaveAll() saves open editor tabs, but tree operations
+        // (create/delete/rename) change the project structure on disk. Force
+        // the solution to persist so subsequent rename ops don't collide with
+        // stale files from async tree deletions.
+        try { _dte.Solution.Save(); } catch { }
         try { _dte.Documents.SaveAll(); } catch { }
     }
 
