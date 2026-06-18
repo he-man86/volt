@@ -14,7 +14,6 @@ public static class RefsService
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
         var versions = new Dictionary<string, string>();
-        var kinds = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
 
         foreach (var it in ide.WalkItems())
@@ -22,10 +21,9 @@ public static class RefsService
             var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
             if (kind == null) continue;
 
-            var (version, _) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
-            versions[it.Name] = version;
-            kinds[it.Name] = kind;
-            folders[it.Name] = it.Folder;
+            var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            versions[mat.FullName] = version;
+            folders[mat.FullName] = it.Folder;
         }
 
         return new RefsResponse
@@ -33,7 +31,6 @@ public static class RefsService
             ProjectVersion = Hasher.ComputeProjectVersion(versions),
             StructureVersion = Hasher.ComputeStructureVersion(versions),
             Items = versions,
-            Kinds = kinds,
             Folders = folders,
         };
     }

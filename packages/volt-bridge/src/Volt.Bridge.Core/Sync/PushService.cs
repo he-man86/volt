@@ -61,7 +61,8 @@ public static class PushService
         {
             var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
             if (kind == null) continue;
-            newVersions[it.Name] = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder).Version;
+            var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            newVersions[mat.FullName] = version;
         }
 
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(newVersions), newVersions);

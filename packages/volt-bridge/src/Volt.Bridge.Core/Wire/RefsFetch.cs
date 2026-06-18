@@ -14,9 +14,6 @@ public class RefsResponse
     [JsonPropertyName("items")]
     public Dictionary<string, string> Items { get; set; } = new();
 
-    [JsonPropertyName("kinds")]
-    public Dictionary<string, string>? Kinds { get; set; }
-
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
 }
@@ -32,16 +29,9 @@ public class FetchRequest
 
 public class FetchedItem
 {
+    /// <summary>Full workspace filename including extension (e.g. "PLC_PRG.st", "FB_Motor.fbd").</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
-
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = "";
-
-    /// <summary>The POU's ROOT body language (ST/FBD/LD/CFC/SFC) — picks the workspace file
-    /// extension on the CLI side. Null for non-POU kinds (DUTs, GVL, reference items).</summary>
-    [JsonPropertyName("language")]
-    public string? Language { get; set; }
 
     [JsonPropertyName("folder")]
     public string? Folder { get; set; }

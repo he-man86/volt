@@ -21,9 +21,11 @@ public static class Materializer
             var build = BuildSource(ide, name, item, kind);
             var text = StAssembler.Assemble(build);
             var lang = build.TryGetValue("language", out var l) ? l as string : null;
-            return new WorkspaceItem(text, lang);
+            var ext = lang?.ToLowerInvariant() ?? KindToExt(kind);
+            return new WorkspaceItem(text, $"{name}.{ext}");
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind), null);
+        // Non-source kinds (libraries, tasks, visualization managers, …) — manifest text, ext is the kind word.
+        return new WorkspaceItem(ide.ReadManifest(item, kind), $"{name}.{kind}");
     }
 
     /// <summary>Kinds whose content is assembled source text (vs a manifest).</summary>
@@ -32,6 +34,16 @@ public static class Materializer
         "function_block" or "function" or "program" or "interface" or "gvl" or
         "structure" or "enumeration" or "union" or "alias" => true,
         _ => false,
+    };
+
+    /// <summary>The workspace file extension for a kind (lowercase). For POU kinds the extension
+    /// comes from the body language (not the kind), so this mapping only covers non-POU kinds.</summary>
+    private static string KindToExt(string kind) => kind switch
+    {
+        "interface" => "itf",
+        "structure" => "struct",
+        "enumeration" => "enum",
+        _ => kind,   // gvl, union, alias, library, task, … → ext == kind
     };
 
     private static Dictionary<string, object?> BuildSource(IIdeDriver ide, string name, ItemRef item, string kind)

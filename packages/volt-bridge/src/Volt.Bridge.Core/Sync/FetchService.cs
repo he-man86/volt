@@ -30,18 +30,17 @@ public static class FetchService
             if (kind == null) continue;
 
             var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
-            versions[it.Name] = version;
+            var fullName = mat.FullName;
+            versions[fullName] = version;
 
-            if (knownItems.TryGetValue(it.Name, out var known) && known == version) continue;
+            if (knownItems.TryGetValue(fullName, out var known) && known == version) continue;
 
             changed.Add(new FetchedItem
             {
-                Name = it.Name,
-                Kind = kind,
+                Name = fullName,
                 Folder = it.Folder,
                 Version = version,
                 SourceText = mat.Text,
-                Language = mat.Language,   // ST/FBD/LD/CFC/SFC → drives the CLI's file extension
             });
         }
 
