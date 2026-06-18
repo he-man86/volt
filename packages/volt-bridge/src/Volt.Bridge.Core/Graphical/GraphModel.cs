@@ -3,6 +3,13 @@ using System.Linq;
 
 namespace Volt.Bridge.Core.Graphical
 {
+    /// <summary>Network index is encoded in the high digits of every <c>localId</c> as
+    /// <c>network index = localId / 10^10</c>. Shared by every component in the graphical pipeline.</summary>
+    public static class GraphConstants
+    {
+        public const long NetworkStride = 10_000_000_000L;
+    }
+
     /// <summary>
     /// A faithful, position-free projection of a PLCopenXML FBD/LD body. Every node maps 1:1 to a
     /// PLCopenXML element; wiring is by <c>localId</c> / <c>refLocalId</c> / <c>formalParameter</c>

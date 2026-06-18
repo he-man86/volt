@@ -27,14 +27,14 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     private bool? _cachedProjectDirty;
     private long _cachedAtMs;
 
-    public bool IsConnected => _om.IsConnected;
+    public override bool IsConnected => _om.IsConnected;
 
     // Family name only (no per-version table — see RotInstances.IdeName); the exact version is IdeVersion.
-    public string? IdeName => RotInstances.IdeName(_om.IdeProgId);
-    public string? IdeVersion => _om.IdeVersion;
+    public override string? IdeName => RotInstances.IdeName(_om.IdeProgId);
+    public override string? IdeVersion => _om.IdeVersion;
 
-    public void Connect() => _om.Connect();
-    public void Disconnect() { _om.Disconnect(); ClearDegraded(); }
+    public override void Connect() => _om.Connect();
+    public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
     /// <summary>All running TwinCAT instances + projects (for the connector's picker).</summary>
     public object ListInstances() => _om.ListInstances();
@@ -43,10 +43,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     /// <summary>The STA message loop the bridge's dedicated thread runs (started from <c>Program.cs</c>).</summary>
     public void RunStaMessageLoop(CancellationToken cancel) => _dispatcher.RunMessageLoop(cancel);
 
-    public T RunOnStaThread<T>(Func<T> func) => _dispatcher.Run(func);
+    public override T RunOnStaThread<T>(Func<T> func) => _dispatcher.Run(func);
 
     // ── health ──────────────────────────────────────────────────────
-    public HealthResponse BuildHealthResponse()
+    public override HealthResponse BuildHealthResponse()
     {
         bool ideAlive; string? projectName, plcProjectName; bool? projectDirty; long? ageMs;
         lock (_cacheLock)
@@ -61,7 +61,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
         return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion, projectName, plcProjectName, projectDirty ?? false);
     }
 
-    public void TriggerAsyncProbe() => RunProbeOnce(() =>
+    public override void TriggerAsyncProbe() => RunProbeOnce(() =>
     {
         var r = RunOnStaThread(() =>
         {
@@ -107,7 +107,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     }
 
     // ── build ───────────────────────────────────────────────────────
-    public void FlushPendingWrites() => _om.FlushPendingWrites();
-    public bool Build() => _om.Build();
-    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
+    public override void FlushPendingWrites() => _om.FlushPendingWrites();
+    public override bool Build() => _om.Build();
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
 }

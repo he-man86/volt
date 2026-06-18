@@ -28,20 +28,20 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         _dispatcher = CodesysDispatcher.TryCreate();
     }
 
-    public bool IsConnected => _dispatcher != null && _om.HasProjects && _om.HasObjectManager;
-    public string? IdeName => "CODESYS";
-    public string? IdeVersion => "3.5";
+    public override bool IsConnected => _dispatcher != null && _om.HasProjects && _om.HasObjectManager;
+    public override string? IdeName => "CODESYS";
+    public override string? IdeVersion => "3.5";
 
     /// <summary>Snapshot the project name/dirty flag on the primary thread (we are on it at startup).</summary>
-    public void Connect() { lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; } }
-    public void Disconnect() => ClearDegraded();
+    public override void Connect() { lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; } }
+    public override void Disconnect() => ClearDegraded();
 
-    public T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
+    public override T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 
     // In-process: no transport that can die mid-call, so never auto-degrade.
     public override bool ShouldMarkDegraded(Exception ex) => false;
 
-    public HealthResponse BuildHealthResponse()
+    public override HealthResponse BuildHealthResponse()
     {
         string? name; bool dirty;
         lock (_cacheLock) { name = _projectName; dirty = _projectDirty; }
@@ -49,18 +49,18 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         return BuildHealth("codesys", IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, name, dirty);
     }
 
-    public void TriggerAsyncProbe() => RunProbeOnce(() =>
+    public override void TriggerAsyncProbe() => RunProbeOnce(() =>
     {
         var (n, d) = RunOnStaThread(() => (_om.ProjectName, _om.ProjectDirty));
         lock (_cacheLock) { _projectName = n; _projectDirty = d; }
     });
 
-    public void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
+    public override void FlushPendingWrites() { /* writes commit immediately via SetObject */ }
 
-    public bool Build() =>
+    public override bool Build() =>
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
-    public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
         _om.GetBuildDiagnostics().Select(d =>
         {
             var m = (Dictionary<string, object?>)d;
