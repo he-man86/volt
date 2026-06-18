@@ -26,7 +26,7 @@ public static class PushService
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
         {
-            var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
+            var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
             var (version, _) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
             currentVersions[it.Name] = version;
@@ -58,7 +58,7 @@ public static class PushService
         var receiptFullVersions = new Dictionary<string, string>();
         foreach (var it in ide.WalkItems())
         {
-            var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
+            var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
             var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
             receiptVersions[it.Name] = version;
@@ -142,8 +142,8 @@ public static class PushService
     private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder)
     {
         var code = ide.KindCode(item);
-        var kind = ItemKind.Map(code, ItemKind.IsTopLevelCrud(code));
-        if (kind == null || !Materializer.IsSourceKind(kind))
+        var kind = ItemKind.Map(code);
+        if (kind == null || !ItemKind.IsSourceKind(kind))
             throw new BridgeException(400, "UNSUPPORTED", $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
         var src = Materializer.Materialize(ide, name, kind, item).Text;

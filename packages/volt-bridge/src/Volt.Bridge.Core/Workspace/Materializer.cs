@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Volt.Bridge.Core.Graphical;
 using Volt.Bridge.Core.Ide;
@@ -16,16 +17,16 @@ public static class Materializer
 {
     public static WorkspaceItem Materialize(IIdeDriver ide, string name, string kind, ItemRef item)
     {
-        if (IsSourceKind(kind))
+        if (ItemKind.IsSourceKind(kind))
         {
             var build = BuildSource(ide, name, item, kind);
             var text = StAssembler.Assemble(build);
             var lang = build.TryGetValue("language", out var l) ? l as string : null;
-            var ext = lang?.ToLowerInvariant() ?? KindToExt(kind);
+            var ext = lang?.ToLowerInvariant() ?? ItemKind.ExtFor(kind);
             return new WorkspaceItem(text, FullWireName(name, ext));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind),
-            FullWireName(name, KindToExt(kind)));
+            FullWireName(name, ItemKind.ExtFor(kind)));
     }
 
     /// <summary>Append the extension to the name. For verbatim kinds (tmc_file), the IDE name
@@ -35,25 +36,6 @@ public static class Materializer
 
     private static bool IsVerbatimKind(string name, string ext) =>
         name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Kinds whose content is assembled source text (vs a manifest).</summary>
-    public static bool IsSourceKind(string kind) => kind switch
-    {
-        "function_block" or "function" or "program" or "interface" or "gvl" or
-        "structure" or "enumeration" or "union" or "alias" => true,
-        _ => false,
-    };
-
-    /// <summary>The workspace file extension for a kind (lowercase). For POU kinds the extension
-    /// comes from the body language (not the kind), so this mapping only covers non-POU kinds.</summary>
-    private static string KindToExt(string kind) => kind switch
-    {
-        "interface" => "itf",
-        "structure" => "struct",
-        "enumeration" => "enum",
-        "tmc_file" => "tmc",
-        _ => kind,   // gvl, union, alias, library, task, … → ext == kind
-    };
 
     private static Dictionary<string, object?> BuildSource(IIdeDriver ide, string name, ItemRef item, string kind)
     {

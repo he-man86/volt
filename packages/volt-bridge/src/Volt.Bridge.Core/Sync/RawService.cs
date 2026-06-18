@@ -14,7 +14,7 @@ public static class RawService
         var bodies = new Dictionary<string, string>();
         foreach (var it in ide.WalkItems())
         {
-            var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
+            var kind = ItemKind.Map(it.KindCode);
             if (kind is not ("program" or "function" or "function_block")) continue;   // only POUs carry graphical bodies
             string? raw;
             try { raw = ide.ReadXml(it.Item); } catch { raw = null; }

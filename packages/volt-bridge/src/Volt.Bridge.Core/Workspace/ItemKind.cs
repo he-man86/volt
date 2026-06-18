@@ -1,9 +1,12 @@
 namespace Volt.Bridge.Core.Workspace;
 
+using System;
+
 /// <summary>
-/// The single source of truth for item-type codes and their wire kind strings,
-/// shared by every bridge. Numeric codes are TwinCAT's native tree-item codes; the
-/// CODESYS adapter classifies its object-model objects and maps them onto the SAME
+/// The single source of truth for item-type codes, their wire kind strings, AND their workspace
+/// file extensions — shared by every bridge. Numeric codes are TwinCAT's native tree-item codes;
+/// the CODESYS adapter classifies its object-model objects and maps them onto the SAME
+/// set of codes so both adapters emit identical kind strings.</summary>
 /// codes, so a given kind hashes and serializes identically regardless of vendor.
 ///
 /// Coverage (confirmed live on both unless noted):
@@ -82,7 +85,7 @@ public static class ItemKind
     public const int Skip = -1;            // transient/hidden/unrecognized → never emitted
 
     /// <summary>Code → vendor-neutral kind string (null = not a tracked wire item).</summary>
-    public static string? Map(int code, bool isTopLevelCrud) => code switch
+    public static string? Map(int code) => code switch
     {
         SystemRoot => "system_root",
         Folder => "folder",
@@ -126,9 +129,40 @@ public static class ItemKind
         code is Program or Function or FunctionBlock or Enumeration or Structure
              or Union or Alias or Gvl or Interface;
 
+    /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
+    public static bool IsSourceKind(string kind) =>
+        kind is "function_block" or "function" or "program" or "interface" or "gvl"
+             or "structure" or "enumeration" or "union" or "alias";
+
     /// <summary>Items that live INSIDE a parent POU (collected by SourceAssembler, not top-level).</summary>
     public static bool IsInlinedInPou(int code) =>
         code is Action or Method or InterfaceMethod or Property or InterfaceProperty
              or PropertyGet or PropertySet or Transition or TaskCallReference
              or InterfacePropertyGet or InterfacePropertySet;
+
+    /// <summary>Workspace file extension for a kind string (lowercase). Every file-producing kind
+    /// in item-kinds.json must have an entry — no silent fallback. POU extensions come from the
+    /// body language (ST→st, FBD→fbd, LD→ld, …), not from the kind, so this mapping skips POUs.</summary>
+    public static string ExtFor(string kind) => kind switch
+    {
+        "interface" => "itf",
+        "structure" => "struct",
+        "enumeration" => "enum",
+        "tmc_file" => "tmc",
+        "gvl" => "gvl",
+        "union" => "union",
+        "alias" => "alias",
+        "library" => "library",
+        "task" => "task",
+        "image_pool" => "image_pool",
+        "text_list" => "text_list",
+        "recipe_manager" => "recipe_manager",
+        "visualization_manager" => "visualization_manager",
+        "visualization" => "visualization",
+        "library_manager" => "library_manager",
+        "class_diagram" => "class_diagram",
+        "external_types" => "external_types",
+        "folder" => "",
+        _ => throw new ArgumentException($"No extension for kind '{kind}' — add it to ItemKind.ExtFor"),
+    };
 }

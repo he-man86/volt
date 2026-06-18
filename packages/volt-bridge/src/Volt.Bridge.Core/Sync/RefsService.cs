@@ -23,7 +23,7 @@ public static class RefsService
 
         foreach (var it in ide.WalkItems())
         {
-            var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
+            var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
 
             var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
