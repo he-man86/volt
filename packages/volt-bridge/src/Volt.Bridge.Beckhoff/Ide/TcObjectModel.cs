@@ -191,14 +191,19 @@ internal sealed class TcObjectModel
     public object CreateChild(object parent, string name, int kindCode, string? language = null)
     {
         // The 4th arg (vInfo) is the implementation language for a POU body. TwinCAT rejects ANY String
-        // vInfo for a FUNCTION ("vInfo (Type: String) not supported"); a function takes no body-language
-        // vInfo, so omit it (Type.Missing) for functions and pass the language for everything else.
+        // vInfo for a FUNCTION ("vInfo (Type: String) not supported") — omit it (Type.Missing).
+        // Interfaces and their children have no body language — pass null (TC rejects "ST" for these).
         // TC does not accept "LD" directly — create as FBD; the ladder view is stored as
         // DefaultViewMode metadata in the NWL archive, which TcPouReader preserves on read-back.
         var lang = language is "LD" ? "FBD" : (language ?? "ST");
-        return kindCode == ItemKind.Function
-            ? (object)((dynamic)parent).CreateChild(name, kindCode, "", System.Type.Missing)
-            : (object)((dynamic)parent).CreateChild(name, kindCode, "", lang);
+        object vInfo = kindCode switch
+        {
+            ItemKind.Function => System.Type.Missing,
+            ItemKind.Interface or ItemKind.InterfaceMethod or ItemKind.InterfaceProperty
+                or ItemKind.InterfacePropertyGet or ItemKind.InterfacePropertySet => null,
+            _ => lang,
+        };
+        return (object)((dynamic)parent).CreateChild(name, kindCode, "", vInfo);
     }
     public void DeleteChild(object parent, string name) => ((dynamic)parent).DeleteChild(name);
     public void Rename(object node, string newName) => ((dynamic)node).Name = newName;

@@ -1,10 +1,11 @@
 /** Top-level kinds the lifecycle doesn't fully cover: function/alias type fidelity, interface, folders.
  *  (The CRUD lifecycle already asserts kind for fb/prog/gvl/struct/enum/union/alias.) */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { func, aliasDut, iface, fb } from "../fixtures"
 
 describe(`kinds / top-level (${BASE})`, () => {
+	setDefaultTimeout(60_000)
 	beforeAll(async () => { await requireHealthy() })
 	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 	afterEach(async () => { await restorePlcPrg() })

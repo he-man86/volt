@@ -160,8 +160,11 @@ public static class Materializer
                     ["declaration"] = ide.ReadDeclaration(child).Trim(),
                 };
 
-                // Accessor children (Get/Set)
-                int accCount = ide.ChildCount(child);
+                // Interface property accessor children (subtypes 654/655) crash TwinCAT COM
+                // if you try to enumerate their children or read their implementation.
+                // Only note which accessors exist — skip implementation reads entirely.
+                var isIfaceProp = ide.KindCode(parent) == ItemKind.Interface;
+                int accCount = isIfaceProp ? 0 : ide.ChildCount(child);
                 for (int j = 1; j <= accCount; j++)
                 {
                     var accessor = ide.ChildAt(child, j);
@@ -173,6 +176,13 @@ public static class Materializer
                         if (!string.IsNullOrEmpty(accDecl) && !IsEmptyVarBlock(accDecl))
                             entry[accName == "get" ? "getterDeclaration" : "setterDeclaration"] = accDecl;
                     }
+                }
+                if (isIfaceProp)
+                {
+                    // Signal existence without touching COM — TC interface accessor
+                    // children crash on enumeration.
+                    entry["getterCode"] = entry.ContainsKey("getterCode") ? "" : null;
+                    entry["setterCode"] = entry.ContainsKey("setterCode") ? "" : null;
                 }
 
                 if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;
