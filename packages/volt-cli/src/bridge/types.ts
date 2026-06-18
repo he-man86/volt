@@ -145,18 +145,13 @@ export type BuildResponse = z.infer<typeof BuildResponseSchema>;
  * `.dut` / `.itf` file. The bridge owns the split (via StSplitter) into
  * POU + children AND the transpilation of graphical bodies to ST. The
  * agent only sees `sourceText` — always plain ST text regardless of
- * the original body language.
+ * the original body language. The file extension is part of the name.
  */
 export const FetchedItemSchema = z
 	.object({
+		/** Full workspace filename including extension (e.g. "PLC_PRG.st", "FB_Motor.fbd").
+		 *  The extension (.st/.fbd/.ld/…) drives workspace file-type access (rw vs r). */
 		name: z.string(),
-		/** Vendor-neutral kind ("function_block" / "function" / "program" /
-		 *  "interface" / "gvl" / "structure" / "enumeration" / "union" /
-		 *  "alias"). */
-		kind: z.string(),
-		/** Root body language (ST/FBD/LD/CFC/SFC) — picks the workspace file extension
-		 *  (.st/.fbd/.ld/.cfc/.sfc). Absent for non-POU kinds (DUTs, GVL, reference items). */
-		language: z.string().optional(),
 		/** Slash-joined containing folder in the project tree (e.g. "POUs/Motors").
 		 *  Empty/absent = item at the project root. */
 		folder: z.string().optional(),
@@ -181,21 +176,12 @@ export const RefsResponseSchema = z
 		projectVersion: z.string(),
 		/** sha1 of sorted item names only. Stable across content edits; changes only on add/rename/delete. */
 		structureVersion: z.string(),
-		/** name → content fingerprint for every top-level CRUD item. */
+		/** Full name → version map. Keys include the file extension (e.g.
+		 *  "PLC_PRG.st", "FB_Motor.fbd") — match fetched item names exactly. */
 		items: z.record(z.string()),
 		/**
-		 * Parallel map of name → vendor-neutral kind string. Lets clients
-		 * route per kind without re-inferring from a /fetch round-trip.
-		 * Every bridge translates its native type codes to this canonical
-		 * vocabulary, so clients stay vendor-agnostic.
-		 */
-		kinds: z.record(z.string()).optional(),
-		/**
-		 * Parallel map of name → slash-joined containing folder in the
+		 * Parallel map of full name → slash-joined containing folder in the
 		 * project tree (empty string = item at the project root).
-		 * Required so clients can build accurate workspace URIs without
-		 * a /fetch round-trip — critical for the SCM-view drift preview
-		 * shown right after `volt init`, before any pull has happened.
 		 */
 		folders: z.record(z.string()),
 	})
@@ -244,21 +230,6 @@ export type FetchResponse = z.infer<typeof FetchResponseSchema>;
 // Atomic batch: bridge validates ALL ops' ifVersion against pre-batch
 // state (with forward simulation so in-batch dependencies validate
 // cleanly), then applies in declared order on success.
-
-/** Top-level item kinds the bridge can produce. */
-export const PouKindSchema = z.enum([
-	"function_block",
-	"function",
-	"program",
-	"structure",
-	"union",
-	"enumeration",
-	"alias",
-	"interface",
-	"gvl",
-]);
-export type PouKind = z.infer<typeof PouKindSchema>;
-
 export const PushItemOpSchema = z.object({
 	op: z.literal("pushItem"),
 	name: z.string(),

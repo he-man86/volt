@@ -5,7 +5,7 @@ import { configExists, loadConfig, workspacePaths } from "../config/workspace.js
 import type { ConflictEntry } from "../merge/engine.js"
 import { isMergingNow } from "../merge/engine.js"
 import { workspaceMatchesBridge } from "../merge/ops.js"
-import { nameFromPath as nameFromPouPath, pickExtension } from "../registry/extensions.js"
+import { nameFromPath as nameFromPouPath } from "../registry/extensions.js"
 import {
 	computeIncoming,
 	computeOutgoing,
@@ -168,7 +168,6 @@ async function computeStatus(workspaceRoot: string, bridge: Remote): Promise<Sta
 			undefined,
 			refs.folders,
 			refs.items,
-			refs.kinds ?? {},
 			incoming,
 			{ added: [], removed: [], modified: [], moved: [] },
 		)
@@ -251,7 +250,6 @@ async function computeStatus(workspaceRoot: string, bridge: Remote): Promise<Sta
 		state.commitSha,
 		{ ...(state.folders ?? {}), ...refs.folders },
 		refs.items,
-		refs.kinds ?? {},
 		incoming,
 		outgoing,
 	)
@@ -279,7 +277,6 @@ function computePathByName(
 	commitSha: string | undefined,
 	folders: Record<string, string>,
 	bridgeItems: Record<string, string>,
-	bridgeKinds: Record<string, string>,
 	incoming: ChangeSet,
 	outgoing: ChangeSet,
 ): Record<string, string> {
@@ -296,10 +293,9 @@ function computePathByName(
 	])
 	for (const name of allNames) {
 		if (out[name] !== undefined) continue
-		const kind = bridgeKinds[name]
-		const ext = kind !== undefined ? pickExtension(kind) : "st"
+		// Name already includes extension from the bridge (e.g. "PLC_PRG.st")
 		const folder = folders[name] ?? "POUs"
-		const vendorRel = folder.length > 0 ? `${folder}/${name}.${ext}` : `${name}.${ext}`
+		const vendorRel = folder.length > 0 ? `${folder}/${name}` : name
 		out[name] = `${WORKSPACE_SRC_DIR}/${vendorRel}`
 	}
 	return out

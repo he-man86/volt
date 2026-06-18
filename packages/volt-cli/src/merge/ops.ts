@@ -23,13 +23,11 @@ import { loadState, saveState, type RepoState } from "../snapshot/repo.js";
 import { listWorkspaceFiles } from "../snapshot/workspace.js";
 import {
 	FOLDER_MARKER,
+	defFromName,
 	getByPath,
 	gitattributesContent,
-	isKnownKind,
 	isSourcePou,
 	nameFromPath,
-	nameIsVerbatim,
-	pickExtension,
 	sourceExtensions,
 } from "../registry/extensions.js";
 import { isPullable, type AccessOverrides } from "../registry/access.js";
@@ -110,7 +108,7 @@ export async function syncFromBridge(
 			skipped.push({ name: item.name, reason });
 			delete items[item.name];
 			delete folders[item.name];
-			process.stderr.write(`[skip] ${item.name} (${item.kind ?? "unknown kind"}): ${reason}\n`);
+			process.stderr.write(`[skip] ${item.name}: ${reason}\n`);
 		}
 	}
 
@@ -153,28 +151,16 @@ export interface MaterializedFile {
 }
 
 function materializeItem(item: FetchedItem): MaterializedFile[] {
-	if (item.kind === undefined || item.kind === null) {
-		throw new Error(`bridge sent no "kind" for "${item.name}" — bridge binary is outdated, rebuild and restart it`);
+	const folder = item.folder ?? ""
+	const name = item.name                    // already includes extension, e.g. "PLC_PRG.st"
+	const def = defFromName(name)
+	if (!def) {
+		throw new Error(`unrecognized extension in "${name}" — add it to registry/extensions.ts`)
 	}
-	const folder = item.folder ?? "";
-
-	if (!isKnownKind(item.kind)) {
-		throw new Error(
-			`bridge sent unregistered kind "${item.kind}" for "${item.name}" — add it to registry/extensions.ts`,
-		);
+	if (def.ext.length === 0) {
+		return [{ path: joinPath(folder, name, FOLDER_MARKER), content: "" }]
 	}
-
-	// A POU's extension follows its root body language (.st/.fbd/.ld/.cfc/.sfc); every other kind
-	// uses its registry extension. The folder placeholder is the only kind with no extension.
-	const ext = pickExtension(item.kind, item.language ?? undefined);
-	if (ext.length === 0) {
-		return [{ path: joinPath(folder, item.name, FOLDER_MARKER), content: "" }];
-	}
-
-	// Source POUs and read-only reference items are identical here — they differ only in whether
-	// the filename is verbatim (e.g. tmc_file) or `name.ext`.
-	const fileName = nameIsVerbatim(item.kind) ? item.name : `${item.name}.${ext}`;
-	return [{ path: joinPath(folder, fileName), content: item.sourceText }];
+	return [{ path: joinPath(folder, name), content: item.sourceText }]
 }
 
 function resolveOwnerItem(relPath: string, items: Record<string, string>): string | undefined {
@@ -184,10 +170,14 @@ function resolveOwnerItem(relPath: string, items: Record<string, string>): strin
 	}
 	const segments = relPath.split("/");
 	const basename = segments[segments.length - 1]!;
+	if (basename in items) return basename;
+	// Fallback: try matching bare name (legacy items map key compatibility)
 	const dot = basename.lastIndexOf(".");
 	if (dot > 0) {
 		const stem = basename.slice(0, dot);
-		if (stem in items) return stem;
+		for (const key of Object.keys(items)) {
+			if (key.startsWith(stem + ".")) return key;
+		}
 	}
 	return undefined;
 }
