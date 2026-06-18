@@ -39,7 +39,7 @@ describe("push", () => {
       const result = await push(workspace, bridge, {})
       expect(result.kind).toBe("ok")
       if (result.kind === "ok") {
-        expect(result.items).toContain("FB_Motor")
+        expect(result.items).toContain("FB_Motor.st")
       }
       expect(bridge.pushCalls.length).toBeGreaterThan(beforeCount)
     } finally {
@@ -99,7 +99,7 @@ describe("push", () => {
       const result = await push(workspace, bridge, {})
       expect(result.kind).toBe("ok")
       if (result.kind === "ok") {
-        expect(result.items).toContain("FB_Motor")
+        expect(result.items).toContain("FB_Motor.st")
       }
     } finally {
       cleanup()
@@ -132,7 +132,7 @@ describe("push", () => {
       const result = await push(workspace, bridge, {})
       expect(result.kind).toBe("ok")
       if (result.kind === "ok") {
-        expect(result.items).toContain("FB_Pump")
+        expect(result.items).toContain("FB_Pump.st")
         expect(result.items).not.toContain("IoStandard")
         expect(result.items).not.toContain("MainTask")
       }
@@ -154,7 +154,7 @@ describe("push", () => {
       const createResult = await push(workspace, bridge, {})
       expect(createResult.kind).toBe("ok")
       if (createResult.kind === "ok") {
-        expect(createResult.items).toContain("MyNewPOU")
+        expect(createResult.items).toContain("MyNewPOU.st")
       }
 
       // Now delete it
@@ -163,7 +163,7 @@ describe("push", () => {
       const deleteResult = await push(workspace, bridge, {})
       expect(deleteResult.kind).toBe("ok")
       if (deleteResult.kind === "ok") {
-        expect(deleteResult.items).toContain("MyNewPOU")
+        expect(deleteResult.items).toContain("MyNewPOU.st")
       }
     } finally {
       cleanup()
@@ -186,7 +186,6 @@ describe("push — IDE drift since last pull", () => {
       // ...but the IDE moved on (a different item changed) since the last pull.
       bridge.mutate("PLC_PRG", {
         name: "PLC_PRG",
-        kind: "program",
         sourceText: "PROGRAM PLC_PRG\nVAR\n\tcycles : INT;\nEND_VAR\ncycles := cycles + 1;\nEND_PROGRAM\n",
       })
 
@@ -210,17 +209,16 @@ describe("push — IDE drift since last pull", () => {
       writeFileSync(motorPath, "FUNCTION_BLOCK FB_Motor\nVAR\n\tspeed : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
       bridge.mutate("PLC_PRG", {
         name: "PLC_PRG",
-        kind: "program",
         sourceText: "PROGRAM PLC_PRG\nVAR\n\tcycles : INT;\nEND_VAR\ncycles := cycles + 1;\nEND_PROGRAM\n",
       })
 
       const result = await push(workspace, bridge, { force: true })
       expect(result.kind).toBe("ok")
       if (result.kind === "ok") {
-        expect(result.items).toContain("FB_Motor")
+        expect(result.items).toContain("FB_Motor.st")
       }
       // The forced push must NOT have clobbered the IDE's drifted item.
-      expect(bridge.items.get("PLC_PRG")?.sourceText).toContain("cycles")
+      expect(bridge.items.get("PLC_PRG.st")?.sourceText).toContain("cycles")
     } finally {
       cleanup()
     }

@@ -53,7 +53,7 @@ describe("show", () => {
       await pull(workspace, bridge, {})
       // IDE moves on; BRIDGE must reflect that, not the snapshot.
       bridge.mutate("FB_Motor", {
-        name: "FB_Motor", kind: "function_block", folder: "POUs",
+        name: "FB_Motor", folder: "POUs",
         sourceText: "FUNCTION_BLOCK FB_Motor\nVAR\n\tlive : INT := 7;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
       })
 

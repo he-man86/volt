@@ -13,7 +13,6 @@ const MOTOR_PATH = ["src", "POUs", "FB_Motor.st"]
 /** Build an FB_Motor bridge item with the given assembled source. */
 const motorItem = (sourceText: string) => ({
 	name: "FB_Motor",
-	kind: "function_block",
 	folder: "POUs",
 	sourceText,
 })
