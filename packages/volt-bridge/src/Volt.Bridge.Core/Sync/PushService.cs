@@ -20,7 +20,8 @@ public static class PushService
 
         ide.FlushPendingWrites();
 
-        // Pre-apply snapshot: current versions + a cache of the top-level CRUD items to write into.
+        // Pre-apply snapshot: versions keyed by BARE IDE name (push ops use bare names).
+        // Responses use FULL names (mat.FullName) — matches /refs and /fetch.
         var currentVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
@@ -43,8 +44,6 @@ public static class PushService
             try { ApplyOp(ide, parent, itemCache, op); }
             catch (Exception ex)
             {
-                // An apply failure becomes a clean per-op conflict rather than a 500 — the client sees
-                // exactly which op failed and why.
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message } },
                     currentProjectVersion);
@@ -53,19 +52,20 @@ public static class PushService
 
         ide.FlushPendingWrites();
 
-        // Cold re-walk for the receipt — byte-for-byte how /refs builds it, so the version map the
-        // client stores is EXACTLY what the next /refs returns (a recompute from the just-written items
-        // reads their transiently-dirty state and drifts).
-        var newVersions = new Dictionary<string, string>();
+        // Cold re-walk for the receipt — bare-name keys for aggregate version (matches /refs),
+        // full-name keys for the wire Items map.
+        var receiptVersions = new Dictionary<string, string>();
+        var receiptFullVersions = new Dictionary<string, string>();
         foreach (var it in ide.WalkItems())
         {
             var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
             if (kind == null) continue;
             var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
-            newVersions[mat.FullName] = version;
+            receiptVersions[it.Name] = version;
+            receiptFullVersions[mat.FullName] = version;
         }
 
-        return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(newVersions), newVersions);
+        return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
     }
 
     private static List<PushConflict> DetectConflicts(

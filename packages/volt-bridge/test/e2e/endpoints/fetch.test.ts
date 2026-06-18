@@ -14,31 +14,31 @@ describe(`endpoints / fetch (${BASE})`, () => {
 		await createItem(name, fb(name))
 		await ensureCompiles(name)
 		const f = await bridge.fetch({ knownItems: {} })
-		const it = f.changed.find((i: any) => i.name === name)
+		const it = f.changed.find((i: any) => i.name === name + ".st")
 		expect(it).toBeDefined()
 		expect(typeof it.sourceText).toBe("string")
-		expect(it.version).toBe((await bridge.refs()).items[name])
-		expect(f.items[name]).toBe(it.version)
+		expect(it.version).toBe((await bridge.refs()).items[name + ".st"])
+		expect(f.items[name + ".st"]).toBe(it.version)
 	})
 
 	it("knownItems excludes an UNCHANGED item from changed[] (but keeps it in items)", async () => {
 		const name = id("f_known")
 		await createItem(name, fb(name))
 		await ensureCompiles(name)
-		const v = (await bridge.refs()).items[name]
-		const f = await bridge.fetch({ knownItems: { [name]: v } })
-		expect(f.changed.find((i: any) => i.name === name)).toBeUndefined()  // unchanged ⇒ not shipped
-		expect(f.items[name]).toBe(v)                                        // still in the full map
+		const v = (await bridge.refs()).items[name + ".st"]
+		const f = await bridge.fetch({ knownItems: { [name + ".st"]: v } })
+		expect(f.changed.find((i: any) => i.name.startsWith(name + "."))).toBeUndefined()
+		expect(f.items[name + ".st"]).toBe(v)
 	})
 
 	it("a content edit makes the item reappear in changed[] for a stale knownItems", async () => {
 		const name = id("f_edit")
 		await createItem(name, fb(name, { body: "x := 1;" }))
 		await ensureCompiles(name)
-		const stale = (await bridge.refs()).items[name]
+		const stale = (await bridge.refs()).items[name + ".st"]
 		await updateItem(name, fb(name, { body: "x := 777;" }))
-		const f = await bridge.fetch({ knownItems: { [name]: stale } })
-		const it = f.changed.find((i: any) => i.name === name)
+		const f = await bridge.fetch({ knownItems: { [name + ".st"]: stale } })
+		const it = f.changed.find((i: any) => i.name === name + ".st")
 		expect(it).toBeDefined()
 		expect(it.sourceText).toMatch(/x := 777/)
 	})
@@ -48,8 +48,8 @@ describe(`endpoints / fetch (${BASE})`, () => {
 		await createItem(a, fb(a)); await ensureCompiles(a)
 		await createItem(b, fb(b)); await ensureCompiles(b)
 		const f = await bridge.fetch({ knownItems: {}, onlyItems: [a] })
-		expect(f.changed.find((i: any) => i.name === a)).toBeDefined()
-		expect(f.changed.find((i: any) => i.name === b)).toBeUndefined()
+		expect(f.changed.find((i: any) => i.name === a + ".st")).toBeDefined()
+		expect(f.changed.find((i: any) => i.name === b + ".st")).toBeUndefined()
 	})
 
 	it("removed[] reports a name the client knew that no longer exists", async () => {

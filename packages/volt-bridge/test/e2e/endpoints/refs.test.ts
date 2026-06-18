@@ -9,12 +9,11 @@ describe(`endpoints / refs (${BASE})`, () => {
 	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
-	it("returns projectVersion + structureVersion + items/kinds/folders", async () => {
+	it("returns projectVersion + structureVersion + items/folders", async () => {
 		const r = await bridge.refs()
 		expect(typeof r.projectVersion).toBe("string")
 		expect(typeof r.structureVersion).toBe("string")
 		expect(typeof r.items).toBe("object")
-		expect(typeof r.kinds).toBe("object")
 		expect(typeof r.folders).toBe("object")
 	})
 
@@ -30,8 +29,8 @@ describe(`endpoints / refs (${BASE})`, () => {
 		await createItem(name, fb(name), "POUs/Sub")
 		await ensureCompiles(name)
 		const r = await bridge.refs()
-		expect(r.items).toHaveProperty(name)
-		expect(r.kinds[name]).toBe("function_block")
-		expect(r.folders[name]).toBe("POUs/Sub")
+		const fullName = name + ".st"
+		expect(r.items[fullName]).toBeDefined()
+		expect(r.folders[fullName]).toBe("POUs/Sub")
 	})
 })

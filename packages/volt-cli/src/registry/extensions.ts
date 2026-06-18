@@ -71,7 +71,8 @@ export function accessForExt(ext: string): DefaultAccess | undefined {
 	return def?.defaultAccess;
 }
 
-/// Full workspace filename from a path (e.g. "POUs/PLC_PRG.st" → "PLC_PRG.st").
+/// The bare IDE name from a workspace path (e.g. "POUs/FB_Motor.st" → "FB_Motor").
+/// Used for push ops and IDE lookups — the bridge's IDE API uses bare names.
 export function nameFromPath(relPath: string): string | undefined {
 	const slash = relPath.lastIndexOf("/");
 	const base = slash >= 0 ? relPath.slice(slash + 1) : relPath;
@@ -84,7 +85,24 @@ export function nameFromPath(relPath: string): string | undefined {
 	if (dot < 0) return undefined;
 	const def = getByExt(base.slice(dot).toLowerCase());
 	if (def === undefined) return undefined;
-	return base;   // full name including extension
+	return base.slice(0, dot);   // bare name, no extension
+}
+
+/// The full filename from a workspace path (e.g. "POUs/FB_Motor.st" → "FB_Motor.st").
+/// Used for matching against the bridge's wire names (which include extensions).
+export function fullNameFromPath(relPath: string): string | undefined {
+	const slash = relPath.lastIndexOf("/");
+	const base = slash >= 0 ? relPath.slice(slash + 1) : relPath;
+	if (base === FOLDER_MARKER) {
+		const beforeSlash = relPath.lastIndexOf("/", slash - 1);
+		if (slash <= 0) return undefined;
+		return relPath.slice(beforeSlash + 1, slash);
+	}
+	const dot = base.lastIndexOf(".");
+	if (dot < 0) return undefined;
+	const def = getByExt(base.slice(dot).toLowerCase());
+	if (def === undefined) return undefined;
+	return base;   // full name, includes extension
 }
 
 /// The extension definition for a full filename (e.g. "PLC_PRG.st" → { ext: "st", defaultAccess: "rw" }).

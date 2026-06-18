@@ -10,14 +10,14 @@
  *   move   → item version Δ (folder ∈ hash), structure same, project Δ (move)
  *   delete → assert {item:gone, project:Δ, structure:Δ}     (delete)
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
-import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
+import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, FOLDER, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy() })
-	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
-	afterEach(async () => { await restorePlcPrg() })
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() }, 30_000)
+	afterEach(async () => { await restorePlcPrg() }, 30_000)
 	afterAll(cleanup)
 
 	for (const k of LIFECYCLE_KINDS) {
@@ -26,7 +26,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 1. baseline
 			const s0 = await snapshot()
-			expect(s0.items[name]).toBeUndefined()
+			expect(snapshotHas(s0, name)).toBe(false)
 
 			// 2. CREATE
 			await createItem(name, k.create(name))
@@ -36,8 +36,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 3. FETCH — kind + version + folder consistent with /refs
 			const fetched = await fetchItem(name)
-			expect(fetched.kind).toBe(k.kind)
-			expect(fetched.version).toBe(s1.items[name])
+			expect(fetched.version).toBe(snapshotItem(s1, name))
 			expect(fetched.folder ?? "").toBe(FOLDER)
 
 			// 4. RE-PUSH the bridge's own canonical output → FIXED POINT (nothing moves)
@@ -53,28 +52,26 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 6. RENAME → structure + project change; the renamed item keeps its content version
 			const newName = id(`lc_${k.key}_r`)
-			const rn = await pushOps([{ op: "renameItem", name, newName, ifVersion: s3.items[name] }])
+			const rn = await pushOps([{ op: "renameItem", name, newName, ifVersion: snapshotItem(s3, name) }])
 			expect(rn.accepted).toBe(true)
 			const s4 = await snapshot()
-			expect(s4.items[name]).toBeUndefined()
-			// The POU name is in its source for most kinds, so a rename changes the materialized text →
-			// item version. A GVL (no name in VAR_GLOBAL) keeps its version. Either way structure+project Δ.
-			if (k.nameInSource) expect(s4.items[newName]).not.toBe(s3.items[name])
-			else expect(s4.items[newName]).toBe(s3.items[name])
+			expect(snapshotHas(s4, name)).toBe(false)
+			if (k.nameInSource) expect(snapshotItem(s4, newName)).not.toBe(snapshotItem(s3, name))
+			else expect(snapshotItem(s4, newName)).toBe(snapshotItem(s3, name))
 			expect(s4.structure).not.toBe(s3.structure)
 			expect(s4.project).not.toBe(s3.project)
 
 			// 7. MOVE → item version changes (folder is in the hash), names unchanged ⇒ structure same
-			const mv = await pushOps([{ op: "moveItem", name: newName, newFolder: "POUs/Moved", ifVersion: s4.items[newName] }])
+			const mv = await pushOps([{ op: "moveItem", name: newName, newFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newName) }])
 			expect(mv.accepted).toBe(true)
 			const s5 = await snapshot()
-			expect(s5.items[newName]).not.toBe(s4.items[newName])
+			expect(snapshotItem(s5, newName)).not.toBe(snapshotItem(s4, newName))
 			expect(s5.structure).toBe(s4.structure)
 			expect(s5.project).not.toBe(s4.project)
 			expect((await fetchItem(newName)).folder).toBe("POUs/Moved")
 
 			// 8. DELETE
-			const del = await pushOps([{ op: "deleteItem", name: newName, ifVersion: s5.items[newName] }])
+			const del = await pushOps([{ op: "deleteItem", name: newName, ifVersion: snapshotItem(s5, newName) }])
 			expect(del.accepted).toBe(true)
 			const s6 = await snapshot()
 			assertDelta(s5, s6, newName, { item: "gone", project: true, structure: true })

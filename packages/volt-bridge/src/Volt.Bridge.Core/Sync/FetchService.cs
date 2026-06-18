@@ -7,8 +7,10 @@ using Volt.Bridge.Core.Workspace;
 namespace Volt.Bridge.Core.Sync;
 
 /// <summary><c>/fetch</c>: like <c>/refs</c>, but ships the materialized source for every item whose
-/// version differs from the client's known version. Materialize ONCE per item — the version is a hash
-/// of the exact text shipped, so version and content can never diverge.</summary>
+/// version differs from the client's known version.
+///
+/// Aggregate versions (projectVersion, structureVersion) use bare-name keys — same as /refs and
+/// PushService conflict detection. The wire Items and Changed[].Name use full-name keys.</summary>
 public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request)
@@ -19,19 +21,22 @@ public static class FetchService
         var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
             ? new HashSet<string>(request.OnlyItems) : null;
 
-        var versions = new Dictionary<string, string>();
+        var versions = new Dictionary<string, string>();          // bare-name keys for aggregate hashing
+        var fullVersions = new Dictionary<string, string>();       // full-name keys for wire Items
         var changed = new List<FetchedItem>();
 
         foreach (var it in ide.WalkItems())
         {
-            if (onlyItems != null && !onlyItems.Contains(it.Name)) continue;
-
             var kind = ItemKind.Map(it.KindCode, it.IsTopLevelCrud);
             if (kind == null) continue;
 
             var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
             var fullName = mat.FullName;
-            versions[fullName] = version;
+
+            if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
+
+            versions[it.Name] = version;
+            fullVersions[fullName] = version;
 
             if (knownItems.TryGetValue(fullName, out var known) && known == version) continue;
 
@@ -44,7 +49,7 @@ public static class FetchService
             });
         }
 
-        var removed = knownItems.Keys.Where(k => !versions.ContainsKey(k)).ToList();
+        var removed = knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
 
         return new FetchResponse
         {
@@ -52,7 +57,7 @@ public static class FetchService
             StructureVersion = Hasher.ComputeStructureVersion(versions),
             Changed = changed,
             Removed = removed,
-            Items = versions,
+            Items = fullVersions,
         };
     }
 }

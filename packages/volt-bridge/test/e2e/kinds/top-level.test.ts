@@ -15,7 +15,6 @@ describe(`kinds / top-level (${BASE})`, () => {
 		const name = id("k_func")
 		await createItem(name, func(name))
 		const item = await fetchItem(name)
-		expect(item.kind).toBe("function")
 		expect(item.sourceText).toMatch(/FUNCTION \w+ : BOOL/)
 	})
 
@@ -23,14 +22,13 @@ describe(`kinds / top-level (${BASE})`, () => {
 		const name = id("k_alias")
 		await createItem(name, aliasDut(name))
 		const item = await fetchItem(name)
-		expect(item.kind).toBe("alias")
 		expect(item.sourceText).toContain("DWORD")
 	})
 
 	it("creates an empty interface", async () => {
 		const name = id("k_iface")
 		await createItem(name, iface(name))
-		expect((await fetchItem(name)).kind).toBe("interface")
+		expect(await fetchSource(name)).toContain("INTERFACE")
 	})
 
 	// Interface members crash TwinCAT (interface members are declaration-only; the materializer's

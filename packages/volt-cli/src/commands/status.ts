@@ -5,7 +5,7 @@ import { configExists, loadConfig, workspacePaths } from "../config/workspace.js
 import type { ConflictEntry } from "../merge/engine.js"
 import { isMergingNow } from "../merge/engine.js"
 import { workspaceMatchesBridge } from "../merge/ops.js"
-import { nameFromPath as nameFromPouPath } from "../registry/extensions.js"
+import { fullNameFromPath } from "../registry/extensions.js"
 import {
 	computeIncoming,
 	computeOutgoing,
@@ -196,7 +196,7 @@ async function computeStatus(workspaceRoot: string, bridge: Remote): Promise<Sta
 	if (mergeState !== undefined) {
 		const mergePathByName: Record<string, string> = {}
 		for (const c of mergeState.conflicts) {
-			const name = nameFromPouPath(c.path)
+			const name = fullNameFromPath(c.path)
 			if (name !== undefined) mergePathByName[name] = `${WORKSPACE_SRC_DIR}/${c.path}`
 		}
 		return {
@@ -283,7 +283,7 @@ function computePathByName(
 	const out: Record<string, string> = {}
 	if (commitSha !== undefined) {
 		for (const entry of listTree(snapshotPath, commitSha)) {
-			const name = nameFromPouPath(entry.path)
+			const name = fullNameFromPath(entry.path)
 			if (name !== undefined) out[name] = `${WORKSPACE_SRC_DIR}/${entry.path}`
 		}
 	}

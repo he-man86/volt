@@ -22,11 +22,19 @@ public static class Materializer
             var text = StAssembler.Assemble(build);
             var lang = build.TryGetValue("language", out var l) ? l as string : null;
             var ext = lang?.ToLowerInvariant() ?? KindToExt(kind);
-            return new WorkspaceItem(text, $"{name}.{ext}");
+            return new WorkspaceItem(text, FullWireName(name, ext));
         }
-        // Non-source kinds (libraries, tasks, visualization managers, …) — manifest text, ext is the kind word.
-        return new WorkspaceItem(ide.ReadManifest(item, kind), $"{name}.{kind}");
+        return new WorkspaceItem(ide.ReadManifest(item, kind),
+            FullWireName(name, KindToExt(kind)));
     }
+
+    /// <summary>Append the extension to the name. For verbatim kinds (tmc_file), the IDE name
+    /// already includes the extension — don't double it.</summary>
+    private static string FullWireName(string bareName, string ext) =>
+        IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
+
+    private static bool IsVerbatimKind(string name, string ext) =>
+        name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Kinds whose content is assembled source text (vs a manifest).</summary>
     public static bool IsSourceKind(string kind) => kind switch
@@ -43,6 +51,7 @@ public static class Materializer
         "interface" => "itf",
         "structure" => "struct",
         "enumeration" => "enum",
+        "tmc_file" => "tmc",
         _ => kind,   // gvl, union, alias, library, task, … → ext == kind
     };
 

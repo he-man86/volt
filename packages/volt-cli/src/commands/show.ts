@@ -3,7 +3,7 @@ import type { Remote } from "../bridge/types.js"
 import { loadState } from "../snapshot/repo.js"
 import { readBlob, resolveRef, lookupBlobInCommit } from "../git/plumbing.js"
 import { workspacePaths } from "../config/workspace.js"
-import { nameFromPath } from "../registry/extensions.js"
+import { fullNameFromPath } from "../registry/extensions.js"
 
 export async function show(workspace: string, bridge: Remote, ref: string, path: string): Promise<void> {
 	const root = resolve(workspace)
@@ -33,7 +33,7 @@ export async function show(workspace: string, bridge: Remote, ref: string, path:
 	// BRIDGE = the item's CURRENT content live from the IDE (what a pull would bring).
 	// Lets the editor diff workspace/HEAD ↔ the live IDE without pulling.
 	if (ref === "BRIDGE") {
-		const name = nameFromPath(treePath)
+		const name = fullNameFromPath(treePath)
 		if (name === undefined) { console.error(`cannot derive item name from path: ${path}`); process.exitCode = 2; return }
 		const fetched = await bridge.fetchChanges({ knownItems: {}, onlyItems: [name] })
 		const item = fetched.changed.find((i) => i.name === name)

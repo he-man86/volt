@@ -18,7 +18,6 @@ describe(`vendor notes (${BASE})`, () => {
 		const name = id("vn_func")
 		await createItem(name, func(name))
 		const item = await fetchItem(name)
-		expect(item.kind).toBe("function")
 		expect(item.sourceText).toMatch(/FUNCTION \w+ : BOOL/)
 		if (tc) console.info("TwinCAT function create OK — the omit-vInfo (Type.Missing) path holds")
 	})

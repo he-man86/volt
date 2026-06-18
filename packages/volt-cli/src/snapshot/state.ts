@@ -1,5 +1,5 @@
 import { listTree, writeBlob } from "../git/plumbing.js"
-import { getByPath, isSourcePou, nameFromPath } from "../registry/extensions.js"
+import { getByPath, isSourcePou, fullNameFromPath, nameFromPath } from "../registry/extensions.js"
 import { listWorkspaceFiles, normalizeWorkspaceContent } from "./workspace.js"
 
 export interface ChangeSet {
@@ -58,7 +58,7 @@ export function computeOutgoing(
 	const sourceOnly = (path: string): string | undefined => {
 		const def = getByPath(path)
 		if (def === undefined || !isSourcePou(def)) return undefined
-		return nameFromPath(path)
+		return fullNameFromPath(path)
 	}
 	const folderOf = (path: string): string => {
 		const segs = path.split("/")

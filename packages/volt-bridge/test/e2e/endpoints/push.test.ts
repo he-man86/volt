@@ -50,17 +50,20 @@ describe(`endpoints / push (${BASE})`, () => {
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [
 			{ op: "pushItem", name: add, folder: FOLDER, sourceText: fb(add, { body: "x := 1;" }), ifVersion: null },
-			{ op: "pushItem", name: upd, folder: FOLDER, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[upd] },
-			{ op: "deleteItem", name: del, ifVersion: refs.items[del] },
+			{ op: "pushItem", name: upd, folder: FOLDER, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[upd + ".st"] },
+			{ op: "deleteItem", name: del, ifVersion: refs.items[del + ".st"] },
 		] })
 		expect(r.accepted).toBe(true)
 		// receipt (newItems) must equal the next /refs exactly
 		const after = await bridge.refs()
+		const addKey = add + ".st"
+		const updKey = upd + ".st"
+		const delKey = del + ".st"
 		expect(r.newProjectVersion).toBe(after.projectVersion)
-		expect(r.newItems[add]).toBe(after.items[add])
-		expect(after.items).toHaveProperty(add)
-		expect(after.items).toHaveProperty(upd)
-		expect(after.items).not.toHaveProperty(del)
+		expect(r.newItems[addKey]).toBe(after.items[addKey])
+		expect(after.items[addKey]).toBeDefined()
+		expect(after.items[updKey]).toBeDefined()
+		expect(after.items[delKey]).toBeUndefined()
 	})
 
 	it("rejects the WHOLE batch if any op conflicts — nothing applied", async () => {
@@ -74,7 +77,9 @@ describe(`endpoints / push (${BASE})`, () => {
 		] })
 		expect(r.accepted).toBe(false)
 		const after = await bridge.refs()
-		expect(after.items).not.toHaveProperty(ok)   // atomic: the OK op was NOT applied
-		expect(after.items).toHaveProperty(bad)
+		const okKey = ok + ".st"
+		const badKey = bad + ".st"
+		expect(after.items[okKey]).toBeUndefined()   // atomic: the OK op was NOT applied
+		expect(after.items[badKey]).toBeDefined()
 	})
 })
