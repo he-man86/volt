@@ -24,8 +24,13 @@ const contract = (
 const contractKinds = contract.map((k) => k.kind)
 const fileKinds = contract.filter((k) => k.family === undefined).map((k) => k.kind)
 
-// Map() is the only place in ItemKind.cs that returns kind STRINGS.
-const emittedKinds = [...readFileSync(ITEMKIND_CS, "utf-8").matchAll(/=>\s*"([a-z_]+)"/g)].map((m) => m[1]!)
+// Map() is the only place in ItemKind.cs that returns kind STRINGS. Extract only the
+// Map method body (code switch … };) — skip ExtFor and other switches in the same file.
+const itemKindSrc = readFileSync(ITEMKIND_CS, "utf-8")
+const mapStart = itemKindSrc.indexOf("=> code switch")
+const mapEnd = itemKindSrc.indexOf("/// <summary>Top-level", mapStart)
+const mapBody = mapStart > 0 && mapEnd > mapStart ? itemKindSrc.slice(mapStart, mapEnd) : itemKindSrc
+const emittedKinds = [...mapBody.matchAll(/=>\s*"([a-z_]+)"/g)].map((m) => m[1]!)
 
 const asSet = (xs: readonly string[]): string[] => [...new Set(xs)].sort()
 

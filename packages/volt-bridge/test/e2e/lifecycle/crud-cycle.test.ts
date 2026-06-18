@@ -15,9 +15,10 @@ import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateI
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
+	setDefaultTimeout(60_000) // TC COM calls are slow; default 5s is too tight
 	beforeAll(async () => { await requireHealthy() })
-	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() }, 30_000)
-	afterEach(async () => { await restorePlcPrg() }, 30_000)
+	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
+	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
 	for (const k of LIFECYCLE_KINDS) {
