@@ -215,7 +215,7 @@ namespace Volt.Bridge.Core.Graphical
                 foreach (var node in net.Nodes)
                 {
                     if (node is not OutVar ov) continue;   // each l-value is a coil — the end of a rung
-                    long feed = EmitContacts(root, net.Nodes, ov.Source, leftRail, ref nextId, ref row);
+                    long feed = EmitContacts(root, net.Nodes, ov.Source, Mods.None, leftRail, ref nextId, ref row);
                     long coilId = nextId++;
                     root.Add(new XElement(Ns + "coil", new XAttribute("localId", coilId),
                         CoilAttrs(ov.Mods), Pos(row++),
@@ -233,28 +233,31 @@ namespace Volt.Bridge.Core.Graphical
         }
 
         /// <summary>Emit the contacts feeding <paramref name="source"/> in SERIES (AND), chained from
-        /// <paramref name="inId"/>. Returns the localId whose output feeds the next stage (the coil).</summary>
+        /// <paramref name="inId"/>. <paramref name="extraMods"/> are the mods on the CONSUMING pin (e.g. a
+        /// NOT on an AND input, which VG carries on the pin, not the leaf) — they merge onto the contact so
+        /// a normally-closed contact survives a re-edit. Returns the localId feeding the next stage.</summary>
         private static long EmitContacts(XElement root, IReadOnlyList<GraphNode> nodes, Conn? source,
-            long inId, ref long nextId, ref int row)
+            Mods extraMods, long inId, ref long nextId, ref int row)
         {
             if (source == null) return inId;
             var prod = nodes.ById(source.RefLocalId);
             switch (prod)
             {
                 case InVar iv:
+                    var m = MergeMods(iv.Mods, extraMods);   // the leaf's own mods AND the consuming pin's
                     long cid = nextId++;
                     root.Add(new XElement(Ns + "contact", new XAttribute("localId", cid),
-                        new XAttribute("negated", iv.Mods.Negated ? "true" : "false"),
+                        new XAttribute("negated", m.Negated ? "true" : "false"),
                         new XAttribute("storage", "none"),
-                        new XAttribute("edge", iv.Mods.Edge == EdgeMod.Rising ? "rising"
-                            : iv.Mods.Edge == EdgeMod.Falling ? "falling" : "none"),
+                        new XAttribute("edge", m.Edge == EdgeMod.Rising ? "rising"
+                            : m.Edge == EdgeMod.Falling ? "falling" : "none"),
                         Pos(row++), ConnTo(inId), new XElement(Ns + "connectionPointOut"),
                         new XElement(Ns + "variable", iv.Expression)));
                     return cid;
 
                 case Block b when b.TypeName.ToUpperInvariant() == "AND":
                     long prev = inId;
-                    foreach (var pin in b.Inputs) prev = EmitContacts(root, nodes, pin.Source, prev, ref nextId, ref row);
+                    foreach (var pin in b.Inputs) prev = EmitContacts(root, nodes, pin.Source, pin.Mods, prev, ref nextId, ref row);
                     return prev;
 
                 default:
@@ -263,6 +266,13 @@ namespace Volt.Bridge.Core.Graphical
                         "as ladder yet — only boolean series (AND of contacts) is supported. Edit this POU in the IDE.");
             }
         }
+
+        /// <summary>Combine a leaf's mods with the consuming pin's: two negations cancel (XOR); edge and
+        /// storage take whichever side is set (they never legitimately conflict on one wire).</summary>
+        private static Mods MergeMods(Mods a, Mods b) => new(
+            a.Negated ^ b.Negated,
+            a.Edge != EdgeMod.None ? a.Edge : b.Edge,
+            a.Storage != StorageMod.None ? a.Storage : b.Storage);
 
         private static XElement ConnTo(long refId)
             => new(Ns + "connectionPointIn", new XElement(Ns + "connection", new XAttribute("refLocalId", refId)));
