@@ -165,6 +165,29 @@ public class PlcOpenWriterTests
         Assert.Equal(vg, back);   // a true fixed point — no hash drift, no collapse
     }
 
+    /// <summary>Regression: a MULTI-network LD body must keep every network through the ladder generator —
+    /// each network emits its own power rails + rung, with localIds encoding the network so the reader
+    /// re-groups them. A live TC push dropped network 1 → networks must not collapse on write.</summary>
+    [Fact]
+    public void Multi_network_ld_keeps_every_network()
+    {
+        const string vg =
+            "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
+            "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
+            "NETWORK 1 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := c;\n  y := i1;\nEND_NETWORK\n";
+        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg));
+        // both networks are emitted: two left rails (one per network), each in its own localId band
+        var rails = xml.Elements(XName.Get("leftPowerRail", Ns)).Select(e => (long)e.Attribute("localId")!).ToList();
+        Assert.Equal(2, rails.Count);
+        Assert.Equal(new[] { 0L, 1L }, rails.Select(id => id / 10_000_000_000L).OrderBy(i => i).ToArray());
+        // and both coils survive a read-back
+        var back = VgWriter.Write(PlcOpenReader.ReadBody(xml));
+        Assert.Contains("NETWORK 0 LD", back);
+        Assert.Contains("NETWORK 1 LD", back);
+        Assert.Contains("x :=", back);
+        Assert.Contains("y :=", back);
+    }
+
     /// <summary>Regression: VG carries an FB output only on the CONSUMER (`done := t1.Q`), never on the
     /// block's call. The writer must still declare `Q` as an output pin on the block — otherwise the
     /// connection names a pin the block doesn't have and the IDE drops it on import (the `out := ;` bug).</summary>
