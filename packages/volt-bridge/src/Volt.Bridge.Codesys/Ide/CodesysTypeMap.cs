@@ -61,11 +61,19 @@ namespace Volt.Bridge.Codesys
             // Individual cyclic task → `task` (621), matching TwinCAT's flat task items.
             if (Has(ifaces, "ITaskObject")) return ItemKind.PlcTask;
 
+            // CODESYS's OWN "no loaded handler" marker: an object whose providing plugin isn't present in
+            // this install reports ONLY IUnknownObject (verified live on Hauzer — 20 such nodes: the German
+            // "Bibliotheksverwalter", SoftMotion MotionObjects / Carrier_* / CamRef_* / CamTracks, …). We
+            // cannot type what CODESYS itself can't, so emit nothing. This is NOT a classification gap — it
+            // is CODESYS declaring the type opaque. Listed explicitly so it reads as a decision, not a miss.
+            if (Has(ifaces, "IUnknownObject")) return ItemKind.Unknown;
+
             // Trace recordings, symbol config and project settings are CODESYS-only
             // build/debug artifacts: no TwinCAT tree-item equivalent and no editable
             // source. Return Unknown (skip) rather than lump them into a meaningless
             // catch-all — ITraceObject / ISymbolConfigObject / IWorkspaceObject fall
-            // through here intentionally.
+            // through here intentionally. (Recipe DEFINITIONs, IRecipeDefinitionObject, also fall through:
+            // TwinCAT does not emit them separately from the recipe manager, so skipping preserves parity.)
             return ItemKind.Unknown; // unrecognized / non-emittable — don't emit a phantom item
         }
 

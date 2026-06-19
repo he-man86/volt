@@ -52,6 +52,9 @@ public static class DebugService
             ["name"] = Safe(() => ide.Name(node), null),
             ["kindCode"] = kindCode,
             ["kind"] = ItemKind.Map(kindCode),
+            // Vendor type identity (CODESYS IObject interface names) when the driver exposes it — the no-guess
+            // basis for classifying a node that maps to Unknown. Null when the driver offers no introspection.
+            ["typeTags"] = ide is IDebugIntrospect di ? Safe<object?>(() => di.TypeTags(node), null) : null,
             ["declaration"] = isIfaceAccessor ? "<skipped: interface accessor text crashes TC>" : SafeText(() => ide.ReadDeclaration(node)),
             ["implementation"] = isIfaceAccessor ? "<skipped>" : SafeText(() => ide.ReadImplementation(node)),
             ["childCount"] = count,
