@@ -3,11 +3,11 @@
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "lib": ["es2022"],
     "noEmit": true,
     "types": ["node", "bun"]
   },
-  "include": ["*.ts"]
+  "include": ["test/**/*.ts"]
 }
