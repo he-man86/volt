@@ -52,6 +52,61 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 0 | — | `PlcSystemRoot` | `system_root`* | TC | ✅ | — | — | system/solution root sentinel; *Map returns a string — verify if it ever reaches /refs |
 | 690-693 | — | `Application`/`PlcLogic`/`Device`/`TaskConfig` | — | CDS | recurse | — | ✅ | CODESYS-only containers; recursed, never emitted |
 
+## Complete coverage map — what could exist vs. what we map
+
+### TwinCAT — `TREEITEMTYPE` PLC range (600–657), contiguous
+
+`✅` mapped+live · `⚠️` mapped, not yet seen live · `❌` NOT mapped (gap — would skip to `null`).
+Numbers are the LIVE build's values; the published-enum name is shown where it differs (Beckhoff renumbered).
+
+| Code | Published name | wire kind | St. | Note |
+|---|---|---|:--:|---|
+| 600 | `PLCAPP` | — | ✅ | PLC project root (recurse) |
+| 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/enumeration/structure/union/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
+| 616 | `PLCTRANS` | transition | ⚠️ | SFC transition — add an SFC POU to confirm |
+| 617–621 | `PLCLIBMAN`…`PLCTASK` | library_manager/interface/visualization/visualization_manager/task | ✅ | |
+| 622 | `PLCPROGREF` | — | ❌ | published code; **live build uses 650** instead |
+| 623 | `PLCDUTALIAS` | alias | ✅ | |
+| 624 | `PLCEXTDATATYPECONT` | — | ❌ | published; **live uses 652** |
+| 625 | *(pub. `PLCTMCDESCRIPTION`)* | text_list | ✅ | live build repurposed 625 for text_list |
+| **626** | — | — | ❌ | not in published enum, never seen live — **unknown** |
+| **627** | — | — | ❌ | **unknown** |
+| 628 | — | image_pool | ✅ | live (post-published addition) |
+| 629 | — | parameter_list | ✅ | live; TC-only |
+| **630** | — | — | ❌ | **unknown** |
+| 631 | — | class_diagram | ✅ | live |
+| 632 | — | recipe_manager | ✅ | live |
+| 633 | — | recipe_manager | ⚠️ | recipes container — add a recipe definition to confirm |
+| **634–649** | — | — | ❌ | 16-code gap, never seen — **unknown** (persistent vars? param mgr? cam? CNC?) |
+| 650 | `PLCPROGREF` | task_call_reference | ✅ | live (renumbered from 622) |
+| **651** | — | — | ❌ | **unknown** |
+| 652 | `PLCEXTDATATYPECONT` | external_types | ✅ | live (from 624) |
+| 653 | `PLCTMCDESCRIPTION` | tmc_file | ✅ | live (from 625) |
+| 654–655 | `PLCITFPROPGET/SET` | interface_property_get/set | ✅ | |
+| **656** | — | — | ❌ | **unknown** |
+| 657 | — | library | ✅ | live (post-published addition) |
+| **658+** | — | — | ❌ | never seen — **unknown** |
+
+**TC "might be missing": 626, 627, 630, 634–649, 651, 656, 658+** — discover by sweeping a project with
+persistent GVLs, a parameter manager, CNC/NC, image/cam objects, etc. (a `/debug` sweep prints the raw number).
+
+### CODESYS — by `IObject` interface (CodesysTypeMap)
+
+CODESYS has no numbers; it classifies by interface. `→` = recognized; the rest fall through to `Unknown`.
+
+- **Recognized → emitted:** IPOUObject(→fb/func/prog), IDUTObject(→struct/union/enum/alias), IGVLObject/INVLObject→gvl,
+  IInterfaceObject→interface, IInterfaceMethodObject→method, IPOUMethodObject→method, IPropertyObject/IInterfacePropertyObject→property,
+  IPropertyAccessorObject/IInterfacePropertyAccessorObject→property_get/set, IActionObject→action, ITransitionObject→transition,
+  ILibManObject→library_manager (+ synthetic library refs), IVisualManagerObject→visualization_manager, IVisualObject→visualization,
+  IRecipeManObject→recipe_manager, IImagePoolObject→image_pool, IGlobalTextListObject/ITextListObject→text_list, ITaskObject→task.
+- **Recognized → recurse-only container:** IApplicationObject, IPlcLogicObject, IDeviceObject, ITaskConfigObject.
+- **Recognized → skip (never emit):** ITransientObject, IHiddenObject, IUnknownObject (CODESYS's own "no plugin loaded" marker).
+- **Falls through to Unknown (intentional but NOT explicit):** ITraceObject, ISymbolConfigObject, IWorkspaceObject, IRecipeDefinitionObject.
+
+**CODESYS "might be missing": any IObject interface not above** — currently indistinguishable from the intentional
+skips. This is exactly why the **explicit-skip + log-the-unknown** change (above) is the professional fix: it would
+turn "silently Unknown" into a visible "unrecognized CODESYS type: {interfaces}" warning.
+
 ## Work ahead
 
 1. **Remaining ⚠️ kinds** — only two left to confirm live: `transition` 616 (add an SFC POU with a step+transition)
@@ -59,6 +114,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
    (sweep 2026-06-19: 619/620/625/628/629/631/632 + 657).
 2. **Fill the remaining unknown ranges** — 626, 627, 630, 634-649, 656, 658+ are still unmapped. Sweep a project
    with persistent GVLs, CNC/NC, EtherCAT-mapped items, etc. to discover any other kind volt drops to `null`.
-4. **Decide on naming** — keep vendor-neutral C# constants (recommended; preserves CODESYS parity) with the
-   official `TREEITEMTYPE` name as the documented cross-reference, vs. a deeper rename. This table is that
-   cross-reference either way.
+3. **Surface unknowns instead of silently skipping** — make `CodesysTypeMap`'s known-skip set explicit
+   (ITraceObject/ISymbolConfigObject/IWorkspaceObject/IRecipeDefinitionObject) and log a warning for any other
+   unrecognized object; likewise log an unmapped TwinCAT PLC-range code during the walk. Never throw mid-walk
+   (a single trace/symbol object would crash `/refs`). This is the professional version of "know what we're missing".
