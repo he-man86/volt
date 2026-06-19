@@ -68,13 +68,33 @@ namespace Volt.Bridge.Codesys
             // is CODESYS declaring the type opaque. Listed explicitly so it reads as a decision, not a miss.
             if (Has(ifaces, "IUnknownObject")) return ItemKind.Unknown;
 
-            // Trace recordings, symbol config and project settings are CODESYS-only
-            // build/debug artifacts: no TwinCAT tree-item equivalent and no editable
-            // source. Return Unknown (skip) rather than lump them into a meaningless
-            // catch-all — ITraceObject / ISymbolConfigObject / IWorkspaceObject fall
-            // through here intentionally. (Recipe DEFINITIONs, IRecipeDefinitionObject, also fall through:
-            // TwinCAT does not emit them separately from the recipe manager, so skipping preserves parity.)
+            // KNOWN-SKIP: CODESYS-only build/debug artifacts with no TwinCAT tree-item equivalent and no
+            // editable source — intentionally not emitted (no warning). Recipe DEFINITIONs fall here too:
+            // TwinCAT doesn't emit them separately from the recipe manager, so skipping preserves parity.
+            if (Has(ifaces, "ITraceObject") || Has(ifaces, "ISymbolConfigObject")
+                || Has(ifaces, "IWorkspaceObject") || Has(ifaces, "IRecipeDefinitionObject"))
+                return ItemKind.Unknown;
+
+            // TRULY unrecognized: surface ONCE per distinct object-interface signature so a kind we SHOULD
+            // handle becomes visible — logged, NOT thrown (throwing mid-walk would crash /refs on one node).
+            WarnUnrecognized(name, ifaces);
             return ItemKind.Unknown; // unrecognized / non-emittable — don't emit a phantom item
+        }
+
+        private static readonly HashSet<string> _loggedUnknown = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Log an unrecognized CODESYS object once per distinct *Object-interface signature, so a kind
+        /// we should handle is visible without spamming or crashing the walk.</summary>
+        private static void WarnUnrecognized(string? name, HashSet<string> ifaces)
+        {
+            var objIfaces = new List<string>();
+            foreach (var i in ifaces) if (i.EndsWith("Object", StringComparison.Ordinal)) objIfaces.Add(i);
+            objIfaces.Sort(StringComparer.Ordinal);
+            var sig = string.Join("+", objIfaces);
+            bool isNew;
+            lock (_loggedUnknown) isNew = _loggedUnknown.Add(sig);
+            if (isNew)
+                Console.Error.WriteLine($"[bridge] unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
         }
 
         /// <summary>Containers we recurse into but never emit.</summary>

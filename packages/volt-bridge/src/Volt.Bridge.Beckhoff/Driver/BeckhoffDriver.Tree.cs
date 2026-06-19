@@ -42,6 +42,11 @@ public sealed partial class BeckhoffDriver
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
 
+            // Surface (once) a real PLC tree-item code we don't classify — a kind we may be missing. Logged,
+            // NOT thrown: one unknown node must never break the walk. (Unknown=-2 read-failures aren't logged.)
+            if (itemType > 0 && ItemKind.Map(itemType) is null)
+                WarnUnmappedTcCode(itemType, name);
+
             int childCount = 0;
             try { childCount = _om.ChildCount(child); } catch { }
             bool isTopLevelCrud = ItemKind.IsTopLevelCrud(itemType);
@@ -122,4 +127,15 @@ public sealed partial class BeckhoffDriver
         "enumeration" => ItemKind.PlcDutEnum,
         _ => ItemKind.PlcDutAlias,
     };
+
+    private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();
+
+    /// <summary>Log an unmapped TwinCAT PLC tree-item code once, so a kind we may be missing is visible.</summary>
+    private static void WarnUnmappedTcCode(int code, string name)
+    {
+        bool isNew;
+        lock (_loggedTcCodes) isNew = _loggedTcCodes.Add(code);
+        if (isNew)
+            Console.Error.WriteLine($"[bridge] unmapped TwinCAT TREEITEMTYPE {code} (skipped): example item='{name}' — add it to ItemKind if it should be tracked");
+    }
 }
