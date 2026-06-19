@@ -1,7 +1,9 @@
 /**
  * Shared harness for the e2e bridge suite. One typed BridgeClient over EVERY endpoint, version-snapshot
- * + delta helpers (the backbone of the hash-stability assertions), test-item fixtures cleanup, and
- * vendor detection. Runs against whatever bridge VOLT_TC_PORT points at (8555 TwinCAT / 8556 CODESYS).
+ * + delta helpers (the backbone of the hash-stability assertions), and test-item fixture cleanup. The
+ * SAME suite runs against whatever bridge VOLT_TC_PORT points at (8555 TwinCAT / 8556 CODESYS) — no
+ * vendor branches: a pass on one bridge and a fail on the other is a real parity bug, not an expected
+ * difference. Tests provision their own fixtures (never read ambient project state) so this holds.
  *
  * All test items are named `${PREFIX}_*` so cleanup is a single prefix-based atomic delete.
  */

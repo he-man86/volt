@@ -47,13 +47,18 @@ public class GraphicalCodeTests
         Assert.Equal(1, s.ReadXmlCalls);
     }
 
-    [Fact]
-    public void Cfc_body_is_a_read_only_marker_with_a_real_declaration()
+    [Theory]
+    [InlineData("CFC")]
+    [InlineData("SFC")]
+    public void Cfc_and_sfc_bodies_are_read_only_markers_with_a_real_declaration(string lang)
     {
-        var s = new FakeCodeStore { Lang = "CFC", Xml = Pou("<CFC/>", withIface: false), Decl = "FUNCTION_BLOCK C\nVAR\nEND_VAR" };
+        // Read-only graphical languages surface as an empty (non-transpiled) marker on BOTH vendors — this
+        // is a Core rule, not a vendor trait, so it's proven offline here rather than via a live IDE fixture.
+        var s = new FakeCodeStore { Lang = lang, Xml = Pou($"<{lang}/>", withIface: false), Decl = "FUNCTION_BLOCK C\nVAR\nEND_VAR" };
         var gb = GraphicalCode.Read(s, Item);
-        Assert.Equal("CFC", gb!.Language);
-        Assert.Equal("", gb.Body);                                       // not transpiled — empty body
+        Assert.Equal(lang, gb!.Language);
+        Assert.Equal("", gb.Body);                                       // not transpiled — empty marker
+        Assert.DoesNotContain("NETWORK", gb.Body);                       // never an editable VG body
         Assert.Equal("FUNCTION_BLOCK C\nVAR\nEND_VAR", gb.Declaration);  // export omits plaintext iface → textual aspect
     }
 

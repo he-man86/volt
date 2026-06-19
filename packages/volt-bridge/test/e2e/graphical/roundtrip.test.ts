@@ -5,12 +5,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test"
 import { bridge, id, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
-async function discover(lang: string): Promise<any | null> {
-	const all = await bridge.fetch({ knownItems: {} })
-	const ext = "." + lang.toLowerCase()
-	return all.changed.find((i: any) => i.name.endsWith(ext)) ?? null
-}
-
 function fbdProgram(name: string) {
 	return `PROGRAM ${name}
 VAR
@@ -193,22 +187,24 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		})
 	}
 
-	it("an existing POU round-trips byte-identical (covers pre-existing graphical POUs)", async () => {
-		const g = (await discover("FBD")) ?? (await discover("LD"))
-		expect(g).not.toBeNull()
-		const s1: string = g!.sourceText
-		expect(s1).toContain("NETWORK")
-		const bareName = g!.name.substring(0, g!.name.lastIndexOf("."))
-		const refs = await bridge.refs()
-		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: bareName, folder: g!.folder, sourceText: s1, ifVersion: refs.items[g!.name] }] })
-		expect(r.accepted).toBe(true)
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [bareName] })).changed.find((i: any) => i.name === g!.name)
-		expect(after!.sourceText).toBe(s1)
-	})
+	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {
+		// Self-provisioned (NOT discover()) so it runs identically on every bridge: a fetched graphical
+		// body pushed back unchanged must round-trip byte-identical — the no-phantom-drift guarantee on a
+		// POU that already lives in the project. (CFC/SFC read-only behaviour is covered vendor-agnostically
+		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
+		const name = id("vg_existing")
+		const refs0 = await bridge.refs()
+		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
-	it("read-only CFC/SFC surface as a %LANG placeholder (no NETWORK, never editable)", async () => {
-		const g = (await discover("CFC")) ?? (await discover("SFC"))
-		expect(g).not.toBeNull()
-		expect(g!.sourceText).not.toContain("NETWORK ")
+		const g = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect(g).toBeDefined()
+		const s1: string = g.sourceText
+		expect(s1).toContain("NETWORK")
+
+		const refs = await bridge.refs()
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
+		expect(r.accepted).toBe(true)
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === g.name)
+		expect(after.sourceText).toBe(s1)
 	})
 })
