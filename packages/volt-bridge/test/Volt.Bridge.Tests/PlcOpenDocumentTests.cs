@@ -37,28 +37,43 @@ public class PlcOpenDocumentTests
     }
 
     [Fact]
-    public void Splice_throws_when_no_graphical_body()
+    public void Splice_into_a_textual_body_inserts_for_the_first_time()
     {
+        // A POU whose export still has a textual <ST> body (e.g. a freshly created CODESYS POU getting its
+        // first graphical body) is the first-write case: InlineInsert replaces the ST body with the new
+        // graphical one. NOT a throw — nothing of value is lost (the textual body is discarded by design).
         const string st = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><body><ST>x:=1;</ST></body></pou>""";
+        XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
+        var outXml = PlcOpenDocument.SpliceFbdLdBody(st,
+            new XElement(ns + "FBD", new XElement(ns + "inVariable", new XAttribute("localId", 1))));
+        Assert.Contains("<FBD", outXml);          // graphical body inserted
+        Assert.DoesNotContain("x:=1", outXml);    // textual body discarded
+    }
+
+    [Fact]
+    public void Splice_throws_when_the_pou_has_no_body_element()
+    {
+        const string noBody = """<pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P"><interface/></pou>""";
         Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(st, new XElement("FBD")));
+            () => PlcOpenDocument.SpliceFbdLdBody(noBody, new XElement("FBD")));
     }
 
     [Fact]
     public void Splice_refuses_to_drop_unrepresentable_elements()
     {
-        // A body with an LD <contact> the VG editor can't reproduce — must refuse, not silently drop it.
-        const string withContact = """
+        // A body with a <connector> the VG editor can't reproduce — must refuse, not silently drop it.
+        // (contact/coil/power-rails ARE now reproduced by the ladder generator, so they're no longer here.)
+        const string withConnector = """
         <pou xmlns="http://www.plcopen.org/xml/tc6_0200" name="P">
-          <body><LD>
+          <body><FBD>
             <inVariable localId="1"><expression>a</expression></inVariable>
-            <contact localId="2"><variable>x</variable></contact>
-          </LD></body>
+            <connector localId="2" name="C"><connectionPointIn><connection refLocalId="1"/></connectionPointIn></connector>
+          </FBD></body>
         </pou>
         """;
         var ex = Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(withContact, new XElement("FBD")));
-        Assert.Contains("contact", ex.Message);
+            () => PlcOpenDocument.SpliceFbdLdBody(withConnector, new XElement("FBD")));
+        Assert.Contains("connector", ex.Message);
     }
 
     [Fact]

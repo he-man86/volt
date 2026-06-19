@@ -56,14 +56,13 @@ public class FbdCoverageTests
         "<outVariable localId='4'><expression>o</expression><connectionPointIn><connection refLocalId='3'/></connectionPointIn></outVariable>")]
     [InlineData("FBD", "label + jump", "<label localId='10000000000' label='L'/><jump localId='20000000001' label='L'/>")]
     [InlineData("FBD", "return", "<return localId='1'/>")]
-    [InlineData("LD",  "ld wrapper, block logic",
-        "<inVariable localId='1'><expression>a</expression></inVariable>" +
-        "<outVariable localId='2'><expression>o</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>")]
     public void Modeled_construct_round_trips(string lang, string _desc, string inner)
     {
         var doc = Doc(lang, inner);
         var outXml = RoundTripBody(doc);   // must NOT throw
-        // Every element kind present in the original survives the round-trip (coarse no-loss check).
+        // Every element kind present in the original survives the round-trip (coarse no-loss check). FBD-only:
+        // an LD body CANONICALISES to real contact/coil on write (inVariable→contact), so element kinds change
+        // by design — LD round-trip is covered by Ld_rung_round_trips below (it checks logic, not identity).
         foreach (var name in PlcOpenDocument.FindFbdLdBody(doc)!.Elements().Select(e => e.Name.LocalName).Distinct())
             Assert.Contains("<" + name, outXml);
     }
@@ -92,11 +91,8 @@ public class FbdCoverageTests
         "<inVariable localId='2'><expression>b</expression></inVariable>" +
         "<outVariable localId='3'><expression>o</expression><connectionPointIn>" +
         "<connection refLocalId='1'/><connection refLocalId='2'/></connectionPointIn></outVariable>")]
-    // ld-objects group
-    [InlineData("LD", "contact",        "<contact localId='1'><variable>x</variable></contact>")]
-    [InlineData("LD", "coil",           "<coil localId='1'><variable>y</variable></coil>")]
-    [InlineData("LD", "leftPowerRail",  "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>")]
-    [InlineData("LD", "rightPowerRail", "<rightPowerRail localId='1'><connectionPointIn><connection refLocalId='9'/></connectionPointIn></rightPowerRail>")]
+    // (LD contact/coil/power-rails are NOW modeled — see Ld_rung_round_trips. LD structure the boolean
+    //  generator can't reproduce yet is covered by Ld_unsupported_write_is_refused below.)
     public void Unmodeled_construct_is_refused_not_silently_dropped(string lang, string _desc, string inner)
     {
         var doc = Doc(lang, inner);
@@ -124,9 +120,9 @@ public class FbdCoverageTests
         Assert.Contains("hello world", g2.Networks.SelectMany(n => new[] { n.Comment }).FirstOrDefault(c => c != null) ?? "");
     }
 
-    /// <summary>LD-native rungs LOWER to the same boolean VG as the FBD twin so ladder READS (series
-    /// contacts = AND, coil = assignment, negated contact = NOT). It stays READ-ONLY: the original
-    /// &lt;contact&gt; means a push is still refused (no reverse lowering), so it can never corrupt.</summary>
+    /// <summary>An LD rung ROUND-TRIPS: it READS by lowering to the same boolean VG as the FBD twin
+    /// (series contacts = AND, coil = assignment, negated contact = NOT), and WRITES back to real
+    /// contact/coil via the inverse generator — losslessly in logic. No longer read-only.</summary>
     [Theory]
     [InlineData(
         "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
@@ -139,15 +135,37 @@ public class FbdCoverageTests
         "<contact localId='2' negated='true'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
         "NOT i1")]      // normally-closed contact → NOT (var is the named leaf i1=a)
-    public void Ld_rung_lowers_to_boolean_vg(string inner, string expect)
+    public void Ld_rung_round_trips(string inner, string expect)
     {
         var doc = Doc("LD", inner);
         var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
         Assert.Contains(expect, vg);
         Assert.Contains("out :=", vg);   // coil → assignment
-        // read-only: a push is still refused (ladder reverse-lowering isn't built)
-        Assert.Throws<System.InvalidOperationException>(
-            () => PlcOpenDocument.SpliceFbdLdBody(doc, new XElement("FBD")));
+        // and it WRITES back to a real <LD> ladder (no longer read-only / refused)
+        var outXml = RoundTripBody(doc);          // must NOT throw
+        Assert.Contains("<LD>", outXml);
+        Assert.Contains("<contact", outXml);      // regenerated as true ladder, not FBD blocks
+        Assert.Contains("<coil", outXml);
+    }
+
+    /// <summary>LD structure the boolean generator can't reproduce yet — a parallel OR branch or an
+    /// FB/operator block on a rung — is REFUSED on write (a loud throw from the ladder generator),
+    /// never silently mangled into a wrong rung. Keeps the "lossless OR refused" invariant for LD.</summary>
+    [Theory]
+    [InlineData("parallel OR branch",
+        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+        "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
+        "<contact localId='3'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
+        "<coil localId='4'><connectionPointIn><connection refLocalId='2'/><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>")]
+    [InlineData("FB block on a rung",
+        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+        "<block localId='2' typeName='TON'><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>" +
+        "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>")]
+    public void Ld_unsupported_write_is_refused(string _desc, string inner)
+    {
+        var doc = Doc("LD", inner);
+        _ = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader stays TOTAL (no throw)
+        Assert.Throws<System.NotSupportedException>(() => RoundTripBody(doc));   // writer refuses, loudly
     }
 
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard
