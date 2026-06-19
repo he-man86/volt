@@ -121,6 +121,14 @@ public sealed class BridgeHttpServer
 
             if (_ide.IsDegraded) { WriteError(ctx, 503, "PLC_DEGRADED", _ide.DegradedReason ?? "IDE channel degraded — retry"); return; }
 
+            // Read-only raw-tree dump (diagnostic) — see DebugService. ?name=ITEM, or whole root if omitted.
+            if (path == "/debug" && method == "GET")
+            {
+                var dbgName = ctx.Request.QueryString["name"];
+                Write(ctx, 200, _ide.RunOnStaThread(() => (object)DebugService.Handle(_ide, dbgName)));
+                return;
+            }
+
             object result;
             switch ($"{method} {path}")
             {

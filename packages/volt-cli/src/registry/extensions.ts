@@ -26,6 +26,7 @@ const EXTENSIONS: readonly ExtensionDef[] = [
 	{ ext: "library",               defaultAccess: "r" },
 	{ ext: "task",                  defaultAccess: "r" },
 	{ ext: "image_pool",            defaultAccess: "r" },
+	{ ext: "parameter_list",        defaultAccess: "r" },
 	{ ext: "text_list",             defaultAccess: "r" },
 	{ ext: "recipe_manager",        defaultAccess: "r" },
 	{ ext: "visualization_manager", defaultAccess: "r" },

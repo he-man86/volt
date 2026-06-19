@@ -367,7 +367,7 @@ namespace Volt.Bridge.Codesys
             // returns is NOT a usable container parent (creating a POU under it throws
             // a NullReferenceException) — re-fetch the freshly-created folder as a real
             // tree node so the caller can create children inside it.
-            if (itemType == ItemKind.Folder)
+            if (itemType == ItemKind.PlcFolder)
             {
                 InvokeMethod(Unwrap(parent), "create_folder", name);
                 foreach (var child in GetChildren(parent))
@@ -382,34 +382,34 @@ namespace Volt.Bridge.Codesys
             var c = IecContainer(parent);
             switch (itemType)
             {
-                case ItemKind.Program: return Create(c, "create_pou", name, EnumValue("PouType", "Program"));
+                case ItemKind.PlcPouProg: return Create(c, "create_pou", name, EnumValue("PouType", "Program"));
                 // A function REQUIRES a non-null return_type at create; CODESYS errors without one. The
                 // VALUE is immaterial — WriteSourceText then sets the real declaration and the return type
                 // with it (same as methods, which create with no return_type and get theirs from the
                 // written declaration). So seed "INT", bound by name (it sits behind optional `language`).
-                case ItemKind.Function: return CreateNamed(c, "create_pou",
+                case ItemKind.PlcPouFunc: return CreateNamed(c, "create_pou",
                     ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType));
-                case ItemKind.FunctionBlock: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
-                case ItemKind.Enumeration: return Create(c, "create_dut", name, EnumValue("DutType", "Enumeration"));
-                case ItemKind.Structure: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
-                case ItemKind.Union: return Create(c, "create_dut", name, EnumValue("DutType", "Union"));
+                case ItemKind.PlcPouFb: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
+                case ItemKind.PlcDutEnum: return Create(c, "create_dut", name, EnumValue("DutType", "Enumeration"));
+                case ItemKind.PlcDutStruct: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
+                case ItemKind.PlcDutUnion: return Create(c, "create_dut", name, EnumValue("DutType", "Union"));
                 // An alias REQUIRES a non-null baseType at create; same story — WriteSourceText overwrites
                 // it with the real base type from the declaration. Seed "INT", bound by name.
-                case ItemKind.Alias: return CreateNamed(c, "create_dut",
+                case ItemKind.PlcDutAlias: return CreateNamed(c, "create_dut",
                     ("name", name), ("type", EnumValue("DutType", "Alias")), ("baseType", SeedType));
-                case ItemKind.Gvl: return Create(c, "create_gvl", name);
-                case ItemKind.Interface: return Create(c, "create_interface", name);
+                case ItemKind.PlcGvl: return Create(c, "create_gvl", name);
+                case ItemKind.PlcItf: return Create(c, "create_interface", name);
                 // Inline POU children (method/action/property) live on a DIFFERENT
                 // container — ScriptIecLanguageMemberContainer — whose create_* methods
                 // pick the right object factory (and interface-vs-POU variant) and set a
                 // default declaration; we overwrite it via WriteSourceText. create_property
                 // also auto-creates the Get/Set accessors. (Decompiled from
                 // ScriptDriverProjects.ScriptIecLanguageMemberContainer.)
-                case ItemKind.Method: return Create(MemberContainer(parent), "create_method", name);
-                case ItemKind.InterfaceMethod: return Create(MemberContainer(parent), "create_method", name);
-                case ItemKind.Action: return Create(MemberContainer(parent), "create_action", name);
-                case ItemKind.Property: return Create(MemberContainer(parent), "create_property", name);
-                case ItemKind.InterfaceProperty: return Create(MemberContainer(parent), "create_property", name);
+                case ItemKind.PlcMethod: return Create(MemberContainer(parent), "create_method", name);
+                case ItemKind.PlcItfMeth: return Create(MemberContainer(parent), "create_method", name);
+                case ItemKind.PlcAction: return Create(MemberContainer(parent), "create_action", name);
+                case ItemKind.PlcProp: return Create(MemberContainer(parent), "create_property", name);
+                case ItemKind.PlcItfProp: return Create(MemberContainer(parent), "create_property", name);
                 default: return Create(c, "create_pou", name, EnumValue("PouType", "FunctionBlock"));
             }
         }

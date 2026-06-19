@@ -19,7 +19,7 @@ namespace Volt.Bridge.Codesys
         /// declaration for POU/DUT keyword refinement).</summary>
         public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name, string? declaration)
         {
-            if (isFolder) return ItemKind.Folder;
+            if (isFolder) return ItemKind.PlcFolder;
 
             // Transient / hidden: task POU-call refs, runtime copies, hidden visu
             // styles — same name as a real object → never emit.
@@ -35,31 +35,31 @@ namespace Volt.Bridge.Codesys
             // Inlined in a POU/interface source (collected by SourceAssembler). Each
             // gets its own code — SourceAssembler keys on the distinct values
             // (interface_method/transition/interface_property), matching TwinCAT.
-            if (Has(ifaces, "IInterfaceMethodObject")) return ItemKind.InterfaceMethod;
-            if (Has(ifaces, "IPOUMethodObject")) return ItemKind.Method;
+            if (Has(ifaces, "IInterfaceMethodObject")) return ItemKind.PlcItfMeth;
+            if (Has(ifaces, "IPOUMethodObject")) return ItemKind.PlcMethod;
             if (Has(ifaces, "IPropertyAccessorObject") || Has(ifaces, "IInterfacePropertyAccessorObject")) return RefineAccessor(name);
-            if (Has(ifaces, "IInterfacePropertyObject")) return ItemKind.InterfaceProperty;
-            if (Has(ifaces, "IPropertyObject")) return ItemKind.Property;
-            if (Has(ifaces, "ITransitionObject")) return ItemKind.Transition;
-            if (Has(ifaces, "IActionObject")) return ItemKind.Action;
+            if (Has(ifaces, "IInterfacePropertyObject")) return ItemKind.PlcItfProp;
+            if (Has(ifaces, "IPropertyObject")) return ItemKind.PlcProp;
+            if (Has(ifaces, "ITransitionObject")) return ItemKind.PlcTrans;
+            if (Has(ifaces, "IActionObject")) return ItemKind.PlcAction;
 
             // Top-level source.
             if (Has(ifaces, "IPOUObject")) return RefinePou(declaration);
-            if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.Gvl;
+            if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
             if (Has(ifaces, "IDUTObject")) return RefineDut(declaration);
-            if (Has(ifaces, "IInterfaceObject")) return ItemKind.Interface;
+            if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 
             // Recognized non-source kinds — distinct wire kinds matching TwinCAT
             // (interface names verified against the Hauzer project's object model).
-            if (Has(ifaces, "ILibManObject")) return ItemKind.LibraryManager;
-            if (Has(ifaces, "IVisualManagerObject")) return ItemKind.VisualizationManager;
-            if (Has(ifaces, "IVisualObject")) return ItemKind.Visualization;
-            if (Has(ifaces, "IRecipeManObject")) return ItemKind.RecipeManager;
-            if (Has(ifaces, "IImagePoolObject")) return ItemKind.ImagePool;
-            if (Has(ifaces, "IGlobalTextListObject") || Has(ifaces, "ITextListObject")) return ItemKind.TextList;
+            if (Has(ifaces, "ILibManObject")) return ItemKind.PlcLibMan;
+            if (Has(ifaces, "IVisualManagerObject")) return ItemKind.PlcVisMan;
+            if (Has(ifaces, "IVisualObject")) return ItemKind.PlcVisObj;
+            if (Has(ifaces, "IRecipeManObject")) return ItemKind.PlcRecipeMan;
+            if (Has(ifaces, "IImagePoolObject")) return ItemKind.PlcImagePool;
+            if (Has(ifaces, "IGlobalTextListObject") || Has(ifaces, "ITextListObject")) return ItemKind.PlcTextList;
 
             // Individual cyclic task → `task` (621), matching TwinCAT's flat task items.
-            if (Has(ifaces, "ITaskObject")) return ItemKind.Task;
+            if (Has(ifaces, "ITaskObject")) return ItemKind.PlcTask;
 
             // Trace recordings, symbol config and project settings are CODESYS-only
             // build/debug artifacts: no TwinCAT tree-item equivalent and no editable
@@ -81,26 +81,26 @@ namespace Volt.Bridge.Codesys
         private static int RefinePou(string? decl)
         {
             var k = LeadingKeyword(decl);
-            if (k.StartsWith("FUNCTION_BLOCK")) return ItemKind.FunctionBlock;
-            if (k.StartsWith("INTERFACE")) return ItemKind.Interface;
-            if (k.StartsWith("FUNCTION")) return ItemKind.Function;
-            if (k.StartsWith("PROGRAM")) return ItemKind.Program;
-            return ItemKind.FunctionBlock; // default
+            if (k.StartsWith("FUNCTION_BLOCK")) return ItemKind.PlcPouFb;
+            if (k.StartsWith("INTERFACE")) return ItemKind.PlcItf;
+            if (k.StartsWith("FUNCTION")) return ItemKind.PlcPouFunc;
+            if (k.StartsWith("PROGRAM")) return ItemKind.PlcPouProg;
+            return ItemKind.PlcPouFb; // default
         }
 
         private static int RefineDut(string? decl)
         {
             var u = (decl ?? "").ToUpperInvariant();
-            if (u.IndexOf("STRUCT", StringComparison.Ordinal) >= 0) return ItemKind.Structure;
-            if (u.IndexOf("UNION", StringComparison.Ordinal) >= 0) return ItemKind.Union;
+            if (u.IndexOf("STRUCT", StringComparison.Ordinal) >= 0) return ItemKind.PlcDutStruct;
+            if (u.IndexOf("UNION", StringComparison.Ordinal) >= 0) return ItemKind.PlcDutUnion;
             // Enum value-list form `TYPE x : (a,b,c);` — match the colon IMMEDIATELY followed by '(', not
             // any '(' anywhere (an alias whose comment contains a paren would otherwise misclassify).
-            if (Regex.IsMatch(u, @":\s*\(")) return ItemKind.Enumeration;
-            return ItemKind.Alias;
+            if (Regex.IsMatch(u, @":\s*\(")) return ItemKind.PlcDutEnum;
+            return ItemKind.PlcDutAlias;
         }
 
         private static int RefineAccessor(string? name) =>
-            string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase) ? ItemKind.PropertySet : ItemKind.PropertyGet;
+            string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase) ? ItemKind.PlcPropSet : ItemKind.PlcPropGet;
 
         private static string LeadingKeyword(string? decl)
         {

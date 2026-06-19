@@ -198,9 +198,14 @@ internal sealed class TcObjectModel
         var lang = language is "LD" ? "FBD" : (language ?? "ST");
         object vInfo = kindCode switch
         {
-            ItemKind.Function => System.Type.Missing,
-            ItemKind.Interface or ItemKind.InterfaceMethod or ItemKind.InterfaceProperty
-                or ItemKind.InterfacePropertyGet or ItemKind.InterfacePropertySet => null,
+            ItemKind.PlcPouFunc => System.Type.Missing,
+            ItemKind.PlcItf => null,
+            // Interface method/property: TC wants the return/data type as a STRING vInfo (carried in the
+            // `language` arg by PushService, null when untyped) — NOT a body language. Matches the working
+            // Beckhoff sample (BuildChildVInfo): method→returnType, property→dataType, else null.
+            ItemKind.PlcItfMeth or ItemKind.PlcItfProp => (object?)language,
+            // Interface property accessors: "ST" body language (per the Beckhoff CreateChild sample).
+            ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet => "ST",
             _ => lang,
         };
         return (object)((dynamic)parent).CreateChild(name, kindCode, "", vInfo);
@@ -250,7 +255,7 @@ internal sealed class TcObjectModel
         {
             int t;
             try { t = (int)node.ItemType; } catch { t = 0; }
-            if (t is ItemKind.Program or ItemKind.Function or ItemKind.FunctionBlock or ItemKind.Interface) return node;
+            if (t is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb or ItemKind.PlcItf) return node;
             node = node.Parent;
             if (node == null) return null;
         }

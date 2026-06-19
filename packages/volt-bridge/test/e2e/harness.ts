@@ -57,14 +57,21 @@ export function id(s: string): string { return `${PREFIX}_${s}` }
 export function fid(s: string): string { return id(s) + ".st" }
 
 export async function cleanup(): Promise<void> {
-	const refs = await bridge.refs()
-	if (!refs.items) return
-	const ops = Object.keys(refs.items)
-		.filter(n => n.startsWith(PREFIX))
-		.map(n => ({ op: "deleteItem", name: bareName(n), ifVersion: refs.items[n] }))
-	if (ops.length === 0) return
-	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
-	if (!r.accepted) console.warn("cleanup:", JSON.stringify(r.conflicts).slice(0, 200))
+	// Housekeeping hook: retry once on a version conflict. On a heavy live project a slow full-solution save
+	// can stale the version between this /refs and the /push; a fresh snapshot on the retry resolves it. This
+	// is setup/teardown only — the assertion paths (pushOps/createItem) keep no retry so they still observe
+	// real conflicts.
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const refs = await bridge.refs()
+		if (!refs.items) return
+		const ops = Object.keys(refs.items)
+			.filter(n => n.startsWith(PREFIX))
+			.map(n => ({ op: "deleteItem", name: bareName(n), ifVersion: refs.items[n] }))
+		if (ops.length === 0) return
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
+		if (r.accepted) return
+		if (attempt === 1) console.warn("cleanup (after retry):", JSON.stringify(r.conflicts).slice(0, 200))
+	}
 }
 
 function bareName(full: string): string {
@@ -109,19 +116,15 @@ const PLC_PRG = "PLC_PRG"
 
 /** Strip any test-prefixed instance declarations from PLC_PRG so it compiles cleanly. */
 export async function fixPlcPrg(): Promise<void> {
-	const item = await fetchItem(PLC_PRG)
-	if (!item.sourceText.includes(PREFIX)) return
-	const lines = item.sourceText.split("\n")
-	const clean = lines.filter((l: string) => !l.includes(PREFIX))
-	const newSrc = clean.join("\n")
-	const r = await pushOps([{
-		op: "pushItem",
-		name: PLC_PRG,
-		folder: "",
-		sourceText: newSrc,
-		ifVersion: item.version,
-	}])
-	if (!r.accepted) console.warn("fixPlcPrg rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+	// Retry once: re-fetch PLC_PRG's fresh version before the second attempt (heavy-project save races).
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const item = await fetchItem(PLC_PRG).catch(() => null)
+		if (!item || !item.sourceText.includes(PREFIX)) return
+		const clean = item.sourceText.split("\n").filter((l: string) => !l.includes(PREFIX)).join("\n")
+		const r = await pushOps([{ op: "pushItem", name: PLC_PRG, folder: "", sourceText: clean, ifVersion: item.version }])
+		if (r.accepted) return
+		if (attempt === 1) console.warn("fixPlcPrg rejected (after retry):", JSON.stringify(r.conflicts || r).slice(0, 200))
+	}
 }
 
 export async function savePlcPrg(): Promise<void> {
@@ -130,16 +133,14 @@ export async function savePlcPrg(): Promise<void> {
 
 export async function restorePlcPrg(): Promise<void> {
 	if (!_plcPrgOriginal) return
-	const current = await fetchItem(PLC_PRG)
-	if (current.sourceText === _plcPrgOriginal) { _plcPrgOriginal = null; return }
-	const r = await pushOps([{
-		op: "pushItem",
-		name: PLC_PRG,
-		folder: "",
-		sourceText: _plcPrgOriginal,
-		ifVersion: current.version,
-	}])
-	if (!r.accepted) console.warn("restorePlcPrg rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+	// Retry once with a re-fetched version (heavy-project save races).
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const current = await fetchItem(PLC_PRG)
+		if (current.sourceText === _plcPrgOriginal) break
+		const r = await pushOps([{ op: "pushItem", name: PLC_PRG, folder: "", sourceText: _plcPrgOriginal, ifVersion: current.version }])
+		if (r.accepted) break
+		if (attempt === 1) console.warn("restorePlcPrg rejected (after retry):", JSON.stringify(r.conflicts || r).slice(0, 200))
+	}
 	_plcPrgOriginal = null
 }
 

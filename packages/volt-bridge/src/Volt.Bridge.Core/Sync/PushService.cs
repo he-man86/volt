@@ -195,7 +195,13 @@ public static class PushService
             else
             {
                 pou = ide.CreateChild(targetParent, name, itemType);
-                ide.WriteText(pou, decl, impl);
+                // The COM reference from CreateChild is stale for interface items — re-find
+                // before writing anything. Without this, WriteText and child creation fail.
+                if (itemType == ItemKind.PlcItf && existing is null)
+                    pou = FindChild(ide, targetParent, name) ?? pou;
+                // Interfaces have no body — their methods/properties are created as separate
+                // children. Writing implementation text on an interface node crashes TC COM.
+                ide.WriteText(pou, decl, itemType == ItemKind.PlcItf ? null : impl);
             }
         }
         else
@@ -222,13 +228,16 @@ public static class PushService
                 continue;
             }
 
-            var childKindCode = ChildKindToCode(child.Kind, itemType == ItemKind.Interface);
-            var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, childKindCode);
+            var isInterface = itemType == ItemKind.PlcItf;
+            var childKindCode = ChildKindToCode(child.Kind, isInterface);
+            // TC requires the return type / data type as vInfo for interface children (not a body language).
+            // CODESYS ignores the language parameter — it only needs the correct item type code.
+            var childVInfo = isInterface ? (child.ReturnType ?? child.DataType) : null;
+            var childItem = existingChild ?? ide.CreateChild(childParent, child.Name, childKindCode, childVInfo);
             // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
             // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
             var childDecl = child.Kind == "action" ? null : child.Declaration;
             // Interface members are declaration-only — COM rejects ImplementationText on them.
-            var isInterface = itemType == ItemKind.Interface;
             var childImpl = isInterface ? null : child.Implementation;
             ide.WriteText(childItem, childDecl, childImpl);
 
@@ -238,11 +247,11 @@ public static class PushService
                 if (isInterface && existingChild is null)
                     childItem = FindChild(ide, childParent, child.Name) ?? childItem;
 
-                var getCode = isInterface ? ItemKind.InterfacePropertyGet : ItemKind.PropertyGet;
-                var setCode = isInterface ? ItemKind.InterfacePropertySet : ItemKind.PropertySet;
-                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Implementation);
+                var getCode = isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet;
+                var setCode = isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet;
+                if (child.Getter != null) EnsureAccessor(ide, childItem, "Get", getCode, child.Getter.Declaration, child.Getter.Implementation, isInterface);
                 else RemoveChildIfPresent(ide, childItem, "Get");
-                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Implementation);
+                if (child.Setter != null) EnsureAccessor(ide, childItem, "Set", setCode, child.Setter.Declaration, child.Setter.Implementation, isInterface);
                 else RemoveChildIfPresent(ide, childItem, "Set");
             }
         }
@@ -277,9 +286,9 @@ public static class PushService
             snapshot.Add((c, ide.KindCode(c), ide.Name(c)));
         }
         foreach (var s in snapshot)
-            if (s.Kind == ItemKind.Folder) RemoveOrphanChildren(ide, s.Ref, keep);
+            if (s.Kind == ItemKind.PlcFolder) RemoveOrphanChildren(ide, s.Ref, keep);
         foreach (var s in snapshot)
-            if (s.Kind != ItemKind.Folder && ItemKind.IsInlinedInPou(s.Kind) && !keep.Contains(s.Name))
+            if (s.Kind != ItemKind.PlcFolder && ItemKind.IsInlinedInPou(s.Kind) && !keep.Contains(s.Name))
                 ide.Delete(parent, s.Name);
     }
 
@@ -303,10 +312,10 @@ public static class PushService
         for (int i = 1; i <= count; i++)
         {
             var child = ide.ChildAt(parent, i);
-            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase) && ide.KindCode(child) == ItemKind.Folder)
+            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase) && ide.KindCode(child) == ItemKind.PlcFolder)
                 return child;
         }
-        return ide.CreateChild(parent, name, ItemKind.Folder);
+        return ide.CreateChild(parent, name, ItemKind.PlcFolder);
     }
 
     private static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name)
@@ -320,27 +329,33 @@ public static class PushService
         return null;
     }
 
-    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string decl, string impl)
+    private static void EnsureAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode, string decl, string impl, bool isInterface = false)
     {
         var accessor = FindChild(ide, property, name) ?? ide.CreateChild(property, name, kindCode);
-        ide.WriteText(accessor, decl, impl);
+        // An INTERFACE property accessor is a bodiless stub: it only declares that a getter/setter exists,
+        // with no declaration or implementation text. TwinCAT COM rejects DeclarationText/ImplementationText
+        // writes on it and can HARD-CRASH the IDE (RPC 0x800706BE), so for interfaces we ensure the accessor
+        // exists and write nothing — matching the proven Beckhoff reference (CreateInterfaceAccessors).
+        if (!isInterface) ide.WriteText(accessor, decl, impl);
     }
 
     private static int PouKindToCode(string kind) => kind switch
     {
-        "program" => ItemKind.Program, "function" => ItemKind.Function, "function_block" => ItemKind.FunctionBlock,
-        "enumeration" => ItemKind.Enumeration, "structure" => ItemKind.Structure, "gvl" => ItemKind.Gvl,
-        "interface" => ItemKind.Interface, "union" => ItemKind.Union, "alias" => ItemKind.Alias,
-        _ => ItemKind.Program,
+        "program" => ItemKind.PlcPouProg, "function" => ItemKind.PlcPouFunc, "function_block" => ItemKind.PlcPouFb,
+        "enumeration" => ItemKind.PlcDutEnum, "structure" => ItemKind.PlcDutStruct, "gvl" => ItemKind.PlcGvl,
+        "interface" => ItemKind.PlcItf, "union" => ItemKind.PlcDutUnion, "alias" => ItemKind.PlcDutAlias,
+        // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
+        _ => throw new BridgeException(400, "BAD_REQUEST", $"unknown top-level kind '{kind}'"),
     };
 
+    // The splitter only ever emits method/action/property as textual children; interface vs non-interface is
+    // the isInterface flag (the parent's kind), NOT a distinct child-kind string — so there is no
+    // "interface_method"/"interface_property" arm. An unknown kind throws rather than defaulting to action.
     private static int ChildKindToCode(string kind, bool isInterface = false) => kind switch
     {
-        "method" => isInterface ? ItemKind.InterfaceMethod : ItemKind.Method,
-        "action" => ItemKind.Action,
-        "property" => isInterface ? ItemKind.InterfaceProperty : ItemKind.Property,
-        "interface_method" => ItemKind.InterfaceMethod,
-        "interface_property" => ItemKind.InterfaceProperty,
-        _ => ItemKind.Action,
+        "method" => isInterface ? ItemKind.PlcItfMeth : ItemKind.PlcMethod,
+        "action" => ItemKind.PlcAction,
+        "property" => isInterface ? ItemKind.PlcItfProp : ItemKind.PlcProp,
+        _ => throw new BridgeException(400, "BAD_REQUEST", $"unknown child kind '{kind}'"),
     };
 }

@@ -34,7 +34,7 @@ public sealed partial class BeckhoffDriver
             try { name = _om.GetName(child); } catch { continue; }
             int itemType = ClassifiedKind(child);
 
-            if (itemType == ItemKind.Folder || itemType == ItemKind.LibraryManager)
+            if (itemType == ItemKind.PlcFolder || itemType == ItemKind.PlcLibMan)
             {
                 var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
                 WalkInner(child, nested, items);
@@ -85,7 +85,7 @@ public sealed partial class BeckhoffDriver
             string childName = _om.GetName(child);
             if (string.Equals(childName, name, StringComparison.OrdinalIgnoreCase) && ItemKind.IsTopLevelCrud(_om.ItemType(child)))
                 return child;
-            if (_om.ItemType(child) == ItemKind.Folder)
+            if (_om.ItemType(child) == ItemKind.PlcFolder)
             {
                 var found = FindItemByName(child, name);
                 if (found != null) return found;
@@ -104,22 +104,22 @@ public sealed partial class BeckhoffDriver
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 
-    // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.Alias) — the struct/enum/union/alias
+    // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.PlcDutAlias) — the struct/enum/union/alias
     // distinction lives only in the declaration. Refine it from the decl (shared CodeHelper, the same
     // basis CODESYS uses), so the wire kind matches across vendors. Only a DUT pays the extra decl read.
     private int ClassifiedKind(object node)
     {
         int raw = _om.ItemType(node);
-        if (raw != ItemKind.Alias) return raw;
+        if (raw != ItemKind.PlcDutAlias) return raw;
         try { return DutCode(CodeHelper.ParseCodeHeader(_om.ReadDeclaration(node)).Type); }
         catch { return raw; }
     }
 
     private static int DutCode(string type) => type switch
     {
-        "structure" => ItemKind.Structure,
-        "union" => ItemKind.Union,
-        "enumeration" => ItemKind.Enumeration,
-        _ => ItemKind.Alias,
+        "structure" => ItemKind.PlcDutStruct,
+        "union" => ItemKind.PlcDutUnion,
+        "enumeration" => ItemKind.PlcDutEnum,
+        _ => ItemKind.PlcDutAlias,
     };
 }

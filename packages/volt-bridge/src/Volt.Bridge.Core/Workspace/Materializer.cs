@@ -117,16 +117,16 @@ public static class Materializer
             var childName = ide.Name(child);
             var itemType = ide.KindCode(child);
 
-            if (itemType == ItemKind.Folder)
+            if (itemType == ItemKind.PlcFolder)
             {
                 var subPath = string.IsNullOrEmpty(folderPath) ? childName : $"{folderPath}/{childName}";
                 children.AddRange(CollectChildren(ide, child, subPath));
                 continue;
             }
 
-            bool isMethod = itemType is ItemKind.Method or ItemKind.InterfaceMethod;
-            bool isAction = itemType is ItemKind.Action or ItemKind.Transition;
-            bool isProperty = itemType is ItemKind.Property or ItemKind.InterfaceProperty;
+            bool isMethod = itemType is ItemKind.PlcMethod or ItemKind.PlcItfMeth;
+            bool isAction = itemType is ItemKind.PlcAction or ItemKind.PlcTrans;
+            bool isProperty = itemType is ItemKind.PlcProp or ItemKind.PlcItfProp;
             if (!isMethod && !isAction && !isProperty) continue;
 
             if (isMethod || isAction)
@@ -163,7 +163,7 @@ public static class Materializer
                 // Interface property accessor children (subtypes 654/655) crash TwinCAT COM
                 // if you try to enumerate their children or read their implementation.
                 // Only note which accessors exist — skip implementation reads entirely.
-                var isIfaceProp = ide.KindCode(parent) == ItemKind.Interface;
+                var isIfaceProp = ide.KindCode(parent) == ItemKind.PlcItf;
                 int accCount = isIfaceProp ? 0 : ide.ChildCount(child);
                 for (int j = 1; j <= accCount; j++)
                 {

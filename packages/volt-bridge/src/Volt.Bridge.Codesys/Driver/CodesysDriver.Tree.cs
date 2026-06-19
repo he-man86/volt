@@ -25,7 +25,7 @@ public sealed partial class CodesysDriver
             var name = _om.GetName(child);
             var code = KindCodeOf(child);
 
-            if (code == ItemKind.Folder)
+            if (code == ItemKind.PlcFolder)
             {
                 var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
                 Walk(child, nested, items);
@@ -39,9 +39,9 @@ public sealed partial class CodesysDriver
             items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath));
 
             // The Library Manager additionally yields its individual library references as flat items.
-            if (code == ItemKind.LibraryManager)
+            if (code == ItemKind.PlcLibMan)
                 foreach (var lib in _om.GetLibraryRefs(child))
-                    items.Add(new ProjectItem(lib.Name, new ItemRef(lib), ItemKind.Library, false, folderPath));
+                    items.Add(new ProjectItem(lib.Name, new ItemRef(lib), ItemKind.PlcLibRef, false, folderPath));
         }
     }
 
@@ -65,8 +65,8 @@ public sealed partial class CodesysDriver
 
     private int KindCodeOf(object node)
     {
-        if (node is LibRefNode) return ItemKind.Library;
-        if (_om.IsFolder(node)) return ItemKind.Folder;
+        if (node is LibRefNode) return ItemKind.PlcLibRef;
+        if (_om.IsFolder(node)) return ItemKind.PlcFolder;
         var iobj = _om.ReadObject(node);
         var ifaces = _om.ObjectInterfaceNames(iobj);
         string? decl = ifaces.Contains("IPOUObject") || ifaces.Contains("IDUTObject")
