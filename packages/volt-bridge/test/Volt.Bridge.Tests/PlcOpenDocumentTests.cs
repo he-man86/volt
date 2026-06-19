@@ -62,18 +62,21 @@ public class PlcOpenDocumentTests
     }
 
     [Fact]
-    public void Splice_preserves_the_original_wrapper_element()
+    public void Splice_flips_the_wrapper_to_the_new_body_language()
     {
-        // TwinCAT exports an LD body with an <FBD> wrapper; writing it back must NOT flip the wrapper
-        // to <LD> (that would change the editor view / be rejected on import). Only contents swap.
+        // TwinCAT creates a graphical POU as FBD even for an LD body, so the export's body wrapper is <FBD>
+        // while the new (regenerated) body is <LD>. The splice MUST flip the wrapper to <LD> — verified live:
+        // TwinCAT's importer requires real ladder elements inside <LD> and rejects a contact inside <FBD>.
+        // Only the body element changes; the rest of the POU is preserved.
         XNamespace ns = "http://www.plcopen.org/xml/tc6_0200";
         var newLd = new XElement(ns + "LD",
-            new XElement(ns + "outVariable", new XAttribute("localId", 9), new XElement(ns + "expression", "z")));
+            new XElement(ns + "coil", new XAttribute("localId", 9), new XElement(ns + "variable", "z")));
         var outXml = PlcOpenDocument.SpliceFbdLdBody(Pou, newLd);   // Pou has an <FBD> body
-        Assert.Contains("<FBD", outXml);        // wrapper preserved
-        Assert.DoesNotContain("<LD>", outXml);  // not flipped to LD
-        Assert.Contains("outVariable", outXml); // contents swapped in
-        Assert.DoesNotContain("inVariable", outXml);
+        Assert.Contains("<LD>", outXml);             // wrapper flipped to match the new body
+        Assert.DoesNotContain("<FBD>", outXml);      // old FBD wrapper replaced
+        Assert.Contains("coil", outXml);             // new contents present
+        Assert.DoesNotContain("inVariable", outXml); // old body gone
+        Assert.Contains("<interface", outXml);       // rest of POU preserved
     }
 
     [Fact]

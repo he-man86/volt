@@ -55,9 +55,9 @@ namespace Volt.Bridge.Core.Graphical
         /// <summary>Lower an LD rung (leftPowerRail → contacts → coil) into the SAME boolean node graph
         /// an FBD network would use: a contact is its variable, contacts in series are AND, parallel
         /// branches (a connectionPointIn with several connections) are OR, a coil is an assignment.
-        /// Negation/edge/storage ride as pin <see cref="Mods"/> on the consumer. Read-only: the push
-        /// guard still sees the original &lt;contact&gt;/&lt;coil&gt; and refuses, so this never has to
-        /// reverse — it makes ladder READABLE as VG.</summary>
+        /// Negation/edge/storage ride as pin <see cref="Mods"/> on the consumer. The inverse —
+        /// <c>PlcOpenWriter.WriteLadderBody</c> — regenerates the ladder (contacts/coil/power-rails) from this
+        /// boolean graph on write, so ladder is both READABLE as VG and round-trippable.</summary>
         private static List<GraphNode> LowerLadder(List<XElement> els, XNamespace ns, long baseId)
         {
             var byId = new Dictionary<long, XElement>();

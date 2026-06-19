@@ -19,9 +19,22 @@ namespace Volt.Bridge.Core.Graphical
 
         /// <param name="resolveType">instanceName → FB type name, from the POU declaration. May be
         /// null when types are already present on the model (e.g. a body just read back).</param>
-        public static XElement WriteBody(GraphBody body, System.Func<string, string?>? resolveType = null)
+        /// <summary>Render a graphical <see cref="GraphBody"/> to its PLCopen body element. FBD and LD are the
+        /// editable graphical languages; LD is generated as the inverse of <see cref="PlcOpenReader"/>'s ladder
+        /// lowering. CFC and SFC are READ-ONLY today (surfaced as %LANG placeholders, never written) — when one
+        /// becomes writable, add its case here with its own writer/model. An unhandled language throws (a loud
+        /// failure, never a silently-wrong body).</summary>
+        public static XElement WriteBody(GraphBody body, System.Func<string, string?>? resolveType = null) => body.Language switch
         {
-            var root = new XElement(Ns + (body.Language == "LD" ? "LD" : "FBD"));
+            "FBD" => WriteFbdBody(body, resolveType),
+            "LD" => WriteLadderBody(body),
+            _ => throw new System.NotSupportedException(
+                $"PlcOpenWriter: graphical language '{body.Language}' is not writable (FBD/LD are generated; CFC/SFC are read-only)."),
+        };
+
+        private static XElement WriteFbdBody(GraphBody body, System.Func<string, string?>? resolveType)
+        {
+            var root = new XElement(Ns + "FBD");
             // A connection back to an operator/function result carries no output-pin name in VG (it's
             // `g1`, not `g1.Out1`). Re-derive the producer block's single output pin so the PLCopen
             // connection still names the output the IDE expects.
@@ -176,6 +189,89 @@ namespace Volt.Bridge.Core.Graphical
             if (types == null) return null;
             var list = types.Select(t => t ?? "").ToList();
             return list.Any(t => t.Length > 0) ? string.Join(" ", list) : null;
+        }
+
+        // ── LD ladder generation — the inverse of PlcOpenReader.LowerLadder ──────────────────────────
+        // Boolean rung: leftPowerRail → contacts (series = AND) → coil → rightPowerRail. The right rail and
+        // a network-title vendorElement bracket the rung the way TwinCAT/CODESYS emit it. POC scope: pure
+        // boolean series; OR/parallel (ldbranchid) and FB-blocks-on-a-rung are not generated yet — they throw
+        // so the gap is loud, never silently mis-rendered.
+        private const long RightRailId = 2147483646L;
+
+        private static XElement WriteLadderBody(GraphBody body)
+        {
+            var root = new XElement(Ns + "LD");
+            foreach (var net in body.Networks)
+            {
+                long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
+                long baseId = netIndex * NetworkStride;
+                long leftRail = baseId;
+                long nextId = baseId + 2;   // 0 = left rail, 1 reserved (mirrors the IDE layout)
+                int row = 0;
+
+                root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", leftRail), Pos(row++),
+                    new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
+
+                foreach (var node in net.Nodes)
+                {
+                    if (node is not OutVar ov) continue;   // each l-value is a coil — the end of a rung
+                    long feed = EmitContacts(root, net.Nodes, ov.Source, leftRail, ref nextId, ref row);
+                    long coilId = nextId++;
+                    root.Add(new XElement(Ns + "coil", new XAttribute("localId", coilId),
+                        CoilAttrs(ov.Mods), Pos(row++),
+                        ConnTo(feed), new XElement(Ns + "connectionPointOut"),
+                        new XElement(Ns + "variable", ov.Expression)));
+                }
+
+                // Right rail: per-network localId IN this network's stride range (baseId + the IDE's
+                // ~int.MaxValue rail offset) so it is unique across networks AND decodes back to the right
+                // network (index = localId / 10^10). For network 0 this is exactly the IDE's conventional value.
+                root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", baseId + RightRailId), Pos(row),
+                    new XElement(Ns + "connectionPointIn")));
+            }
+            return root;
+        }
+
+        /// <summary>Emit the contacts feeding <paramref name="source"/> in SERIES (AND), chained from
+        /// <paramref name="inId"/>. Returns the localId whose output feeds the next stage (the coil).</summary>
+        private static long EmitContacts(XElement root, IReadOnlyList<GraphNode> nodes, Conn? source,
+            long inId, ref long nextId, ref int row)
+        {
+            if (source == null) return inId;
+            var prod = nodes.ById(source.RefLocalId);
+            switch (prod)
+            {
+                case InVar iv:
+                    long cid = nextId++;
+                    root.Add(new XElement(Ns + "contact", new XAttribute("localId", cid),
+                        new XAttribute("negated", iv.Mods.Negated ? "true" : "false"),
+                        new XAttribute("storage", "none"),
+                        new XAttribute("edge", iv.Mods.Edge == EdgeMod.Rising ? "rising"
+                            : iv.Mods.Edge == EdgeMod.Falling ? "falling" : "none"),
+                        Pos(row++), ConnTo(inId), new XElement(Ns + "connectionPointOut"),
+                        new XElement(Ns + "variable", iv.Expression)));
+                    return cid;
+
+                case Block b when b.TypeName.ToUpperInvariant() == "AND":
+                    long prev = inId;
+                    foreach (var pin in b.Inputs) prev = EmitContacts(root, nodes, pin.Source, prev, ref nextId, ref row);
+                    return prev;
+
+                default:
+                    throw new System.NotSupportedException(
+                        $"LD generation (POC): cannot render '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "null"}' " +
+                        "as ladder yet — only boolean series (AND of contacts) is supported. Edit this POU in the IDE.");
+            }
+        }
+
+        private static XElement ConnTo(long refId)
+            => new(Ns + "connectionPointIn", new XElement(Ns + "connection", new XAttribute("refLocalId", refId)));
+
+        private static IEnumerable<XAttribute> CoilAttrs(Mods m)
+        {
+            yield return new XAttribute("negated", m.Negated ? "true" : "false");
+            yield return new XAttribute("storage", m.Storage == StorageMod.Set ? "set"
+                : m.Storage == StorageMod.Reset ? "reset" : "none");
         }
 
         private static XElement ConnIn(Conn? c, System.Func<long, string?> outPin)
