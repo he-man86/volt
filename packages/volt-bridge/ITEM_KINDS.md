@@ -39,7 +39,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 623 | `PLCDUTALIAS` | `PlcDutAlias` | `alias` | both | ✅ | ✅ | ✅ | |
 | 625 | *(unconfirmed)* | `PlcTextList` | `text_list` | both | ✅ | opaque | ✅ | confirmed `text_list` on this build (was `PLCTMCDESCRIPTION` in the old enum; tmc → 653) |
 | 628 | *(unconfirmed)* | `PlcImagePool` | `image_pool` | both | ✅ | opaque | ✅ | RE'd number |
-| 629 | *(unconfirmed)* | `PlcParamList` | `parameter_list` | TC | ✅ | opaque | ✅ | **NEW** — was unmapped (→ null); CODESYS classifier arm still MISSING (parity gap) |
+| 629 | *(unconfirmed)* | `PlcParamList` | `parameter_list` | TC | ✅ | opaque | ✅ | was unmapped (→ null), now fixed. TC-only: CODESYS has no parameter-list object type (confirmed via docs + Hauzer) |
 | 631 | *(unconfirmed)* | `PlcClassDiagram` | `class_diagram` | TC | ✅ | opaque | ✅ | RE'd number |
 | 632 | *(unconfirmed)* | `PlcRecipeMan` | `recipe_manager` | both | ✅ | opaque | ✅ | |
 | 633 | *(unconfirmed)* | `PlcRecipes` | `recipe_manager` | TC | ✅ | opaque | ⚠️ | container under recipe mgr; only appears once a recipe definition exists |
@@ -57,10 +57,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 1. **Remaining ⚠️ kinds** — only two left to confirm live: `transition` 616 (add an SFC POU with a step+transition)
    and `PlcRecipes` 633 (add a recipe *definition* under a Recipe Manager). Everything else is ✅ live-confirmed
    (sweep 2026-06-19: 619/620/625/628/629/631/632 + 657).
-2. **CODESYS parity for `parameter_list` 629** — newly mapped on TwinCAT, but `CodesysTypeMap` has no arm for a
-   CODESYS parameter list, so CODESYS still drops it to Unknown. Add the matching object-model arm and confirm
-   via a CODESYS `/debug` sweep (bridges must stay at parity).
-3. **Fill the remaining unknown ranges** — 626, 627, 630, 634-649, 656, 658+ are still unmapped. Sweep a project
+2. **Fill the remaining unknown ranges** — 626, 627, 630, 634-649, 656, 658+ are still unmapped. Sweep a project
    with persistent GVLs, CNC/NC, EtherCAT-mapped items, etc. to discover any other kind volt drops to `null`.
 4. **Decide on naming** — keep vendor-neutral C# constants (recommended; preserves CODESYS parity) with the
    official `TREEITEMTYPE` name as the documented cross-reference, vs. a deeper rename. This table is that

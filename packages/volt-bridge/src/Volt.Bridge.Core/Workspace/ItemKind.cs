@@ -54,7 +54,6 @@ public static class ItemKind
     public const int PlcTask = 621;         // PLCTASK       ✓live (CODESYS: drilled out of Task Configuration)
     public const int PlcTextList = 625;     // ✓live text_list on current builds (was PLCTMCDESCRIPTION in the old enum; tmc → 653)
     public const int PlcImagePool = 628;    // ✓live (RE'd name)
-    public const int PlcParamList = 629;    // ✓live Parameter List — RE'd name; CODESYS classifier arm MISSING (parity gap)
     public const int PlcRecipeMan = 632;    // ✓live (RE'd name)
     public const int PlcRecipes = 633;      // RE'd — verify (container under recipe manager; only appears once a recipe definition exists)  ??
     public const int PlcLibRef = 657;       // ✓live; individual lib ref (CODESYS: synthetic from LibManObject)
@@ -62,6 +61,7 @@ public static class ItemKind
     // ── [TC-only] TwinCAT TREEITEMTYPEs the CODESYS classifier never produces ─────
     public const int PlcSystemRoot = 0;     // system/solution root sentinel (the PLC project root surfaces as 600 PLCAPP)
     public const int PlcClassDiagram = 631; // ✓live (RE'd name)
+    public const int PlcParamList = 629;    // ✓live TwinCAT PLC parameter list (ADS); NO CODESYS object-model equivalent — confirmed via CODESYS docs + Hauzer sweep, so TC-only (not a parity gap)
     public const int PlcExtDataTypeCont = 652; // PLCEXTDATATYPECONT (published 624; live → 652)  ✓live
     public const int PlcTmcDescription = 653;  // PLCTMCDESCRIPTION (published 625; live → 653)   ✓live
     public const int PlcItfPropGet = 654;   // PLCITFPROPGET  ✓live (CODESYS iface accessors use PlcPropGet)
