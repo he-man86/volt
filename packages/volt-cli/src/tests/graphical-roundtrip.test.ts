@@ -101,3 +101,68 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 		}
 	})
 })
+
+/**
+ * LD featureset at the CLI materialization layer (mirrors C# LadderRoundTripTests + the bridge e2e):
+ * push each variation via the bridge (its own fixture), pull via the CLI, and assert the .ld file
+ * materializes with the right VG logic. Self-contained — creates and deletes its own POUs, so it does
+ * not depend on a pre-existing graphical fixture and survives on either vendor.
+ */
+function ldProg(name: string, vars: string, temps: string, body: string): string {
+	return `PROGRAM ${name}\nVAR\n${vars}END_VAR\n\nNETWORK 0 LD\n  VAR_TEMP\n${temps}  END_VAR\n${body}END_NETWORK\nEND_PROGRAM\n`
+}
+const LD_VARIATIONS: [string, (n: string) => string, (vg: string) => void][] = [
+	["negated", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n", "    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n", "  i1 := NOT a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  out := g1;\n"),
+		(vg) => expect(vg).toContain("NOT")],
+	["series3", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout : BOOL;\n", "    i1 : BOOL;\n    i2 : BOOL;\n    i3 : BOOL;\n    g1 : BOOL;\n", "  i1 := a;\n  i2 := b;\n  i3 := c;\n  g1 := (i1 AND i2 AND i3);\n  out := g1;\n"),
+		(vg) => expect(vg).toContain("AND")],
+]
+
+describe("LD featureset — CLI materializes each variation as a .ld file", () => {
+	setDefaultTimeout(30_000)
+	let b: BridgeClient
+	let ws: string
+	let cleanWs: () => void
+	const created: string[] = []
+
+	async function del(name: string) {
+		const refs = await b.getRefs()
+		const iv = refs.items[`${name}.ld`] ?? refs.items[`${name}.fbd`] ?? refs.items[`${name}.st`]
+		if (iv) await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name, ifVersion: iv }] })
+	}
+
+	beforeAll(async () => {
+		const h = (await (await fetch(`http://127.0.0.1:${PORT}/health`)).json()) as { status?: string }
+		if (h.status !== "healthy") throw new Error(`bridge not healthy on :${PORT}: ${h.status}`)
+		b = new BridgeClient({ port: PORT })
+		const root = mkdtempSync(join(tmpdir(), "volt-gfx-ld-"))
+		ws = join(root, "ws")
+		mkdirSync(ws, { recursive: true })
+		cleanWs = () => rmSync(root, { recursive: true, force: true })
+		expect((await init(ws, b, {})).kind).toBe("ok")
+	})
+
+	afterAll(async () => {
+		for (const n of created) await del(n)
+		cleanWs?.()
+	})
+
+	for (const [label, build, assertVg] of LD_VARIATIONS) {
+		it(`pull materializes the ${label} ladder as a .ld file with the right logic`, async () => {
+			const name = `VltCliLd_${label}`
+			await del(name) // self-heal from an interrupted prior run
+			created.push(name)
+			const refs = await b.getRefs()
+			const r = await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: build(name), ifVersion: null }] })
+			expect(r.accepted).toBe(true)
+
+			expect((await pull(ws, b, { force: true })).kind).toBe("ok")
+			const f = walk(ws).find((p) => p.endsWith(`${name}.ld`))
+			expect(f).toBeDefined()
+			const vg = readFileSync(f!, "utf-8")
+			expect(vg).toContain("NETWORK")
+			expect(vg).toContain(" LD")   // stayed ladder
+			assertVg(vg)
+		})
+	}
+})
