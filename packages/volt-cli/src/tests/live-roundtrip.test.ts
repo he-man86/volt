@@ -70,6 +70,11 @@ describe("live round-trip", () => {
 		await requireAlive()
 		bridge = new BridgeClient({ port: PORT })
 
+		// Start from a known state: delete any of THIS test's items left behind by an interrupted
+		// prior run (we own the FB_VoltLiveTest_* namespace). Scoped on purpose — we must NOT wipe the
+		// project, which holds shared fixtures (fbd/ladder/CFC/POU/libraries) other suites depend on.
+		for (let i = 0; i < 10; i++) await deleteTcItems(`${ITEM_PREFIX}_${i}`)
+
 		// Temp workspace
 		const root = mkdtempSync(join(tmpdir(), "volt-live-"))
 		workspace = join(root, "ws")
