@@ -37,7 +37,6 @@ export const bridge = {
 	openapi: async (): Promise<string> => (await fetch(`${BASE}/openapi.yaml`)).text(),
 }
 
-export async function isTwinCAT(): Promise<boolean> { return (await bridge.health()).platform === "beckhoff" }
 export async function requireHealthy(): Promise<void> {
 	const h = await bridge.health()
 	if (h.status !== "healthy") throw new Error(`bridge not healthy: ${h.status}`)
