@@ -44,7 +44,7 @@ public static class ItemKind
     public const int PlcItfProp = 612;      // PLCITFPROP    ✓live
     public const int PlcPropGet = 613;      // PLCPROPGET    ✓live (CODESYS also maps its iface accessors here)
     public const int PlcPropSet = 614;      // PLCPROPSET    ✓live
-    public const int PlcTrans = 616;        // PLCTRANS      ??
+    public const int PlcTrans = 616;        // PLCTRANS      ✓live (transition under POU_1)
     public const int PlcProgRef = 650;      // PLCPROGREF (published 622; live → 650)  ✓live
 
     // ── [both] non-source (opaque passthrough) ──────────────────────────
@@ -55,7 +55,7 @@ public static class ItemKind
     public const int PlcTextList = 625;     // ✓live text_list on current builds (was PLCTMCDESCRIPTION in the old enum; tmc → 653)
     public const int PlcImagePool = 628;    // ✓live (RE'd name)
     public const int PlcRecipeMan = 632;    // ✓live (RE'd name)
-    public const int PlcRecipes = 633;      // RE'd — verify (container under recipe manager; only appears once a recipe definition exists)  ??
+    public const int PlcRecipes = 633;      // ✓live recipes container under the recipe manager (RE'd name)
     public const int PlcLibRef = 657;       // ✓live; individual lib ref (CODESYS: synthetic from LibManObject)
 
     // ── [TC-only] TwinCAT TREEITEMTYPEs the CODESYS classifier never produces ─────

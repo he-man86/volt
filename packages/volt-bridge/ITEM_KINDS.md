@@ -30,7 +30,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 613 | `PLCPROPGET` | `PlcPropGet` | `property_get` | both | ✅ | ✅ | ✅ | CODESYS maps its iface accessors here too |
 | 614 | `PLCPROPSET` | `PlcPropSet` | `property_set` | both | ✅ | ✅ | ✅ | |
 | 615 | `PLCGVL` | `PlcGvl` | `gvl` | both | ✅ | ✅ | ✅ | |
-| 616 | `PLCTRANS` | `PlcTrans` | `transition` | both | ✅ | graphical | ⚠️ | SFC transition; read-only, never created. Unobserved live |
+| 616 | `PLCTRANS` | `PlcTrans` | `transition` | both | ✅ | graphical | ✅ | transition; read-only, never created. Live-confirmed under POU_1 |
 | 617 | `PLCLIBMAN` | `PlcLibMan` | `library_manager` | both | ✅ | opaque | ✅ | |
 | 618 | `PLCITF` | `PlcItf` | `interface` | both | ✅ | ✅ | ✅ | accessors are bodiless stubs — never write text to them |
 | 619 | `PLCVISOBJ` | `PlcVisObj` | `visualization` | both | ✅ | opaque | ✅ | |
@@ -42,7 +42,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 629 | *(unconfirmed)* | `PlcParamList` | `parameter_list` | TC | ✅ | opaque | ✅ | was unmapped (→ null), now fixed. TC-only: CODESYS has no parameter-list object type (confirmed via docs + Hauzer) |
 | 631 | *(unconfirmed)* | `PlcClassDiagram` | `class_diagram` | TC | ✅ | opaque | ✅ | RE'd number |
 | 632 | *(unconfirmed)* | `PlcRecipeMan` | `recipe_manager` | both | ✅ | opaque | ✅ | |
-| 633 | *(unconfirmed)* | `PlcRecipes` | `recipe_manager` | TC | ✅ | opaque | ⚠️ | container under recipe mgr; only appears once a recipe definition exists |
+| 633 | *(unconfirmed)* | `PlcRecipes` | `recipe_manager` | TC | ✅ | opaque | ✅ | recipes container under the recipe manager |
 | 650 | `PLCPROGREF` *(published 622)* | `PlcProgRef` | `task_call_reference` | TC | ✅ | opaque | ✅ | renumbered 622→650; CODESYS folds into the task |
 | 652 | `PLCEXTDATATYPECONT` *(published 624)* | `PlcExtDataTypeCont` | `external_types` | TC | ✅ | opaque | ✅ | renumbered 624→652 |
 | 653 | `PLCTMCDESCRIPTION` *(published 625)* | `PlcTmcDescription` | `tmc_file` | TC | ✅ | opaque | ✅ | renumbered 625→653 |
@@ -63,7 +63,7 @@ Numbers are the LIVE build's values; the published-enum name is shown where it d
 |---|---|---|:--:|---|
 | 600 | `PLCAPP` | — | ✅ | PLC project root (recurse) |
 | 601–615 | `PLCFOLDER`…`PLCGVL` | folder/program/function/function_block/enumeration/structure/union/action/method/property(+get/set)/gvl | ✅ | the source + inlined kinds |
-| 616 | `PLCTRANS` | transition | ⚠️ | SFC transition — add an SFC POU to confirm |
+| 616 | `PLCTRANS` | transition | ✅ | live-confirmed (transition under POU_1) |
 | 617–621 | `PLCLIBMAN`…`PLCTASK` | library_manager/interface/visualization/visualization_manager/task | ✅ | |
 | 622 | `PLCPROGREF` | — | ❌ | published code; **live build uses 650** instead |
 | 623 | `PLCDUTALIAS` | alias | ✅ | |
@@ -76,7 +76,7 @@ Numbers are the LIVE build's values; the published-enum name is shown where it d
 | **630** | — | — | ❌ | **unknown** |
 | 631 | — | class_diagram | ✅ | live |
 | 632 | — | recipe_manager | ✅ | live |
-| 633 | — | recipe_manager | ⚠️ | recipes container — add a recipe definition to confirm |
+| 633 | — | recipe_manager | ✅ | live (recipes container under recipe manager) |
 | **634–649** | — | — | ❌ | 16-code gap, never seen — **unknown** (persistent vars? param mgr? cam? CNC?) |
 | 650 | `PLCPROGREF` | task_call_reference | ✅ | live (renumbered from 622) |
 | **651** | — | — | ❌ | **unknown** |
@@ -109,9 +109,8 @@ turn "silently Unknown" into a visible "unrecognized CODESYS type: {interfaces}"
 
 ## Work ahead
 
-1. **Remaining ⚠️ kinds** — only two left to confirm live: `transition` 616 (add an SFC POU with a step+transition)
-   and `PlcRecipes` 633 (add a recipe *definition* under a Recipe Manager). Everything else is ✅ live-confirmed
-   (sweep 2026-06-19: 619/620/625/628/629/631/632 + 657).
+1. **All mapped PLC kinds are now live-confirmed** (2026-06-19 sweeps): every code 600–657 we map has been
+   observed live, including `transition` 616 (under POU_1) and `PlcRecipes` 633. No ⚠️ rows remain.
 2. **Fill the remaining unknown ranges** — 626, 627, 630, 634-649, 656, 658+ are still unmapped. Sweep a project
    with persistent GVLs, CNC/NC, EtherCAT-mapped items, etc. to discover any other kind volt drops to `null`.
 3. **Surface unknowns instead of silently skipping** — make `CodesysTypeMap`'s known-skip set explicit
