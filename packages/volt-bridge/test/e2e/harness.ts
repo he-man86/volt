@@ -44,33 +44,23 @@ export async function requireHealthy(): Promise<void> {
 	if (h.status !== "healthy") throw new Error(`bridge not healthy: ${h.status}`)
 }
 
-// ── name resolution (bare → full) ─────────────────────────────────────────────
-/** Find the full wire name for a bare IDE name from the refs items map. */
-export function fullWireName(items: Record<string, string>, bareName: string): string | undefined {
-	if (items[bareName] !== undefined) return bareName
-	const prefix = bareName + "."
-	return Object.keys(items).find((k: string) => k.startsWith(prefix))
-}
-
 // ── test-item identity + cleanup ──────────────────────────────────────────────
+// The wire speaks FULL names everywhere (the same principle as /refs and /fetch). `id` is the bare IEC
+// identifier used INSIDE source text ("FUNCTION_BLOCK VltE2E_x"); `fid` is the FULL wire/file name (IEC
+// name + extension) used for every op and lookup. No bare↔full resolution anywhere.
 export function id(s: string): string { return `${PREFIX}_${s}` }
-/** Full wire name — appends .st (all test items are ST by default). */
-export function fid(s: string): string { return id(s) + ".st" }
+/** The FULL wire name: the IEC name + extension (defaults to .st; pass ".fbd"/".ld"/".struct"/… per kind). */
+export function fid(s: string, ext = "st"): string { return `${id(s)}.${ext}` }
 
 export async function cleanup(): Promise<void> {
 	const refs = await bridge.refs()
 	if (!refs.items) return
 	const ops = Object.keys(refs.items)
 		.filter(n => n.startsWith(PREFIX))
-		.map(n => ({ op: "deleteItem", name: bareName(n), ifVersion: refs.items[n] }))
+		.map(n => ({ op: "deleteItem", name: n, ifVersion: refs.items[n] }))   // n is already the full wire name
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
 	if (!r.accepted) console.warn("cleanup:", JSON.stringify(r.conflicts).slice(0, 200))
-}
-
-function bareName(full: string): string {
-	const dot = full.lastIndexOf(".")
-	return dot > 0 ? full.slice(0, dot) : full
 }
 
 // ── push helpers ──────────────────────────────────────────────────────────────
@@ -80,24 +70,23 @@ export async function pushOps(ops: unknown[]): Promise<any> {
 	if (!r.accepted) console.warn("push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
 	return r
 }
+/** Create a NEW item — `name` is the FULL wire name (e.g. `fid("x")`, or `fid("x","ld")`). */
 export async function createItem(name: string, src: string, folder = FOLDER): Promise<any> {
 	const r = await pushOps([{ op: "pushItem", name, folder, sourceText: src, ifVersion: null }])
 	expect(r.accepted).toBe(true)
 	return r
 }
+/** Update an existing item by its FULL wire name, guarded with its current version. */
 export async function updateItem(name: string, src: string, folder = FOLDER): Promise<any> {
-	const refs = await bridge.refs()
-	const v = refs.items[name]
-		?? Object.keys(refs.items).find((k: string) => k.startsWith(name + "."))
-		? refs.items[Object.keys(refs.items).find((k: string) => k.startsWith(name + "."))!]
-		: null
+	const v = (await bridge.refs()).items[name] ?? null
 	const r = await pushOps([{ op: "pushItem", name, folder, sourceText: src, ifVersion: v }])
 	expect(r.accepted).toBe(true)
 	return r
 }
+/** Fetch an item by its FULL wire name. */
 export async function fetchItem(name: string): Promise<any> {
 	const f = await bridge.fetch({ knownItems: {}, onlyItems: [name] })
-	const it = f.changed.find((i: any) => i.name === name || i.name.startsWith(name + "."))
+	const it = f.changed.find((i: any) => i.name === name)
 	if (!it) throw new Error(`item '${name}' not in fetch`)
 	return it
 }
@@ -106,7 +95,7 @@ export async function fetchSource(name: string): Promise<string> { return (await
 // ── PLC_PRG instantiation (required by CODESYS to compile FBs) ────────────────
 let _plcPrgOriginal: string | null = null
 
-const PLC_PRG = "PLC_PRG"
+const PLC_PRG = "PLC_PRG.st"   // full wire name (the op/fetch identity); its IEC body names it "PLC_PRG"
 
 /** Strip any test-prefixed instance declarations from PLC_PRG so it compiles cleanly. */
 export async function fixPlcPrg(): Promise<void> {
@@ -179,25 +168,17 @@ export async function snapshot(): Promise<Snapshot> {
 	return { project: r.projectVersion, structure: r.structureVersion, items: r.items }
 }
 
-/** Get a version from a snapshot by bare name, resolving to the full wire name. */
-export function snapshotItem(s: Snapshot, bareName: string): string | undefined {
-	const key = fullWireName(s.items, bareName)
-	return key !== undefined ? s.items[key] : undefined
+/** A snapshot item's version by its FULL wire name (e.g. "VltE2E_x.st"). */
+export function snapshotItem(s: Snapshot, name: string): string | undefined {
+	return s.items[name]
 }
 
-export function snapshotHas(s: Snapshot, bareName: string): boolean {
-	return fullWireName(s.items, bareName) !== undefined
-}
-
-function fullName(items: Record<string, string>, bareName: string): string | undefined {
-	if (items[bareName] !== undefined) return bareName
-	const prefix = bareName + "."
-	const key = Object.keys(items).find((k: string) => k.startsWith(prefix))
-	return key
+export function snapshotHas(s: Snapshot, name: string): boolean {
+	return s.items[name] !== undefined
 }
 
 /**
- * Assert how a single item and the two aggregate versions moved between two snapshots.
+ * Assert how a single item (by its FULL wire name) and the two aggregate versions moved between snapshots.
  *   item: "new" | "change" | "same" | "gone"
  *   project / structure: true = must change, false = must stay identical
  */
@@ -205,13 +186,11 @@ export function assertDelta(
 	before: Snapshot, after: Snapshot, name: string,
 	exp: { item: "new" | "change" | "same" | "gone"; project: boolean; structure: boolean },
 ): void {
-	const bKey = fullWireName(before.items, name)
-	const aKey = fullWireName(after.items, name) ?? bKey
 	switch (exp.item) {
-		case "new": expect(bKey).toBeUndefined(); expect(aKey).toBeDefined(); break
-		case "change": expect(aKey).toBeDefined(); expect(after.items[aKey!]).not.toBe(before.items[bKey!]); break
-		case "same": expect(after.items[aKey!]).toBe(before.items[bKey!]); break
-		case "gone": expect(bKey).toBeDefined(); expect(after.items[aKey!]).toBeUndefined(); break
+		case "new": expect(before.items[name]).toBeUndefined(); expect(after.items[name]).toBeDefined(); break
+		case "change": expect(after.items[name]).toBeDefined(); expect(after.items[name]).not.toBe(before.items[name]); break
+		case "same": expect(after.items[name]).toBe(before.items[name]); break
+		case "gone": expect(before.items[name]).toBeDefined(); expect(after.items[name]).toBeUndefined(); break
 	}
 	if (exp.project) expect(after.project).not.toBe(before.project)
 	else expect(after.project).toBe(before.project)

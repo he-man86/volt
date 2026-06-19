@@ -3,7 +3,7 @@
  * CFC/SFC are read-only (surfaced as a %LANG placeholder, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 function fbdProgram(name: string) {
 	return `PROGRAM ${name}
@@ -145,21 +145,21 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
 			const name = id(`vg_${lang.toLowerCase()}`)
+			const fullName = fid(`vg_${lang.toLowerCase()}`, lang.toLowerCase())
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
 
 			const refs = await bridge.refs()
-			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: src, ifVersion: null }] })
+			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: src, ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
-			const fullName = name + "." + lang.toLowerCase()
-			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === fullName)
+			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
 			expect(after.sourceText).toContain("NETWORK")
 
 			// Round-trip: push the same source back, should be accepted and unchanged
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
 			expect(r2.accepted).toBe(true)
 			const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after2.sourceText).toBe(after.sourceText)
@@ -169,20 +169,21 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
 		it(`LD featureset (${label}) round-trips to a stable .ld body`, async () => {
 			const name = id(`vg_ld_${label}`)
+			const fullName = fid(`vg_ld_${label}`, "ld")
 			const refs = await bridge.refs()
-			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: buildSrc(name), ifVersion: null }] })
+			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
-			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 			expect(v1).toBeDefined()
 			expect(v1.name.endsWith(".ld")).toBe(true)   // stayed ladder
 			expect(v1.sourceText).toContain("NETWORK")
 
 			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
 			expect(r2.accepted).toBe(true)
-			const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === v1.name)
+			const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === v1.name)
 			expect(v2.sourceText).toBe(v1.sourceText)
 		})
 	}
@@ -193,18 +194,19 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// POU that already lives in the project. (CFC/SFC read-only behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
 		const name = id("vg_existing")
+		const fullName = fid("vg_existing", "fbd")
 		const refs0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
-		const g = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		const g = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(g).toBeDefined()
 		const s1: string = g.sourceText
 		expect(s1).toContain("NETWORK")
 
 		const refs = await bridge.refs()
-		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
 		expect(r.accepted).toBe(true)
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === g.name)
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === g.name)
 		expect(after.sourceText).toBe(s1)
 	})
 
@@ -212,35 +214,37 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
 	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
 		const name = id("vg_guard_st")
+		const fullName = fid("vg_guard_st", "fbd")
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
-		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(before.name.endsWith(".fbd")).toBe(true)
 
 		const r1 = await bridge.refs()
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
 
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(after.name).toBe(before.name)              // still .fbd — never flattened to ST
 		expect(after.sourceText).toBe(before.sourceText)  // byte-identical: the bad push never reached the IDE
 	})
 
 	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
 		const name = id("vg_guard_malformed")
+		const fullName = fid("vg_guard_malformed", "fbd")
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
-		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 
 		const r1 = await bridge.refs()
 		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
 
-		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(after.sourceText).toBe(before.sourceText)  // unchanged
 	})
 })

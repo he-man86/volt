@@ -37,6 +37,16 @@ public static class Materializer
     private static bool IsVerbatimKind(string name, string ext) =>
         name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>The IDE's BARE name from a full wire name — the inverse of <see cref="FullWireName"/>:
+    /// strip the trailing extension. IEC item names contain no dots, so the last <c>.ext</c> is
+    /// unambiguously the extension. (Verbatim kinds like tmc_file carry their extension in the IDE name, but
+    /// they are read-only and never pushed, so they never reach this.)</summary>
+    public static string Bare(string wireName)
+    {
+        var dot = wireName.LastIndexOf('.');
+        return dot > 0 ? wireName.Substring(0, dot) : wireName;
+    }
+
     private static Dictionary<string, object?> BuildSource(IIdeDriver ide, string name, ItemRef item, string kind)
     {
         Dictionary<string, object?> result;

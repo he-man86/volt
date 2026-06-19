@@ -1,6 +1,6 @@
 /** /build — compile errors produce diagnostics with correct line numbers. */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE } from "../harness"
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -9,7 +9,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 
 	it("healthy project builds successfully", async () => {
 		const name = id("b_ok")
-		await createItem(name, `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
+		await createItem(fid("b_ok"), `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n\nx := x + 1;\nEND_FUNCTION_BLOCK\n`)
 		await instantiateInPlcPrg(name)
 
 		const r = await bridge.build()
@@ -20,7 +20,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	it("detects undeclared variable", async () => {
 		const name = id("b_undef")
 		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n\ny := 1;\nEND_FUNCTION_BLOCK\n`
-		await createItem(name, src)
+		await createItem(fid("b_undef"), src)
 		await instantiateInPlcPrg(name)
 
 		const r = await bridge.build()
@@ -39,7 +39,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	it("detects duplicate variable declaration", async () => {
 		const name = id("b_dup")
 		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\n\tx : INT;\nEND_VAR\n\nx := 1;\nEND_FUNCTION_BLOCK\n`
-		await createItem(name, src)
+		await createItem(fid("b_dup"), src)
 		await instantiateInPlcPrg(name)
 
 		const r = await bridge.build()
@@ -59,7 +59,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		const name = id("b_type")
 		// x is declared INT but assigned a BOOL literal — valid syntax, semantic error
 		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n\nx := TRUE;\nEND_FUNCTION_BLOCK\n`
-		await createItem(name, src)
+		await createItem(fid("b_type"), src)
 		await instantiateInPlcPrg(name)
 
 		const r = await bridge.build()
@@ -81,7 +81,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	it("every diagnostic has a column field (may be 0 if IDE omits it)", async () => {
 		const name = id("b_col")
 		const src = `FUNCTION_BLOCK ${name}\nVAR\n\tx : INT;\nEND_VAR\n\ny := 1;\nEND_FUNCTION_BLOCK\n`
-		await createItem(name, src)
+		await createItem(fid("b_col"), src)
 		await instantiateInPlcPrg(name)
 
 		const r = await bridge.build()

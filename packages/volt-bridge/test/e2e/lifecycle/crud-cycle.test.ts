@@ -11,8 +11,14 @@
  *   delete → assert {item:gone, project:Δ, structure:Δ}     (delete)
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { id, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, FOLDER, BASE } from "../harness"
+import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, FOLDER, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
+
+// wire-name extension per kind (the `kind` field on each LIFECYCLE_KINDS entry → file extension)
+const EXT_BY_KIND: Record<string, string> = {
+	function_block: "st", program: "st", gvl: "gvl",
+	structure: "struct", enumeration: "enum", union: "union", alias: "alias",
+}
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	setDefaultTimeout(60_000) // TC COM calls are slow; default 5s is too tight
@@ -24,58 +30,60 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	for (const k of LIFECYCLE_KINDS) {
 		it(`${k.key}: create→fetch→fixedpoint→edit→rename→move→delete, versions track correctly`, async () => {
 			const name = id(`lc_${k.key}`)
+			const ext = EXT_BY_KIND[k.kind]
+			const wire = fid(`lc_${k.key}`, ext)             // FULL wire name for every op/helper/lookup
 
 			// 1. baseline
 			const s0 = await snapshot()
-			expect(snapshotHas(s0, name)).toBe(false)
+			expect(snapshotHas(s0, wire)).toBe(false)
 
 			// 2. CREATE
-			await createItem(name, k.create(name))
+			await createItem(wire, k.create(name))
 			if (k.key === "fb" || k.key === "fbChildren") await ensureCompiles(name)
 			const s1 = await snapshot()
-			assertDelta(s0, s1, name, { item: "new", project: true, structure: true })
+			assertDelta(s0, s1, wire, { item: "new", project: true, structure: true })
 
 			// 3. FETCH — kind + version + folder consistent with /refs
-			const fetched = await fetchItem(name)
-			expect(fetched.version).toBe(snapshotItem(s1, name))
+			const fetched = await fetchItem(wire)
+			expect(fetched.version).toBe(snapshotItem(s1, wire))
 			expect(fetched.folder ?? "").toBe(FOLDER)
 
 			// 4. RE-PUSH the bridge's own canonical output → FIXED POINT (nothing moves)
-			await updateItem(name, fetched.sourceText)
+			await updateItem(wire, fetched.sourceText)
 			const s2 = await snapshot()
-			assertDelta(s1, s2, name, { item: "same", project: false, structure: false })
+			assertDelta(s1, s2, wire, { item: "same", project: false, structure: false })
 
 			// 5. EDIT content → content-edit deltas (structure stays — same name)
-			await updateItem(name, k.edit(name))
+			await updateItem(wire, k.edit(name))
 			const s3 = await snapshot()
-			assertDelta(s2, s3, name, { item: "change", project: true, structure: false })
-			expect(await fetchSource(name)).toMatch(k.editToken)
+			assertDelta(s2, s3, wire, { item: "change", project: true, structure: false })
+			expect(await fetchSource(wire)).toMatch(k.editToken)
 
 			// 6. RENAME → structure + project change; the renamed item keeps its content version
-			const newName = id(`lc_${k.key}_r`)
-			const rn = await pushOps([{ op: "renameItem", name, newName, ifVersion: snapshotItem(s3, name) }])
+			const newWire = fid(`lc_${k.key}_r`, ext)
+			const rn = await pushOps([{ op: "renameItem", name: wire, newName: newWire, ifVersion: snapshotItem(s3, wire) }])
 			expect(rn.accepted).toBe(true)
 			const s4 = await snapshot()
-			expect(snapshotHas(s4, name)).toBe(false)
-			if (k.nameInSource) expect(snapshotItem(s4, newName)).not.toBe(snapshotItem(s3, name))
-			else expect(snapshotItem(s4, newName)).toBe(snapshotItem(s3, name))
+			expect(snapshotHas(s4, wire)).toBe(false)
+			if (k.nameInSource) expect(snapshotItem(s4, newWire)).not.toBe(snapshotItem(s3, wire))
+			else expect(snapshotItem(s4, newWire)).toBe(snapshotItem(s3, wire))
 			expect(s4.structure).not.toBe(s3.structure)
 			expect(s4.project).not.toBe(s3.project)
 
 			// 7. MOVE → item version changes (folder is in the hash), names unchanged ⇒ structure same
-			const mv = await pushOps([{ op: "moveItem", name: newName, newFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newName) }])
+			const mv = await pushOps([{ op: "moveItem", name: newWire, newFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newWire) }])
 			expect(mv.accepted).toBe(true)
 			const s5 = await snapshot()
-			expect(snapshotItem(s5, newName)).not.toBe(snapshotItem(s4, newName))
+			expect(snapshotItem(s5, newWire)).not.toBe(snapshotItem(s4, newWire))
 			expect(s5.structure).toBe(s4.structure)
 			expect(s5.project).not.toBe(s4.project)
-			expect((await fetchItem(newName)).folder).toBe("POUs/Moved")
+			expect((await fetchItem(newWire)).folder).toBe("POUs/Moved")
 
 			// 8. DELETE
-			const del = await pushOps([{ op: "deleteItem", name: newName, ifVersion: snapshotItem(s5, newName) }])
+			const del = await pushOps([{ op: "deleteItem", name: newWire, ifVersion: snapshotItem(s5, newWire) }])
 			expect(del.accepted).toBe(true)
 			const s6 = await snapshot()
-			assertDelta(s5, s6, newName, { item: "gone", project: true, structure: true })
+			assertDelta(s5, s6, newWire, { item: "gone", project: true, structure: true })
 		})
 	}
 })

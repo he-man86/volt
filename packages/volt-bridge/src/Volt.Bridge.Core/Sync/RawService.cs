@@ -20,7 +20,10 @@ public static class RawService
             try { raw = ide.ReadXml(it.Item); } catch { raw = null; }
             if (!string.IsNullOrEmpty(raw))
             {
-                var key = string.IsNullOrEmpty(it.Folder) ? it.Name : $"{it.Folder}/{it.Name}";
+                // Full name (bare + body-language extension) — same principle as /refs and /fetch.
+                var ext = (ide.BodyLanguage(it.Item) ?? "st").ToLowerInvariant();
+                var full = $"{it.Name}.{ext}";
+                var key = string.IsNullOrEmpty(it.Folder) ? full : $"{it.Folder}/{full}";
                 bodies[key] = raw!;
             }
         }

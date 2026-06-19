@@ -84,9 +84,10 @@ public static class PushService
         var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
         foreach (var op in request.Ops)
         {
-            var name = op.Name;
+            var name = op.Name;                       // FULL wire name — echoed back in the conflict
+            var bare = Materializer.Bare(name);       // the IDE/version-map key (bare-keyed)
             var clientVersion = op.IfVersion;
-            var currentVersion = pending.TryGetValue(name, out var v) ? v : null;
+            var currentVersion = pending.TryGetValue(bare, out var v) ? v : null;
 
             if (op is PushItemOp)
             {
@@ -94,7 +95,7 @@ public static class PushService
                 {
                     if (currentVersion != null)
                         conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
-                    else pending[name] = "";
+                    else pending[bare] = "";
                 }
                 else if (currentVersion != clientVersion)
                 {
@@ -105,8 +106,8 @@ public static class PushService
             {
                 if (clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
-                else if (op is DeleteItemOp) pending.Remove(name);
-                else if (op is RenameItemOp renameOp && renameOp.NewName != null) { pending.Remove(name); pending[renameOp.NewName] = ""; }
+                else if (op is DeleteItemOp) pending.Remove(bare);
+                else if (op is RenameItemOp renameOp && renameOp.NewName != null) { pending.Remove(bare); pending[Materializer.Bare(renameOp.NewName)] = ""; }
             }
         }
         return conflicts;
@@ -115,7 +116,8 @@ public static class PushService
     private static void ApplyOp(IIdeDriver ide, ItemRef parent,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op)
     {
-        var name = op.Name;
+        // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
+        var name = Materializer.Bare(op.Name);
         ItemRef? existing = itemCache.TryGetValue(name, out var cached) ? cached.Item : ide.Lookup(name);
 
         switch (op)
@@ -127,7 +129,7 @@ public static class PushService
                 ide.Delete(ide.Parent(del), name);
                 break;
             case RenameItemOp { NewName: { } newName } when existing is { } ren:
-                ide.Rename(ren, newName);
+                ide.Rename(ren, Materializer.Bare(newName));
                 break;
             case MoveItemOp { NewFolder: { } newFolder } when existing is { } mv:
                 MoveItem(ide, parent, name, mv, newFolder);
