@@ -311,6 +311,18 @@ function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
 	return out;
 }
 
+/**
+ * The item version recorded in state, looked up by BARE name. state.items is keyed by FULL wire name
+ * (`FB_Motor.st`) — the bridge's keying — while the push diff works in bare names (`FB_Motor`). Resolve
+ * bare→full so the per-item ifVersion guard is found; without it every update/delete/move silently produced
+ * no op (the push reported success but sent nothing). Tolerates a bare-keyed map too (defensive).
+ */
+function stateVersion(items: Record<string, string>, bareName: string): string | undefined {
+	if (items[bareName] !== undefined) return items[bareName];
+	const key = Object.keys(items).find((k) => k.startsWith(bareName + "."));
+	return key !== undefined ? items[key] : undefined;
+}
+
 function buildPushOps(
 	repoPath: string,
 	prevEntries: readonly TreeEntry[],
@@ -323,7 +335,7 @@ function buildPushOps(
 
 	for (const [name] of prev) {
 		if (curr.has(name)) continue;
-		const ifVersion = state.items[name];
+		const ifVersion = stateVersion(state.items, name);
 		if (ifVersion === undefined) continue;
 		ops.push({ op: "deleteItem", name, ifVersion });
 	}
@@ -345,7 +357,7 @@ function buildPushOps(
 		const contentChanged = prevFile.entry.sha !== currFile.entry.sha;
 		if (!folderChanged && !contentChanged) continue;
 
-		const ifVersion = state.items[name];
+		const ifVersion = stateVersion(state.items, name);
 		if (ifVersion === undefined) continue;
 
 		if (folderChanged && !contentChanged) {
@@ -378,10 +390,13 @@ function buildPushItemOp(
  * language, or null for textual (ST / DUT / declaration) content.
  */
 function detectBodyLanguage(content: string): string | null {
-	const t = content.replace(/^\s+/, "");
-	const lang = /^%LANG\s+(\S+)/.exec(t);
+	// A graphical body carries a `%LANG <x>` placeholder (CFC/SFC) or a `NETWORK <n> <LANG>` network line
+	// (FBD/LD). For a ROOT POU file the marker sits AFTER the declaration (PROGRAM/VAR…END_VAR), so search
+	// every LINE (multiline `^`), not just the file start. (The bridge's VgBody sees the already-split
+	// implementation, so it only checks the start — same intent, adapted to the CLI's decl+body file.)
+	const lang = /^[ \t]*%LANG[ \t]+(\S+)/m.exec(content);
 	if (lang) return lang[1]!.toUpperCase();
-	const net = /^NETWORK\s+\d+\s+([A-Za-z]\w*)/.exec(t);
+	const net = /^[ \t]*NETWORK[ \t]+\d+[ \t]+([A-Za-z]\w*)/m.exec(content);
 	if (net) return net[1]!.toUpperCase();
 	return null;
 }
