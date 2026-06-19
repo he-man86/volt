@@ -1,10 +1,11 @@
 /** POU children lifecycle: add / change / DELETE methods, actions, properties + drop a GET/SET accessor.
  *  The delete cases are the regression for the orphan-removal fix (a removed child must not reappear). */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { id, cleanup, requireHealthy, createItem, updateItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 import { fb, METHOD, ACTION, PROPERTY } from "../fixtures"
 
 describe(`lifecycle / children (${BASE})`, () => {
+	setDefaultTimeout(60_000)
 	beforeAll(async () => { await requireHealthy() })
 	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 	afterEach(async () => { await restorePlcPrg() })

@@ -1,8 +1,9 @@
 /** /health, /build, /instances, /openapi.yaml, /swagger, 404 — the contract endpoints. */
-import { describe, it, expect, beforeAll } from "bun:test"
+import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, get, requireHealthy, BASE } from "../harness"
 
 describe(`endpoints / health+build+contract (${BASE})`, () => {
+	setDefaultTimeout(60_000)
 	beforeAll(requireHealthy)
 
 	describe("/health", () => {

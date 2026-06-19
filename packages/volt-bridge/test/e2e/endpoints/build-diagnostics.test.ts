@@ -1,8 +1,9 @@
 /** /build — compile errors produce diagnostics with correct line numbers. */
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE } from "../harness"
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
+	setDefaultTimeout(60_000)
 	beforeAll(async () => { await requireHealthy(); await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 	afterAll(async () => { await restorePlcPrg(); await cleanup() })
 

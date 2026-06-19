@@ -1,9 +1,10 @@
 /** /refs — determinism and the parallel items/kinds/folders maps. */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / refs (${BASE})`, () => {
+	setDefaultTimeout(60_000)
 	beforeAll(async () => { await requireHealthy() })
 	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 	afterEach(async () => { await restorePlcPrg() })
