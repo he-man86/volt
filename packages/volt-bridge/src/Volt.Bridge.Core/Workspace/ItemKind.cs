@@ -55,7 +55,6 @@ public static class ItemKind
     public const int PlcLibRef = 657;       // individual library reference; CODESYS synthesizes these from ILibManObject
 
     // ── [TC-only] TwinCAT TREEITEMTYPEs with no CODESYS equivalent ──
-    public const int PlcSystemRoot = 0;     // system/solution root sentinel; the PLC project root itself is 600 (PLCAPP)
     public const int PlcParamList = 629;    // ADS parameter list — CODESYS has no parameter-list object type (docs + Hauzer)
     public const int PlcClassDiagram = 631; // observed live; no published name
     public const int PlcExtDataTypeCont = 652; // published 624; renumbered to 652
@@ -63,20 +62,21 @@ public static class ItemKind
     public const int PlcItfPropGet = 654;   // CODESYS classifies interface accessors as PlcPropGet/Set instead
     public const int PlcItfPropSet = 655;
 
-    // ── [CDS-only] CODESYS object-model containers (no TwinCAT code; recursed, never emitted) ──
-    public const int Application = 690;
-    public const int PlcLogic = 691;
+    // ── containers & sentinels — recursed or skipped, NEVER emitted (Map → null) ──
+    public const int PlcSystemRoot = 0;     // TwinCAT solution/system root; the walk starts BELOW it (at the 600 PLC
+                                            // project), so it is never reached. Kept so a read-failure can use -2
+                                            // (Unknown) without colliding with this real code 0.
+    public const int Application = 690;     // CODESYS object-model containers (synthetic numbers — CODESYS has no numeric
+    public const int PlcLogic = 691;        // enum). Recursed into; their source children surface flat.
     public const int Device = 692;
     public const int TaskConfig = 693;      // its ITaskObject children surface as individual `task` items
+    public const int Unknown = -2;          // classification failed / unrecognized
+    public const int Skip = -1;             // transient / hidden
 
-    // ── sentinels (never a real tree code) ──
-    public const int Unknown = -2;          // classification failed/unrecognized → Map returns null (skip), never phantom-emit
-    public const int Skip = -1;             // transient/hidden → never emitted
-
-    /// <summary>Code → vendor-neutral kind string (null = not a tracked wire item).</summary>
+    /// <summary>Code → vendor-neutral wire kind string. null = not emitted as a tracked item: the containers
+    /// &amp; sentinels (0, 690-693, -1, -2) and any code we don't classify all fall through to the default.</summary>
     public static string? Map(int code) => code switch
     {
-        PlcSystemRoot => "system_root",
         PlcFolder => "folder",
         PlcPouProg => "program",
         PlcPouFunc => "function",
@@ -110,7 +110,6 @@ public static class ItemKind
         PlcItfPropGet => "interface_property_get",
         PlcItfPropSet => "interface_property_set",
         PlcLibRef => "library",
-        Application or PlcLogic or Device or TaskConfig => null, // containers, never emitted
         _ => null,
     };
 

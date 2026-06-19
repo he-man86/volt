@@ -49,7 +49,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 654 | `PLCITFPROPGET` | `PlcItfPropGet` | `interface_property_get` | TC | ✅ | ✅ | ✅ | create vInfo = `"ST"`, write no text |
 | 655 | `PLCITFPROPSET` | `PlcItfPropSet` | `interface_property_set` | TC | ✅ | ✅ | ✅ | create vInfo = `"ST"`, write no text |
 | 657 | *(unconfirmed)* | `PlcLibRef` | `library` | both | ✅ | opaque | ✅ | individual lib ref (CODESYS: synthetic from LibManObject) |
-| 0 | — | `PlcSystemRoot` | `system_root`* | TC | ✅ | — | — | system/solution root sentinel; *Map returns a string — verify if it ever reaches /refs |
+| 0 | — | `PlcSystemRoot` | — | TC | — | — | — | solution/system root — *above* the PLC project, never reached by the walk → `Map` returns null (not emitted). Const kept only so read-failures use -2, not 0 |
 | 690-693 | — | `Application`/`PlcLogic`/`Device`/`TaskConfig` | — | CDS | recurse | — | ✅ | CODESYS-only containers; recursed, never emitted |
 
 ## Complete coverage map — what could exist vs. what we map
