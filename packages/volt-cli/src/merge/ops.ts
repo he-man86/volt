@@ -331,6 +331,10 @@ function buildPushOps(
 	for (const [name, currFile] of curr) {
 		const prevFile = prev.get(name);
 		const currContent = readBlob(repoPath, currFile.entry.sha);
+		// First line of defence: a file's extension must match its content, so a mislabelled body (e.g. a
+		// .st renamed to .fbd, or a .fbd holding ST/LD) is caught HERE — before it reaches the bridge, which
+		// is extension-agnostic and could never tell. Runs for every current file (new/changed/even no-op).
+		validateExtensionMatchesContent(currFile.entry.path, currContent);
 
 		if (prevFile === undefined) {
 			ops.push(buildPushItemOp(name, currFile, currContent, null));
@@ -367,6 +371,49 @@ function buildPushItemOp(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Detect a workspace file's body language from its content, mirroring the bridge's VgBody: a graphical body
+ * opens with `%LANG <x>` (read-only CFC/SFC) or `NETWORK <n> <LANG>` (FBD/LD). Returns the upper-cased
+ * language, or null for textual (ST / DUT / declaration) content.
+ */
+function detectBodyLanguage(content: string): string | null {
+	const t = content.replace(/^\s+/, "");
+	const lang = /^%LANG\s+(\S+)/.exec(t);
+	if (lang) return lang[1]!.toUpperCase();
+	const net = /^NETWORK\s+\d+\s+([A-Za-z]\w*)/.exec(t);
+	if (net) return net[1]!.toUpperCase();
+	return null;
+}
+
+const GRAPHICAL_EXT: Record<string, string> = { fbd: "FBD", ld: "LD" };
+
+/** Refuse a file whose extension and content disagree — the `.st`↔`.fbd`-style mislabel the bridge can't catch. */
+export function validateExtensionMatchesContent(path: string, content: string): void {
+	const dot = path.lastIndexOf(".");
+	const ext = (dot >= 0 ? path.slice(dot + 1) : "").toLowerCase();
+	const bodyLang = detectBodyLanguage(content); // null = textual; FBD/LD/CFC/SFC = graphical
+	const expected = GRAPHICAL_EXT[ext];
+	if (expected !== undefined) {
+		if (bodyLang === null)
+			throw new Error(
+				`'${path}' is a .${ext} file but contains plain ST text, not a graphical body — ` +
+					`did you rename a .st file? Rename it back, or fix the content.`,
+			);
+		if (bodyLang !== expected)
+			throw new Error(
+				`'${path}' is a .${ext} file but its body language is ${bodyLang} — ` +
+					`rename it to '.${bodyLang.toLowerCase()}', or fix the content.`,
+			);
+		return;
+	}
+	// Every other source extension (.st/.struct/.enum/.itf/.gvl/…) is textual — a graphical marker is a mislabel.
+	if (bodyLang !== null)
+		throw new Error(
+			`'${path}' has a .${ext} extension but contains a ${bodyLang} graphical body — ` +
+				`did you rename a .${bodyLang.toLowerCase()} file? Rename it back, or fix the content.`,
+		);
+}
 
 function joinPath(...parts: string[]): string {
 	return parts.filter((p) => p.length > 0).join("/");

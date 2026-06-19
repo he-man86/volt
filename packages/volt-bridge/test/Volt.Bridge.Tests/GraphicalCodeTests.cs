@@ -77,6 +77,28 @@ public class GraphicalCodeTests
     }
 
     [Fact]
+    public void Write_refuses_an_unknown_graphical_language_with_a_clear_message()
+    {
+        // A3: a bad language token is rejected BEFORE the IDE import, with a clear message — not downstream
+        // with a misleading "not writable". The guard fires before ReadXml, so the store needn't be valid.
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
+        var ex = Assert.Throws<InvalidOperationException>(() => GraphicalCode.Write(
+            s, Item, "NETWORK 0 BANANA\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n",
+            "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+        Assert.Contains("unknown graphical language", ex.Message);
+        Assert.Contains("BANANA", ex.Message);
+    }
+
+    [Fact]
+    public void Write_refuses_a_read_only_cfc_body()
+    {
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            GraphicalCode.Write(s, Item, "%LANG CFC\n", "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+        Assert.Contains("read-only", ex.Message);
+    }
+
+    [Fact]
     public void A_failed_export_propagates_never_an_empty_marker()
     {
         var s = new FakeCodeStore { Lang = "FBD", ThrowOnReadXml = true };

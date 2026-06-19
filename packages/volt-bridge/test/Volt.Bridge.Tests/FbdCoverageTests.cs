@@ -165,7 +165,9 @@ public class FbdCoverageTests
     {
         var doc = Doc("LD", inner);
         _ = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader stays TOTAL (no throw)
-        Assert.Throws<System.NotSupportedException>(() => RoundTripBody(doc));   // writer refuses, loudly
+        var ex = Assert.Throws<System.NotSupportedException>(() => RoundTripBody(doc));   // writer refuses, loudly
+        Assert.Contains("edit this POU in the IDE", ex.Message);          // user-facing + actionable
+        Assert.DoesNotContain("POC", ex.Message);
     }
 
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard

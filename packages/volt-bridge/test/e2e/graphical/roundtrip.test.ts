@@ -207,4 +207,40 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name === g.name)
 		expect(after.sourceText).toBe(s1)
 	})
+
+	// ── format guard: a malformed/mismatched push is REFUSED and the IDE item is left untouched (the
+	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
+	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
+		const name = id("vg_guard_st")
+		const r0 = await bridge.refs()
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect(before.name.endsWith(".fbd")).toBe(true)
+
+		const r1 = await bridge.refs()
+		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
+		expect(r.accepted).toBe(false)
+		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
+
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect(after.name).toBe(before.name)              // still .fbd — never flattened to ST
+		expect(after.sourceText).toBe(before.sourceText)  // byte-identical: the bad push never reached the IDE
+	})
+
+	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
+		const name = id("vg_guard_malformed")
+		const r0 = await bridge.refs()
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+
+		const r1 = await bridge.refs()
+		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
+		expect(r.accepted).toBe(false)
+		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
+
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [name] })).changed.find((i: any) => i.name.startsWith(name + "."))
+		expect(after.sourceText).toBe(before.sourceText)  // unchanged
+	})
 })

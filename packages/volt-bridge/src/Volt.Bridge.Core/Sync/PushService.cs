@@ -207,6 +207,24 @@ public static class PushService
         else
         {
             pou = existingPou;
+            // Body-type guard (last line of defence): never overwrite an item with a MISMATCHED body format —
+            // that silently corrupts/flattens the IDE's representation and loses code. The bridge owns FORMAT;
+            // the LSP owns code correctness. Scoped to POUs (only they have graphical bodies; reading an
+            // interface body crashes TC), decided from the safe KindCode classification, not a body read.
+            if (ide.KindCode(existingPou) is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb)
+            {
+                var currentLang = ide.BodyLanguage(existingPou);   // null=textual; FBD/LD=editable; CFC/SFC=read-only
+                if (currentLang is "CFC" or "SFC")
+                    throw new BridgeException(400, "UNSUPPORTED",
+                        $"'{name}' is a read-only {currentLang} body — edit it in the IDE, not via push.");
+                if (currentLang is not null && !pouVg)
+                    throw new BridgeException(400, "UNSUPPORTED",
+                        $"'{name}' is a graphical {currentLang} body in the IDE — a textual push would overwrite it. " +
+                        "Edit it in the IDE, or delete it first to replace it.");
+                if (currentLang is null && pouVg)
+                    throw new BridgeException(400, "UNSUPPORTED",
+                        $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
+            }
             if (pouVg) GraphicalCode.Write(ide, pou, impl, decl);
             else ide.WriteText(pou, decl, impl);
         }

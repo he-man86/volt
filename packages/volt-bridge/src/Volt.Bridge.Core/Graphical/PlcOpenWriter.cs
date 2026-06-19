@@ -262,8 +262,8 @@ namespace Volt.Bridge.Core.Graphical
 
                 default:
                     throw new System.NotSupportedException(
-                        $"LD generation (POC): cannot render '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "null"}' " +
-                        "as ladder yet — only boolean series (AND of contacts) is supported. Edit this POU in the IDE.");
+                        $"this ladder rung uses '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "an unsupported element"}', " +
+                        "which can't be authored as ladder yet (only contacts in series — AND — are supported) — edit this POU in the IDE.");
             }
         }
 

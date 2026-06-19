@@ -153,4 +153,31 @@ public class VgStrictFormTests
         Assert.Single(VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
         Assert.Equal(vg, FullRoundTrip(vg));
     }
+
+    // ── structure is ENFORCED, not tolerated: malformed graphical must be refused (it can corrupt the
+    //    IDE on import), never silently reshaped. ─────────────────────────────────────────────────────
+    [Fact]
+    public void Network_not_closed_by_END_NETWORK_is_refused()
+    {
+        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\n"));   // no END_NETWORK
+        Assert.Contains("END_NETWORK", ex.Message);
+    }
+
+    [Fact]
+    public void Network_not_closed_before_the_next_network_is_refused()
+    {
+        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\n" +
+            "NETWORK 1 FBD\n  VAR_TEMP\n    j : BOOL;\n  END_VAR\n  j := b;\n  r := j;\nEND_NETWORK\n"));
+        Assert.Contains("END_NETWORK", ex.Message);
+    }
+
+    [Fact]
+    public void Var_temp_not_closed_by_END_VAR_is_refused()
+    {
+        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"));   // no END_VAR
+        Assert.Contains("END_VAR", ex.Message);
+    }
 }

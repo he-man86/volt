@@ -38,10 +38,20 @@ namespace Volt.Bridge.Core.Graphical.Vg
             {
                 var line = raw.Trim();
                 if (line.Length == 0) continue;
-                if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase)) { Flush(); inTemp = false; continue; }
+                if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Structure is enforced, not tolerated: a malformed graphical body must be refused (it can
+                    // corrupt the IDE on import), never silently reshaped. END_NETWORK closes exactly one open
+                    // network whose VAR_TEMP block (if any) is itself closed.
+                    if (cur == null) throw new VgParseException("END_NETWORK without an open NETWORK block");
+                    if (inTemp) throw new VgParseException($"network {cur.Order}: VAR_TEMP block is not closed by END_VAR");
+                    Flush();
+                    inTemp = false;
+                    continue;
+                }
                 if (line.StartsWith("NETWORK"))
                 {
-                    Flush();
+                    if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK");
                     inTemp = false;
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
@@ -71,7 +81,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
                 cur.AddStatement(line.TrimEnd(';').Trim());
             }
-            Flush();
+            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK");
             return new GraphBody(lang, networks);
         }
 
@@ -94,6 +104,8 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 var m = Regex.Match(header, "\"([^\"]*)\"");
                 _label = m.Success ? m.Groups[1].Value : null;
             }
+
+            public int Order => _order;
 
             public void AddComment(string c) => _comments.Add(c);
 
