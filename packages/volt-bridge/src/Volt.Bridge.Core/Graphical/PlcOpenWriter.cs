@@ -195,11 +195,12 @@ namespace Volt.Bridge.Core.Graphical
             return list.Any(t => t.Length > 0) ? string.Join(" ", list) : null;
         }
 
-        // ── LD ladder generation — the inverse of PlcOpenReader.LowerLadder ──────────────────────────
-        // Boolean rung: leftPowerRail → contacts (series = AND) / parallel branches (OR) → coil → rightPowerRail,
-        // with negated / Set / Reset coils and normally-closed / edge contacts. The right rail and a
-        // network-title vendorElement bracket the rung the way TwinCAT/CODESYS emit it. FB/operator blocks on a
-        // rung are not generated yet — they throw, so the gap is loud, never silently mis-rendered.
+        // ── LD ladder generation — ONE recursion, the exact inverse of PlcOpenReader.LowerLadder ─────────────
+        // A rung is leftPowerRail → the boolean spine → coil → rightPowerRail. The spine (see LdCtx.EmitPower) is
+        // contacts (series = AND), parallel branches (OR), and FB/operator blocks whose primary output continues
+        // it; a block's typed data inputs are variable boxes (LdCtx.EmitData), and a non-boolean output assigned
+        // to a variable embeds in its pin. Negated / Set / Reset coils and normally-closed / edge contacts carry
+        // their pin mods. Round-trip-verified live on TwinCAT + CODESYS.
         private const long RightRailId = 2147483646L;
 
         private static XElement WriteLadderBody(GraphBody body, System.Func<string, string?>? resolveType)
@@ -207,158 +208,166 @@ namespace Volt.Bridge.Core.Graphical
             var root = new XElement(Ns + "LD");
             foreach (var net in body.Networks)
             {
-                // A network with an FB/operator block (TON, GT, MOVE …) can't be drawn as pure contacts/coils.
-                // Emit a real LADDER frame around it — power rails + a <coil> per boolean sink — with the data
-                // inputs as variable boxes and the block FBD-style. (TwinCAT's LD importer NREs on bare FBD
-                // nodes; it needs the rails + coils.) The reader's block case lowers this back to the same graph.
-                if (net.Nodes.Any(n => n is Block b && b.TypeName.ToUpperInvariant() is not ("AND" or "OR")))
-                {
-                    EmitLadderWithBlocks(root, net, resolveType);
-                    continue;
-                }
-
                 long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
-                long baseId = netIndex * NetworkStride;
-                long leftRail = baseId;
-                long nextId = baseId + 2;   // 0 = left rail, 1 reserved (mirrors the IDE layout)
-                int row = 0;
+                var ctx = new LdCtx(root, net, resolveType, netIndex);
 
-                root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", leftRail), Pos(row++),
+                root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", ctx.BaseId), Pos(ctx.Row++),
                     new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
-
                 foreach (var node in net.Nodes)
                 {
-                    if (node is not OutVar ov) continue;   // each l-value is a coil — the end of a rung
-                    var feed = EmitContacts(root, net.Nodes, ov.Source, Mods.None, new List<long> { leftRail }, ref nextId, ref row);
-                    long coilId = nextId++;
-                    root.Add(new XElement(Ns + "coil", new XAttribute("localId", coilId),
-                        CoilAttrs(ov.Mods), Pos(row++),
-                        ConnTo(feed), new XElement(Ns + "connectionPointOut"),
-                        new XElement(Ns + "variable", ov.Expression)));
+                    switch (node)
+                    {
+                        case OutVar ov when ctx.IsEmbedded(ov):
+                            break;                                  // folded into its producing block's output pin
+                        case OutVar ov:                             // each l-value is a coil — the end of a rung
+                            var feed = ctx.EmitPower(ov.Source, Mods.None, new List<long> { ctx.BaseId });
+                            // the coil's localId is minted AFTER its spine (so it's above its contacts) — else the
+                            // IDE reads each coil as its own rung and splits a multi-coil network apart.
+                            root.Add(new XElement(Ns + "coil", new XAttribute("localId", ctx.Mint()), CoilAttrs(ov.Mods),
+                                Pos(ctx.Row++), ConnTo(feed, ctx.OutPin), new XElement(Ns + "connectionPointOut"),
+                                new XElement(Ns + "variable", ov.Expression)));
+                            break;
+                        case Label:
+                        case Jump:
+                        case Return:
+                            root.Add(WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, ctx.Row++));
+                            break;
+                        // InVar and Block are pulled by EmitPower/EmitData — never emitted at the rung top level.
+                    }
                 }
-
-                // Right rail: per-network localId IN this network's stride range (baseId + the IDE's
-                // ~int.MaxValue rail offset) so it is unique across networks AND decodes back to the right
-                // network (index = localId / 10^10). For network 0 this is exactly the IDE's conventional value.
-                root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", baseId + RightRailId), Pos(row),
-                    new XElement(Ns + "connectionPointIn")));
+                // Right rail: per-network localId in this network's stride range, so it decodes back to the right
+                // network. For network 0 this is exactly the IDE's conventional value.
+                root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", ctx.BaseId + RightRailId),
+                    Pos(ctx.Row), new XElement(Ns + "connectionPointIn")));
             }
             return root;
         }
 
-        /// <summary>Emit an LD network that contains an FB/operator block, inside a real ladder frame: left/right
-        /// power rails, the block + its data inputs as variable boxes (FBD-style nodes), and a &lt;coil&gt; for
-        /// each boolean sink. TwinCAT's LD importer requires the rails/coils (it NREs on bare FBD nodes in an
-        /// &lt;LD&gt; body); the reader's block case lowers this back to the same graph an FBD network would use.
-        /// Rail localIds (netIndex·10^10 and +RightRailId) never collide with VgParser's node ids (which start at
-        /// netIndex·10^10+1).</summary>
-        private static void EmitLadderWithBlocks(XElement root, GraphNetwork net, System.Func<string, string?>? resolveType)
+        /// <summary>Per-network emit state for the ladder writer (see the section comment). ONE recursion, the
+        /// inverse of <see cref="PlcOpenReader"/>'s LowerLadder: <see cref="EmitPower"/> draws the boolean power
+        /// spine (contacts / series=AND / parallel=OR / an FB-or-operator block whose primary output continues
+        /// the spine), <see cref="EmitData"/> draws a block's typed data inputs as variable boxes. A leaf reached
+        /// via EmitPower is a contact; via EmitData a box — the contact-vs-box choice the reader collapsed. A
+        /// non-primary block output assigned to a variable embeds as an &lt;expression&gt; in its pin. Blocks/boxes
+        /// keep their model localIds; minted contact ids start above every model id so they never collide.</summary>
+        private sealed class LdCtx
         {
-            long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
-            long baseId = netIndex * NetworkStride;
-            int row = 0;
+            private readonly XElement _root;
+            private readonly System.Func<string, string?>? _resolveType;
+            private readonly Dictionary<long, GraphNode> _byId;
+            private readonly Dictionary<(long, string), string> _embed = new Dictionary<(long, string), string>();
+            private readonly HashSet<long> _emitted = new HashSet<long>();   // a block / data box is emitted once
+            private long _nextId;
+            public readonly long BaseId;
+            public int Row;
+            public readonly System.Func<long, string?> OutPin;
+            public readonly Dictionary<long, List<string>> RefPins;
 
-            // A connection back to an operator/FB result carries no output-pin name in VG; re-derive it so the
-            // PLCopen connection still names the output pin the IDE expects (mirrors WriteFbdBody).
-            var byId = net.Nodes.ToDictionary(n => n.LocalId);
-            string? OutPin(long id) => byId.TryGetValue(id, out var n) && n is Block bl && bl.OutputPins.Count > 0
-                ? bl.OutputPins[0] : null;
-            var refPins = new Dictionary<long, List<string>>();
-            void NoteRef(Conn? c)
+            public LdCtx(XElement root, GraphNetwork net, System.Func<string, string?>? resolveType, long netIndex)
             {
-                if (c?.FormalParameter == null) return;
-                if (!refPins.TryGetValue(c.RefLocalId, out var list)) refPins[c.RefLocalId] = list = new List<string>();
-                if (!list.Contains(c.FormalParameter)) list.Add(c.FormalParameter);
+                _root = root; _resolveType = resolveType;
+                _byId = net.Nodes.ToDictionary(n => n.LocalId);
+                BaseId = netIndex * NetworkStride;
+                _nextId = (net.Nodes.Count > 0 ? net.Nodes.Max(n => n.LocalId) : BaseId) + 1;
+
+                var refPins = new Dictionary<long, List<string>>();
+                void NoteRef(Conn? c)
+                {
+                    if (c?.FormalParameter == null) return;
+                    if (!refPins.TryGetValue(c.RefLocalId, out var l)) refPins[c.RefLocalId] = l = new List<string>();
+                    if (!l.Contains(c.FormalParameter)) l.Add(c.FormalParameter);
+                }
+                foreach (var n in net.Nodes)
+                    switch (n)
+                    {
+                        case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break;
+                        case OutVar o: NoteRef(o.Source); break;
+                        case Jump j: NoteRef(j.Condition); break;
+                        case Return r: NoteRef(r.Condition); break;
+                    }
+                RefPins = refPins;
+                // a block's PRIMARY output pin: its first declared output, else the first one a connection names.
+                OutPin = id => _byId.TryGetValue(id, out var n) && n is Block bl
+                    ? (bl.OutputPins.Count > 0 ? bl.OutputPins[0] : refPins.TryGetValue(id, out var rp) ? rp.FirstOrDefault() : null)
+                    : null;
+
+                // The primary (boolean) output drives the rung coil; any OTHER output assigned to a variable embeds
+                // in its pin. LIVE TC proved both are required — a boolean output embedded in the pin is dropped,
+                // a non-boolean output as a coil is a TIME coil that silently empties the export.
+                foreach (var n in net.Nodes)
+                    if (n is OutVar o && o.Source is { FormalParameter: { } fp } src
+                        && _byId.TryGetValue(src.RefLocalId, out var prod) && prod is Block && fp != OutPin(src.RefLocalId))
+                        _embed[(src.RefLocalId, fp)] = o.Expression;
             }
-            foreach (var n in net.Nodes)
-                switch (n) { case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break; case OutVar o: NoteRef(o.Source); break; }
 
-            // A block output assigned to a variable is written one of two ways, and LIVE TC proved both are
-            // required: the BOOLEAN output stays a <coil> (TC drops a boolean output embedded in the pin), while
-            // a NON-boolean output (e.g. a timer's ET) MUST be an <expression> EMBEDDED in its output pin (a
-            // coil for it is a TIME coil → TC's export silently empties <pous/>). VG carries no pin types, so the
-            // grounded signal is IEC FB pin ORDER: a standard FB's first output is its boolean Q-style flag — keep
-            // it as the coil; embed the rest. (A custom FB whose first output is non-boolean would need its real
-            // pin types; that drift is caught by the round-trip gate rather than silently mis-emitted.)
-            var embed = new Dictionary<(long, string), string>();
-            var keptCoil = new HashSet<long>();
-            foreach (var n in net.Nodes)
-                if (n is OutVar o && o.Source is { FormalParameter: { } fp } src
-                    && byId.TryGetValue(src.RefLocalId, out var prod) && prod is Block)
-                {
-                    if (keptCoil.Add(src.RefLocalId)) continue;   // first output of this block → coil (boolean primary)
-                    embed[(src.RefLocalId, fp)] = o.Expression;   // later outputs (data) → embedded expression
-                }
+            public bool IsEmbedded(OutVar ov) =>
+                ov.Source is { FormalParameter: { } fp } s && _embed.ContainsKey((s.RefLocalId, fp));
 
-            root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", baseId), Pos(row++),
-                new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
-            foreach (var node in net.Nodes)
+            /// <summary>Mint a fresh localId, above every model id and every id minted so far.</summary>
+            public long Mint() => _nextId++;
+
+            /// <summary>The boolean power spine. Returns the localId(s) carrying <paramref name="source"/>'s value
+            /// (with <paramref name="extraMods"/> merged on), wired from <paramref name="inIds"/> — one for a
+            /// contact/series, several for a parallel (OR) convergence.</summary>
+            public List<long> EmitPower(Conn? source, Mods extraMods, IReadOnlyList<long> inIds)
             {
-                if (node is OutVar ov)
+                if (source == null) return new List<long>(inIds);
+                var prod = _byId.TryGetValue(source.RefLocalId, out var p) ? p : null;
+                switch (prod)
                 {
-                    if (ov.Source is { FormalParameter: { } ofp } os && embed.ContainsKey((os.RefLocalId, ofp)))
-                        continue;        // folded into the producing block's output pin as an embedded expression
-                    root.Add(new XElement(Ns + "coil", new XAttribute("localId", ov.LocalId), CoilAttrs(ov.Mods),
-                        Pos(row++), ConnIn(ov.Source, OutPin), new XElement(Ns + "connectionPointOut"),
-                        new XElement(Ns + "variable", ov.Expression)));
+                    case InVar iv:
+                        var m = MergeMods(iv.Mods, extraMods);   // the leaf's own mods AND the consuming pin's
+                        long cid = _nextId++;
+                        _root.Add(new XElement(Ns + "contact", new XAttribute("localId", cid),
+                            new XAttribute("negated", m.Negated ? "true" : "false"), new XAttribute("storage", "none"),
+                            new XAttribute("edge", m.Edge == EdgeMod.Rising ? "rising" : m.Edge == EdgeMod.Falling ? "falling" : "none"),
+                            Pos(Row++), ConnTo(inIds, OutPin), new XElement(Ns + "connectionPointOut"),
+                            new XElement(Ns + "variable", iv.Expression)));
+                        return new List<long> { cid };
+
+                    case Block b when b.TypeName.ToUpperInvariant() == "AND":   // series: chain pin → pin
+                        List<long> cur = new List<long>(inIds);
+                        foreach (var pin in b.Inputs) cur = EmitPower(pin.Source, pin.Mods, cur);
+                        return cur;
+
+                    case Block b when b.TypeName.ToUpperInvariant() == "OR":    // parallel branches off the same input
+                        var outs = new List<long>();
+                        foreach (var pin in b.Inputs) outs.AddRange(EmitPower(pin.Source, pin.Mods, inIds));
+                        return outs;
+
+                    case Block b:                                  // FB/operator: its primary output continues the spine
+                        EmitBlock(b);
+                        return new List<long> { b.LocalId };
+
+                    default:
+                        throw new System.NotSupportedException(
+                            $"this ladder rung uses '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "an unsupported element"}', " +
+                            "which can't be authored as ladder — edit this POU in the IDE.");
                 }
-                else if (node is Block blk)
-                {
-                    var el = WriteNode(node, resolveType, OutPin, refPins, row++);
-                    foreach (var ovar in el.Element(Ns + "outputVariables")?.Elements(Ns + "variable") ?? Enumerable.Empty<XElement>())
-                        if (ovar.Attribute("formalParameter")?.Value is { } fp && embed.TryGetValue((blk.LocalId, fp), out var target))
-                            ovar.Element(Ns + "connectionPointOut")?.Add(new XElement(Ns + "expression", target));
-                    root.Add(el);
-                }
-                else                     // inVariable data boxes
-                    root.Add(WriteNode(node, resolveType, OutPin, refPins, row++));
             }
-            root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", baseId + RightRailId), Pos(row),
-                new XElement(Ns + "connectionPointIn")));
-        }
 
-        /// <summary>Emit the contacts feeding <paramref name="source"/>, chained from <paramref name="inIds"/>.
-        /// AND is a SERIES (contacts in a row); OR is PARALLEL branches that each start from the same input and
-        /// CONVERGE at the consumer (which then references every branch's output — exactly the "connectionPointIn
-        /// with several connections" the reader lowers back to OR). <paramref name="extraMods"/> are the mods on
-        /// the CONSUMING pin (e.g. a NOT on an AND input, which VG carries on the pin) — merged onto the contact
-        /// so a normally-closed contact survives a re-edit. Returns the localId(s) feeding the next stage
-        /// (one for a contact/series, several for parallel branches). Inverse of PlcOpenReader.LowerLadder.</summary>
-        private static List<long> EmitContacts(XElement root, IReadOnlyList<GraphNode> nodes, Conn? source,
-            Mods extraMods, IReadOnlyList<long> inIds, ref long nextId, ref int row)
-        {
-            if (source == null) return new List<long>(inIds);
-            var prod = nodes.ById(source.RefLocalId);
-            switch (prod)
+            /// <summary>A typed DATA wire into a block pin: a leaf becomes a variable box, a nested block the block
+            /// itself. Emitted at most once.</summary>
+            private void EmitData(Conn? source)
             {
-                case InVar iv:
-                    var m = MergeMods(iv.Mods, extraMods);   // the leaf's own mods AND the consuming pin's
-                    long cid = nextId++;
-                    root.Add(new XElement(Ns + "contact", new XAttribute("localId", cid),
-                        new XAttribute("negated", m.Negated ? "true" : "false"),
-                        new XAttribute("storage", "none"),
-                        new XAttribute("edge", m.Edge == EdgeMod.Rising ? "rising"
-                            : m.Edge == EdgeMod.Falling ? "falling" : "none"),
-                        Pos(row++), ConnTo(inIds), new XElement(Ns + "connectionPointOut"),
-                        new XElement(Ns + "variable", iv.Expression)));
-                    return new List<long> { cid };
+                if (source == null) return;
+                if (!_byId.TryGetValue(source.RefLocalId, out var prod)) return;
+                if (prod is Block b) EmitBlock(b);
+                else if (prod is InVar && _emitted.Add(prod.LocalId))
+                    _root.Add(WriteNode(prod, _resolveType, OutPin, RefPins, Row++));
+            }
 
-                case Block b when b.TypeName.ToUpperInvariant() == "AND":   // series: chain pin → pin
-                    List<long> cur = new(inIds);
-                    foreach (var pin in b.Inputs) cur = EmitContacts(root, nodes, pin.Source, pin.Mods, cur, ref nextId, ref row);
-                    return cur;
-
-                case Block b when b.TypeName.ToUpperInvariant() == "OR":    // parallel branches off the same input
-                    var outs = new List<long>();
-                    foreach (var pin in b.Inputs)
-                        outs.AddRange(EmitContacts(root, nodes, pin.Source, pin.Mods, inIds, ref nextId, ref row));
-                    return outs;
-
-                default:
-                    throw new System.NotSupportedException(
-                        $"this ladder rung uses '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "an unsupported element"}', " +
-                        "which can't be authored as ladder yet (contacts in series (AND), parallel branches (OR), and " +
-                        "negation/edge/storage are supported; FB/operator blocks on a rung are not) — edit this POU in the IDE.");
+            /// <summary>Emit an FB/operator block (once): its data inputs first (boxes / nested blocks), then the
+            /// block element, embedding any non-primary output assignment into its output pin.</summary>
+            private void EmitBlock(Block b)
+            {
+                if (!_emitted.Add(b.LocalId)) return;
+                foreach (var pin in b.Inputs) EmitData(pin.Source);
+                var el = WriteNode(b, _resolveType, OutPin, RefPins, Row++);
+                foreach (var ovar in el.Element(Ns + "outputVariables")?.Elements(Ns + "variable") ?? Enumerable.Empty<XElement>())
+                    if (ovar.Attribute("formalParameter")?.Value is { } fp && _embed.TryGetValue((b.LocalId, fp), out var target))
+                        ovar.Element(Ns + "connectionPointOut")?.Add(new XElement(Ns + "expression", target));
+                _root.Add(el);
             }
         }
 
@@ -369,10 +378,16 @@ namespace Volt.Bridge.Core.Graphical
             a.Edge != EdgeMod.None ? a.Edge : b.Edge,
             a.Storage != StorageMod.None ? a.Storage : b.Storage);
 
-        // A connectionPointIn with SEVERAL connections is how PLCopen encodes an OR convergence (the reader
-        // lowers it back to OR). A single connection is the ordinary series case.
-        private static XElement ConnTo(IEnumerable<long> refIds)
-            => new(Ns + "connectionPointIn", refIds.Select(r => new XElement(Ns + "connection", new XAttribute("refLocalId", r))));
+        // A connectionPointIn's connections. A connection to a BLOCK names the producer's output pin (via outPin)
+        // — without it the IDE drops an inst.Q wire on import. SEVERAL connections are how PLCopen encodes an OR
+        // convergence (the reader lowers them back to OR); a single connection is the ordinary series case.
+        private static XElement ConnTo(IEnumerable<long> refIds, System.Func<long, string?> outPin)
+            => new(Ns + "connectionPointIn", refIds.Select(r =>
+            {
+                var c = new XElement(Ns + "connection", new XAttribute("refLocalId", r));
+                if (outPin(r) is { } fp) c.Add(new XAttribute("formalParameter", fp));
+                return c;
+            }));
 
         private static IEnumerable<XAttribute> CoilAttrs(Mods m)
         {
