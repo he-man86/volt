@@ -23,11 +23,15 @@ namespace Volt.Bridge.Core.Graphical
             var lang = fbdOrLd.Name.LocalName.ToUpperInvariant();          // FBD | LD
             var networks = new List<GraphNetwork>();
 
-            // Split into networks. FBD strides localIds (network index = localId / 10^10); TwinCAT's LD export
-            // does NOT — it delimits each network with a vendorElement(networktitle) marker. SplitNetworks uses
-            // the markers when present, else the stride. Group order is the engineer's top-to-bottom order.
-            foreach (var (index, els) in SplitNetworks(fbdOrLd.Elements().ToList()))
+            // Each localId encodes its network index (localId / 10^10) — group on that for the engineer's
+            // top-to-bottom order. (Multi-network LD that TwinCAT delimits with networktitle markers instead of
+            // the stride reads as a single merged network for now — splitting on the markers is deferred until
+            // the multi-network WRITE round-trips robustly; see the ground-truth fixture in fixtures/tc-ld.)
+            foreach (var g in fbdOrLd.Elements()
+                         .GroupBy(e => ((long?)e.Attribute("localId") ?? 0) / NetworkStride)
+                         .OrderBy(g => g.Key))
             {
+                var els = g.ToList();
                 // <comment> boxes carry the network's annotation/title; fold their text in.
                 var comment = string.Join("\n", els.Where(e => e.Name.LocalName == "comment")
                     .Select(CommentText).Where(t => t.Length > 0));
@@ -38,46 +42,15 @@ namespace Volt.Bridge.Core.Graphical
                 // high within the network's range so they can't collide with original pass-through ids.
                 var ladder = logic.Any(e => e.Name.LocalName is "contact" or "coil" or "leftPowerRail" or "rightPowerRail");
                 var nodes = ladder
-                    ? LowerLadder(logic, ns, (long)index * NetworkStride + 500_000_000L)
+                    ? LowerLadder(logic, ns, g.Key * NetworkStride + 500_000_000L)
                     : logic.Select(e => ReadNode(e, ns)).ToList();
 
-                networks.Add(new GraphNetwork(index, null, comment.Length > 0 ? comment : null, false, nodes));
+                networks.Add(new GraphNetwork((int)g.Key, null, comment.Length > 0 ? comment : null, false, nodes));
             }
             // A body always has at least one network (empty FBD → one empty network).
             if (networks.Count == 0) networks.Add(new GraphNetwork(0, null, null, false, new List<GraphNode>()));
 
             return new GraphBody(lang, networks);
-        }
-
-        /// <summary>Split a body's elements into networks. TwinCAT's LD export marks each network with a
-        /// vendorElement(fbdelementtype = networktitle), optionally preceded by a &lt;comment&gt;, and does NOT
-        /// stride localIds; FBD strides its localIds. Use the markers when present (shared rails/elements before
-        /// the first marker lead the first network); otherwise fall back to the localId-stride grouping.</summary>
-        private static List<(int Index, List<XElement> Els)> SplitNetworks(List<XElement> elements)
-        {
-            static bool IsTitle(XElement e) => e.Name.LocalName == "vendorElement"
-                && e.Descendants().Any(d => d.Name.LocalName == "ElementType" && d.Value.Trim() == "networktitle");
-
-            var starts = new List<int>();
-            for (int i = 0; i < elements.Count; i++)
-                if (IsTitle(elements[i]))
-                    starts.Add(i > 0 && elements[i - 1].Name.LocalName == "comment" ? i - 1 : i);
-
-            // No markers (FBD, or a marker-less body): keep the stride-derived network INDEX (localId / 10^10) —
-            // a network can legitimately be NETWORK 1 even when it's the only one.
-            if (starts.Count == 0)
-                return elements.GroupBy(e => ((long?)e.Attribute("localId") ?? 0) / NetworkStride)
-                               .OrderBy(g => g.Key).Select(g => ((int)g.Key, g.ToList())).ToList();
-
-            // Marker-delimited (TwinCAT LD, no stride): sequential indices 0,1,…
-            var groups = new List<(int, List<XElement>)>();
-            for (int k = 0; k < starts.Count; k++)
-            {
-                int start = k == 0 ? 0 : starts[k];   // pre-first-marker elements (shared rails) lead network 0
-                int end = k + 1 < starts.Count ? starts[k + 1] : elements.Count;
-                groups.Add((k, elements.GetRange(start, end - start)));
-            }
-            return groups;
         }
 
         /// <summary>Lower an LD rung (leftPowerRail → contacts → coil) into the SAME boolean node graph

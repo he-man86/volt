@@ -37,19 +37,6 @@ public class PlcOpenTcFixtureTests
         Assert.Contains("elapsed := T1.ET", vg);     // the embedded non-boolean output assignment survives
     }
 
-    [Fact]
-    public void Real_TC_LD_splits_into_its_two_networks_by_the_networktitle_markers()
-    {
-        // TwinCAT delimits LD networks with a vendorElement(networktitle), NOT the localId stride (the whole
-        // body sits in localId range 0–11). The reader must split there — the fixture is a boolean AND rung
-        // and a separate TON rung; collapsing them into one network would lose the engineer's structure.
-        var ld = PlcOpenDocument.FindFbdLdBody(LdTonFixture())!;
-        var body = PlcOpenReader.ReadBody(ld);
-        Assert.Equal(2, body.Networks.Count);
-        var vg = VgWriter.Write(body);
-        Assert.Contains("(i1 AND i2)", vg);          // the boolean AND rung (one network)
-        Assert.Contains("T1(IN :=", vg);             // the TON rung (the other network)
-    }
 
     [Fact]
     public void Real_network_with_sr_negation_edge_branch_jump_label_reads_to_valid_st()
