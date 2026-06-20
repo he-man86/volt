@@ -41,9 +41,18 @@ namespace Volt.Bridge.Core.Graphical
                 // twin so they READ as VG; pure block/variable networks read directly. Fresh localIds start
                 // high within the network's range so they can't collide with original pass-through ids.
                 var ladder = logic.Any(e => e.Name.LocalName is "contact" or "coil" or "leftPowerRail" or "rightPowerRail");
-                var nodes = ladder
-                    ? LowerLadder(logic, ns, g.Key * NetworkStride + 500_000_000L)
-                    : logic.Select(e => ReadNode(e, ns)).ToList();
+                List<GraphNode> nodes;
+                if (ladder)
+                    nodes = LowerLadder(logic, ns, g.Key * NetworkStride + 500_000_000L);
+                else
+                {
+                    nodes = logic.Select(e => ReadNode(e, ns)).ToList();
+                    // FBD blocks embed a non-boolean output assignment in the pin too (TC's form for a timer's
+                    // ET) — read it after the regular nodes, else it's silently dropped like it was on LD.
+                    long embId = g.Key * NetworkStride + 500_000_000L;
+                    foreach (var el in logic.Where(e => e.Name.LocalName == "block"))
+                        nodes.AddRange(EmbeddedOutputs(el, (long?)el.Attribute("localId") ?? 0, ns, () => embId++));
+                }
 
                 networks.Add(new GraphNetwork((int)g.Key, null, comment.Length > 0 ? comment : null, false, nodes));
             }
@@ -51,6 +60,20 @@ namespace Volt.Bridge.Core.Graphical
             if (networks.Count == 0) networks.Add(new GraphNetwork(0, null, null, false, new List<GraphNode>()));
 
             return new GraphBody(lang, networks);
+        }
+
+        /// <summary>A block output pin can carry a DIRECT variable assignment as an &lt;expression&gt; inside its
+        /// connectionPointOut — TwinCAT's form for a NON-boolean output (e.g. a timer's ET) in BOTH FBD and LD (the
+        /// boolean output is a separate outVariable/coil). Emit each as an OutVar reading that pin, else it is
+        /// silently dropped (real data loss). <paramref name="nextId"/> mints fresh localIds.</summary>
+        private static IEnumerable<OutVar> EmbeddedOutputs(XElement blockEl, long blockId, XNamespace ns, System.Func<long> nextId)
+        {
+            foreach (var ov in blockEl.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
+            {
+                var sink = (string?)ov.Element(ns + "connectionPointOut")?.Element(ns + "expression");
+                if (!string.IsNullOrEmpty(sink))
+                    yield return new OutVar(nextId(), null, sink!, Mods.None, new Conn(blockId, (string?)ov.Attribute("formalParameter")));
+            }
         }
 
         /// <summary>Lower an LD rung (leftPowerRail → contacts → coil) into the SAME boolean node graph
@@ -123,16 +146,9 @@ namespace Volt.Bridge.Core.Graphical
                             (string?)el.Attribute("instanceName"), ins, outs, ReadCallType(el, ns),
                             outTypes.Count > 0 ? outTypes : null);
                         nodes.Add(blk);
-                        // A block output pin can carry a DIRECT variable assignment as an <expression> inside its
-                        // connectionPointOut (TwinCAT's form for `elapsed := T1.ET`). Emit each as an OutVar
-                        // reading that pin — otherwise the assignment is silently dropped (real data loss).
-                        foreach (var ov in el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
-                        {
-                            var sink = (string?)ov.Element(ns + "connectionPointOut")?.Element(ns + "expression");
-                            if (!string.IsNullOrEmpty(sink))
-                                tail.Add(new OutVar(next++, null, sink!, Mods.None,
-                                    new Conn(blk.LocalId, (string?)ov.Attribute("formalParameter"))));
-                        }
+                        // A block output assigned to a variable via an embedded <expression> (TC's form for a
+                        // non-boolean output) — emit it after the coils so the boolean primary comes first.
+                        tail.AddRange(EmbeddedOutputs(el, blk.LocalId, ns, () => next++));
                         r = (new Conn(blk.LocalId, null), Mods.None);   // consumers carry the output-pin selector
                         break;
                     }

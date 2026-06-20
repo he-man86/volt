@@ -37,6 +37,21 @@ public class PlcOpenTcFixtureTests
         Assert.Contains("elapsed := T1.ET", vg);     // the embedded non-boolean output assignment survives
     }
 
+    [Fact]
+    public void Real_TC_FBD_with_TON_reads_the_embedded_output_assignment()
+    {
+        // TwinCAT embeds a non-boolean block output (a timer's ET) as an <expression> in its pin in FBD too —
+        // the boolean Q is a separate <outVariable>. The FBD reader read output NAMES only and DROPPED the
+        // embedded assignment (the same data-loss bug LD had, found by probing the live round-trip). Captured
+        // live; must surface `elapsed := t1.ET`.
+        var fbd = PlcOpenDocument.FindFbdLdBody(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-fbd", "fbd_ton_embedded_output.plcopen.xml")))!;
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(fbd));
+        Assert.Contains("t1(IN :=", vg);              // the TON FB call
+        Assert.Contains("done := t1.Q", vg);           // boolean output → separate outVariable
+        Assert.Contains("elapsed := t1.ET", vg);       // non-boolean output embedded in the pin — must survive
+    }
+
 
     [Fact]
     public void Real_network_with_sr_negation_edge_branch_jump_label_reads_to_valid_st()
