@@ -135,6 +135,12 @@ public class FbdCoverageTests
         "<contact localId='2' negated='true'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
         "NOT i1")]      // normally-closed contact → NOT (var is the named leaf i1=a)
+    [InlineData(
+        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+        "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
+        "<contact localId='3'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
+        "<coil localId='4'><connectionPointIn><connection refLocalId='2'/><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
+        "OR")]          // two contacts in PARALLEL (both off the rail, both into the coil) → OR
     public void Ld_rung_round_trips(string inner, string expect)
     {
         var doc = Doc("LD", inner);
@@ -148,15 +154,10 @@ public class FbdCoverageTests
         Assert.Contains("<coil", outXml);
     }
 
-    /// <summary>LD structure the boolean generator can't reproduce yet — a parallel OR branch or an
-    /// FB/operator block on a rung — is REFUSED on write (a loud throw from the ladder generator),
-    /// never silently mangled into a wrong rung. Keeps the "lossless OR refused" invariant for LD.</summary>
+    /// <summary>LD structure the boolean generator can't reproduce yet — an FB/operator block on a rung —
+    /// is REFUSED on write (a loud throw from the ladder generator), never silently mangled into a wrong
+    /// rung. (Series AND, parallel OR branches, and negation/edge/storage now DO round-trip.)</summary>
     [Theory]
-    [InlineData("parallel OR branch",
-        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
-        "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
-        "<contact localId='3'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
-        "<coil localId='4'><connectionPointIn><connection refLocalId='2'/><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>")]
     [InlineData("FB block on a rung",
         "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
         "<block localId='2' typeName='TON'><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>" +

@@ -196,10 +196,10 @@ namespace Volt.Bridge.Core.Graphical
         }
 
         // ── LD ladder generation — the inverse of PlcOpenReader.LowerLadder ──────────────────────────
-        // Boolean rung: leftPowerRail → contacts (series = AND) → coil → rightPowerRail. The right rail and
-        // a network-title vendorElement bracket the rung the way TwinCAT/CODESYS emit it. POC scope: pure
-        // boolean series; OR/parallel (ldbranchid) and FB-blocks-on-a-rung are not generated yet — they throw
-        // so the gap is loud, never silently mis-rendered.
+        // Boolean rung: leftPowerRail → contacts (series = AND) / parallel branches (OR) → coil → rightPowerRail,
+        // with negated / Set / Reset coils and normally-closed / edge contacts. The right rail and a
+        // network-title vendorElement bracket the rung the way TwinCAT/CODESYS emit it. FB/operator blocks on a
+        // rung are not generated yet — they throw, so the gap is loud, never silently mis-rendered.
         private const long RightRailId = 2147483646L;
 
         private static XElement WriteLadderBody(GraphBody body)
@@ -219,7 +219,7 @@ namespace Volt.Bridge.Core.Graphical
                 foreach (var node in net.Nodes)
                 {
                     if (node is not OutVar ov) continue;   // each l-value is a coil — the end of a rung
-                    long feed = EmitContacts(root, net.Nodes, ov.Source, Mods.None, leftRail, ref nextId, ref row);
+                    var feed = EmitContacts(root, net.Nodes, ov.Source, Mods.None, new List<long> { leftRail }, ref nextId, ref row);
                     long coilId = nextId++;
                     root.Add(new XElement(Ns + "coil", new XAttribute("localId", coilId),
                         CoilAttrs(ov.Mods), Pos(row++),
@@ -236,14 +236,17 @@ namespace Volt.Bridge.Core.Graphical
             return root;
         }
 
-        /// <summary>Emit the contacts feeding <paramref name="source"/> in SERIES (AND), chained from
-        /// <paramref name="inId"/>. <paramref name="extraMods"/> are the mods on the CONSUMING pin (e.g. a
-        /// NOT on an AND input, which VG carries on the pin, not the leaf) — they merge onto the contact so
-        /// a normally-closed contact survives a re-edit. Returns the localId feeding the next stage.</summary>
-        private static long EmitContacts(XElement root, IReadOnlyList<GraphNode> nodes, Conn? source,
-            Mods extraMods, long inId, ref long nextId, ref int row)
+        /// <summary>Emit the contacts feeding <paramref name="source"/>, chained from <paramref name="inIds"/>.
+        /// AND is a SERIES (contacts in a row); OR is PARALLEL branches that each start from the same input and
+        /// CONVERGE at the consumer (which then references every branch's output — exactly the "connectionPointIn
+        /// with several connections" the reader lowers back to OR). <paramref name="extraMods"/> are the mods on
+        /// the CONSUMING pin (e.g. a NOT on an AND input, which VG carries on the pin) — merged onto the contact
+        /// so a normally-closed contact survives a re-edit. Returns the localId(s) feeding the next stage
+        /// (one for a contact/series, several for parallel branches). Inverse of PlcOpenReader.LowerLadder.</summary>
+        private static List<long> EmitContacts(XElement root, IReadOnlyList<GraphNode> nodes, Conn? source,
+            Mods extraMods, IReadOnlyList<long> inIds, ref long nextId, ref int row)
         {
-            if (source == null) return inId;
+            if (source == null) return new List<long>(inIds);
             var prod = nodes.ById(source.RefLocalId);
             switch (prod)
             {
@@ -255,19 +258,26 @@ namespace Volt.Bridge.Core.Graphical
                         new XAttribute("storage", "none"),
                         new XAttribute("edge", m.Edge == EdgeMod.Rising ? "rising"
                             : m.Edge == EdgeMod.Falling ? "falling" : "none"),
-                        Pos(row++), ConnTo(inId), new XElement(Ns + "connectionPointOut"),
+                        Pos(row++), ConnTo(inIds), new XElement(Ns + "connectionPointOut"),
                         new XElement(Ns + "variable", iv.Expression)));
-                    return cid;
+                    return new List<long> { cid };
 
-                case Block b when b.TypeName.ToUpperInvariant() == "AND":
-                    long prev = inId;
-                    foreach (var pin in b.Inputs) prev = EmitContacts(root, nodes, pin.Source, pin.Mods, prev, ref nextId, ref row);
-                    return prev;
+                case Block b when b.TypeName.ToUpperInvariant() == "AND":   // series: chain pin → pin
+                    List<long> cur = new(inIds);
+                    foreach (var pin in b.Inputs) cur = EmitContacts(root, nodes, pin.Source, pin.Mods, cur, ref nextId, ref row);
+                    return cur;
+
+                case Block b when b.TypeName.ToUpperInvariant() == "OR":    // parallel branches off the same input
+                    var outs = new List<long>();
+                    foreach (var pin in b.Inputs)
+                        outs.AddRange(EmitContacts(root, nodes, pin.Source, pin.Mods, inIds, ref nextId, ref row));
+                    return outs;
 
                 default:
                     throw new System.NotSupportedException(
                         $"this ladder rung uses '{(prod as Block)?.TypeName ?? prod?.GetType().Name ?? "an unsupported element"}', " +
-                        "which can't be authored as ladder yet (only contacts in series — AND — are supported) — edit this POU in the IDE.");
+                        "which can't be authored as ladder yet (contacts in series (AND), parallel branches (OR), and " +
+                        "negation/edge/storage are supported; FB/operator blocks on a rung are not) — edit this POU in the IDE.");
             }
         }
 
@@ -278,8 +288,10 @@ namespace Volt.Bridge.Core.Graphical
             a.Edge != EdgeMod.None ? a.Edge : b.Edge,
             a.Storage != StorageMod.None ? a.Storage : b.Storage);
 
-        private static XElement ConnTo(long refId)
-            => new(Ns + "connectionPointIn", new XElement(Ns + "connection", new XAttribute("refLocalId", refId)));
+        // A connectionPointIn with SEVERAL connections is how PLCopen encodes an OR convergence (the reader
+        // lowers it back to OR). A single connection is the ordinary series case.
+        private static XElement ConnTo(IEnumerable<long> refIds)
+            => new(Ns + "connectionPointIn", refIds.Select(r => new XElement(Ns + "connection", new XAttribute("refLocalId", r))));
 
         private static IEnumerable<XAttribute> CoilAttrs(Mods m)
         {

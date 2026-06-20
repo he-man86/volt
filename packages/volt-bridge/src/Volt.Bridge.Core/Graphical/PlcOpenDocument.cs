@@ -122,7 +122,10 @@ namespace Volt.Bridge.Core.Graphical
                 blind.Add("a block in-out pin (<inOutVariables>)");
             if (existing.Descendants(ns + "outputVariables").Elements(ns + "variable").Any(HasPinMod))
                 blind.Add("a modifier on a block output pin (negated/edge/storage)");
-            if (existing.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
+            // A pin with several connections is an invalid multi-source pin in FBD — but in LD it's an OR
+            // convergence (parallel branches), which the reader lowers and the writer regenerates. Only guard FBD.
+            if (existing.Name.LocalName != "LD"
+                && existing.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
                 blind.Add("a pin wired from multiple sources");
             if (existing.Descendants(ns + "block").Any(b => (string?)b.Attribute("instanceName") == null
                     && (b.Element(ns + "outputVariables")?.Elements(ns + "variable").Count() ?? 0) > 1))
