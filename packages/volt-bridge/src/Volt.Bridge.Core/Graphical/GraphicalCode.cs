@@ -62,9 +62,10 @@ public static class GraphicalCode
         // it HERE, before any IDE write, and show the canonical form so the author can paste it verbatim.
         var canonical = VgWriter.Write(graph);
         if (Canon(canonical) != Canon(vgText))
-            throw new InvalidOperationException(
+            throw new VgParseException(
                 "graphical body is not in canonical form — it would not round-trip identically (you'd see drift on "
-                + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'));
+                + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'),
+                "VG_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
 
         var types = PlcOpenDocument.InstanceTypes(declaration);
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
@@ -80,6 +81,15 @@ public static class GraphicalCode
         var lines = s.Replace("\r", "").Split('\n');
         for (int i = 0; i < lines.Length; i++) lines[i] = lines[i].TrimEnd();
         return string.Join("\n", lines).TrimEnd('\n');
+    }
+
+    // 1-based index of the first line that differs (for the VG_NOT_CANONICAL diagnostic), or null.
+    private static int? FirstDiffLine(string a, string b)
+    {
+        var la = a.Split('\n'); var lb = b.Split('\n');
+        for (int i = 0; i < System.Math.Max(la.Length, lb.Length); i++)
+            if (i >= la.Length || i >= lb.Length || la[i] != lb[i]) return i + 1;
+        return null;
     }
 
     /// <summary>A graphical POU's declaration: from the export's plaintext interface when the vendor

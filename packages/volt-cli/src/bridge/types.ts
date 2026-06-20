@@ -294,6 +294,10 @@ export const PushConflictSchema = z
 		yourVersion: z.string().nullable().optional(),
 		currentVersion: z.string().nullable().optional(),
 		reason: z.string(),
+		// Structured VG diagnostic (present on a graphical parse / round-trip refusal): a stable code the AI
+		// can branch on (VG_NESTED_EXPR, VG_NOT_CANONICAL, …) and the 1-based source line. Omitted otherwise.
+		code: z.string().nullish(),
+		line: z.number().int().nullish(),
 	})
 	.strict();
 export type PushConflict = z.infer<typeof PushConflictSchema>;

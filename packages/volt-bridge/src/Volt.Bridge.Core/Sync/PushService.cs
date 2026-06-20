@@ -45,8 +45,11 @@ public static class PushService
             try { ApplyOp(ide, parent, itemCache, op); }
             catch (Exception ex)
             {
+                // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
+                // any other throw is reason-only.
+                var vg = ex as Graphical.Vg.VgParseException;
                 return PushResponse.RejectedResult(
-                    new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message } },
+                    new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
                     currentProjectVersion);
             }
         }

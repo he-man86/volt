@@ -1,5 +1,6 @@
 using System;
 using Volt.Bridge.Core.Graphical;
+using Volt.Bridge.Core.Graphical.Vg;
 using Volt.Bridge.Core.Ide;
 using Xunit;
 
@@ -97,9 +98,10 @@ public class GraphicalCodeTests
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
         var nonCanonical = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    gX : BOOL;\n  END_VAR\n"
             + "  i1 := a;\n  i2 := b;\n  gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<VgParseException>(() =>
             GraphicalCode.Write(s, Item, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
-        Assert.Contains("canonical", ex.Message);
+        Assert.Equal("VG_NOT_CANONICAL", ex.Code);          // structured diagnostic
+        Assert.NotNull(ex.Line);                            // names the first differing line
         Assert.Contains("g1 := (i1 AND i2)", ex.Message);   // the writer's canonical form is shown verbatim
     }
 

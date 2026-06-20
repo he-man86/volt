@@ -64,6 +64,15 @@ public class PushConflict
 
     [JsonPropertyName("reason")]
     public string Reason { get; set; } = "";
+
+    /// <summary>Stable diagnostic code for a thrown-op error (e.g. VG_NESTED_EXPR, VG_NOT_CANONICAL) — null for
+    /// a plain version conflict. Omitted from JSON when null (WhenWritingNull).</summary>
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
+
+    /// <summary>1-based source line within the pushed body, when the diagnostic knows it.</summary>
+    [JsonPropertyName("line")]
+    public int? Line { get; set; }
 }
 
 public class PushResponse

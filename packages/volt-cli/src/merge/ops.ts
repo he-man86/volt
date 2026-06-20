@@ -261,11 +261,14 @@ export async function applyPushToBridge(
 		// double it). Version fields only when present (a thrown-op-error conflict has none).
 		const summary = resp.conflicts
 			.map((c) => {
+				// A structured VG diagnostic prints as `name:line [CODE] message` — the message already carries
+				// the canonical/suggested form (multi-line), so keep newlines and don't append version info.
+				if (c.code) return `${c.name}${c.line != null ? `:${c.line}` : ""} [${c.code}] ${c.reason}`;
 				const vers = c.yourVersion != null || c.currentVersion != null
 					? ` (yours=${c.yourVersion ?? "null"}, current=${c.currentVersion ?? "null"})` : "";
 				return `${c.name}: ${c.reason}${vers}`;
 			})
-			.join("; ");
+			.join("\n");   // one conflict per line; graphical reasons are themselves multi-line
 		return { accepted: false, reason: summary };
 	}
 

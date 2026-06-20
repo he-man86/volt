@@ -194,7 +194,7 @@ export async function push(workspace: string, bridge: Remote, input: PushInput):
 	if (!result.accepted) {
 		return {
 			kind: "rejected",
-			reason: `bridge rejected push: ${result.reason ?? "unknown reason"}. hint: run \`volt status\` to see current state, then \`volt pull\` to bring in IDE changes — or retry with \`--force\` to override`,
+			reason: `bridge rejected push:\n${result.reason ?? "unknown reason"}\n\nhint: run \`volt status\` to see current state, then \`volt pull\` to bring in IDE changes — or retry with \`--force\` to override`,
 		}
 	}
 

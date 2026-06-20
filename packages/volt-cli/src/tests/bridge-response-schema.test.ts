@@ -32,6 +32,15 @@ describe("PushResponseSchema accepts the real bridge wire shapes", () => {
 		expect(() => PushResponseSchema.parse(wire)).not.toThrow()
 	})
 
+	test("a structured VG diagnostic conflict carries code + line", () => {
+		const wire = {
+			accepted: false,
+			conflicts: [{ name: "fbd.fbd", reason: "graphical body is not in canonical form …", code: "VG_NOT_CANONICAL", line: 14 }],
+			currentProjectVersion: "abc",
+		}
+		expect(() => PushResponseSchema.parse(wire)).not.toThrow()
+	})
+
 	test("a partially-present conflict (yourVersion set, currentVersion omitted) still parses", () => {
 		const wire = {
 			accepted: false,

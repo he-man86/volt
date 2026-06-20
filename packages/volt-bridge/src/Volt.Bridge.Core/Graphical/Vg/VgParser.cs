@@ -34,8 +34,12 @@ namespace Volt.Bridge.Core.Graphical.Vg
             bool inTemp = false;
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
+            int lineNum = 0;
             foreach (var raw in text.Replace("\r", "").Split('\n'))
             {
+                lineNum++;
+                try
+                {
                 var line = raw.Trim();
                 if (line.Length == 0) continue;
                 if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase))
@@ -80,8 +84,10 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     continue;
                 }
                 cur.AddStatement(line.TrimEnd(';').Trim());
+                }
+                catch (VgParseException ex) { ex.Line ??= lineNum; throw; }
             }
-            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK");
+            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED") { Line = lineNum };
             return new GraphBody(lang, networks);
         }
 
@@ -201,15 +207,15 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     else toks.Add(rawToks[i]);
                 }
                 if (toks.Count < 3 || toks.Count % 2 == 0)
-                    throw new VgParseException("operator statement must be 'a OP b [OP c …]': " + inner);
+                    throw new VgParseException("operator statement must be 'a OP b [OP c …]': " + inner, "VG_BAD_OPERATOR_STMT");
                 var op = toks[1];
-                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'");
+                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'", "VG_UNKNOWN_OPERATOR");
                 var operands = new List<string>();
                 for (int i = 0; i < toks.Count; i++)
                 {
                     if (i % 2 == 0) operands.Add(toks[i]);
                     else if (!string.Equals(toks[i], op, StringComparison.OrdinalIgnoreCase))
-                        throw new VgParseException("one operator per statement; found '" + toks[i] + "' and '" + op + "'");
+                        throw new VgParseException("one operator per statement; found '" + toks[i] + "' and '" + op + "'", "VG_MIXED_OPERATORS");
                 }
                 var id = _nextId++;
                 _blockByName[name] = id;
@@ -246,7 +252,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 if (_blockByName.TryGetValue(baseName, out var bid))
                     return new Conn(bid, dot >= 0 ? token.Substring(dot + 1) : null);
                 throw new VgParseException("operand must reference a declared temp or FB instance "
-                    + "(literals/variables must be their own leaf statement): '" + token + "'");
+                    + "(literals/variables must be their own leaf statement): '" + token + "'", "VG_UNRESOLVED_OPERAND");
             }
 
             /// <summary>A temp's right-hand side must be a real SOURCE — a literal or a real variable — never
@@ -265,7 +271,8 @@ namespace Volt.Bridge.Core.Graphical.Vg
                             + $"'{m.Value}'. Each temp is exactly ONE operation: an operator block 'g := (a OP b)', a call, "
                             + "or a literal/variable source. A NOT (or edge) modifier rides on the CONSUMER, not its own "
                             + "line — write 'out := NOT g1', not 'g2 := NOT g1'. And split a nested expression like "
-                            + "'(a AND b) OR c' into separate temps ('g0 := (a AND b);' then 'g1 := (g0 OR c);').");
+                            + "'(a AND b) OR c' into separate temps ('g0 := (a AND b);' then 'g1 := (g0 OR c);').",
+                            "VG_LEAF_REFERENCES_TEMP");
             }
 
             public GraphNetwork Build()
@@ -346,8 +353,13 @@ namespace Volt.Bridge.Core.Graphical.Vg
         }
     }
 
+    /// <summary>A structured VG diagnostic: a stable <see cref="Code"/> (e.g. VG_LEAF_REFERENCES_TEMP) the AI
+    /// can branch on, the 1-based source <see cref="Line"/> within the body (attached by the parse loop), and
+    /// the human message. Format-only — it never depends on the actual PLC code semantics.</summary>
     public sealed class VgParseException : Exception
     {
-        public VgParseException(string message) : base(message) { }
+        public string Code { get; }
+        public int? Line { get; set; }   // settable: the Parse loop attaches the line a builder throw came from
+        public VgParseException(string message, string code = "VG_PARSE") : base(message) { Code = code; }
     }
 }
