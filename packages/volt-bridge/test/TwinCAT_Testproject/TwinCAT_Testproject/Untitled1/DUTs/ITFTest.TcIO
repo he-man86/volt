@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <Itf Name="ITFTest" Id="{f18dbef8-ab98-46c6-afb6-1289fb176d27}">
+    <Declaration><![CDATA[INTERFACE ITFTest
+]]></Declaration>
+    <Method Name="METH" Id="{3e983a90-896c-4cdc-aaee-2a62f07284b3}">
+      <Declaration><![CDATA[METHOD METH : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Property Name="Prop" Id="{732740ea-2645-466d-93b4-115ffbdbe71f}">
+      <Declaration><![CDATA[PROPERTY Prop : BOOL]]></Declaration>
+      <Get Name="Get" Id="{44039978-7d63-4874-8c9e-7d0b559bad0c}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Get>
+      <Set Name="Set" Id="{520714a4-64a8-48e3-9fc8-ed74a1d611d6}">
+        <Declaration><![CDATA[]]></Declaration>
+      </Set>
+    </Property>
+  </Itf>
+</TcPlcObject>

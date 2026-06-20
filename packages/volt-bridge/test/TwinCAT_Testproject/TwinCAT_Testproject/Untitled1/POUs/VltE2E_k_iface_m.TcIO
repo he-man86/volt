@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.16">
+  <Itf Name="VltE2E_k_iface_m" Id="{22ef54df-a3aa-4f48-b2eb-6e1a71ac79a3}">
+    <Declaration><![CDATA[INTERFACE VltE2E_k_iface_m]]></Declaration>
+    <Method Name="DoIt" Id="{5bc15dce-2ffa-45f6-847c-f5e5c3a4684a}">
+      <Declaration><![CDATA[METHOD DoIt : INT]]></Declaration>
+    </Method>
+    <Property Name="Ready" Id="{559b5690-0aea-48b4-a09d-ac65f1ef5669}">
+      <Declaration><![CDATA[PROPERTY Ready : BOOL]]></Declaration>
+      <Get Name="Get" Id="{b1d74b76-22ac-4f4e-a068-d8702182e40f}">
+        <Declaration><![CDATA[PUBLIC
+VAR
+END_VAR]]></Declaration>
+      </Get>
+    </Property>
+  </Itf>
+</TcPlcObject>
