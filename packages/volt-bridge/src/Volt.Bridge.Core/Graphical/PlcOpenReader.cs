@@ -211,7 +211,7 @@ namespace Volt.Bridge.Core.Graphical
             int? order = (int?)el.Attribute("executionOrderId");
             switch (el.Name.LocalName)
             {
-                case "inVariable":  return new InVar(id, order, Expr(el, ns), ReadMods(el));
+                case "inVariable":  return ReadInVar(el, ns, id, order);
                 case "outVariable": return new OutVar(id, order, Expr(el, ns), ReadMods(el), ReadSource(el, ns));
                 case "block":       return ReadBlock(el, ns, id, order);
                 case "label":       return new Label(id, order, (string?)el.Attribute("label") ?? "");
@@ -252,6 +252,23 @@ namespace Volt.Bridge.Core.Graphical
             var edge = (string?)el.Attribute("edge") switch { "rising" => EdgeMod.Rising, "falling" => EdgeMod.Falling, _ => EdgeMod.None };
             var stor = (string?)el.Attribute("storage") switch { "set" => StorageMod.Set, "reset" => StorageMod.Reset, _ => StorageMod.None };
             return new Mods(neg, edge, stor) is { IsNone: true } ? Mods.None : new Mods(neg, edge, stor);
+        }
+
+        /// <summary>An inVariable's negation rides in the EXPRESSION TEXT (`NOT x`), since TwinCAT drops the
+        /// `negated` attribute on inVariables (see PlcOpenWriter). Re-extract a leading NOT into the model so
+        /// read↔write stays symmetric. Still honours the `negated` ATTRIBUTE too — TC MIGRATES a leaf-sourced
+        /// pin-negation onto the inVariable as the attribute on its first export; the next write re-encodes it
+        /// as text, stable thereafter.</summary>
+        private static InVar ReadInVar(XElement el, XNamespace ns, long id, int? order)
+        {
+            var expr = Expr(el, ns);
+            var mods = ReadMods(el);
+            if (expr.StartsWith("NOT ", System.StringComparison.Ordinal))
+            {
+                expr = expr.Substring(4).TrimStart();
+                mods = mods with { Negated = true };
+            }
+            return new InVar(id, order, expr, mods.IsNone ? Mods.None : mods);
         }
 
         /// <summary>CODESYS hint (functionblock / function / operator) from the fbdcalltype addData.</summary>

@@ -89,4 +89,29 @@ public class VgCompoundExpressionTests
         var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
         Assert.Equal(vg, back);   // fixed point
     }
+
+    [Fact]
+    public void Leaf_negation_is_encoded_as_expression_text_not_the_attribute()
+    {
+        // TwinCAT drops `negated` on an <inVariable>, so a negated leaf carries NOT in the EXPRESSION text
+        // (both IDEs round-trip expression text verbatim). Edge/storage would stay attrs.
+        var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := NOT x;\n  out := i1;\nEND_NETWORK\n";
+        var graph = VgParser.Parse(vg);
+        var xml = PlcOpenWriter.WriteBody(graph).ToString();
+        Assert.Contains("NOT x", xml);                            // negation is in the expression
+        Assert.DoesNotContain("negated", xml.ToLowerInvariant()); // NOT as a `negated` attribute
+        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(graph)));
+        Assert.Equal(vg, back);                                   // read↔write symmetric (bridge fixed point)
+    }
+
+    [Fact]
+    public void Output_negation_stays_a_negated_outVariable_attribute()
+    {
+        // TC HANDLES `negated` on an outVariable — keep it there, don't move it into expression text.
+        var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := x;\n  out := NOT i1;\nEND_NETWORK\n";
+        var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg)).ToString();
+        Assert.Contains("outVariable", xml);
+        Assert.Contains("negated", xml.ToLowerInvariant());       // output negation stays an attribute
+        Assert.DoesNotContain("NOT i1", xml);                     // not moved into text
+    }
 }

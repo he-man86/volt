@@ -97,9 +97,13 @@ namespace Volt.Bridge.Core.Graphical
                     return XElement.Parse(op.RawXml);
 
                 case InVar iv:
-                    return new XElement(Ns + "inVariable", IdAttrs(iv), ModAttrs(iv.Mods),
+                    // TwinCAT's importer DROPS `negated` on an <inVariable> (it honours it on outVariables and
+                    // block input pins, not here). So a leaf carries its negation in the EXPRESSION TEXT
+                    // (`NOT x`) — which both TC and CODESYS round-trip verbatim — not as the attribute. Edge/
+                    // storage (rare on a source) stay as attrs. PlcOpenReader re-extracts the leading NOT.
+                    return new XElement(Ns + "inVariable", IdAttrs(iv), ModAttrs(iv.Mods with { Negated = false }),
                         Pos(row), new XElement(Ns + "connectionPointOut"),
-                        new XElement(Ns + "expression", iv.Expression));
+                        new XElement(Ns + "expression", iv.Mods.Negated ? "NOT " + iv.Expression : iv.Expression));
 
                 case OutVar ov:
                     return new XElement(Ns + "outVariable", IdAttrs(ov), ModAttrs(ov.Mods),
