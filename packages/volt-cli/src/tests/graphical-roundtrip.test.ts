@@ -17,9 +17,30 @@ import { push } from "../commands/push.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 
+// Self-provisioned FBD fixture (the suite must never depend on an ambient graphical POU — it creates its own
+// and deletes it). A boolean leaf (FALSE/TRUE) so the edit-round-trip test has an operand to flip.
+const FIXTURE = "VltRtGfx"
+const FIXTURE_FBD =
+	`PROGRAM ${FIXTURE}\nVAR\n\tout : BOOL;\nEND_VAR\n\n` +
+	`NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n` +
+	`  i1 := FALSE;\n  i2 := TRUE;\n  g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\nEND_PROGRAM\n`
+
 let bridge: BridgeClient
 let workspace: string
 let cleanup: () => void
+
+async function provisionFixture() {
+	const refs = await bridge.getRefs()
+	await bridge.pushBatch({
+		expectedProjectVersion: refs.projectVersion,
+		ops: [{ op: "pushItem", name: `${FIXTURE}.fbd`, folder: "", sourceText: FIXTURE_FBD, ifVersion: refs.items[`${FIXTURE}.fbd`] ?? null }],
+	})
+}
+async function deleteFixture() {
+	const refs = await bridge.getRefs()
+	const full = [`${FIXTURE}.fbd`, `${FIXTURE}.st`].find((k) => refs.items[k])
+	if (full) await bridge.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name: full, ifVersion: refs.items[full]! }] })
+}
 
 function walk(dir: string): string[] {
 	const out: string[] = []
@@ -51,9 +72,13 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 		cleanup = () => rmSync(root, { recursive: true, force: true })
 		const r = await init(workspace, bridge, {})
 		expect(r.kind).toBe("ok")
+		await provisionFixture()   // self-provision the graphical POU — never rely on ambient project state
 	})
 
-	afterAll(() => cleanup?.())
+	afterAll(async () => {
+		await deleteFixture()
+		cleanup?.()
+	})
 
 	it("pull materializes an FBD root body as a marker-free .fbd file", async () => {
 		const r = await pull(workspace, bridge, { force: true })
