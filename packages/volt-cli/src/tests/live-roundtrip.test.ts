@@ -45,10 +45,12 @@ function writeWorkspace(relPath: string, content: string): void {
 
 async function deleteTcItems(...names: string[]): Promise<void> {
 	const refs = await apiCall("GET", "/refs")
-	// Wire names are full (`Foo.st`); these test items are all ST FBs.
-	const ops = names
-		.filter((n) => refs.items[`${n}.st`])
-		.map((n) => ({ op: "deleteItem", name: `${n}.st`, ifVersion: refs.items[`${n}.st`] }))
+	// Delete by the AUTHORITATIVE full key from /refs (match on the bare IEC name; don't assume an
+	// extension) — the same way the bridge e2e harness cleans up.
+	const wanted = new Set(names)
+	const ops = Object.keys(refs.items)
+		.filter((full) => wanted.has(full.replace(/\.[^.]+$/, "")))
+		.map((full) => ({ op: "deleteItem", name: full, ifVersion: refs.items[full] }))
 	if (ops.length === 0) return
 	const r = await apiCall("POST", "/push", { expectedProjectVersion: refs.projectVersion, ops })
 	if (!r.accepted) console.warn("cleanup failed:", JSON.stringify(r.conflicts))

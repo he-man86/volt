@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname, join, relative, resolve, sep } from "node:path"
 import { buildTree, listTree, writeBlob } from "../git/plumbing.js"
-import { getByPath, gitattributesContent, isTrackedPath, nameFromPath } from "../registry/extensions.js"
+import { getByPath, gitattributesContent, isTrackedPath } from "../registry/extensions.js"
 
 export const WORKSPACE_SRC_DIR = "src"
 

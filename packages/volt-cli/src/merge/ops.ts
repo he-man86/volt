@@ -166,22 +166,15 @@ function materializeItem(item: FetchedItem): MaterializedFile[] {
 }
 
 function resolveOwnerItem(relPath: string, items: Record<string, string>): string | undefined {
+	// `items` is keyed by FULL wire name (the bridge's keying), and so is a workspace filename — they are
+	// the same string. A folder marker is the one exception: a folder has no extension, so its key is its
+	// bare name. No bare↔full resolution — the file IS its key.
 	if (relPath.endsWith(`/${FOLDER_MARKER}`) || relPath === FOLDER_MARKER) {
 		const name = nameFromPath(relPath);
 		return name !== undefined && name in items ? name : undefined;
 	}
-	const segments = relPath.split("/");
-	const basename = segments[segments.length - 1]!;
-	if (basename in items) return basename;
-	// Fallback: try matching bare name (legacy items map key compatibility)
-	const dot = basename.lastIndexOf(".");
-	if (dot > 0) {
-		const stem = basename.slice(0, dot);
-		for (const key of Object.keys(items)) {
-			if (key.startsWith(stem + ".")) return key;
-		}
-	}
-	return undefined;
+	const basename = relPath.split("/").pop()!;   // the full filename = the item's wire key
+	return basename in items ? basename : undefined;
 }
 
 // ─── Pure-read primitive: peekBridgeItem ──────────────────────────────

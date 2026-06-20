@@ -72,8 +72,9 @@ export function accessForExt(ext: string): DefaultAccess | undefined {
 	return def?.defaultAccess;
 }
 
-/// The bare IDE name from a workspace path (e.g. "POUs/FB_Motor.st" → "FB_Motor").
-/// Used for push ops and IDE lookups — the bridge's IDE API uses bare names.
+/// The bare IEC name from a workspace path (e.g. "POUs/FB_Motor.st" → "FB_Motor").
+/// The WIRE uses full names (see fullNameFromPath); this is only for the IEC-identity checks that are
+/// genuinely extension-less — the duplicate-POU collision guard and folder-marker resolution.
 export function nameFromPath(relPath: string): string | undefined {
 	const slash = relPath.lastIndexOf("/");
 	const base = slash >= 0 ? relPath.slice(slash + 1) : relPath;
