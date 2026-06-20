@@ -136,6 +136,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     var (core, mods) = ExtractMods(rhs);
                     if (_temps.Contains(lhs))                         // declared temp → leaf inVariable
                     {
+                        EnsureNoTempReference(core);                  // a leaf is literal/real-var text, never a compound op over temps
                         var iv = new InVar(_nextId++, null, core, mods);   // RHS is opaque pin text
                         _blockByName[lhs] = iv.LocalId;
                         _nodes.Add(iv);
@@ -246,6 +247,22 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     return new Conn(bid, dot >= 0 ? token.Substring(dot + 1) : null);
                 throw new VgParseException("operand must reference a declared temp or FB instance "
                     + "(literals/variables must be their own leaf statement): '" + token + "'");
+            }
+
+            /// <summary>A leaf inVariable's pin text is a literal or a REAL variable — it must NEVER reference a
+            /// declared temp. A temp is a graph node, so a leaf citing one is actually a compound/nested
+            /// expression that wasn't decomposed (e.g. <c>(i1 AND i2) OR i3</c> — which slips past the single
+            /// <c>(…)</c> operator-block path because it doesn't close with a paren). Emitting it produces XML
+            /// that references the temp names — which are stripped on push — and CORRUPTS the IDE on import
+            /// (an NRE on TwinCAT). Refuse it here: one operation per statement.</summary>
+            private void EnsureNoTempReference(string core)
+            {
+                foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
+                    if (_temps.Contains(m.Value))
+                        throw new VgParseException(
+                            $"graphical leaf '{core}' references the synthetic temp '{m.Value}' — a statement may carry only "
+                            + "ONE operation. Split a nested expression like '(a AND b) OR c' into separate temps "
+                            + "('g0 := (a AND b);' then 'g1 := (g0 OR c);').");
             }
 
             public GraphNetwork Build()
