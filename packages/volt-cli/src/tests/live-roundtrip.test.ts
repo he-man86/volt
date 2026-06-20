@@ -45,9 +45,10 @@ function writeWorkspace(relPath: string, content: string): void {
 
 async function deleteTcItems(...names: string[]): Promise<void> {
 	const refs = await apiCall("GET", "/refs")
+	// Wire names are full (`Foo.st`); these test items are all ST FBs.
 	const ops = names
-		.filter((n) => refs.items[n])
-		.map((n) => ({ op: "deleteItem", name: n, ifVersion: refs.items[n] }))
+		.filter((n) => refs.items[`${n}.st`])
+		.map((n) => ({ op: "deleteItem", name: `${n}.st`, ifVersion: refs.items[`${n}.st`] }))
 	if (ops.length === 0) return
 	const r = await apiCall("POST", "/push", { expectedProjectVersion: refs.projectVersion, ops })
 	if (!r.accepted) console.warn("cleanup failed:", JSON.stringify(r.conflicts))
@@ -124,7 +125,7 @@ describe("live round-trip", () => {
 
 		// Verify TC has it
 		const refs = await apiCall("GET", "/refs")
-		expect(refs.items).toHaveProperty(name)
+		expect(refs.items[`${name}.st`]).toBeDefined()   // NB: toHaveProperty treats the dot as a path
 	})
 
 	it("push receipt matches a cold getRefs exactly — no phantom drift (regression)", async () => {
@@ -157,7 +158,7 @@ describe("live round-trip", () => {
 		const refs = await apiCall("GET", "/refs")
 		const create = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src, ifVersion: null }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: src, ifVersion: null }],
 		})
 		expect(create.accepted).toBe(true)
 
@@ -178,7 +179,7 @@ describe("live round-trip", () => {
 		const refs = await apiCall("GET", "/refs")
 		const create = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src1, ifVersion: null }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: src1, ifVersion: null }],
 		})
 		expect(create.accepted).toBe(true)
 
@@ -188,7 +189,7 @@ describe("live round-trip", () => {
 		const refs2 = await apiCall("GET", "/refs")
 		const update = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs2.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src2, ifVersion: refs2.items[name] }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: src2, ifVersion: refs2.items[`${name}.st`] }],
 		})
 		expect(update.accepted).toBe(true)
 
@@ -210,7 +211,7 @@ describe("live round-trip", () => {
 		let refs = await apiCall("GET", "/refs")
 		const create = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src1, ifVersion: null }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: src1, ifVersion: null }],
 		})
 		expect(create.accepted).toBe(true)
 
@@ -228,7 +229,7 @@ describe("live round-trip", () => {
 		refs = await apiCall("GET", "/refs")
 		const tcEdit = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: srcTc, ifVersion: refs.items[name] }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: srcTc, ifVersion: refs.items[`${name}.st`] }],
 		})
 		expect(tcEdit.accepted).toBe(true)
 
@@ -254,7 +255,7 @@ describe("live round-trip", () => {
 		const refs = await apiCall("GET", "/refs")
 		const create = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs.projectVersion,
-			ops: [{ op: "pushItem", name, folder: "POUs", sourceText: src, ifVersion: null }],
+			ops: [{ op: "pushItem", name: `${name}.st`, folder: "POUs", sourceText: src, ifVersion: null }],
 		})
 		expect(create.accepted).toBe(true)
 
@@ -265,7 +266,7 @@ describe("live round-trip", () => {
 		const refs2 = await apiCall("GET", "/refs")
 		const del = await apiCall("POST", "/push", {
 			expectedProjectVersion: refs2.projectVersion,
-			ops: [{ op: "deleteItem", name, ifVersion: refs2.items[name] }],
+			ops: [{ op: "deleteItem", name: `${name}.st`, ifVersion: refs2.items[`${name}.st`] }],
 		})
 		expect(del.accepted).toBe(true)
 

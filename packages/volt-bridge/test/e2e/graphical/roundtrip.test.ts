@@ -1,6 +1,6 @@
 /**
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
- * CFC/SFC are read-only (surfaced as a %LANG placeholder, never created).
+ * CFC/SFC are read-only (declaration-only, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test"
 import { bridge, id, fid, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"

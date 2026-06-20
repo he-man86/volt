@@ -24,6 +24,7 @@ import { listWorkspaceFiles } from "../snapshot/workspace.js";
 import {
 	FOLDER_MARKER,
 	defFromName,
+	fullNameFromPath,
 	getByPath,
 	gitattributesContent,
 	isSourcePou,
@@ -265,9 +266,9 @@ export async function applyPushToBridge(
 		return { accepted: false, reason: `bridge rejected push: ${summary}` };
 	}
 
-	const newFolders: Record<string, string> = {};
+	const newFolders: Record<string, string> = {};   // full-keyed, matching resp.newItems
 	for (const entry of newTreeEntries) {
-		const name = nameFromPath(entry.path);
+		const name = fullNameFromPath(entry.path);
 		if (name === undefined) continue;
 		const segs = entry.path.split("/");
 		newFolders[name] = segs.slice(0, -1).join("/");
@@ -290,37 +291,27 @@ interface PouFile {
 }
 
 function buildPouFileMap(entries: readonly TreeEntry[]): Map<string, PouFile> {
-	const out = new Map<string, PouFile>();
+	const out = new Map<string, PouFile>();        // keyed by FULL wire name (the filename) — the wire/state identity
+	const bareToFull = new Map<string, string>();  // bare IEC name → full name, to catch "two files, one POU"
 	for (const entry of entries) {
 		const def = getByPath(entry.path);
 		if (def === undefined || !isSourcePou(def)) continue;
-		const name = nameFromPath(entry.path);
-		if (name === undefined) continue;
-		const segs = entry.path.split("/");
-		const folder = segs.slice(0, -1).join("/");
-		const existing = out.get(name);
-		if (existing !== undefined) {
+		const name = fullNameFromPath(entry.path);
+		const bare = nameFromPath(entry.path);
+		if (name === undefined || bare === undefined) continue;
+		const clash = bareToFull.get(bare);
+		if (clash !== undefined) {
 			throw new Error(
-				`duplicate POU name '${name}' — two files in the workspace produce the same POU: ` +
-					`'${existing.entry.path}' and '${entry.path}'. ` +
-					`POU names must be unique across the project tree. Remove one of the files.`,
+				`two files produce the same POU '${bare}': '${clash}' and '${name}' — a POU has one body. ` +
+					`Remove one of the files.`,
 			);
 		}
+		bareToFull.set(bare, name);
+		const segs = entry.path.split("/");
+		const folder = segs.slice(0, -1).join("/");
 		out.set(name, { name, folder, entry });
 	}
 	return out;
-}
-
-/**
- * The item version recorded in state, looked up by BARE name. state.items is keyed by FULL wire name
- * (`FB_Motor.st`) — the bridge's keying — while the push diff works in bare names (`FB_Motor`). Resolve
- * bare→full so the per-item ifVersion guard is found; without it every update/delete/move silently produced
- * no op (the push reported success but sent nothing). Tolerates a bare-keyed map too (defensive).
- */
-function stateVersion(items: Record<string, string>, bareName: string): string | undefined {
-	if (items[bareName] !== undefined) return items[bareName];
-	const key = Object.keys(items).find((k) => k.startsWith(bareName + "."));
-	return key !== undefined ? items[key] : undefined;
 }
 
 function buildPushOps(
@@ -335,7 +326,7 @@ function buildPushOps(
 
 	for (const [name] of prev) {
 		if (curr.has(name)) continue;
-		const ifVersion = stateVersion(state.items, name);
+		const ifVersion = state.items[name];   // `name` is the full wire name; state.items is full-keyed
 		if (ifVersion === undefined) continue;
 		ops.push({ op: "deleteItem", name, ifVersion });
 	}
@@ -357,7 +348,7 @@ function buildPushOps(
 		const contentChanged = prevFile.entry.sha !== currFile.entry.sha;
 		if (!folderChanged && !contentChanged) continue;
 
-		const ifVersion = stateVersion(state.items, name);
+		const ifVersion = state.items[name];   // `name` is the full wire name; state.items is full-keyed
 		if (ifVersion === undefined) continue;
 
 		if (folderChanged && !contentChanged) {
@@ -390,15 +381,12 @@ function buildPushItemOp(
  * language, or null for textual (ST / DUT / declaration) content.
  */
 function detectBodyLanguage(content: string): string | null {
-	// A graphical body carries a `%LANG <x>` placeholder (CFC/SFC) or a `NETWORK <n> <LANG>` network line
-	// (FBD/LD). For a ROOT POU file the marker sits AFTER the declaration (PROGRAM/VAR…END_VAR), so search
-	// every LINE (multiline `^`), not just the file start. (The bridge's VgBody sees the already-split
-	// implementation, so it only checks the start — same intent, adapted to the CLI's decl+body file.)
-	const lang = /^[ \t]*%LANG[ \t]+(\S+)/m.exec(content);
-	if (lang) return lang[1]!.toUpperCase();
+	// An EDITABLE graphical body carries a `NETWORK <n> <LANG>` network line (FBD/LD) — same marker the
+	// bridge's VgBody uses. For a ROOT POU file it sits AFTER the declaration (PROGRAM/VAR…END_VAR), so
+	// search every LINE (multiline `^`), not just the start. (Read-only CFC/SFC are declaration-only —
+	// no content marker — and not pushable, so they never reach here.)
 	const net = /^[ \t]*NETWORK[ \t]+\d+[ \t]+([A-Za-z]\w*)/m.exec(content);
-	if (net) return net[1]!.toUpperCase();
-	return null;
+	return net ? net[1]!.toUpperCase() : null;
 }
 
 const GRAPHICAL_EXT: Record<string, string> = { fbd: "FBD", ld: "LD" };

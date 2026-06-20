@@ -1,7 +1,7 @@
 /**
  * Live graphical round-trip — runs against a real bridge with FBD/LD POUs.
- * Verifies a graphical root body materializes as an editable .fbd file (marker-free, %LANG body)
- * and round-trips: pull → edit VG → push → pull → restore.
+ * Verifies a graphical root body materializes as an editable .fbd file (leading with the NETWORK
+ * marker, no legacy @volt-graphical marker) and round-trips: pull → edit VG → push → pull → restore.
  *
  * Defaults to :8556 (CODESYS headless, the proven WriteGraphicalBody path); override VOLT_TC_PORT.
  * The edit-round-trip mutates one POU in the live project and restores it in a finally.
@@ -61,8 +61,8 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 		const f = findGraphical()
 		expect(f).not.toBeNull()
 		const vg = readFileSync(f!, "utf-8")
-		expect(vg).toContain("%LANG ")            // the editable VG body
-		expect(vg).not.toContain("@volt-graphical") // root file carries NO marker (marker = children only)
+		expect(vg).toContain("NETWORK ")          // editable FBD/LD body leads with the network marker
+		expect(vg).not.toContain("@volt-graphical") // root file carries NO legacy marker
 	})
 
 	it("no-op push of a graphical body produces no drift", async () => {
@@ -127,8 +127,8 @@ describe("LD featureset — CLI materializes each variation as a .ld file", () =
 
 	async function del(name: string) {
 		const refs = await b.getRefs()
-		const iv = refs.items[`${name}.ld`] ?? refs.items[`${name}.fbd`] ?? refs.items[`${name}.st`]
-		if (iv) await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name, ifVersion: iv }] })
+		const full = [`${name}.ld`, `${name}.fbd`, `${name}.st`].find((k) => refs.items[k])
+		if (full) await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name: full, ifVersion: refs.items[full]! }] })
 	}
 
 	beforeAll(async () => {
@@ -153,7 +153,7 @@ describe("LD featureset — CLI materializes each variation as a .ld file", () =
 			await del(name) // self-heal from an interrupted prior run
 			created.push(name)
 			const refs = await b.getRefs()
-			const r = await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name, folder: "", sourceText: build(name), ifVersion: null }] })
+			const r = await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: `${name}.ld`, folder: "", sourceText: build(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			expect((await pull(ws, b, { force: true })).kind).toBe("ok")

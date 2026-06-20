@@ -9,8 +9,6 @@ import { validateExtensionMatchesContent } from "../merge/ops.js"
 const ST = "PROGRAM Foo\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n"
 const FBD = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := x;\n  y := i1;\nEND_NETWORK\n"
 const LD = "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"
-const CFC = "%LANG CFC\n"
-
 describe("extension↔content guard", () => {
 	test("matching files pass", () => {
 		expect(() => validateExtensionMatchesContent("POUs/Foo.st", ST)).not.toThrow()
@@ -32,6 +30,6 @@ describe("extension↔content guard", () => {
 	})
 
 	test("a textual DUT extension holding a graphical body is refused", () => {
-		expect(() => validateExtensionMatchesContent("DUTs/Bar.struct", CFC)).toThrow(/graphical body/)
+		expect(() => validateExtensionMatchesContent("DUTs/Bar.struct", FBD)).toThrow(/graphical body/)
 	})
 })
