@@ -162,14 +162,15 @@ export async function push(workspace: string, bridge: Remote, input: PushInput):
 		}
 	}
 
-	const pushed = computeOutgoing(paths.snapshotPath, root, stateMutable.commitSha)
-
 	if (dryRun) {
+		// Dry-run can't send ops, so it previews with computeOutgoing. The real push below takes its receipt
+		// straight from the ops it sends (result.pushed) — one source of truth, never a divergent second diff.
+		const preview = computeOutgoing(paths.snapshotPath, root, stateMutable.commitSha)
 		const adopted = driftAdoptedItems
 			? [...driftAdoptedItems.added, ...driftAdoptedItems.modified].sort()
 			: []
 		if (!jsonMode) {
-			printPushed(pushed, true)
+			printPushed(preview, true)
 			if (adopted.length > 0) printAdopted(adopted, true)
 		}
 		out("dry-run — nothing was sent to the bridge.")
@@ -220,17 +221,17 @@ export async function push(workspace: string, bridge: Remote, input: PushInput):
 	}
 
 	if (!jsonMode) {
-		printPushed(pushed, false)
+		printPushed(result.pushed, false)
 		if (adoptedNames !== undefined) printAdopted(adoptedNames, false)
 	}
 	const summary = `pushed. snapshot now @ ${result.commitSha.slice(0, 12)}`
 	out(summary)
 
 	const allItems = [
-		...pushed.added,
-		...pushed.modified,
-		...pushed.moved.map((m) => m.name),
-		...pushed.removed,
+		...result.pushed.added,
+		...result.pushed.modified,
+		...result.pushed.moved.map((m) => m.name),
+		...result.pushed.removed,
 	]
 	return { kind: "ok", items: allItems }
 }

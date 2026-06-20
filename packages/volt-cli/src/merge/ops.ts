@@ -7,7 +7,8 @@
  * always plain ST text regardless of original body language.
  */
 import type { Remote } from "../bridge/types.js";
-import type { FetchedItem, PushItemOp, PushOp, PushResponse } from "../bridge/types.js";
+import type { DeleteItemOp, FetchedItem, MoveItemOp, PushItemOp, PushOp, PushResponse } from "../bridge/types.js";
+import type { ChangeSet } from "../snapshot/state.js";
 import {
 	buildTree,
 	createDeterministicCommit,
@@ -241,7 +242,7 @@ export async function applyPushToBridge(
 	repoPath: string,
 	bridge: Remote,
 	newCommitSha: string,
-): Promise<{ accepted: true; commitSha: string } | { accepted: false; reason: string }> {
+): Promise<{ accepted: true; commitSha: string; pushed: ChangeSet } | { accepted: false; reason: string }> {
 	const state = loadState(repoPath);
 	if (state === null) {
 		return { accepted: false, reason: "no snapshot to diff against — run `volt pull` once first" };
@@ -251,9 +252,12 @@ export async function applyPushToBridge(
 	const prevTreeEntries = listTree(repoPath, state.commitSha);
 
 	const ops = buildPushOps(repoPath, prevTreeEntries, newTreeEntries, state);
+	// The receipt is derived from the ops ACTUALLY sent — one source of truth, so the printed summary can
+	// never disagree with what hit the bridge (full wire names throughout).
+	const pushed = changesetFromOps(ops, state);
 	if (ops.length === 0) {
 		saveState(repoPath, { ...state, commitSha: newCommitSha });
-		return { accepted: true, commitSha: newCommitSha };
+		return { accepted: true, commitSha: newCommitSha, pushed };
 	}
 
 	const pushReq = { ops, expectedProjectVersion: state.projectVersion };
@@ -281,7 +285,21 @@ export async function applyPushToBridge(
 		folders: newFolders,
 	});
 
-	return { accepted: true, commitSha: newCommitSha };
+	return { accepted: true, commitSha: newCommitSha, pushed };
+}
+
+/** The push receipt, derived straight from the ops sent (full wire names) — never a second diff. */
+function changesetFromOps(ops: PushOp[], state: RepoState): ChangeSet {
+	const isPush = (o: PushOp): o is PushItemOp => o.op === "pushItem";
+	return {
+		added: ops.filter(isPush).filter((o) => o.ifVersion === null).map((o) => o.name).sort(),
+		modified: ops.filter(isPush).filter((o) => o.ifVersion !== null).map((o) => o.name).sort(),
+		removed: ops.filter((o): o is DeleteItemOp => o.op === "deleteItem").map((o) => o.name).sort(),
+		moved: ops
+			.filter((o): o is MoveItemOp => o.op === "moveItem")
+			.map((o) => ({ name: o.name, from: state.folders[o.name] ?? "", to: o.newFolder }))
+			.sort((a, b) => a.name.localeCompare(b.name)),
+	};
 }
 
 interface PouFile {
