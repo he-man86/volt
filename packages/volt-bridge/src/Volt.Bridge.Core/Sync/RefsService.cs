@@ -26,10 +26,16 @@ public static class RefsService
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
 
-            var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            // Per-item resilience: a malformed item (e.g. an LD POU whose PLCopen export has no body) must not
+            // brick all of /refs. Isolate it with the sentinel; it stays in the project hash but, being
+            // unreadable, is omitted from the Items map (nothing to materialize) — and remains deletable.
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             versions[it.Name] = version;
-            fullVersions[mat.FullName] = version;
-            folders[mat.FullName] = it.Folder;
+            if (mat != null)
+            {
+                fullVersions[mat.FullName] = version;
+                folders[mat.FullName] = it.Folder;
+            }
         }
 
         return new RefsResponse

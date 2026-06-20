@@ -29,7 +29,9 @@ public static class PushService
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
-            var (version, _) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
+            // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
             currentVersions[it.Name] = version;
             if (it.IsTopLevelCrud) itemCache[it.Name] = (it.Item, it.Folder);
         }
@@ -64,9 +66,9 @@ public static class PushService
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
-            var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             receiptVersions[it.Name] = version;
-            receiptFullVersions[mat.FullName] = version;
+            if (mat != null) receiptFullVersions[mat.FullName] = version;
         }
 
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);

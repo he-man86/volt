@@ -30,7 +30,10 @@ public static class FetchService
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
 
-            var (version, mat) = Versioning.Materialize(ide, it.Name, kind, it.Item, it.Folder);
+            // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip it (it can't
+            // be materialized into a body), never throw for the whole batch.
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
+            if (mat == null) continue;
             var fullName = mat.FullName;
 
             if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
