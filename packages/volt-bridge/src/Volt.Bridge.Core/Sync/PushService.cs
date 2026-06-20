@@ -20,8 +20,9 @@ public static class PushService
 
         ide.FlushPendingWrites();
 
-        // Pre-apply snapshot: versions keyed by BARE IDE name (push ops use bare names).
-        // Responses use FULL names (mat.FullName) — matches /refs and /fetch.
+        // Pre-apply snapshot: keyed by BARE IDE name because these maps mirror the IDE (which is
+        // extension-less). The WIRE carries FULL names on every endpoint; op.Name is converted to bare at
+        // the apply boundary via Materializer.Bare. Responses use FULL names (mat.FullName) — like /refs/fetch.
         var currentVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
