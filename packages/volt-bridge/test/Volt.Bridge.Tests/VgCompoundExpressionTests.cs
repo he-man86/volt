@@ -45,4 +45,48 @@ public class VgCompoundExpressionTests
         var xml = PlcOpenWriter.WriteBody(graph).ToString();
         Assert.Contains("OR", xml);
     }
+
+    [Fact]
+    public void Not_of_a_temp_on_its_own_line_is_refused()
+    {
+        // g2 := NOT g1 — in FBD a NOT is a PIN modifier, not a node; this derives g2 from the temp g1.
+        var src = "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n    g2 : BOOL;\n  END_VAR\n"
+            + "  i1 := TRUE;\n  i2 := FALSE;\n  g1 := (i1 OR i2);\n  g2 := NOT g1;\n  outpur := g2;\nEND_NETWORK\n";
+        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(src));
+        Assert.Contains("NOT g1", ex.Message);                       // names the offending statement
+        Assert.Contains("consumer", ex.Message.ToLowerInvariant());  // tells the user to fold it onto the consumer
+    }
+
+    [Fact]
+    public void Invert_an_OUTPUT_with_NOT_on_the_sink()
+    {
+        // outpur := NOT g1 — the negation rides on the sink (the supported way to invert an output).
+        var src = "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n"
+            + "  i1 := TRUE;\n  i2 := FALSE;\n  g1 := (i1 OR i2);\n  outpur := NOT g1;\nEND_NETWORK\n";
+        var graph = VgParser.Parse(src);
+        Assert.Single(graph.Networks[0].Nodes.OfType<Block>());      // just the OR block — no phantom NOT node
+        Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
+    }
+
+    [Fact]
+    public void Invert_an_INPUT_with_NOT_on_the_operand_or_leaf()
+    {
+        // NOT on an operand inside the operation, AND on a leaf reading a real variable — both supported.
+        var src = "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n"
+            + "  i1 := NOT someVar;\n  i2 := FALSE;\n  g1 := (NOT i1 AND i2);\n  outpur := g1;\nEND_NETWORK\n";
+        var graph = VgParser.Parse(src);                              // must not throw
+        Assert.Contains("negated", PlcOpenWriter.WriteBody(graph).ToString().ToLowerInvariant());
+    }
+
+    [Fact]
+    public void Negation_round_trips_through_plcopen_as_a_pin_modifier()
+    {
+        // The supported inversions — NOT on an input operand and on the output sink — are exactly what
+        // VgWriter emits and what PLCopenXML stores (negated="true" on the pin/variable). They MUST survive
+        // VG → PLCopen → VG unchanged, or hand-edited inversions wouldn't round-trip.
+        var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n"
+            + "  i1 := a;\n  i2 := b;\n  g1 := (NOT i1 AND i2);\n  out := NOT g1;\nEND_NETWORK\n";
+        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
+        Assert.Equal(vg, back);   // fixed point
+    }
 }

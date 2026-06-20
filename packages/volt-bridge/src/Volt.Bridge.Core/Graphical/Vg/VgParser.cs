@@ -136,7 +136,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     var (core, mods) = ExtractMods(rhs);
                     if (_temps.Contains(lhs))                         // declared temp → leaf inVariable
                     {
-                        EnsureNoTempReference(core);                  // a leaf is literal/real-var text, never a compound op over temps
+                        EnsureLeafIsSource(lhs, rhs, core);           // a leaf is a literal/real-var source, never derived from a temp
                         var iv = new InVar(_nextId++, null, core, mods);   // RHS is opaque pin text
                         _blockByName[lhs] = iv.LocalId;
                         _nodes.Add(iv);
@@ -249,20 +249,23 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     + "(literals/variables must be their own leaf statement): '" + token + "'");
             }
 
-            /// <summary>A leaf inVariable's pin text is a literal or a REAL variable — it must NEVER reference a
-            /// declared temp. A temp is a graph node, so a leaf citing one is actually a compound/nested
-            /// expression that wasn't decomposed (e.g. <c>(i1 AND i2) OR i3</c> — which slips past the single
-            /// <c>(…)</c> operator-block path because it doesn't close with a paren). Emitting it produces XML
-            /// that references the temp names — which are stripped on push — and CORRUPTS the IDE on import
-            /// (an NRE on TwinCAT). Refuse it here: one operation per statement.</summary>
-            private void EnsureNoTempReference(string core)
+            /// <summary>A temp's right-hand side must be a real SOURCE — a literal or a real variable — never
+            /// derived from another temp. A temp is a graph node, so a leaf citing one is not a valid FBD node:
+            /// it's either a nested expression that wasn't decomposed (<c>(i1 AND i2) OR i3</c> — slips past the
+            /// single <c>(…)</c> operator path because it doesn't close with a paren) OR a bare alias / modifier
+            /// of a temp (<c>g2 := NOT g1</c>) — and in FBD a NOT/edge is a PIN modifier on the consumer, not its
+            /// own element. Emitting either produces XML that references the temp names — stripped on push — and
+            /// CORRUPTS the IDE on import (an NRE on TwinCAT). Refuse it here with concrete guidance.</summary>
+            private void EnsureLeafIsSource(string lhs, string rhs, string core)
             {
                 foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
                     if (_temps.Contains(m.Value))
                         throw new VgParseException(
-                            $"graphical leaf '{core}' references the synthetic temp '{m.Value}' — a statement may carry only "
-                            + "ONE operation. Split a nested expression like '(a AND b) OR c' into separate temps "
-                            + "('g0 := (a AND b);' then 'g1 := (g0 OR c);').");
+                            $"'{lhs} := {rhs}' is not a valid graphical node — its right-hand side derives from the temp "
+                            + $"'{m.Value}'. Each temp is exactly ONE operation: an operator block 'g := (a OP b)', a call, "
+                            + "or a literal/variable source. A NOT (or edge) modifier rides on the CONSUMER, not its own "
+                            + "line — write 'out := NOT g1', not 'g2 := NOT g1'. And split a nested expression like "
+                            + "'(a AND b) OR c' into separate temps ('g0 := (a AND b);' then 'g1 := (g0 OR c);').");
             }
 
             public GraphNetwork Build()
