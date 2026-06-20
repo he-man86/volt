@@ -46,11 +46,14 @@ public static class GraphicalCode
     /// export's typed <c>&lt;interface&gt;</c>: CODESYS regenerates the interface from that typed block on
     /// import (ignoring the plaintext copy), and TwinCAT's export carries no plaintext interface at all,
     /// so a graphical POU's VAR-section is edited in the IDE, not via push. Throws on invalid VG.</summary>
-    public static void Write(ICodeStore code, ItemRef item, string vgText, string declaration)
+    /// <summary>Validate a VG body WITHOUT touching the IDE — the language gate, the parser, and the strict
+    /// round-trip gate, all pure/format-only. Returns the parsed graph (reused by <see cref="Write"/>). Call
+    /// this BEFORE creating a new item so a REFUSED push never leaves an orphaned stub in the project (the
+    /// create-then-write order otherwise materialises a POU before the body is checked). Throws on invalid VG.</summary>
+    public static GraphBody Validate(string vgText)
     {
-        // Format guard (before any IDE import): only FBD/LD can be authored as VG. An unknown language token
-        // on the NETWORK marker is refused HERE with a clear message — not downstream with a misleading "not
-        // writable". (CFC/SFC are never VG bodies, so they never reach here.) Bridge owns FORMAT; LSP owns code.
+        // Format guard: only FBD/LD can be authored as VG. An unknown language token on the NETWORK marker is
+        // refused with a clear message — not downstream with a misleading "not writable". Bridge owns FORMAT.
         var lang = VgBody.LanguageOf(vgText);
         if (!VgBody.IsEditable(lang))
             throw new InvalidOperationException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
@@ -59,14 +62,19 @@ public static class GraphicalCode
 
         // Strict round-trip gate (the parser is the exact inverse of the writer): a body that doesn't RE-EMIT
         // identically isn't canonical — it would drift on the next pull, or silently rename/alias temps. Refuse
-        // it HERE, before any IDE write, and show the canonical form so the author can paste it verbatim.
+        // it HERE and show the canonical form so the author can paste it verbatim.
         var canonical = VgWriter.Write(graph);
         if (Canon(canonical) != Canon(vgText))
             throw new VgParseException(
                 "graphical body is not in canonical form — it would not round-trip identically (you'd see drift on "
                 + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'),
                 "VG_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
+        return graph;
+    }
 
+    public static void Write(ICodeStore code, ItemRef item, string vgText, string declaration)
+    {
+        var graph = Validate(vgText);                                        // pure checks first (no IDE write yet)
         var types = PlcOpenDocument.InstanceTypes(declaration);
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 

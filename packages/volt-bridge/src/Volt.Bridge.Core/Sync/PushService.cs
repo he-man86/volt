@@ -194,6 +194,9 @@ public static class PushService
                 // implementation-language parameter, so it falls through to default ST — the subsequent
                 // GraphicalCode.Write sets the correct language via PLCopen import (the <FBD>/<LD>
                 // wrapper element on the body dictates the IDE's POU language).
+                // Validate the VG body (parser + round-trip gate) BEFORE creating the item — otherwise a
+                // refused push leaves an orphaned, unlisted stub POU that blocks the next create.
+                GraphicalCode.Validate(impl);
                 var lang = VgBody.LanguageOf(impl) ?? "FBD";
                 pou = ide.CreateChild(targetParent, name, itemType, lang ?? "ST");
                 GraphicalCode.Write(ide, pou, impl, decl);
