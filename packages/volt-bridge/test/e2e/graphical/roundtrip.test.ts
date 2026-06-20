@@ -6,20 +6,27 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test
 import { bridge, id, fid, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 function fbdProgram(name: string) {
+	// CANONICAL form (a fixed point of VgWriter∘VgParser, so it passes the round-trip gate). The old
+	// `g1 := NOT i1` was non-canonical (re-emitted as a renamed leaf) and is now correctly refused.
+	// NB: negation is intentionally NOT exercised here — TC drops an FBD inVariable's negation on its own
+	// import/export round-trip (a separate vendor-fidelity bug); LD negation is covered by ldNegated below.
 	return `PROGRAM ${name}
 VAR
-\tx : BOOL;
-\ty : BOOL;
+\ta : BOOL;
+\tb : BOOL;
+\tout : BOOL;
 END_VAR
 
 NETWORK 0 FBD
   VAR_TEMP
     i1 : BOOL;
+    i2 : BOOL;
     g1 : BOOL;
   END_VAR
-  i1 := x;
-  g1 := NOT i1;
-  y := g1;
+  i1 := a;
+  i2 := b;
+  g1 := (i1 AND i2);
+  out := g1;
 END_NETWORK
 END_PROGRAM
 `

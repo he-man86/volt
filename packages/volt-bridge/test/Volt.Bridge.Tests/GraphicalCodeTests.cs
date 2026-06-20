@@ -90,6 +90,20 @@ public class GraphicalCodeTests
     }
 
     [Fact]
+    public void Write_refuses_a_non_canonical_body_and_shows_the_canonical_form()
+    {
+        // The strict round-trip gate: this parses fine, but the temp is named gX where the writer emits g1, so
+        // it would not round-trip identically. Refused before the import, with the canonical form shown.
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
+        var nonCanonical = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    gX : BOOL;\n  END_VAR\n"
+            + "  i1 := a;\n  i2 := b;\n  gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            GraphicalCode.Write(s, Item, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
+        Assert.Contains("canonical", ex.Message);
+        Assert.Contains("g1 := (i1 AND i2)", ex.Message);   // the writer's canonical form is shown verbatim
+    }
+
+    [Fact]
     public void A_failed_export_propagates_never_an_empty_marker()
     {
         var s = new FakeCodeStore { Lang = "FBD", ThrowOnReadXml = true };

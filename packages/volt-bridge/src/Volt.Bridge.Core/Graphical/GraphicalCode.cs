@@ -55,13 +55,31 @@ public static class GraphicalCode
         if (!VgBody.IsEditable(lang))
             throw new InvalidOperationException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
 
-        var graph = VgParser.Parse(vgText);                                  // throws on invalid VG
+        var graph = VgParser.Parse(vgText);                                  // throws on structurally-invalid VG
+
+        // Strict round-trip gate (the parser is the exact inverse of the writer): a body that doesn't RE-EMIT
+        // identically isn't canonical — it would drift on the next pull, or silently rename/alias temps. Refuse
+        // it HERE, before any IDE write, and show the canonical form so the author can paste it verbatim.
+        var canonical = VgWriter.Write(graph);
+        if (Canon(canonical) != Canon(vgText))
+            throw new InvalidOperationException(
+                "graphical body is not in canonical form — it would not round-trip identically (you'd see drift on "
+                + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'));
+
         var types = PlcOpenDocument.InstanceTypes(declaration);
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
         var exported = code.ReadXml(item);                                   // current full POU PLCopen
         var spliced = PlcOpenDocument.SpliceFbdLdBody(exported, newBody);    // throws if no FBD/LD body
         code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
+    }
+
+    // Normalize for the round-trip comparison: LF endings, no trailing whitespace, no trailing blank lines.
+    private static string Canon(string s)
+    {
+        var lines = s.Replace("\r", "").Split('\n');
+        for (int i = 0; i < lines.Length; i++) lines[i] = lines[i].TrimEnd();
+        return string.Join("\n", lines).TrimEnd('\n');
     }
 
     /// <summary>A graphical POU's declaration: from the export's plaintext interface when the vendor
