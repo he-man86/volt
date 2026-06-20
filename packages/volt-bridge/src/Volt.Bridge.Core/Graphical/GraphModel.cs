@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Volt.Bridge.Core.Graphical
 {
@@ -82,10 +81,4 @@ namespace Volt.Bridge.Core.Graphical
     /// reader stays TOTAL over the XSD and the writer can round-trip it.</summary>
     public sealed record OpaqueNode(long LocalId, int? ExecOrder, string Kind, string RawXml)
         : GraphNode(LocalId, ExecOrder);
-
-    public static class GraphNodeExtensions
-    {
-        public static GraphNode? ById(this IReadOnlyList<GraphNode> nodes, long id)
-            => nodes.FirstOrDefault(n => n.LocalId == id);
-    }
 }
