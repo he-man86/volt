@@ -70,8 +70,8 @@ export const HealthResponseSchema = z
 		 * but avoid heavy writes until the next health probe clears it.
 		 */
 		degraded: z.boolean(),
-		/** Human-readable reason for `degraded=true`; null when not degraded. */
-		degradedReason: z.string().nullable(),
+		/** Human-readable reason for `degraded=true`; null/omitted when not degraded (WhenWritingNull). */
+		degradedReason: z.string().nullish(),
 		/**
 		 * Friendly IDE name (e.g. "TcXaeShell"). C# may serialize as null
 		 * when not connected, so we accept null/undefined as well as string.
@@ -117,12 +117,12 @@ export const BridgeDiagnosticSchema = z
 		 * `"FB_X.Speed"`). `null` for project-level diagnostics not tied
 		 * to a specific object.
 		 */
-		object: z.string().regex(OBJECT_RE).nullable(),
+		object: z.string().regex(OBJECT_RE).nullish(),
 		/**
 		 * Which section of the object — declaration block or implementation
 		 * body. `null` when the IDE didn't say.
 		 */
-		section: z.enum(["decl", "impl"]).nullable(),
+		section: z.enum(["decl", "impl"]).nullish(),
 	})
 	.strict();
 export type BridgeDiagnostic = z.infer<typeof BridgeDiagnosticSchema>;
@@ -288,8 +288,11 @@ export type PushRequest = z.infer<typeof PushRequestSchema>;
 export const PushConflictSchema = z
 	.object({
 		name: z.string(),
-		yourVersion: z.string().nullable(),
-		currentVersion: z.string().nullable(),
+		// Optional, not just nullable: a conflict from a THROWN op error (e.g. the IDE refusing a write)
+		// carries only name+reason — the bridge omits null version fields (WhenWritingNull), so the keys are
+		// absent, not null. Version-mismatch conflicts include them. Both shapes must parse.
+		yourVersion: z.string().nullable().optional(),
+		currentVersion: z.string().nullable().optional(),
 		reason: z.string(),
 	})
 	.strict();

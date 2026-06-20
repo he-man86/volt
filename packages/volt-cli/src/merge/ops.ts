@@ -257,10 +257,16 @@ export async function applyPushToBridge(
 	const resp: PushResponse = await bridge.pushBatch(pushReq);
 
 	if (!resp.accepted) {
+		// Return the bare conflict summary — push.ts adds the "bridge rejected push:" prefix + hint (don't
+		// double it). Version fields only when present (a thrown-op-error conflict has none).
 		const summary = resp.conflicts
-			.map((c) => `${c.name}: ${c.reason} (yours=${c.yourVersion ?? "null"}, current=${c.currentVersion ?? "null"})`)
+			.map((c) => {
+				const vers = c.yourVersion != null || c.currentVersion != null
+					? ` (yours=${c.yourVersion ?? "null"}, current=${c.currentVersion ?? "null"})` : "";
+				return `${c.name}: ${c.reason}${vers}`;
+			})
 			.join("; ");
-		return { accepted: false, reason: `bridge rejected push: ${summary}` };
+		return { accepted: false, reason: summary };
 	}
 
 	const newFolders: Record<string, string> = {};   // full-keyed, matching resp.newItems
