@@ -281,6 +281,15 @@ export async function applyPushToBridge(
 	return { accepted: true, commitSha: newCommitSha, pushed };
 }
 
+/** What a push WOULD send (full wire names) for a staged tree, WITHOUT sending — the dry-run preview runs the
+ * exact same buildPushOps diff as the real push, so there is ONE diff algorithm, never a divergent second one. */
+export function previewPushChangeset(repoPath: string, newTreeSha: string): ChangeSet {
+	const state = loadState(repoPath);
+	if (state === null) return { added: [], removed: [], modified: [], moved: [] };
+	const ops = buildPushOps(repoPath, listTree(repoPath, state.commitSha), listTree(repoPath, newTreeSha), state);
+	return changesetFromOps(ops, state);
+}
+
 /** The push receipt, derived straight from the ops sent (full wire names) — never a second diff. */
 function changesetFromOps(ops: PushOp[], state: RepoState): ChangeSet {
 	const isPush = (o: PushOp): o is PushItemOp => o.op === "pushItem";

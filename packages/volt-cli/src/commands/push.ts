@@ -14,7 +14,7 @@ import {
 	updateRef,
 } from "../git/plumbing.js"
 import { isMergingNow } from "../merge/engine.js"
-import { applyPushToBridge, syncFromBridge } from "../merge/ops.js"
+import { applyPushToBridge, previewPushChangeset, syncFromBridge } from "../merge/ops.js"
 import {
 	buildWorkspaceTreeSha,
 	listWorkspaceFiles,
@@ -24,7 +24,6 @@ import {
 } from "../snapshot/workspace.js"
 import {
 	computeIncoming,
-	computeOutgoing,
 	hasChanges,
 	type ChangeSet,
 } from "../snapshot/state.js"
@@ -163,9 +162,9 @@ export async function push(workspace: string, bridge: Remote, input: PushInput):
 	}
 
 	if (dryRun) {
-		// Dry-run can't send ops, so it previews with computeOutgoing. The real push below takes its receipt
-		// straight from the ops it sends (result.pushed) — one source of truth, never a divergent second diff.
-		const preview = computeOutgoing(paths.snapshotPath, root, stateMutable.commitSha)
+		// Preview the SAME buildPushOps diff the real push will run (against the staged tree, without
+		// sending) — one diff algorithm for both dry-run and the actual receipt, never a divergent second.
+		const preview = previewPushChangeset(paths.snapshotPath, newTreeSha)
 		const adopted = driftAdoptedItems
 			? [...driftAdoptedItems.added, ...driftAdoptedItems.modified].sort()
 			: []
