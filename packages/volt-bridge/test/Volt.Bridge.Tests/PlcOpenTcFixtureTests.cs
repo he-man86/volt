@@ -20,6 +20,23 @@ public class PlcOpenTcFixtureTests
     private static string JumpFixture() => File.ReadAllText(
         Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-fbd", "PLC_PRG_jump_sr.plcopen.xml"));
 
+    private static string LdTonFixture() => File.ReadAllText(
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-ld", "ld_ton_rung_two_networks.plcopen.xml"));
+
+    [Fact]
+    public void Real_TC_LD_with_TON_reads_the_embedded_output_assignment()
+    {
+        // Real TwinCAT LD ground truth: a TON rung with a non-boolean ET output assigned via an <expression>
+        // EMBEDDED in the block's output pin. The reader used to read output-pin NAMES only and silently DROP
+        // this assignment (real data loss); it must now surface `elapsed := T1.ET`.
+        var ld = PlcOpenDocument.FindFbdLdBody(LdTonFixture());
+        Assert.NotNull(ld);
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(ld!));
+        Assert.Contains("T1(IN :=", vg);            // the TON FB call is read
+        Assert.Contains("done := T1.Q", vg);         // boolean output Q → coil
+        Assert.Contains("elapsed := T1.ET", vg);     // the embedded non-boolean output assignment survives
+    }
+
     [Fact]
     public void Real_network_with_sr_negation_edge_branch_jump_label_reads_to_valid_st()
     {

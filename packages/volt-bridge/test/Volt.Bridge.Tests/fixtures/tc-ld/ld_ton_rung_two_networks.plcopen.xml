@@ -1,8 +1,7 @@
-<!-- REAL TwinCAT 3.5.13.21 capture (user-authored in the IDE): two LD networks — a boolean AND rung, and a TON FB rung with contact->IN, a TIME inVariable->PT, Q->coil, and a non-boolean ET output assigned via an embedded <expression> in the output pin. Ground truth for the LD reader/writer. -->
 <?xml version="1.0" encoding="utf-8"?>
 <project xmlns="http://www.plcopen.org/xml/tc6_0200">
-  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.13.21" creationDateTime="2026-06-20T19:56:21.1548641" />
-  <contentHeader name="Untitled1" modificationDateTime="2026-06-20T19:56:21.1548641">
+  <fileHeader companyName="Beckhoff Automation GmbH" productName="TwinCAT PLC Control" productVersion="3.5.13.21" creationDateTime="2026-06-20T20:03:36.3389693" />
+  <contentHeader name="Untitled1" modificationDateTime="2026-06-20T20:03:36.3389693">
     <coordinateInfo>
       <fbd>
         <scaling x="1" y="1" />

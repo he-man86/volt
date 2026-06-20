@@ -120,6 +120,16 @@ namespace Volt.Bridge.Core.Graphical
                             (string?)el.Attribute("instanceName"), ins, outs, ReadCallType(el, ns),
                             outTypes.Count > 0 ? outTypes : null);
                         nodes.Add(blk);
+                        // A block output pin can carry a DIRECT variable assignment as an <expression> inside its
+                        // connectionPointOut (TwinCAT's form for `elapsed := T1.ET`). Emit each as an OutVar
+                        // reading that pin — otherwise the assignment is silently dropped (real data loss).
+                        foreach (var ov in el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
+                        {
+                            var sink = (string?)ov.Element(ns + "connectionPointOut")?.Element(ns + "expression");
+                            if (!string.IsNullOrEmpty(sink))
+                                nodes.Add(new OutVar(next++, null, sink!, Mods.None,
+                                    new Conn(blk.LocalId, (string?)ov.Attribute("formalParameter"))));
+                        }
                         r = (new Conn(blk.LocalId, null), Mods.None);   // consumers carry the output-pin selector
                         break;
                     }
