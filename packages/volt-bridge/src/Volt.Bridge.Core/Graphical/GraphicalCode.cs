@@ -48,14 +48,12 @@ public static class GraphicalCode
     /// so a graphical POU's VAR-section is edited in the IDE, not via push. Throws on invalid VG.</summary>
     public static void Write(ICodeStore code, ItemRef item, string vgText, string declaration)
     {
-        // Format guard (before any IDE import): only FBD/LD can be authored as VG. A read-only CFC/SFC or an
-        // unknown language token is refused HERE with a clear message — not downstream with a misleading
-        // "not writable". The bridge owns FORMAT; the LSP owns code correctness.
+        // Format guard (before any IDE import): only FBD/LD can be authored as VG. An unknown language token
+        // on the NETWORK marker is refused HERE with a clear message — not downstream with a misleading "not
+        // writable". (CFC/SFC are never VG bodies, so they never reach here.) Bridge owns FORMAT; LSP owns code.
         var lang = VgBody.LanguageOf(vgText);
         if (!VgBody.IsEditable(lang))
-            throw new InvalidOperationException(lang is "CFC" or "SFC"
-                ? $"'{lang}' bodies are read-only — edit them in the IDE, not via push."
-                : $"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
+            throw new InvalidOperationException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
 
         var graph = VgParser.Parse(vgText);                                  // throws on invalid VG
         var types = PlcOpenDocument.InstanceTypes(declaration);

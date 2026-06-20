@@ -204,9 +204,10 @@ public static class Materializer
     }
 
     /// <summary>A graphical child's implementation text: the VG (leading NETWORK marker) for editable
-    /// FBD/LD, or a bare <c>%LANG &lt;lang&gt;</c> placeholder for a read-only CFC/SFC view.</summary>
+    /// FBD/LD. A read-only CFC/SFC child has no editable VG body, so it is DECLARATION-ONLY (empty
+    /// implementation) — its language rides on the kind/extension, not a content marker.</summary>
     private static string GraphicalImpl(GraphicalBody gb) =>
-        string.IsNullOrEmpty(gb.Body) ? $"%LANG {gb.Language}" : gb.Body;
+        string.IsNullOrEmpty(gb.Body) ? "" : gb.Body;
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 

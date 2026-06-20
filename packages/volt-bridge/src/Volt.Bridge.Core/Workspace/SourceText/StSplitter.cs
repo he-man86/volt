@@ -206,10 +206,10 @@ public static class StSplitter
 
 	// ─── POU decl/impl split ─────────────────────────────────────────
 
-	/// <summary>Index of the first line that begins the body content: a GRAPHICAL-body marker —
-	/// <c>NETWORK &lt;n&gt; …</c> (editable VG) or <c>%LANG …</c> (read-only CFC/SFC) — and, when
-	/// <paramref name="includeFolder"/> (children), also a leading <c>%FOLDER</c> directive (it's
-	/// prepended to the impl and must stay there for PeelFolderDirective). -1 for a plain textual body.
+	/// <summary>Index of the first line that begins the body content: the editable graphical-body marker
+	/// <c>NETWORK &lt;n&gt; …</c>, and, when <paramref name="includeFolder"/> (children), also a leading
+	/// <c>%FOLDER</c> directive (it's prepended to the impl and must stay there for PeelFolderDirective).
+	/// -1 for a plain textual body (which includes read-only CFC/SFC — declaration-only, no marker).
 	/// Trivia (comments/strings) is skipped so a comment mentioning these can't false-match.</summary>
 	private static int FirstMarkerLine(IList<string> lines, bool includeFolder)
 	{
@@ -219,7 +219,6 @@ public static class StSplitter
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
 			var t = lines[i].TrimStart();
-			if (t.StartsWith("%LANG", System.StringComparison.Ordinal)) return i;
 			if (includeFolder && t.StartsWith("%FOLDER", System.StringComparison.Ordinal)) return i;
 			if (t.StartsWith("NETWORK ", System.StringComparison.Ordinal) && t.Length > 8 && char.IsDigit(t[8]))
 				return i;
@@ -246,7 +245,7 @@ public static class StSplitter
 			return (string.Join("\n", pouLines).TrimEnd(), "");
 		}
 
-		// A GRAPHICAL (VG) body — NETWORK <n> <LANG> … (editable) or a %LANG placeholder (CFC/SFC) — is
+		// A GRAPHICAL (VG) body — NETWORK <n> <LANG> … (editable FBD/LD; CFC/SFC are declaration-only) — is
 		// the IMPLEMENTATION in full, INCLUDING its own VAR_TEMP block. Split BEFORE that marker so the
 		// VG's VAR_TEMP is never mistaken for a POU declaration var (the END_VAR scan below would pull it
 		// into the decl, writing temp vars into the POU and corrupting it on push).
@@ -372,7 +371,7 @@ public static class StSplitter
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
 		var (decl, impl) = SplitDeclImplOfChild(inner);
 		// The body begins with an optional Volt directive block; %FOLDER is ours (the child's
-		// sub-folder) and is peeled off. The graphical marker (NETWORK …, or %LANG for CFC/SFC) stays
+		// sub-folder) and is peeled off. The graphical marker (NETWORK … for editable FBD/LD) stays
 		// in the body for graphical detection.
 		var (folder, body) = PeelFolderDirective(impl);
 		return new StChild(kind, name, decl, body, Folder: folder, AccessModifier: accessModifier, ReturnType: returnType);
@@ -570,7 +569,7 @@ public static class StSplitter
 
 	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
 	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER leads the
-	/// body's top directive block, ahead of the graphical content (NETWORK …, or %LANG for CFC/SFC).</summary>
+	/// body's top directive block, ahead of the graphical content (the NETWORK marker for editable FBD/LD).</summary>
 	private static (string? folder, string rest) PeelFolderDirective(string text)
 	{
 		var lines = text.Replace("\r", "").Split('\n');

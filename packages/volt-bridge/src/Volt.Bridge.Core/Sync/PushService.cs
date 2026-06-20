@@ -280,7 +280,7 @@ public static class PushService
         // touches children PRESENT in the push, so without this a child removed in the workspace (a
         // deleted method/action/property) would orphan in the IDE and reappear on the next pull — the
         // workspace and IDE would silently diverge. Read-only graphical children stay in the pushed set
-        // as %LANG placeholders, so they are kept, not deleted.
+        // (declaration-only), so they are kept, not deleted.
         //
         // Only for a textual root POU: a graphical (VG) body push goes through GraphicalCode.Write, which
         // deletes-and-reimports the object (staleing `pou`), and the VG sourceText carries no textual

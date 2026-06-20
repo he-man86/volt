@@ -4,47 +4,28 @@ using System.Text.RegularExpressions;
 namespace Volt.Bridge.Core.Graphical;
 
 /// <summary>
-/// The VG graphical-body contract. A graphical body — a ROOT POU (its own .fbd/.ld file) or a CHILD
-/// action/method (inline in a .st) — is detected by its opening marker:
-/// <list type="bullet">
-/// <item><b>Editable FBD/LD</b> lead with a network block <c>NETWORK &lt;index&gt; &lt;LANG&gt; …</c>;
-/// the language rides on the marker (no separate header). These round-trip (parsed and pushed back).</item>
-/// <item><b>Read-only CFC/SFC</b> have no networks, so they're a single <c>%LANG &lt;lang&gt;</c>
-/// placeholder line — shown, never written.</item>
-/// </list>
-/// The language alone says whether the body round-trips: FBD/LD are editable, CFC/SFC are read-only.
+/// The VG graphical-body contract. An EDITABLE graphical body (FBD/LD — a ROOT POU's own .fbd/.ld file,
+/// or a CHILD action/method inline in a .st) leads with a network block <c>NETWORK &lt;index&gt;
+/// &lt;LANG&gt; …</c>; the language rides on the marker (no separate header) and the body round-trips.
+/// Read-only CFC/SFC are NOT VG bodies — they have no networks and materialize declaration-only (their
+/// language rides on the .cfc/.sfc extension, which the bridge derives from the IDE).
 /// </summary>
 public static class VgBody
 {
-    private const string LangHeader = "%LANG";
     // NETWORK <index> <LANG> … — the editable marker (the digit after NETWORK rules out ST text).
     private static readonly Regex NetworkHeader = new(@"^NETWORK\s+\d+\s+([A-Za-z]\w*)", RegexOptions.Compiled);
 
-    /// <summary>The text is a graphical VG body — it opens with a <c>NETWORK n …</c> block (FBD/LD)
-    /// or a <c>%LANG …</c> placeholder (CFC/SFC).</summary>
-    public static bool Is(string? impl)
-    {
-        if (impl == null) return false;
-        var t = impl.TrimStart();
-        return t.StartsWith(LangHeader, StringComparison.Ordinal) || NetworkHeader.IsMatch(t);
-    }
+    /// <summary>The text is an editable graphical VG body — it opens with a <c>NETWORK n …</c> block (FBD/LD).</summary>
+    public static bool Is(string? impl) => impl != null && NetworkHeader.IsMatch(impl.TrimStart());
 
-    /// <summary>The body's language ("FBD"/"LD" from the NETWORK marker, or the <c>%LANG</c> value for
-    /// a CFC/SFC placeholder), or null if not a VG body.</summary>
+    /// <summary>The body's language ("FBD"/"LD" from the NETWORK marker), or null if not a VG body.</summary>
     public static string? LanguageOf(string? impl)
     {
         if (impl == null) return null;
-        var t = impl.TrimStart();
-        if (t.StartsWith(LangHeader, StringComparison.Ordinal))
-        {
-            var nl = t.IndexOf('\n');
-            var line = (nl >= 0 ? t.Substring(0, nl) : t).Trim();
-            return line.Length > LangHeader.Length ? line.Substring(LangHeader.Length).Trim() : null;
-        }
-        var m = NetworkHeader.Match(t);
+        var m = NetworkHeader.Match(impl.TrimStart());
         return m.Success ? m.Groups[1].Value : null;
     }
 
-    /// <summary>Whether a VG language round-trips on push: FBD/LD are editable; CFC/SFC are read-only.</summary>
+    /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC are read-only, not VG bodies.)</summary>
     public static bool IsEditable(string? language) => language is "FBD" or "LD";
 }

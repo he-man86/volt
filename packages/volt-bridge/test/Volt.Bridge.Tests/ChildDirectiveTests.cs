@@ -78,9 +78,7 @@ public class ChildDirectiveTests
     [Theory]
     [InlineData("NETWORK 0 FBD\n  out := i1;\nEND_NETWORK", "FBD", true)]   // editable: language on the marker
     [InlineData("NETWORK 0 LD\n  out := i1;\nEND_NETWORK", "LD", true)]
-    [InlineData("%LANG CFC", "CFC", false)]   // read-only view (no networks → %LANG placeholder)
-    [InlineData("%LANG SFC", "SFC", false)]
-    [InlineData("x := 1;", null, false)]      // textual ST
+    [InlineData("x := 1;", null, false)]      // textual ST — and read-only CFC/SFC (declaration-only) too: not a VG body
     public void VgBody_classifies_language_and_editability(string impl, string? lang, bool editable)
     {
         Assert.Equal(lang != null, VgBody.Is(impl));

@@ -90,15 +90,6 @@ public class GraphicalCodeTests
     }
 
     [Fact]
-    public void Write_refuses_a_read_only_cfc_body()
-    {
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            GraphicalCode.Write(s, Item, "%LANG CFC\n", "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
-        Assert.Contains("read-only", ex.Message);
-    }
-
-    [Fact]
     public void A_failed_export_propagates_never_an_empty_marker()
     {
         var s = new FakeCodeStore { Lang = "FBD", ThrowOnReadXml = true };

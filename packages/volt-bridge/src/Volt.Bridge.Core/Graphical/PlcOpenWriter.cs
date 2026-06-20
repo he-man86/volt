@@ -21,7 +21,7 @@ namespace Volt.Bridge.Core.Graphical
         /// null when types are already present on the model (e.g. a body just read back).</param>
         /// <summary>Render a graphical <see cref="GraphBody"/> to its PLCopen body element. FBD and LD are the
         /// editable graphical languages; LD is generated as the inverse of <see cref="PlcOpenReader"/>'s ladder
-        /// lowering. CFC and SFC are READ-ONLY today (surfaced as %LANG placeholders, never written) — when one
+        /// lowering. CFC and SFC are READ-ONLY today (declaration-only, never written) — when one
         /// becomes writable, add its case here with its own writer/model. An unhandled language throws (a loud
         /// failure, never a silently-wrong body).</summary>
         public static XElement WriteBody(GraphBody body, System.Func<string, string?>? resolveType = null) => body.Language switch

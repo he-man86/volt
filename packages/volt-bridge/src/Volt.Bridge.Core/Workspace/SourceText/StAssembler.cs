@@ -195,7 +195,7 @@ public static class StAssembler
 
 	/// <summary>Prepend a `%FOLDER &lt;path&gt;` directive to a child body — the child's sub-folder
 	/// within the POU. The signature line stays a clean identifier; this `%FOLDER` line sits at the top
-	/// of the body, ahead of its graphical content (the `NETWORK` marker, or `%LANG` for CFC/SFC).</summary>
+	/// of the body, ahead of its graphical content (the `NETWORK` marker for editable FBD/LD).</summary>
 	private static string PrependFolderDirective(string? folder, string impl)
 	{
 		if (string.IsNullOrEmpty(folder)) return impl;
