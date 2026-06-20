@@ -27,7 +27,7 @@ namespace Volt.Bridge.Core.Graphical
         public static XElement WriteBody(GraphBody body, System.Func<string, string?>? resolveType = null) => body.Language switch
         {
             "FBD" => WriteFbdBody(body, resolveType),
-            "LD" => WriteLadderBody(body),
+            "LD" => WriteLadderBody(body, resolveType),
             _ => throw new System.NotSupportedException(
                 $"PlcOpenWriter: graphical language '{body.Language}' is not writable (FBD/LD are generated; CFC/SFC are read-only)."),
         };
@@ -202,11 +202,21 @@ namespace Volt.Bridge.Core.Graphical
         // rung are not generated yet — they throw, so the gap is loud, never silently mis-rendered.
         private const long RightRailId = 2147483646L;
 
-        private static XElement WriteLadderBody(GraphBody body)
+        private static XElement WriteLadderBody(GraphBody body, System.Func<string, string?>? resolveType)
         {
             var root = new XElement(Ns + "LD");
             foreach (var net in body.Networks)
             {
+                // A network with an FB/operator block (TON, GT, MOVE …) can't be drawn as pure contacts/coils.
+                // Emit a real LADDER frame around it — power rails + a <coil> per boolean sink — with the data
+                // inputs as variable boxes and the block FBD-style. (TwinCAT's LD importer NREs on bare FBD
+                // nodes; it needs the rails + coils.) The reader's block case lowers this back to the same graph.
+                if (net.Nodes.Any(n => n is Block b && b.TypeName.ToUpperInvariant() is not ("AND" or "OR")))
+                {
+                    EmitLadderWithBlocks(root, net, resolveType);
+                    continue;
+                }
+
                 long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
                 long baseId = netIndex * NetworkStride;
                 long leftRail = baseId;
@@ -234,6 +244,77 @@ namespace Volt.Bridge.Core.Graphical
                     new XElement(Ns + "connectionPointIn")));
             }
             return root;
+        }
+
+        /// <summary>Emit an LD network that contains an FB/operator block, inside a real ladder frame: left/right
+        /// power rails, the block + its data inputs as variable boxes (FBD-style nodes), and a &lt;coil&gt; for
+        /// each boolean sink. TwinCAT's LD importer requires the rails/coils (it NREs on bare FBD nodes in an
+        /// &lt;LD&gt; body); the reader's block case lowers this back to the same graph an FBD network would use.
+        /// Rail localIds (netIndex·10^10 and +RightRailId) never collide with VgParser's node ids (which start at
+        /// netIndex·10^10+1).</summary>
+        private static void EmitLadderWithBlocks(XElement root, GraphNetwork net, System.Func<string, string?>? resolveType)
+        {
+            long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
+            long baseId = netIndex * NetworkStride;
+            int row = 0;
+
+            // A connection back to an operator/FB result carries no output-pin name in VG; re-derive it so the
+            // PLCopen connection still names the output pin the IDE expects (mirrors WriteFbdBody).
+            var byId = net.Nodes.ToDictionary(n => n.LocalId);
+            string? OutPin(long id) => byId.TryGetValue(id, out var n) && n is Block bl && bl.OutputPins.Count > 0
+                ? bl.OutputPins[0] : null;
+            var refPins = new Dictionary<long, List<string>>();
+            void NoteRef(Conn? c)
+            {
+                if (c?.FormalParameter == null) return;
+                if (!refPins.TryGetValue(c.RefLocalId, out var list)) refPins[c.RefLocalId] = list = new List<string>();
+                if (!list.Contains(c.FormalParameter)) list.Add(c.FormalParameter);
+            }
+            foreach (var n in net.Nodes)
+                switch (n) { case Block bk: foreach (var p in bk.Inputs) NoteRef(p.Source); break; case OutVar o: NoteRef(o.Source); break; }
+
+            // A block output assigned to a variable is written one of two ways, and LIVE TC proved both are
+            // required: the BOOLEAN output stays a <coil> (TC drops a boolean output embedded in the pin), while
+            // a NON-boolean output (e.g. a timer's ET) MUST be an <expression> EMBEDDED in its output pin (a
+            // coil for it is a TIME coil → TC's export silently empties <pous/>). VG carries no pin types, so the
+            // grounded signal is IEC FB pin ORDER: a standard FB's first output is its boolean Q-style flag — keep
+            // it as the coil; embed the rest. (A custom FB whose first output is non-boolean would need its real
+            // pin types; that drift is caught by the round-trip gate rather than silently mis-emitted.)
+            var embed = new Dictionary<(long, string), string>();
+            var keptCoil = new HashSet<long>();
+            foreach (var n in net.Nodes)
+                if (n is OutVar o && o.Source is { FormalParameter: { } fp } src
+                    && byId.TryGetValue(src.RefLocalId, out var prod) && prod is Block)
+                {
+                    if (keptCoil.Add(src.RefLocalId)) continue;   // first output of this block → coil (boolean primary)
+                    embed[(src.RefLocalId, fp)] = o.Expression;   // later outputs (data) → embedded expression
+                }
+
+            root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", baseId), Pos(row++),
+                new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
+            foreach (var node in net.Nodes)
+            {
+                if (node is OutVar ov)
+                {
+                    if (ov.Source is { FormalParameter: { } ofp } os && embed.ContainsKey((os.RefLocalId, ofp)))
+                        continue;        // folded into the producing block's output pin as an embedded expression
+                    root.Add(new XElement(Ns + "coil", new XAttribute("localId", ov.LocalId), CoilAttrs(ov.Mods),
+                        Pos(row++), ConnIn(ov.Source, OutPin), new XElement(Ns + "connectionPointOut"),
+                        new XElement(Ns + "variable", ov.Expression)));
+                }
+                else if (node is Block blk)
+                {
+                    var el = WriteNode(node, resolveType, OutPin, refPins, row++);
+                    foreach (var ovar in el.Element(Ns + "outputVariables")?.Elements(Ns + "variable") ?? Enumerable.Empty<XElement>())
+                        if (ovar.Attribute("formalParameter")?.Value is { } fp && embed.TryGetValue((blk.LocalId, fp), out var target))
+                            ovar.Element(Ns + "connectionPointOut")?.Add(new XElement(Ns + "expression", target));
+                    root.Add(el);
+                }
+                else                     // inVariable data boxes
+                    root.Add(WriteNode(node, resolveType, OutPin, refPins, row++));
+            }
+            root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", baseId + RightRailId), Pos(row),
+                new XElement(Ns + "connectionPointIn")));
         }
 
         /// <summary>Emit the contacts feeding <paramref name="source"/>, chained from <paramref name="inIds"/>.

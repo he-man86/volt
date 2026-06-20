@@ -63,6 +63,8 @@ namespace Volt.Bridge.Core.Graphical
             var byId = new Dictionary<long, XElement>();
             foreach (var e in els) byId[(long?)e.Attribute("localId") ?? 0] = e;
             var nodes = new List<GraphNode>();
+            var tail = new List<GraphNode>();   // embedded block-output assignments, appended AFTER the coils so a
+                                                // block's boolean primary (coil) precedes its data outputs (canonical order)
             long next = baseId;
             var memo = new Dictionary<long, (Conn? Conn, Mods Mods)>();   // ld id → its boolean value (Conn==null = rail/identity)
 
@@ -127,7 +129,7 @@ namespace Volt.Bridge.Core.Graphical
                         {
                             var sink = (string?)ov.Element(ns + "connectionPointOut")?.Element(ns + "expression");
                             if (!string.IsNullOrEmpty(sink))
-                                nodes.Add(new OutVar(next++, null, sink!, Mods.None,
+                                tail.Add(new OutVar(next++, null, sink!, Mods.None,
                                     new Conn(blk.LocalId, (string?)ov.Attribute("formalParameter"))));
                         }
                         r = (new Conn(blk.LocalId, null), Mods.None);   // consumers carry the output-pin selector
@@ -197,6 +199,7 @@ namespace Volt.Bridge.Core.Graphical
 
             // Evaluate every element (sinks pull their upstream; standalone blocks get pulled too).
             foreach (var el in els) Value((long?)el.Attribute("localId") ?? 0);
+            nodes.AddRange(tail);   // embedded block-output assignments come after the coils
             return nodes;
         }
 

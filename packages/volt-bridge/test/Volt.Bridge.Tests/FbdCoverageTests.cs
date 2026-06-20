@@ -154,21 +154,27 @@ public class FbdCoverageTests
         Assert.Contains("<coil", outXml);
     }
 
-    /// <summary>LD structure the boolean generator can't reproduce yet — an FB/operator block on a rung —
-    /// is REFUSED on write (a loud throw from the ladder generator), never silently mangled into a wrong
-    /// rung. (Series AND, parallel OR branches, and negation/edge/storage now DO round-trip.)</summary>
-    [Theory]
-    [InlineData("FB block on a rung",
-        "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
-        "<block localId='2' typeName='TON'><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>" +
-        "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>")]
-    public void Ld_unsupported_write_is_refused(string _desc, string inner)
+    /// <summary>An FB/operator block on a ladder rung now ROUND-TRIPS: the reader lowers it to the same Block
+    /// node an FBD network uses, and the writer emits that network FBD-style (variable boxes + the block)
+    /// inside the &lt;LD&gt; root — a rail-less LD network reads back via the reader's FBD path to the same
+    /// graph. (Was previously refused as "edit in the IDE".)</summary>
+    [Fact]
+    public void Ld_block_on_a_rung_round_trips()
     {
+        var inner = "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
+            "<inVariable localId='2'><connectionPointOut/><expression>a</expression></inVariable>" +
+            "<inVariable localId='3'><connectionPointOut/><expression>b</expression></inVariable>" +
+            "<block localId='4' typeName='GT'><inputVariables>" +
+            "<variable formalParameter='IN1'><connectionPointIn><connection refLocalId='2'/></connectionPointIn></variable>" +
+            "<variable formalParameter='IN2'><connectionPointIn><connection refLocalId='3'/></connectionPointIn></variable>" +
+            "</inputVariables><outputVariables><variable formalParameter='OUT'><connectionPointOut/></variable></outputVariables></block>" +
+            "<coil localId='5'><connectionPointIn><connection refLocalId='4'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>";
         var doc = Doc("LD", inner);
-        _ = PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!);   // reader stays TOTAL (no throw)
-        var ex = Assert.Throws<System.NotSupportedException>(() => RoundTripBody(doc));   // writer refuses, loudly
-        Assert.Contains("edit this POU in the IDE", ex.Message);          // user-facing + actionable
-        Assert.DoesNotContain("POC", ex.Message);
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        Assert.Contains(">", vg);                    // the GT comparison renders infix in the VG
+        var outXml = RoundTripBody(doc);             // writes back WITHOUT throwing (was a NotSupportedException)
+        Assert.Contains("<block", outXml);           // emitted as a real block, not mangled
+        Assert.Contains("GT", outXml);
     }
 
     /// <summary>The ONE sanctioned silent drop: vendorElement is cosmetic editor metadata — the guard
