@@ -102,10 +102,19 @@ export class TestBridge implements Remote {
 		}
 	}
 
+	/** Set to make the next pushBatch refuse with these exact conflicts (e.g. a structured VG diagnostic
+	 *  carrying code + line) — for exercising the CLI's conflict formatting. */
+	nextPushConflicts: PushResponse["conflicts"] | null = null
+
 	async pushBatch(req: PushRequest): Promise<PushResponse> {
 		this.pushCalls.push(req)
 		const versions = this.computeVersions()
 		const currentProjectVersion = this.projectVersionOverride ?? hashMap(versions)
+		if (this.nextPushConflicts) {
+			const conflicts = this.nextPushConflicts
+			this.nextPushConflicts = null
+			return { accepted: false, conflicts, currentProjectVersion }
+		}
 		if (req.expectedProjectVersion !== undefined && req.expectedProjectVersion !== currentProjectVersion) {
 			return {
 				accepted: false,

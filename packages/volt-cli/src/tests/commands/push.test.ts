@@ -169,6 +169,37 @@ describe("push", () => {
       cleanup()
     }
   })
+
+  // A refused graphical push carries a STRUCTURED VG diagnostic (code + line + the canonical body). The CLI
+  // must render it as a readable `name:line [CODE] …` block with the suggested form intact, not an opaque string.
+  test("a structured VG diagnostic conflict is formatted with code, line, and the canonical body", async () => {
+    const { workspace, bridge, cleanup } = makeTestEnv(simple)
+    try {
+      await init(workspace, bridge, {})
+      await pull(workspace, bridge, {})
+
+      // a local edit so push isn't a no-op
+      const motorPath = join(workspace, "src", "POUs", "FB_Motor.st")
+      writeFileSync(motorPath, "FUNCTION_BLOCK FB_Motor\nVAR\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+
+      // the bridge refuses with the structured diagnostic the round-trip gate emits
+      bridge.nextPushConflicts = [{
+        name: "fbd.fbd",
+        reason: "graphical body is not in canonical form — use this exact body:\n\nNETWORK 0 FBD\n  g1 := (i1 AND i2)\nEND_NETWORK",
+        code: "VG_NOT_CANONICAL",
+        line: 5,
+      }]
+
+      const result = await push(workspace, bridge, {})
+      expect(result.kind).toBe("rejected")
+      if (result.kind === "rejected") {
+        expect(result.reason).toContain("fbd.fbd:5 [VG_NOT_CANONICAL]")   // name:line [CODE]
+        expect(result.reason).toContain("NETWORK 0 FBD")                  // the canonical body block is preserved (newlines kept)
+      }
+    } finally {
+      cleanup()
+    }
+  })
 })
 
 // The push-side of concurrent edits: the engineer changed the IDE after the last
