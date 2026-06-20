@@ -27,7 +27,7 @@ describe("show", () => {
       await show(workspace, bridge, "refs/heads/nonexistent", "POUs/FB_Motor.st")
       expect(process.exitCode).toBe(1)
     } finally {
-      process.exitCode = undefined
+      process.exitCode = 0   // reset: `= undefined` does NOT clear it in bun → the runner would exit non-zero
       cleanup()
     }
   })
@@ -41,7 +41,7 @@ describe("show", () => {
       await show(workspace, bridge, "HEAD", "nonexistent/path.st")
       expect(process.exitCode).toBe(2)
     } finally {
-      process.exitCode = undefined
+      process.exitCode = 0   // reset: `= undefined` does NOT clear it in bun → the runner would exit non-zero
       cleanup()
     }
   })
@@ -79,7 +79,7 @@ describe("show", () => {
       await show(workspace, bridge, "BRIDGE", "POUs/DoesNotExist.st")
       expect(process.exitCode).toBe(2)
     } finally {
-      process.exitCode = undefined
+      process.exitCode = 0   // reset: `= undefined` does NOT clear it in bun → the runner would exit non-zero
       cleanup()
     }
   })

@@ -37,7 +37,7 @@ describe("build", () => {
       await build(env.workspace, failBridge, {})
       expect(process.exitCode).toBe(2)
     } finally {
-      process.exitCode = undefined
+      process.exitCode = 0   // reset: `= undefined` does NOT clear it in bun → the runner would exit 2
       env.cleanup()
     }
   })
