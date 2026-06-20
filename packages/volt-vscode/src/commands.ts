@@ -80,62 +80,62 @@ function onDiskPath(workspaceRoot: string, rel: string): string {
 
 // ── pull / push with outcome-aware UX ───────────────────────────────────
 async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
-	await withGate(workspaceRoot, async () =>
-		await vscode.window.withProgress(
+	// Gate + spinner wrap only the CLI run; outcome dialogs run after (see doPush for why).
+	const r = await withGate(workspaceRoot, async () =>
+		vscode.window.withProgress(
 			{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
-			async () => {
-				const r = await spawnVolt(workspaceRoot, ["pull", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
-				const outcome = parseJson<PullOutcome>(r.stdout)
-				if (outcome === null) {
-					vscode.window.showErrorMessage(`volt pull failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-					logln(`pull: unparseable output (exit ${r.code}): ${r.stderr}`)
-					return
-				}
-				if (outcome.kind === "ok") {
-					vscode.window.showInformationMessage(`Pulled ${outcome.synced.length} file(s) from the IDE.`)
-				} else if (outcome.kind === "refused") {
-					const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Force Pull")
-					if (pick === "Force Pull") await confirmForcePull(statuses, workspaceRoot)
-				} else {
-					// conflict
-					const pick = await vscode.window.showWarningMessage(
-						`Pull produced ${outcome.paths.length} merge conflict(s). Resolve the markers, then continue.`,
-						"Open Conflicts",
-						"Abort Merge",
-					)
-					if (pick === "Open Conflicts") await openConflicts(workspaceRoot, outcome.paths)
-					else if (pick === "Abort Merge") await runMerge(statuses, workspaceRoot, ["--abort"])
-				}
-			},
+			() => spawnVolt(workspaceRoot, ["pull", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot]),
 		),
 	)
 	await refreshFor(statuses, workspaceRoot)
+	const outcome = parseJson<PullOutcome>(r.stdout)
+	if (outcome === null) {
+		vscode.window.showErrorMessage(`volt pull failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
+		logln(`pull: unparseable output (exit ${r.code}): ${r.stderr}`)
+		return
+	}
+	if (outcome.kind === "ok") {
+		vscode.window.showInformationMessage(`Pulled ${outcome.synced.length} file(s) from the IDE.`)
+	} else if (outcome.kind === "refused") {
+		const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Force Pull")
+		if (pick === "Force Pull") await confirmForcePull(statuses, workspaceRoot)
+	} else {
+		// conflict
+		const pick = await vscode.window.showWarningMessage(
+			`Pull produced ${outcome.paths.length} merge conflict(s). Resolve the markers, then continue.`,
+			"Open Conflicts",
+			"Abort Merge",
+		)
+		if (pick === "Open Conflicts") await openConflicts(workspaceRoot, outcome.paths)
+		else if (pick === "Abort Merge") await runMerge(statuses, workspaceRoot, ["--abort"])
+	}
 }
 
 async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
-	await withGate(workspaceRoot, async () =>
-		await vscode.window.withProgress(
+	// The gate + progress spinner wrap ONLY the CLI run. Outcome handling (which may pop a dialog that
+	// awaits a button click) runs AFTER, so a rejected push never leaves the spinner stuck "pending" or
+	// holds the mutation gate — which would wedge the next push.
+	const r = await withGate(workspaceRoot, async () =>
+		vscode.window.withProgress(
 			{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
-			async () => {
-				const r = await spawnVolt(workspaceRoot, ["push", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
-				const outcome = parseJson<PushOutcome>(r.stdout)
-				if (outcome === null) {
-					vscode.window.showErrorMessage(`volt push failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-					logln(`push: unparseable output (exit ${r.code}): ${r.stderr}`)
-					return
-				}
-				if (outcome.kind === "ok") {
-					vscode.window.showInformationMessage(`Pushed ${outcome.items.length} item(s) to the IDE.`)
-				} else {
-					// rejected (drift / policy / merge-in-progress) — the reason is actionable.
-					const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Pull First", "Force Push")
-					if (pick === "Pull First") await doPull(statuses, workspaceRoot, false)
-					else if (pick === "Force Push") await confirmForcePush(statuses, workspaceRoot)
-				}
-			},
+			() => spawnVolt(workspaceRoot, ["push", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot]),
 		),
 	)
 	await refreshFor(statuses, workspaceRoot)
+	const outcome = parseJson<PushOutcome>(r.stdout)
+	if (outcome === null) {
+		vscode.window.showErrorMessage(`volt push failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
+		logln(`push: unparseable output (exit ${r.code}): ${r.stderr}`)
+		return
+	}
+	if (outcome.kind === "ok") {
+		vscode.window.showInformationMessage(`Pushed ${outcome.items.length} item(s) to the IDE.`)
+	} else {
+		// rejected (drift / policy / merge-in-progress / bridge error) — the reason is actionable.
+		const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Pull First", "Force Push")
+		if (pick === "Pull First") await doPull(statuses, workspaceRoot, false)
+		else if (pick === "Force Push") await confirmForcePush(statuses, workspaceRoot)
+	}
 }
 
 async function confirmForcePull(statuses: Map<string, VoltStatus>, workspaceRoot: string): Promise<void> {
