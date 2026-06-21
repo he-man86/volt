@@ -100,16 +100,17 @@ let _plcPrgOriginal: string | null = null
 // name carries the .st extension) instead of hardcoding, so the SAME suite runs against either vendor's
 // default project. Cached after the first lookup.
 let _mainProgram: string | null = null
-async function mainProgram(): Promise<string> {
+async function mainProgram(): Promise<string | null> {
 	if (_mainProgram) return _mainProgram
 	const items = (await bridge.refs()).items ?? {}
 	for (const cand of ["PLC_PRG.st", "MAIN.st"]) if (items[cand] !== undefined) { _mainProgram = cand; return cand }
-	throw new Error(`no main program (PLC_PRG.st / MAIN.st) in project — items: ${Object.keys(items).join(", ")}`)
+	return null   // some projects (a library / PackML app) have no standard main program — callers tolerate it
 }
 
 /** Strip any test-prefixed instance declarations from the main program so it compiles cleanly. */
 export async function fixPlcPrg(): Promise<void> {
 	const PLC_PRG = await mainProgram()
+	if (!PLC_PRG) return
 	const item = await fetchItem(PLC_PRG).catch(() => null)
 	if (!item || !item.sourceText.includes(PREFIX)) return
 	const lines = item.sourceText.split("\n")
@@ -126,12 +127,14 @@ export async function fixPlcPrg(): Promise<void> {
 }
 
 export async function savePlcPrg(): Promise<void> {
-	_plcPrgOriginal = (await fetchItem(await mainProgram())).sourceText
+	const PLC_PRG = await mainProgram()
+	_plcPrgOriginal = PLC_PRG ? (await fetchItem(PLC_PRG)).sourceText : null
 }
 
 export async function restorePlcPrg(): Promise<void> {
 	if (!_plcPrgOriginal) return
 	const PLC_PRG = await mainProgram()
+	if (!PLC_PRG) { _plcPrgOriginal = null; return }
 	const current = await fetchItem(PLC_PRG)
 	if (current.sourceText === _plcPrgOriginal) { _plcPrgOriginal = null; return }
 	const r = await pushOps([{
@@ -148,6 +151,7 @@ export async function restorePlcPrg(): Promise<void> {
 /** Add an instance of a FB to the main program's VAR section so the compiler reaches it. */
 export async function instantiateInPlcPrg(fbName: string): Promise<void> {
 	const PLC_PRG = await mainProgram()
+	if (!PLC_PRG) return   // no main program to instantiate into — CODESYS compiles every POU regardless
 	const item = await fetchItem(PLC_PRG)
 	const lines = item.sourceText.split("\n")
 	const endVarIdx = lines.findIndex((l: string) => l.trim() === "END_VAR")
@@ -164,14 +168,16 @@ export async function instantiateInPlcPrg(fbName: string): Promise<void> {
 	expect(r.accepted).toBe(true)
 }
 
-/** Instantiate an FB in PLC_PRG and verify the project compiles with zero errors. */
+/** Verify the FB compiles with zero errors. On TC (skips unreferenced POUs) an instance in the main program
+ *  forces compilation; on CODESYS (compiles every POU) the instantiate no-ops and the build still reaches it. */
 export async function ensureCompiles(fbName: string): Promise<void> {
 	await instantiateInPlcPrg(fbName)
 	const r = await bridge.build()
-	expect(r.success).toBe(true)
-	const errors = r.diagnostics.filter((d: any) => d.severity === "error")
-	if (errors.length > 0) console.warn("unexpected compile errors:", JSON.stringify(errors).slice(0, 300))
-	expect(errors.length).toBe(0)
+	// Assert the created POU's BODY compiled — NOT that the whole project is clean: a real fixture project may
+	// carry pre-existing errors of its own (V71_PackML_Hauzer has two), so check only diagnostics naming our POU.
+	const ours = r.diagnostics.filter((d: any) => d.severity === "error" && JSON.stringify(d).includes(PREFIX))
+	if (ours.length > 0) console.warn("test-POU compile errors:", JSON.stringify(ours).slice(0, 300))
+	expect(ours.length).toBe(0)
 }
 
 // ── version snapshots + delta assertions (the hash-stability spine) ───────────
