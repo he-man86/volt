@@ -78,15 +78,31 @@ public static class GraphicalCode
                     + "a shared one crashes its importer). Give each read a separate leaf statement.",
                     "VG_LEAF_FANOUT");
 
-        // Strict round-trip gate (the parser is the exact inverse of the writer): a body that doesn't RE-EMIT
-        // identically isn't canonical — it would drift on the next pull, or silently rename/alias temps. Refuse
-        // it HERE and show the canonical form so the author can paste it verbatim.
+        // Invariant 4 — VG-text round-trip (the VG ⇄ graph leg): the parser is the exact inverse of the writer,
+        // so a body that doesn't RE-EMIT identically isn't canonical — it would drift on the next pull, or
+        // silently rename/alias temps. Refuse it HERE and show the canonical form so the author can paste it.
         var canonical = VgWriter.Write(graph);
         if (Canon(canonical) != Canon(vgText))
             throw new VgParseException(
                 "graphical body is not in canonical form — it would not round-trip identically (you'd see drift on "
                 + "the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'),
                 "VG_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
+
+        // Invariant 5 — PLCopen convergence (the graph ⇄ PLCopen ⇄ IDE leg, the one that actually touches the
+        // IDE). The body must reach a FIXED POINT through our OWN PlcOpenWriter→PlcOpenReader, so the closed loop
+        // push → pull → push STABILISES rather than oscillating into a malformed shape. We do NOT demand the
+        // input already BE the fixed point — LD legitimately canonicalises in one step (e.g. a negated contact
+        // `i1 := NOT a` ⇄ the operand form `(NOT i1 …)`); we require only that it converges. A body that keeps
+        // changing every pull is an unstable shape the IDE can't store cleanly → refuse. (resolveType is null:
+        // VgWriter ignores FB instance types — see the FBD/LD fixed-point tests.)
+        GraphBody PlcRoundTrip(GraphBody g) => PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(g));
+        var once = VgWriter.Write(PlcRoundTrip(graph));
+        var twice = VgWriter.Write(PlcRoundTrip(PlcRoundTrip(graph)));
+        if (Canon(once) != Canon(twice))
+            throw new VgParseException(
+                "graphical body does not converge through the PLCopen round-trip — it keeps changing on every "
+                + "pull, which means an unstable shape the IDE would not store cleanly.",
+                "VG_PLCOPEN_DRIFT") { Line = FirstDiffLine(Canon(once), Canon(twice)) };
         return graph;
     }
 

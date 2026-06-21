@@ -35,6 +35,7 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 | Code | Meaning |
 |---|---|
 | `VG_NOT_CANONICAL` | Parses, but `VgWriter(VgParser(x)) != x` — it would drift on the next pull. The message includes the exact canonical form. |
+| `VG_PLCOPEN_DRIFT` | Does not converge through the PLCopen round-trip (`PlcOpenWriter`→`PlcOpenReader`) — it keeps changing every pull, an unstable shape the IDE can't store cleanly. (One-step canonicalisation, e.g. an LD negated contact, is fine — only non-convergence is refused.) |
 | `VG_LEAF_REFERENCES_TEMP` | A leaf's RHS derives from a temp (a nested expression not decomposed, or `g2 := NOT g1`). |
 | `VG_UNRESOLVED_OPERAND` | An operand references something that isn't a declared temp or FB instance. |
 | `VG_BAD_OPERATOR_STMT` | An operator statement isn't `a OP b [OP c …]`. |
@@ -44,5 +45,17 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 | `VG_NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
 | `VG_PARSE` | Any other structural parse error (unexpected `END_NETWORK`, unclosed `VAR_TEMP`, statement before a network, …). |
 
-The round-trip gate is the backstop: anything that wouldn't re-emit identically is refused, so a graphical push
-never silently renames temps or corrupts the IDE. See `Graphical/GraphicalCode.cs` (`Validate`) and `Vg/VgParser.cs`.
+## Well-formedness invariants (the gate, in order)
+
+`GraphicalCode.Validate` enforces a named, ordered set of rules — the language's well-formedness. A push is refused
+unless ALL hold, so a graphical body never silently renames temps, drifts, or corrupts/crashes the IDE:
+
+1. **Language** — FBD/LD only (`VG_*` parse codes otherwise).
+2. **Parse** — structurally valid VG (the codes above).
+3. **Leaf single-use** (`VG_LEAF_FANOUT`) — one `inVariable` box per read; a block output may fan out (read off the XML).
+4. **VG-text round-trip** (`VG_NOT_CANONICAL`) — the VG ⇄ graph leg: `VgWriter(VgParser(x)) == x`.
+5. **PLCopen convergence** (`VG_PLCOPEN_DRIFT`) — the graph ⇄ PLCopen ⇄ IDE leg: the body reaches a fixed point
+   through `PlcOpenWriter`→`PlcOpenReader`, so the closed loop push → pull → push stabilises.
+
+The two round-trip legs together are the backstop: nothing we accept can drift or be a shape the importer
+rejects. See `Graphical/GraphicalCode.cs` (`Validate`) and `Vg/VgParser.cs`.
