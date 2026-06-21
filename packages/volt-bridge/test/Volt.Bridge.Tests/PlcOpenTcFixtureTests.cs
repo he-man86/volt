@@ -95,7 +95,7 @@ public class PlcOpenTcFixtureTests
         Assert.Contains("negated=\"true\"", xml2);
         Assert.Contains("edge=\"rising\"", xml2);
 
-        Assert.Equal(vg1, VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(g1))));  // fixed point
+        Assert.Equal(vg1, GraphicalRoundTrip.ToVg(g1));  // fixed point
     }
 
     [Fact]

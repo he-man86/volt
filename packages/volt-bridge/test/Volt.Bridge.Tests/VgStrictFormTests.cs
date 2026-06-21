@@ -17,8 +17,7 @@ public class VgStrictFormTests
     private static GraphBody Read(string inner) =>
         PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
     private static string Vg(string inner) => VgWriter.Write(Read(inner));
-    private static string FullRoundTrip(string vg) =>
-        VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
+    private static string FullRoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
 
     /// <summary>A leaf feeding two consumers is ONE node, referenced by its name twice — fan-out
     /// preserved exactly (the whole reason we name instead of inline).</summary>
@@ -110,7 +109,7 @@ public class VgStrictFormTests
         var sr = g.Networks.SelectMany(n => n.Nodes).OfType<Block>().Single(b => b.TypeName == "SR");
         Assert.All(sr.Inputs, p => Assert.Equal("BOOL", p.Type));   // SET1/RESET typed from inputparamtypes
 
-        var g2 = PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(g));
+        var g2 = GraphicalRoundTrip.Once(g);
         var sr2 = g2.Networks.SelectMany(n => n.Nodes).OfType<Block>().Single(b => b.TypeName == "SR");
         Assert.All(sr2.Inputs, p => Assert.Equal("BOOL", p.Type));  // survived the rewrite
     }

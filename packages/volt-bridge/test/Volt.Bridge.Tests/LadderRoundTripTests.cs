@@ -22,7 +22,7 @@ public class LadderRoundTripTests
     private static XElement ToLadder(string vg) => PlcOpenWriter.WriteBody(VgParser.Parse(vg));
 
     /// <summary>VG → <c>&lt;LD&gt;</c> → VG: one full write+read pass through the ladder pipeline.</summary>
-    private static string RoundTrip(string vg) => VgWriter.Write(PlcOpenReader.ReadBody(ToLadder(vg)));
+    private static string RoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
 
     private static int Count(XElement ld, string element) => ld.Elements(XName.Get(element, Ns)).Count();
 

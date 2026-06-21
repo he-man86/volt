@@ -95,9 +95,8 @@ public static class GraphicalCode
         // `i1 := NOT a` ⇄ the operand form `(NOT i1 …)`); we require only that it converges. A body that keeps
         // changing every pull is an unstable shape the IDE can't store cleanly → refuse. (resolveType is null:
         // VgWriter ignores FB instance types — see the FBD/LD fixed-point tests.)
-        GraphBody PlcRoundTrip(GraphBody g) => PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(g));
-        var once = VgWriter.Write(PlcRoundTrip(graph));
-        var twice = VgWriter.Write(PlcRoundTrip(PlcRoundTrip(graph)));
+        var once = GraphicalRoundTrip.ToVg(graph);
+        var twice = GraphicalRoundTrip.ToVg(GraphicalRoundTrip.Once(graph));
         if (Canon(once) != Canon(twice))
             throw new VgParseException(
                 "graphical body does not converge through the PLCopen round-trip — it keeps changing on every "

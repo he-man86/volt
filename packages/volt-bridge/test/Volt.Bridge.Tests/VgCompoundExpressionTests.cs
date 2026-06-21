@@ -86,7 +86,7 @@ public class VgCompoundExpressionTests
         // VG → PLCopen → VG unchanged, or hand-edited inversions wouldn't round-trip.
         var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n"
             + "  i1 := a;\n  i2 := b;\n  g1 := (NOT i1 AND i2);\n  out := NOT g1;\nEND_NETWORK\n";
-        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
+        var back = GraphicalRoundTrip.ToVg(vg);
         Assert.Equal(vg, back);   // fixed point
     }
 
@@ -100,7 +100,7 @@ public class VgCompoundExpressionTests
         var xml = PlcOpenWriter.WriteBody(graph).ToString();
         Assert.Contains("NOT x", xml);                            // negation is in the expression
         Assert.DoesNotContain("negated", xml.ToLowerInvariant()); // NOT as a `negated` attribute
-        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(graph)));
+        var back = GraphicalRoundTrip.ToVg(graph);
         Assert.Equal(vg, back);                                   // read↔write symmetric (bridge fixed point)
     }
 

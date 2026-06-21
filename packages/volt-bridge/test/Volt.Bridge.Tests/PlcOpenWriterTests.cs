@@ -147,7 +147,7 @@ public class PlcOpenWriterTests
         var vg = VgWriter.Write(g);
         Assert.Contains("out := g1;", vg);   // operator result referenced directly
         Assert.DoesNotContain(".Out1", vg);  // no non-ST pin suffix
-        Assert.Equal(vg, VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg)))));  // fixed point
+        Assert.Equal(vg, GraphicalRoundTrip.ToVg(vg));  // fixed point
     }
 
     /// <summary>Regression: a MULTI-network body must round-trip through XML without colliding
@@ -161,7 +161,7 @@ public class PlcOpenWriterTests
             "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
             "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
             "  i1 := c;\n  i2 := d;\n  g1 := (i1 OR i2);\n  y := g1;\nEND_NETWORK\n";
-        var back = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg))));
+        var back = GraphicalRoundTrip.ToVg(vg);
         Assert.Equal(vg, back);   // a true fixed point — no hash drift, no collapse
     }
 

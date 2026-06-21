@@ -17,8 +17,7 @@ namespace Volt.Bridge.Tests;
 public class LdBlockFeatureTests
 {
     // VG → PLCopen → VG, resolving an FB instance's type (VG carries no types). Mirrors the live round-trip.
-    private static string Rt(string vg) =>
-        VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenWriter.WriteBody(VgParser.Parse(vg), _ => "TON")));
+    private static string Rt(string vg) => GraphicalRoundTrip.ToVg(vg, _ => "TON");
 
     private const string TonRung =
         "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n  END_VAR\n"
