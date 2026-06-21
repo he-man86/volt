@@ -198,8 +198,24 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 if (!_enSource.TryGetValue(en, out var enSrc))
                     throw new VgParseException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
                 var asg = SplitAssignment(body);
-                if (asg == null)
-                    throw new VgParseException("EN/ENO function-block calls are not yet supported: " + body, "VG_BAD_EXPRESSION");
+                if (asg == null)   // EN/ENO FUNCTION BLOCK: `IF en THEN inst(IN := x); END_IF` — its value outputs are read elsewhere via inst.Pin
+                {
+                    var (inst, inner) = SplitCall(body);
+                    var fbPins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
+                    fbPins.AddRange(SplitArgs(inner).Select(a =>
+                    {
+                        var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
+                        if (p.Length != 2) throw new VgParseException("FB call arg needs 'pin := value': " + a);
+                        var (conn, mods) = ParseOperand(p[1].Trim());
+                        return new Pin(p[0].Trim(), conn, mods);
+                    }));
+                    var fid = _nextId++;
+                    Declare(inst);
+                    _blockByName[inst] = fid;   // so `inst.Q` etc. resolve downstream
+                    _nodes.Add(new Block(fid, null, "", inst, fbPins, new List<string> { "ENO" }, "functionblock"));
+                    _eno[en] = fid;             // en resolves to this box's ENO
+                    return;
+                }
                 var (result, rhs) = asg.Value;
 
                 string typeName, callType;

@@ -43,4 +43,21 @@ public class EnEnoTests
         var spliced = PlcOpenDocument.SpliceFbdLdBody(miniDoc, newBody);   // must not throw
         Assert.Contains("ENO", spliced);
     }
+
+    [Fact]
+    public void EnEno_on_a_function_block_round_trips()
+    {
+        // An EN-gated FB call: `IF en THEN inst(IN := x); END_IF`, its value outputs read separately via inst.Pin.
+        var vg =
+            "NETWORK 0 FBD\n" +
+            "  VAR_TEMP\n    en1 : BOOL;\n  END_VAR\n" +
+            "  en1 := a;\n" +
+            "  IF en1 THEN t1(IN := x, PT := y); END_IF\n" +
+            "  done := t1.Q;\n" +
+            "END_NETWORK\n";
+        var once = VgWriter.Write(VgParser.Parse(vg));
+        File.WriteAllText(Path.Combine(Path.GetTempPath(), "eneno_fb.txt"), once);
+        Assert.Equal(once, VgWriter.Write(VgParser.Parse(once)));            // VG-text fixed point
+        Assert.Equal(once, GraphicalRoundTrip.ToVg(VgParser.Parse(once)));   // PLCopen convergence
+    }
 }
