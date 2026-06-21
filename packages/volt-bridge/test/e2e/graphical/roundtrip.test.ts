@@ -3,7 +3,7 @@
  * CFC/SFC are read-only (declaration-only, never created).
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
 
 // A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
 // give every test headroom (the round-trip tests are fast; this only matters for the build check).
@@ -147,6 +147,31 @@ END_PROGRAM
 `
 }
 
+// A graphical FUNCTION_BLOCK (not a PROGRAM) — instantiable, so it can be REFERENCED from PLC_PRG and TwinCAT
+// will actually compile its body (TC skips unreferenced POUs; an instance declaration forces compilation).
+function ldFb(name: string) {
+	return `FUNCTION_BLOCK ${name}
+VAR
+\ta : BOOL;
+\tb : BOOL;
+\tout : BOOL;
+END_VAR
+
+NETWORK 0 LD
+  VAR_TEMP
+    i1 : BOOL;
+    i2 : BOOL;
+    g1 : BOOL;
+  END_VAR
+  i1 := a;
+  i2 := b;
+  g1 := (i1 AND i2);
+  out := g1;
+END_NETWORK
+END_FUNCTION_BLOCK
+`
+}
+
 describe(`graphical / round-trip (${BASE})`, () => {
 	beforeAll(async () => { await requireHealthy() })
 	beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
@@ -205,20 +230,16 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		})
 	}
 
-	it("a created graphical POU compiles — no undeclared-variable errors (build-verified, not just round-tripped)", async () => {
+	it("a created graphical FB compiles when referenced — build-verified on BOTH vendors", async () => {
 		// The deeper guard: round-tripping a body proves the BODY is stable, not that the POU is VALID. A
-		// push-created graphical POU once landed with an empty VAR section, so its contacts referenced
-		// undeclared vars — a BUILD error. Instantiate it and compile: there must be no error mentioning this
-		// POU. (Strong on CODESYS, which compiles every POU under the application; on TwinCAT a standalone POU
-		// is skipped unless referenced — the decl assertions above are the cross-vendor catch.)
-		const name = id("vg_build")
-		const fullName = fid("vg_build", "ld")
-		const refs = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: ldProgram(name), ifVersion: null }] })).accepted).toBe(true)
-
-		const b = await bridge.build({ buildType: "full" })
-		const mine = (b.diagnostics ?? []).filter((d: any) => d.severity === "error" && JSON.stringify(d).includes(name))
-		expect(mine).toEqual([])
+		// push-created graphical POU once landed with an empty VAR section → its contacts referenced undeclared
+		// vars → a BUILD error neither the round-trip nor a naive build caught. We use an FB (instantiable) and
+		// declare an instance in PLC_PRG so TwinCAT actually compiles its body — proven necessary: an
+		// UNREFERENCED POU builds clean on TC (skipped), a REFERENCED one with a bad var fails with "Identifier
+		// not defined". CODESYS compiles every POU regardless. So this build-verifies the declaration on BOTH.
+		const name = id("vg_build_fb")
+		await createItem(fid("vg_build_fb", "ld"), ldFb(name), "")
+		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
 	})
 
 	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {
