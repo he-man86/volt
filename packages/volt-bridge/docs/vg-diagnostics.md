@@ -40,6 +40,7 @@ canonical body to paste. (`PushConflict.code` / `.line` on the wire; the CLI pri
 | `VG_BAD_OPERATOR_STMT` | An operator statement isn't `a OP b [OP c …]`. |
 | `VG_UNKNOWN_OPERATOR` | The operator symbol isn't a known FBD/LD operator. |
 | `VG_MIXED_OPERATORS` | More than one distinct operator in a single statement. |
+| `VG_LEAF_FANOUT` | A leaf (variable/literal) feeds more than one block in a network. TwinCAT draws one `inVariable` box per read and crashes on a shared one — give each read its own leaf statement. (A BLOCK output may fan out freely; that's a legitimate branch.) |
 | `VG_NETWORK_NOT_CLOSED` | A `NETWORK` block is missing its `END_NETWORK`. |
 | `VG_PARSE` | Any other structural parse error (unexpected `END_NETWORK`, unclosed `VAR_TEMP`, statement before a network, …). |
 

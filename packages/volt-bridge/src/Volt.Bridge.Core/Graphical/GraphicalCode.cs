@@ -60,6 +60,24 @@ public static class GraphicalCode
 
         var graph = VgParser.Parse(vgText);                                  // throws on structurally-invalid VG
 
+        // Leaf-fan-out guard. TwinCAT represents a variable READ as one inVariable box per consumer; a single
+        // leaf wired to two blocks has NO valid FBD shape and CRASHES TC's importer ("Index was outside the
+        // bounds of the array"). A BLOCK output CAN fan out — that's a legitimate branch (g1 feeding g2 and g3).
+        // So refuse a LEAF referenced more than once and tell the author to give each read its own leaf. This
+        // is caught here, BEFORE the writer, because the VG-text round-trip gate alone misses it (a literal leaf
+        // re-emits identically, so it would otherwise slip through and crash the IDE).
+        var refCount = new System.Collections.Generic.Dictionary<long, int>();
+        foreach (var n in graph.Networks.SelectMany(x => x.Nodes))
+            foreach (var c in Sources(n))
+                if (c is not null) refCount[c.RefLocalId] = refCount.TryGetValue(c.RefLocalId, out var k) ? k + 1 : 1;
+        foreach (var iv in graph.Networks.SelectMany(x => x.Nodes).OfType<InVar>())
+            if (refCount.TryGetValue(iv.LocalId, out var uses) && uses > 1)
+                throw new VgParseException(
+                    $"the leaf '{iv.Expression}' is read by {uses} blocks in one network — a variable feeding "
+                    + "several blocks needs its OWN leaf for each read (TwinCAT draws one inVariable box per read; "
+                    + "a shared one crashes its importer). Give each read a separate leaf statement.",
+                    "VG_LEAF_FANOUT");
+
         // Strict round-trip gate (the parser is the exact inverse of the writer): a body that doesn't RE-EMIT
         // identically isn't canonical — it would drift on the next pull, or silently rename/alias temps. Refuse
         // it HERE and show the canonical form so the author can paste it verbatim.
@@ -71,6 +89,16 @@ public static class GraphicalCode
                 "VG_NOT_CANONICAL") { Line = FirstDiffLine(Canon(vgText), Canon(canonical)) };
         return graph;
     }
+
+    /// <summary>Every wire SOURCE a node consumes (its input connections), for the leaf-fan-out guard.</summary>
+    private static System.Collections.Generic.IEnumerable<Conn?> Sources(GraphNode n) => n switch
+    {
+        Block b => b.Inputs.Select(p => p.Source),
+        OutVar o => new[] { o.Source },
+        Jump j => new[] { j.Condition },
+        Return r => new[] { r.Condition },
+        _ => System.Linq.Enumerable.Empty<Conn?>(),
+    };
 
     public static void Write(ICodeStore code, ItemRef item, string vgText, string declaration)
     {
