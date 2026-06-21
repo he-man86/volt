@@ -35,8 +35,8 @@ param(
     [ValidateSet("up", "test", "down", "restart", "status", "logs")]
     [string]$Action = "up",
     [ValidateSet("18", "21")]
-    [string]$Version = "18",
-    [string]$Project = "C:\Users\marce\OneDrive\Documenten\V71_PackML_Hauzer.project",
+    [string]$Version = "21",
+    [string]$Project = "$PSScriptRoot\..\packages\volt-bridge\test\CodesysTestProject.project",
     [int]$Port = 8556,
     [switch]$NoBuild
 )
