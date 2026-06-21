@@ -4,7 +4,6 @@ import {
   LLMError,
   LLMEvent,
   Model,
-  Tool,
   TransportReason,
   InvalidRequestReason,
   type LLMClientShape,
@@ -38,7 +37,7 @@ import { ApplicationTools } from "@opencode-ai/core/tool/application-tools"
 import { AgentV2 } from "@opencode-ai/core/agent"
 import { Config } from "@opencode-ai/core/config"
 import { ConfigCompaction } from "@opencode-ai/core/config/compaction"
-import { NativeTool } from "@opencode-ai/core/tool/native"
+import { Tool } from "@opencode-ai/core/tool/tool"
 import {
   SessionContextEpochTable,
   SessionInputTable,
@@ -49,6 +48,7 @@ import { SessionStore } from "@opencode-ai/core/session/store"
 import { SystemContext } from "@opencode-ai/core/system-context"
 import { SystemContextRegistry } from "@opencode-ai/core/system-context/registry"
 import { SkillGuidance } from "@opencode-ai/core/skill/guidance"
+import { ReferenceGuidance } from "@opencode-ai/core/reference/guidance"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { Location } from "@opencode-ai/core/location"
 import { ProviderV2 } from "@opencode-ai/core/provider"
@@ -110,7 +110,7 @@ const recoveryModel = Model.make({
   provider: "fake",
   route: OpenAIChat.route.with({ limits: { context: 20_000, output: 1_000 } }),
 })
-const authorizations: ToolRegistry.AuthorizeInput[] = []
+const authorizations: Tool.Context[] = []
 const executions: string[] = []
 const permission = Layer.succeed(
   PermissionV2.Service,
@@ -132,38 +132,31 @@ const registry = ToolRegistry.layer.pipe(
 const agents = AgentV2.layer
 const echo = Layer.effectDiscard(
   ToolRegistry.Service.use((registry) =>
-    registry.contribute((editor) => {
-      ;(editor.set("echo", {
-        authorize: (input) =>
-          Effect.sync(() => {
-            authorizations.push(input)
-          }),
-        tool: Tool.make({
-          description: "Echo text",
-          parameters: Schema.Struct({ text: Schema.String }),
-          success: Schema.Struct({ text: Schema.String }),
-          toModelOutput: ({ output }) => [{ type: "text", text: output.text }],
-          execute: ({ text }) =>
-            Effect.gen(function* () {
-              executions.push(text)
-              activeToolExecutions++
-              maxActiveToolExecutions = Math.max(maxActiveToolExecutions, activeToolExecutions)
-              if (activeToolExecutions === toolExecutionsReady && toolExecutionsStarted) {
-                yield* Deferred.succeed(toolExecutionsStarted, undefined)
-              }
-              if (toolExecutionGate) yield* Deferred.await(toolExecutionGate)
-              return { text }
-            }).pipe(Effect.ensuring(Effect.sync(() => activeToolExecutions--))),
-        }),
+    registry.register({
+      echo: Tool.make({
+        description: "Echo text",
+        input: Schema.Struct({ text: Schema.String }),
+        output: Schema.Struct({ text: Schema.String }),
+        toModelOutput: ({ output }) => [{ type: "text", text: output.text }],
+        execute: ({ text }, context) =>
+          Effect.gen(function* () {
+            authorizations.push(context)
+            executions.push(text)
+            activeToolExecutions++
+            maxActiveToolExecutions = Math.max(maxActiveToolExecutions, activeToolExecutions)
+            if (activeToolExecutions === toolExecutionsReady && toolExecutionsStarted) {
+              yield* Deferred.succeed(toolExecutionsStarted, undefined)
+            }
+            if (toolExecutionGate) yield* Deferred.await(toolExecutionGate)
+            return { text }
+          }).pipe(Effect.ensuring(Effect.sync(() => activeToolExecutions--))),
       }),
-        editor.set("defect", {
-          tool: Tool.make({
-            description: "Fail unexpectedly",
-            parameters: Schema.Struct({}),
-            success: Schema.Struct({}),
-            execute: () => Effect.die("unexpected tool defect"),
-          }),
-        }))
+      defect: Tool.make({
+        description: "Fail unexpectedly",
+        input: Schema.Struct({}),
+        output: Schema.Struct({}),
+        execute: () => Effect.die("unexpected tool defect"),
+      }),
     }),
   ),
 ).pipe(Layer.provide(registry))
@@ -181,7 +174,7 @@ const skillBaselines = new Map<AgentV2.ID, string>()
 const systemContext = Layer.effectDiscard(
   SystemContextRegistry.Service.pipe(
     Effect.flatMap((registry) =>
-      registry.contribute({
+      registry.register({
         key: systemContextKey,
         load: Effect.sync(() =>
           SystemContext.combine(
@@ -223,6 +216,7 @@ const skillGuidance = Layer.mock(SkillGuidance.Service, {
         : SystemContext.empty,
     ),
 })
+const referenceGuidance = Layer.mock(ReferenceGuidance.Service, { load: () => Effect.succeed(SystemContext.empty) })
 const config = Layer.succeed(
   Config.Service,
   Config.Service.of({
@@ -251,6 +245,7 @@ const runner = SessionRunnerLLM.layer.pipe(
   Layer.provide(location),
   Layer.provide(agents),
   Layer.provide(skillGuidance),
+  Layer.provide(referenceGuidance),
   Layer.provide(config),
 )
 const coordinator = SessionRunCoordinator.layer.pipe(Layer.provide(runner))
@@ -567,12 +562,12 @@ describe("SessionRunnerLLM", () => {
       yield* setup
       const applicationTools = yield* ApplicationTools.Service
       const session = yield* SessionV2.Service
-      const contexts: NativeTool.Context[] = []
-      yield* applicationTools.attach({
-        application_context: NativeTool.make({
+      const contexts: Tool.Context[] = []
+      yield* applicationTools.register({
+        application_context: Tool.make({
           description: "Read application context",
-          parameters: Schema.Struct({ query: Schema.String }),
-          success: Schema.Struct({ answer: Schema.String }),
+          input: Schema.Struct({ query: Schema.String }),
+          output: Schema.Struct({ answer: Schema.String }),
           execute: ({ query }, context) =>
             Effect.sync(() => {
               contexts.push(context)
@@ -594,7 +589,14 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests[0]?.tools.map((tool) => tool.name)).toContain("application_context")
-      expect(contexts).toEqual([{ sessionID, id: "call-application", name: "application_context" }])
+      expect(contexts).toEqual([
+        {
+          sessionID,
+          agent: AgentV2.ID.make("build"),
+          assistantMessageID: expect.stringMatching(/^msg_/),
+          toolCallID: "call-application",
+        },
+      ])
       expect(yield* session.context(sessionID)).toMatchObject([
         { type: "user", text: "Use application context" },
         {
@@ -702,7 +704,7 @@ describe("SessionRunnerLLM", () => {
       yield* events.publish(SessionEvent.Moved, {
         sessionID,
         timestamp: DateTime.makeUnsafe(1),
-        location: { directory: AbsolutePath.make("/moved") },
+        location: Location.Ref.make({ directory: AbsolutePath.make("/moved") }),
       })
       expect(
         yield* db
@@ -760,7 +762,7 @@ describe("SessionRunnerLLM", () => {
           .publish(SessionEvent.Moved, {
             sessionID,
             timestamp: DateTime.makeUnsafe(1),
-            location: { directory: AbsolutePath.make("/moved") },
+            location: Location.Ref.make({ directory: AbsolutePath.make("/moved") }),
           })
           .pipe(Effect.asVoid)
       })
@@ -817,7 +819,7 @@ describe("SessionRunnerLLM", () => {
     Effect.gen(function* () {
       yield* setup
       const agent = yield* AgentV2.Service
-      yield* agent.update((editor) =>
+      yield* agent.transform((editor) =>
         editor.update(AgentV2.ID.make("build"), (agent) => {
           agent.system = "Build agent instructions"
           agent.mode = "primary"
@@ -838,7 +840,7 @@ describe("SessionRunnerLLM", () => {
     Effect.gen(function* () {
       yield* setup
       const agent = yield* AgentV2.Service
-      yield* agent.update((editor) => {
+      yield* agent.transform((editor) => {
         editor.update(AgentV2.ID.make("build"), (agent) => {
           agent.system = "Build agent instructions"
           agent.mode = "primary"
@@ -866,7 +868,7 @@ describe("SessionRunnerLLM", () => {
       yield* setup
       const { db } = yield* Database.Service
       const agent = yield* AgentV2.Service
-      yield* agent.update((editor) =>
+      yield* agent.transform((editor) =>
         editor.update(AgentV2.ID.make("reviewer"), (agent) => {
           agent.system = "Reviewer instructions"
           agent.mode = "primary"
@@ -1353,34 +1355,6 @@ describe("SessionRunnerLLM", () => {
     }),
   )
 
-  it.effect("replays retained context projections while replacement is pending", () =>
-    Effect.gen(function* () {
-      yield* setup
-      const session = yield* SessionV2.Service
-      const events = yield* EventV2.Service
-      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "First" }), resume: false })
-
-      requests.length = 0
-      response = []
-      yield* session.resume(sessionID)
-      systemBaseline = "Changed context"
-      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Second" }), resume: false })
-      yield* session.resume(sessionID)
-      yield* events.publish(SessionEvent.ModelSwitched, {
-        sessionID,
-        messageID: SessionMessage.ID.create(),
-        timestamp: DateTime.makeUnsafe(1),
-        model: { id: ModelV2.ID.make("replacement"), providerID: ProviderV2.ID.make("fake") },
-      })
-
-      yield* replaySessionProjection(sessionID)
-      systemBaseline = "Replacement context"
-      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Third" }), resume: false })
-      yield* session.resume(sessionID)
-      expect(requests.at(-1)?.system.map((part) => part.text)).toEqual(["Replacement context"])
-    }),
-  )
-
   it.effect("replaces the baseline lazily after completed compaction without reopening replacement on replay", () =>
     Effect.gen(function* () {
       yield* setup
@@ -1459,6 +1433,7 @@ describe("SessionRunnerLLM", () => {
       })
 
       requests.length = 0
+      executions.length = 0
       responses = [
         fragmentFixture("text", "text-summary-2", ["## Goal\n- Preserve the updated task"]).completeEvents,
         fragmentFixture("text", "text-final-2", ["Continued again"]).completeEvents,
@@ -1688,7 +1663,7 @@ describe("SessionRunnerLLM", () => {
             type: "content",
             value: [
               { type: "text", text: "Hello" },
-              { type: "media", mediaType: "image/png", data: "data:image/png;base64,aGVsbG8=", filename: "hello.png" },
+              { type: "file", uri: "data:image/png;base64,aGVsbG8=", mime: "image/png", name: "hello.png" },
             ],
           },
           providerExecuted: true,
@@ -1741,7 +1716,7 @@ describe("SessionRunnerLLM", () => {
                 structured: {},
                 content: [
                   { type: "text", text: "Hello" },
-                  { type: "file", mime: "image/png", source: { type: "data", data: "aGVsbG8=" }, name: "hello.png" },
+                  { type: "file", mime: "image/png", uri: "data:image/png;base64,aGVsbG8=", name: "hello.png" },
                 ],
               },
             },
@@ -1783,7 +1758,7 @@ describe("SessionRunnerLLM", () => {
 
       expect(requests).toHaveLength(2)
       expect(requests[1]?.messages.map((message) => message.role)).toEqual(["user", "assistant", "tool"])
-      expect(authorizations).toMatchObject([{ sessionID, call: { id: "call-echo", name: "echo" } }])
+      expect(authorizations).toMatchObject([{ sessionID, toolCallID: "call-echo" }])
       expect(executions).toEqual(["hello"])
       expect(yield* session.context(sessionID)).toMatchObject([
         { type: "user", text: "Echo this" },
@@ -2937,7 +2912,7 @@ describe("SessionRunnerLLM", () => {
     }),
   )
 
-  it.effect("durably settles unexpected local tool defects before continuing", () =>
+  it.effect("propagates unexpected local tool defects operationally", () =>
     Effect.gen(function* () {
       yield* setup
       const session = yield* SessionV2.Service
@@ -2951,12 +2926,11 @@ describe("SessionRunnerLLM", () => {
           LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
           LLMEvent.finish({ reason: "tool-calls" }),
         ],
-        [],
       ]
 
-      yield* session.resume(sessionID)
+      expect(yield* session.resume(sessionID).pipe(Effect.catchDefect(Effect.succeed))).toBe("unexpected tool defect")
 
-      expect(requests).toHaveLength(2)
+      expect(requests).toHaveLength(1)
       expect(yield* session.context(sessionID)).toMatchObject([
         { type: "user", text: "Call defect" },
         {
@@ -2965,7 +2939,10 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-defect",
-              state: { status: "error", error: { message: "unexpected tool defect" } },
+              state: {
+                status: "error",
+                error: { type: "unknown", message: "Tool execution failed: unexpected tool defect" },
+              },
             },
           ],
         },
@@ -2979,17 +2956,15 @@ describe("SessionRunnerLLM", () => {
       const session = yield* SessionV2.Service
       const registry = yield* ToolRegistry.Service
       const questions = yield* QuestionV2.Service
-      const transform = yield* registry.transform()
-      yield* transform((editor) =>
-        editor.set("question", {
-          tool: Tool.make({
-            description: "Ask the user",
-            parameters: Schema.Struct({}),
-            success: Schema.Struct({}),
-          }),
-          execute: ({ sessionID }) => questions.ask({ sessionID, questions: [] }).pipe(Effect.as({}), Effect.orDie),
+      yield* registry.register({
+        question: Tool.make({
+          description: "Ask the user",
+          input: Schema.Struct({}),
+          output: Schema.Struct({}),
+          execute: (_, context) =>
+            questions.ask({ sessionID: context.sessionID, questions: [] }).pipe(Effect.as({}), Effect.orDie),
         }),
-      )
+      })
       yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Ask then stop" }), resume: false })
 
       requests.length = 0
@@ -3175,7 +3150,7 @@ describe("SessionRunnerLLM", () => {
     }),
   )
 
-  it.effect("fails after the bounded number of local tool continuation steps", () =>
+  it.effect("continues past 25 local tool steps when the agent has no step limit", () =>
     Effect.gen(function* () {
       yield* setup
       const session = yield* SessionV2.Service
@@ -3186,62 +3161,10 @@ describe("SessionRunnerLLM", () => {
       executions.length = 0
       streamGate = undefined
       streamStarted = undefined
-      responses = Array.from({ length: 25 }, (_, index) => [
-        LLMEvent.stepStart({ index: 0 }),
-        LLMEvent.toolCall({ id: `call-echo-${index}`, name: "echo", input: { text: `${index}` } }),
-        LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
-        LLMEvent.finish({ reason: "tool-calls" }),
-      ])
-
-      const failure = yield* session.resume(sessionID).pipe(Effect.flip)
-
-      expect(failure).toMatchObject({ _tag: "SessionRunner.StepLimitExceededError", sessionID, limit: 25 })
-      expect(requests).toHaveLength(25)
-      expect(executions).toHaveLength(25)
-    }),
-  )
-
-  it.effect("does not restart a capped tool loop for a coalesced stale wake", () =>
-    Effect.gen(function* () {
-      yield* setup
-      const session = yield* SessionV2.Service
-      const coordinator = yield* SessionRunCoordinator.Service
-      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Loop forever" }), resume: false })
-
-      requests.length = 0
-      responses = Array.from({ length: 25 }, (_, index) => [
-        LLMEvent.stepStart({ index: 0 }),
-        LLMEvent.toolCall({ id: `call-capped-${index}`, name: "echo", input: { text: `${index}` } }),
-        LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
-        LLMEvent.finish({ reason: "tool-calls" }),
-      ])
-      streamGate = yield* Deferred.make<void>()
-      streamStarted = yield* Deferred.make<void>()
-
-      const run = yield* session.resume(sessionID).pipe(Effect.forkChild)
-      yield* Deferred.await(streamStarted)
-      yield* coordinator.wake(sessionID)
-      yield* Deferred.succeed(streamGate, undefined)
-      expect(yield* Fiber.join(run).pipe(Effect.flip)).toMatchObject({ _tag: "SessionRunner.StepLimitExceededError" })
-      streamGate = undefined
-      streamStarted = undefined
-      yield* Effect.yieldNow
-
-      expect(requests).toHaveLength(25)
-    }),
-  )
-
-  it.effect("accepts a terminal response on the final bounded provider turn", () =>
-    Effect.gen(function* () {
-      yield* setup
-      const session = yield* SessionV2.Service
-      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Finish at the limit" }), resume: false })
-
-      requests.length = 0
       responses = [
-        ...Array.from({ length: 24 }, (_, index) => [
+        ...Array.from({ length: 25 }, (_, index) => [
           LLMEvent.stepStart({ index: 0 }),
-          LLMEvent.toolCall({ id: `call-terminal-${index}`, name: "echo", input: { text: `${index}` } }),
+          LLMEvent.toolCall({ id: `call-echo-${index}`, name: "echo", input: { text: `${index}` } }),
           LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
           LLMEvent.finish({ reason: "tool-calls" }),
         ]),
@@ -3254,7 +3177,56 @@ describe("SessionRunnerLLM", () => {
 
       yield* session.resume(sessionID)
 
-      expect(requests).toHaveLength(25)
+      expect(requests).toHaveLength(26)
+      expect(executions).toHaveLength(25)
+    }),
+  )
+
+  it.effect("forces a text response on an agent's configured final step", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const agents = yield* AgentV2.Service
+      yield* agents.transform((editor) =>
+        editor.update(AgentV2.ID.make("build"), (agent) => {
+          agent.steps = 2
+        }),
+      )
+      const session = yield* SessionV2.Service
+      yield* session.prompt({ sessionID, prompt: new Prompt({ text: "Finish at the limit" }), resume: false })
+
+      requests.length = 0
+      executions.length = 0
+      responses = [
+        [
+          LLMEvent.stepStart({ index: 0 }),
+          LLMEvent.toolCall({ id: "call-terminal", name: "echo", input: { text: "done" } }),
+          LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
+          LLMEvent.finish({ reason: "tool-calls" }),
+        ],
+        [
+          LLMEvent.stepStart({ index: 0 }),
+          LLMEvent.toolCall({ id: "call-forbidden", name: "echo", input: { text: "forbidden" } }),
+          LLMEvent.stepFinish({ index: 0, reason: "tool-calls" }),
+          LLMEvent.finish({ reason: "tool-calls" }),
+        ],
+      ]
+
+      yield* session.resume(sessionID)
+
+      expect(requests).toHaveLength(2)
+      expect(requests[0]?.toolChoice).toBeUndefined()
+      expect(requests[1]?.toolChoice).toMatchObject({ type: "none" })
+      expect(requests[1]?.tools).toEqual([])
+      expect(requests[1]?.messages.at(-1)).toMatchObject({
+        role: "assistant",
+        content: [{ type: "text", text: expect.stringContaining("MAXIMUM STEPS REACHED") }],
+      })
+      expect(executions).toEqual(["done"])
+      expect(yield* session.context(sessionID)).toMatchObject([
+        { type: "user", text: "Finish at the limit" },
+        { type: "assistant", content: [{ type: "tool", id: "call-terminal", state: { status: "completed" } }] },
+        { type: "assistant", content: [{ type: "tool", id: "call-forbidden", state: { status: "error" } }] },
+      ])
     }),
   )
 
