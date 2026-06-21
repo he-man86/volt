@@ -2,8 +2,12 @@
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
  * CFC/SFC are read-only (declaration-only, never created).
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "bun:test"
+import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+
+// A TwinCAT full build is ~9s — past bun's 5s default. The build-verification test compiles the project, so
+// give every test headroom (the round-trip tests are fast; this only matters for the build check).
+setDefaultTimeout(30000)
 
 function fbdProgram(name: string) {
 	// CANONICAL form (a fixed point of VgWriter∘VgParser, so it passes the round-trip gate). Exercises OUTPUT
@@ -163,6 +167,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(after).toBeDefined()
 			expect(after.sourceText).toContain("NETWORK")
 
+			// The program-scope DECLARATION must survive a push-create — GraphicalCode.Write writes the BODY
+			// only, so without an explicit decl write the VAR section comes back empty and the vars the
+			// contacts/coils reference are undeclared. The body round-trip alone never caught this.
+			const decl = after.sourceText.split("NETWORK")[0]
+			expect(decl).toContain("a :")
+			expect(decl).toContain("out :")
+
 			// Round-trip: push the same source back, should be accepted and unchanged
 			const refs2 = await bridge.refs()
 			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
@@ -193,6 +204,22 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(v2.sourceText).toBe(v1.sourceText)
 		})
 	}
+
+	it("a created graphical POU compiles — no undeclared-variable errors (build-verified, not just round-tripped)", async () => {
+		// The deeper guard: round-tripping a body proves the BODY is stable, not that the POU is VALID. A
+		// push-created graphical POU once landed with an empty VAR section, so its contacts referenced
+		// undeclared vars — a BUILD error. Instantiate it and compile: there must be no error mentioning this
+		// POU. (Strong on CODESYS, which compiles every POU under the application; on TwinCAT a standalone POU
+		// is skipped unless referenced — the decl assertions above are the cross-vendor catch.)
+		const name = id("vg_build")
+		const fullName = fid("vg_build", "ld")
+		const refs = await bridge.refs()
+		expect((await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: ldProgram(name), ifVersion: null }] })).accepted).toBe(true)
+
+		const b = await bridge.build({ buildType: "full" })
+		const mine = (b.diagnostics ?? []).filter((d: any) => d.severity === "error" && JSON.stringify(d).includes(name))
+		expect(mine).toEqual([])
+	})
 
 	it("a graphical POU in the project re-pushes byte-identical (no phantom drift)", async () => {
 		// Self-provisioned (NOT discover()) so it runs identically on every bridge: a fetched graphical

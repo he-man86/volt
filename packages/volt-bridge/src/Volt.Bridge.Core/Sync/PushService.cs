@@ -201,6 +201,11 @@ public static class PushService
                 GraphicalCode.Validate(impl);
                 var lang = VgBody.LanguageOf(impl) ?? "FBD";
                 pou = ide.CreateChild(targetParent, name, itemType, lang ?? "ST");
+                // A graphical POU's program-scope declaration is NOT carried by the body write —
+                // GraphicalCode.Write only writes the BODY and preserves the export's <interface>, which on a
+                // fresh create is empty, leaving the vars the contacts/coils reference undeclared. Write the
+                // declaration onto the still-empty POU first (safe: nothing to clobber), then the body.
+                if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, "");
                 GraphicalCode.Write(ide, pou, impl, decl);
             }
             else
