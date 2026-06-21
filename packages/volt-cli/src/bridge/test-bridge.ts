@@ -104,7 +104,7 @@ export class TestBridge implements Remote {
 
 	/** Set to make the next pushBatch refuse with these exact conflicts (e.g. a structured VG diagnostic
 	 *  carrying code + line) — for exercising the CLI's conflict formatting. */
-	nextPushConflicts: PushResponse["conflicts"] | null = null
+	nextPushConflicts: Extract<PushResponse, { accepted: false }>["conflicts"] | null = null
 
 	async pushBatch(req: PushRequest): Promise<PushResponse> {
 		this.pushCalls.push(req)
