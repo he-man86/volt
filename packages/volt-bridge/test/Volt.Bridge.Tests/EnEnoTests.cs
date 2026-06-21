@@ -50,8 +50,7 @@ public class EnEnoTests
         // An EN-gated FB call: `IF en THEN inst(IN := x); END_IF`, its value outputs read separately via inst.Pin.
         var vg =
             "NETWORK 0 FBD\n" +
-            "  VAR_TEMP\n    en1 : BOOL;\n  END_VAR\n" +
-            "  en1 := a;\n" +
+            "  LET en1 := a;\n" +
             "  IF en1 THEN t1(IN := x, PT := y); END_IF\n" +
             "  done := t1.Q;\n" +
             "END_NETWORK\n";

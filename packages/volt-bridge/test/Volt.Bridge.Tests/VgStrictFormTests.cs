@@ -8,8 +8,8 @@ namespace Volt.Bridge.Tests;
 
 /// <summary>
 /// The strict, every-node-named VG contract: VG is isomorphic to the PLCopen node graph (one
-/// statement per node, operands are only names, synthetic temps declared in a per-network VAR_TEMP),
-/// so round-trip is identical in all cases and the VAR_TEMP is a VG-only construct stripped on push.
+/// statement per node, operands are only names, internal wires introduced inline with `LET <name> := …`),
+/// so round-trip is identical in all cases and the LET wire names are a VG-only construct stripped on push.
 /// </summary>
 public class VgStrictFormTests
 {
@@ -72,15 +72,15 @@ public class VgStrictFormTests
         Assert.Equal(vg, FullRoundTrip(vg));
     }
 
-    /// <summary>The VAR_TEMP is a VG-only construct: parsing it produces NO graph nodes, so the
-    /// PLCopen the bridge pushes carries neither the temp declarations nor the temp names — and no
-    /// fabricated types (the IDE reconstructs them).</summary>
+    /// <summary>The LET internal wires are a VG-only construct: the wire NAMES never reach the IDE, so the
+    /// PLCopen the bridge pushes carries neither the wire names nor fabricated types (the IDE reconstructs
+    /// them) — the inline `LET <name> := …` form replaced the old per-network VAR_TEMP block.</summary>
     [Fact]
-    public void Var_temp_is_stripped_on_push()
+    public void Internal_wire_names_are_stripped_on_push()
     {
         const string vg =
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
-            "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
+            "NETWORK 0 FBD\n" +
+            "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
         var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg)).ToString();
 
         Assert.DoesNotContain("VAR_TEMP", xml);
@@ -99,7 +99,7 @@ public class VgStrictFormTests
     }
 
     /// <summary>FB/function param types survive read → write → read (the SR fixture's BOOL BOOL),
-    /// so the VAR_TEMP can declare real types when the IDE supplies them.</summary>
+    /// carried on the block pins from the IDE-supplied inputparamtypes.</summary>
     [Fact]
     public void Param_types_round_trip()
     {
@@ -164,7 +164,7 @@ public class VgStrictFormTests
     public void Network_not_closed_by_END_NETWORK_is_refused()
     {
         var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\n"));   // no END_NETWORK
+            "NETWORK 0 FBD\n  LET i1 := a;\n  q := i1;\n"));   // no END_NETWORK
         Assert.Contains("END_NETWORK", ex.Message);
     }
 
@@ -172,16 +172,18 @@ public class VgStrictFormTests
     public void Network_not_closed_before_the_next_network_is_refused()
     {
         var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\n" +
-            "NETWORK 1 FBD\n  VAR_TEMP\n    j : BOOL;\n  END_VAR\n  j := b;\n  r := j;\nEND_NETWORK\n"));
+            "NETWORK 0 FBD\n  LET i1 := a;\n  q := i1;\n" +
+            "NETWORK 1 FBD\n  LET j := b;\n  r := j;\nEND_NETWORK\n"));
         Assert.Contains("END_NETWORK", ex.Message);
     }
 
     [Fact]
-    public void Var_temp_not_closed_by_END_VAR_is_refused()
+    public void Legacy_var_temp_block_syntax_is_rejected()
     {
-        var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"));   // no END_VAR
-        Assert.Contains("END_VAR", ex.Message);
+        // The per-network VAR_TEMP … END_VAR block was REMOVED — internal wires are introduced inline with
+        // `LET <name> := …`. A leftover VAR_TEMP line is no longer special grammar; it parses as a malformed
+        // statement and the push is refused (the old block form must never silently reach the IDE).
+        Assert.Throws<VgParseException>(() => VgParser.Parse(
+            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n"));
     }
 }

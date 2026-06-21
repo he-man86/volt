@@ -172,9 +172,9 @@ public class PlcOpenWriterTests
     public void Multi_network_ld_keeps_every_network()
     {
         const string vg =
-            "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
-            "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
-            "NETWORK 1 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := c;\n  y := i1;\nEND_NETWORK\n";
+            "NETWORK 0 LD\n" +
+            "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
+            "NETWORK 1 LD\n  LET i1 := c;\n  y := i1;\nEND_NETWORK\n";
         var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg));
         // TwinCAT's multi-network LD form (confirmed against a real 4-network capture): ONE shared left/right
         // rail brackets the body, each network is a vendorElement(networktitle) marker.

@@ -38,7 +38,7 @@ public class LadderRoundTripTests
     [Fact]
     public void Single_contact_drives_a_coil()
     {
-        const string vg = "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n";
+        const string vg = "NETWORK 0 LD\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         Assert.Equal("LD", ld.Name.LocalName);
         Assert.Equal(1, Count(ld, "contact"));
@@ -55,10 +55,9 @@ public class LadderRoundTripTests
     [InlineData(4)]
     public void Series_of_n_contacts_is_an_and_chain(int n)
     {
-        var temps = string.Concat(Enumerable.Range(1, n).Select(k => $"    i{k} : BOOL;\n"));
-        var asgs = string.Concat(Enumerable.Range(1, n).Select(k => $"  i{k} := a{k};\n"));
+        var asgs = string.Concat(Enumerable.Range(1, n).Select(k => $"  LET i{k} := a{k};\n"));
         var andExpr = string.Join(" AND ", Enumerable.Range(1, n).Select(k => $"i{k}"));
-        var vg = $"NETWORK 0 LD\n  VAR_TEMP\n{temps}    g : BOOL;\n  END_VAR\n{asgs}  g := ({andExpr});\n  q := g;\nEND_NETWORK\n";
+        var vg = $"NETWORK 0 LD\n{asgs}  LET g := ({andExpr});\n  q := g;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         Assert.Equal(n, Count(ld, "contact"));   // n contacts in series
         Assert.Equal(1, Count(ld, "coil"));
@@ -68,8 +67,8 @@ public class LadderRoundTripTests
     [Fact]
     public void Normally_closed_contact_is_a_negated_contact()
     {
-        const string vg = "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g : BOOL;\n  END_VAR\n" +
-            "  i1 := NOT a;\n  i2 := b;\n  g := (i1 AND i2);\n  q := g;\nEND_NETWORK\n";
+        const string vg = "NETWORK 0 LD\n" +
+            "  LET i1 := NOT a;\n  LET i2 := b;\n  LET g := (i1 AND i2);\n  q := g;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         Assert.Contains("negated=\"true\"", ld.ToString());
         Assert.Contains("NOT", RoundTrip(vg));
@@ -81,7 +80,7 @@ public class LadderRoundTripTests
     [InlineData("RESET", "reset")]
     public void Storage_coil_round_trips(string vgWord, string xmlAttr)
     {
-        var vg = $"NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1 {vgWord};\nEND_NETWORK\n";
+        var vg = $"NETWORK 0 LD\n  LET i1 := a;\n  q := i1 {vgWord};\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         var coil = ld.Elements(XName.Get("coil", Ns)).Single();
         Assert.Equal(xmlAttr, (string?)coil.Attribute("storage"));
@@ -92,8 +91,8 @@ public class LadderRoundTripTests
     [Fact]
     public void Multiple_coils_in_one_network_are_separate_rungs()
     {
-        const string vg = "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n  END_VAR\n" +
-            "  i1 := a;\n  i2 := b;\n  q := i1;\n  r := i2;\nEND_NETWORK\n";
+        const string vg = "NETWORK 0 LD\n" +
+            "  LET i1 := a;\n  LET i2 := b;\n  q := i1;\n  r := i2;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         Assert.Equal(2, Count(ld, "coil"));      // two outputs → two rungs
         Assert.Equal(2, Count(ld, "contact"));
@@ -106,9 +105,9 @@ public class LadderRoundTripTests
     [Fact]
     public void Multi_network_emits_every_network()
     {
-        const string vg = "NETWORK 0 LD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g : BOOL;\n  END_VAR\n" +
-            "  i1 := a;\n  i2 := b;\n  g := (i1 AND i2);\n  x := g;\nEND_NETWORK\n" +
-            "NETWORK 1 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := c;\n  y := i1;\nEND_NETWORK\n";
+        const string vg = "NETWORK 0 LD\n" +
+            "  LET i1 := a;\n  LET i2 := b;\n  LET g := (i1 AND i2);\n  x := g;\nEND_NETWORK\n" +
+            "NETWORK 1 LD\n  LET i1 := c;\n  y := i1;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
         // ONE shared rail brackets the body; each network is a networktitle marker (TwinCAT's multi-network form)
         Assert.Equal(1, Count(ld, "leftPowerRail"));

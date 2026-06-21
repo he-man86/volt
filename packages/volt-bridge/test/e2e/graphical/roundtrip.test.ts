@@ -54,10 +54,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-  END_VAR
-  i1 := NOT a;
+  LET i1 := NOT a;
   out := (i1 AND b);
 END_NETWORK
 END_PROGRAM

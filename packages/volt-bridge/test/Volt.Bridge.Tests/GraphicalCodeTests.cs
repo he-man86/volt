@@ -84,7 +84,7 @@ public class GraphicalCodeTests
         // with a misleading "not writable". The guard fires before ReadXml, so the store needn't be valid.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
         var ex = Assert.Throws<InvalidOperationException>(() => GraphicalCode.Write(
-            s, Item, "NETWORK 0 BANANA\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  q := i1;\nEND_NETWORK\n",
+            s, Item, "NETWORK 0 BANANA\n  LET i1 := a;\n  q := i1;\nEND_NETWORK\n",
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
         Assert.Contains("unknown graphical language", ex.Message);
         Assert.Contains("BANANA", ex.Message);
@@ -97,8 +97,8 @@ public class GraphicalCodeTests
         // the single-use operands, so it would not round-trip identically. Refused before the import, with the
         // readable canonical form shown.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
-        var nonCanonical = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    gX : BOOL;\n  END_VAR\n"
-            + "  i1 := a;\n  i2 := b;\n  gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
+        var nonCanonical = "NETWORK 0 FBD\n"
+            + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
         var ex = Assert.Throws<VgParseException>(() =>
             GraphicalCode.Write(s, Item, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
         Assert.Equal("VG_NOT_CANONICAL", ex.Code);          // structured diagnostic

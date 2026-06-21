@@ -120,24 +120,10 @@ namespace Volt.Bridge.Core.Graphical.Vg
             foreach (var iv in leaves)
                 if (!IsInlinableLeaf(iv)) names[iv.LocalId] = Mint("i", ref li, reserved);
 
-            // VAR_TEMP declares only the SYNTHETIC named wires (named opaque leaves i*, g* results, en*) —
-            // inlined leaves and FB instances (real vars) are not temps. Keeps the body valid ST and lets the
-            // parser tell a named result (`g1 := …`) from a sink (`out := …`).
-            var temps = new List<(string Name, string Type)>();
-            foreach (var iv in leaves)
-                if (names.TryGetValue(iv.LocalId, out var ln)) temps.Add((ln, "BOOL"));
-            foreach (var b in ordered)
-            {
-                if (enNames.TryGetValue(b.LocalId, out var et)) temps.Add((et, "BOOL"));
-                if (names.TryGetValue(b.LocalId, out var rn) && IsOperatorOrFunction(b))
-                    temps.Add((rn, b.OutputTypes?.FirstOrDefault() ?? "BOOL"));
-            }
-            if (temps.Count > 0)
-            {
-                sb.Append("  VAR_TEMP\n");
-                foreach (var (nm, ty) in temps) sb.Append("    ").Append(nm).Append(" : ").Append(ty).Append(";\n");
-                sb.Append("  END_VAR\n");
-            }
+            // Internal wires (named opaque leaves i*, g* fan-out results, en* echoes) are introduced INLINE with
+            // a `LET` keyword at their definition (below) — no VAR_TEMP header, no synthesised types (a wire's
+            // type is inferred by the LSP from its expression). A bare `name :=` is an outVariable sink; an FB
+            // instance call (a real, declared instance) is bare too.
 
             // A wire → text. A NAMED producer is its name (`.Pin` for an FB output, `en*` for an ENO); an
             // INLINED producer recurses to its expression (a leaf → its literal/var; an operator/function →
@@ -174,25 +160,25 @@ namespace Volt.Bridge.Core.Graphical.Vg
             // it's used), then sinks, then control flow. Inlined leaves / single-use results emit nothing.
             foreach (var iv in leaves)
                 if (names.TryGetValue(iv.LocalId, out var ln))
-                    sb.Append("  ").Append(ln).Append(" := ").Append(ApplyMods(iv.Expression, iv.Mods)).Append(";\n");
+                    sb.Append("  LET ").Append(ln).Append(" := ").Append(ApplyMods(iv.Expression, iv.Mods)).Append(";\n");
 
             foreach (var b in ordered)
             {
                 if (IsEnEno(b))
                 {
                     var enPin = b.Inputs.First(p => p.FormalParameter == "EN");
-                    sb.Append("  ").Append(enNames[b.LocalId]).Append(" := ")
+                    sb.Append("  LET ").Append(enNames[b.LocalId]).Append(" := ")
                       .Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
                     sb.Append("  IF ").Append(enNames[b.LocalId]).Append(" THEN ");
                     if (enenoSink.TryGetValue(b.LocalId, out var sink))   // into-sink: write the sink straight in the IF
                         sb.Append(sink.Expression).Append(" := ").Append(Definition(b, excludeEn: true));
-                    else if (IsOperatorOrFunction(b)) sb.Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
+                    else if (IsOperatorOrFunction(b)) sb.Append("LET ").Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
                     else sb.Append(Definition(b, excludeEn: true));   // EN/ENO FB call
                     sb.Append("; END_IF\n");
                 }
                 else if (names.TryGetValue(b.LocalId, out var nm))
                 {
-                    if (IsOperatorOrFunction(b)) sb.Append("  ").Append(nm).Append(" := ").Append(Definition(b, false)).Append(";\n");
+                    if (IsOperatorOrFunction(b)) sb.Append("  LET ").Append(nm).Append(" := ").Append(Definition(b, false)).Append(";\n");
                     else sb.Append("  ").Append(Definition(b, false)).Append(";\n");   // FB instance call
                 }
             }

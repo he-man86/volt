@@ -11,10 +11,9 @@ namespace Volt.Bridge.Tests;
 public class LiteralFanoutBugTests
 {
     private const string LiteralFanout =
-        "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    i3 : BOOL;\n" +
-        "    g1 : BOOL;\n    g2 : BOOL;\n    g3 : BOOL;\n  END_VAR\n" +
-        "  i1 := TRUE;\n  i2 := FALSE;\n  i3 := FALSE;\n" +
-        "  g1 := (i1 AND i2);\n  g2 := (g1 OR i3);\n  g3 := (g2 AND i3);\n" +
+        "NETWORK 0 FBD\n" +
+        "  LET i1 := TRUE;\n  LET i2 := FALSE;\n  LET i3 := FALSE;\n" +
+        "  LET g1 := (i1 AND i2);\n  LET g2 := (g1 OR i3);\n  LET g3 := (g2 AND i3);\n" +
         "  np := g2;\n  outpur := NOT g3;\nEND_NETWORK\n";
 
     [Fact]
@@ -41,8 +40,8 @@ public class LiteralFanoutBugTests
         // the user drew). It stays NAMED in the readable form (fan-out), and the leaf-fan-out guard must NOT
         // refuse it. Round-trip a rough body to the canonical form first so it passes the convergence invariant.
         var branch = VgWriter.Write(VgParser.Parse(
-            "NETWORK 0 FBD\n  VAR_TEMP\n    g1 : BOOL;\n  END_VAR\n" +
-            "  g1 := (a AND b);\n  outpur := (g1 OR c);\n  np := (g1 OR d);\nEND_NETWORK\n"));
+            "NETWORK 0 FBD\n" +
+            "  LET g1 := (a AND b);\n  outpur := (g1 OR c);\n  np := (g1 OR d);\nEND_NETWORK\n"));
         GraphicalCode.Validate(branch);   // must not throw
     }
 }

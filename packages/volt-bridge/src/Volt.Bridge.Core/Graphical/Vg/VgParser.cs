@@ -31,7 +31,6 @@ namespace Volt.Bridge.Core.Graphical.Vg
             var networks = new List<GraphNetwork>();
             NetworkBuilder? cur = null;
             int ordinal = 0;
-            bool inTemp = false;
             var seenIndices = new HashSet<int>();   // network indices must be unique — duplicates collide localIds
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
@@ -46,18 +45,14 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase))
                 {
                     // Structure is enforced, not tolerated: a malformed graphical body must be refused (it can
-                    // corrupt the IDE on import), never silently reshaped. END_NETWORK closes exactly one open
-                    // network whose VAR_TEMP block (if any) is itself closed.
+                    // corrupt the IDE on import), never silently reshaped. END_NETWORK closes exactly one open network.
                     if (cur == null) throw new VgParseException("END_NETWORK without an open NETWORK block");
-                    if (inTemp) throw new VgParseException($"network {cur.Order}: VAR_TEMP block is not closed by END_VAR");
                     Flush();
-                    inTemp = false;
                     continue;
                 }
                 if (line.StartsWith("NETWORK"))
                 {
                     if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED");
-                    inTemp = false;
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
                     // localIds index*10^10+1…, mirroring PlcOpenReader); the next word is the body
@@ -75,17 +70,9 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
                 if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
                 if (line.StartsWith("//")) { cur.AddComment(line.Substring(2).Trim()); continue; }
-                // The per-network VAR_TEMP block declares the synthetic temps (i*/g*). It's a VG-only
-                // construct: we record the NAMES (to tell a leaf assignment from an outVariable sink)
-                // and IGNORE the declared types — types are writer-owned, never load-bearing — then the
-                // block creates no nodes and is dropped (stripped on push).
-                if (line.Equals("VAR_TEMP", StringComparison.OrdinalIgnoreCase)) { inTemp = true; continue; }
-                if (inTemp)
-                {
-                    if (line.Equals("END_VAR", StringComparison.OrdinalIgnoreCase)) { inTemp = false; continue; }
-                    cur.AddTemp(line);
-                    continue;
-                }
+                // A `LET <name> := …` introduces an internal wire (the synthetic i*/g*/en* names); a bare
+                // `<name> := …` writes a sink. Both buffer as statements — ScanLetWires (in Build) records the
+                // LET names so the parser can tell a named producer from an outVariable sink.
                 cur.AddStatement(line.TrimEnd(';').Trim(), lineNum);
                 }
                 catch (VgParseException ex) { ex.Line ??= lineNum; throw; }
@@ -125,14 +112,15 @@ namespace Volt.Bridge.Core.Graphical.Vg
 
             public void AddComment(string c) => _comments.Add(c);
 
-            /// <summary>Record a VAR_TEMP declaration line (<c>name : TYPE;</c>) — the NAME only; the
-            /// type is ignored (writer-owned). Marks the name as a synthetic temp so a later
-            /// <c>name := …</c> is read as a leaf inVariable, not an outVariable sink.</summary>
-            public void AddTemp(string decl)
+            /// <summary>Pass 0: record every <c>LET &lt;name&gt; := …</c> wire definition (the synthetic
+            /// i*/g*/en* names — including inside an EN/ENO <c>IF … THEN LET g := …</c> body). A name in this
+            /// set is read as a NAMED producer; a bare <c>name := …</c> is an outVariable sink. Replaces the old
+            /// VAR_TEMP block — the wire's identity is marked at its definition, not in a header.</summary>
+            private void ScanLetWires()
             {
-                var i = decl.IndexOf(':');
-                var name = (i >= 0 ? decl.Substring(0, i) : decl.TrimEnd(';')).Trim();
-                if (name.Length > 0) _temps.Add(name);
+                foreach (var (stmt, _) in _stmts)
+                    foreach (Match m in Regex.Matches(stmt, @"\bLET\s+(\w+)\s*:="))
+                        _temps.Add(m.Groups[1].Value);
             }
 
             public void AddStatement(string stmt, int line) => _stmts.Add((stmt, line));
@@ -154,6 +142,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
             private void ParseStatement(string stmt, HashSet<string> enWires)
             {
                 if (stmt.Length == 0) return;
+                if (StartsWithWord(stmt, "LET")) stmt = stmt.Substring(3).Trim();   // a wire definition — LET marks lhs as an internal wire
                 if (TryControlFlow(stmt)) return;             // label / JMP / RETURN (control flow)
 
                 var enif = Regex.Match(stmt, @"^IF\s+(\w+)\s+THEN\s+(.+?)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
@@ -197,6 +186,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
             {
                 if (!_enSource.TryGetValue(en, out var enSrc))
                     throw new VgParseException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
+                if (StartsWithWord(body, "LET")) body = body.Substring(3).Trim();   // a named EN/ENO result; into-sink bodies stay bare
                 var asg = SplitAssignment(body);
                 if (asg == null)   // EN/ENO FUNCTION BLOCK: `IF en THEN inst(IN := x); END_IF` — its value outputs are read elsewhere via inst.Pin
                 {
@@ -416,6 +406,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
 
             public GraphNetwork Build()
             {
+                ScanLetWires();                // pass 0: which names are LET-defined internal wires
                 var enWires = ScanEnWires();   // pass 1: which names are EN/ENO enable wires
                 foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
                     try { ParseStatement(stmt, enWires); }

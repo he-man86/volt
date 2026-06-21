@@ -52,8 +52,8 @@ public class LdBlockFeatureTests
     {
         // GraphicalCode.Validate runs the language gate + parser + round-trip gate WITHOUT touching the IDE —
         // it is the check PushService runs before CreateChild so a refusal never leaves an orphan stub.
-        var nonCanonical = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    gX : BOOL;\n  END_VAR\n"
-            + "  i1 := a;\n  i2 := b;\n  gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
+        var nonCanonical = "NETWORK 0 FBD\n"
+            + "  LET i1 := a;\n  LET i2 := b;\n  LET gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
         var ex = Assert.Throws<VgParseException>(() => GraphicalCode.Validate(nonCanonical));
         Assert.Equal("VG_NOT_CANONICAL", ex.Code);
         Assert.NotNull(ex.Line);
@@ -66,8 +66,8 @@ public class LdBlockFeatureTests
     [InlineData("g3 := (i1 AND i2 OR i1)", "VG_BAD_EXPRESSION")]     // partially-parenthesised (no precedence) → refused
     public void VgParser_throws_carry_a_stable_code_and_line(string stmt, string code)
     {
-        var net = "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n    g2 : BOOL;\n    g3 : BOOL;\n  END_VAR\n"
-            + "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  " + stmt + ";\n  out := g1;\nEND_NETWORK\n";
+        var net = "NETWORK 1 FBD\n"
+            + "  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  LET " + stmt + ";\n  out := g1;\nEND_NETWORK\n";
         var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(net));
         Assert.Equal(code, ex.Code);
         Assert.NotNull(ex.Line);

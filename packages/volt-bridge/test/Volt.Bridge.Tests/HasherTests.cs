@@ -39,8 +39,8 @@ public class HasherTests
     {
         // The materialized .fbd text is what's hashed — so an edit to the VG body (here: a different
         // operand) yields a different version, while the unchanged body is stable.
-        const string fbd1 = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
-        const string fbd2 = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n  i1 := a;\n  i2 := b;\n  g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n";
+        const string fbd1 = "NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n";
+        const string fbd2 = "NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n";
         Assert.Equal(Hasher.ComputeItemVersion("", fbd1), Hasher.ComputeItemVersion("", fbd1));
         Assert.NotEqual(Hasher.ComputeItemVersion("", fbd1), Hasher.ComputeItemVersion("", fbd2));
     }
