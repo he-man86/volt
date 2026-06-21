@@ -205,14 +205,21 @@ namespace Volt.Bridge.Core.Graphical
 
         private static XElement WriteLadderBody(GraphBody body, System.Func<string, string?>? resolveType)
         {
+            // ONE shared left/right power rail bracket the WHOLE body (TwinCAT's multi-network LD form, confirmed
+            // against a real 4-network capture). Each network is a vendorElement(networktitle) marker + its rung,
+            // and every contact hangs off the one shared left rail (id 0). The reader splits on the markers; the
+            // shared rails make a multi-network/multi-coil body re-import without TC dropping networks (the bug
+            // that came from per-network rails). The IDE re-numbers localIds on import, so strided ids are fine.
+            const long SharedLeftRail = 0L;
             var root = new XElement(Ns + "LD");
+            int row = 0;
+            root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", SharedLeftRail), Pos(row++),
+                new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
             foreach (var net in body.Networks)
             {
                 long netIndex = net.Order ?? (net.Nodes.Count > 0 ? net.Nodes[0].LocalId / NetworkStride : 0);
                 var ctx = new LdCtx(root, net, resolveType, netIndex);
-
-                root.Add(new XElement(Ns + "leftPowerRail", new XAttribute("localId", ctx.BaseId), Pos(ctx.Row++),
-                    new XElement(Ns + "connectionPointOut", new XAttribute("formalParameter", "none"))));
+                root.Add(NetworkTitle(ctx.Mint(), Pos(row++)));   // delimits this network — the reader splits here
                 foreach (var node in net.Nodes)
                 {
                     switch (node)
@@ -220,28 +227,37 @@ namespace Volt.Bridge.Core.Graphical
                         case OutVar ov when ctx.IsEmbedded(ov):
                             break;                                  // folded into its producing block's output pin
                         case OutVar ov:                             // each l-value is a coil — the end of a rung
-                            var feed = ctx.EmitPower(ov.Source, Mods.None, new List<long> { ctx.BaseId });
+                            var feed = ctx.EmitPower(ov.Source, Mods.None, new List<long> { SharedLeftRail });
                             // the coil's localId is minted AFTER its spine (so it's above its contacts) — else the
                             // IDE reads each coil as its own rung and splits a multi-coil network apart.
                             root.Add(new XElement(Ns + "coil", new XAttribute("localId", ctx.Mint()), CoilAttrs(ov.Mods),
-                                Pos(ctx.Row++), ConnTo(feed, ctx.OutPin), new XElement(Ns + "connectionPointOut"),
+                                Pos(row++), ConnTo(feed, ctx.OutPin), new XElement(Ns + "connectionPointOut"),
                                 new XElement(Ns + "variable", ov.Expression)));
                             break;
                         case Label:
                         case Jump:
                         case Return:
-                            root.Add(WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, ctx.Row++));
+                            root.Add(WriteNode(node, resolveType, ctx.OutPin, ctx.RefPins, row++));
                             break;
                         // InVar and Block are pulled by EmitPower/EmitData — never emitted at the rung top level.
                     }
                 }
-                // Right rail: per-network localId in this network's stride range, so it decodes back to the right
-                // network. For network 0 this is exactly the IDE's conventional value.
-                root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", ctx.BaseId + RightRailId),
-                    Pos(ctx.Row), new XElement(Ns + "connectionPointIn")));
             }
+            root.Add(new XElement(Ns + "rightPowerRail", new XAttribute("localId", RightRailId),
+                Pos(row), new XElement(Ns + "connectionPointIn")));
             return root;
         }
+
+        // The per-network "networktitle" vendorElement TwinCAT/CODESYS emit to delimit each LD network. The
+        // ElementType is in NO namespace (xmlns="") — PlcOpenReader.SplitNetworks matches it by local name.
+        private static XElement NetworkTitle(long id, XElement pos) =>
+            new XElement(Ns + "vendorElement", new XAttribute("localId", id), pos,
+                new XElement(Ns + "alternativeText", new XElement(Xhtml + "xhtml")),
+                new XElement(Ns + "addData",
+                    new XElement(Ns + "data",
+                        new XAttribute("name", "http://www.3s-software.com/plcopenxml/fbdelementtype"),
+                        new XAttribute("handleUnknown", "implementation"),
+                        new XElement("ElementType", "networktitle"))));
 
         /// <summary>Per-network emit state for the ladder writer (see the section comment). ONE recursion, the
         /// inverse of <see cref="PlcOpenReader"/>'s LowerLadder: <see cref="EmitPower"/> draws the boolean power

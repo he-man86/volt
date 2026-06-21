@@ -52,6 +52,18 @@ public class PlcOpenTcFixtureTests
         Assert.Contains("elapsed := t1.ET", vg);       // non-boolean output embedded in the pin — must survive
     }
 
+    [Fact]
+    public void Real_TC_LD_with_four_networks_splits_on_the_networktitle_markers()
+    {
+        // TC brackets a multi-network LD with ONE shared left/right power rail and delimits each network with a
+        // vendorElement(networktitle) — it does NOT stride localIds. The reader must split on the markers. This
+        // user-authored fixture is four single-rung networks all hanging off the one shared rail (localIds 0-16).
+        var ld = PlcOpenDocument.FindFbdLdBody(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "tc-ld", "ld_four_networks_shared_rails.plcopen.xml")))!;
+        var body = PlcOpenReader.ReadBody(ld);
+        Assert.Equal(4, body.Networks.Count);
+    }
+
 
     [Fact]
     public void Real_network_with_sr_negation_edge_branch_jump_label_reads_to_valid_st()

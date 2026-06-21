@@ -176,11 +176,12 @@ public class PlcOpenWriterTests
             "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
             "NETWORK 1 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := c;\n  y := i1;\nEND_NETWORK\n";
         var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg));
-        // both networks are emitted: two left rails (one per network), each in its own localId band
-        var rails = xml.Elements(XName.Get("leftPowerRail", Ns)).Select(e => (long)e.Attribute("localId")!).ToList();
-        Assert.Equal(2, rails.Count);
-        Assert.Equal(new[] { 0L, 1L }, rails.Select(id => id / 10_000_000_000L).OrderBy(i => i).ToArray());
-        // and both coils survive a read-back
+        // TwinCAT's multi-network LD form (confirmed against a real 4-network capture): ONE shared left/right
+        // rail brackets the body, each network is a vendorElement(networktitle) marker.
+        Assert.Single(xml.Elements(XName.Get("leftPowerRail", Ns)));
+        Assert.Single(xml.Elements(XName.Get("rightPowerRail", Ns)));
+        Assert.Equal(2, xml.Elements(XName.Get("vendorElement", Ns)).Count());   // one marker per network
+        // and both coils survive a read-back as two distinct networks
         var back = VgWriter.Write(PlcOpenReader.ReadBody(xml));
         Assert.Contains("NETWORK 0 LD", back);
         Assert.Contains("NETWORK 1 LD", back);

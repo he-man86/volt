@@ -110,7 +110,10 @@ public class LadderRoundTripTests
             "  i1 := a;\n  i2 := b;\n  g := (i1 AND i2);\n  x := g;\nEND_NETWORK\n" +
             "NETWORK 1 LD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := c;\n  y := i1;\nEND_NETWORK\n";
         var ld = ToLadder(vg);
-        Assert.Equal(2, Count(ld, "leftPowerRail"));
+        // ONE shared rail brackets the body; each network is a networktitle marker (TwinCAT's multi-network form)
+        Assert.Equal(1, Count(ld, "leftPowerRail"));
+        Assert.Equal(1, Count(ld, "rightPowerRail"));
+        Assert.Equal(2, Count(ld, "vendorElement"));   // one networktitle marker per network
         Assert.Equal(2, Count(ld, "coil"));
         var back = RoundTrip(vg);
         Assert.Contains("NETWORK 0 LD", back);
