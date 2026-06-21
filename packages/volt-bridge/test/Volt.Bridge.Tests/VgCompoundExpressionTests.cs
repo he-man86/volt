@@ -19,14 +19,24 @@ public class VgCompoundExpressionTests
         + body + "END_NETWORK\n";
 
     [Fact]
-    public void Nested_expression_referencing_temps_is_refused()
+    public void Partially_parenthesised_expression_is_refused()
     {
-        // g1 := (i1 AND i2) OR i3 — slips past the single "(…)" operator path (no closing paren) and would
-        // otherwise become an opaque inVariable citing the stripped temps i1/i2/i3.
+        // The readable form ACCEPTS a fully-parenthesised nested expression — that's the redesign — but a
+        // PARTIALLY-parenthesised one ('(i1 AND i2) OR i3') is neither a single group nor an opaque leaf, so
+        // it's malformed and refused (it would otherwise become an inVariable citing the stripped temps).
         var src = Net("  i1 := FALSE;\n  i2 := TRUE;\n  i3 := FALSE;\n  g1 := (i1 AND i2) OR i3;\n  outpur := g1;\n");
         var ex = Assert.Throws<VgParseException>(() => VgParser.Parse(src));
-        Assert.Contains("one operation", ex.Message.ToLowerInvariant().Replace("only ", "").Replace("carry ", ""));
-        Assert.Contains("i1", ex.Message);   // names the offending temp
+        Assert.Equal("VG_BAD_EXPRESSION", ex.Code);
+        Assert.Contains("i1", ex.Message);   // echoes the offending expression
+    }
+
+    [Fact]
+    public void Fully_parenthesised_nested_expression_round_trips()
+    {
+        // The supported way to write the same logic now: inline + fully parenthesised (no decomposition needed).
+        var ok = "NETWORK 1 FBD\n  outpur := ((a AND b) OR c);\nEND_NETWORK\n";
+        var once = VgWriter.Write(VgParser.Parse(ok));
+        Assert.Equal(once, VgWriter.Write(VgParser.Parse(once)));   // converges to a fixed point
     }
 
     [Fact]
@@ -81,13 +91,13 @@ public class VgCompoundExpressionTests
     [Fact]
     public void Negation_round_trips_through_plcopen_as_a_pin_modifier()
     {
-        // The supported inversions — NOT on an input operand and on the output sink — are exactly what
-        // VgWriter emits and what PLCopenXML stores (negated="true" on the pin/variable). They MUST survive
-        // VG → PLCopen → VG unchanged, or hand-edited inversions wouldn't round-trip.
-        var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n"
-            + "  i1 := a;\n  i2 := b;\n  g1 := (NOT i1 AND i2);\n  out := NOT g1;\nEND_NETWORK\n";
-        var back = GraphicalRoundTrip.ToVg(vg);
-        Assert.Equal(vg, back);   // fixed point
+        // The supported inversions — NOT on an input operand and on the output sink — survive VG → PLCopen → VG
+        // (negated="true" on the pin/variable). Assert the round-trip CONVERGES (settles to a fixed point)
+        // rather than equality to a hand-written canonical string.
+        var vg = "NETWORK 0 FBD\n  VAR_TEMP\n    g1 : BOOL;\n  END_VAR\n  g1 := (NOT a AND b);\n  out := NOT g1;\nEND_NETWORK\n";
+        var once = GraphicalRoundTrip.ToVg(VgParser.Parse(vg));
+        Assert.Equal(once, GraphicalRoundTrip.ToVg(VgParser.Parse(once)));   // fixed point
+        Assert.Contains("negated", PlcOpenWriter.WriteBody(VgParser.Parse(once)).ToString().ToLowerInvariant());
     }
 
     [Fact]

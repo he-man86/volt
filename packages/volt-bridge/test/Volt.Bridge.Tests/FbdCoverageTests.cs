@@ -129,12 +129,12 @@ public class FbdCoverageTests
         "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<contact localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>b</variable></contact>" +
         "<coil localId='4'><connectionPointIn><connection refLocalId='3'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
-        "(i1 AND i2)")]  // two contacts in series → AND (vars are named leaves i1=a, i2=b)
+        "(a AND b)")]  // two contacts in series → AND (contact vars inline as operands)
     [InlineData(
         "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
         "<contact localId='2' negated='true'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +
         "<coil localId='3'><connectionPointIn><connection refLocalId='2'/></connectionPointIn><connectionPointOut/><variable>out</variable></coil>",
-        "NOT i1")]      // normally-closed contact → NOT (var is the named leaf i1=a)
+        "NOT a")]      // normally-closed contact → NOT (contact var inlines as the operand)
     [InlineData(
         "<leftPowerRail localId='1'><connectionPointOut/></leftPowerRail>" +
         "<contact localId='2'><connectionPointIn><connection refLocalId='1'/></connectionPointIn><connectionPointOut/><variable>a</variable></contact>" +

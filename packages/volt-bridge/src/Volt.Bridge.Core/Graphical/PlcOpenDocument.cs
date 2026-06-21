@@ -127,7 +127,13 @@ namespace Volt.Bridge.Core.Graphical
             if (existing.Name.LocalName != "LD"
                 && existing.Descendants(ns + "connectionPointIn").Any(c => c.Elements(ns + "connection").Count() > 1))
                 blind.Add("a pin wired from multiple sources");
+            // A stateless block with >1 output can't be represented — UNLESS it's an EN/ENO box: it has an EN
+            // input and two outputs (its value + the enable echo), and we represent that as the IF guard. The
+            // enable echo is named inconsistently across TwinCAT builds (ENO / Out1), so key off the EN INPUT,
+            // which is always "EN", not the output name.
             if (existing.Descendants(ns + "block").Any(b => (string?)b.Attribute("instanceName") == null
+                    && !(b.Element(ns + "inputVariables")?.Elements(ns + "variable")
+                          .Any(v => (string?)v.Attribute("formalParameter") == "EN") ?? false)
                     && (b.Element(ns + "outputVariables")?.Elements(ns + "variable").Count() ?? 0) > 1))
                 blind.Add("a stateless function with multiple outputs");
             if (blind.Count > 0)

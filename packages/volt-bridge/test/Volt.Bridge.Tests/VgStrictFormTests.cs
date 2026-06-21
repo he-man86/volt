@@ -19,26 +19,27 @@ public class VgStrictFormTests
     private static string Vg(string inner) => VgWriter.Write(Read(inner));
     private static string FullRoundTrip(string vg) => GraphicalRoundTrip.ToVg(vg);
 
-    /// <summary>A leaf feeding two consumers is ONE node, referenced by its name twice — fan-out
-    /// preserved exactly (the whole reason we name instead of inline).</summary>
+    /// <summary>A SIMPLE leaf (a bare atom) feeding two consumers is INLINED into each consumer box
+    /// (`x := a; y := a;`) — only block results and opaque leaves are named-and-fanned-out; a simple
+    /// atom is cheap to repeat, so re-parsing recovers two distinct InVar nodes. Fixed point.</summary>
     [Fact]
-    public void Leaf_fanout_is_one_node_referenced_twice()
+    public void Simple_leaf_feeding_two_sinks_inlines_into_two_boxes()
     {
         var vg = Vg(
             "<inVariable localId='1'><expression>a</expression></inVariable>" +
             "<outVariable localId='2'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>" +
             "<outVariable localId='3'><expression>y</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("i1 := a;", vg);
-        Assert.Contains("x := i1;", vg);
-        Assert.Contains("y := i1;", vg);
-        // exactly one leaf node survives a parse — not duplicated
-        Assert.Single(VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>());
+        Assert.Contains("x := a;", vg);
+        Assert.Contains("y := a;", vg);
+        // the simple atom inlines into each box — two distinct InVar nodes survive a parse
+        Assert.Equal(2, VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
         Assert.Equal(vg, FullRoundTrip(vg));   // fixed point
     }
 
     /// <summary>Two distinct inVariable nodes with the SAME text stay TWO nodes — identity is the
-    /// node, not the text.</summary>
+    /// node, not the text. Each simple leaf is single-use, so it inlines into its own consumer box
+    /// (`x := a; y := a;`), and re-parsing recovers two distinct InVar nodes.</summary>
     [Fact]
     public void Two_separate_leaves_same_text_stay_distinct()
     {
@@ -48,8 +49,8 @@ public class VgStrictFormTests
             "<outVariable localId='3'><expression>x</expression><connectionPointIn><connection refLocalId='1'/></connectionPointIn></outVariable>" +
             "<outVariable localId='4'><expression>y</expression><connectionPointIn><connection refLocalId='2'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("i1 := a;", vg);
-        Assert.Contains("i2 := a;", vg);
+        Assert.Contains("x := a;", vg);
+        Assert.Contains("y := a;", vg);
         Assert.Equal(2, VgParser.Parse(vg).Networks.SelectMany(n => n.Nodes).OfType<InVar>().Count());
         Assert.Equal(vg, FullRoundTrip(vg));
     }
@@ -115,7 +116,9 @@ public class VgStrictFormTests
     }
 
     /// <summary>Synthetic temp names skip real FB-instance names, so a POU with an instance named
-    /// "g1" doesn't collide with an operator result — both keep distinct names and round-trip.</summary>
+    /// "g1" doesn't collide with an operator result — both keep distinct names and round-trip. The
+    /// operator result FANS OUT (feeds the FB instance AND an outVariable), so it is named rather than
+    /// inlined, exercising the collision path against the reserved instance name "g1".</summary>
     [Fact]
     public void Synthetic_names_skip_real_instance_names()
     {
@@ -128,10 +131,12 @@ public class VgStrictFormTests
             "</inputVariables><outputVariables><variable formalParameter='OUT'><connectionPointOut/></variable></outputVariables></block>" +
             "<block localId='4' typeName='TON' instanceName='g1'><inputVariables>" +
             "<variable formalParameter='IN'><connectionPointIn><connection refLocalId='3'/></connectionPointIn></variable>" +
-            "</inputVariables><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>");
+            "</inputVariables><outputVariables><variable formalParameter='Q'><connectionPointOut/></variable></outputVariables></block>" +
+            "<outVariable localId='5'><expression>extra</expression><connectionPointIn><connection refLocalId='3'/></connectionPointIn></outVariable>");
 
-        Assert.Contains("g2 := (i1 AND i2);", vg);   // operator dodged the reserved name g1
+        Assert.Contains("g2 := (a AND b);", vg);     // fanned-out operator dodged the reserved name g1
         Assert.Contains("g1(IN := g2);", vg);        // FB instance keeps its real name g1
+        Assert.Contains("extra := g2;", vg);         // the second sink references the same named result
         Assert.DoesNotContain("g1 := (", vg);        // no operator named g1
         Assert.Equal(vg, FullRoundTrip(vg));
     }

@@ -92,13 +92,24 @@ export async function fetchItem(name: string): Promise<any> {
 }
 export async function fetchSource(name: string): Promise<string> { return (await fetchItem(name)).sourceText }
 
-// ── PLC_PRG instantiation (required by CODESYS to compile FBs) ────────────────
+// ── main-program instantiation (required to compile FBs: an instance forces compilation) ──
 let _plcPrgOriginal: string | null = null
 
-const PLC_PRG = "PLC_PRG.st"   // full wire name (the op/fetch identity); its IEC body names it "PLC_PRG"
+// The project's main/entry program — the POU we add FB instances to so the compiler reaches them.
+// CODESYS default-names it PLC_PRG; TwinCAT default-names it MAIN. Resolve it from /refs (the wire
+// name carries the .st extension) instead of hardcoding, so the SAME suite runs against either vendor's
+// default project. Cached after the first lookup.
+let _mainProgram: string | null = null
+async function mainProgram(): Promise<string> {
+	if (_mainProgram) return _mainProgram
+	const items = (await bridge.refs()).items ?? {}
+	for (const cand of ["PLC_PRG.st", "MAIN.st"]) if (items[cand] !== undefined) { _mainProgram = cand; return cand }
+	throw new Error(`no main program (PLC_PRG.st / MAIN.st) in project — items: ${Object.keys(items).join(", ")}`)
+}
 
-/** Strip any test-prefixed instance declarations from PLC_PRG so it compiles cleanly. */
+/** Strip any test-prefixed instance declarations from the main program so it compiles cleanly. */
 export async function fixPlcPrg(): Promise<void> {
+	const PLC_PRG = await mainProgram()
 	const item = await fetchItem(PLC_PRG).catch(() => null)
 	if (!item || !item.sourceText.includes(PREFIX)) return
 	const lines = item.sourceText.split("\n")
@@ -115,11 +126,12 @@ export async function fixPlcPrg(): Promise<void> {
 }
 
 export async function savePlcPrg(): Promise<void> {
-	_plcPrgOriginal = (await fetchItem(PLC_PRG)).sourceText
+	_plcPrgOriginal = (await fetchItem(await mainProgram())).sourceText
 }
 
 export async function restorePlcPrg(): Promise<void> {
 	if (!_plcPrgOriginal) return
+	const PLC_PRG = await mainProgram()
 	const current = await fetchItem(PLC_PRG)
 	if (current.sourceText === _plcPrgOriginal) { _plcPrgOriginal = null; return }
 	const r = await pushOps([{
@@ -133,12 +145,13 @@ export async function restorePlcPrg(): Promise<void> {
 	_plcPrgOriginal = null
 }
 
-/** Add an instance of a FB to PLC_PRG's VAR section so the CODESYS compiler reaches it. */
+/** Add an instance of a FB to the main program's VAR section so the compiler reaches it. */
 export async function instantiateInPlcPrg(fbName: string): Promise<void> {
+	const PLC_PRG = await mainProgram()
 	const item = await fetchItem(PLC_PRG)
 	const lines = item.sourceText.split("\n")
 	const endVarIdx = lines.findIndex((l: string) => l.trim() === "END_VAR")
-	if (endVarIdx === -1) throw new Error("PLC_PRG has no END_VAR")
+	if (endVarIdx === -1) throw new Error(`${PLC_PRG} has no END_VAR`)
 	const varName = `inst_${fbName.replace(PREFIX + "_", "")}`
 	lines.splice(endVarIdx, 0, `\t${varName} : ${fbName};`)
 	const r = await pushOps([{

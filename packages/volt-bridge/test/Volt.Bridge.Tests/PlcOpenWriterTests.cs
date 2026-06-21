@@ -79,7 +79,7 @@ public class PlcOpenWriterTests
             """;
         var g1 = PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{fbd}</FBD>"));
         var vg1 = VgWriter.Write(g1);
-        Assert.Contains("NOT i1", vg1);                                  // negation surfaces in VG (on the named leaf ref)
+        Assert.Contains("NOT a", vg1);                                   // negation surfaces in VG as a pin modifier on the inlined operand
 
         var xml2 = PlcOpenWriter.WriteBody(g1);
         Assert.Contains("negated=\"true\"", xml2.ToString());           // re-emitted, not dropped
@@ -125,9 +125,9 @@ public class PlcOpenWriterTests
         Assert.True((long)comment.Attribute("localId")! / 10_000_000_000L == 0);     // in network 0 (with the content)
     }
 
-    /// <summary>An operator/function result is referenced by its bare name (valid ST: `out := g1`),
-    /// NOT `g1.Out1` (member access on a BOOL isn't ST). FB-instance outputs keep their pin (`t1.Q`).
-    /// On write the operator's output pin is re-derived so the PLCopen connection stays named.</summary>
+    /// <summary>A single-use operator result is INLINED into its consumer (valid ST: `out := (a OR b)`),
+    /// never carrying a `.Out1` pin suffix (member access on a BOOL isn't ST). FB-instance outputs keep
+    /// their pin (`t1.Q`). On write the operator's output pin is re-derived so the connection stays named.</summary>
     [Fact]
     public void Operator_result_is_referenced_without_a_pin_suffix()
     {
@@ -145,8 +145,8 @@ public class PlcOpenWriterTests
             """;
         var g = PlcOpenReader.ReadBody(XElement.Parse($"<FBD xmlns=\"{Ns}\">{inner}</FBD>"));
         var vg = VgWriter.Write(g);
-        Assert.Contains("out := g1;", vg);   // operator result referenced directly
-        Assert.DoesNotContain(".Out1", vg);  // no non-ST pin suffix
+        Assert.Contains("out := (a OR b);", vg);   // single-use operator result inlined into the consumer
+        Assert.DoesNotContain(".Out1", vg);        // no non-ST pin suffix
         Assert.Equal(vg, GraphicalRoundTrip.ToVg(vg));  // fixed point
     }
 
@@ -157,12 +157,12 @@ public class PlcOpenWriterTests
     public void Multi_network_vg_round_trips_through_xml()
     {
         const string vg =
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
-            "  i1 := a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  x := g1;\nEND_NETWORK\n" +
-            "NETWORK 1 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
-            "  i1 := c;\n  i2 := d;\n  g1 := (i1 OR i2);\n  y := g1;\nEND_NETWORK\n";
+            "NETWORK 0 FBD\n  x := (a AND b);\nEND_NETWORK\n" +
+            "NETWORK 1 FBD\n  y := (c OR d);\nEND_NETWORK\n";
         var back = GraphicalRoundTrip.ToVg(vg);
-        Assert.Equal(vg, back);   // a true fixed point — no hash drift, no collapse
+        Assert.Equal(vg, back);              // a true fixed point — no hash drift, no collapse
+        Assert.Contains("NETWORK 0 FBD", back);   // both networks survive (the 2nd used to collapse onto the 1st)
+        Assert.Contains("NETWORK 1 FBD", back);
     }
 
     /// <summary>Regression: a MULTI-network LD body must keep every network through the ladder generator —
@@ -196,13 +196,13 @@ public class PlcOpenWriterTests
     public void Fb_output_referenced_only_on_consumer_is_declared_on_the_block()
     {
         const string vg =
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := clk;\n  t1(CLK := i1);\n  done := t1.Q;\nEND_NETWORK\n";
+            "NETWORK 0 FBD\n  t1(CLK := clk);\n  done := t1.Q;\nEND_NETWORK\n";
         var xml = PlcOpenWriter.WriteBody(VgParser.Parse(vg), inst => inst == "t1" ? "R_TRIG" : null);
         var blk = xml.Descendants(XName.Get("block", Ns)).First(b => (string?)b.Attribute("instanceName") == "t1");
         var outPins = blk.Element(XName.Get("outputVariables", Ns))!.Elements()
             .Select(v => (string?)v.Attribute("formalParameter")).ToList();
         Assert.Contains("Q", outPins);                                          // the block declares Q
-        Assert.Equal(vg, VgWriter.Write(PlcOpenReader.ReadBody(xml)));          // and it round-trips
+        Assert.Equal(vg, VgWriter.Write(PlcOpenReader.ReadBody(xml)));          // and it round-trips (fixed point)
     }
 
     /// <summary>Full pipeline VG → graph → PLCopenXML → graph → VG (the write path the bridge runs),
@@ -211,12 +211,11 @@ public class PlcOpenWriterTests
     public void Vg_through_xml_back_to_vg_with_type_resolver()
     {
         const string vg =
-            "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n  END_VAR\n" +
-            "  i1 := start;\n  i2 := pt;\n  t1(IN := i1, PT := i2);\n  running := t1.Q;\nEND_NETWORK\n";
+            "NETWORK 0 FBD\n  t1(IN := start, PT := pt);\n  running := t1.Q;\nEND_NETWORK\n";
         var graph = VgParser.Parse(vg);
         var xml = PlcOpenWriter.WriteBody(graph, inst => inst == "t1" ? "TON" : null);
         Assert.Contains("typeName=\"TON\"", xml.ToString());
         var back = VgWriter.Write(PlcOpenReader.ReadBody(xml));
-        Assert.Equal(vg, back);
+        Assert.Equal(vg, back);   // fixed point
     }
 }

@@ -32,6 +32,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
             NetworkBuilder? cur = null;
             int ordinal = 0;
             bool inTemp = false;
+            var seenIndices = new HashSet<int>();   // network indices must be unique — duplicates collide localIds
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
             int lineNum = 0;
@@ -55,7 +56,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
                 if (line.StartsWith("NETWORK"))
                 {
-                    if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK");
+                    if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED");
                     inTemp = false;
                     // NETWORK <index> <LANG> ["label"] [DISABLED] — the leading integer is the real
                     // network index (preserved verbatim so gapped bodies don't re-number; it bases the
@@ -64,6 +65,8 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     var header = line.Substring("NETWORK".Length).Trim();
                     var nm = Regex.Match(header, @"^(\d+)(?:\s+([A-Za-z]\w*))?\s*");
                     int order = nm.Groups[1].Success ? int.Parse(nm.Groups[1].Value) : ordinal;
+                    if (!seenIndices.Add(order))
+                        throw new VgParseException($"network index {order} appears more than once — indices must be unique (their localIds would collide)", "VG_DUPLICATE_NETWORK");
                     if (nm.Groups[2].Success) lang = nm.Groups[2].Value;
                     cur = new NetworkBuilder(nm.Success ? header.Substring(nm.Length) : header,
                         order, order * NetworkStride + 1);
@@ -83,7 +86,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     cur.AddTemp(line);
                     continue;
                 }
-                cur.AddStatement(line.TrimEnd(';').Trim());
+                cur.AddStatement(line.TrimEnd(';').Trim(), lineNum);
                 }
                 catch (VgParseException ex) { ex.Line ??= lineNum; throw; }
             }
@@ -100,6 +103,13 @@ namespace Volt.Bridge.Core.Graphical.Vg
             private readonly List<GraphNode> _nodes = new();
             private readonly Dictionary<string, long> _blockByName = new(StringComparer.Ordinal);
             private readonly HashSet<string> _temps = new(StringComparer.Ordinal);
+            private readonly HashSet<string> _declared = new(StringComparer.Ordinal);   // every defined name/label, to refuse duplicates
+            // Statements are BUFFERED, then parsed in Build() — a two-pass: a network can't be understood
+            // line-by-line (an EN/ENO `en := src` is only recognisable once we've seen its `IF en THEN …`
+            // guard). Reusable: the feedback-cycle work needs the same pre-scan-then-parse shape.
+            private readonly List<(string Stmt, int Line)> _stmts = new();
+            private readonly Dictionary<string, (Conn Conn, Mods Mods)> _enSource = new(StringComparer.Ordinal);
+            private readonly Dictionary<string, long> _eno = new(StringComparer.Ordinal);   // en wire → its EN/ENO block (its ENO output)
             private long _nextId;
 
             public NetworkBuilder(string header, int order, long baseId)
@@ -125,31 +135,96 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 if (name.Length > 0) _temps.Add(name);
             }
 
-            public void AddStatement(string stmt)
+            public void AddStatement(string stmt, int line) => _stmts.Add((stmt, line));
+
+            /// <summary>Names used as an <c>IF &lt;name&gt; THEN … := …</c> guard — the EN/ENO enable wires. A
+            /// pre-scan finds them so a preceding <c>&lt;name&gt; := src</c> is read as an EN binding (the box's
+            /// EN source), not a leaf/result. (An <c>IF … THEN JMP/RETURN</c> has no <c>:=</c> → not an en wire.)</summary>
+            private HashSet<string> ScanEnWires()
+            {
+                var en = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var (stmt, _) in _stmts)
+                {
+                    var m = Regex.Match(stmt, @"^IF\s+(\w+)\s+THEN\b.*:=", RegexOptions.IgnoreCase);
+                    if (m.Success) en.Add(m.Groups[1].Value);
+                }
+                return en;
+            }
+
+            private void ParseStatement(string stmt, HashSet<string> enWires)
             {
                 if (stmt.Length == 0) return;
                 if (TryControlFlow(stmt)) return;             // label / JMP / RETURN (control flow)
+
+                var enif = Regex.Match(stmt, @"^IF\s+(\w+)\s+THEN\s+(.+?)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
+                if (enif.Success && enWires.Contains(enif.Groups[1].Value))
+                { ParseEnEnoIf(enif.Groups[1].Value, enif.Groups[2].Value.Trim()); return; }
+
                 var asg = SplitAssignment(stmt);              // (lhs, rhs) or null for a bare FB call
                 if (asg == null) { ParseFbCall(stmt); return; }
                 var (lhs, rhs) = asg.Value;
+                if (lhs.Length == 0) throw new VgParseException("assignment has no target: '" + stmt + "'", "VG_PARSE");
 
-                if (rhs.StartsWith("(") && rhs.EndsWith(")"))         // named operator block
-                    ParseOperator(lhs, rhs.Substring(1, rhs.Length - 2));
-                else if (IsCall(rhs))                                 // named function block
-                    ParseFunction(lhs, rhs);
-                else
+                if (enWires.Contains(lhs))                    // en := <EN source> — held until its IF builds the box
+                { Declare(lhs); _enSource[lhs] = ParseOperand(rhs); return; }
+
+                if (_temps.Contains(lhs))                     // declared temp → a NAMED producer
                 {
-                    var (core, mods) = ExtractMods(rhs);
-                    if (_temps.Contains(lhs))                         // declared temp → leaf inVariable
+                    Declare(lhs);
+                    if (rhs.StartsWith("(") || IsCall(rhs))   // operator / function block → name its result
+                        _blockByName[lhs] = ParseCore(rhs).RefLocalId;
+                    else                                      // an OPAQUE leaf the writer couldn't inline (it has spaces/operators)
                     {
-                        EnsureLeafIsSource(lhs, rhs, core);           // a leaf is a literal/real-var source, never derived from a temp
-                        var iv = new InVar(_nextId++, null, core, mods);   // RHS is opaque pin text
+                        var (core, mods) = ExtractMods(rhs);
+                        EnsureLeafIsSource(core, $"'{lhs} := {rhs}'");   // a leaf is a literal/real-var source, never an alias of a temp
+                        var iv = new InVar(_nextId++, null, core, mods);
                         _blockByName[lhs] = iv.LocalId;
                         _nodes.Add(iv);
                     }
-                    else                                             // not a temp → outVariable sink
-                        _nodes.Add(new OutVar(_nextId++, null, lhs, mods, RefOf(core)));
                 }
+                else                                          // not a temp → outVariable sink
+                {
+                    var (conn, mods) = ParseOperand(rhs);
+                    _nodes.Add(new OutVar(_nextId++, null, lhs, mods, conn));
+                }
+            }
+
+            /// <summary>Rebuild an EN/ENO box from <c>IF en THEN result := &lt;expr&gt;</c>: its EN pin is the
+            /// held <c>en</c> source, its operands become <c>In2…</c> pins, and it gains <c>Out2</c>/<c>ENO</c>
+            /// outputs. <c>result</c> then names its <c>Out2</c> value and <c>en</c> resolves to its <c>ENO</c>
+            /// (downstream EN wires chain off it). Pin names follow TwinCAT's EN/ENO convention.</summary>
+            private void ParseEnEnoIf(string en, string body)
+            {
+                if (!_enSource.TryGetValue(en, out var enSrc))
+                    throw new VgParseException($"'IF {en} THEN …' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
+                var asg = SplitAssignment(body);
+                if (asg == null)
+                    throw new VgParseException("EN/ENO function-block calls are not yet supported: " + body, "VG_BAD_EXPRESSION");
+                var (result, rhs) = asg.Value;
+
+                string typeName, callType;
+                List<(Conn Conn, Mods Mods)> operands;
+                if (rhs.StartsWith("("))
+                {
+                    var (op, ops) = SplitTopLevelOperator(rhs.Substring(1, rhs.Length - 2));
+                    typeName = FbdOperators.SymbolToType[op]; callType = "operator";
+                    operands = ops.Select(ParseOperand).ToList();
+                }
+                else if (IsCall(rhs))
+                {
+                    var (fn, inner) = SplitCall(rhs);
+                    typeName = fn; callType = "function";
+                    operands = SplitArgs(inner).Select(ParseOperand).ToList();
+                }
+                else throw new VgParseException("EN/ENO body must be 'result := (expr)' or 'result := FN(args)': " + body, "VG_BAD_EXPRESSION");
+
+                var id = _nextId++;
+                var pins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
+                for (int k = 0; k < operands.Count; k++) pins.Add(new Pin("In" + (k + 2), operands[k].Conn, operands[k].Mods));
+                _nodes.Add(new Block(id, null, typeName, null, pins, new List<string> { "Out2", "ENO" }, callType));
+                Declare(result);
+                _blockByName[result] = id;   // result names the Out2 value
+                _eno[en] = id;               // en resolves to this box's ENO
             }
 
             /// <summary>Control flow as valid CODESYS ST: <c>name:</c> (label), <c>JMP name;</c>,
@@ -158,14 +233,14 @@ namespace Volt.Bridge.Core.Graphical.Vg
             private bool TryControlFlow(string stmt)
             {
                 var lbl = Regex.Match(stmt, @"^(\w+)\s*:$");
-                if (lbl.Success) { _nodes.Add(new Label(_nextId++, null, lbl.Groups[1].Value)); return true; }
+                if (lbl.Success) { Declare(lbl.Groups[1].Value); _nodes.Add(new Label(_nextId++, null, lbl.Groups[1].Value)); return true; }
 
                 var cif = Regex.Match(stmt, @"^IF\s+(.+?)\s+THEN\s+(JMP\s+(\w+)|RETURN)\s*;?\s*END_IF$", RegexOptions.IgnoreCase);
                 if (cif.Success)
                 {
                     var (core, mods) = ExtractMods(cif.Groups[1].Value);
-                    if (cif.Groups[3].Success) _nodes.Add(new Jump(_nextId++, null, cif.Groups[3].Value, RefOf(core), mods));
-                    else _nodes.Add(new Return(_nextId++, null, RefOf(core), mods));
+                    if (cif.Groups[3].Success) _nodes.Add(new Jump(_nextId++, null, cif.Groups[3].Value, ParseCore(core), mods));
+                    else _nodes.Add(new Return(_nextId++, null, ParseCore(core), mods));
                     return true;
                 }
 
@@ -185,98 +260,150 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 {
                     var p = a.Split(new[] { ":=" }, 2, StringSplitOptions.None);
                     if (p.Length != 2) throw new VgParseException("FB call arg needs 'pin := value': " + a);
-                    var (core, mods) = ExtractMods(p[1].Trim());
-                    return new Pin(p[0].Trim(), RefOf(core), mods);
+                    var (conn, mods) = ParseOperand(p[1].Trim());
+                    return new Pin(p[0].Trim(), conn, mods);
                 }).ToList();
                 var id = _nextId++;
+                Declare(name);
                 _blockByName[name] = id;
                 _nodes.Add(new Block(id, null, "", name, pins, new List<string>(), "functionblock"));
             }
 
-            private void ParseOperator(string name, string inner)
+            // ── recursive expression engine — the inverse of VgWriter's RenderExpr ───────────────────
+            /// <summary>An operand → its producer wire (+ its consuming-pin modifiers). A leading <c>NOT</c> /
+            /// trailing edge|storage rides the PIN; the bare core is resolved by <see cref="ParseCore"/>.</summary>
+            private (Conn Conn, Mods Mods) ParseOperand(string token)
             {
-                // split on a single infix operator; reject mixed operators (ambiguous topology)
-                var rawToks = Regex.Split(inner.Trim(), @"\s+").Where(t => t.Length > 0).ToList();
-                // Merge a leading NOT onto the operand it negates, so the even=operand / odd=operator
-                // split still holds for negated inputs ("NOT a AND b").
-                var toks = new List<string>();
-                for (int i = 0; i < rawToks.Count; i++)
-                {
-                    if (string.Equals(rawToks[i], "NOT", StringComparison.OrdinalIgnoreCase) && i + 1 < rawToks.Count)
-                    { toks.Add("NOT " + rawToks[i + 1]); i++; }
-                    else toks.Add(rawToks[i]);
-                }
-                if (toks.Count < 3 || toks.Count % 2 == 0)
-                    throw new VgParseException("operator statement must be 'a OP b [OP c …]': " + inner, "VG_BAD_OPERATOR_STMT");
-                var op = toks[1];
-                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'", "VG_UNKNOWN_OPERATOR");
-                var operands = new List<string>();
-                for (int i = 0; i < toks.Count; i++)
-                {
-                    if (i % 2 == 0) operands.Add(toks[i]);
-                    else if (!string.Equals(toks[i], op, StringComparison.OrdinalIgnoreCase))
-                        throw new VgParseException("one operator per statement; found '" + toks[i] + "' and '" + op + "'", "VG_MIXED_OPERATORS");
-                }
-                var id = _nextId++;
-                _blockByName[name] = id;
-                var pins = operands.Select((o, k) =>
-                {
-                    var (core, mods) = ExtractMods(o);
-                    return new Pin("IN" + (k + 1), RefOf(core), mods);
-                }).ToList();
-                _nodes.Add(new Block(id, null, FbdOperators.SymbolToType[op], null, pins, new List<string> { "OUT" }, "operator"));
+                var (core, mods) = ExtractMods(token);
+                return (ParseCore(core), mods);
             }
 
-            private void ParseFunction(string name, string call)
+            /// <summary>A bare operand core → a wire, creating nodes bottom-up: a parenthesised group is an
+            /// operator block, <c>FN(args)</c> a function block, a declared name a reference (<c>name.Pin</c> for
+            /// an FB output), and anything else a FRESH leaf <c>inVariable</c> (the controlled relaxation that
+            /// lets inlined literals/variables round-trip — each is its own single-use box).</summary>
+            private Conn ParseCore(string core)
+            {
+                core = core.Trim();
+                if (IsSingleGroup(core)) return ParseOperatorExpr(core.Substring(1, core.Length - 2));
+                if (IsCall(core)) return ParseFunctionExpr(core);
+                if (core.IndexOf('(') >= 0 || core.IndexOf(')') >= 0)   // parens that form neither a single group nor a call → malformed
+                    throw new VgParseException("malformed expression — unbalanced or partially-parenthesised: '" + core + "'", "VG_BAD_EXPRESSION");
+                var dot = core.IndexOf('.');
+                var baseName = dot >= 0 ? core.Substring(0, dot) : core;
+                if (_eno.TryGetValue(baseName, out var enoBlock)) return new Conn(enoBlock, "ENO");   // an EN/ENO box's enable echo
+                if (_blockByName.TryGetValue(baseName, out var bid))
+                    return new Conn(bid, dot >= 0 ? core.Substring(dot + 1) : null);
+                EnsureLeafIsSource(core, "operand '" + core + "'");   // a leaf is a literal/real-var source, never an alias of a temp
+                var iv = new InVar(_nextId++, null, core, Mods.None);   // a literal / variable leaf
+                _nodes.Add(iv);
+                return new Conn(iv.LocalId, null);
+            }
+
+            /// <summary>True iff <paramref name="s"/> is ONE balanced parenthesised group — its outer
+            /// <c>(</c> closes only at the very end. Distinguishes <c>(a AND b)</c> (a group) from
+            /// <c>(a) + (b)</c> or <c>(a AND b) OR c</c> (which the writer never emits — they're malformed).</summary>
+            private static bool IsSingleGroup(string s)
+            {
+                if (s.Length < 2 || s[0] != '(' || s[s.Length - 1] != ')') return false;
+                int depth = 0;
+                for (int i = 0; i < s.Length; i++)
+                {
+                    if (s[i] == '(') depth++;
+                    else if (s[i] == ')') { depth--; if (depth == 0 && i < s.Length - 1) return false; }
+                }
+                return depth == 0;
+            }
+
+            private Conn ParseOperatorExpr(string inner)
+            {
+                var (op, operands) = SplitTopLevelOperator(inner);
+                var id = _nextId++;
+                var pins = operands.Select((o, k) => { var (conn, mods) = ParseOperand(o); return new Pin("IN" + (k + 1), conn, mods); }).ToList();
+                _nodes.Add(new Block(id, null, FbdOperators.SymbolToType[op], null, pins, new List<string> { "OUT" }, "operator"));
+                return new Conn(id, null);
+            }
+
+            private Conn ParseFunctionExpr(string call)
             {
                 var (fn, inner) = SplitCall(call);
-                var pins = SplitArgs(inner).Select((a, k) =>
-                {
-                    var (core, mods) = ExtractMods(a.Trim());
-                    return new Pin("IN" + (k + 1), RefOf(core), mods);
-                }).ToList();
                 var id = _nextId++;
-                _blockByName[name] = id;
+                var pins = SplitArgs(inner).Select((a, k) => { var (conn, mods) = ParseOperand(a); return new Pin("IN" + (k + 1), conn, mods); }).ToList();
                 _nodes.Add(new Block(id, null, fn, null, pins, new List<string> { "OUT" }, "function"));
+                return new Conn(id, null);
             }
 
-            /// <summary>Resolve an operand to a wire. EVERY operand must be a NAME — a declared temp
-            /// (<c>i*</c>/<c>g*</c>) or an FB instance (optionally <c>name.Pin</c>). Inline literals
-            /// (`TRUE`), bare variables, or un-named expressions are REJECTED: each must be its own
-            /// declared leaf. This is what keeps VG isomorphic to FBD (no syntax for a non-FBD shape).</summary>
-            private Conn RefOf(string token)
+            /// <summary>A leaf is a real SOURCE — a literal or a real variable — never an alias/modifier of a
+            /// temp. A temp is a graph node, so a leaf whose text cites one is not a valid FBD node: a NOT/edge
+            /// modifier rides on the CONSUMER (<c>out := NOT g1</c>, not <c>g2 := NOT g1</c>), and an expression
+            /// over temps is written inline at its consumer. Emitting it would produce XML referencing temp names
+            /// (stripped on push) and CORRUPT the IDE on import — refuse it here.</summary>
+            /// <summary>Record a defined name (wire result, leaf, FB instance, EN wire, label) and refuse a
+            /// duplicate: two nodes with one name is ambiguous structure — the second silently orphans the first
+            /// and corrupts what the IDE re-imports.</summary>
+            private void Declare(string name)
             {
-                token = token.Trim();
-                var dot = token.IndexOf('.');
-                var baseName = dot >= 0 ? token.Substring(0, dot) : token;
-                if (_blockByName.TryGetValue(baseName, out var bid))
-                    return new Conn(bid, dot >= 0 ? token.Substring(dot + 1) : null);
-                throw new VgParseException("operand must reference a declared temp or FB instance "
-                    + "(literals/variables must be their own leaf statement): '" + token + "'", "VG_UNRESOLVED_OPERAND");
+                if (!_declared.Add(name))
+                    throw new VgParseException($"'{name}' is defined more than once in this network — each wire, result, instance, and label name must be unique", "VG_DUPLICATE_NAME");
             }
 
-            /// <summary>A temp's right-hand side must be a real SOURCE — a literal or a real variable — never
-            /// derived from another temp. A temp is a graph node, so a leaf citing one is not a valid FBD node:
-            /// it's either a nested expression that wasn't decomposed (<c>(i1 AND i2) OR i3</c> — slips past the
-            /// single <c>(…)</c> operator path because it doesn't close with a paren) OR a bare alias / modifier
-            /// of a temp (<c>g2 := NOT g1</c>) — and in FBD a NOT/edge is a PIN modifier on the consumer, not its
-            /// own element. Emitting either produces XML that references the temp names — stripped on push — and
-            /// CORRUPTS the IDE on import (an NRE on TwinCAT). Refuse it here with concrete guidance.</summary>
-            private void EnsureLeafIsSource(string lhs, string rhs, string core)
+            private void EnsureLeafIsSource(string core, string display)
             {
                 foreach (Match m in Regex.Matches(core, @"[A-Za-z_]\w*"))
                     if (_temps.Contains(m.Value))
                         throw new VgParseException(
-                            $"'{lhs} := {rhs}' is not a valid graphical node — its right-hand side derives from the temp "
-                            + $"'{m.Value}'. Each temp is exactly ONE operation: an operator block 'g := (a OP b)', a call, "
-                            + "or a literal/variable source. A NOT (or edge) modifier rides on the CONSUMER, not its own "
-                            + "line — write 'out := NOT g1', not 'g2 := NOT g1'. And split a nested expression like "
-                            + "'(a AND b) OR c' into separate temps ('g0 := (a AND b);' then 'g1 := (g0 OR c);').",
+                            $"{display} derives from the temp '{m.Value}', so it is not a valid leaf. A NOT/edge "
+                            + "modifier rides on the CONSUMER ('out := NOT g1', not 'g2 := NOT g1'), and an expression "
+                            + "over temps is written inline (fully parenthesised) at its consumer.",
                             "VG_LEAF_REFERENCES_TEMP");
             }
 
+            /// <summary>Split a parenthesised operator body into its single operator + operands, respecting
+            /// nested parens (each <c>(…)</c> group is ONE operand). The writer fully-parenthesises, so each
+            /// level is exactly one operator — mixed operators at one level are malformed.</summary>
+            private static (string Op, List<string> Operands) SplitTopLevelOperator(string inner)
+            {
+                var tokens = new List<string>();
+                int depth = 0; var sb = new System.Text.StringBuilder();
+                foreach (var ch in inner)
+                {
+                    if (ch == '(') { depth++; sb.Append(ch); }
+                    else if (ch == ')') { depth--; sb.Append(ch); }
+                    else if (char.IsWhiteSpace(ch) && depth == 0) { if (sb.Length > 0) { tokens.Add(sb.ToString()); sb.Clear(); } }
+                    else sb.Append(ch);
+                }
+                if (sb.Length > 0) tokens.Add(sb.ToString());
+
+                // Merge a leading NOT onto the operand it negates, so even=operand / odd=operator holds.
+                var merged = new List<string>();
+                for (int i = 0; i < tokens.Count; i++)
+                {
+                    if (string.Equals(tokens[i], "NOT", StringComparison.OrdinalIgnoreCase) && i + 1 < tokens.Count)
+                    { merged.Add("NOT " + tokens[i + 1]); i++; }
+                    else merged.Add(tokens[i]);
+                }
+                if (merged.Count < 3 || merged.Count % 2 == 0)
+                    throw new VgParseException("operator expression must be 'a OP b [OP c …]': " + inner, "VG_BAD_EXPRESSION");
+                var op = merged[1];
+                if (!FbdOperators.SymbolToType.ContainsKey(op)) throw new VgParseException("unknown operator '" + op + "'", "VG_UNKNOWN_OPERATOR");
+                var operands = new List<string>();
+                for (int i = 0; i < merged.Count; i++)
+                {
+                    if (i % 2 == 0) operands.Add(merged[i]);
+                    else if (!string.Equals(merged[i], op, StringComparison.OrdinalIgnoreCase))
+                        throw new VgParseException("one operator per parenthesised group; found '" + merged[i] + "' and '" + op + "'", "VG_BAD_EXPRESSION");
+                }
+                return (op, operands);
+            }
+
             public GraphNetwork Build()
-                => new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
+            {
+                var enWires = ScanEnWires();   // pass 1: which names are EN/ENO enable wires
+                foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
+                    try { ParseStatement(stmt, enWires); }
+                    catch (VgParseException ex) { ex.Line ??= line; throw; }
+                return new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
+            }
 
             /// <summary>Strip pin/operand modifiers from a VG operand — leading <c>NOT</c>
             /// (negation), trailing <c>RISING</c>/<c>FALLING</c> (edge), trailing <c>SET</c>/

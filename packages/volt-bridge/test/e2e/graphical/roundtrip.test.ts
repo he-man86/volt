@@ -10,9 +10,10 @@ import { bridge, id, fid, cleanup, createItem, ensureCompiles, requireHealthy, s
 setDefaultTimeout(30000)
 
 function fbdProgram(name: string) {
-	// CANONICAL form (a fixed point of VgWriter∘VgParser, so it passes the round-trip gate). Exercises OUTPUT
-	// negation (`out := NOT g1`) — which now round-trips through both vendors (FBD inVariable negation is
-	// encoded as expression text; see PlcOpenWriter). The old `g1 := NOT i1` was non-canonical and is refused.
+	// CANONICAL readable form (a fixed point of VgWriter∘VgParser, so it passes the round-trip gate): operands
+	// inlined, single-use results inlined, full parenthesisation. Exercises OUTPUT negation (`out := NOT (a AND
+	// b)`) — which now round-trips through both vendors (FBD inVariable negation is encoded as expression text;
+	// see PlcOpenWriter). The old verbose `i1 := a; … g1 := (i1 AND i2); out := NOT g1;` is now non-canonical.
 	return `PROGRAM ${name}
 VAR
 \ta : BOOL;
@@ -21,15 +22,7 @@ VAR
 END_VAR
 
 NETWORK 0 FBD
-  VAR_TEMP
-    i1 : BOOL;
-    i2 : BOOL;
-    g1 : BOOL;
-  END_VAR
-  i1 := a;
-  i2 := b;
-  g1 := (i1 AND i2);
-  out := NOT g1;
+  out := NOT (a AND b);
 END_NETWORK
 END_PROGRAM
 `
@@ -44,15 +37,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-    i2 : BOOL;
-    g1 : BOOL;
-  END_VAR
-  i1 := a;
-  i2 := b;
-  g1 := (i1 AND i2);
-  out := g1;
+  out := (a AND b);
 END_NETWORK
 END_PROGRAM
 `
@@ -71,13 +56,9 @@ END_VAR
 NETWORK 0 LD
   VAR_TEMP
     i1 : BOOL;
-    i2 : BOOL;
-    g1 : BOOL;
   END_VAR
   i1 := NOT a;
-  i2 := b;
-  g1 := (i1 AND i2);
-  out := g1;
+  out := (i1 AND b);
 END_NETWORK
 END_PROGRAM
 `
@@ -92,17 +73,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-    i2 : BOOL;
-    i3 : BOOL;
-    g1 : BOOL;
-  END_VAR
-  i1 := a;
-  i2 := b;
-  i3 := c;
-  g1 := (i1 AND i2 AND i3);
-  out := g1;
+  out := (a AND b AND c);
 END_NETWORK
 END_PROGRAM
 `
@@ -117,14 +88,8 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-    i2 : BOOL;
-  END_VAR
-  i1 := a;
-  i2 := b;
-  q := i1;
-  r := i2;
+  q := a;
+  r := b;
 END_NETWORK
 END_PROGRAM
 `
@@ -137,11 +102,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-  END_VAR
-  i1 := a;
-  out := i1 SET;
+  out := a SET;
 END_NETWORK
 END_PROGRAM
 `
@@ -158,15 +119,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  VAR_TEMP
-    i1 : BOOL;
-    i2 : BOOL;
-    g1 : BOOL;
-  END_VAR
-  i1 := a;
-  i2 := b;
-  g1 := (i1 AND i2);
-  out := g1;
+  out := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK
 `

@@ -46,60 +46,140 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     sb.Append("  // ").Append(line).Append('\n');
 
             var byId = net.Nodes.ToDictionary(n => n.LocalId);
-            var leaves = net.Nodes.OfType<InVar>().OrderBy(n => n.LocalId).ToList();
             var blocks = net.Nodes.OfType<Block>().ToList();
             var ordered = TopoOrder(blocks, byId);
 
-            // Name EVERY node that needs a synthetic name: inVariable leaves i1,i2… (localId order);
-            // operator/function results g1,g2… (topo order); FB instances keep their real name.
-            // Synthetic names skip any real FB-instance name (the only other identifiers in the
-            // resolvable namespace), so they never collide — round-trip stays identical even if a POU
-            // has an instance named i1/g1.
+            bool IsEnEno(Block b) => b.Inputs.Any(p => p.FormalParameter == "EN");
+            string? ResultPin(Block b) => IsEnEno(b) ? "Out2" : null;   // EN/ENO result is the Out2 pin; an operator's is unnamed
+
+            // Consumer count per (producer, output pin) — the basis for inline-vs-name: a wire used ONCE is
+            // inlined into its consumer's expression; a wire that fans out (2+) keeps a name (else inlining it
+            // would duplicate its box).
+            var uses = new Dictionary<(long, string?), int>();
+            int Get((long, string?) k) => uses.TryGetValue(k, out var v) ? v : 0;
+            // A plain operator/function has a SINGLE output, referenced as either the bare name (null pin) or its
+            // "OUT" pin — the IDE round-trip flips between them, so normalise to null or the count splits and a
+            // fan-out wire is misread as single-use (→ wrongly inlined, duplicating the box).
+            string? OutKey(long id, string? pin) =>
+                byId.TryGetValue(id, out var p) && p is Block pb && IsOperatorOrFunction(pb) && !IsEnEno(pb) ? null : pin;
+            void Count(Conn? c) { if (c != null) { var k = (c.RefLocalId, OutKey(c.RefLocalId, c.FormalParameter)); uses[k] = Get(k) + 1; } }
+            foreach (var n in net.Nodes)
+                switch (n)
+                {
+                    case Block bb: foreach (var p in bb.Inputs) Count(p.Source); break;
+                    case OutVar o: Count(o.Source); break;
+                    case Jump j: Count(j.Condition); break;
+                    case Return r: Count(r.Condition); break;
+                }
+            int ResultUses(Block b) => Get((b.LocalId, ResultPin(b)));
+
             var reserved = new HashSet<string>(
                 blocks.Where(b => !IsOperatorOrFunction(b) && !string.IsNullOrEmpty(b.InstanceName))
                       .Select(b => b.InstanceName!), StringComparer.Ordinal);
-            var names = new Dictionary<long, string>();
-            int li = 0, g = 0;
-            foreach (var iv in leaves) names[iv.LocalId] = Mint("i", ref li, reserved);
-            foreach (var b in ordered)
-                names[b.LocalId] = (!IsOperatorOrFunction(b) && !string.IsNullOrEmpty(b.InstanceName))
-                    ? b.InstanceName! : Mint("g", ref g, reserved);
 
-            // Per-network VAR_TEMP declaring the synthetic temps (leaves, then results) with
-            // writer-owned types — authoritative when the XML supplied one (OutputParamTypes /
-            // InputParamTypes), else BOOL. Operator operand types are absent in the XML → BOOL.
-            // Omitted entirely when a network has no temps (control-flow-only / empty).
-            var temps = new List<(string Name, string Type)>();
-            foreach (var iv in leaves) temps.Add((names[iv.LocalId], LeafType(iv, blocks)));
+            // NAMED producers (get a statement + a `g*`/instance name): FB instances (stateful), EN/ENO boxes
+            // (the IF form + the `en*` ENO wire), and operator/function results that FAN OUT. Everything else —
+            // leaves and single-use operator/function results — is INLINED into its consumer's expression.
+            var names = new Dictionary<long, string>();
+            var enNames = new Dictionary<long, string>();
+            int g = 0, en = 0, li = 0;
             foreach (var b in ordered)
-                if (IsOperatorOrFunction(b)) temps.Add((names[b.LocalId], b.OutputTypes?.FirstOrDefault() ?? "BOOL"));
+            {
+                if (!IsOperatorOrFunction(b)) names[b.LocalId] = b.InstanceName!;           // FB instance
+                else if (IsEnEno(b) || ResultUses(b) >= 2) names[b.LocalId] = Mint("g", ref g, reserved);
+                if (IsEnEno(b)) enNames[b.LocalId] = Mint("en", ref en, reserved);
+            }
+            // An OPAQUE leaf — its text has whitespace or parens, so it can't sit at an operand position as a
+            // single token (it would mis-split or mis-parse as a call) — is NAMED and gets its own statement.
+            // A simple atom (a bare variable/literal) is inlined.
+            var leaves = net.Nodes.OfType<InVar>().OrderBy(n => n.LocalId).ToList();
+            foreach (var iv in leaves)
+                if (!IsInlinableLeaf(iv)) names[iv.LocalId] = Mint("i", ref li, reserved);
+
+            // VAR_TEMP declares only the SYNTHETIC named wires (named opaque leaves i*, g* results, en*) —
+            // inlined leaves and FB instances (real vars) are not temps. Keeps the body valid ST and lets the
+            // parser tell a named result (`g1 := …`) from a sink (`out := …`).
+            var temps = new List<(string Name, string Type)>();
+            foreach (var iv in leaves)
+                if (names.TryGetValue(iv.LocalId, out var ln)) temps.Add((ln, "BOOL"));
+            foreach (var b in ordered)
+            {
+                if (enNames.TryGetValue(b.LocalId, out var et)) temps.Add((et, "BOOL"));
+                if (names.TryGetValue(b.LocalId, out var rn) && IsOperatorOrFunction(b))
+                    temps.Add((rn, b.OutputTypes?.FirstOrDefault() ?? "BOOL"));
+            }
             if (temps.Count > 0)
             {
                 sb.Append("  VAR_TEMP\n");
-                foreach (var (name, type) in temps)
-                    sb.Append("    ").Append(name).Append(" : ").Append(type).Append(";\n");
+                foreach (var (nm, ty) in temps) sb.Append("    ").Append(nm).Append(" : ").Append(ty).Append(";\n");
                 sb.Append("  END_VAR\n");
             }
 
-            // Leaf statements: one per inVariable, RHS its opaque expression (+ its own modifiers).
-            foreach (var iv in leaves)
-                sb.Append("  ").Append(names[iv.LocalId]).Append(" := ")
-                  .Append(ApplyMods(iv.Expression, iv.Mods)).Append(";\n");
+            // A wire → text. A NAMED producer is its name (`.Pin` for an FB output, `en*` for an ENO); an
+            // INLINED producer recurses to its expression (a leaf → its literal/var; an operator/function →
+            // its parenthesised body).
+            string Render(Conn? c)
+            {
+                if (c == null) return "";
+                if (!byId.TryGetValue(c.RefLocalId, out var src)) return "";
+                if (c.FormalParameter == "ENO" && enNames.TryGetValue(c.RefLocalId, out var enWire)) return enWire;
+                if (names.TryGetValue(c.RefLocalId, out var nm))
+                    return (src is Block fb && c.FormalParameter != null && !IsOperatorOrFunction(fb))
+                        ? nm + "." + c.FormalParameter : nm;
+                return src switch
+                {
+                    InVar iv => ApplyMods(iv.Expression, iv.Mods),
+                    Block b => Definition(b, excludeEn: false),
+                    _ => "",
+                };
+            }
+            // A block's VALUE expression (no LHS): operator → fully-parenthesised infix, stateless function →
+            // call, FB instance → pin-bound call. EN/ENO reuses it for the IF body, dropping the EN pin.
+            string Definition(Block b, bool excludeEn)
+            {
+                var args = b.Inputs.Where(p => p.Source != null && !(excludeEn && p.FormalParameter == "EN"))
+                    .Select(p => (Pin: p.FormalParameter, Val: ApplyMods(Render(p.Source), p.Mods))).ToList();
+                if (FbdOperators.TypeToSymbol.TryGetValue(b.TypeName, out var op))
+                    return "(" + string.Join($" {op} ", args.Select(a => a.Val)) + ")";
+                if (string.IsNullOrEmpty(b.InstanceName))
+                    return b.TypeName + "(" + string.Join(", ", args.Select(a => a.Val)) + ")";
+                return b.InstanceName + "(" + string.Join(", ", args.Select(a => a.Pin + " := " + a.Val)) + ")";
+            }
 
-            foreach (var b in ordered) EmitBlock(sb, b, byId, names);
+            // Statements: named opaque leaves first, then named blocks (topo order, so a name is defined before
+            // it's used), then sinks, then control flow. Inlined leaves / single-use results emit nothing.
+            foreach (var iv in leaves)
+                if (names.TryGetValue(iv.LocalId, out var ln))
+                    sb.Append("  ").Append(ln).Append(" := ").Append(ApplyMods(iv.Expression, iv.Mods)).Append(";\n");
+
+            foreach (var b in ordered)
+            {
+                if (IsEnEno(b))
+                {
+                    var enPin = b.Inputs.First(p => p.FormalParameter == "EN");
+                    sb.Append("  ").Append(enNames[b.LocalId]).Append(" := ")
+                      .Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
+                    sb.Append("  IF ").Append(enNames[b.LocalId]).Append(" THEN ");
+                    if (IsOperatorOrFunction(b)) sb.Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
+                    else sb.Append(Definition(b, excludeEn: true));   // EN/ENO FB call
+                    sb.Append("; END_IF\n");
+                }
+                else if (names.TryGetValue(b.LocalId, out var nm))
+                {
+                    if (IsOperatorOrFunction(b)) sb.Append("  ").Append(nm).Append(" := ").Append(Definition(b, false)).Append(";\n");
+                    else sb.Append("  ").Append(Definition(b, false)).Append(";\n");   // FB instance call
+                }
+            }
 
             foreach (var ov in net.Nodes.OfType<OutVar>())
-                sb.Append("  ").Append(ov.Expression).Append(" := ")
-                  .Append(ApplyMods(RenderConn(ov.Source, byId, names), ov.Mods)).Append(";\n");
+                sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
 
-            // Control flow (valid CODESYS ST): a label is "name:"; a jump/return is bare when
-            // unconditional, else wrapped in IF … THEN … END_IF (its condition is a named wire).
             foreach (var node in net.Nodes)
                 switch (node)
                 {
                     case Label lb: sb.Append("  ").Append(lb.Name).Append(":\n"); break;
-                    case Jump jp: EmitGoto(sb, "JMP " + jp.Target, jp.Condition, jp.Mods, byId, names); break;
-                    case Return rt: EmitGoto(sb, "RETURN", rt.Condition, rt.Mods, byId, names); break;
+                    case Jump jp: EmitGoto(sb, "JMP " + jp.Target, jp.Condition, jp.Mods, Render); break;
+                    case Return rt: EmitGoto(sb, "RETURN", rt.Condition, rt.Mods, Render); break;
                 }
 
             sb.Append("END_NETWORK\n");
@@ -114,23 +194,10 @@ namespace Volt.Bridge.Core.Graphical.Vg
             return s;
         }
 
-        /// <summary>The declared type for a leaf temp: the type of the (first) block input pin it
-        /// feeds, from the XML's InputParamTypes. Operator operands have none → BOOL.</summary>
-        private static string LeafType(InVar iv, List<Block> blocks)
-        {
-            foreach (var b in blocks)
-                foreach (var p in b.Inputs)
-                    if (p.Source?.RefLocalId == iv.LocalId && !string.IsNullOrEmpty(p.Type))
-                        return p.Type!;
-            return "BOOL";
-        }
-
-        private static void EmitGoto(StringBuilder sb, string action, Conn? cond, Mods mods,
-            IReadOnlyDictionary<long, GraphNode> byId, IReadOnlyDictionary<long, string> names)
+        private static void EmitGoto(StringBuilder sb, string action, Conn? cond, Mods mods, Func<Conn?, string> render)
         {
             if (cond is null) { sb.Append("  ").Append(action).Append(";\n"); return; }
-            var c = ApplyMods(RenderConn(cond, byId, names), mods);   // NOT cond when negated
-            sb.Append("  IF ").Append(c).Append(" THEN ").Append(action).Append("; END_IF\n");
+            sb.Append("  IF ").Append(ApplyMods(render(cond), mods)).Append(" THEN ").Append(action).Append("; END_IF\n");
         }
 
         /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix (negation), trailing
@@ -147,56 +214,17 @@ namespace Volt.Bridge.Core.Graphical.Vg
             return value;
         }
 
-        private static void EmitBlock(StringBuilder sb, Block b,
-            IReadOnlyDictionary<long, GraphNode> byId, IReadOnlyDictionary<long, string> names)
-        {
-            var args = b.Inputs.Where(p => p.Source != null)
-                .Select(p => RenderPinArg(p, byId, names)).ToList();
-
-            if (FbdOperators.TypeToSymbol.TryGetValue(b.TypeName, out var op))   // operator → infix
-            {
-                sb.Append("  ").Append(names[b.LocalId]).Append(" := (")
-                  .Append(string.Join($" {op} ", args.Select(a => a.Value))).Append(");\n");
-            }
-            else if (string.IsNullOrEmpty(b.InstanceName))               // stateless function call
-            {
-                sb.Append("  ").Append(names[b.LocalId]).Append(" := ").Append(b.TypeName)
-                  .Append('(').Append(string.Join(", ", args.Select(a => a.Value))).Append(");\n");
-            }
-            else                                                          // FB instance call: pin := arg
-            {
-                sb.Append("  ").Append(b.InstanceName).Append('(')
-                  .Append(string.Join(", ", args.Select(a => a.Pin + " := " + a.Value))).Append(");\n");
-            }
-        }
-
-        private static (string Pin, string Value) RenderPinArg(Pin p,
-            IReadOnlyDictionary<long, GraphNode> byId, IReadOnlyDictionary<long, string> names)
-            => (p.FormalParameter, ApplyMods(RenderConn(p.Source, byId, names), p.Mods));
-
-        /// <summary>A wire → text: every producer is referenced by its NAME — a leaf inVariable by its
-        /// <c>i*</c> temp, a block by its <c>g*</c>/instance name (and <c>.Pin</c> for a selected
-        /// FB output). Operands are never inlined, so the text stays isomorphic to the node graph.</summary>
-        private static string RenderConn(Conn? c, IReadOnlyDictionary<long, GraphNode> byId,
-            IReadOnlyDictionary<long, string> names)
-        {
-            if (c == null) return "";
-            if (!byId.TryGetValue(c.RefLocalId, out var src)) return "";
-            switch (src)
-            {
-                case InVar iv: return names.TryGetValue(iv.LocalId, out var inm) ? inm : iv.Expression;
-                case Block b:
-                    var nm = names[b.LocalId];
-                    // An FB instance output is real ST member access (inst.Q). An operator/function
-                    // result is a single anonymous value named gN — `.Out1` on it is NOT valid ST, so
-                    // reference the value directly.
-                    return (c.FormalParameter != null && !IsOperatorOrFunction(b)) ? nm + "." + c.FormalParameter : nm;
-                default: return "";
-            }
-        }
-
         private static bool IsOperatorOrFunction(Block b)
             => FbdOperators.TypeToSymbol.ContainsKey(b.TypeName) || string.IsNullOrEmpty(b.InstanceName);
+
+        /// <summary>A leaf is inlinable iff its rendered text is a single safe token — no whitespace (which
+        /// would mis-split an operator expression) and no parens (which would mis-parse as a call/group). Opaque
+        /// leaves (`a + 1`, `NOT x`, `f(x)`) fail this and are named instead.</summary>
+        private static bool IsInlinableLeaf(InVar iv)
+        {
+            var t = ApplyMods(iv.Expression, iv.Mods);
+            return t.IndexOf(' ') < 0 && t.IndexOf('(') < 0 && t.IndexOf(')') < 0;
+        }
 
         /// <summary>Order blocks so every block appears after the blocks feeding its inputs;
         /// ties broken by localId for determinism. Cycles (shouldn't occur in FBD) fall back to

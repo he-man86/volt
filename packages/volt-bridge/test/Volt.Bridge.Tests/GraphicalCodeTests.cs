@@ -93,8 +93,9 @@ public class GraphicalCodeTests
     [Fact]
     public void Write_refuses_a_non_canonical_body_and_shows_the_canonical_form()
     {
-        // The strict round-trip gate: this parses fine, but the temp is named gX where the writer emits g1, so
-        // it would not round-trip identically. Refused before the import, with the canonical form shown.
+        // The strict round-trip gate: this parses fine, but it spells out named temps where the writer inlines
+        // the single-use operands, so it would not round-trip identically. Refused before the import, with the
+        // readable canonical form shown.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(FbdBody, withIface: false) };
         var nonCanonical = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    gX : BOOL;\n  END_VAR\n"
             + "  i1 := a;\n  i2 := b;\n  gX := (i1 AND i2);\n  out := gX;\nEND_NETWORK\n";
@@ -102,7 +103,7 @@ public class GraphicalCodeTests
             GraphicalCode.Write(s, Item, nonCanonical, "FUNCTION_BLOCK FB\nVAR\nEND_VAR"));
         Assert.Equal("VG_NOT_CANONICAL", ex.Code);          // structured diagnostic
         Assert.NotNull(ex.Line);                            // names the first differing line
-        Assert.Contains("g1 := (i1 AND i2)", ex.Message);   // the writer's canonical form is shown verbatim
+        Assert.Contains("out := (a AND b)", ex.Message);    // the writer's readable canonical form is shown verbatim
     }
 
     [Fact]
@@ -122,7 +123,7 @@ public class GraphicalCodeTests
             Xml = Pou("<FBD><inVariable localId=\"1\"><expression>old</expression></inVariable></FBD>",
                       withIface: true, oldDecl: "FUNCTION_BLOCK FB_Old\nVAR\n\tz : BOOL;\nEND_VAR"),
         };
-        const string vg = "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n  END_VAR\n  i1 := a;\n  x := i1;\nEND_NETWORK\n";
+        const string vg = "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n";
         const string decl = "FUNCTION_BLOCK FB\nVAR\n\ta : BOOL;\n\tx : BOOL;\nEND_VAR";
 
         GraphicalCode.Write(s, Item, vg, decl);
