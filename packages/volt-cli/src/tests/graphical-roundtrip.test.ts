@@ -22,8 +22,7 @@ const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 const FIXTURE = "VltRtGfx"
 const FIXTURE_FBD =
 	`PROGRAM ${FIXTURE}\nVAR\n\tout : BOOL;\nEND_VAR\n\n` +
-	`NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n  END_VAR\n` +
-	`  i1 := FALSE;\n  i2 := TRUE;\n  g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\nEND_PROGRAM\n`
+	`NETWORK 0 FBD\n  out := (FALSE AND TRUE);\nEND_NETWORK\nEND_PROGRAM\n`
 
 let bridge: BridgeClient
 let workspace: string
@@ -42,6 +41,17 @@ async function deleteFixture() {
 	if (full) await bridge.pushBatch({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "deleteItem", name: full, ifVersion: refs.items[full]! }] })
 }
 
+/** A clean slate at the start of a run: delete every leftover test-artifact POU (any `Vlt*` name) so a
+ *  fixture orphaned by a crashed prior run can never be discovered or collide with a fresh fixture. Only
+ *  touches `Vlt*` test names — never a real project POU. */
+async function cleanSlate(b: BridgeClient): Promise<void> {
+	const refs = await b.getRefs()
+	const ops = Object.keys(refs.items)
+		.filter((n) => n.startsWith("Vlt"))
+		.map((n) => ({ op: "deleteItem", name: n, ifVersion: refs.items[n]! }))
+	if (ops.length) await b.pushBatch({ expectedProjectVersion: refs.projectVersion, ops })
+}
+
 function walk(dir: string): string[] {
 	const out: string[] = []
 	for (const e of readdirSync(dir)) {
@@ -53,9 +63,10 @@ function walk(dir: string): string[] {
 	return out
 }
 
-/** First editable graphical (.fbd/.ld) file in the workspace, or null. */
+/** This test's OWN fixture file (.fbd/.ld), or null — keyed by the fixture name so an ambient
+ *  graphical POU in the project (e.g. a hand-created one) can't be picked up. Self-provision, never discover. */
 function findGraphical(): string | null {
-	for (const f of walk(workspace)) if (f.endsWith(".fbd") || f.endsWith(".ld")) return f
+	for (const f of walk(workspace)) if (f.endsWith(`${FIXTURE}.fbd`) || f.endsWith(`${FIXTURE}.ld`)) return f
 	return null
 }
 
@@ -72,6 +83,7 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 		cleanup = () => rmSync(root, { recursive: true, force: true })
 		const r = await init(workspace, bridge, {})
 		expect(r.kind).toBe("ok")
+		await cleanSlate(bridge)   // clean slate: purge any leftover test POUs before provisioning
 		await provisionFixture()   // self-provision the graphical POU — never rely on ambient project state
 	})
 
@@ -133,13 +145,13 @@ describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
  * materializes with the right VG logic. Self-contained — creates and deletes its own POUs, so it does
  * not depend on a pre-existing graphical fixture and survives on either vendor.
  */
-function ldProg(name: string, vars: string, temps: string, body: string): string {
-	return `PROGRAM ${name}\nVAR\n${vars}END_VAR\n\nNETWORK 0 LD\n  VAR_TEMP\n${temps}  END_VAR\n${body}END_NETWORK\nEND_PROGRAM\n`
+function ldProg(name: string, vars: string, body: string): string {
+	return `PROGRAM ${name}\nVAR\n${vars}END_VAR\n\nNETWORK 0 LD\n${body}END_NETWORK\nEND_PROGRAM\n`
 }
 const LD_VARIATIONS: [string, (n: string) => string, (vg: string) => void][] = [
-	["negated", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n", "    i1 : BOOL;\n    i2 : BOOL;\n    g1 : BOOL;\n", "  i1 := NOT a;\n  i2 := b;\n  g1 := (i1 AND i2);\n  out := g1;\n"),
+	["negated", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n", "  out := (NOT a AND b);\n"),
 		(vg) => expect(vg).toContain("NOT")],
-	["series3", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout : BOOL;\n", "    i1 : BOOL;\n    i2 : BOOL;\n    i3 : BOOL;\n    g1 : BOOL;\n", "  i1 := a;\n  i2 := b;\n  i3 := c;\n  g1 := (i1 AND i2 AND i3);\n  out := g1;\n"),
+	["series3", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout : BOOL;\n", "  out := ((a AND b) AND c);\n"),
 		(vg) => expect(vg).toContain("AND")],
 ]
 
@@ -165,6 +177,7 @@ describe("LD featureset — CLI materializes each variation as a .ld file", () =
 		mkdirSync(ws, { recursive: true })
 		cleanWs = () => rmSync(root, { recursive: true, force: true })
 		expect((await init(ws, b, {})).kind).toBe("ok")
+		await cleanSlate(b)   // clean slate: purge any leftover test POUs before the variations run
 	})
 
 	afterAll(async () => {
