@@ -152,6 +152,6 @@ internal sealed class FakeCodeStore : ICodeStore
     public void WriteXml(ItemRef item, string xml) => WrittenXml = xml;
     public string ReadDeclaration(ItemRef item) => Decl;
     public string ReadImplementation(ItemRef item) => "";
-    public void WriteText(ItemRef item, string declaration, string implementation) => throw new NotSupportedException();
+    public void WriteText(ItemRef item, string? declaration, string implementation) => throw new NotSupportedException();
     public string ReadManifest(ItemRef item, string kind) => throw new NotSupportedException();
 }
