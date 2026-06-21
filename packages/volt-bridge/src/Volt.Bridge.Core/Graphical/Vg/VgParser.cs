@@ -222,9 +222,11 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 var pins = new List<Pin> { new Pin("EN", enSrc.Conn, enSrc.Mods) };
                 for (int k = 0; k < operands.Count; k++) pins.Add(new Pin("In" + (k + 2), operands[k].Conn, operands[k].Mods));
                 _nodes.Add(new Block(id, null, typeName, null, pins, new List<string> { "Out2", "ENO" }, callType));
-                Declare(result);
-                _blockByName[result] = id;   // result names the Out2 value
-                _eno[en] = id;               // en resolves to this box's ENO
+                if (_temps.Contains(result))   // a declared temp → name the box's Out2 value
+                { Declare(result); _blockByName[result] = id; }
+                else                           // into-sink: `IF en THEN out := …` writes the box straight to a sink
+                    _nodes.Add(new OutVar(_nextId++, null, result, Mods.None, new Conn(id, "Out2")));
+                _eno[en] = id;                 // en resolves to this box's ENO
             }
 
             /// <summary>Control flow as valid CODESYS ST: <c>name:</c> (label), <c>JMP name;</c>,

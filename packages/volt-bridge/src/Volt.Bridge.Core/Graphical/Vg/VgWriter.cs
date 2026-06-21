@@ -73,6 +73,30 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
             int ResultUses(Block b) => Get((b.LocalId, ResultPin(b)));
 
+            // EN/ENO into-sink readability: when an operator/function EN/ENO box's result feeds EXACTLY one
+            // OutVar (and nothing else, and that sink has no modifier), write the sink straight inside the IF
+            // (`IF en THEN out := (expr)`) instead of naming a `g*` result + a separate `out := g*`. The box's
+            // `en*` ENO wire is untouched — it can still chain downstream.
+            IEnumerable<Conn> Consumed(GraphNode n) => n switch
+            {
+                Block bb => bb.Inputs.Where(p => p.Source != null).Select(p => p.Source!),
+                OutVar o => o.Source != null ? new[] { o.Source } : Enumerable.Empty<Conn>(),
+                Jump j => j.Condition != null ? new[] { j.Condition } : Enumerable.Empty<Conn>(),
+                Return r => r.Condition != null ? new[] { r.Condition } : Enumerable.Empty<Conn>(),
+                _ => Enumerable.Empty<Conn>(),
+            };
+            var enenoSink = new Dictionary<long, OutVar>();
+            var suppressedSinks = new HashSet<long>();
+            foreach (var b in ordered.Where(b => IsEnEno(b) && IsOperatorOrFunction(b)))
+            {
+                var consumers = net.Nodes.Where(n => Consumed(n).Any(c => c.RefLocalId == b.LocalId && c.FormalParameter != "ENO")).ToList();
+                if (consumers.Count == 1 && consumers[0] is OutVar sink && sink.Mods.IsNone)
+                {
+                    enenoSink[b.LocalId] = sink;
+                    suppressedSinks.Add(sink.LocalId);
+                }
+            }
+
             var reserved = new HashSet<string>(
                 blocks.Where(b => !IsOperatorOrFunction(b) && !string.IsNullOrEmpty(b.InstanceName))
                       .Select(b => b.InstanceName!), StringComparer.Ordinal);
@@ -86,7 +110,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
             foreach (var b in ordered)
             {
                 if (!IsOperatorOrFunction(b)) names[b.LocalId] = b.InstanceName!;           // FB instance
-                else if (IsEnEno(b) || ResultUses(b) >= 2) names[b.LocalId] = Mint("g", ref g, reserved);
+                else if ((IsEnEno(b) && !enenoSink.ContainsKey(b.LocalId)) || ResultUses(b) >= 2) names[b.LocalId] = Mint("g", ref g, reserved);
                 if (IsEnEno(b)) enNames[b.LocalId] = Mint("en", ref en, reserved);
             }
             // An OPAQUE leaf — its text has whitespace or parens, so it can't sit at an operand position as a
@@ -160,7 +184,9 @@ namespace Volt.Bridge.Core.Graphical.Vg
                     sb.Append("  ").Append(enNames[b.LocalId]).Append(" := ")
                       .Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
                     sb.Append("  IF ").Append(enNames[b.LocalId]).Append(" THEN ");
-                    if (IsOperatorOrFunction(b)) sb.Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
+                    if (enenoSink.TryGetValue(b.LocalId, out var sink))   // into-sink: write the sink straight in the IF
+                        sb.Append(sink.Expression).Append(" := ").Append(Definition(b, excludeEn: true));
+                    else if (IsOperatorOrFunction(b)) sb.Append(names[b.LocalId]).Append(" := ").Append(Definition(b, excludeEn: true));
                     else sb.Append(Definition(b, excludeEn: true));   // EN/ENO FB call
                     sb.Append("; END_IF\n");
                 }
@@ -172,7 +198,8 @@ namespace Volt.Bridge.Core.Graphical.Vg
             }
 
             foreach (var ov in net.Nodes.OfType<OutVar>())
-                sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
+                if (!suppressedSinks.Contains(ov.LocalId))   // an EN/ENO into-sink target is written inside its IF
+                    sb.Append("  ").Append(ov.Expression).Append(" := ").Append(ApplyMods(Render(ov.Source), ov.Mods)).Append(";\n");
 
             foreach (var node in net.Nodes)
                 switch (node)
