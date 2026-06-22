@@ -1,0 +1,6 @@
+# CODESYS regenerates these per IDE session / per machine — not source.
+# The .project is tracked; its session lock (.~u) and per-machine options
+# (<Project>-<HOSTNAME>.opt) are transient and cause phantom git diffs.
+*.~u
+CodesysTestProject-*.opt
+!CodesysTestProject-AllUsers.opt
