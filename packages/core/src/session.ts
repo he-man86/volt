@@ -25,6 +25,7 @@ import { fromRow } from "./session/info"
 import { SessionRunner } from "./session/runner/index"
 import { SessionStore } from "./session/store"
 import { SessionExecution } from "./session/execution"
+import { logFailure } from "./session/logging"
 import { MessageDecodeError } from "./session/error"
 import { SessionEvent } from "./session/event"
 import { SessionInput } from "./session/input"
@@ -123,12 +124,9 @@ export interface Interface {
   ) => Effect.Effect<SessionMessage.Message[], NotFoundError | MessageDecodeError>
   readonly events: (input: {
     sessionID: SessionSchema.ID
-    after?: EventV2.Cursor
-  }) => Stream.Stream<EventV2.CursorEvent<SessionEvent.DurableEvent>, NotFoundError>
-  readonly switchAgent: (input: {
-    sessionID: SessionSchema.ID
-    agent: string
-  }) => Effect.Effect<void, OperationUnavailableError>
+    after?: number
+  }) => Stream.Stream<SessionEvent.DurableEvent, NotFoundError>
+  readonly switchAgent: (input: { sessionID: SessionSchema.ID; agent: string }) => Effect.Effect<void, NotFoundError>
   readonly switchModel: (input: {
     sessionID: SessionSchema.ID
     model: ModelV2.Ref
@@ -177,10 +175,7 @@ export const layer = Layer.effect(
         Effect.tapCause((cause) =>
           Cause.hasInterruptsOnly(cause)
             ? Effect.void
-            : Effect.logError("Failed to wake Session").pipe(
-                Effect.annotateLogs("sessionID", admitted.sessionID),
-                Effect.annotateLogs("cause", cause),
-              ),
+            : logFailure("Failed to wake Session", admitted.sessionID, cause),
         ),
         Effect.ignore,
         Effect.forkIn(scope, { startImmediately: true }),
@@ -341,12 +336,8 @@ export const layer = Layer.effect(
         Stream.unwrap(
           result
             .get(input.sessionID)
-            .pipe(Effect.as(events.aggregateEvents({ aggregateID: input.sessionID, after: input.after }))),
-        ).pipe(
-          Stream.filter((event): event is EventV2.CursorEvent<SessionEvent.DurableEvent> =>
-            isDurableSessionEvent(event.event),
-          ),
-        ),
+            .pipe(Effect.as(events.durable({ aggregateID: input.sessionID, after: input.after }))),
+        ).pipe(Stream.filter((event): event is SessionEvent.DurableEvent => isDurableSessionEvent(event))),
       prompt: Effect.fn("V2Session.prompt")((input) =>
         Effect.uninterruptible(
           Effect.gen(function* () {
@@ -382,8 +373,14 @@ export const layer = Layer.effect(
       skill: Effect.fn("V2Session.skill")(function* () {
         return yield* new OperationUnavailableError({ operation: "skill" })
       }),
-      switchAgent: Effect.fn("V2Session.switchAgent")(function* () {
-        return yield* new OperationUnavailableError({ operation: "switchAgent" })
+      switchAgent: Effect.fn("V2Session.switchAgent")(function* (input) {
+        yield* result.get(input.sessionID)
+        yield* events.publish(SessionEvent.AgentSwitched, {
+          sessionID: input.sessionID,
+          messageID: SessionMessage.ID.create(),
+          timestamp: yield* DateTime.now,
+          agent: input.agent,
+        })
       }),
       switchModel: Effect.fn("V2Session.switchModel")(function* (input) {
         yield* result.get(input.sessionID)
@@ -415,9 +412,9 @@ export const layer = Layer.effect(
               sessionID,
               timestamp: yield* DateTime.now,
             })
-            if (event.seq === undefined)
+            if (event.durable === undefined)
               return yield* Effect.die("Interrupt request event is missing aggregate sequence")
-            yield* execution.interrupt(sessionID, event.seq)
+            yield* execution.interrupt(sessionID, event.durable.seq)
           }),
         ),
       ),
@@ -427,20 +424,12 @@ export const layer = Layer.effect(
   }),
 )
 
-const DefaultDatabase = Database.defaultLayer
-const DefaultEvents = EventV2.layer.pipe(Layer.provide(DefaultDatabase))
-const DefaultProjector = SessionProjector.layer.pipe(Layer.provide(DefaultEvents), Layer.provide(DefaultDatabase))
-const DefaultStore = SessionStore.layer.pipe(Layer.provide(DefaultDatabase))
 export const defaultLayer = layer.pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      DefaultDatabase,
-      DefaultEvents,
-      DefaultProjector,
-      DefaultStore,
-      SessionExecution.noopLayer,
-      ProjectV2.defaultLayer,
-    ),
-  ),
+  Layer.provide(SessionExecution.noopLayer),
+  Layer.provide(SessionStore.defaultLayer),
+  Layer.provide(SessionProjector.defaultLayer),
+  Layer.provide(EventV2.defaultLayer),
+  Layer.provide(Database.defaultLayer),
+  Layer.provide(ProjectV2.defaultLayer),
   Layer.orDie,
 )

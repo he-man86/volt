@@ -50,6 +50,7 @@ import { rename as runRename, prepareRename as runPrepareRename } from "../queri
 import { selectionRanges as runSelectionRanges } from "../queries/selection-range.js";
 import { semanticTokens as runSemanticTokens } from "../queries/semantic-tokens.js";
 import { signatureHelp as runSignatureHelp } from "../queries/signature-help.js";
+import { vgBodiesOf } from "../queries/vg/shared.js";
 import {
 	prepareTypeHierarchy,
 	supertypes,
@@ -133,7 +134,7 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				const p = req.params as DocumentSymbolParams;
 				const doc = ctx.workspace.getDocument(p.textDocument.uri);
 				if (doc === undefined) { ctx.reply(req.id, []); return; }
-				ctx.reply(req.id, buildDocumentSymbols(doc.parseResult));
+				ctx.reply(req.id, buildDocumentSymbols(doc.parseResult, doc.bodyModels));
 				return;
 			}
 			case "textDocument/definition": {
@@ -348,7 +349,7 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				if (doc === undefined) { ctx.reply(req.id, []); return; }
 				ctx.reply(
 					req.id,
-					runFoldingRanges({ parseResult: doc.parseResult, source: doc.source }),
+					runFoldingRanges({ parseResult: doc.parseResult, source: doc.source, vgBodies: vgBodiesOf(doc.bodyModels) }),
 				);
 				return;
 			}
@@ -401,6 +402,7 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 						source: doc.source,
 						project: ctx.workspace.getProjectScope(),
 						docUri: p.textDocument.uri,
+						vgBodies: vgBodiesOf(doc.bodyModels),
 					}),
 				);
 				return;

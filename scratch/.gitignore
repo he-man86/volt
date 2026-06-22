@@ -1,0 +1,4 @@
+# Scratch space — local one-off probe/debug scripts and demo files.
+# Nothing here is product or referenced by the build; keep it out of git.
+*
+!.gitignore

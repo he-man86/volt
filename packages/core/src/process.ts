@@ -3,12 +3,13 @@ import type { PlatformError } from "effect/PlatformError"
 import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { CrossSpawnSpawner } from "./cross-spawn-spawner"
+import { LayerNode } from "./effect/layer-node"
 
 export class AppProcessError extends Schema.TaggedErrorClass<AppProcessError>()("AppProcessError", {
   command: Schema.String,
   exitCode: Schema.optional(Schema.Number),
   stderr: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Defect),
+  cause: Schema.optional(Schema.Defect()),
 }) {}
 
 export interface RunOptions {
@@ -230,5 +231,6 @@ export const layer = Layer.effect(
 )
 
 export const defaultLayer = layer.pipe(Layer.provide(CrossSpawnSpawner.defaultLayer))
+export const node = LayerNode.make(layer, [CrossSpawnSpawner.node])
 
 export * as AppProcess from "./process"

@@ -24,6 +24,8 @@ import type { BodySpan, TopLevel } from "../../parser/ast.js";
 import { findIdentifiersByName } from "../../semantic/body.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
 import { scopeAtOffset } from "../scope-at.js";
+import { vgBodyAtOffset } from "./vg/shared.js";
+import { vgLocalNameAtOffset } from "./vg/navigation.js";
 
 /** Minimal WorkspaceEdit shape — the LSP spec's `changes` map keyed
  *  by URI. The full WorkspaceEdit also supports `documentChanges` for
@@ -63,6 +65,18 @@ export function rename(args: RenameArgs): WorkspaceEdit | null {
 	if (trimmed.length === 0) return null;
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return null;
+
+	// VG network-local names (LET wires, labels): rename only the
+	// occurrences within the enclosing network — they never escape to the
+	// IDE, so this is always safe and confined.
+	const vgEntry = vgBodyAtOffset(doc.bodyModels, offset);
+	if (vgEntry !== undefined) {
+		const local = vgLocalNameAtOffset(vgEntry.vg, vgEntry.tokens, offset);
+		if (local !== undefined) {
+			if (local.name === trimmed) return null;
+			return { changes: { [doc.uri]: local.occurrences.map((span) => ({ range: rangeFromSpan(span), newText: trimmed })) } };
+		}
+	}
 
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return null;
@@ -119,6 +133,11 @@ export function prepareRename(args: PrepareRenameArgs): Range | null {
 	const { doc, position } = args;
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return null;
+	const vgEntry = vgBodyAtOffset(doc.bodyModels, offset);
+	if (vgEntry !== undefined) {
+		const local = vgLocalNameAtOffset(vgEntry.vg, vgEntry.tokens, offset);
+		if (local !== undefined) return rangeFromSpan(local.atSpan);
+	}
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return null;
 	return rangeFromSpan(idToken.span);
