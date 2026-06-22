@@ -99,3 +99,38 @@ describe("vg body model: ST checks are suppressed on VG bodies", () => {
 		expect(leaked).toEqual([]);
 	});
 });
+
+describe("vg body model: l-value identifier collection", () => {
+	const SRC_LVALUE = `FUNCTION_BLOCK FB_LV
+VAR
+	arr : ARRAY[0..9] OF BOOL;
+	idx : INT;
+	t1 : SomeFb;
+	flag : BOOL;
+END_VAR
+NETWORK 0 FBD
+	arr[idx] := flag;
+	t1.field := flag;
+END_NETWORK
+END_FUNCTION_BLOCK`;
+
+	function refs(src: string): string[] {
+		const parseResult = parseSource(src);
+		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+		const bodyModels = buildBodyModelsForParseResult(parseResult, src);
+		const fb = parseResult.units[0] as FunctionBlock;
+		return bodyModels.get(fb.body)!.identifiers.map((i) => i.name);
+	}
+
+	it("emits the array base AND the index var (arr[idx] → arr, idx)", () => {
+		const names = refs(SRC_LVALUE);
+		expect(names).toContain("arr");
+		expect(names).toContain("idx");
+	});
+
+	it("emits the member-access base but NOT the field (t1.field → t1, not field)", () => {
+		const names = refs(SRC_LVALUE);
+		expect(names).toContain("t1");
+		expect(names).not.toContain("field");
+	});
+});

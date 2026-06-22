@@ -64,10 +64,18 @@ function emitStatement(stmt: VgStatement, local: Set<string>, out: VgIdentifierR
 			emitOperand(stmt.producer, local, out);
 			return;
 		case "sink": {
-			// The l-value base is a write to a declared variable.
-			const base = stmt.target.names[0];
-			if (base !== undefined && !local.has(base.text)) {
-				out.push({ name: base.text, span: base.span, isCall: false, isMemberAccess: false, isNamedParam: false });
+			// Emit the real-variable identifiers in the l-value — the write
+			// target plus any array-index vars (`arr[i]` → `arr`, `i`) — but
+			// NOT member fields (`struct.field` → `struct` only; `field` is a
+			// member resolved against the type, not a scope variable).
+			const toks = stmt.target.tokens;
+			for (let i = 0; i < toks.length; i++) {
+				const t = toks[i]!;
+				if (t.kind !== "identifier") continue;
+				const prev = toks[i - 1];
+				if (prev !== undefined && prev.kind === "punct" && prev.text === ".") continue;
+				if (local.has(t.text)) continue;
+				out.push({ name: t.text, span: t.span, isCall: false, isMemberAccess: false, isNamedParam: false });
 			}
 			emitOperand(stmt.value, local, out);
 			return;

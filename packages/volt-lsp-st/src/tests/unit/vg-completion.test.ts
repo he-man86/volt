@@ -59,6 +59,29 @@ describe("vg completion: pin names", () => {
 		expect(labels).toContain("IN");
 		expect(labels).toContain("PT");
 	});
+
+	it("does NOT offer pins inside an operator group (no FB-instance callee)", () => {
+		// Guard against pin completion firing in a parenthesised operator
+		// expression — there's no callee before the `(`, so resolveCallParams
+		// must find nothing.
+		const src = `FUNCTION_BLOCK FB_Op
+VAR
+	a : BOOL;
+	b : BOOL;
+	out : BOOL;
+END_VAR
+NETWORK 0 FBD
+	out := (a AND b);
+END_NETWORK
+END_FUNCTION_BLOCK`;
+		const parseResult = parseSource(src);
+		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+		const bodyModels = buildBodyModelsForParseResult(parseResult, src);
+		const doc = { uri: "file:///t.st", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
+		// cursor just after `(a AND ` — inside the operator group, no callee.
+		const items = completion({ doc, position: posAfter(src, "(a AND "), project });
+		expect(items.filter((i) => i.detail?.startsWith("pin"))).toHaveLength(0);
+	});
 });
 
 describe("vg signature help", () => {

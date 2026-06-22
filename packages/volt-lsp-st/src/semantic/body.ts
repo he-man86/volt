@@ -70,10 +70,12 @@ export interface CallSite {
 // ─── Builder ──────────────────────────────────────────────────────
 
 /**
- * Build a BodyModel from a body's token slice.
+ * Build a BodyModel from a body's token slice. `source` (the full
+ * document text) lets a VG body capture opaque-leaf text exactly; it is
+ * optional so unit tests can call this without the source.
  */
-export function buildBodyModel(st: BodySpan): BodyModel {
-	if (isVgBody(st.tokens)) return buildVgBodyModel(st);
+export function buildBodyModel(st: BodySpan, source?: string): BodyModel {
+	if (isVgBody(st.tokens)) return buildVgBodyModel(st, source);
 
 	const occurrences = scanAllIdentifiersInBody(st);
 	const identifiers: IdentifierRef[] = occurrences.map((o) => ({
@@ -91,8 +93,8 @@ export function buildBodyModel(st: BodySpan): BodyModel {
 
 /** Build a BodyModel for a VG (graphical) body — parse it and collect
  *  declaration-scope references from the AST. */
-function buildVgBodyModel(st: BodySpan): BodyModel {
-	const vg = parseVgBody(st.tokens);
+function buildVgBodyModel(st: BodySpan, source?: string): BodyModel {
+	const vg = parseVgBody(st.tokens, source);
 	const identifiers: IdentifierRef[] = collectVgIdentifierRefs(vg).map((r) => ({
 		name: r.name,
 		span: r.span,
@@ -115,12 +117,13 @@ function buildVgBodyModel(st: BodySpan): BodyModel {
  */
 export function buildBodyModelsForParseResult(
 	parseResult: { units: readonly TopLevel[] },
+	source?: string,
 ): Map<BodySpan, BodyModel> {
 	const out = new Map<BodySpan, BodyModel>();
 	const visit = (units: readonly TopLevel[]): void => {
 		for (const u of units) {
 			for (const body of collectBodySpans(u)) {
-				out.set(body, buildBodyModel(body));
+				out.set(body, buildBodyModel(body, source));
 			}
 			if (u.kind === "namespace") visit(u.units);
 		}
