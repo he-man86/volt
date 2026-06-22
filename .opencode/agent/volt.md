@@ -66,10 +66,12 @@ When force IS warranted (rare):
 
 ## Reactive language intelligence — LSP
 
-The `volt-st` LSP is auto-started by opencode on `.st`, `.iecst`, `.exp` files. You get:
-- Parse-error diagnostics inline as files are edited
-- Hover information on identifiers
-- Go-to-definition, find-references, document symbols
+The `volt-lsp-st` LSP is auto-started by opencode on Structured Text (`.st`),
+declaration files (`.gvl`, `.itf`, DUTs `.struct`/`.enum`/`.union`/`.alias`), and
+graphical bodies (`.fbd`/`.ld`/`.sfc`/`.cfc`, rendered as VG text). You get:
+- Parse-error and code-correctness diagnostics inline as files are edited
+- Hover information on identifiers (incl. inferred VG wire types)
+- Go-to-definition, find-references, document symbols, completion, signature help
 - Vendor auto-detection (CODESYS vs TwinCAT) with `wrong-vendor-pragma` warnings
 
 ## Proactive language reference — Skill
