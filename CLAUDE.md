@@ -73,3 +73,23 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 - **Git:** default branch is `dev` (not `main` — local `main` may not exist; diff against `dev`/`origin/dev`). Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful Volt scopes: `bridge`, `cli`, `lsp`.
 - **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. `script/*.ps1` drive the bridges and installers.
 - The repo retains upstream's package name `opencode` and the `.opencode/` config (LSP wiring for `volt-lsp-st`, and `ask` permission gates on `volt init/pull/push`). Don't confuse `.opencode/` (opencode agent config) with `.volt/` (a CLI-managed PLC workspace).
+
+## Fork surface & upstream sync
+
+Volt is **purely additive** — all product code lives in `packages/volt-*`, and integration uses opencode's extension points (auto-discovered files + config), **never edits to opencode source**. The complete divergence from upstream:
+
+- **Product:** `packages/volt-{bridge,cli,lsp-st,vscode}` — auto-included via the `packages/*` workspace glob (no registration needed).
+- **Additive files:** `.opencode/agent/volt.md`, `.opencode/skills/*`, `script/*` (volt tooling/installers), `CLAUDE.md`, `docs/`.
+- **The only modified upstream files (5 seams):** `bun.lock` (volt deps), `.opencode/opencode.jsonc` (LSP registration + `volt` permission gates), `turbo.json` (volt test tasks), `.husky/pre-push` (typecheck scoped to volt-*), `.gitignore` (`/memory` junction).
+
+`bun run script/check-divergence.ts` enforces this — it fails if any upstream file outside those 5 seams is modified or deleted. It's the always-accurate map of where the fork's changes live; run it after every upstream merge.
+
+### Syncing upstream (runbook)
+1. `git fetch upstream`
+2. `git switch -c sync/upstream-dev-<date> <current integration tip>`
+3. `git merge upstream/dev` — conflicts only ever appear in the 5 seams
+4. `bun install` — resolves the `bun.lock` seam
+5. `bun run script/check-divergence.ts` — confirm the surface is unchanged
+6. `bun run script/check-volt-integration.ts` — confirm the wiring still works
+
+Adding another LSP: `docs/ADDING-A-NEW-LSP.md`. Bundle the fork as a version-pinned patch against an opencode release: `bun run script/export-overlay.ts`.
