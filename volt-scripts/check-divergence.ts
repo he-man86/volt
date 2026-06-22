@@ -12,13 +12,12 @@
  *
  *   bun run volt-scripts/check-divergence.ts            # compare against upstream/dev
  *   bun run volt-scripts/check-divergence.ts upstream/main
+ *   bun run volt-scripts/check-divergence.ts --self-test # test the classifier logic (no git/env needed)
  *
  * Exit 0 = clean (only allowlisted seams touched); exit 1 = a new divergence
  * appeared (an edit/delete to upstream source) — investigate before merging.
  */
 import { execSync } from "node:child_process"
-
-const upstreamRef = process.argv[2] ?? "upstream/dev"
 
 // The ONLY upstream files the fork may modify. Everything else upstream must
 // stay byte-identical; all Volt code is additive (new files / volt-* packages).
@@ -37,37 +36,104 @@ function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))
 }
 
-const out = execSync(`git diff --name-status ${upstreamRef} HEAD`, { encoding: "utf8" })
+export interface Classification {
+  allowed: string[] // allowlisted seam edits (expected)
+  violations: string[] // edits/deletes of upstream source (forbidden)
+}
 
-const violations: string[] = []
-const allowed: string[] = []
+/**
+ * Pure classifier — the heart of the guard. Takes `git diff --name-status`
+ * lines and buckets each into allowed / violation (additive + fork-owned are
+ * silently exempt). No I/O, so it is unit-tested by `--self-test`.
+ */
+export function classify(nameStatusLines: readonly string[]): Classification {
+  const allowed: string[] = []
+  const violations: string[] = []
 
-for (const line of out.split("\n")) {
-  if (line.trim() === "") continue
-  const [status, ...rest] = line.split("\t")
-  const path = rest.join("\t")
-  const code = (status ?? "").charAt(0)
+  for (const line of nameStatusLines) {
+    if (line.trim() === "") continue
+    const fields = line.split("\t")
+    const code = (fields[0] ?? "").charAt(0)
+    // For rename/copy (R/C) git emits old\tnew — the destination is the last field.
+    const path = code === "R" || code === "C" ? (fields[fields.length - 1] ?? "") : fields.slice(1).join("\t")
 
-  if (isForkOwned(path)) continue // volt-* packages — additive, exempt
-  if (code === "A") continue // a NEW fork file (didn't exist upstream) — additive, fine
+    if (isForkOwned(path)) continue // volt-* packages / volt-scripts — additive, exempt
+    if (code === "A") continue // a NEW fork file (didn't exist upstream) — additive, fine
 
-  // M (modified) or D (deleted) of an upstream-tracked file: only allowlisted seams are OK.
-  if (ALLOWED_MODIFICATIONS.has(path)) {
-    allowed.push(`${code}  ${path}`)
-  } else {
-    violations.push(`${code}  ${path}`)
+    // M/D/R/C of an upstream-tracked file: only allowlisted seams are OK.
+    if (ALLOWED_MODIFICATIONS.has(path)) allowed.push(`${code}  ${path}`)
+    else violations.push(`${code}  ${path}`)
   }
+
+  return { allowed, violations }
 }
 
-console.log(`Fork divergence vs ${upstreamRef}\n`)
-console.log(`Allowed integration seams touched (${allowed.length}):`)
-for (const a of allowed) console.log(`  ${a}`)
+// ─── Self-test (run the classifier against synthetic diffs; no git needed) ───
 
-if (violations.length > 0) {
-  console.log(`\n✗ UNEXPECTED upstream-source divergence (${violations.length}) — Volt must be additive:`)
-  for (const v of violations) console.log(`  ${v}`)
-  console.log(`\nEither revert these to upstream, or (if intentional) add them to ALLOWED_MODIFICATIONS in this script.`)
-  process.exit(1)
+function selfTest(): void {
+  const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
+    { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
+    { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
+    { name: "new fork files are additive", lines: ["A\tCLAUDE.md", "A\t.opencode/agent/volt.md"], allowed: 0, violations: 0 },
+    { name: "allowed seams count as allowed", lines: ["M\tturbo.json", "M\t.gitignore", "M\tbun.lock"], allowed: 3, violations: 0 },
+    { name: "upstream source edit is a violation", lines: ["M\tpackages/opencode/src/lsp/server.ts"], allowed: 0, violations: 1 },
+    { name: "upstream file delete is a violation", lines: ["D\tpackages/core/src/foo.ts"], allowed: 0, violations: 1 },
+    { name: "renamed upstream file is a violation (dest path)", lines: ["R100\tpackages/core/a.ts\tpackages/core/b.ts"], allowed: 0, violations: 1 },
+    { name: "mixed real-world set", lines: ["M\tbun.lock", "A\tvolt-scripts/x.ts", "M\tpackages/volt-lsp-st/src/y.ts", "M\tpackages/server/src/z.ts"], allowed: 1, violations: 1 },
+  ]
+
+  let failed = 0
+  for (const c of cases) {
+    const got = classify(c.lines)
+    const ok = got.allowed.length === c.allowed && got.violations.length === c.violations
+    console.log(`  ${ok ? "✓" : "✗"} ${c.name}`)
+    if (!ok) {
+      failed++
+      console.log(`      expected allowed=${c.allowed} violations=${c.violations}, got allowed=${got.allowed.length} violations=${got.violations.length}`)
+    }
+  }
+  if (failed > 0) {
+    console.log(`\n✗ classifier self-test: ${failed} case(s) failed`)
+    process.exit(1)
+  }
+  console.log(`\n✓ classifier self-test passed (${cases.length} cases)`)
 }
 
-console.log(`\n✓ clean — no upstream source modified outside the ${ALLOWED_MODIFICATIONS.size} allowed seams.`)
+// ─── Entry point ─────────────────────────────────────────────────────────
+
+function main(): void {
+  const arg = process.argv[2]
+  if (arg === "--self-test") {
+    selfTest()
+    return
+  }
+
+  const upstreamRef = arg ?? "upstream/dev"
+
+  // Skip gracefully when the upstream ref isn't present (fresh clone, CI without
+  // the upstream remote, or `git fetch upstream` not run). Never block on it.
+  try {
+    execSync(`git rev-parse --verify --quiet ${upstreamRef}`, { stdio: "ignore" })
+  } catch {
+    console.log(`⊘ skipped — ref '${upstreamRef}' not found. Run \`git fetch upstream\` to enable the divergence check.`)
+    return
+  }
+
+  const out = execSync(`git diff --name-status ${upstreamRef} HEAD`, { encoding: "utf8" })
+  const { allowed, violations } = classify(out.split("\n"))
+
+  console.log(`Fork divergence vs ${upstreamRef}\n`)
+  console.log(`Allowed integration seams touched (${allowed.length}):`)
+  for (const a of allowed) console.log(`  ${a}`)
+
+  if (violations.length > 0) {
+    console.log(`\n✗ UNEXPECTED upstream-source divergence (${violations.length}) — Volt must be additive:`)
+    for (const v of violations) console.log(`  ${v}`)
+    console.log(`\nEither revert these to upstream, or (if intentional) add them to ALLOWED_MODIFICATIONS in this script.`)
+    process.exit(1)
+  }
+
+  console.log(`\n✓ clean — no upstream source modified outside the ${ALLOWED_MODIFICATIONS.size} allowed seams.`)
+}
+
+main()

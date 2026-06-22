@@ -23,3 +23,11 @@ if (process.versions.bun !== expectedBunVersion) {
   # triggers env-specific TS errors that aren't real regressions.
   # When contributing back upstream, run `bun typecheck` manually.
   bun turbo typecheck --filter='@opencode-ai/volt-*'
+
+# Fork invariant: Volt is purely additive — fail the push if we modified
+# opencode source outside the allowed integration seams (see CLAUDE.md
+# "Fork surface"). Self-test the guard's logic first, then run it.
+# It skips gracefully if `upstream/dev` isn't fetched, so it never blocks
+# a push spuriously.
+  bun run volt-scripts/check-divergence.ts --self-test
+  bun run volt-scripts/check-divergence.ts
