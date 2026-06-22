@@ -6,6 +6,3 @@ app.log
 script/build-*.ts
 temporary-*.md
 .artifacts
-
-# volt local state — workspace-local snapshot + config
-/.volt/
