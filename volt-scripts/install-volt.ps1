@@ -18,7 +18,7 @@
   from a repo checkout.
 
 .EXAMPLE
-  powershell -File script/install-volt.ps1
+  powershell -File volt-scripts/install-volt.ps1
   # Build first if needed:
   #   packages/volt-bridge/build-bridges.ps1
   #   (cd packages/volt-vscode; bun run build; vsce package --no-dependencies --allow-missing-repository)

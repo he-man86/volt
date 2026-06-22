@@ -10,8 +10,8 @@
  * live?" — it lists every upstream file the fork modified/deleted and fails
  * if any is outside the allowlist. Run it after every `git merge upstream/dev`.
  *
- *   bun run script/check-divergence.ts            # compare against upstream/dev
- *   bun run script/check-divergence.ts upstream/main
+ *   bun run volt-scripts/check-divergence.ts            # compare against upstream/dev
+ *   bun run volt-scripts/check-divergence.ts upstream/main
  *
  * Exit 0 = clean (only allowlisted seams touched); exit 1 = a new divergence
  * appeared (an edit/delete to upstream source) — investigate before merging.
@@ -31,7 +31,7 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
-const FORK_OWNED_PREFIXES = ["packages/volt-"]
+const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/"]
 
 function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))

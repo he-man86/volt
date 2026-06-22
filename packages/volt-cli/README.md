@@ -34,4 +34,4 @@ bun run build      # tsc -> dist/
 ```
 
 The headless CODESYS dev/test loop (Windows/PowerShell):
-`pwsh script/codesys-bridge.ps1 up|test|down`.
+`pwsh volt-scripts/codesys-bridge.ps1 up|test|down`.

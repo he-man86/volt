@@ -3,7 +3,7 @@
  * Sanity-check that Volt's opencode integration is wired correctly.
  *
  * Run from repo root:
- *   bun script/check-volt-integration.ts
+ *   bun volt-scripts/check-volt-integration.ts
  *
  * Verifies:
  *   - Config files (opencode.jsonc, volt.md agent, st-reference skill) exist and parse
@@ -81,10 +81,10 @@ check("volt-lsp-st --version exits 0", () => {
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
 });
-check("volt CLI wrapper runs (script/volt[.cmd])", () => {
+check("volt CLI wrapper runs (volt-scripts/volt[.cmd])", () => {
 	const wrapper = process.platform === "win32"
-		? join(REPO_ROOT, "script/volt.cmd")
-		: join(REPO_ROOT, "script/volt");
+		? join(REPO_ROOT, "volt-scripts/volt.cmd")
+		: join(REPO_ROOT, "volt-scripts/volt");
 	if (!existsSync(wrapper)) return "wrapper missing";
 	const r = spawnSync(wrapper, ["help"], {
 		encoding: "utf-8",

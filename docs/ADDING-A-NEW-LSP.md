@@ -71,7 +71,7 @@ Add a copy step to `packages/volt-agent/src/engine/init.ts` so that when end-use
 ## 6. Run the integration check
 
 ```
-bun script/check-volt-integration.ts
+bun volt-scripts/check-volt-integration.ts
 ```
 
 It currently hard-codes paths to `volt-lsp-st` only. Extend it to check the new LSP's bin and SKILL.md too. Three new lines per LSP.

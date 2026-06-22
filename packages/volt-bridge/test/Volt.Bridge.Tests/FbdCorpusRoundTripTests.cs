@@ -12,7 +12,7 @@ namespace Volt.Bridge.Tests;
 
 /// <summary>
 /// Coverage harness over a REAL captured corpus: each <c>fixtures/corpus/*.xml</c> is raw PLCopenXML
-/// harvested from a live project (the bridge's <c>/raw</c> route — see script/harvest-corpus.ts). For
+/// harvested from a live project (the bridge's <c>/raw</c> route — see volt-scripts/harvest-corpus.ts). For
 /// every &lt;FBD&gt;/&lt;LD&gt; body it asserts the invariant that must hold at any coverage level:
 ///
 ///     a body either round-trips with all its constructs preserved, or its push is REFUSED —

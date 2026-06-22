@@ -1,11 +1,11 @@
 #Requires -Version 5.1
 # Build + (re)launch the Beckhoff standalone bridge from the repo, attaching to a
 # running TwinCAT (TcXaeShell). CODESYS is NOT launchable here: Volt.Bridge.Codesys is
-# an OutputType=Library loaded in-process - use script/codesys-bridge.ps1 for it.
+# an OutputType=Library loaded in-process - use volt-scripts/codesys-bridge.ps1 for it.
 param([string]$Port = "8555", [string]$Project = "Beckhoff")
 
 if ($Project -ne "Beckhoff") {
-    Write-Output "bridge.ps1 only launches the Beckhoff bridge (a standalone exe). CODESYS is loaded in-proc - use script/codesys-bridge.ps1 instead."
+    Write-Output "bridge.ps1 only launches the Beckhoff bridge (a standalone exe). CODESYS is loaded in-proc - use volt-scripts/codesys-bridge.ps1 instead."
     exit 1
 }
 

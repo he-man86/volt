@@ -27,9 +27,9 @@
 .PARAMETER Port     bridge port (fixed at 8556 by Host; override only if changed)
 .PARAMETER NoBuild  skip the dotnet build (reuse the existing DLL)
 
-.EXAMPLE  pwsh script/codesys-bridge.ps1 up
-.EXAMPLE  pwsh script/codesys-bridge.ps1 test
-.EXAMPLE  pwsh script/codesys-bridge.ps1 down
+.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 up
+.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 test
+.EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 down
 #>
 param(
     [ValidateSet("up", "test", "down", "restart", "status", "logs")]
@@ -175,7 +175,7 @@ function Invoke-Test {
     } catch {
         Write-Warning "  /refs failed: $_"
     }
-    Write-Host "`nBridge left running. Tear down with:  script/codesys-bridge.ps1 down"
+    Write-Host "`nBridge left running. Tear down with:  volt-scripts/codesys-bridge.ps1 down"
 }
 
 switch ($Action) {
