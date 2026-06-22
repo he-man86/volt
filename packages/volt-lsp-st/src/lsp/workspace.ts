@@ -154,7 +154,7 @@ export class Workspace {
 		// Workspace is ST-only — graphical bodies are transpiled to ST
 		// at pull time. Cost shifts from query time to parse time,
 		// which keeps LSP query latency predictable.
-		const bodyModels = buildBodyModelsForParseResult(parseResult);
+		const bodyModels = buildBodyModelsForParseResult(parseResult, source);
 		return {
 			uri: textDocument.uri,
 			source,

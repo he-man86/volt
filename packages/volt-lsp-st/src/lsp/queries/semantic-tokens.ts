@@ -22,8 +22,11 @@
  */
 import { lex } from "../../lexer/lexer.js";
 import type { Token } from "../../lexer/tokens.js";
+import type { Span } from "../../lexer/span.js";
 import { lookup as lookupRef } from "../../reference/index.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
+import type { VgBody } from "../../vg/index.js";
+import { collectVgWireNames, vgTokenClass } from "./vg/semantic-tokens.js";
 
 // ─── LSP legend ──────────────────────────────────────────────────────
 
@@ -88,6 +91,9 @@ export interface SemanticTokensArgs {
 	source: string;
 	project: Scope;
 	docUri: string;
+	/** VG (graphical) bodies in this document — their tokens are coloured
+	 *  by VG role, and excluded from ST classification. */
+	vgBodies?: ReadonlyArray<{ span: Span; vg: VgBody }>;
 }
 
 export interface SemanticTokensResult {
@@ -106,8 +112,19 @@ export function semanticTokens(args: SemanticTokensArgs): SemanticTokensResult {
 	const tokens = lex(args.source);
 	const userSymbolIndex = indexUserSymbols(args.project, args.docUri);
 
+	// VG bodies are coloured by VG role; precompute their wire-name sets and
+	// the nearest-significant-neighbour maps the lexical classifier needs.
+	const vgBodies = (args.vgBodies ?? []).map((b) => ({ span: b.span, wireNames: collectVgWireNames(b.vg) }));
+	const { prevSig, nextSig } = vgBodies.length > 0 ? sigNeighbours(tokens) : { prevSig: undefined, nextSig: undefined };
+
 	const classified: ClassifiedToken[] = [];
 	for (const t of tokens) {
+		const body = vgBodies.length > 0 ? bodyContaining(vgBodies, t) : undefined;
+		if (body !== undefined) {
+			const type = vgTokenClass(t, prevSig!.get(t), nextSig!.get(t), body.wireNames);
+			if (type !== undefined) classified.push(makeToken(t, ti(type)));
+			continue;
+		}
 		const ct = classifyToken(t, userSymbolIndex);
 		if (ct !== undefined) classified.push(ct);
 	}
@@ -179,6 +196,35 @@ function classifyToken(t: Token, userIndex: Map<string, Symbol>): ClassifiedToke
 		default:
 			return undefined;
 	}
+}
+
+const SIG_TRIVIA = new Set(["whitespace", "line_comment", "block_comment", "pragma", "eof"]);
+
+/** Map each significant token to its nearest significant prev/next token. */
+function sigNeighbours(tokens: Token[]): { prevSig: Map<Token, Token>; nextSig: Map<Token, Token> } {
+	const prevSig = new Map<Token, Token>();
+	const nextSig = new Map<Token, Token>();
+	let prev: Token | undefined;
+	for (const t of tokens) {
+		if (SIG_TRIVIA.has(t.kind)) continue;
+		if (prev !== undefined) prevSig.set(t, prev);
+		prev = t;
+	}
+	let next: Token | undefined;
+	for (let i = tokens.length - 1; i >= 0; i--) {
+		const t = tokens[i]!;
+		if (SIG_TRIVIA.has(t.kind)) continue;
+		if (next !== undefined) nextSig.set(t, next);
+		next = t;
+	}
+	return { prevSig, nextSig };
+}
+
+function bodyContaining<T extends { span: Span }>(bodies: readonly T[], t: Token): T | undefined {
+	for (const b of bodies) {
+		if (t.span.start >= b.span.start && t.span.end <= b.span.end) return b;
+	}
+	return undefined;
 }
 
 function makeToken(t: Token, type: number, modifiers: number = 0): ClassifiedToken {

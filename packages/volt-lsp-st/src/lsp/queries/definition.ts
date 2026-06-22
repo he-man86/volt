@@ -23,6 +23,8 @@ import type { Location, Position } from "../types.js";
 import type { Document } from "../workspace.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
 import { scopeAtOffset as scopeAt } from "../scope-at.js";
+import { vgBodyAtOffset } from "./vg/shared.js";
+import { vgLocalNameAtOffset } from "./vg/navigation.js";
 
 export interface DefinitionArgs {
 	doc: Document;
@@ -34,6 +36,17 @@ export function definition(args: DefinitionArgs): Location[] {
 	const { doc, position, project } = args;
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
+
+	// VG network-local names (LET wires, labels) resolve within the
+	// network, not via the declaration scope.
+	const vgEntry = vgBodyAtOffset(doc.bodyModels, offset);
+	if (vgEntry !== undefined) {
+		const local = vgLocalNameAtOffset(vgEntry.vg, vgEntry.tokens, offset);
+		if (local !== undefined) {
+			const target = local.declSpan ?? local.atSpan;
+			return [{ uri: doc.uri, range: rangeFromSpan(target) }];
+		}
+	}
 
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];

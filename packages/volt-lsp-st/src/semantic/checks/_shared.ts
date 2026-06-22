@@ -11,6 +11,7 @@ import type { BodySpan, TopLevel } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
 import { ALL_KEYWORDS } from "../../lexer/tokens.js";
+import { isVgBody } from "../../vg/index.js";
 
 export interface DiagnosticItem {
 	severity: "error" | "warning" | "information" | "hint";
@@ -38,7 +39,28 @@ export function getUnitName(unit: TopLevel): { text: string; span: Span } | unde
 	return undefined;
 }
 
+/** True when a body is ordinary ST (not a VG graphical body). */
+export function isStBody(body: BodySpan): boolean {
+	return !isVgBody(body.tokens);
+}
+
+/**
+ * The ST statement body of a unit, or undefined.
+ *
+ * VG (graphical) bodies are deliberately hidden here: every consumer of
+ * `getBody` is an ST-grammar check (assignment types, unresolved
+ * identifier, conversions, binary operators, deref, vendor operators)
+ * that assumes ST token structure and would misfire on VG. VG bodies are
+ * analysed by the dedicated VG checks instead.
+ */
 export function getBody(unit: TopLevel): BodySpan | undefined {
+	const body = getAnyBody(unit);
+	if (body === undefined || !isStBody(body)) return undefined;
+	return body;
+}
+
+/** The statement body of a unit regardless of sublanguage (ST or VG). */
+export function getAnyBody(unit: TopLevel): BodySpan | undefined {
 	switch (unit.kind) {
 		case "function_block":
 		case "program":

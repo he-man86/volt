@@ -14,6 +14,7 @@ import {
 	type LspSymbolKindValue,
 } from "../types.js";
 import type {
+	BodySpan,
 	EnumBody,
 	FunctionBlock,
 	Function as FunctionAST,
@@ -30,9 +31,42 @@ import type {
 	VarDecl,
 	VarSection,
 } from "../../parser/ast.js";
+import type { BodyModel } from "../../semantic/body.js";
+import { vgNetworkSymbols } from "./vg/document-symbol.js";
 
-export function buildDocumentSymbols(parseResult: ParseResult): DocumentSymbol[] {
-	return parseResult.units.map(buildForUnit);
+export function buildDocumentSymbols(
+	parseResult: ParseResult,
+	bodyModels?: Map<BodySpan, BodyModel>,
+): DocumentSymbol[] {
+	return parseResult.units.map((u) => withVgNetworks(buildForUnit(u), u, bodyModels));
+}
+
+/** Append network children to a POU symbol when its body is VG. */
+function withVgNetworks(
+	sym: DocumentSymbol,
+	unit: TopLevel,
+	bodyModels: Map<BodySpan, BodyModel> | undefined,
+): DocumentSymbol {
+	if (bodyModels === undefined) return sym;
+	const body = pouBody(unit);
+	if (body === undefined) return sym;
+	const model = bodyModels.get(body);
+	if (model?.language !== "vg" || model.vg === undefined) return sym;
+	sym.children = [...(sym.children ?? []), ...vgNetworkSymbols(model.vg)];
+	return sym;
+}
+
+function pouBody(unit: TopLevel): BodySpan | undefined {
+	switch (unit.kind) {
+		case "function_block":
+		case "program":
+		case "function":
+		case "method":
+		case "action":
+			return unit.body;
+		default:
+			return undefined;
+	}
 }
 
 function buildForUnit(unit: TopLevel): DocumentSymbol {

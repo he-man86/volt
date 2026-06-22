@@ -18,10 +18,15 @@ import { FoldingRangeKind } from "vscode-languageserver-protocol";
 import { lex } from "../../lexer/lexer.js";
 import type { Span } from "../../lexer/span.js";
 import type { ParseResult, TopLevel } from "../../parser/ast.js";
+import type { VgBody } from "../../vg/index.js";
+import { vgFoldingRanges } from "./vg/folding.js";
 
 export interface FoldingRangeArgs {
 	parseResult: ParseResult;
 	source: string;
+	/** VG (graphical) bodies in this document — each network and EN/ENO IF
+	 *  block adds a fold region. */
+	vgBodies?: ReadonlyArray<{ span: Span; vg: VgBody }>;
 }
 
 export function foldingRanges(args: FoldingRangeArgs): FoldingRange[] {
@@ -29,6 +34,7 @@ export function foldingRanges(args: FoldingRangeArgs): FoldingRange[] {
 	for (const unit of args.parseResult.units) {
 		collectUnit(unit, out);
 	}
+	for (const body of args.vgBodies ?? []) out.push(...vgFoldingRanges(body.vg));
 	collectRegionPragmas(args.source, out);
 	return out;
 }
