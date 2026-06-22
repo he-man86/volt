@@ -10,14 +10,23 @@
 import type { BodySpan, TopLevel } from "../parser/ast.js";
 import type { Span } from "../lexer/span.js";
 import { scanAllIdentifiersInBody } from "./identifier-scan.js";
+import { isVgBody, parseVgBody, type VgBody } from "../vg/index.js";
+import { collectVgIdentifierRefs } from "../vg/identifiers.js";
 
 // ─── Types ────────────────────────────────────────────────────────
 
 export interface BodyModel {
 	/** Full body region in source coordinates. */
 	span: Span;
+	/** Which sublanguage this body is. A POU body is `vg` when its first
+	 *  significant token is `NETWORK` (a graphical FBD/LD body rendered as
+	 *  VG text); otherwise `st`. The discriminator every query/check uses
+	 *  to route a body to VG-aware logic. */
+	language: "st" | "vg";
 	/** Every name occurrence — drives references, highlight,
-	 *  completion, and the unresolved-identifier diagnostic. */
+	 *  completion, and the unresolved-identifier diagnostic. For a VG
+	 *  body these are only declaration-scope references (real vars / FB
+	 *  instances / functions), never network-local wire names. */
 	identifiers: IdentifierRef[];
 	/** Subset of `identifiers` where the next significant token is
 	 *  `(`. Drives call hierarchy. */
@@ -26,6 +35,9 @@ export interface BodyModel {
 	 *  diagnostics (assignment-type-mismatch, conversion-source-
 	 *  mismatch, etc.) that walk statement structure. */
 	st: BodySpan;
+	/** The parsed VG body — present only when `language === "vg"`. Drives
+	 *  every VG query (tokens, hover, navigation, diagnostics, …). */
+	vg?: VgBody;
 }
 
 export interface IdentifierRef {
@@ -61,6 +73,8 @@ export interface CallSite {
  * Build a BodyModel from a body's token slice.
  */
 export function buildBodyModel(st: BodySpan): BodyModel {
+	if (isVgBody(st.tokens)) return buildVgBodyModel(st);
+
 	const occurrences = scanAllIdentifiersInBody(st);
 	const identifiers: IdentifierRef[] = occurrences.map((o) => ({
 		name: o.token.text,
@@ -72,7 +86,23 @@ export function buildBodyModel(st: BodySpan): BodyModel {
 	const calls: CallSite[] = identifiers
 		.filter((i) => i.isCall)
 		.map((i) => ({ name: i.name, span: i.span }));
-	return { span: st.span, identifiers, calls, st };
+	return { span: st.span, language: "st", identifiers, calls, st };
+}
+
+/** Build a BodyModel for a VG (graphical) body — parse it and collect
+ *  declaration-scope references from the AST. */
+function buildVgBodyModel(st: BodySpan): BodyModel {
+	const vg = parseVgBody(st.tokens);
+	const identifiers: IdentifierRef[] = collectVgIdentifierRefs(vg).map((r) => ({
+		name: r.name,
+		span: r.span,
+		isCall: r.isCall,
+		isMemberAccess: r.isMemberAccess,
+		isNamedParam: r.isNamedParam,
+		qualifier: r.qualifier,
+	}));
+	const calls: CallSite[] = identifiers.filter((i) => i.isCall).map((i) => ({ name: i.name, span: i.span }));
+	return { span: st.span, language: "vg", identifiers, calls, st, vg };
 }
 
 /**

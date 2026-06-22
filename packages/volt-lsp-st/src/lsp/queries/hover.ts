@@ -25,6 +25,9 @@ import type { Position, Range } from "../types.js";
 import type { Document } from "../workspace.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
 import { scopeAtOffset } from "../scope-at.js";
+import { vgBodyAtOffset } from "./vg/shared.js";
+import { vgHover } from "./vg/hover.js";
+import { makeVgTypeEnv } from "./vg/type-env.js";
 
 export interface HoverArgs {
 	doc: Document;
@@ -44,6 +47,17 @@ export interface HoverResult {
 export function hover(args: HoverArgs): HoverResult | null {
 	const offset = offsetFromPosition(args.doc.source, args.position);
 	if (offset < 0) return null;
+
+	// In a VG (graphical) body, try VG-specific hover first (operators,
+	// keywords, modifiers, wires). Real variables fall through to the
+	// normal symbol hover below.
+	const vgEntry = vgBodyAtOffset(args.doc.bodyModels, offset);
+	if (vgEntry !== undefined) {
+		const env = makeVgTypeEnv(args.project, scopeAtOffset(args.project, args.doc, offset));
+		const h = vgHover(vgEntry.vg, vgEntry.tokens, offset, env);
+		if (h !== null) return h;
+	}
+
 	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset, args.doc.bodyModels);
 
 	// If the cursor is not on an identifier, check for three special comment shapes:

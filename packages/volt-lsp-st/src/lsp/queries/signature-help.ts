@@ -17,6 +17,9 @@ import type {
 import type { Scope } from "../../semantic/symbol-table.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
+import { vgBodyAtOffset } from "./vg/shared.js";
+import { resolveCallParams } from "./vg/calls.js";
+import { scopeAtOffset } from "../scope-at.js";
 
 export interface SignatureHelpArgs {
 	doc: Document;
@@ -30,22 +33,38 @@ export function signatureHelp(args: SignatureHelpArgs): SignatureHelp | null {
 	const ctx = parseCallContext(args.doc.source, offset);
 	if (ctx === undefined) return null;
 
+	// In a VG body, an FB-instance call `inst(PIN := …)` needs the
+	// instance's *type* resolved to its pins — the generic path below only
+	// resolves callee symbols that declare VAR_INPUT directly.
+	if (vgBodyAtOffset(args.doc.bodyModels, offset) !== undefined) {
+		const resolved = resolveCallParams(args.project, scopeAtOffset(args.project, args.doc, offset), ctx.calleeName);
+		if (resolved === undefined || resolved.params.length === 0) return null;
+		return buildSignature(resolved.name, resolved.params, ctx.activeParam);
+	}
+
 	const target = findCallable(args.project, ctx.calleeName);
 	if (target === undefined) return null;
 
 	const params = collectVarInputParams(target.ast);
 	if (params.length === 0) return null;
 
+	return buildSignature(target.name, params, ctx.activeParam);
+}
+
+function buildSignature(
+	name: string,
+	params: Array<{ name: string; type: string }>,
+	activeParam: number,
+): SignatureHelp {
 	const sig: SignatureInformation = {
-		label: `${target.name}(${params.map((p) => `${p.name} : ${p.type}`).join(", ")})`,
+		label: `${name}(${params.map((p) => `${p.name} : ${p.type}`).join(", ")})`,
 		documentation: undefined,
 		parameters: params.map((p) => ({ label: `${p.name} : ${p.type}` })),
 	};
-
 	return {
 		signatures: [sig],
 		activeSignature: 0,
-		activeParameter: Math.min(ctx.activeParam, params.length - 1),
+		activeParameter: Math.min(activeParam, params.length - 1),
 	};
 }
 

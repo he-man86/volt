@@ -40,6 +40,8 @@ import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
 import { scopeAtOffset } from "../scope-at.js";
+import { vgBodyAtOffset } from "./vg/shared.js";
+import { enclosingCallee, resolveCallParams } from "./vg/calls.js";
 
 export interface CompletionArgs {
 	doc: Document;
@@ -93,9 +95,32 @@ export function completion(args: CompletionArgs): CompletionItem[] {
 
 	// Default: static reference items + local symbols.
 	const items: CompletionItem[] = [];
+	// VG: when the cursor is inside an `inst(… )` / `FN(… )` argument list,
+	// offer the callee's pin/parameter names first (`PIN := `).
+	if (vgBodyAtOffset(args.doc.bodyModels, offset) !== undefined) {
+		addVgPinCompletions(items, args, offset);
+	}
 	addStaticReferenceItems(items, args.activeVendor);
 	addLocalSymbols(items, args.project, args.doc, offset);
 	return items;
+}
+
+function addVgPinCompletions(items: CompletionItem[], args: CompletionArgs, offset: number): void {
+	const callee = enclosingCallee(args.doc.source, offset);
+	if (callee === undefined) return;
+	const scope = scopeAtOffset(args.project, args.doc, offset);
+	const resolved = resolveCallParams(args.project, scope, callee);
+	if (resolved === undefined) return;
+	for (const p of resolved.params) {
+		items.push({
+			label: p.name,
+			kind: CompletionItemKind.Field,
+			detail: `pin : ${p.type}`,
+			insertText: (args.snippetSupport ?? true) ? `${p.name} := ` : p.name,
+			insertTextFormat: InsertTextFormat.PlainText,
+			sortText: `00_${p.name}`,
+		});
+	}
 }
 
 // ─── Pragma context ──────────────────────────────────────────────────

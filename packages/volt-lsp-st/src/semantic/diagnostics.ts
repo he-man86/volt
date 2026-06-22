@@ -30,6 +30,8 @@ import { checkBinaryOperators } from "./checks/check-binary-operators.js";
 import { checkVarSectionPlacement } from "./checks/check-var-section-placement.js";
 import { checkDerefOnNonPointer } from "./checks/check-deref.js";
 import { checkVendorOnlyOperators } from "./checks/check-vendor-only-operator.js";
+import { checkVgStructure } from "./checks/check-vg-structure.js";
+import { checkVgCode } from "./checks/check-vg-code.js";
 
 export type { DiagnosticItem };
 
@@ -149,6 +151,18 @@ const CHECKS: CheckSpec[] = [
 		id: "deref-non-pointer",
 		enabled: (c) => c.derefOnNonPointer,
 		run: (ctx, out) => checkDerefOnNonPointer(ctx.parseResult, ctx.project, out),
+	},
+
+	// ─── VG (graphical body) — walk the parsed VG tree ──────────────
+	{
+		id: "vg-structure",
+		enabled: (c) => c.vgStructure,
+		run: (ctx, out) => checkVgStructure(ctx, out),
+	},
+	{
+		id: "vg-code",
+		enabled: (c) => c.vgUndeclaredIdentifier || c.vgUndefinedLabel || c.vgUnknownPin,
+		run: (ctx, out) => checkVgCode(ctx.parseResult, ctx.project, ctx.bodyModels, ctx.config, out),
 	},
 	{
 		id: "vendor-only-operator",

@@ -150,6 +150,31 @@ export interface DiagnosticConfig {
 	 * behavior. `__ISVALIDREF` is TC-compatible and stays silent.
 	 */
 	vendorOnlyOperator: boolean;
+	/**
+	 * Structural well-formedness of a VG (graphical FBD/LD) body — the
+	 * codes the bridge gate refuses a push with (VG_BAD_EXPRESSION,
+	 * VG_UNKNOWN_OPERATOR, VG_DUPLICATE_NAME, VG_DUPLICATE_NETWORK,
+	 * VG_NETWORK_NOT_CLOSED, VG_LEAF_REFERENCES_TEMP, VG_PARSE). On by
+	 * default: surfacing them in the editor lets a graphical body be fixed
+	 * before the push is refused. (VG_PLCOPEN_DRIFT stays bridge-only.)
+	 */
+	vgStructure: boolean;
+	/** A VG operand references a name not declared in the POU (the VG
+	 *  analogue of unresolved-identifier). */
+	vgUndeclaredIdentifier: boolean;
+	/** A VG `JMP` targets a label not defined in its network. */
+	vgUndefinedLabel: boolean;
+	/** A VG FB-instance call passes a pin name the FB type doesn't declare. */
+	vgUnknownPin: boolean;
+	/**
+	 * A VG body is not in canonical form (VG_NOT_CANONICAL). OFF by
+	 * default: the LSP re-emitter checks *formatting* canonicality only
+	 * (it can't re-run the bridge's graph-level inline analysis), and the
+	 * bridge enforces full canonicality at push — so this is opt-in for
+	 * users who want push-parity warnings while editing. The formatter
+	 * (`textDocument/formatting`) is the friendlier way to canonicalise.
+	 */
+	vgNotCanonical: boolean;
 }
 
 /**
@@ -188,6 +213,12 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
 	vendorOnlyOperator: true,
+	vgStructure: true,
+	vgUndeclaredIdentifier: true,
+	vgUndefinedLabel: true,
+	vgUnknownPin: true,
+	// Opt-in — see the field doc; the bridge is the canonical authority.
+	vgNotCanonical: false,
 };
 
 /**
