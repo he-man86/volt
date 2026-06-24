@@ -20,19 +20,20 @@
     "build": "tsc",
     "prepare": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test",
     "record:language": "cd ../volt-lsp-st && tsc && cd ../volt-cli && tsc && node dist/tools/record-language.js",
     "conformance:report": "cd ../volt-lsp-st && tsc && cd ../volt-cli && tsc && node dist/tools/conformance-report.js"
   },
   "dependencies": {
     "@opencode-ai/volt-lsp": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
     "typescript": "catalog:"
   }
 }

@@ -40,6 +40,10 @@
     "@opencode-ai/volt-bridges#test": {
       "dependsOn": [],
       "outputs": []
+    },
+    "volt-vscode#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   }
 }

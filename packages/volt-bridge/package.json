@@ -15,12 +15,13 @@
     "build:all": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo && dotnet build src/Volt.Bridge.Codesys/Volt.Bridge.Codesys.csproj -c Release --nologo",
     "build:package": "powershell -File build-bridges.ps1",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
     "typescript": "catalog:"
   }
 }

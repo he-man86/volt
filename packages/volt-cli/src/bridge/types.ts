@@ -178,12 +178,12 @@ export const RefsResponseSchema = z
 		structureVersion: z.string(),
 		/** Full name → version map. Keys include the file extension (e.g.
 		 *  "PLC_PRG.st", "FB_Motor.fbd") — match fetched item names exactly. */
-		items: z.record(z.string()),
+		items: z.record(z.string(), z.string()),
 		/**
 		 * Parallel map of full name → slash-joined containing folder in the
 		 * project tree (empty string = item at the project root).
 		 */
-		folders: z.record(z.string()),
+		folders: z.record(z.string(), z.string()),
 	})
 	.strict();
 export type RefsResponse = z.infer<typeof RefsResponseSchema>;
@@ -192,7 +192,7 @@ export type RefsResponse = z.infer<typeof RefsResponseSchema>;
 
 export const FetchRequestSchema = z.object({
 	/** Client's currently-known {name → version} map. Omit / pass {} for "I have nothing". */
-	knownItems: z.record(z.string()).optional(),
+	knownItems: z.record(z.string(), z.string()).optional(),
 	/** Optional allowlist — when present, the bridge skips work for items not in this list. */
 	onlyItems: z.array(z.string()).optional(),
 });
@@ -209,7 +209,7 @@ export const FetchResponseSchema = z
 		/** Names the client knew about that no longer exist in the IDE. */
 		removed: z.array(z.string()),
 		/** Full ref map — the client can replace its cache wholesale with this. */
-		items: z.record(z.string()),
+		items: z.record(z.string(), z.string()),
 	})
 	.strict();
 export type FetchResponse = z.infer<typeof FetchResponseSchema>;
@@ -306,7 +306,7 @@ export const PushAcceptedSchema = z.object({
 		accepted: z.literal(true),
 		newProjectVersion: z.string(),
 		/** Refreshed ref map — client can adopt this as its new cache. */
-		newItems: z.record(z.string()),
+		newItems: z.record(z.string(), z.string()),
 	})
 export type PushAccepted = z.infer<typeof PushAcceptedSchema>;
 

@@ -22,7 +22,10 @@ if (process.versions.bun !== expectedBunVersion) {
   # packages are left to upstream CI — running them locally on Windows
   # triggers env-specific TS errors that aren't real regressions.
   # When contributing back upstream, run `bun typecheck` manually.
-  bun turbo typecheck --filter='@opencode-ai/volt-*'
+  # Filter by PATH (not name) so volt-vscode — whose package name is the
+  # unscoped `volt-vscode` (a VS Code marketplace requirement) — is covered
+  # too; an `@opencode-ai/volt-*` name filter silently skipped it.
+  bun turbo typecheck --filter='./packages/volt-*'
 
 # Fork invariant: Volt is purely additive — fail the push if we modified
 # opencode source outside the allowed integration seams (see CLAUDE.md
