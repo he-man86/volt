@@ -23,7 +23,15 @@
     "daccentHi": "#FF9A52",
     "dgreen": "#74C07A",
     "dred": "#E8675C",
-    "damber": "#F2B24C"
+    "damber": "#F2B24C",
+
+    "blue": "#2F6F90",
+    "dblue": "#6FB0D8",
+
+    "diffAddBg": "#E9F1E3",
+    "diffRemBg": "#F6E5E1",
+    "ddiffAddBg": "#1E2A1C",
+    "ddiffRemBg": "#2E1E1B"
   },
   "theme": {
     "primary": { "dark": "daccent", "light": "accent" },
@@ -32,7 +40,7 @@
     "error": { "dark": "dred", "light": "red" },
     "warning": { "dark": "damber", "light": "amber" },
     "success": { "dark": "dgreen", "light": "green" },
-    "info": { "dark": "daccent", "light": "accent" },
+    "info": { "dark": "dblue", "light": "blue" },
     "text": { "dark": "dtext", "light": "text" },
     "textMuted": { "dark": "dmuted", "light": "muted" },
     "background": { "dark": "dbg", "light": "bg" },
@@ -48,12 +56,12 @@
     "diffHunkHeader": { "dark": "dmuted", "light": "muted" },
     "diffHighlightAdded": { "dark": "dgreen", "light": "green" },
     "diffHighlightRemoved": { "dark": "dred", "light": "red" },
-    "diffAddedBg": { "dark": "#1E2A1C", "light": "#E9F1E3" },
-    "diffRemovedBg": { "dark": "#2E1E1B", "light": "#F6E5E1" },
+    "diffAddedBg": { "dark": "ddiffAddBg", "light": "diffAddBg" },
+    "diffRemovedBg": { "dark": "ddiffRemBg", "light": "diffRemBg" },
     "diffContextBg": { "dark": "dsurface", "light": "surface" },
     "diffLineNumber": { "dark": "dmuted", "light": "muted" },
-    "diffAddedLineNumberBg": { "dark": "#1E2A1C", "light": "#E9F1E3" },
-    "diffRemovedLineNumberBg": { "dark": "#2E1E1B", "light": "#F6E5E1" },
+    "diffAddedLineNumberBg": { "dark": "ddiffAddBg", "light": "diffAddBg" },
+    "diffRemovedLineNumberBg": { "dark": "ddiffRemBg", "light": "diffRemBg" },
 
     "markdownText": { "dark": "dtext", "light": "text" },
     "markdownHeading": { "dark": "daccent", "light": "accent" },
