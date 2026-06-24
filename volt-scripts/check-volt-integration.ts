@@ -60,18 +60,22 @@ check(".opencode/opencode.jsonc parses (JSONC)", () => {
 check(".opencode/agent/volt.md exists", () =>
 	existsSync(join(REPO_ROOT, ".opencode/agent/volt.md")) || "agent persona missing"
 );
-check(".claude/skills/st-reference/SKILL.md exists", () =>
-	existsSync(join(REPO_ROOT, ".claude/skills/st-reference/SKILL.md")) || "skill missing"
+// The st-reference skill is GENERATED into a consumer project by `volt init`
+// (see packages/volt-lsp-st/src/init.ts) — it is not committed in this repo, so
+// assert the installer that produces it is built rather than a committed file.
+check("volt-lsp-st skill installer built (dist/init.js)", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-lsp-st/dist/init.js"))
+		|| "not built — run: bun run --cwd packages/volt-lsp-st build"
 );
 
 console.log("\nBuilt binaries");
 check("volt-lsp-st dist/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-lsp-st/dist/bin.js");
-	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-lsp' run build";
+	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-st build";
 });
-check("volt CLI dist/cli/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-cli/dist/cli/bin.js");
-	return existsSync(path) || "not built — run: bun --filter '@opencode-ai/volt-cli' run build";
+check("volt CLI dist/bin.js", () => {
+	const path = join(REPO_ROOT, "packages/volt-cli/dist/bin.js");
+	return existsSync(path) || "not built — run: bun run --cwd packages/volt-cli build";
 });
 
 console.log("\nRuntime smoke test");
@@ -92,7 +96,7 @@ check("volt CLI wrapper runs (volt-scripts/volt[.cmd])", () => {
 		shell: process.platform === "win32",
 	});
 	if (r.status !== 0) return `exit ${r.status}: ${(r.stderr || r.stdout).trim().slice(0, 200)}`;
-	if (!r.stdout.includes("volt <verb>")) return "unexpected output (HELP signature missing)";
+	if (!r.stdout.includes("volt <command>")) return "unexpected output (HELP signature missing)";
 	return true;
 });
 
@@ -105,7 +109,7 @@ check("CODESYS reference corpus index", () =>
 console.log("\nVS Code extension");
 check("volt-vscode extension entry compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))
-		|| "not built — run: bun --filter '@opencode-ai/volt-vscode' run build"
+		|| "not built — run: bun run --cwd packages/volt-vscode build"
 );
 check("volt-vscode CLI integration compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/cli.js"))
@@ -122,19 +126,19 @@ if (failed > 0) {
 console.log("\nOne-time PATH setup (so bare `volt` works in shells / opencode bash / VS Code terminal):");
 if (process.platform === "win32") {
 	console.log("  PowerShell (this session only):");
-	console.log(`    $env:Path = "${join(REPO_ROOT, "script")};$env:Path"`);
+	console.log(`    $env:Path = "${join(REPO_ROOT, "volt-scripts")};$env:Path"`);
 	console.log("  PowerShell (permanent, current user):");
-	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "script")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
+	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "volt-scripts")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
 } else {
 	console.log("  Bash / zsh (this session only):");
-	console.log(`    export PATH="${join(REPO_ROOT, "script")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
 	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
-	console.log(`    export PATH="${join(REPO_ROOT, "script")}:$PATH"`);
+	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
 }
 
 console.log("\nManual verification — opencode (this repo):");
-console.log("  1. From repo root: bun dev   # starts the opencode TUI");
-console.log("  2. Open a .st file → expect 'Starting LSP: volt-st' in opencode logs.");
+console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
+console.log("  2. Open a .st file → expect 'volt-lsp-st' among the enabled LSP servers in opencode logs.");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
 console.log("  4. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init) opencode prompts for approval per call.");

@@ -43,7 +43,7 @@ Add an entry to `.opencode/opencode.jsonc` next to the existing `volt-lsp-st`:
 
 `command[0]` is **not** a bare bin name — opencode spawns it with `cwd = its project directory` and does not add `node_modules/.bin` to PATH (`packages/opencode/src/util/process.ts:66`; bun on Windows also doesn't create `.bin` symlinks for private workspace packages). So use a path.
 
-The path is **repo-root-relative** (`./packages/.../dist/bin.js`), resolved against opencode's project directory. That means it only resolves when opencode runs with the **repo root** as its project dir. `bun run dev` launches with `--cwd packages/opencode`, so the relative path won't resolve there — launch opencode pointed at the repo root when developing the LSP.
+The path is **repo-root-relative** (`./packages/.../dist/bin.js`), resolved against opencode's project directory. That means it only resolves when opencode runs with the **repo root** as its project dir. `bun run dev` launches with `--cwd packages/opencode`, so the relative path won't resolve there — use `bun volt-scripts/dev.ts`, which launches opencode with the repo root as its project dir so the LSP command resolves.
 
 ## 3. Ship the language reference (corpus + skill)
 
