@@ -27,6 +27,7 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "turbo.json", // test-task entries for the volt-* packages
   ".husky/pre-push", // scope the pre-push typecheck to volt-* packages
   ".gitignore", // local `/memory` Claude-memory junction ignore
+  ".opencode/tui.json", // select the Volt brand theme (TUI theme is configured here, not in opencode.jsonc)
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
@@ -37,7 +38,11 @@ const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/"]
 // discovers agents only from .opencode/agent/). A NEW file is exempt only if it is
 // fork-owned OR explicitly listed here; anything else added (into .github/, .claude/,
 // .opencode/skills/, scratch/, new root files, …) is a divergence.
-const ADDITIVE_ALLOWLIST = new Set<string>(["CLAUDE.md", ".opencode/agent/volt.md"])
+const ADDITIVE_ALLOWLIST = new Set<string>([
+  "CLAUDE.md",
+  ".opencode/agent/volt.md",
+  ".opencode/themes/volt.json", // Volt brand theme (selected via the .opencode/tui.json seam)
+])
 
 function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))
@@ -87,11 +92,12 @@ function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
     { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
-    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\t.opencode/agent/volt.md"], allowed: 0, violations: 0 },
+    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json"], allowed: 0, violations: 0 },
+    { name: "other committed theme is a violation (only volt.json is sanctioned)", lines: ["A\t.opencode/themes/other.json"], allowed: 0, violations: 1 },
     { name: "added file outside the surface is a violation (.github)", lines: ["A\t.github/workflows/volt-guard.yml"], allowed: 0, violations: 1 },
     { name: "added file outside the surface is a violation (scratch)", lines: ["A\tscratch/.gitignore"], allowed: 0, violations: 1 },
     { name: "committed skill is a violation (skills are generated, not committed)", lines: ["A\t.opencode/skills/x/SKILL.md"], allowed: 0, violations: 1 },
-    { name: "allowed seams count as allowed", lines: ["M\tturbo.json", "M\t.gitignore", "M\tbun.lock"], allowed: 3, violations: 0 },
+    { name: "allowed seams count as allowed", lines: ["M\tturbo.json", "M\t.gitignore", "M\tbun.lock", "M\t.opencode/tui.json"], allowed: 4, violations: 0 },
     { name: "upstream source edit is a violation", lines: ["M\tpackages/opencode/src/lsp/server.ts"], allowed: 0, violations: 1 },
     { name: "upstream file delete is a violation", lines: ["D\tpackages/core/src/foo.ts"], allowed: 0, violations: 1 },
     { name: "renamed upstream file is a violation (dest path)", lines: ["R100\tpackages/core/a.ts\tpackages/core/b.ts"], allowed: 0, violations: 1 },
