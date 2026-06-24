@@ -79,10 +79,10 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 Volt is **purely additive** — all product code lives in `packages/volt-*`, and integration uses opencode's extension points (auto-discovered files + config), **never edits to opencode source**. The complete divergence from upstream:
 
 - **Product:** `packages/volt-{bridge,cli,lsp-st,vscode}` — auto-included via the `packages/*` workspace glob (no registration needed).
-- **Additive files:** `.opencode/agent/volt.md`, `.opencode/skills/*`, `volt-scripts/*` (all fork tooling/installers; upstream's `script/` stays pristine), `CLAUDE.md`, `docs/`.
+- **Additive files:** `.opencode/agent/volt.md`, `volt-scripts/*` (all fork tooling/installers; upstream's `script/` stays pristine), `CLAUDE.md`. (Language-reference skills are **generated** into a consumer's `.claude/skills/` by `volt init`, not committed here — see `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`.)
 - **The only modified upstream files (5 seams):** `bun.lock` (volt deps), `.opencode/opencode.jsonc` (LSP registration + `volt` permission gates), `turbo.json` (volt test tasks), `.husky/pre-push` (typecheck scoped to volt-*), `.gitignore` (`/memory` junction).
 
-`bun run volt-scripts/check-divergence.ts` enforces this — it fails if any upstream file outside those 5 seams is modified or deleted. It's the always-accurate map of where the fork's changes live; run it after every upstream merge.
+`bun run volt-scripts/check-divergence.ts` enforces this — it fails if any upstream file outside those 5 seams is modified/deleted, **or if a new file is added outside `packages/volt-*`, `volt-scripts/`, `CLAUDE.md`, or `.opencode/agent/volt.md`.** It's the always-accurate map of where the fork's changes live; run it after every upstream merge.
 
 ### Syncing upstream (runbook)
 1. `git fetch upstream`
@@ -92,4 +92,4 @@ Volt is **purely additive** — all product code lives in `packages/volt-*`, and
 5. `bun run volt-scripts/check-divergence.ts` — confirm the surface is unchanged
 6. `bun run volt-scripts/check-volt-integration.ts` — confirm the wiring still works
 
-Adding another LSP: `docs/ADDING-A-NEW-LSP.md`. Bundle the fork as a version-pinned patch against an opencode release: `bun run volt-scripts/export-overlay.ts`.
+Adding another LSP: `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`. Bundle the fork as a version-pinned patch against an opencode release: `bun run volt-scripts/export-overlay.ts`.

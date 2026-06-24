@@ -32,6 +32,13 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
 // Paths that are wholly fork-owned — changes here never count as divergence.
 const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/"]
 
+// Individual fork files added at opencode's extension points — they have a forced
+// home outside packages/ (Claude Code auto-loads CLAUDE.md at the repo root; opencode
+// discovers agents only from .opencode/agent/). A NEW file is exempt only if it is
+// fork-owned OR explicitly listed here; anything else added (into .github/, .claude/,
+// .opencode/skills/, scratch/, new root files, …) is a divergence.
+const ADDITIVE_ALLOWLIST = new Set<string>(["CLAUDE.md", ".opencode/agent/volt.md"])
+
 function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))
 }
@@ -58,7 +65,13 @@ export function classify(nameStatusLines: readonly string[]): Classification {
     const path = code === "R" || code === "C" ? (fields[fields.length - 1] ?? "") : fields.slice(1).join("\t")
 
     if (isForkOwned(path)) continue // volt-* packages / volt-scripts — additive, exempt
-    if (code === "A") continue // a NEW fork file (didn't exist upstream) — additive, fine
+
+    // A NEW file (didn't exist upstream) is additive-fine only at a sanctioned location.
+    if (code === "A") {
+      if (ADDITIVE_ALLOWLIST.has(path)) continue
+      violations.push(`${code}  ${path}`) // added outside the fork surface — a divergence
+      continue
+    }
 
     // M/D/R/C of an upstream-tracked file: only allowlisted seams are OK.
     if (ALLOWED_MODIFICATIONS.has(path)) allowed.push(`${code}  ${path}`)
@@ -74,7 +87,10 @@ function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
     { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
-    { name: "new fork files are additive", lines: ["A\tCLAUDE.md", "A\t.opencode/agent/volt.md"], allowed: 0, violations: 0 },
+    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\t.opencode/agent/volt.md"], allowed: 0, violations: 0 },
+    { name: "added file outside the surface is a violation (.github)", lines: ["A\t.github/workflows/volt-guard.yml"], allowed: 0, violations: 1 },
+    { name: "added file outside the surface is a violation (scratch)", lines: ["A\tscratch/.gitignore"], allowed: 0, violations: 1 },
+    { name: "committed skill is a violation (skills are generated, not committed)", lines: ["A\t.opencode/skills/x/SKILL.md"], allowed: 0, violations: 1 },
     { name: "allowed seams count as allowed", lines: ["M\tturbo.json", "M\t.gitignore", "M\tbun.lock"], allowed: 3, violations: 0 },
     { name: "upstream source edit is a violation", lines: ["M\tpackages/opencode/src/lsp/server.ts"], allowed: 0, violations: 1 },
     { name: "upstream file delete is a violation", lines: ["D\tpackages/core/src/foo.ts"], allowed: 0, violations: 1 },
