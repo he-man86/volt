@@ -29,7 +29,9 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
-const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/"]
+// `.claude/` (BMAD skills) and `_bmad/` (BMAD framework) are committed dev tooling;
+// they don't exist upstream, so additions there are additive, never a divergence.
+const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/", ".claude/", "_bmad/"]
 
 // Individual fork files added at opencode's extension points — they have a forced
 // home outside packages/ (Claude Code auto-loads CLAUDE.md at the repo root; opencode
