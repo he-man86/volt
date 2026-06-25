@@ -35,3 +35,6 @@ tsconfig.tsbuildinfo
 
 # Local junction to shared Claude memory dir (see project-shared-memory-junctions)
 /memory
+
+# Scratch .st written by volt-scripts/verify-lsp.ts (cleaned up on exit; ignored in case a run is killed)
+/.volt-lsp-verify.st

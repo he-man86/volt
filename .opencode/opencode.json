@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "volt-lsp-st": {
+      "command": ["node", "./packages/volt-lsp-st/dist/bin.js", "--stdio"],
+      "extensions": [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias", ".fbd", ".ld", ".sfc", ".cfc"]
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "volt init*": "ask",
+      "volt pull*": "ask",
+      "volt push*": "ask",
+      "volt merge*": "ask"
+    }
+  }
+}

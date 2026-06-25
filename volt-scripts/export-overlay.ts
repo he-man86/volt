@@ -36,7 +36,7 @@ const headShort = git(`rev-parse --short HEAD`).trim()
 const patch = git(`diff --binary ${upstreamRef} HEAD`)
 
 // Classify the delta for the summary (additive vs the config seams).
-const SEAMS = new Set([".gitignore", ".husky/pre-push", ".opencode/opencode.jsonc", "bun.lock", "turbo.json"])
+const SEAMS = new Set([".gitignore", ".husky/pre-push", ".opencode/tui.json", "bun.lock"])
 const nameStatus = git(`diff --name-status ${upstreamRef} HEAD`).trim().split("\n").filter(Boolean)
 let additive = 0
 let seam = 0

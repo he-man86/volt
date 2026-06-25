@@ -28,22 +28,6 @@
     "@opencode-ai/session-ui#test": {
       "dependsOn": ["^build"],
       "outputs": []
-    },
-    "@opencode-ai/volt-cli#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@opencode-ai/volt-lsp#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@opencode-ai/volt-bridges#test": {
-      "dependsOn": [],
-      "outputs": []
-    },
-    "volt-vscode#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
     }
   }
 }

@@ -13,9 +13,10 @@ if ($Project -ne "Beckhoff") {
 # Do NOT hardcode a second name that silently rots when the project is renamed.
 $projName = "Volt.Bridge.Beckhoff"
 $asmName  = $projName
-$csproj = "C:\Users\marce\OneDrive\Documenten\Github\volt\packages\volt-bridge\src\$projName\$projName.csproj"
-$outDir = "C:\Users\marce\AppData\Local\Temp\opencode\bridge-$($Project.ToLower())"
-$logDir = "C:\Users\marce\AppData\Local\Temp\opencode"
+$repo   = Split-Path $PSScriptRoot -Parent
+$csproj = Join-Path $repo "packages\volt-bridge\src\$projName\$projName.csproj"
+$logDir = Join-Path $env:TEMP "opencode"
+$outDir = Join-Path $logDir "bridge-$($Project.ToLower())"
 
 taskkill /F /IM "$asmName.exe" 2>$null
 & "C:\Program Files\dotnet\dotnet.exe" publish $csproj -c Release -o $outDir --nologo -v q 2>&1 | Out-Null

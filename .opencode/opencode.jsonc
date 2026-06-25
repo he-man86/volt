@@ -1,28 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {},
-  "lsp": {
-    // Volt LSP for IEC 61131-3 — Structured Text plus the declaration
-    // files (.gvl/.itf/DUTs) and graphical bodies (.fbd/.ld/.sfc/.cfc,
-    // which are transpiled to ST at pull time). Registered purely via
-    // config so no opencode source is forked. Path is repo-root-relative
-    // (the LSP is run from inside the volt monorepo).
-    "volt-lsp-st": {
-      "command": ["node", "./packages/volt-lsp-st/dist/bin.js", "--stdio"],
-      "extensions": [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias", ".fbd", ".ld", ".sfc", ".cfc"]
-    }
-  },
-  "permission": {
-    // volt CLI permissions — mirrors opencode's git pattern (gate
-    // destructive verbs via bash, leave read-only ones unrestricted).
-    // Modifying ops require human approval per call in the opencode UI.
-    "bash": {
-      "*": "allow",
-      "volt init*": "ask",
-      "volt pull*": "ask",
-      "volt push*": "ask",
-    },
-  },
+  "permission": {},
   "references": {
     "effect": {
       "repository": "github.com/Effect-TS/effect-smol",
@@ -33,6 +12,7 @@
       "description": "Contains opencode logs and data",
     },
   },
+  "mcp": {},
   "tools": {
     "github-triage": false,
     "github-pr-search": false,

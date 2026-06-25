@@ -136,9 +136,11 @@ if (process.platform === "win32") {
 	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
 }
 
+console.log("\nVerify the LSP actually loads (automated): bun volt-scripts/verify-lsp.ts");
 console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
-console.log("  2. Open a .st file → expect 'volt-lsp-st' among the enabled LSP servers in opencode logs.");
+console.log("  2. Open a .st file with a syntax error → expect red 'volt-lsp-st' diagnostics.");
+console.log("     ('volt-lsp-st' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
 console.log("  4. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init) opencode prompts for approval per call.");

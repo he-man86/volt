@@ -21,10 +21,20 @@
  * fork's allowed seams (see CLAUDE.md "Fork surface").
  */
 import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
 const passthrough = process.argv.slice(2)
+
+// The LSP is registered at ./packages/volt-lsp-st/dist/bin.js. If it isn't
+// built, opencode starts fine but the LSP silently never attaches — guard
+// against that footgun with a clear message instead of a dead .st experience.
+const lspBin = resolve(repoRoot, "packages/volt-lsp-st/dist/bin.js")
+if (!existsSync(lspBin)) {
+  console.error(`volt LSP not built: ${lspBin}\nRun: bun --cwd packages/volt-lsp-st run build`)
+  process.exit(1)
+}
 
 // `--cwd packages/opencode` matches `bun run dev`; the trailing repoRoot is
 // opencode's [project] positional — opencode chdir's to it, making it the
