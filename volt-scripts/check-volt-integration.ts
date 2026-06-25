@@ -6,14 +6,14 @@
  *   bun volt-scripts/check-volt-integration.ts
  *
  * Verifies:
- *   - Config files (opencode.jsonc, volt.md agent, st-reference skill) exist and parse
- *   - LSP + MCP + CLI binaries are built (dist/ output present)
- *   - node_modules/.bin symlinks resolve (bun install ran)
+ *   - Config layer (.opencode/opencode.json) exists, parses, and registers the LSP
+ *   - Agent persona (.opencode/agent/volt.md) + volt custom tool (.opencode/tool/volt.ts) present
+ *   - LSP + CLI binaries are built (dist/ output present)
  *   - volt-lsp-st binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
  *
- * Does NOT verify MCP tool naming inside opencode (would require speaking
- * the MCP protocol). Manual verification step is printed in the output.
+ * For end-to-end LOAD checks (LSP attaches, tool registers in opencode), run the
+ * dedicated verifiers: verify-lsp.ts and verify-volt-tool.ts.
  */
 import { resolve, join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
@@ -44,21 +44,18 @@ console.log("Volt opencode-integration check");
 console.log("=".repeat(40));
 
 console.log("\nConfig files");
-check(".opencode/opencode.jsonc exists", () =>
-	existsSync(join(REPO_ROOT, ".opencode/opencode.jsonc")) || "missing"
+check(".opencode/opencode.json exists (Volt config merge-layer)", () =>
+	existsSync(join(REPO_ROOT, ".opencode/opencode.json")) || "missing — Volt's LSP + permission config lives here"
 );
-check(".opencode/opencode.jsonc parses (JSONC)", () => {
-	const raw = readFileSync(join(REPO_ROOT, ".opencode/opencode.jsonc"), "utf-8");
-	// Strip line comments + block comments + trailing commas, but
-	// preserve `//` and `/*` inside string literals (e.g. URLs).
-	const stripped = raw
-		.replace(/("(?:[^"\\]|\\.)*")|\/\/.*$|\/\*[\s\S]*?\*\//gm, (_, str) => str ?? "")
-		.replace(/,(\s*[}\]])/g, "$1");
-	JSON.parse(stripped);
-	return true;
+check(".opencode/opencode.json parses + registers volt-lsp-st", () => {
+	const cfg = JSON.parse(readFileSync(join(REPO_ROOT, ".opencode/opencode.json"), "utf-8"));
+	return Boolean(cfg?.lsp?.["volt-lsp-st"]) || "no lsp.volt-lsp-st entry";
 });
 check(".opencode/agent/volt.md exists", () =>
 	existsSync(join(REPO_ROOT, ".opencode/agent/volt.md")) || "agent persona missing"
+);
+check(".opencode/tool/volt.ts exists (volt CLI custom tool)", () =>
+	existsSync(join(REPO_ROOT, ".opencode/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
 );
 // The st-reference skill is GENERATED into a consumer project by `volt init`
 // (see packages/volt-lsp-st/src/init.ts) — it is not committed in this repo, so
@@ -136,14 +133,14 @@ if (process.platform === "win32") {
 	console.log(`    export PATH="${join(REPO_ROOT, "volt-scripts")}:$PATH"`);
 }
 
-console.log("\nVerify the LSP actually loads (automated): bun volt-scripts/verify-lsp.ts");
+console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
 console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
 console.log("  2. Open a .st file with a syntax error → expect red 'volt-lsp-st' diagnostics.");
 console.log("     ('volt-lsp-st' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
-console.log("  4. In a chat ask: 'run volt status' → agent invokes via bash; output appears inline.");
-console.log("     For mutating verbs (volt pull/push/init) opencode prompts for approval per call.");
+console.log("  4. Ask: 'run volt status' → agent calls the `volt` tool (or bash); output appears inline.");
+console.log("     For mutating verbs (volt pull/push/init/merge) opencode prompts for approval per call.");
 console.log("  5. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
 console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
 console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");

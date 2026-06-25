@@ -11,9 +11,9 @@ prove it loads inside opencode. This package, `volt-lsp-st`, is the template.
 
 ## How opencode loads the LSP (the one rule that matters)
 
-opencode **registers** every LSP from `.opencode/opencode.jsonc`, but **spawns** it
-*lazily* — only when you open a file whose extension matches, and only then does the
-real failure mode appear:
+opencode **registers** every LSP from its merged config (Volt's lives in the additive
+`.opencode/opencode.json` — see §2), but **spawns** it *lazily* — only when you open a
+file whose extension matches, and only then does the real failure mode appear:
 
 - It spawns the server with **`cwd = the project directory`** (`packages/opencode/src/lsp/lsp.ts:175-181`;
   the project dir is `--directory` ?? `process.cwd()`, `packages/opencode/src/cli/effect-cmd.ts:86`).
@@ -110,10 +110,12 @@ packages/volt-lsp-<lang>/
 
 ## 2. Wire it into opencode
 
-Add an entry to `.opencode/opencode.jsonc` next to the existing `volt-lsp-st` — use a
-repo-root-relative **path** (not a bin name; see "How opencode loads the LSP" above):
+Add an entry to **`.opencode/opencode.json`** next to the existing `volt-lsp-st` — Volt's
+additive config layer, which opencode deep-merges over upstream's pristine `opencode.jsonc`.
+**Never edit the `.jsonc`** — that reintroduces an upstream seam (see CLAUDE.md "Fork surface").
+Use a repo-root-relative **path** (not a bin name; see "How opencode loads the LSP" above):
 
-```jsonc
+```json
 "lsp": {
   "volt-lsp-st": { ... },
   "volt-lsp-<lang>": {
