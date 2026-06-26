@@ -201,8 +201,8 @@ desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is stric
 | **W5** | `volt-web` landing + signup | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
 | **W6** | **Deploy the revenue cloud** — Volt `infra/`: `llm` gateway + `console-core` billing + Stripe (your products/keys) + a **"Volt" hosted-provider** entry (`api.volt.ai`); + CI/release | parallel `infra/`; config; ⚠ `.github/` (CI) | **AWS + Stripe + SES + provider keys**, domain | paid sub → metered model call works end-to-end |
 | **1 ✅** | Extract `volt-control` from `volt-vscode` (primitives + actions) | new `volt-control`; refactor `volt-vscode` | none | — | ✅ done — typecheck + 13 tests + extension build |
-| **2** | GUI `<Slot/>` in `packages/app` (try to upstream) | ⚠ `packages/app` | 1 (→0 if upstreamed) | design review | dummy panel renders |
-| **3** | `volt-app` desktop panel rendering `volt-control`, via slot + Electron IPC | new `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | panel UX | panel drives CLI in desktop |
+| **2 ✅** | Mount `volt-app`'s `VoltSidebar` in `packages/app`'s new layout (**direct mount**, not a generic slot — fewer seams; all Volt UI grows inside `volt-app`) | ⚠ `packages/app` ×2 (layout-new + dep) | 2 | — | ✅ app builds + bundles it; `bun run dev:desktop` to view |
+| **3** | Wire the panel: Electron IPC (`packages/desktop` main runs `volt-control`; preload → renderer) → `VoltSidebar` calls `window.volt.*`; render live status | grow `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | panel UX | panel drives the CLI in the desktop app |
 | **B ◐** | **Branding + desktop distribution** — logo, app name *(done)*; `opencode.ai` constants, Sentry DSN, **code-signing + updater feed + release** *(todo)* | ⚠ `ui` (logo) · ⚠ `desktop` (name) | done: 3 | *(done: logo + name)* · signing certs | ◐ logo + name done; distribution todo |
 | **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
 

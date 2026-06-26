@@ -40,6 +40,7 @@
         "@opencode-ai/sdk": "workspace:*",
         "@opencode-ai/session-ui": "workspace:*",
         "@opencode-ai/ui": "workspace:*",
+        "@opencode-ai/volt-app": "workspace:*",
         "@pierre/trees": "1.0.0-beta.4",
         "@sentry/solid": "catalog:",
         "@shikijs/transformers": "3.9.2",
@@ -1003,6 +1004,15 @@
     "packages/volt-app": {
       "name": "@opencode-ai/volt-app",
       "version": "0.0.0",
+      "dependencies": {
+        "solid-js": "catalog:",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
     },
     "packages/volt-bridge": {
       "name": "@opencode-ai/volt-bridges",

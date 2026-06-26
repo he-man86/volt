@@ -3,9 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Volt's Solid panel components + branding overrides for the opencode desktop app (the volt-vscode UX, in-app). STUB — see README.",
+  "description": "Volt's Solid panel components + branding overrides for the opencode desktop app (the volt-vscode UX, in-app). Pure renderer UI — the volt-control actions arrive via Electron IPC (Phase 3).",
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "solid-js": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
   }
 }

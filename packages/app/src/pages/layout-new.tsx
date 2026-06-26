@@ -7,6 +7,7 @@ import { useNotification } from "@/context/notification"
 import { usePlatform } from "@/context/platform"
 import { setNavigate } from "@/utils/notification-click"
 import { setV2Toast, ToastRegion } from "@/utils/toast"
+import { VoltSidebar } from "@opencode-ai/volt-app" // Volt seam — see CLAUDE.md "Fork surface"
 
 export default function NewLayout(props: ParentProps) {
   const platform = usePlatform()
@@ -41,9 +42,13 @@ export default function NewLayout(props: ParentProps) {
       }}
     >
       <Titlebar update={update} />
-      <main class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
-        <Suspense>{props.children}</Suspense>
-      </main>
+      {/* Volt: PLC control panel beside the session view (fork seam). */}
+      <div class="flex-1 min-h-0 min-w-0 flex flex-row">
+        <VoltSidebar />
+        <main class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-strict">
+          <Suspense>{props.children}</Suspense>
+        </main>
+      </div>
       {import.meta.env.DEV && <DebugBar />}
       <HelpButton />
       <ToastRegion v2 />

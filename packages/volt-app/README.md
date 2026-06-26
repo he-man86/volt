@@ -5,8 +5,10 @@ experience (the `volt-vscode` UX), brought *into* the desktop GUI, plus the desk
 overrides. Holds **only** override/added components — **never** a copy of `packages/app` (which stays
 a synced upstream dependency).
 
-> **Status: stub.** Built in Phases 2–3 + B below. Depends (later) on `solid-js`,
-> `@opencode-ai/volt-control`, and the host's `@opencode-ai/app` / `@opencode-ai/ui` types.
+> **Status — Phase 2 done (mounted).** `VoltSidebar` (a Solid panel skeleton) is mounted in
+> `packages/app`'s new layout and **bundles into the app build** (`bun run dev:desktop` to view).
+> Pure renderer UI — **no `volt-control` import** (that's Node; it can't run in the browser
+> renderer). **Next — Phase 3:** Electron IPC so the verbs call `volt-control` + live status.
 
 ```
  packages/app (agent GUI, synced)            @opencode-ai/volt-app (fork-owned)
