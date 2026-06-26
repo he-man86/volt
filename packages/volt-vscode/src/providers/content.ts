@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { spawnVoltBuffer } from "../cli.js"
+import { spawnVoltBuffer } from "@opencode-ai/volt-control"
 
 export const SCHEME = "volt"
 export type ShowRef = "HEAD" | "MERGE_HEAD" | "ORIG_HEAD" | "WORKSPACE" | "BRIDGE" | string

@@ -1,10 +1,10 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
 import { writeFileSync } from "node:fs"
-import { spawnVolt, spawnVoltBuffer } from "./cli.js"
-import { withGate } from "./gate.js"
+import { spawnVolt, spawnVoltBuffer } from "@opencode-ai/volt-control"
+import { withGate } from "@opencode-ai/volt-control"
 import { VoltStatus } from "./state/status.js"
-import { readBridgePort } from "./state/health.js"
+import { readBridgePort } from "@opencode-ai/volt-control"
 import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges, launchInstall, selectInstance, type TcTargetSel } from "./connector.js"
 import { buildUri } from "./providers/content.js"
 

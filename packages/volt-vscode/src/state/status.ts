@@ -1,11 +1,11 @@
 import * as vscode from "vscode"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import type { StatusJson } from "../types.js"
-import { readBridgePort, probeHealth, isBridgeOnline, type HealthState } from "./health.js"
-import { spawnVolt } from "../cli.js"
-import { isMutationInFlight } from "../gate.js"
-import { isPouFile, readStateMtime } from "../workspace.js"
+import type { StatusJson } from "@opencode-ai/volt-control"
+import { readBridgePort, probeHealth, isBridgeOnline, type HealthState } from "@opencode-ai/volt-control"
+import { spawnVolt } from "@opencode-ai/volt-control"
+import { isMutationInFlight } from "@opencode-ai/volt-control"
+import { isPouFile, readStateMtime } from "@opencode-ai/volt-control"
 
 const HEALTH_MS = 30_000
 const MTIME_MS = 3_000

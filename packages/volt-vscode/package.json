@@ -679,6 +679,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "@opencode-ai/volt-control": "workspace:*",
     "@opencode-ai/volt-lsp": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },

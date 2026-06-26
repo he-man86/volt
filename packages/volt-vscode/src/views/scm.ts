@@ -1,8 +1,8 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { healthLabel, isBridgeOnline, type HealthState } from "../state/health.js"
+import { healthLabel, isBridgeOnline, type HealthState } from "@opencode-ai/volt-control"
 import { buildUri } from "../providers/content.js"
-import { changeCount, type StatusJson, type ProjectMismatch } from "../types.js"
+import { changeCount, type StatusJson, type ProjectMismatch } from "@opencode-ai/volt-control"
 
 type TreeNode =
 	| { kind: "health"; state: HealthState; idx: number }

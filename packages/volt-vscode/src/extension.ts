@@ -1,14 +1,14 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
 import { startLsp } from "./lsp.js"
-import { setBundledCli } from "./cli.js"
+import { setBundledCli } from "@opencode-ai/volt-control"
 import { registerCommands } from "./commands.js"
 import { VoltStatus, hasVoltConfig, workspaceFolders } from "./state/status.js"
 import { VoltScmTree } from "./views/scm.js"
 import { VoltHistoryTree } from "./views/history.js"
 import { VoltDecorations } from "./providers/decorations.js"
 import { VoltContentProvider, SCHEME } from "./providers/content.js"
-import { changeCount } from "./types.js"
+import { changeCount } from "@opencode-ai/volt-control"
 
 const statuses = new Map<string, VoltStatus>()
 

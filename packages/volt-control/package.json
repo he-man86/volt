@@ -3,9 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "UI-agnostic core that drives the volt CLI/bridge (status/push/pull/build/health). Consumed by volt-vscode and volt-app. STUB — see README.",
+  "description": "UI-agnostic core that drives the volt CLI/bridge (status/push/pull/build/health). Consumed by volt-vscode and volt-app.",
   "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
   }
 }

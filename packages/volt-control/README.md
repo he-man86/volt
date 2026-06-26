@@ -4,7 +4,11 @@ UI-agnostic core that **drives the `volt` CLI / bridge** — `status` / `push` /
 health / workspace detection. It contains **no UI framework code**, so it can be rendered by both
 `volt-vscode` (VS Code tree views) and `volt-app` (a Solid panel in the opencode desktop app).
 
-> **Status: stub.** The real logic is *extracted* from `packages/volt-vscode` in **Phase 1** below.
+> **Status — Phase 1a done (primitives extracted).** `cli` · `types` · `workspace` · `gate` ·
+> `health` (+ their unit tests) now live here; `volt-vscode` consumes them via
+> `@opencode-ai/volt-control` (typecheck ✓, 13 tests ✓, extension build ✓).
+> **Next — Phase 1b:** split the UI-agnostic status/command *logic* (`getStatus`/`push`/`pull`/
+> `build`) out of volt-vscode's `state/status.ts` + `commands.ts` (still `vscode`-coupled).
 > Distinct from `@opencode-ai/volt-cli` — that's the CLI *binary*; this *spawns and parses* it.
 
 ```

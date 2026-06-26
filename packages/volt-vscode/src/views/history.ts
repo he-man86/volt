@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { spawnVolt } from "../cli.js"
+import { spawnVolt } from "@opencode-ai/volt-control"
 import { buildUri } from "../providers/content.js"
 
 type HistoryNode = { kind: "commit"; sha: string; date: string; summary: string; pathCount: number } | { kind: "path"; sha: string; path: string } | { kind: "empty" }

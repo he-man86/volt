@@ -1036,6 +1036,12 @@
     "packages/volt-control": {
       "name": "@opencode-ai/volt-control",
       "version": "0.0.0",
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
     },
     "packages/volt-lsp-st": {
       "name": "@opencode-ai/volt-lsp",
@@ -1059,6 +1065,7 @@
       "name": "volt-vscode",
       "version": "1.21.1",
       "dependencies": {
+        "@opencode-ai/volt-control": "workspace:*",
         "@opencode-ai/volt-lsp": "workspace:*",
         "vscode-languageclient": "^9.0.1",
       },
