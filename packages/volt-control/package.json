@@ -1,0 +1,11 @@
+{
+  "name": "@opencode-ai/volt-control",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "UI-agnostic core that drives the volt CLI/bridge (status/push/pull/build/health). Consumed by volt-vscode and volt-app. STUB — see README.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

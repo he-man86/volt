@@ -38,6 +38,36 @@ PRs/day). The merge surface = only the handful of tiny ⚠ seams below.
 | `console/app` (landing) | not touched (parallel `volt-web`) | No |
 | `volt-*` | 🔶 fork-owned | Never |
 
+## Extension hierarchy — what extends what (keep this on track)
+
+Each Volt addition, the opencode package it extends, and the mechanism.
+✅ additive · ♻ reuse+sync · ⚠ seam · 🔶 fork-owned.
+
+```
+opencode host                          ◄── Volt extends via                       how
+──────────────────────────────────────────────────────────────────────────────────────────
+packages/opencode  (runtime + TUI)
+  ├ config (lsp / permission / model)  ◄── .opencode/opencode.json                ✅ deep-merge
+  ├ tools                              ◄── .opencode/tool/volt.ts                 ✅ auto-discover
+  ├ agents                             ◄── .opencode/agent/volt.md                ✅ auto-discover
+  ├ TUI theme                          ◄── .opencode/themes/volt.json + tui.json  ✅ config
+  └ TUI plugins / slots                ◄── .opencode/plugins/volt.tsx  (future)   ✅ plugin API
+packages/llm  (model gateway)          ◄── reused; a "Volt" provider entry        ♻ reuse
+console-core  (billing/auth/email)     ◄── reused; your infra/ config             ♻ reuse
+packages/ui  (logo)                    ◄── volt-app: VoltMark / VoltSplash        ⚠ build-alias
+packages/app  (agent GUI)              ◄── volt-app: VoltPanel via <Slot/>        ⚠ 1 slot seam
+packages/desktop  (shell / app name)   ◄── app name + panel/logo wiring           ⚠ seam
+console/app  (opencode.ai landing)     ◄── volt-web  (parallel site)              🔶 own
+packages/volt-vscode  (VS Code)        ◄── renders volt-control                   🔶 own
+
+Volt-owned packages (never merge upstream):
+  volt-bridge · volt-cli · volt-lsp-st · volt-vscode · volt-control · volt-app · volt-web
+  (+ planned: volt-docs)
+```
+
+**The rule to stay on track:** a new Volt capability attaches at the **highest ✅ row that fits**;
+drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream file that isn't a ⚠ row here.
+
 ## Packages — current & planned
 
 **Exist:** `volt-bridge`, `volt-cli`, `volt-lsp-st`, `volt-vscode` (PLC toolchain) ·
@@ -136,6 +166,29 @@ server) · `auth.volt.ai` (OpenAuth = reused `console-function`) · `docs.volt.a
 ```
 Every new file lives under `packages/volt-*` (or an allowlisted path) → exempt from
 `check-divergence`. Spend the seam budget on **generic hooks**, never per-feature edits.
+
+## Staying in sync (workflow & scripts)
+
+The restructuring (additive merge-layers) makes `git merge upstream/dev` near-trivial. Runbook:
+
+```
+git fetch upstream && git merge upstream/dev    # conflicts only in the 4 tiny seams
+bun install                                      # resolves bun.lock
+bun run volt-scripts/check-divergence.ts         # surface unchanged?
+bun run volt-scripts/check-volt-integration.ts   # wiring intact?
+bun volt-scripts/verify-lsp.ts && bun volt-scripts/verify-volt-tool.ts
+```
+
+**Scripts — current vs legacy (post-restructuring):**
+
+| Script | Status |
+|---|---|
+| `check-divergence.ts` | **current — keystone.** Enforces the additive model; *more* central now. |
+| `check-volt-integration.ts` · `verify-lsp.ts` · `verify-volt-tool.ts` · `dev.ts` | **current** — health/load checks + dev launcher |
+| `bridge.ps1` · `codesys-bridge.ps1` · `harvest-corpus.ts` · `volt`/`volt.cmd` | **current** — PLC/bridge tooling (not sync-related) |
+| `export-overlay.ts` | **LEGACY** — "ship Volt as a patch overlay on a pinned opencode release" is superseded by "Volt is a product deployed from this fork, synced via `git merge`." Recommend removing it + its CLAUDE.md reference. |
+
+The sync *mechanism* is now `git merge` + `check-divergence`, **not** overlay export.
 
 ## Explicitly NOT doing
 

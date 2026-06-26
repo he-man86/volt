@@ -929,6 +929,10 @@
         "vite-plugin-solid": "catalog:",
       },
     },
+    "packages/volt-app": {
+      "name": "@opencode-ai/volt-app",
+      "version": "0.0.0",
+    },
     "packages/volt-bridge": {
       "name": "@opencode-ai/volt-bridges",
       "version": "1.16.0",
@@ -957,6 +961,10 @@
         "@typescript/native-preview": "catalog:",
         "typescript": "catalog:",
       },
+    },
+    "packages/volt-control": {
+      "name": "@opencode-ai/volt-control",
+      "version": "0.0.0",
     },
     "packages/volt-lsp-st": {
       "name": "@opencode-ai/volt-lsp",
@@ -1965,9 +1973,13 @@
 
     "@opencode-ai/ui": ["@opencode-ai/ui@workspace:packages/ui"],
 
+    "@opencode-ai/volt-app": ["@opencode-ai/volt-app@workspace:packages/volt-app"],
+
     "@opencode-ai/volt-bridges": ["@opencode-ai/volt-bridges@workspace:packages/volt-bridge"],
 
     "@opencode-ai/volt-cli": ["@opencode-ai/volt-cli@workspace:packages/volt-cli"],
+
+    "@opencode-ai/volt-control": ["@opencode-ai/volt-control@workspace:packages/volt-control"],
 
     "@opencode-ai/volt-lsp": ["@opencode-ai/volt-lsp@workspace:packages/volt-lsp-st"],
 

@@ -1,0 +1,11 @@
+{
+  "name": "@opencode-ai/volt-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Volt's Solid panel components + branding overrides for the opencode desktop app (the volt-vscode UX, in-app). STUB — see README.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
