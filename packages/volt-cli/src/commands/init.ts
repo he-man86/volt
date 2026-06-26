@@ -10,6 +10,7 @@ import { defaultExtensionAccess } from "../registry/extensions.js"
 import { writeWorkspaceScaffold } from "../scaffold/index.js"
 import { ensureGitignore } from "../snapshot/workspace.js"
 import { ensureSnapshotRepo, reportSnapshotHeal } from "../snapshot/repo.js"
+import { ensureRepo } from "../git/plumbing.js"
 
 type InitInput = { force?: boolean; noScaffold?: boolean }
 type InitResult = { kind: "ok"; projectVersion: string } | { kind: "error"; error: CliError }
@@ -35,6 +36,10 @@ export async function init(workspace: string, bridge: Remote, input: InitInput):
 			},
 		}
 	}
+
+	// Make the project root a git repo (the user-facing version control of the PLC text), so
+	// opencode's git review + AI turn-diffs + revert work on it. Separate from .volt/snapshot/.
+	const gitRepoCreated = ensureRepo(root)
 
 	let alreadyInitialized = false
 	if (configExists(root)) {
@@ -94,6 +99,9 @@ export async function init(workspace: string, bridge: Remote, input: InitInput):
 	} else {
 		console.log(`initialized workspace for ${project}`)
 		console.log("next: run `volt pull` to populate.")
+	}
+	if (gitRepoCreated) {
+		console.log("initialized a git repo for version control — commit your PLC text to track history.")
 	}
 	if (corpus !== undefined && corpus.filesCopied > 0) {
 		console.log(

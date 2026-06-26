@@ -78,6 +78,21 @@ export function initBareRepo(path: string): void {
 }
 
 /**
+ * Ensure the project ROOT is a (non-bare) git repo, so the PLC text under `src/` is
+ * version-controllable and visible to opencode's git tools. This is the user-facing repo —
+ * distinct from the hidden `.volt/snapshot/` bare repo (which is gitignored).
+ *
+ * Skips if `root` is already inside ANY git work tree (a cloned/shared repo, or a parent
+ * monorepo) so we never create a nested repo. Returns true only when it created one.
+ */
+export function ensureRepo(root: string): boolean {
+	const probe = spawnSync("git", ["-C", root, "rev-parse", "--is-inside-work-tree"], { encoding: "utf-8" });
+	if (probe.status === 0 && probe.stdout.trim() === "true") return false;
+	run(["init", "--initial-branch=main", "--quiet", root]);
+	return true;
+}
+
+/**
  * True when `path` ITSELF is a bare git repo at that exact location.
  *
  * Naive `git rev-parse --git-dir` walks UP the directory tree until it
