@@ -17,6 +17,13 @@ import { push } from "../commands/push.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 
+// Live-bridge tests: skip cleanly when no bridge is reachable (CI / dev without a running IDE),
+// instead of hard-failing. Run them by starting a bridge on PORT (or set VOLT_TC_PORT).
+const bridgeUp = await fetch(`http://127.0.0.1:${PORT}/health`, { signal: AbortSignal.timeout(2000) })
+	.then((r) => r.ok)
+	.catch(() => false)
+const suite = bridgeUp ? describe : describe.skip
+
 // Self-provisioned FBD fixture (the suite must never depend on an ambient graphical POU — it creates its own
 // and deletes it). A boolean leaf (FALSE/TRUE) so the edit-round-trip test has an operand to flip.
 const FIXTURE = "VltRtGfx"
@@ -70,7 +77,7 @@ function findGraphical(): string | null {
 	return null
 }
 
-describe("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
+suite("graphical round-trip (FBD/LD ↔ .fbd/.ld)", () => {
 	setDefaultTimeout(30_000)
 
 	beforeAll(async () => {
@@ -155,7 +162,7 @@ const LD_VARIATIONS: [string, (n: string) => string, (vg: string) => void][] = [
 		(vg) => expect(vg).toContain("AND")],
 ]
 
-describe("LD featureset — CLI materializes each variation as a .ld file", () => {
+suite("LD featureset — CLI materializes each variation as a .ld file", () => {
 	setDefaultTimeout(30_000)
 	let b: BridgeClient
 	let ws: string

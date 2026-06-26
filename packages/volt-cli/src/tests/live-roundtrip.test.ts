@@ -17,6 +17,13 @@ import { loadState } from "../snapshot/repo.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8555", 10)
 const BASE = `http://127.0.0.1:${PORT}`
+
+// Live-bridge tests: skip cleanly when no bridge is reachable (CI / dev without a running IDE),
+// instead of hard-failing. Run them by starting a TwinCAT bridge on PORT (or set VOLT_TC_PORT).
+const bridgeUp = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) })
+	.then((r) => r.ok)
+	.catch(() => false)
+const suite = bridgeUp ? describe : describe.skip
 const ITEM_PREFIX = "FB_VoltLiveTest"
 
 let bridge: BridgeClient
@@ -61,7 +68,7 @@ async function requireAlive(): Promise<void> {
 	if (h.status !== "healthy") throw new Error(`Bridge not healthy: ${h.status}`)
 }
 
-describe("live round-trip", () => {
+suite("live round-trip", () => {
 	// Live tests drive a real IDE; a heavy test runs two full pull cycles. With the
 	// batched git plumbing a pull is ~1s on a small project, but cost scales with
 	// project size — headroom for larger live solutions / slow machines. (Not masking
