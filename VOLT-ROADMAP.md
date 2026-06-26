@@ -95,6 +95,59 @@ drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream f
 > **`volt-control` vs `volt-cli`:** distinct. `volt-cli` is the CLI *binary*; `volt-control` is the
 > UI-agnostic wrapper that *spawns/parses* it and is rendered by `volt-vscode` and `volt-app`.
 
+## Runtime layer stack (consumers → CLI → bridge → IDE)
+
+How control actually flows to the PLC. **Two paths in, one CLI:** the GUIs go through
+`volt-control` (rendering state — live status, health, parsed outcomes); the AI agent spawns the
+CLI **directly** (it just runs a verb + reads stdout). Everything converges on the **CLI** — the
+single chokepoint that speaks HTTP to the bridge. This is *why* the CLI is the clean integration
+point: every front-door is just a different way to fire the same verbs.
+
+```
+ LAYER 1 — CONSUMERS
+ ┌──────────────────────────────────┐        ┌──────────────────────────────┐
+ │ GRAPHICAL UIs                    │        │ AI AGENT (opencode)          │
+ │  • Volt desktop panel (Electron) │        │  • volt tool  (typed)        │
+ │  • VS Code views                 │        │  • gated bash (volt …)       │
+ └───────────────┬──────────────────┘        └──────────────┬───────────────┘
+                 │ calls                                     │ spawns directly
+                 ▼                                           │ (mutating verbs → ask)
+ ┌──────────────────────────────────┐                       │
+ │ LAYER 2 — volt-control (Node)     │                       │
+ │  status/pull/push/build/merge     │                       │
+ │  + health polling, outcome parse  │                       │
+ │  — only the GUIs need this        │                       │
+ └───────────────┬──────────────────┘                       │
+                 │ spawns                                    │
+                 └──────────────────┬────────────────────────┘
+                                    ▼  (everything converges here)
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │ LAYER 3 — volt CLI   status · pull · push · build · init · merge · show  │
+ └────────────────────────────────┬───────────────────────────────────────┘
+                                  │ HTTP  (localhost :8555 TwinCAT / :8556 CODESYS)
+ ┌────────────────────────────────▼───────────────────────────────────────┐
+ │ LAYER 4 — VOLT CONNECTOR + C# BRIDGE   (native Windows)                  │
+ │   VoltConnector.exe (tray) → Volt.Bridge.Codesys (.NET48 in-proc)       │
+ │                            → Volt.Bridge.Beckhoff (.NET8 exe)           │
+ └────────────────────────────────┬───────────────────────────────────────┘
+                                  │ IDE automation API
+ ┌────────────────────────────────▼───────────────────────────────────────┐
+ │ LAYER 5 — PLC IDE   CODESYS / TwinCAT                                    │
+ └─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Install model (what the user actually installs):**
+
+| Layers | Ships as | Install |
+|---|---|---|
+| **1 + 2 + 3** (UI + control + CLI — all JS/Node) | **bundled together** in the product; CLI runs via the host's own Node (`ELECTRON_RUN_AS_NODE`) — no toolchain needed | one normal install: the **Volt desktop app** *or* the **VS Code extension** *or* **opencode** |
+| **4** (Connector + C# bridges) | `VoltConnector.exe` + .NET bridges (`%LocalAppData%\Programs\Volt\`) | **separate native Windows installer** (the only "like-Git" install) |
+| **5** | the user's existing CODESYS / TwinCAT | already on their machine |
+
+So the `volt` CLI is **not** a separate install — it's bundled in whatever front-end the user runs.
+The one native install is the **Connector** (Layer 4), because it must run on Windows and automate
+the PLC IDEs. (Its installer — the old `volt-connector.iss` + scripts — is being reworked.)
+
 ## Verified: opencode's app & money model (shapes the gaps below)
 
 - The **desktop app runs a local sidecar server** (`127.0.0.1`, random port) — the agent runtime is
