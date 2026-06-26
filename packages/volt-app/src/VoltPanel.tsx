@@ -86,10 +86,14 @@ export function VoltPanel(props: { workspaceRoot: string }) {
 
   return (
     <div class="h-full min-h-0 flex flex-col text-12-regular">
-      {/* title toolbar — VS Code SCM style: title left, action icons right (always visible) */}
-      <div class="shrink-0 flex items-center gap-0.5 pl-3 pr-2 py-1.5 border-b border-border-weaker-base">
-        <span class="text-text-warning leading-none">⚡</span>
-        <span class="text-14-regular text-text-strong flex-1 ml-2">Volt</span>
+      {/* header: Status/History tabs (left) + action icons (right) — VS Code SCM style.
+          No "Volt" title — the enclosing tab is already labelled "⚡ Volt". */}
+      <div class="shrink-0 flex items-center gap-2 pl-3 pr-2 py-1.5 border-b border-border-weaker-base">
+        <SegmentedControlV2 value={sub()} onChange={(v) => v && setSub(v as Sub)}>
+          <SegmentedControlItemV2 value="status">Status</SegmentedControlItemV2>
+          <SegmentedControlItemV2 value="history">History</SegmentedControlItemV2>
+        </SegmentedControlV2>
+        <div class="flex-1" />
         <ActionBtn label="Pull (bridge → workspace)" disabled={busy()} onClick={() => run("pull")}>
           <Icon name="arrow-down-to-line" size="small" />
         </ActionBtn>
@@ -102,13 +106,6 @@ export function VoltPanel(props: { workspaceRoot: string }) {
         <ActionBtn label="Refresh" disabled={busy()} onClick={() => refetchStatus()}>
           <RefreshIcon />
         </ActionBtn>
-      </div>
-
-      <div class="px-3 py-2 shrink-0">
-        <SegmentedControlV2 class="w-full" value={sub()} onChange={(v) => v && setSub(v as Sub)}>
-          <SegmentedControlItemV2 value="status">Status</SegmentedControlItemV2>
-          <SegmentedControlItemV2 value="history">History</SegmentedControlItemV2>
-        </SegmentedControlV2>
       </div>
 
       <Switch>
