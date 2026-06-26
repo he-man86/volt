@@ -22,7 +22,6 @@ import { useLocal } from "@/context/local"
 import { selectionFromLines, useFile, type FileSelection, type SelectedLineRange } from "@/context/file"
 import { createStore } from "solid-js/store"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
-import { VoltSidePanel } from "@opencode-ai/volt-app" // Volt seam — see CLAUDE.md "Fork surface"
 import { Select } from "@opencode-ai/ui/select"
 import { Tabs } from "@opencode-ai/ui/tabs"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
@@ -1816,9 +1815,6 @@ export default function Page() {
             </div>
           </Show>
         </div>
-
-        {/* Volt: source-control side panel (far left, before Git — fork seam; all UI in @opencode-ai/volt-app) */}
-        <VoltSidePanel workspaceRoot={sdk().directory} />
 
         <SessionSidePanel
           canReview={canReview}

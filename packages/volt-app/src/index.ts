@@ -3,9 +3,8 @@
  *
  * Pure renderer UI (Solid). The volt CLI/bridge work lives in @opencode-ai/volt-control
  * (Node) and reaches the panel via Electron IPC (`window.volt`, see ./ipc) — never imported
- * here at runtime. All Volt desktop UI grows inside this package; opencode mounts the panel
- * (<VoltSidePanel>) and its header toggle (<VoltToggleButton>) with one line each.
+ * here at runtime. opencode mounts <VoltPanel> as a "Volt" tab in the session changes panel
+ * (one trigger + one content line, the seam); all the UI lives here.
  */
-export { VoltSidePanel } from "./VoltSidePanel"
-export { VoltToggleButton } from "./VoltToggleButton"
+export { VoltPanel } from "./VoltPanel"
 export type { VoltBridge } from "./ipc"

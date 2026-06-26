@@ -1,5 +1,4 @@
 import { AppIcon } from "@opencode-ai/ui/app-icon"
-import { VoltToggleButton } from "@opencode-ai/volt-app" // Volt seam — see CLAUDE.md "Fork surface"
 import { Button } from "@opencode-ai/ui/button"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -566,8 +565,6 @@ function SessionHeaderV2Actions(props: { state: SessionHeaderV2ActionsState }) {
           />
         </TooltipV2>
       </Show>
-      {/* Volt: toggle the Volt side panel (fork seam) */}
-      <VoltToggleButton />
     </div>
   )
 }

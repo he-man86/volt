@@ -19,8 +19,10 @@ import { useCommand } from "@/context/command"
 import { useFile, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useSDK } from "@/context/sdk"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
+import { VoltPanel } from "@opencode-ai/volt-app" // Volt seam — see CLAUDE.md "Fork surface"
 import { createFileTabListSync } from "@/pages/session/file-tab-scroll"
 import { FileTabContent } from "@/pages/session/file-tabs"
 import {
@@ -53,6 +55,7 @@ export function SessionSidePanel(props: {
   size: Sizing
 }) {
   const layout = useLayout()
+  const sdk = useSDK()
   const settings = useSettings()
   const sync = useSync()
   const file = useFile()
@@ -271,6 +274,13 @@ export function SessionSidePanel(props: {
                             </div>
                           </Tabs.Trigger>
                         </Show>
+                        {/* Volt: PLC source-control tab (fork seam — content in @opencode-ai/volt-app) */}
+                        <Tabs.Trigger value="volt">
+                          <div class="flex items-center gap-1.5">
+                            <span class="text-text-warning leading-none">⚡</span>
+                            <div>Volt</div>
+                          </div>
+                        </Tabs.Trigger>
                         <Show when={contextOpen()}>
                           <Tabs.Trigger
                             value="context"
@@ -330,6 +340,13 @@ export function SessionSidePanel(props: {
                         <Show when={reviewOpen() && activeTab() === "review"}>{props.reviewPanel()}</Show>
                       </Tabs.Content>
                     </Show>
+
+                    {/* Volt: PLC source-control tab content (fork seam) */}
+                    <Tabs.Content value="volt" class="flex flex-col h-full overflow-hidden contain-strict">
+                      <Show when={activeTab() === "volt"}>
+                        <VoltPanel workspaceRoot={sdk().directory} />
+                      </Show>
+                    </Tabs.Content>
 
                     <Tabs.Content value="empty" class="flex flex-col h-full overflow-hidden contain-strict">
                       <Show when={activeTab() === "empty"}>
