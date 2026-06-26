@@ -1,6 +1,6 @@
-import { createResource, createSignal, For, Show, Switch, Match } from "solid-js"
+import { createResource, createSignal, For, Show, Switch, Match, type JSX } from "solid-js"
 import { SegmentedControlV2, SegmentedControlItemV2 } from "@opencode-ai/ui/v2/segmented-control-v2"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
 import { Accordion } from "@opencode-ai/ui/accordion"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -85,7 +85,25 @@ export function VoltPanel(props: { workspaceRoot: string }) {
 
   return (
     <div class="h-full min-h-0 flex flex-col text-12-regular">
-      <div class="px-3 pb-2 shrink-0">
+      {/* title toolbar — VS Code SCM style: title left, action icons right (always visible) */}
+      <div class="shrink-0 flex items-center gap-0.5 pl-3 pr-2 py-1.5 border-b border-border-weaker-base">
+        <span class="text-text-warning leading-none">⚡</span>
+        <span class="text-14-regular text-text-strong flex-1 ml-2">Volt</span>
+        <ActionBtn label="Pull (bridge → workspace)" disabled={busy()} onClick={() => run("pull")}>
+          <Icon name="arrow-down-to-line" size="small" />
+        </ActionBtn>
+        <ActionBtn label="Push (workspace → bridge)" disabled={busy()} onClick={() => run("push")}>
+          <Icon name="arrow-up" size="small" />
+        </ActionBtn>
+        <ActionBtn label="Build" disabled={busy()} onClick={() => run("build")}>
+          <WrenchIcon />
+        </ActionBtn>
+        <ActionBtn label="Refresh" disabled={busy()} onClick={() => refetchStatus()}>
+          <RefreshIcon />
+        </ActionBtn>
+      </div>
+
+      <div class="px-3 py-2 shrink-0">
         <SegmentedControlV2 class="w-full" value={sub()} onChange={(v) => v && setSub(v as Sub)}>
           <SegmentedControlItemV2 value="status">Status</SegmentedControlItemV2>
           <SegmentedControlItemV2 value="history">History</SegmentedControlItemV2>
@@ -99,13 +117,6 @@ export function VoltPanel(props: { workspaceRoot: string }) {
 
         {/* ── Status ── */}
         <Match when={sub() === "status"}>
-          <div class="px-3 pb-2 shrink-0 flex flex-wrap gap-1.5">
-            <ButtonV2 size="small" variant="neutral" disabled={busy()} onClick={() => run("pull")}>Pull</ButtonV2>
-            <ButtonV2 size="small" variant="neutral" disabled={busy()} onClick={() => run("push")}>Push</ButtonV2>
-            <ButtonV2 size="small" variant="ghost" disabled={busy()} onClick={() => run("build")}>Build</ButtonV2>
-            <ButtonV2 size="small" variant="ghost" disabled={busy()} onClick={() => refetchStatus()}>Refresh</ButtonV2>
-          </div>
-
           <div class="px-3 py-1.5 text-text-weak shrink-0 border-b border-border-weaker-base">
             <Show when={!status.loading} fallback={<span>Probing IDE…</span>}>
               <HealthDot result={status()} />
@@ -164,6 +175,39 @@ export function VoltPanel(props: { workspaceRoot: string }) {
         </Match>
       </Switch>
     </div>
+  )
+}
+
+/** A title-bar action — a small ghost icon button with a tooltip (VS Code SCM style). */
+function ActionBtn(props: { label: string; disabled?: boolean; onClick: () => void; children: JSX.Element }) {
+  return (
+    <IconButtonV2
+      type="button"
+      variant="ghost"
+      size="small"
+      class="shrink-0"
+      disabled={props.disabled}
+      onClick={props.onClick}
+      aria-label={props.label}
+      title={props.label}
+      icon={props.children}
+    />
+  )
+}
+
+function RefreshIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+      <path d="M12 4V1L8 5l4 4V6a6 6 0 0 1 6 6c0 1-.25 1.97-.7 2.8l1.46 1.46A8 8 0 0 0 12 4Zm0 14a6 6 0 0 1-6-6c0-1 .25-1.97.7-2.8L5.24 7.74A8 8 0 0 0 12 20v3l4-4-4-4Z" />
+    </svg>
+  )
+}
+
+function WrenchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+      <path d="M22.7 19.1 13.6 10a6 6 0 0 0-1.5-6.9A6.4 6.4 0 0 0 4.7 1.8L9 6 6 9 1.7 4.7A6.4 6.4 0 0 0 3 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.4-.3.4-1 0-1.3Z" />
+    </svg>
   )
 }
 

@@ -29,13 +29,7 @@ export function VoltSidePanel(props: { workspaceRoot: string }) {
       style={{ width: `${width()}px` }}
     >
       <div class="h-full flex-1 min-w-0 flex flex-col overflow-hidden">
-        <div class="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border-weaker-base">
-          <span class="text-text-warning leading-none">⚡</span>
-          <span class="text-14-regular text-text-strong">Volt</span>
-        </div>
-        <div class="flex-1 min-h-0">
-          <VoltPanel workspaceRoot={props.workspaceRoot} />
-        </div>
+        <VoltPanel workspaceRoot={props.workspaceRoot} />
       </div>
       <ResizeHandle direction="horizontal" edge="start" size={width()} min={240} max={520} onResize={setWidth} />
     </aside>
