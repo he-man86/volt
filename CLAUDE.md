@@ -32,7 +32,9 @@ How the host fits together: **one backend, two frontends.** `opencode` is the bi
 
 **Cloud / infra — rarely relevant to Volt:** `console/*` (cloud console), `stats/*` (analytics), `@opencode-ai/{enterprise,function,slack}`, `@opencode-ai/cli` (separate `lildax` binary, *not* the opencode entry), `@opencode-ai/{effect-sqlite-node,effect-drizzle-sqlite}` (Effect SQLite adapters).
 
-**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridges`), `volt-cli`, `volt-lsp-st` (`@opencode-ai/volt-lsp`), `volt-vscode` — detailed under "Volt architecture" below.
+**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridges`), `volt-cli`, `volt-lsp-st` (`@opencode-ai/volt-lsp`), `volt-vscode` — detailed under "Volt architecture" below. Planned commercial layer: `volt-web` (Volt's own landing site — *scaffold*, see `packages/volt-web/README.md`).
+
+**Volt-as-a-SaaS principle (white-label opencode):** *own what's purely Volt's, sync what is the product.* The public **landing page** is fully owned (`volt-web`, modeled on `console/app`'s homepage — never synced). The **agent GUI** (`packages/app`/`ui`/`desktop`) and the **backend** (`console-core` billing/auth/email) are **reused and kept in sync** with upstream — customized only via minimal branding seams (logo, app name) and Volt's own `infra/` SST config (your Stripe/SES/DB). Never fork `packages/app` — it's opencode's core product, improved daily.
 
 **Branding/UI reach (recurring question):** TUI logo/panels are additive via `@opencode-ai/tui` plugin slots; the **GUI logo** (`packages/ui`), **GUI components** (`packages/app`), and **app name** (`packages/desktop`) have no plugin hook → deliberate (minimal) upstream seams.
 

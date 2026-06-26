@@ -1,0 +1,7 @@
+{
+  "name": "@opencode-ai/volt-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Volt's public landing/marketing site (volt.ai). The one frontend Volt fully owns; reuses @opencode-ai/console-core for the backend. Scaffold — see README."
+}
