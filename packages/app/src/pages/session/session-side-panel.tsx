@@ -330,7 +330,10 @@ export function SessionSidePanel(props: {
 
                     <Show when={reviewTab() && props.canReview()}>
                       <Tabs.Content value="review" class="flex flex-col h-full overflow-hidden contain-strict">
-                        <Show when={reviewOpen() && activeTab() === "review"}>{props.reviewPanel()}</Show>
+                        <Show when={reviewOpen() && activeTab() === "review"}>
+                          {/* Volt: Git↔Volt switch — all logic in @opencode-ai/volt-app (fork seam) */}
+                          <VoltChanges workspaceRoot={sdk().directory} git={() => props.reviewPanel()} />
+                        </Show>
                       </Tabs.Content>
                     </Show>
 
@@ -394,10 +397,6 @@ export function SessionSidePanel(props: {
                   class="h-full flex flex-col overflow-hidden group/filetree"
                   classList={{ "border-l border-border-weaker-base": reviewOpen() }}
                 >
-                  {/* Volt: Git↔Volt switch — all logic in @opencode-ai/volt-app (fork seam) */}
-                  <VoltChanges
-                    workspaceRoot={sdk().directory}
-                    git={() => (
                   <Tabs
                     variant="pill"
                     value={fileTreeTab()}
@@ -456,8 +455,6 @@ export function SessionSidePanel(props: {
                       </Switch>
                     </Tabs.Content>
                   </Tabs>
-                    )}
-                  />
                 </div>
                 <Show when={fileOpen()}>
                   <div onPointerDown={() => props.size.start()}>
