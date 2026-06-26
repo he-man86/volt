@@ -33,6 +33,12 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
 // they don't exist upstream, so additions there are additive, never a divergence.
 const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/", ".claude/", "_bmad/"]
 
+// Committed-junk patterns — backups, merge leftovers, OS/editor cruft. Flagged anywhere in
+// the fork's tracked changes (even fork-owned dirs), so accidents (`.tsproj.bak`, `.DS_Store`,
+// `*.orig` merge leftovers) don't slip in. Upstream's own junk never appears in our diff, so
+// it's untouched.
+const JUNK_FILE = /\.(bak|orig|swp)$|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$|~$/i
+
 // Individual fork files added at opencode's extension points — they have a forced
 // home outside packages/ (Claude Code auto-loads CLAUDE.md at the repo root; opencode
 // discovers agents only from .opencode/agent/). A NEW file is exempt only if it is
@@ -73,6 +79,13 @@ export function classify(nameStatusLines: readonly string[]): Classification {
     // For rename/copy (R/C) git emits old\tnew — the destination is the last field.
     const path = code === "R" || code === "C" ? (fields[fields.length - 1] ?? "") : fields.slice(1).join("\t")
 
+    // Committed junk anywhere in the fork's files is a violation (a deletion is fine — that
+    // *removes* junk). Checked before the fork-owned exemption so cruft in volt-*/.claude/… is caught.
+    if (code !== "D" && JUNK_FILE.test(path)) {
+      violations.push(`junk ${code}  ${path}`)
+      continue
+    }
+
     if (isForkOwned(path)) continue // volt-* packages / volt-scripts — additive, exempt
 
     // A NEW file (didn't exist upstream) is additive-fine only at a sanctioned location.
@@ -108,6 +121,9 @@ function selfTest(): void {
     { name: "upstream file delete is a violation", lines: ["D\tpackages/core/src/foo.ts"], allowed: 0, violations: 1 },
     { name: "renamed upstream file is a violation (dest path)", lines: ["R100\tpackages/core/a.ts\tpackages/core/b.ts"], allowed: 0, violations: 1 },
     { name: "mixed real-world set", lines: ["M\tbun.lock", "A\tvolt-scripts/x.ts", "M\tpackages/volt-lsp-st/src/y.ts", "M\tpackages/server/src/z.ts"], allowed: 1, violations: 1 },
+    { name: "committed junk in a fork-owned path is a violation", lines: ["A\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 1 },
+    { name: "OS/editor cruft is a violation", lines: ["A\tpackages/volt-cli/.DS_Store"], allowed: 0, violations: 1 },
+    { name: "deleting junk is fine (not a violation)", lines: ["D\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 0 },
   ]
 
   let failed = 0
