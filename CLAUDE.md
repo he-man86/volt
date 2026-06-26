@@ -8,6 +8,34 @@ This is a fork of **opencode** (the open-source AI coding agent) that adds **Vol
 
 `AGENTS.md` (style guide, commit conventions, testing rules) and `CONTEXT.md` (V2 session-runtime domain language) are authoritative and apply to upstream opencode code — read them before editing `packages/opencode` / `packages/core` / `packages/llm` etc. The conventions below extend them for Volt.
 
+## Monorepo package map (opencode host)
+
+How the host fits together: **one backend, two frontends.** `opencode` is the binary; it composes `core + server + llm + tui + sdk + plugin`. The **TUI** (terminal) and the **GUI** (`app`, wrapped by `desktop` or served as web) are two frontends over the same HTTP server. Volt work is almost always in `packages/volt-*` — this map is for understanding the host you integrate into.
+
+**Backend / runtime** (the `opencode` binary composes these):
+- `opencode` (`packages/opencode`) — **the `opencode` binary**: agent runtime + CLI, embeds the HTTP server, launches the TUI. The main entry.
+- `@opencode-ai/core` — shared domain logic (the V2 session runtime; see `CONTEXT.md`).
+- `@opencode-ai/server` — HTTP **API layer** (routes/handlers/auth/cors) that every frontend calls.
+- `@opencode-ai/llm` — schema-first **LLM/provider** abstraction (one typed request/response/event/tool language).
+- `@opencode-ai/plugin` — **plugin + custom-tool SDK**; what `.opencode/tool/*.ts` and TUI plugins (`.opencode/plugins/*.tsx`) import (`tool()`, `tui()`).
+- `@opencode-ai/sdk` — typed **client SDK** the GUI uses to talk to the server.
+- `@opencode-ai/schema` — shared schema/type definitions (agent, command, filesystem, …).
+- `@opencode-ai/tui` — **terminal UI** renderer (opentui + solid). TUI plugins/slots (`home_logo`, …) live here.
+- `@opencode-ai/http-recorder` · `@opencode-ai/script` — test HTTP record/replay; shared repo scripts.
+
+**GUI frontend stack** (web + desktop share this):
+- `@opencode-ai/app` — **the GUI** (Solid web/desktop UI); talks to the server via the SDK. `bun dev:web` serves it in a browser.
+- `@opencode-ai/ui` — shared GUI components — **the logo (`logo.tsx`) lives here.**
+- `@opencode-ai/session-ui` — session-view UI components used by `app`.
+- `@opencode-ai/desktop` — **Electron shell**: loads `app` in a window + spawns the `opencode` server as a sidecar; owns app name/window/updater.
+- `@opencode-ai/web` (docs/marketing site, Astro) · `@opencode-ai/storybook` (component preview).
+
+**Cloud / infra — rarely relevant to Volt:** `console/*` (cloud console), `stats/*` (analytics), `@opencode-ai/{enterprise,function,slack}`, `@opencode-ai/cli` (separate `lildax` binary, *not* the opencode entry), `@opencode-ai/{effect-sqlite-node,effect-drizzle-sqlite}` (Effect SQLite adapters).
+
+**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridges`), `volt-cli`, `volt-lsp-st` (`@opencode-ai/volt-lsp`), `volt-vscode` — detailed under "Volt architecture" below.
+
+**Branding/UI reach (recurring question):** TUI logo/panels are additive via `@opencode-ai/tui` plugin slots; the **GUI logo** (`packages/ui`), **GUI components** (`packages/app`), and **app name** (`packages/desktop`) have no plugin hook → deliberate (minimal) upstream seams.
+
 ## Tooling & common commands
 
 Monorepo: **Bun** workspaces + **Turbo**. Package manager is `bun@1.3.14`. Lint is **oxlint**; format is Prettier (`semi: false`, `printWidth: 120`).
