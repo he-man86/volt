@@ -77,37 +77,46 @@ PRs/day). The merge surface = only the handful of tiny ⚠ seams below.
 - Hardcoded `opencode.ai` bits are a few small config/seams: changelog URL, favicon, install URL,
   `VITE_OPENCODE_CHANNEL`.
 
-**Implication (resolves the auth gap #1):** enforce a Volt subscription in **the part Volt owns —
-`volt-cli` / `volt-bridge`** (a license/entitlement check before driving the IDE), validated against
-Volt's backend. That is **additive** — no app seam, no fork. The reused app stays BYO-key.
+**DECISION — Volt sells AI subscriptions (opencode Go/Zen-style), not tooling licenses.** The
+metering + monetization already lives **server-side in the reused backend, all in-repo**:
+`packages/llm` (model gateway/protocols), `console-core/billing.ts` (`UsageTable`, credits,
+`LiteTable` weekly/rolling **usage limits**, Stripe credit products), `console/function/log-processor.ts`
+(usage pipeline). So you **reuse it as-is** — deploy your own instance with your provider keys +
+Stripe products, and add a **"Volt" hosted-provider entry** the app points at (`api.volt.ai`).
+**No `volt-cli` gate, no app fork** — the PLC tools stay free; the AI subscription is the product.
+The **cloud deploy *is* the revenue path**, so the commercial track moves early.
 
-## Open product decisions (recommended defaults)
+## Open product decisions
 
-| Decision | Options | Recommended default |
+| Decision | Choice | Notes |
 |---|---|---|
-| **What Volt sells** | (a) hosted model access (reuse Zen) · (b) licensed PLC tooling · (c) seats | **(b)** gate the Volt PLC capability — your differentiator; BYO-key keeps model cost off you |
-| **Where entitlement is enforced** | app (seam) · **`volt-cli`/`bridge`** (additive) | **`volt-cli`/`bridge`** — gate what you own; zero app seam |
-| **Billing shape** | metered (Zen-style) · seat / subscription | **seat/subscription** (PLC tool sold to teams); reuse `console-core`'s Stripe utils, write Volt's plan logic |
-| **Platform** | cross-platform · **Windows-first** | **Windows-first** — bridges are Windows-only; PLC work is Windows-centric. Allow remote bridge later |
-| **`<Slot/>`** | upstream · local seam | **try upstream first**; one seam if rejected |
-| **MVP scope** | full console · **minimal license check** | **minimal** — a license key checked by `volt-cli` against a tiny Volt backend; defer full `console-core`/Stripe until self-serve billing is needed |
+| **What Volt sells** | ★ **hosted AI subscriptions** (opencode Go/Zen-style) | reuse the in-repo gateway (`llm`) + billing (`console-core`); PLC tools (`volt-*`) stay free |
+| **Where metering lives** | **server-side, reused backend** | `console-core` `UsageTable`/`LiteTable` + `log-processor`; **no `volt-cli` gate** |
+| **Billing shape** | **metered credits + subscription** | reuse `console-core` + Stripe **as-is**; your products/prices via `infra/` config |
+| **Platform** | **Windows-first** | bridges are Windows-only; PLC work is Windows-centric. Remote bridge later |
+| **`<Slot/>`** | **try upstream first** | one local seam only if rejected |
+| **MVP** | **deploy the reused cloud** (gateway + `console-core` + Stripe) + a Volt provider entry | it's the product; mostly **config + deploy, not new code** |
+
+> **Trade-off of the AI-reseller model (eyes open):** you hold the provider keys and **front the
+> model cost**, so your sub price must beat real usage — the `LiteTable` weekly/rolling limits are
+> exactly the throttle for that. Heavier **ops** than a license key (running a billed gateway: keys,
+> abuse limits, reconciliation), but it's **reuse + deploy, not build**.
 
 ## Phased build plan
 
-Tracks: **1→2→3** = desktop panel · **E** = entitlement · **B** = branding+distribution ·
-**W5→W6** = commercial/web. Pick the track you need first; only 1→2→3 is strictly ordered.
+Tracks: **W5→W6** = commercial (**your revenue path** — deploy the reused cloud) · **1→2→3** =
+desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is strictly ordered.
 
 | Phase | Goal | Packages / files | Seams | Inputs you provide | Verify |
 |---|---|---|---|---|---|
 | **0 ✅** | Additive integration foundation | `.opencode/*`, verifiers, package map, this roadmap | none | — | done this session |
 | **0.5** | **License/attribution** — keep opencode's MIT notice + add a Volt `NOTICE` | `LICENSE`, `NOTICE` | none | — | both present, attribution intact |
+| **W5** | `volt-web` landing + signup | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
+| **W6** | **Deploy the revenue cloud** — Volt `infra/`: `llm` gateway + `console-core` billing + Stripe (your products/keys) + a **"Volt" hosted-provider** entry (`api.volt.ai`); + CI/release | parallel `infra/`; config; ⚠ `.github/` (CI) | **AWS + Stripe + SES + provider keys**, domain | paid sub → metered model call works end-to-end |
 | **1** | Extract `volt-control` from `volt-vscode` | new `volt-control`; refactor `volt-vscode` | none | — | vscode builds + tests pass |
 | **2** | GUI `<Slot/>` in `packages/app` (try to upstream) | ⚠ `packages/app` | 1 (→0 if upstreamed) | design review | dummy panel renders |
 | **3** | `volt-app` desktop panel rendering `volt-control`, via slot | new `volt-app` | reuses #2 | panel UX | panel drives CLI in desktop |
-| **E** | **Volt entitlement gate** — license check in `volt-cli`/`bridge` + a minimal Volt backend | `volt-cli`/`volt-bridge` (additive) + tiny license fn | none | how licenses are issued | unlicensed → bridge refuses |
 | **B** | **Branding + desktop distribution** — logo, app name, `opencode.ai` constants, Sentry DSN; **code-signing + updater feed + release** | ⚠ `ui` (logo) · ⚠ `desktop` (name/constants) · config (Sentry) | 2–3 | logo asset, signing certs | Volt-branded signed build auto-updates |
-| **W5** | `volt-web` landing | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
-| **W6** | Volt `infra/` + **CI/release** | parallel SST; CI for desktop builds, npm (`volt-cli`/`volt-lsp`), VS Code marketplace (`volt-vscode`), deploy | ⚠ `.github/` (allowlist) | AWS+Stripe+SES, domain | deploy; checkout+email; releases publish |
 | **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
 
 ## Deployment & subdomains (your `infra/`)
@@ -131,7 +140,7 @@ Every new file lives under `packages/volt-*` (or an allowlisted path) → exempt
 ## Explicitly NOT doing
 
 - **Fork `packages/app`** (the agent GUI) — it's opencode's core, synced not copied.
-- **Marketplace** — dropped.
-- **Rewrite the backend** — reuse `console-core`'s Stripe/SES/auth *utilities* as-is (your `infra/`
-  config). Volt's plan/entitlement logic is its own (the `volt-cli` gate), **not** a fork of
-  opencode's per-model "Zen" billing domain.
+- **Marketplace** / **`volt-cli` license gate** — dropped (Volt sells AI subs, not tooling licenses).
+- **Rewrite the backend** — none. Reuse `console-core` (incl. the metered-credit "Zen"/Go billing),
+  `packages/llm` (the model gateway), and the usage pipeline **as-is**; only `infra/` config differs
+  (your Stripe products, provider keys, domain).
