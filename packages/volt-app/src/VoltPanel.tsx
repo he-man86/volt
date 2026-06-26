@@ -9,8 +9,9 @@ import "./ipc" // window.volt augmentation
 
 /**
  * Volt control panel — the volt-vscode SCM + Sync-history UX, in the opencode desktop app.
- * Rendered inside VoltSidePanel (Volt's own session column). Pure renderer UI: every action
- * calls `window.volt.*` (Electron IPC → volt-control). No volt-control import (types only).
+ * Rendered as the "⚡ Volt" tab in opencode's session changes panel (next to Review/Context).
+ * Pure renderer UI: every action calls `window.volt.*` (Electron IPC → volt-control). No
+ * volt-control import (types only).
  *
  * Visually mirrors opencode's review panel (session-review): FileIcon + dim-directory /
  * strong-filename + a colored change label, history as an Accordion. Same `--icon-diff-*`
