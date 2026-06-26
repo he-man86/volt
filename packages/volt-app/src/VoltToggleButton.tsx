@@ -1,6 +1,5 @@
-import { Show } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
-import { voltOpen, hasVolt, toggleVolt } from "./state"
+import { voltOpen, toggleVolt } from "./state"
 
 // Volt bolt (same mark as the brand logo). v2 has no bolt icon, so we pass the SVG directly.
 const BOLT =
@@ -9,23 +8,21 @@ const BOLT =
 /** Toggle the Volt side panel — sits in the session header next to the git review toggle. */
 export function VoltToggleButton() {
   return (
-    <Show when={hasVolt()}>
-      <IconButtonV2
-        type="button"
-        variant="ghost-muted"
-        size="large"
-        class="!w-9 shrink-0"
-        state={voltOpen() ? "pressed" : undefined}
-        onClick={toggleVolt}
-        aria-label="Toggle Volt"
-        aria-expanded={voltOpen()}
-        aria-controls="volt-panel"
-        icon={
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-            <path d={BOLT} />
-          </svg>
-        }
-      />
-    </Show>
+    <IconButtonV2
+      type="button"
+      variant="ghost-muted"
+      size="large"
+      class="!w-9 shrink-0"
+      state={voltOpen() ? "pressed" : undefined}
+      onClick={toggleVolt}
+      aria-label="Toggle Volt"
+      aria-expanded={voltOpen()}
+      aria-controls="volt-panel"
+      icon={
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d={BOLT} />
+        </svg>
+      }
+    />
   )
 }

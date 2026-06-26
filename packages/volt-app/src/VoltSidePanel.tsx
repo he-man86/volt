@@ -1,7 +1,7 @@
-import { createEffect, createSignal, Show } from "solid-js"
+import { createSignal, Show } from "solid-js"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { VoltPanel } from "./VoltPanel"
-import { voltOpen, hasVolt, setHasVolt } from "./state"
+import { voltOpen } from "./state"
 import "./ipc" // window.volt augmentation
 
 /**
@@ -15,13 +15,8 @@ import "./ipc" // window.volt augmentation
 export function VoltSidePanel(props: { workspaceRoot: string }) {
   const [width, setWidth] = createSignal(320)
 
-  // Only surface Volt for actual `.volt` workspaces (the effect runs even while hidden).
-  createEffect(() => {
-    void window.volt?.detect(props.workspaceRoot).then(setHasVolt)
-  })
-
   return (
-    <Show when={hasVolt() && voltOpen()}>
+    <Show when={voltOpen()}>
     <aside
       id="volt-panel"
       aria-label="Volt"
