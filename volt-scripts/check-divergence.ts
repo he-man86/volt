@@ -26,6 +26,10 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   ".husky/pre-push", // scope the pre-push typecheck to volt-* packages
   ".gitignore", // local `/memory` Claude-memory junction ignore
   ".opencode/tui.json", // select the Volt brand theme (TUI theme is configured here, not in opencode.jsonc)
+  // ── branding seams (Volt white-label; no additive hook exists for these) ──
+  "packages/ui/src/components/logo.tsx", // Volt logo (bolt mark + wordmark)
+  "packages/desktop/src/main/index.ts", // Volt app name
+  "packages/desktop/electron-builder.config.ts", // Volt productName / protocol display name
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
@@ -46,6 +50,7 @@ const JUNK_FILE = /\.(bak|orig|swp)$|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$
 // .opencode/skills/, scratch/, new root files, …) is a divergence.
 const ADDITIVE_ALLOWLIST = new Set<string>([
   "CLAUDE.md",
+  "NOTICE", // MIT attribution for the opencode fork
   "VOLT-ROADMAP.md", // Volt-as-a-SaaS plan-of-record (companion to CLAUDE.md)
   "VOLT-DECISIONS.md", // Volt decision log (ADRs)
   ".opencode/agent/volt.md",
@@ -113,7 +118,8 @@ function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
     { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
-    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tVOLT-ROADMAP.md", "A\tVOLT-DECISIONS.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
+    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-ROADMAP.md", "A\tVOLT-DECISIONS.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
+    { name: "branding seams (logo / app-name) count as allowed", lines: ["M\tpackages/ui/src/components/logo.tsx", "M\tpackages/desktop/src/main/index.ts", "M\tpackages/desktop/electron-builder.config.ts"], allowed: 3, violations: 0 },
     { name: "Volt-namespaced CI workflow is allowed (prefix)", lines: ["A\t.github/workflows/volt-ci.yml"], allowed: 0, violations: 0 },
     { name: "other committed theme is a violation (only volt.json is sanctioned)", lines: ["A\t.opencode/themes/other.json"], allowed: 0, violations: 1 },
     { name: "a non-volt .github workflow is a violation", lines: ["A\t.github/workflows/evil.yml"], allowed: 0, violations: 1 },
