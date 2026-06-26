@@ -1817,6 +1817,9 @@ export default function Page() {
           </Show>
         </div>
 
+        {/* Volt: source-control side panel (far left, before Git — fork seam; all UI in @opencode-ai/volt-app) */}
+        <VoltSidePanel workspaceRoot={sdk().directory} />
+
         <SessionSidePanel
           canReview={canReview}
           diffs={reviewDiffs}
@@ -1830,8 +1833,6 @@ export default function Page() {
           reviewSnap={ui.reviewSnap}
           size={size}
         />
-        {/* Volt: source-control side panel (fork seam — all UI in @opencode-ai/volt-app) */}
-        <VoltSidePanel workspaceRoot={sdk().directory} />
       </div>
 
       <TerminalPanel />

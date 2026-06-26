@@ -1,6 +1,7 @@
-import { createSignal } from "solid-js"
+import { createSignal, Show } from "solid-js"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { VoltPanel } from "./VoltPanel"
+import { voltOpen } from "./state"
 import "./ipc" // window.volt augmentation
 
 /**
@@ -15,6 +16,7 @@ export function VoltSidePanel(props: { workspaceRoot: string }) {
   const [width, setWidth] = createSignal(320)
 
   return (
+    <Show when={voltOpen()}>
     <aside
       id="volt-panel"
       aria-label="Volt"
@@ -32,5 +34,6 @@ export function VoltSidePanel(props: { workspaceRoot: string }) {
       </div>
       <ResizeHandle direction="horizontal" edge="start" size={width()} min={240} max={520} onResize={setWidth} />
     </aside>
+    </Show>
   )
 }
