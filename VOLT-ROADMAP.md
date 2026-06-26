@@ -62,41 +62,76 @@ PRs/day). The merge surface = only the handful of tiny ⚠ seams below.
 
 → Green light; the only real work is peeling `vscode` out of `status.ts`/`commands.ts`.
 
+> **`volt-control` vs `volt-cli`:** distinct. `volt-cli` is the CLI *binary*; `volt-control` is the
+> UI-agnostic wrapper that *spawns/parses* it and is rendered by `volt-vscode` and `volt-app`.
+
+## Verified: opencode's app & money model (shapes the gaps below)
+
+- The **desktop app runs a local sidecar server** (`127.0.0.1`, random port) — the agent runtime is
+  **local**, not a cloud endpoint. The server URL is **configurable** (`electron-store
+  defaultServerUrl`), not hardcoded.
+- LLM access is **bring-your-own provider key** (Anthropic login, custom providers). **No
+  subscription gate exists in the app.** Telemetry is env-driven (`VITE_SENTRY_DSN`).
+- opencode's revenue (`console-core` / "Zen") = **selling hosted model access** (opencode-as-a-
+  provider), *not* gating the app.
+- Hardcoded `opencode.ai` bits are a few small config/seams: changelog URL, favicon, install URL,
+  `VITE_OPENCODE_CHANNEL`.
+
+**Implication (resolves the auth gap #1):** enforce a Volt subscription in **the part Volt owns —
+`volt-cli` / `volt-bridge`** (a license/entitlement check before driving the IDE), validated against
+Volt's backend. That is **additive** — no app seam, no fork. The reused app stays BYO-key.
+
+## Open product decisions (recommended defaults)
+
+| Decision | Options | Recommended default |
+|---|---|---|
+| **What Volt sells** | (a) hosted model access (reuse Zen) · (b) licensed PLC tooling · (c) seats | **(b)** gate the Volt PLC capability — your differentiator; BYO-key keeps model cost off you |
+| **Where entitlement is enforced** | app (seam) · **`volt-cli`/`bridge`** (additive) | **`volt-cli`/`bridge`** — gate what you own; zero app seam |
+| **Billing shape** | metered (Zen-style) · seat / subscription | **seat/subscription** (PLC tool sold to teams); reuse `console-core`'s Stripe utils, write Volt's plan logic |
+| **Platform** | cross-platform · **Windows-first** | **Windows-first** — bridges are Windows-only; PLC work is Windows-centric. Allow remote bridge later |
+| **`<Slot/>`** | upstream · local seam | **try upstream first**; one seam if rejected |
+| **MVP scope** | full console · **minimal license check** | **minimal** — a license key checked by `volt-cli` against a tiny Volt backend; defer full `console-core`/Stripe until self-serve billing is needed |
+
 ## Phased build plan
 
-| Phase | Goal | Packages / files | Seams | Inputs you must provide | Verify |
-|---|---|---|---|---|---|
-| **0 ✅ done** | Additive integration foundation | `.opencode/opencode.json`, `tool/volt.ts`, per-pkg `turbo.json`; verifiers; package map | none new | — | `verify-lsp`/`verify-volt-tool`/`check-divergence` (this session) |
-| **1** | Extract `volt-control` from `volt-vscode`; re-point the extension | new `packages/volt-control`; refactor `volt-vscode` | **none** (fork pkgs only) | — | `volt-vscode` builds + tests pass; `volt-control` unit tests |
-| **2** | GUI `<Slot/>` — panel-slot/registry in `packages/app`; **try to upstream it** | ⚠ `packages/app` (one slot) | **1** (ideally → 0 if upstreamed) | design review | a dummy panel renders via the slot |
-| **3** | `volt-app` desktop panel — render `volt-control` (status/push/pull/build/diag), mount via slot | new `packages/volt-app` | reuses Phase-2 slot | panel UX design | panel drives the CLI in the desktop app |
-| **4** | Branding | ⚠ `packages/ui` (logo), ⚠ `packages/desktop` (name); colors via theme (✅) | **2** | **Volt logo asset**, app name | desktop shows Volt brand |
-| **5** | `volt-web` landing | build `packages/volt-web` (solid-start; steps in its README) | none (parallel) | branding/copy, **domain** | site renders; signup via `console-core` |
-| **6** | Volt `infra/` (deploy) | parallel SST stack; reuse `console-core` | none (own files) | **AWS + Stripe + SES accounts**, domain | deploy; test checkout + email |
+Tracks: **1→2→3** = desktop panel · **E** = entitlement · **B** = branding+distribution ·
+**W5→W6** = commercial/web. Pick the track you need first; only 1→2→3 is strictly ordered.
 
-Order is dependency-driven: 1→2→3 (panel needs core + slot); 4 anytime; 5→6 is the commercial track (independent of 1–3).
+| Phase | Goal | Packages / files | Seams | Inputs you provide | Verify |
+|---|---|---|---|---|---|
+| **0 ✅** | Additive integration foundation | `.opencode/*`, verifiers, package map, this roadmap | none | — | done this session |
+| **0.5** | **License/attribution** — keep opencode's MIT notice + add a Volt `NOTICE` | `LICENSE`, `NOTICE` | none | — | both present, attribution intact |
+| **1** | Extract `volt-control` from `volt-vscode` | new `volt-control`; refactor `volt-vscode` | none | — | vscode builds + tests pass |
+| **2** | GUI `<Slot/>` in `packages/app` (try to upstream) | ⚠ `packages/app` | 1 (→0 if upstreamed) | design review | dummy panel renders |
+| **3** | `volt-app` desktop panel rendering `volt-control`, via slot | new `volt-app` | reuses #2 | panel UX | panel drives CLI in desktop |
+| **E** | **Volt entitlement gate** — license check in `volt-cli`/`bridge` + a minimal Volt backend | `volt-cli`/`volt-bridge` (additive) + tiny license fn | none | how licenses are issued | unlicensed → bridge refuses |
+| **B** | **Branding + desktop distribution** — logo, app name, `opencode.ai` constants, Sentry DSN; **code-signing + updater feed + release** | ⚠ `ui` (logo) · ⚠ `desktop` (name/constants) · config (Sentry) | 2–3 | logo asset, signing certs | Volt-branded signed build auto-updates |
+| **W5** | `volt-web` landing | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
+| **W6** | Volt `infra/` + **CI/release** | parallel SST; CI for desktop builds, npm (`volt-cli`/`volt-lsp`), VS Code marketplace (`volt-vscode`), deploy | ⚠ `.github/` (allowlist) | AWS+Stripe+SES, domain | deploy; checkout+email; releases publish |
+| **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
+
+## Deployment & subdomains (your `infra/`)
+
+`volt.ai` (landing → `volt-web`) · `app.volt.ai` (agent GUI = reused `app`) · `api.volt.ai` (agent
+server) · `auth.volt.ai` (OpenAuth = reused `console-function`) · `docs.volt.ai` (optional).
 
 ## Seam ledger (the *entire* upstream-merge conflict surface, end-state)
 
 ```
- today:  bun.lock · .opencode/tui.json · .husky/pre-push · .gitignore         (4)
- +       packages/ui (logo) · packages/desktop (app-name) · packages/app (<Slot/>)  (≈3)
- ──────────────────────────────────────────────────────────────────────────────────
- ≈ 7 tiny, stable insertion points — vs. forking app/ui/desktop = conflicts every PR.
+ config (4):  bun.lock · .opencode/tui.json · .husky/pre-push · .gitignore
+ branding:    packages/ui (logo) · packages/desktop (name + opencode.ai constants)
+ GUI:         packages/app (<Slot/>)        ← →0 if upstreamed
+ CI:          .github/ (Volt workflows — allowlist entry)
+ ───────────────────────────────────────────────────────────────────────────
+ ≈ 7–9 tiny insertion points. Entitlement gate, landing, infra, docs = 100% additive/fork-owned.
 ```
-Every new file lives under `packages/volt-*` (or the `.opencode/…` additive allowlist) and is
-exempt from `check-divergence`. Keep spending the seam budget on **generic hooks** (the `<Slot/>`,
-build-aliases), never per-feature edits.
-
-## Decisions / inputs still needed (per phase)
-
-- **Phase 2:** upstream the `<Slot/>` to opencode, or carry it as one local seam?
-- **Phase 3:** desktop panel UX (mirror volt-vscode's SCM/history views?).
-- **Phase 4:** the Volt **logo** asset + final app name.
-- **Phase 5/6:** **domain**, and your **Stripe / AWS / SES** accounts (deploy + secrets).
+Every new file lives under `packages/volt-*` (or an allowlisted path) → exempt from
+`check-divergence`. Spend the seam budget on **generic hooks**, never per-feature edits.
 
 ## Explicitly NOT doing
 
 - **Fork `packages/app`** (the agent GUI) — it's opencode's core, synced not copied.
-- **Marketplace / `volt-commerce`** — dropped; billing reused identically from `console-core`.
-- **Rewrite the backend** — `console-core` reused as-is, configured via your `infra/`.
+- **Marketplace** — dropped.
+- **Rewrite the backend** — reuse `console-core`'s Stripe/SES/auth *utilities* as-is (your `infra/`
+  config). Volt's plan/entitlement logic is its own (the `volt-cli` gate), **not** a fork of
+  opencode's per-model "Zen" billing domain.
