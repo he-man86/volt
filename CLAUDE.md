@@ -46,8 +46,9 @@ Monorepo: **Bun** workspaces + **Turbo**. Package manager is `bun@1.3.14`. Lint 
 bun install                 # install (postinstall patches node-pty)
 bun typecheck               # turbo typecheck across all packages
 bun lint                    # oxlint
-bun run volt-scripts/check-divergence.ts          # enforce the fork surface (run after every upstream merge)
-bun run volt-scripts/check-volt-integration.ts    # confirm the volt wiring still works
+bun volt-scripts/sync.ts                          # AFTER an upstream merge: the full signal flow (install→divergence→integration→lsp→tool)
+bun run volt-scripts/check-divergence.ts          # (sub-step) enforce the fork surface — also run by the pre-push hook
+bun run volt-scripts/check-volt-integration.ts    # (sub-step) confirm configs/bins/wiring are present
 bun volt-scripts/dev.ts                           # opencode TUI from source with the volt LSP attached (.st)
 bun volt-scripts/verify-lsp.ts                    # prove the volt LSP loads in opencode (non-interactive)
 bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool loads in opencode (non-interactive)
@@ -136,11 +137,14 @@ Build graphical features as a **TUI plugin** or in fork-owned `volt-vscode` to s
 `bun run volt-scripts/check-divergence.ts` enforces this — it fails if any upstream file outside those 4 seams is modified/deleted, **or if a new file is added outside `packages/volt-*`, `volt-scripts/`, `.claude/`, `_bmad/`, `CLAUDE.md`, or the `.opencode/{agent,themes,tool}/…` + `.opencode/opencode.json` additive allowlist.** It's the always-accurate map of where the fork's changes live; run it after every upstream merge. (It diffs committed `HEAD` vs `upstream/dev`, so commit your changes before relying on it.)
 
 ### Syncing upstream (runbook)
-1. `git fetch upstream`
-2. `git switch -c sync/upstream-dev-<date> <current integration tip>`
-3. `git merge upstream/dev` — conflicts only ever appear in the 4 seams
-4. `bun install` — resolves the `bun.lock` seam
-5. `bun run volt-scripts/check-divergence.ts` — confirm the surface is unchanged
-6. `bun run volt-scripts/check-volt-integration.ts` — confirm the wiring still works
 
-Adding another LSP: `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`. Bundle the fork as a version-pinned patch against an opencode release: `bun run volt-scripts/export-overlay.ts`.
+```
+git fetch upstream
+git switch -c sync/upstream-dev-<date> <current integration tip>
+git merge upstream/dev          # conflicts only ever appear in the 4 seams
+bun volt-scripts/sync.ts        # the signal flow: install → divergence → integration → lsp → tool
+```
+
+**`volt-scripts/sync.ts` is the merge-process signal flow** — the single command that confirms the fork still holds after a merge (deps resolve, surface unchanged, wiring intact, runtime loads). It orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Exit 0 = fork holds.
+
+Adding another LSP: `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`.

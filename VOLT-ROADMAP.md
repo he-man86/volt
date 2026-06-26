@@ -167,28 +167,35 @@ server) · `auth.volt.ai` (OpenAuth = reused `console-function`) · `docs.volt.a
 Every new file lives under `packages/volt-*` (or an allowlisted path) → exempt from
 `check-divergence`. Spend the seam budget on **generic hooks**, never per-feature edits.
 
-## Staying in sync (workflow & scripts)
+## Staying in sync — the merge-process signal flow
 
-The restructuring (additive merge-layers) makes `git merge upstream/dev` near-trivial. Runbook:
+The restructuring (additive merge-layers) makes `git merge upstream/dev` near-trivial. The whole
+post-merge check is **one command** — `volt-scripts/sync.ts`:
 
 ```
-git fetch upstream && git merge upstream/dev    # conflicts only in the 4 tiny seams
-bun install                                      # resolves bun.lock
-bun run volt-scripts/check-divergence.ts         # surface unchanged?
-bun run volt-scripts/check-volt-integration.ts   # wiring intact?
-bun volt-scripts/verify-lsp.ts && bun volt-scripts/verify-volt-tool.ts
+git fetch upstream
+git merge upstream/dev        # conflicts only in the 4 tiny seams (usually none)
+bun volt-scripts/sync.ts      # ↓ the signal flow (stops at the first ✗)
+
+   install ─▶ divergence ─▶ integration ─▶ lsp loads ─▶ tool loads ─▶ ✓ SYNC OK
+    deps      4 seams         configs+bins    opencode      opencode
+              only?           present?        runtime       runtime
 ```
 
-**Scripts — current vs legacy (post-restructuring):**
+**Validated 2026-06-26:** merged 108 upstream commits → **zero conflicts**, surface still 4 seams,
+all signals ✓.
 
-| Script | Status |
+**Scripts (post-restructuring):**
+
+| Script | Role |
 |---|---|
-| `check-divergence.ts` | **current — keystone.** Enforces the additive model; *more* central now. |
-| `check-volt-integration.ts` · `verify-lsp.ts` · `verify-volt-tool.ts` · `dev.ts` | **current** — health/load checks + dev launcher |
-| `bridge.ps1` · `codesys-bridge.ps1` · `harvest-corpus.ts` · `volt`/`volt.cmd` | **current** — PLC/bridge tooling (not sync-related) |
-| `export-overlay.ts` | **LEGACY** — "ship Volt as a patch overlay on a pinned opencode release" is superseded by "Volt is a product deployed from this fork, synced via `git merge`." Recommend removing it + its CLAUDE.md reference. |
+| **`sync.ts`** | **the merge-process signal flow** — the one command after a merge; orchestrates the four checks below |
+| `check-divergence.ts` | keystone guard (fork surface); also run by the pre-push hook |
+| `check-volt-integration.ts` · `verify-lsp.ts` · `verify-volt-tool.ts` | the load/health sub-steps `sync.ts` runs |
+| `dev.ts` · `bridge.ps1` · `codesys-bridge.ps1` · `harvest-corpus.ts` · `volt`/`volt.cmd` | dev launcher + PLC/bridge tooling |
 
-The sync *mechanism* is now `git merge` + `check-divergence`, **not** overlay export.
+The sync *mechanism* is `git merge` + `sync.ts`. (`export-overlay.ts` — the old patch-overlay
+distribution model — was **removed**; superseded by "Volt is a product deployed from this fork.")
 
 ## Explicitly NOT doing
 
