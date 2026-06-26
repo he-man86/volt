@@ -1,59 +1,45 @@
 # @opencode-ai/volt-app
 
-Volt's **Solid components for the opencode desktop app** — the graphical "control the volt CLI"
-experience (the `volt-vscode` UX), brought *into* the desktop GUI, plus the desktop **branding**
-overrides. Holds **only** override/added components — **never** a copy of `packages/app` (which stays
-a synced upstream dependency).
+Volt's **Solid components for the opencode desktop app** — the `volt-vscode` SCM/history UX brought
+*into* the desktop GUI. Holds **only** Volt-owned components — **never** a copy of `packages/app`
+(which stays a synced upstream dependency). All Volt desktop UI grows here so the opencode seam is a
+single mount line.
 
-> **Status — Phase 2 done (mounted).** `VoltSidebar` (a Solid panel skeleton) is mounted in
-> `packages/app`'s new layout and **bundles into the app build** (`bun run dev:desktop` to view).
-> Pure renderer UI — **no `volt-control` import** (that's Node; it can't run in the browser
-> renderer). **Next — Phase 3:** Electron IPC so the verbs call `volt-control` + live status.
+> **Status — panel built + mounted.** `VoltSidePanel` is Volt's own session column (a sibling of the
+> git/review and file-explorer panels), mounted via one line in `packages/app/src/pages/session.tsx`.
+> It bundles into the app build (`bun run dev:desktop` to view). Pure renderer UI. **Next:** the
+> Electron IPC bridge (`window.volt.*` → `volt-control`) so the panel shows live data instead of the
+> placeholder.
 
 ```
- packages/app (agent GUI, synced)            @opencode-ai/volt-app (fork-owned)
-   <Slot name="sidebar"/>   ◄── registerVoltPanel ── VoltPanel (status/push/pull/build/diag)
-   @opencode-ai/ui/logo     ◄── build-alias ──────── VoltMark / VoltSplash
-                                                      └─ uses @opencode-ai/volt-control (no UI)
+ packages/app (agent GUI, synced)        @opencode-ai/volt-app (fork-owned)
+   session.tsx:                            VoltSidePanel  (panel chrome + width + ResizeHandle + header)
+     <VoltSidePanel                          └─ VoltPanel (Status: health + incoming/outgoing/merge
+        workspaceRoot={dir}/>  ◄── mount         + pull/push/build; History: volt log)
+                                                   └─ window.volt.*  (ipc.ts contract; types only)
+                                                        ▲ Electron IPC
+                                   packages/desktop ────┘  main process runs @opencode-ai/volt-control
 ```
 
-## Phase 2 — the GUI `<Slot/>` (the one strategic seam, in `packages/app`)
+## Layout
 
-`packages/app` has **no** extension point today (unlike the TUI). Add a minimal one:
-1. A tiny **registry** (Solid context): components register by slot name.
-2. A `<Slot name="…"/>` component that renders whatever's registered.
-3. Place one mount — e.g. `<Slot name="sidebar"/>` — in `app`'s layout.
-4. **Try to upstream this** to opencode (it helps every integrator). If accepted → 0 seams; if not,
-   it's the single documented `packages/app` seam (add it to `check-divergence` ALLOWED_MODIFICATIONS).
+- **`VoltSidePanel`** — the panel: card chrome (`bg-background-base`, rounded, shadow), a left
+  `ResizeHandle` (native `@opencode-ai/ui`), a "Volt" header, and `VoltPanel` inside. Width is local
+  (no `layout.tsx` seam). Built from opencode's **v2 components** + design tokens so it reads native.
+- **`VoltPanel`** — Status (bridge health + Incoming/Changes/Merge lists + Pull/Push/Build/Refresh)
+  and History (`volt log` snapshots). `SegmentedControlV2` sub-tabs, `ButtonV2` toolbar.
+- **`ipc.ts`** — the `window.volt` contract (`detect/status/pull/push/build/log/show`). Types come
+  from `@opencode-ai/volt-control` via `import type` (erased at build → no Node code in the renderer).
 
-Verify: a throwaway dummy component registers and renders in the desktop window.
+## The one opencode seam
 
-## Phase 3 — the panel (`VoltPanel`)
+`packages/app` has no plugin hook, so mounting is a deliberate (minimal) seam — just an import + one
+`<VoltSidePanel workspaceRoot={sdk().directory}/>` line in `session.tsx`. Everything else lives here.
+Allowlisted in `volt-scripts/check-divergence.ts`; see `CLAUDE.md` "Fork surface".
 
-1. Build `VoltPanel` (Solid) here: a status list, `push` / `pull` / `build` buttons, drift/diff view,
-   diagnostics — mirroring `volt-vscode`'s SCM/history views.
-2. It calls **`@opencode-ai/volt-control`** for all CLI/bridge work (no logic duplicated).
-3. Export `registerVoltPanel(registry)` that mounts `VoltPanel` into the Phase-2 `<Slot name="sidebar">`.
-4. Wire it in the **desktop** build so the registration runs at startup (a one-line import in the
-   desktop entry, or via the desktop's vite config — fork-owned where possible).
+## Next — the IPC bridge (in `packages/desktop`, the deliberate-seam zone)
 
-Verify: open a `.st` workspace in the desktop app → the Volt panel drives the CLI (status/push/pull/
-build) and shows diagnostics.
-
-## Phase B — branding (desktop GUI)
-
-Distinct from the **TUI** theme (`.opencode/themes/volt.json` brands the *terminal* UI only). The
-**desktop GUI** is `packages/app` + `packages/ui`:
-- **Logo:** add `VoltMark`/`VoltSplash` (Volt SVG) here; **alias** `@opencode-ai/ui/logo` → this in
-  the desktop build (one seam). The art stays fork-owned; only the alias touches upstream.
-- **Colors:** the GUI uses CSS variables (e.g. the logo's `--icon-base`). Provide a Volt CSS layer /
-  theme override (additive where the app supports it; a small seam if not).
-- **App name:** `packages/desktop/src/main/index.ts` `APP_NAMES` (one seam).
-- **Hardcoded `opencode.ai` strings** (changelog URL, favicon, install URL): override via config/small
-  seams as needed.
-
-## Verify (track exit)
-
-- Desktop app shows Volt branding (logo, name) and the Volt panel.
-- `bun run volt-scripts/check-divergence.ts` reports only the intended seams (the `<Slot/>`, logo
-  alias, app-name) — everything else additive/fork-owned.
+The renderer can't spawn the CLI. The desktop **main** process runs `@opencode-ai/volt-control`
+(Node) and a preload exposes `window.volt` (`contextBridge.exposeInMainWorld("volt", …)`). The main
+process must `setBundledCli(...)` to the bundled `volt` CLI (a PLC workspace has none in
+`node_modules`). Verify: open a `.volt` workspace in the desktop app → the panel drives the CLI.
