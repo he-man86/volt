@@ -70,6 +70,9 @@ export function VoltPanel(props: { workspaceRoot: string }) {
         setMsg(r.code === 0 ? "Build OK" : "Build reported errors")
       }
       await refetchStatus()
+    } catch (e) {
+      // an IPC rejection (main handler threw) lands here — surface it rather than swallow
+      setMsg(`volt ${verb} failed: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setBusy(false)
     }
