@@ -18,6 +18,7 @@ import { resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
 const UPSTREAM = "upstream/dev"
+const LAND = process.argv.includes("--land") // on green: fast-forward + push + prune
 
 const git = (args: string[]) => spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" })
 const run = (label: string, cmd: string, args: string[]) => {
@@ -57,10 +58,28 @@ if (!run(`git merge --no-edit ${UPSTREAM}`, "git", ["merge", "--no-edit", UPSTRE
 console.log("")
 const ok = run("bun volt-scripts/sync.ts", "bun", ["volt-scripts/sync.ts"])
 console.log("\n" + "─".repeat(60))
-if (ok) {
-  console.log(`✓ Synced on ${name}. To land it on ${branch}:`)
-  console.log(`    git switch ${branch} && git merge --ff-only ${name} && git push`)
-} else {
+if (!ok) {
   console.log(`✗ sync checks failed on ${name} — investigate before landing.`)
+  process.exit(1)
 }
-process.exit(ok ? 0 : 1)
+
+if (!LAND) {
+  console.log(`✓ Synced on ${name}. To land it on ${branch}:`)
+  console.log(`    git switch ${branch} && git merge --ff-only ${name} && git push   (or re-run with --land)`)
+  process.exit(0)
+}
+
+// --land: fast-forward the integration branch, push, then prune merged sync branches.
+const landed =
+  run(`git switch ${branch}`, "git", ["switch", branch]) &&
+  run(`git merge --ff-only ${name}`, "git", ["merge", "--ff-only", name]) &&
+  run("git push", "git", ["push"])
+if (!landed) {
+  console.log(`✗ landing failed — finish manually (sync branch ${name} is intact).`)
+  process.exit(1)
+}
+for (const b of git(["branch", "--merged", branch]).stdout.split("\n").map((s) => s.trim()).filter((b) => b.startsWith("sync/upstream-dev-"))) {
+  spawnSync("git", ["branch", "-d", b], { cwd: repoRoot }) // -d is safe: refuses unmerged
+}
+console.log(`✓ Landed on ${branch} and pushed; merged sync branches pruned.`)
+process.exit(0)

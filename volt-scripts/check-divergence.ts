@@ -47,12 +47,16 @@ const JUNK_FILE = /\.(bak|orig|swp)$|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$
 const ADDITIVE_ALLOWLIST = new Set<string>([
   "CLAUDE.md",
   "VOLT-ROADMAP.md", // Volt-as-a-SaaS plan-of-record (companion to CLAUDE.md)
+  "VOLT-DECISIONS.md", // Volt decision log (ADRs)
   ".opencode/agent/volt.md",
   ".opencode/themes/volt.json", // Volt brand theme (selected via the .opencode/tui.json seam)
   ".opencode/tool/volt.ts", // Volt CLI exposed as an opencode custom tool (opencode scans .opencode/tool/ only)
   ".opencode/opencode.json", // Volt config (LSP + permission gates) — opencode deep-merges it over upstream's pristine opencode.jsonc
   // Future graphical Volt panel for the TUI lands at `.opencode/plugins/volt.tsx` — allowlist it here when it does.
 ])
+
+// Prefixes under which fork-added files are allowed (Volt-namespaced files in upstream dirs).
+const ADDITIVE_PREFIXES = [".github/workflows/volt-"] // Volt's own CI / scheduled-sync workflows
 
 function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))
@@ -90,7 +94,7 @@ export function classify(nameStatusLines: readonly string[]): Classification {
 
     // A NEW file (didn't exist upstream) is additive-fine only at a sanctioned location.
     if (code === "A") {
-      if (ADDITIVE_ALLOWLIST.has(path)) continue
+      if (ADDITIVE_ALLOWLIST.has(path) || ADDITIVE_PREFIXES.some((p) => path.startsWith(p))) continue
       violations.push(`${code}  ${path}`) // added outside the fork surface — a divergence
       continue
     }
@@ -109,9 +113,10 @@ function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
     { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
-    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tVOLT-ROADMAP.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
+    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tVOLT-ROADMAP.md", "A\tVOLT-DECISIONS.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
+    { name: "Volt-namespaced CI workflow is allowed (prefix)", lines: ["A\t.github/workflows/volt-ci.yml"], allowed: 0, violations: 0 },
     { name: "other committed theme is a violation (only volt.json is sanctioned)", lines: ["A\t.opencode/themes/other.json"], allowed: 0, violations: 1 },
-    { name: "added file outside the surface is a violation (.github)", lines: ["A\t.github/workflows/volt-guard.yml"], allowed: 0, violations: 1 },
+    { name: "a non-volt .github workflow is a violation", lines: ["A\t.github/workflows/evil.yml"], allowed: 0, violations: 1 },
     { name: "added file outside the surface is a violation (scratch)", lines: ["A\tscratch/.gitignore"], allowed: 0, violations: 1 },
     { name: "committed skill is a violation (skills are generated, not committed)", lines: ["A\t.opencode/skills/x/SKILL.md"], allowed: 0, violations: 1 },
     { name: "allowed seams count as allowed", lines: ["M\t.husky/pre-push", "M\t.gitignore", "M\tbun.lock", "M\t.opencode/tui.json"], allowed: 4, violations: 0 },

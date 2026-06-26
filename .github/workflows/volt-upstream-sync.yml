@@ -1,0 +1,69 @@
+# Volt scheduled upstream sync — keeps the fork current with opencode automatically.
+# Weekly: merge upstream/dev onto a sync branch, verify (divergence + typecheck), and
+# open a PR into `volt` if clean. Conflicts → the run fails (GitHub notifies). The human
+# reviews + fast-forwards. (Runtime verifiers need API keys, so the full sync.ts is run
+# locally when landing; CI verifies the key-free surface.)
+#
+# Note: scheduled runs use the workflow file on the repo's DEFAULT branch — keep this in
+# sync there too, or trigger manually via "Run workflow".
+name: volt-upstream-sync
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: volt
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Merge upstream/dev onto a sync branch
+        id: merge
+        run: |
+          git config user.name  "volt-sync[bot]"
+          git config user.email "volt-sync@users.noreply.github.com"
+          git remote add upstream https://github.com/anomalyco/opencode.git || true
+          git fetch --no-tags upstream dev:refs/remotes/upstream/dev
+          BEHIND=$(git rev-list --count HEAD..upstream/dev)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          if [ "$BEHIND" = "0" ]; then echo "Already up to date."; exit 0; fi
+          BRANCH="sync/upstream-dev-$(date +%F)"
+          git switch -c "$BRANCH"
+          if ! git merge --no-edit upstream/dev; then
+            echo "::error::Merge conflicts — manual sync needed."
+            git merge --abort
+            exit 1
+          fi
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Verify (divergence + typecheck)
+        if: steps.merge.outputs.branch != ''
+        run: |
+          bun install --frozen-lockfile
+          bun run volt-scripts/check-divergence.ts
+          bun turbo typecheck --filter='./packages/volt-*'
+          bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+
+      - name: Open PR into volt
+        if: steps.merge.outputs.branch != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push origin "${{ steps.merge.outputs.branch }}"
+          gh pr create --base volt --head "${{ steps.merge.outputs.branch }}" \
+            --title "sync: upstream/dev (${{ steps.merge.outputs.behind }} commits behind)" \
+            --body "Automated upstream sync. Divergence + typecheck passed in CI. Pull locally, run \`bun volt-scripts/sync.ts\` (full signal flow incl. runtime verifiers), then fast-forward \`volt\`." \
+            || echo "PR may already exist."

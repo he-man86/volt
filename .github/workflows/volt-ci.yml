@@ -1,0 +1,43 @@
+# Volt fork CI — enforces the invariants the pre-push hook checks locally, but
+# un-bypassably (no --no-verify). Runs the fork-surface guard + typecheck on every
+# push/PR. Provider-dependent runtime verifiers (verify-volt-tool) need API keys, so
+# they stay local; CI covers the enforceable, key-free surface.
+name: volt-ci
+
+on:
+  push:
+    branches: [volt]
+  pull_request:
+    branches: [volt, dev]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so check-divergence can find the merge-base
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Fetch upstream/dev (check-divergence diffs against it)
+        run: |
+          git remote add upstream https://github.com/anomalyco/opencode.git || true
+          git fetch --no-tags upstream dev:refs/remotes/upstream/dev
+
+      - run: bun install --frozen-lockfile
+
+      - name: Fork-surface guard (classifier self-test + live)
+        run: |
+          bun run volt-scripts/check-divergence.ts --self-test
+          bun run volt-scripts/check-divergence.ts
+
+      - name: Typecheck (volt packages + volt-scripts)
+        run: |
+          bun turbo typecheck --filter='./packages/volt-*'
+          bunx tsgo --noEmit -p volt-scripts/tsconfig.json
+
+      - name: Lint (volt surface only)
+        run: bunx oxlint packages/volt-cli packages/volt-lsp-st packages/volt-vscode volt-scripts

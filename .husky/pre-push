@@ -26,6 +26,8 @@ if (process.versions.bun !== expectedBunVersion) {
   # unscoped `volt-vscode` (a VS Code marketplace requirement) — is covered
   # too; an `@opencode-ai/volt-*` name filter silently skipped it.
   bun turbo typecheck --filter='./packages/volt-*'
+  # volt-scripts/ isn't a workspace package, so typecheck it directly.
+  bunx tsgo --noEmit -p volt-scripts/tsconfig.json
 
 # Fork invariant: Volt is purely additive — fail the push if we modified
 # opencode source outside the allowed integration seams (see CLAUDE.md

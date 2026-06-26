@@ -12,7 +12,7 @@ import { join } from "node:path"
 
 const port = process.argv[2] ?? "8556"
 const corpus = join(
-	import.meta.dir, "..",
+	import.meta.dirname, "..",
 	"packages", "volt-bridge", "test", "Volt.Bridge.Tests", "fixtures", "corpus",
 )
 mkdirSync(corpus, { recursive: true })
