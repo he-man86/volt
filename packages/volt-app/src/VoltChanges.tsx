@@ -1,50 +1,37 @@
-import { createEffect, createSignal, For, Show, type JSX } from "solid-js"
+import { createEffect, createSignal, Show, type JSX } from "solid-js"
+import { SegmentedControlV2, SegmentedControlItemV2 } from "@opencode-ai/ui/v2/segmented-control-v2"
 import { VoltPanel } from "./VoltPanel"
 import "./ipc" // window.volt augmentation
 
 /**
  * The Git↔Volt switch for opencode's changes panel.
  *
- * This owns ALL Volt logic (mode signal, .volt detection, the toggle UI, the panel) so the
- * opencode seam stays a thin wrapper: `session-side-panel.tsx` only hands us the workspace
- * directory and a render-prop for its own Git view. Default = Volt when a `.volt` workspace
- * is present, else Git. Changing any Volt UX here touches zero opencode code.
+ * Owns ALL Volt logic (mode, .volt detection, the toggle, the panel) so the opencode seam
+ * stays a thin additive wrapper: `session-side-panel.tsx` only hands us the workspace dir and
+ * a render-prop for its own Git view. Default = Volt when a `.volt` workspace is present.
+ *
+ * The toggle is opencode's native `SegmentedControlV2` (the v2 component set the new layout
+ * uses) — so it looks/behaves like a first-class control, not a bolt-on.
  */
-const ACCENT = "#E0651F" // brand orange
+type Mode = "volt" | "git"
 
 export function VoltChanges(props: { workspaceRoot: string; git: () => JSX.Element }) {
-  const [volt, setVolt] = createSignal(false)
+  const [mode, setMode] = createSignal<Mode>("git")
   createEffect(() => {
     const dir = props.workspaceRoot
-    window.volt?.detect(dir).then((has) => has && setVolt(true))
+    window.volt?.detect(dir).then((has) => has && setMode("volt"))
   })
 
   return (
-    <div class="h-full flex flex-col min-h-0">
-      <div style={{ display: "flex", gap: "4px", padding: "8px 10px 0", "flex-shrink": "0" }}>
-        <For each={[true, false]}>
-          {(m) => (
-            <button
-              type="button"
-              onClick={() => setVolt(m)}
-              style={{
-                padding: "3px 12px",
-                "border-radius": "6px",
-                cursor: "pointer",
-                border: "1px solid transparent",
-                "font-family": "Inter, ui-sans-serif, system-ui, sans-serif",
-                background: volt() === m ? ACCENT : "transparent",
-                color: volt() === m ? "#fff" : "inherit",
-                opacity: volt() === m ? "1" : "0.7",
-              }}
-            >
-              {m ? "Volt" : "Git"}
-            </button>
-          )}
-        </For>
+    <div class="h-full min-h-0 flex flex-col">
+      <div class="px-3 pt-2.5 pb-1 shrink-0">
+        <SegmentedControlV2 class="w-full" value={mode()} onChange={(v) => v && setMode(v as Mode)}>
+          <SegmentedControlItemV2 value="volt">Volt</SegmentedControlItemV2>
+          <SegmentedControlItemV2 value="git">Git</SegmentedControlItemV2>
+        </SegmentedControlV2>
       </div>
       <div class="flex-1 min-h-0">
-        <Show when={volt()} fallback={props.git()}>
+        <Show when={mode() === "volt"} fallback={props.git()}>
           <VoltPanel workspaceRoot={props.workspaceRoot} />
         </Show>
       </div>
