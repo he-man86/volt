@@ -170,13 +170,13 @@ Every new file lives under `packages/volt-*` (or an allowlisted path) → exempt
 ## Staying in sync — the merge-process signal flow
 
 The restructuring (additive merge-layers) makes `git merge upstream/dev` near-trivial. The whole
-post-merge check is **one command** — `volt-scripts/sync.ts`:
+sync is **one command** — `volt-scripts/merge-upstream.ts` (fetch → branch → merge → verify):
 
 ```
-git fetch upstream
-git merge upstream/dev        # conflicts only in the 4 tiny seams (usually none)
-bun volt-scripts/sync.ts      # ↓ the signal flow (stops at the first ✗)
+bun volt-scripts/merge-upstream.ts     # fetch · dated sync branch · merge · run sync.ts
+                                        # stops on conflict; prints the ff to land it
 
+   sync.ts signal flow (stops at the first ✗):
    install ─▶ divergence ─▶ integration ─▶ lsp loads ─▶ tool loads ─▶ ✓ SYNC OK
     deps      4 seams         configs+bins    opencode      opencode
               only?           present?        runtime       runtime
@@ -189,7 +189,8 @@ all signals ✓.
 
 | Script | Role |
 |---|---|
-| **`sync.ts`** | **the merge-process signal flow** — the one command after a merge; orchestrates the four checks below |
+| **`merge-upstream.ts`** | **the one sync command** — fetch → dated sync branch → merge → run `sync.ts`; stops on conflict |
+| **`sync.ts`** | **the merge-process signal flow** — orchestrates the four checks below; run standalone after a manual merge |
 | `check-divergence.ts` | keystone guard (fork surface); also run by the pre-push hook |
 | `check-volt-integration.ts` · `verify-lsp.ts` · `verify-volt-tool.ts` | the load/health sub-steps `sync.ts` runs |
 | `dev.ts` · `bridge.ps1` · `codesys-bridge.ps1` · `harvest-corpus.ts` · `volt`/`volt.cmd` | dev launcher + PLC/bridge tooling |

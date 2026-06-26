@@ -46,6 +46,7 @@ Monorepo: **Bun** workspaces + **Turbo**. Package manager is `bun@1.3.14`. Lint 
 bun install                 # install (postinstall patches node-pty)
 bun typecheck               # turbo typecheck across all packages
 bun lint                    # oxlint
+bun volt-scripts/merge-upstream.ts                # sync with upstream: fetch → branch → merge → verify (one command)
 bun volt-scripts/sync.ts                          # AFTER an upstream merge: the full signal flow (install→divergence→integration→lsp→tool)
 bun run volt-scripts/check-divergence.ts          # (sub-step) enforce the fork surface — also run by the pre-push hook
 bun run volt-scripts/check-volt-integration.ts    # (sub-step) confirm configs/bins/wiring are present
@@ -138,13 +139,14 @@ Build graphical features as a **TUI plugin** or in fork-owned `volt-vscode` to s
 
 ### Syncing upstream (runbook)
 
+**One command** does the whole safe flow — fetch → dated `sync/…` branch → merge → verify:
+
 ```
-git fetch upstream
-git switch -c sync/upstream-dev-<date> <current integration tip>
-git merge upstream/dev          # conflicts only ever appear in the 4 seams
-bun volt-scripts/sync.ts        # the signal flow: install → divergence → integration → lsp → tool
+bun volt-scripts/merge-upstream.ts
 ```
 
-**`volt-scripts/sync.ts` is the merge-process signal flow** — the single command that confirms the fork still holds after a merge (deps resolve, surface unchanged, wiring intact, runtime loads). It orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Exit 0 = fork holds.
+It stops cleanly on conflicts (resolve + commit, then `bun volt-scripts/sync.ts`), and on success prints the fast-forward to land it on `volt`. It does **not** move/push your branch for you.
+
+Under the hood it runs **`volt-scripts/sync.ts`** — the merge-process *signal flow* that confirms the fork still holds (deps resolve → surface unchanged → wiring intact → runtime loads): it orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Run `sync.ts` standalone after resolving a manual merge.
 
 Adding another LSP: `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`.
