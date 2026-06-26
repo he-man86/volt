@@ -6,7 +6,10 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
 import type { Event } from "electron"
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, ipcMain } from "electron"
+import { fileURLToPath } from "node:url"
+import { dirname } from "node:path"
+import { registerVoltIpcHandlers } from "@opencode-ai/volt-control" // Volt seam — see CLAUDE.md "Fork surface"
 
 import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
@@ -269,6 +272,13 @@ const main = Effect.gen(function* () {
     recordFatalRendererError: (error) => writeLog("renderer", "fatal renderer error", { ...error }, "error"),
   })
   registerWslIpcHandlers(wslServers)
+  // Volt: wire the volt CLI over IPC so the renderer panel can call window.volt.* — the CLI is
+  // bundled beside this main bundle (electron.vite.config volt-cli input), resolved like sidecar.js.
+  try {
+    registerVoltIpcHandlers(ipcMain, join(dirname(fileURLToPath(import.meta.url)), "volt-cli.js"))
+  } catch (e) {
+    logger.log("volt ipc registration failed", { error: String(e) })
+  }
   void updater.start()
   const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
   updateTimer.unref()

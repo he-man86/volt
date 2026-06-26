@@ -34,6 +34,10 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/app/src/pages/session.tsx", // mount <VoltSidePanel/> as a session column
   "packages/app/src/components/session/session-header.tsx", // mount <VoltToggleButton/> in the header
   "packages/app/package.json", // @opencode-ai/volt-app dependency
+  // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
+  "packages/desktop/src/preload/index.ts", // expose window.volt
+  "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt-cli.js)
+  "packages/desktop/package.json", // @opencode-ai/volt-control + volt-cli deps
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
@@ -124,6 +128,7 @@ function selfTest(): void {
     { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-DESIGN.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
     { name: "branding seams (logo / app-name) count as allowed", lines: ["M\tpackages/ui/src/components/logo.tsx", "M\tpackages/desktop/src/main/index.ts", "M\tpackages/desktop/electron-builder.config.ts"], allowed: 3, violations: 0 },
     { name: "GUI panel seams count as allowed", lines: ["M\tpackages/app/src/pages/session.tsx", "M\tpackages/app/src/components/session/session-header.tsx", "M\tpackages/app/package.json"], allowed: 3, violations: 0 },
+    { name: "desktop IPC seams count as allowed", lines: ["M\tpackages/desktop/src/preload/index.ts", "M\tpackages/desktop/electron.vite.config.ts"], allowed: 2, violations: 0 },
     { name: "an unrelated packages/app edit is still a violation", lines: ["M\tpackages/app/src/pages/session/session-side-panel.tsx"], allowed: 0, violations: 1 },
     { name: "Volt-namespaced CI workflow is allowed (prefix)", lines: ["A\t.github/workflows/volt-ci.yml"], allowed: 0, violations: 0 },
     { name: "other committed theme is a violation (only volt.json is sanctioned)", lines: ["A\t.opencode/themes/other.json"], allowed: 0, violations: 1 },

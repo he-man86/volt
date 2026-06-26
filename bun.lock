@@ -378,6 +378,8 @@
         "@lydell/node-pty": "catalog:",
         "@opencode-ai/app": "workspace:*",
         "@opencode-ai/ui": "workspace:*",
+        "@opencode-ai/volt-cli": "workspace:*",
+        "@opencode-ai/volt-control": "workspace:*",
         "@sentry/solid": "catalog:",
         "@sentry/vite-plugin": "catalog:",
         "@solid-primitives/i18n": "2.2.1",

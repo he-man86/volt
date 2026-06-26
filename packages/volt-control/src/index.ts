@@ -12,4 +12,5 @@ export * from "./gate.js" // isMutationInFlight, withGate
 export * from "./workspace.js" // isPouFile, readStateMtime
 export * from "./cli.js" // setBundledCli, cliScript, spawnVolt, spawnVoltBuffer
 export * from "./health.js" // BridgeHealth, HealthState, isBridgeOnline, readBridgePort, readExtensionAccess, probeHealth, healthLabel
-export * from "./actions.js" // fetchStatus, pull, push, build, init, mergeCmd, showFile + outcome types
+export * from "./actions.js" // fetchStatus, pull, push, build, init, mergeCmd, showFile, log, detect + outcome types
+export * from "./ipc.js" // registerVoltIpcHandlers (desktop main process) + IpcMainLike
