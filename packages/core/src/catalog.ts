@@ -1,6 +1,7 @@
 export * as Catalog from "./catalog"
 
 import { Array, Context, Effect, Layer, Option, Order, pipe, Schema } from "effect"
+import { Catalog } from "@opencode-ai/schema/catalog"
 import { ModelV2 } from "./model"
 import { ProviderV2 } from "./provider"
 import { EventV2 } from "./event"
@@ -17,9 +18,7 @@ export type DefaultModel = { providerID: ProviderV2.ID; modelID: ModelV2.ID }
 
 export const PolicyActions = Schema.Literals(["provider.use"])
 
-export const Event = {
-  Updated: EventV2.define({ type: "catalog.updated", schema: {} }),
-}
+export const Event = Catalog.Event
 
 type Data = {
   providers: Map<ProviderV2.ID, ProviderRecord>
@@ -235,6 +234,11 @@ export const layer = Layer.effect(
           const record = state.get().providers.get(providerID)
           if (!record) return
           const provider = record.provider
+
+          // TODO: Remove these provider-specific assumptions once model syncing reliably reports available deployments.
+          if (providerID === ProviderV2.ID.azure || providerID === ProviderV2.ID.make("azure-cognitive-services")) {
+            return
+          }
 
           if (providerID === ProviderV2.ID.opencode) {
             const gpt5Nano = record.models.get(ModelV2.ID.make("gpt-5-nano"))
