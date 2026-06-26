@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createEffect, createMemo, onCleanup, type JSX } from "solid-js"
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
 import { Tabs } from "@opencode-ai/ui/tabs"
@@ -19,8 +19,10 @@ import { useCommand } from "@/context/command"
 import { useFile, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
+import { useSDK } from "@/context/sdk"
 import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
+import { VoltPanel } from "@opencode-ai/volt-app" // Volt seam — see CLAUDE.md "Fork surface"
 import { createFileTabListSync } from "@/pages/session/file-tab-scroll"
 import { FileTabContent } from "@/pages/session/file-tabs"
 import {
@@ -53,8 +55,16 @@ export function SessionSidePanel(props: {
   size: Sizing
 }) {
   const layout = useLayout()
+  const sdk = useSDK()
   const settings = useSettings()
   const sync = useSync()
+
+  // Volt: Git↔Volt mode (default to Volt when a .volt workspace is present).
+  const [volt, setVolt] = createSignal(false)
+  createEffect(() => {
+    const dir = sdk().directory
+    window.volt?.detect(dir).then((has) => has && setVolt(true))
+  })
   const file = useFile()
   const language = useLanguage()
   const command = useCommand()
@@ -391,6 +401,33 @@ export function SessionSidePanel(props: {
                   class="h-full flex flex-col overflow-hidden group/filetree"
                   classList={{ "border-l border-border-weaker-base": reviewOpen() }}
                 >
+                  {/* Volt: Git↔Volt mode toggle (fork seam) */}
+                  <div style={{ display: "flex", gap: "4px", padding: "8px 10px 0" }}>
+                    <For each={[true, false]}>
+                      {(m) => (
+                        <button
+                          type="button"
+                          onClick={() => setVolt(m)}
+                          style={{
+                            padding: "3px 12px",
+                            "border-radius": "6px",
+                            cursor: "pointer",
+                            border: "1px solid transparent",
+                            background: volt() === m ? "#E0651F" : "transparent",
+                            color: volt() === m ? "#fff" : "inherit",
+                            opacity: volt() === m ? "1" : "0.7",
+                          }}
+                        >
+                          {m ? "Volt" : "Git"}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                  <Switch>
+                    <Match when={volt()}>
+                      <VoltPanel workspaceRoot={sdk().directory} />
+                    </Match>
+                    <Match when={true}>
                   <Tabs
                     variant="pill"
                     value={fileTreeTab()}
@@ -449,6 +486,8 @@ export function SessionSidePanel(props: {
                       </Switch>
                     </Tabs.Content>
                   </Tabs>
+                    </Match>
+                  </Switch>
                 </div>
                 <Show when={fileOpen()}>
                   <div onPointerDown={() => props.size.start()}>

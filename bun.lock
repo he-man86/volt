@@ -1005,6 +1005,7 @@
       "name": "@opencode-ai/volt-app",
       "version": "0.0.0",
       "dependencies": {
+        "@opencode-ai/volt-control": "workspace:*",
         "solid-js": "catalog:",
       },
       "devDependencies": {

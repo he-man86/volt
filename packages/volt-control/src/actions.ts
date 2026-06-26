@@ -105,3 +105,23 @@ export function mergeCmd(workspaceRoot: string, args: string[]): Promise<CliResu
 export function showFile(workspaceRoot: string, ref: string, rel: string): Promise<{ stdout: Buffer; stderr: string; code: number }> {
   return spawnVoltBuffer(workspaceRoot, ["show", ref, rel, "--workspace", workspaceRoot])
 }
+
+// ── history ──────────────────────────────────────────────────────────────────
+export interface LogEntry {
+  sha: string
+  date: string
+  summary: string
+  paths: string[]
+}
+
+/** `volt log --json --limit N` → snapshot history (newest first). Never throws. */
+export async function log(workspaceRoot: string, opts: { limit?: number } = {}): Promise<LogEntry[]> {
+  const r = await spawnVolt(workspaceRoot, ["log", "--json", "--limit", String(opts.limit ?? 50), "--workspace", workspaceRoot])
+  if (r.code !== 0) return []
+  return parseJson<LogEntry[]>(r.stdout) ?? []
+}
+
+/** Cheap check: does this dir have an initialized `.volt` workspace? (no bridge probe) */
+export function detect(workspaceRoot: string): boolean {
+  return readBridgePort(workspaceRoot) !== undefined
+}

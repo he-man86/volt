@@ -12,6 +12,7 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@opencode-ai/volt-control": "workspace:*",
     "solid-js": "catalog:"
   },
   "devDependencies": {
