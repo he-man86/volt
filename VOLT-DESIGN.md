@@ -1,8 +1,12 @@
-# Volt-as-a-SaaS roadmap (white-label opencode)
+# Volt — design & roadmap
 
-The plan-of-record for turning this opencode fork into the **Volt** product. Companion to
-`CLAUDE.md` ("Fork surface", "Monorepo package map"). Build phase-by-phase; each phase is
-its own PR.
+The single design reference for the **Volt** product (a white-label of opencode): vision,
+architecture, the phased build plan, and the decision log. `CLAUDE.md` is the lean, always-loaded
+fork guide and links here. Build phase-by-phase; each phase is its own PR.
+
+**Contents:** Vision & rule · Integration model · Extension hierarchy · Runtime layer stack ·
+Packages · App & money model · Open decisions · **Phased build plan** · Deployment · Seam ledger ·
+Sync flow · Explicitly-not-doing · **Decision log** (ADRs, at the end).
 
 ## Vision & the one rule
 
@@ -192,14 +196,14 @@ desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is stric
 
 | Phase | Goal | Packages / files | Seams | Inputs you provide | Verify |
 |---|---|---|---|---|---|
-| **0 ✅** | Additive integration foundation | `.opencode/*`, verifiers, package map, this roadmap | none | — | done this session |
-| **0.5** | **License/attribution** — keep opencode's MIT notice + add a Volt `NOTICE` | `LICENSE`, `NOTICE` | none | — | both present, attribution intact |
+| **0 ✅** | Additive integration foundation | `.opencode/*`, verifiers, package map, this doc | none | — | ✅ done |
+| **0.5 ✅** | **License/attribution** — keep opencode's MIT notice + add a Volt `NOTICE` | `NOTICE` | none | — | ✅ done |
 | **W5** | `volt-web` landing + signup | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
 | **W6** | **Deploy the revenue cloud** — Volt `infra/`: `llm` gateway + `console-core` billing + Stripe (your products/keys) + a **"Volt" hosted-provider** entry (`api.volt.ai`); + CI/release | parallel `infra/`; config; ⚠ `.github/` (CI) | **AWS + Stripe + SES + provider keys**, domain | paid sub → metered model call works end-to-end |
-| **1** | Extract `volt-control` from `volt-vscode` | new `volt-control`; refactor `volt-vscode` | none | — | vscode builds + tests pass |
+| **1 ✅** | Extract `volt-control` from `volt-vscode` (primitives + actions) | new `volt-control`; refactor `volt-vscode` | none | — | ✅ done — typecheck + 13 tests + extension build |
 | **2** | GUI `<Slot/>` in `packages/app` (try to upstream) | ⚠ `packages/app` | 1 (→0 if upstreamed) | design review | dummy panel renders |
-| **3** | `volt-app` desktop panel rendering `volt-control`, via slot | new `volt-app` | reuses #2 | panel UX | panel drives CLI in desktop |
-| **B** | **Branding + desktop distribution** — logo, app name, `opencode.ai` constants, Sentry DSN; **code-signing + updater feed + release** | ⚠ `ui` (logo) · ⚠ `desktop` (name/constants) · config (Sentry) | 2–3 | logo asset, signing certs | Volt-branded signed build auto-updates |
+| **3** | `volt-app` desktop panel rendering `volt-control`, via slot + Electron IPC | new `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | panel UX | panel drives CLI in desktop |
+| **B ◐** | **Branding + desktop distribution** — logo, app name *(done)*; `opencode.ai` constants, Sentry DSN, **code-signing + updater feed + release** *(todo)* | ⚠ `ui` (logo) · ⚠ `desktop` (name) | done: 3 | *(done: logo + name)* · signing certs | ◐ logo + name done; distribution todo |
 | **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
 
 ## Deployment & subdomains (your `infra/`)
@@ -258,3 +262,65 @@ distribution model — was **removed**; superseded by "Volt is a product deploye
 - **Rewrite the backend** — none. Reuse `console-core` (incl. the metered-credit "Zen"/Go billing),
   `packages/llm` (the model gateway), and the usage pipeline **as-is**; only `infra/` config differs
   (your Stripe products, provider keys, domain).
+
+## Decision log
+
+Lightweight ADRs — the load-bearing choices, with what we **rejected**, so they aren't relitigated.
+Newest first.
+
+### D10 — CI + scheduled auto-sync (2026-06-26)
+**Decision:** GitHub Actions enforce the fork invariants (`.github/workflows/volt-ci.yml`) on every
+push/PR; a weekly job (`volt-upstream-sync.yml`) merges `upstream/dev` and opens a PR if clean.
+**Why:** the pre-push hook is bypassable (`--no-verify`); upstream moves ~100 commits/2 days.
+**Rejected:** local-only guards (not enforced); manual-only syncing (drifts fast).
+
+### D9 — Committed-junk guard in check-divergence (2026-06-26)
+**Decision:** `check-divergence` flags `*.bak`/`*.orig`/`*.swp`/`.DS_Store`/… anywhere in the fork's
+files. **Rejected:** gitignoring them (silent; less visible than a guard failure).
+
+### D8 — Sync = `git merge` + `sync.ts`; `export-overlay` removed (2026-06-26)
+**Decision:** one signal-flow command (`sync.ts`) verifies a merge; `merge-upstream.ts` wraps the
+whole flow. **Rejected:** the patch-overlay distribution model (`export-overlay.ts`) — Volt is a
+*deployed product*, not a patch shipped against a pinned opencode release.
+
+### D7 — Monetize by reselling hosted AI subscriptions (opencode Go/Zen-style) (2026-06-26)
+**Decision:** Volt sells **hosted AI access**, reusing the in-repo gateway (`packages/llm`) + billing
+(`console-core`: `UsageTable`/`LiteTable`/Stripe) as-is; the PLC tools stay free.
+**Why:** keeps the backend identical (deploy + config, not a rewrite); the moat is the PLC
+integration, not the AI. **Rejected:** gating the `volt-cli`/bridge by license (would require new
+entitlement code; opencode's app is BYO-key with no gate). **Trade-off:** you front the model cost —
+`LiteTable` limits are the margin throttle.
+
+### D6 — Own the landing page; keep + sync the agent app (2026-06-26)
+**Decision:** `volt-web` is the only frontend Volt fully owns (parallel to `console/app`). The agent
+GUI (`packages/app`/`ui`/`desktop`) is reused and kept in sync — **never forked** — customized only
+via minimal seams. **Rejected:** a monolithic `volt-app` fork of the GUI (forfeits daily upstream
+improvements; permanent re-merge pain).
+
+### D5 — Graphical Volt features via additive hooks; desktop GUI = deliberate seams (2026-06-26)
+**Decision:** TUI panels via `.opencode/plugins/*.tsx` (additive); a desktop panel via one GUI
+`<Slot/>` in `packages/app` (ideally upstreamed) rendering `volt-app`. Logo/app-name = small seams.
+**Why:** the GUI has no plugin hook (verified); spend the seam budget on **generic hooks**, not
+per-feature edits.
+
+### D4 — `volt-control`: one shared CLI/bridge core, two renderers (2026-06-26)
+**Decision:** extract the UI-agnostic core from `volt-vscode` into `volt-control`, rendered by both
+`volt-vscode` (VS Code views) and `volt-app` (Solid panel). **Why:** verified cleanly separable.
+**Rejected:** reimplementing the CLI-driving logic per surface.
+
+### D3 — CLI as a first-class opencode tool + gated bash (2026-06-25)
+**Decision:** expose `volt` via `.opencode/tool/volt.ts` (typed, approval-gated) **and** gated bash.
+**Why:** a custom tool is discoverable by every agent; bash alone relies on prose + the model
+choosing it. **Rejected:** an MCP server (heavier; the CLI is the surface).
+
+### D2 — Eliminate config/test seams via native merge-layers (2026-06-25)
+**Decision:** Volt config lives in fork-owned `.opencode/opencode.json` (opencode deep-merges it over
+a pristine `opencode.jsonc`); turbo tasks in per-package `turbo.json`. **Why:** the two files upstream
+also edits become zero-conflict on merge (6 seams → 4). **Rejected:** a script that re-patches the
+upstream files (fragile; breaks on upstream refactors).
+
+### D1 — Purely additive fork; verifiable loading (2026-06-25)
+**Decision:** Volt only *adds* files / *registers* via hooks / *inserts* minimal seams — never edits
+upstream file contents. Loading is provable (`verify-lsp`/`verify-volt-tool` drive `opencode debug`).
+**Why:** keeps `git merge upstream/dev` near-trivial (proven: 108 commits, zero conflicts).
+`check-divergence` enforces it.
