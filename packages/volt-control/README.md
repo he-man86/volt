@@ -4,12 +4,13 @@ UI-agnostic core that **drives the `volt` CLI / bridge** — `status` / `push` /
 health / workspace detection. It contains **no UI framework code**, so it can be rendered by both
 `volt-vscode` (VS Code tree views) and `volt-app` (a Solid panel in the opencode desktop app).
 
-> **Status — Phase 1a done (primitives extracted).** `cli` · `types` · `workspace` · `gate` ·
-> `health` (+ their unit tests) now live here; `volt-vscode` consumes them via
-> `@opencode-ai/volt-control` (typecheck ✓, 13 tests ✓, extension build ✓).
-> **Next — Phase 1b:** split the UI-agnostic status/command *logic* (`getStatus`/`push`/`pull`/
-> `build`) out of volt-vscode's `state/status.ts` + `commands.ts` (still `vscode`-coupled).
-> Distinct from `@opencode-ai/volt-cli` — that's the CLI *binary*; this *spawns and parses* it.
+> **Status — Phase 1 done.** The full UI-agnostic core lives here: the primitives
+> (`cli` · `types` · `workspace` · `gate` · `health`) **and** the actions
+> (`fetchStatus` · `pull` · `push` · `build` · `init` · `mergeCmd` · `showFile` + the `PullOutcome`/
+> `PushOutcome`/`StatusResult` contracts). `volt-vscode` consumes all of it — no UI logic
+> duplicated (typecheck ✓, 13 tests ✓, extension build ✓).
+> **Next:** `volt-app` renders this same core as a Solid panel (Phase 3, via the GUI `<Slot/>` in
+> Phase 2). Distinct from `@opencode-ai/volt-cli` — that's the CLI *binary*; this *spawns and parses* it.
 
 ```
         @opencode-ai/volt-control   (drives volt CLI/bridge — no UI)

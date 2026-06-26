@@ -2,8 +2,8 @@ import * as vscode from "vscode"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { StatusJson } from "@opencode-ai/volt-control"
-import { readBridgePort, probeHealth, isBridgeOnline, type HealthState } from "@opencode-ai/volt-control"
-import { spawnVolt } from "@opencode-ai/volt-control"
+import { readBridgePort, probeHealth, type HealthState } from "@opencode-ai/volt-control"
+import { fetchStatus } from "@opencode-ai/volt-control"
 import { isMutationInFlight } from "@opencode-ai/volt-control"
 import { isPouFile, readStateMtime } from "@opencode-ai/volt-control"
 
@@ -57,19 +57,17 @@ export class VoltStatus {
 				return
 			}
 
-			const port = this.bridgePort
-			if (port === undefined) { this.statusError = "no bridge port in config"; return }
-
-			const health = await probeHealth(port, 2000)
-			this.health = health
-			if (!isBridgeOnline(health)) { this.statusError = "bridge offline"; return }
-
-			const r = await spawnVolt(this.workspaceRoot, ["status", "--json", "--port", String(port)])
-			if (r.code !== 0) { this.statusError = r.stderr || r.stdout; return }
-
-			const parsed = JSON.parse(r.stdout) as StatusJson
-			this.cached = parsed
-			this.statusError = undefined
+			// UI-agnostic probe + `volt status --json` lives in volt-control. On any
+			// error keep the last good `cached` (just surface the error), matching the
+			// previous behaviour; only a successful fetch replaces it.
+			const res = await fetchStatus(this.workspaceRoot, this.bridgePort)
+			this.health = res.health
+			if (res.status !== undefined) {
+				this.cached = res.status
+				this.statusError = undefined
+			} else {
+				this.statusError = res.error
+			}
 		} catch (err) {
 			this.statusError = err instanceof Error ? err.message : String(err)
 		} finally {

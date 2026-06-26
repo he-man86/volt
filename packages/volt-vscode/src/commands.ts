@@ -1,10 +1,8 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
 import { writeFileSync } from "node:fs"
-import { spawnVolt, spawnVoltBuffer } from "@opencode-ai/volt-control"
-import { withGate } from "@opencode-ai/volt-control"
+import { pull, push, build, init as voltInit, mergeCmd, showFile, readBridgePort } from "@opencode-ai/volt-control"
 import { VoltStatus } from "./state/status.js"
-import { readBridgePort } from "@opencode-ai/volt-control"
 import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges, launchInstall, selectInstance, type TcTargetSel } from "./connector.js"
 import { buildUri } from "./providers/content.js"
 
@@ -19,25 +17,6 @@ const output = (() => {
 
 function logln(msg: string): void {
 	output().appendLine(`[${new Date().toISOString()}] ${msg}`)
-}
-
-// ── The pull/push --json outcome contract (mirror of the CLI) ───────────
-type PullOutcome =
-	| { kind: "ok"; synced: string[] }
-	| { kind: "refused"; reason: string }
-	| { kind: "conflict"; paths: string[] }
-type PushOutcome =
-	| { kind: "ok"; items: string[] }
-	| { kind: "rejected"; reason: string }
-
-function parseJson<T>(stdout: string): T | null {
-	const trimmed = stdout.trim()
-	if (trimmed.length === 0) return null
-	try {
-		return JSON.parse(trimmed) as T
-	} catch {
-		return null
-	}
 }
 
 // ── Workspace selection ─────────────────────────────────────────────────
@@ -80,18 +59,16 @@ function onDiskPath(workspaceRoot: string, rel: string): string {
 
 // ── pull / push with outcome-aware UX ───────────────────────────────────
 async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
-	// Gate + spinner wrap only the CLI run; outcome dialogs run after (see doPush for why).
-	const r = await withGate(workspaceRoot, async () =>
-		vscode.window.withProgress(
-			{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
-			() => spawnVolt(workspaceRoot, ["pull", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot]),
-		),
+	// volt-control.pull takes the gate + parses the outcome; the spinner wraps only
+	// the CLI run, and the outcome dialogs run after (so they never hold the gate).
+	const outcome = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
+		() => pull(workspaceRoot, { force }),
 	)
 	await refreshFor(statuses, workspaceRoot)
-	const outcome = parseJson<PullOutcome>(r.stdout)
-	if (outcome === null) {
-		vscode.window.showErrorMessage(`volt pull failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-		logln(`pull: unparseable output (exit ${r.code}): ${r.stderr}`)
+	if (outcome.kind === "error") {
+		vscode.window.showErrorMessage(`volt pull failed: ${outcome.message}`)
+		logln(`pull: ${outcome.message}`)
 		return
 	}
 	if (outcome.kind === "ok") {
@@ -112,20 +89,17 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 }
 
 async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
-	// The gate + progress spinner wrap ONLY the CLI run. Outcome handling (which may pop a dialog that
-	// awaits a button click) runs AFTER, so a rejected push never leaves the spinner stuck "pending" or
-	// holds the mutation gate — which would wedge the next push.
-	const r = await withGate(workspaceRoot, async () =>
-		vscode.window.withProgress(
-			{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
-			() => spawnVolt(workspaceRoot, ["push", ...(force ? ["--force"] : []), "--json", "--workspace", workspaceRoot]),
-		),
+	// volt-control.push takes the gate around the CLI run; outcome handling (which may
+	// pop a dialog awaiting a click) runs AFTER push() returns — so a rejected push never
+	// leaves the spinner stuck or holds the mutation gate (which would wedge the next push).
+	const outcome = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
+		() => push(workspaceRoot, { force }),
 	)
 	await refreshFor(statuses, workspaceRoot)
-	const outcome = parseJson<PushOutcome>(r.stdout)
-	if (outcome === null) {
-		vscode.window.showErrorMessage(`volt push failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-		logln(`push: unparseable output (exit ${r.code}): ${r.stderr}`)
+	if (outcome.kind === "error") {
+		vscode.window.showErrorMessage(`volt push failed: ${outcome.message}`)
+		logln(`push: ${outcome.message}`)
 		return
 	}
 	if (outcome.kind === "ok") {
@@ -169,7 +143,7 @@ async function openConflicts(workspaceRoot: string, paths: readonly string[]): P
 
 // ── merge ───────────────────────────────────────────────────────────────
 async function runMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string, mergeArgs: string[]): Promise<boolean> {
-	const r = await spawnVolt(workspaceRoot, ["merge", ...mergeArgs, "--workspace", workspaceRoot])
+	const r = await mergeCmd(workspaceRoot, mergeArgs)
 	if (r.code !== 0) {
 		vscode.window.showErrorMessage(`volt merge failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
 		await refreshFor(statuses, workspaceRoot)
@@ -235,7 +209,7 @@ async function discardOutgoing(statuses: Map<string, VoltStatus>, workspaceRoot:
 		"Discard",
 	)
 	if (pick !== "Discard") return
-	const r = await spawnVoltBuffer(workspaceRoot, ["show", "HEAD", rel, "--workspace", workspaceRoot])
+	const r = await showFile(workspaceRoot, "HEAD", rel)
 	if (r.code !== 0) {
 		vscode.window.showErrorMessage(`Couldn't restore ${rel}: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
 		return
@@ -319,10 +293,9 @@ async function doInit(
 	port: number,
 	force: boolean,
 ): Promise<void> {
-	const r = await withGate(workspaceRoot, async () =>
-		await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "volt init" }, async () =>
-			await spawnVolt(workspaceRoot, ["init", "--port", String(port), ...(force ? ["--force"] : []), "--workspace", workspaceRoot]),
-		),
+	const r = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt init" },
+		() => voltInit(workspaceRoot, port, { force }),
 	)
 	if (r.code !== 0) {
 		// init needs a reachable bridge with a project loaded. Offer to bring it up.
@@ -405,7 +378,7 @@ async function selectTwincatProject(): Promise<void> {
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {
-	const r = await spawnVolt(workspaceRoot, ["build", "--workspace", workspaceRoot])
+	const r = await build(workspaceRoot)
 	output().appendLine(r.stdout)
 	if (r.stderr.length > 0) output().appendLine(r.stderr)
 	output().show()
