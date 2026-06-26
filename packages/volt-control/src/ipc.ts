@@ -1,5 +1,6 @@
 import { setBundledCli } from "./cli.js"
 import { fetchStatus, pull, push, build, log, detect, showFile } from "./actions.js"
+import { VOLT_CHANNELS as CH } from "./channels.js"
 
 /** Minimal shape of Electron's `ipcMain` we use — keeps volt-control free of an electron dep. */
 export interface IpcMainLike {
@@ -15,13 +16,13 @@ export interface IpcMainLike {
  */
 export function registerVoltIpcHandlers(ipcMain: IpcMainLike, cliPath?: string): void {
   if (cliPath) setBundledCli(cliPath)
-  ipcMain.handle("volt:detect", (_e, dir: string) => detect(dir))
-  ipcMain.handle("volt:status", (_e, dir: string) => fetchStatus(dir))
-  ipcMain.handle("volt:pull", (_e, dir: string, opts?: { force?: boolean }) => pull(dir, opts))
-  ipcMain.handle("volt:push", (_e, dir: string, opts?: { force?: boolean }) => push(dir, opts))
-  ipcMain.handle("volt:build", (_e, dir: string) => build(dir))
-  ipcMain.handle("volt:log", (_e, dir: string, opts?: { limit?: number }) => log(dir, opts))
-  ipcMain.handle("volt:show", async (_e, dir: string, ref: string, rel: string) => {
+  ipcMain.handle(CH.detect, (_e, dir: string) => detect(dir))
+  ipcMain.handle(CH.status, (_e, dir: string) => fetchStatus(dir))
+  ipcMain.handle(CH.pull, (_e, dir: string, opts?: { force?: boolean }) => pull(dir, opts))
+  ipcMain.handle(CH.push, (_e, dir: string, opts?: { force?: boolean }) => push(dir, opts))
+  ipcMain.handle(CH.build, (_e, dir: string) => build(dir))
+  ipcMain.handle(CH.log, (_e, dir: string, opts?: { limit?: number }) => log(dir, opts))
+  ipcMain.handle(CH.show, async (_e, dir: string, ref: string, rel: string) => {
     const r = await showFile(dir, ref, rel)
     return { stdout: r.stdout.toString("utf-8"), stderr: r.stderr, code: r.code }
   })

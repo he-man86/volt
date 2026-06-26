@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron"
+import { VOLT_CHANNELS as CH } from "@opencode-ai/volt-control/channels" // Volt seam — Node-free channel names
 import type { ElectronAPI, WslServersEvent } from "./types"
 import type { UpdaterState } from "@opencode-ai/app/updater"
 
@@ -122,13 +123,14 @@ const api: ElectronAPI = {
 contextBridge.exposeInMainWorld("api", api)
 
 // Volt seam — see CLAUDE.md "Fork surface". window.volt → volt-control over IPC (handlers in
-// the main process via registerVoltIpcHandlers). Channel names match volt-app/src/ipc.ts.
+// the main process via registerVoltIpcHandlers). Channel names come from the shared, Node-free
+// `@opencode-ai/volt-control/channels` (safe in the sandboxed preload) — one source of truth.
 contextBridge.exposeInMainWorld("volt", {
-  detect: (dir: string) => ipcRenderer.invoke("volt:detect", dir),
-  status: (dir: string) => ipcRenderer.invoke("volt:status", dir),
-  pull: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke("volt:pull", dir, opts),
-  push: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke("volt:push", dir, opts),
-  build: (dir: string) => ipcRenderer.invoke("volt:build", dir),
-  log: (dir: string, opts?: { limit?: number }) => ipcRenderer.invoke("volt:log", dir, opts),
-  show: (dir: string, ref: string, rel: string) => ipcRenderer.invoke("volt:show", dir, ref, rel),
+  detect: (dir: string) => ipcRenderer.invoke(CH.detect, dir),
+  status: (dir: string) => ipcRenderer.invoke(CH.status, dir),
+  pull: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke(CH.pull, dir, opts),
+  push: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke(CH.push, dir, opts),
+  build: (dir: string) => ipcRenderer.invoke(CH.build, dir),
+  log: (dir: string, opts?: { limit?: number }) => ipcRenderer.invoke(CH.log, dir, opts),
+  show: (dir: string, ref: string, rel: string) => ipcRenderer.invoke(CH.show, dir, ref, rel),
 })
