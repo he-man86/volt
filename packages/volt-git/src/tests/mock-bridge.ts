@@ -94,28 +94,26 @@ export class MockBridge implements Remote {
 			return reject("*", "project version mismatch");
 		}
 		for (const op of req.ops) {
-			if (op.op === "pushItem") {
-				const cur = this.items.get(op.name);
+			const cur = this.items.get(op.name);
+			if (op.op === "set") {
 				if (op.ifVersion === null && cur !== undefined) return reject(op.name, "already exists");
 				if (op.ifVersion !== null && (cur === undefined || ver(cur.sourceText) !== op.ifVersion)) return reject(op.name, "version mismatch");
-			} else if (op.op === "deleteItem" || op.op === "renameItem" || op.op === "moveItem") {
-				const cur = this.items.get(op.name);
-				if (cur === undefined || ver(cur.sourceText) !== op.ifVersion) return reject(op.name, "version mismatch");
+			} else if (cur === undefined || ver(cur.sourceText) !== op.ifVersion) {
+				return reject(op.name, "version mismatch"); // deleteItem
 			}
 		}
 		for (const op of req.ops) {
-			if (op.op === "pushItem") this.items.set(op.name, { name: op.name, folder: op.folder ?? "", sourceText: op.sourceText });
-			else if (op.op === "deleteItem") this.items.delete(op.name);
-			else if (op.op === "renameItem") {
-				const it = this.items.get(op.name);
-				if (it !== undefined) {
-					this.items.delete(op.name);
-					this.items.set(op.newName, { ...it, name: op.newName });
-				}
-			} else if (op.op === "moveItem") {
-				const it = this.items.get(op.name);
-				if (it !== undefined) it.folder = op.newFolder;
+			if (op.op === "deleteItem") {
+				this.items.delete(op.name);
+				continue;
 			}
+			// set: declarative final state — rename (drop the old name) → move (folder) → content.
+			const cur = this.items.get(op.name);
+			const finalName = op.toName ?? op.name;
+			const finalFolder = op.toFolder ?? cur?.folder ?? "";
+			const finalText = op.sourceText ?? cur?.sourceText ?? "";
+			if (op.toName !== undefined && op.toName !== op.name) this.items.delete(op.name);
+			this.items.set(finalName, { name: finalName, folder: finalFolder, sourceText: finalText });
 		}
 		return { accepted: true, newProjectVersion: this.projectVersion(), newItems: this.versions() };
 	}

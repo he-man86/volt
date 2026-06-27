@@ -102,16 +102,20 @@ export const FetchResponseSchema = z
 export type FetchResponse = z.infer<typeof FetchResponseSchema>;
 
 // ─── /push ──────────────────────────────────────────────────────────────────
-// One op per affected file. ifVersion: pushItem null = create, string = update; delete/rename/move
-// string = must match current. The whole batch validates atomically against pre-batch state.
-export const PushItemOpSchema = z.object({
-	op: z.literal("pushItem"),
+// One declarative `set` op per changed item: the item named `name` ends up as `toName ?? name`, in
+// `toFolder ?? (current)`, with `sourceText ?? (current)`. Each absent = unchanged. ifVersion: null =
+// create, string = update guard. `delete` is the one distinct verb. The whole batch validates + applies
+// atomically against pre-batch state. (The bridge also accepts the legacy pushItem/rename/move ops and
+// normalizes them to `set`; volt-git only ever emits set/delete.)
+export const SetItemOpSchema = z.object({
+	op: z.literal("set"),
 	name: z.string(),
-	folder: z.string().optional(),
-	sourceText: z.string(),
+	toName: z.string().optional(),
+	toFolder: z.string().optional(),
+	sourceText: z.string().optional(),
 	ifVersion: z.string().nullable(),
 });
-export type PushItemOp = z.infer<typeof PushItemOpSchema>;
+export type SetItemOp = z.infer<typeof SetItemOpSchema>;
 
 export const DeleteItemOpSchema = z.object({
 	op: z.literal("deleteItem"),
@@ -120,28 +124,7 @@ export const DeleteItemOpSchema = z.object({
 });
 export type DeleteItemOp = z.infer<typeof DeleteItemOpSchema>;
 
-export const RenameItemOpSchema = z.object({
-	op: z.literal("renameItem"),
-	name: z.string(),
-	newName: z.string(),
-	ifVersion: z.string(),
-});
-export type RenameItemOp = z.infer<typeof RenameItemOpSchema>;
-
-export const MoveItemOpSchema = z.object({
-	op: z.literal("moveItem"),
-	name: z.string(),
-	newFolder: z.string(),
-	ifVersion: z.string(),
-});
-export type MoveItemOp = z.infer<typeof MoveItemOpSchema>;
-
-export const PushOpSchema = z.discriminatedUnion("op", [
-	PushItemOpSchema,
-	DeleteItemOpSchema,
-	RenameItemOpSchema,
-	MoveItemOpSchema,
-]);
+export const PushOpSchema = z.discriminatedUnion("op", [SetItemOpSchema, DeleteItemOpSchema]);
 export type PushOp = z.infer<typeof PushOpSchema>;
 
 export const PushRequestSchema = z.object({
