@@ -1057,6 +1057,23 @@
         "typescript": "catalog:",
       },
     },
+    "packages/volt-git": {
+      "name": "@opencode-ai/volt-git",
+      "version": "0.1.0",
+      "bin": {
+        "volt-git": "./dist/bin.js",
+      },
+      "dependencies": {
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/volt-lsp-st": {
       "name": "@opencode-ai/volt-lsp",
       "version": "1.15.11",
@@ -2094,6 +2111,8 @@
     "@opencode-ai/volt-cli": ["@opencode-ai/volt-cli@workspace:packages/volt-cli"],
 
     "@opencode-ai/volt-control": ["@opencode-ai/volt-control@workspace:packages/volt-control"],
+
+    "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 
     "@opencode-ai/volt-lsp": ["@opencode-ai/volt-lsp@workspace:packages/volt-lsp-st"],
 

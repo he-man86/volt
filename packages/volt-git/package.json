@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode-ai/volt-git",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Git-native Volt CLI — single-repo pull/push/status for IEC 61131-3 projects (the IDE is a git branch; git does the merge). Built from the ground up beside volt-cli.",
+  "type": "module",
+  "bin": {
+    "volt-git": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
+  }
+}
