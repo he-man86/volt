@@ -17,8 +17,8 @@ const corpus = join(
 )
 mkdirSync(corpus, { recursive: true })
 
-const res = await fetch(`http://127.0.0.1:${port}/raw`)
-if (!res.ok) { console.error(`/raw failed on :${port}: ${res.status}`); process.exit(1) }
+const res = await fetch(`http://127.0.0.1:${port}/debug?xml=1`)
+if (!res.ok) { console.error(`/debug?xml=1 failed on :${port}: ${res.status}`); process.exit(1) }
 const { count, bodies } = (await res.json()) as { count: number; bodies: Record<string, string> }
 
 let written = 0, graphical = 0

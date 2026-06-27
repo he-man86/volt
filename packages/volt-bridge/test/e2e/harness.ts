@@ -32,7 +32,6 @@ export const bridge = {
 	health: (): Promise<any> => get("/health"),
 	instances: (): Promise<any> => get("/instances"),
 	refs: (): Promise<any> => get("/refs"),
-	raw: (): Promise<any> => get("/raw"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => post("/fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => post("/push", req),
 	build: (req: { buildType: "incremental" | "full" } = { buildType: "incremental" }): Promise<any> => post("/build", req),

@@ -6,25 +6,53 @@ using Volt.Bridge.Core.Workspace;
 namespace Volt.Bridge.Core.Sync;
 
 /// <summary>
-/// <c>/debug?name=ITEM</c> (diagnostic, STRICTLY READ-ONLY): the raw IDE tree under a named item — each
-/// node's name, kind code + kind string, and its declaration/implementation text, recursively. With no
-/// <c>name</c> it dumps the whole PLC-project root.
+/// <c>/debug?name=ITEM&amp;xml=1</c> (diagnostic, STRICTLY READ-ONLY) — the one bridge debug endpoint.
+/// Returns <c>{ tree, [count, bodies] }</c>:
+///   • <c>tree</c>: the raw IDE tree under <c>name</c> (whole PLC-project root if omitted) — each node's
+///     name, kind code + kind string, type tags, and declaration/implementation text, recursively.
+///   • <c>count</c> + <c>bodies</c> (only with <c>xml=1</c>): every POU's raw PLCopen XML as a flat
+///     <c>folder/name.ext → xml</c> map — the exact bytes the IDE emits, for corpus capture
+///     (volt-scripts/harvest-corpus.ts). This folds in what used to be a separate <c>/raw</c> endpoint.
 ///
-/// Why this exists: writing a bad COM op (e.g. an unsupported interface-accessor text write) can HARD-CRASH
-/// TwinCAT, which makes "probe the create path by writing" a destructive debug loop. Reading never mutates
-/// the IDE, so this endpoint is the safe alternative: hand-author a correct structure in the IDE (an
-/// INTERFACE with a method + property + get/set), dump its EXACT shape here, then make the create path
-/// reproduce it. Every read is individually guarded so one unreadable node can't abort the dump.
-/// Not part of pull/push.
+/// Why a read-only dump: writing a bad COM op (e.g. an unsupported interface-accessor text write) can
+/// HARD-CRASH TwinCAT, so "probe the create path by writing" is a destructive debug loop. Reading never
+/// mutates the IDE: hand-author a correct structure in the IDE, dump its EXACT shape here, then make the
+/// create path reproduce it. Every read is individually guarded so one unreadable node can't abort the
+/// dump. Not part of pull/push.
 /// </summary>
 public static class DebugService
 {
-    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name)
+    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies)
     {
         ItemRef? found = string.IsNullOrEmpty(name) ? ide.GetPlcProjectRoot() : ide.Lookup(name!);
         if (found is not { } node)
             throw new BridgeException(404, "NOT_FOUND", $"no item named '{name}'");
-        return Dump(ide, node);
+        var result = new Dictionary<string, object?> { ["tree"] = Dump(ide, node) };
+        if (includeBodies)
+        {
+            var bodies = RawBodies(ide);
+            result["count"] = bodies.Count;
+            result["bodies"] = bodies;
+        }
+        return result;
+    }
+
+    /// <summary>Every POU's raw PLCopen XML (graphical bodies) as a flat <c>folder/name.ext → xml</c> map,
+    /// for corpus capture. Per-item guarded so one unexportable POU can't abort the sweep.</summary>
+    private static Dictionary<string, string> RawBodies(IIdeDriver ide)
+    {
+        var bodies = new Dictionary<string, string>();
+        foreach (var it in ide.WalkItems())
+        {
+            if (ItemKind.Map(it.KindCode) is not ("program" or "function" or "function_block")) continue; // only POUs carry graphical bodies
+            string? raw;
+            try { raw = ide.ReadXml(it.Item); } catch { raw = null; }
+            if (string.IsNullOrEmpty(raw)) continue;
+            var ext = (ide.BodyLanguage(it.Item) ?? "st").ToLowerInvariant();   // full name = bare + body-language ext
+            var full = $"{it.Name}.{ext}";
+            bodies[string.IsNullOrEmpty(it.Folder) ? full : $"{it.Folder}/{full}"] = raw!;
+        }
+        return bodies;
     }
 
     private static Dictionary<string, object?> Dump(IIdeDriver ide, ItemRef node)

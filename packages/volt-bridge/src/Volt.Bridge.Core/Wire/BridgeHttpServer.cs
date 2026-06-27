@@ -18,8 +18,8 @@ namespace Volt.Bridge.Core.Wire;
 /// thread via <see cref="IIdeSession.RunOnStaThread{T}"/>, and THIS class is the single error boundary —
 /// services and the driver throw; here is where a throw becomes an HTTP error.
 ///
-/// Endpoints: GET /health, GET /instances, GET /refs, GET /raw, POST /fetch, POST /push, POST /build,
-/// POST /shutdown.
+/// Endpoints: GET /health, GET /instances, GET /refs, POST /fetch, POST /push, POST /build,
+/// POST /shutdown, GET /debug (diagnostic), GET /openapi.yaml + GET /swagger (contract + UI).
 /// </summary>
 public sealed class BridgeHttpServer
 {
@@ -121,11 +121,13 @@ public sealed class BridgeHttpServer
 
             if (_ide.IsDegraded) { WriteError(ctx, 503, "PLC_DEGRADED", _ide.DegradedReason ?? "IDE channel degraded — retry"); return; }
 
-            // Read-only raw-tree dump (diagnostic) — see DebugService. ?name=ITEM, or whole root if omitted.
+            // Read-only diagnostic dump (see DebugService): the IDE tree under ?name=ITEM (whole root if
+            // omitted), plus every POU's raw PLCopen XML when ?xml=1 (for corpus capture).
             if (path == "/debug" && method == "GET")
             {
                 var dbgName = ctx.Request.QueryString["name"];
-                Write(ctx, 200, _ide.RunOnStaThread(() => (object)DebugService.Handle(_ide, dbgName)));
+                var dbgBodies = ctx.Request.QueryString["xml"] is "1" or "true";
+                Write(ctx, 200, _ide.RunOnStaThread(() => (object)DebugService.Handle(_ide, dbgName, dbgBodies)));
                 return;
             }
 
@@ -133,7 +135,6 @@ public sealed class BridgeHttpServer
             switch ($"{method} {path}")
             {
                 case "GET /refs": result = _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide)); break;
-                case "GET /raw": result = _ide.RunOnStaThread(() => (object)RawService.Handle(_ide)); break;
                 case "POST /fetch":
                     var fetchReq = ReadBody<FetchRequest>(ctx) ?? new FetchRequest();
                     result = _ide.RunOnStaThread(() => (object)FetchService.Handle(_ide, fetchReq));
