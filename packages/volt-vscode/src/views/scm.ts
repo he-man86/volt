@@ -119,14 +119,15 @@ function renderGroup(status: StatusJson, idx: number, workspaceRoot: string, dir
 	return names.map((name) => {
 		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
 		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
-		// Both diff the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
-		//   incoming → baseline ↔ BRIDGE (what a pull brings in)
-		//   outgoing → baseline ↔ HEAD   (what a push sends to the IDE)
-		const [right, verb] = dir === "incoming" ? (["BRIDGE", "incoming (IDE)"] as const) : (["HEAD", "outgoing (push)"] as const)
+		// Both diff against the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
+		//   incoming → baseline ↔ BRIDGE            (what a pull brings in)
+		//   outgoing → baseline ↔ your working file (what a push sends — reflects uncommitted edits too)
+		const rightSide = dir === "incoming" ? buildUri(workspaceRoot, "BRIDGE", treePath) : onDisk
+		const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
 		const command: vscode.Command = {
 			command: "vscode.diff",
 			title: "Diff",
-			arguments: [buildUri(workspaceRoot, "VOLTIDE", treePath), buildUri(workspaceRoot, right, treePath), `${name} — ${verb}`],
+			arguments: [buildUri(workspaceRoot, "VOLTIDE", treePath), rightSide, `${name} — ${verb}`],
 		}
 		return { kind: "item" as const, label: treePath, uri: onDisk, group: dir, letter: sub, idx, rel: treePath, tooltip: `${verb} ${sub.toLowerCase()}: ${name}`, command }
 	})

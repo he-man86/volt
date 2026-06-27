@@ -246,6 +246,24 @@ export function diffRefs(root: string, fromRef: string, toRef: string, pathspec:
 	return parseDiffRows(git(["-C", root, "diff", "-M", "--name-status", fromRef, toRef, "--", pathspec]).stdout);
 }
 
+/**
+ * Rename-aware diff of the WORKING TREE (incl. untracked new files) vs a committed ref — the user-facing
+ * view for `status`, so an edit shows as outgoing the moment you save, before any commit (push still diffs
+ * committed trees via diffRefs after auto-commit; this never moves HEAD). Stages the worktree into a
+ * throwaway index seeded from `ref`, then diffs `--cached` with `-M` for renames.
+ */
+export function diffWorktree(root: string, ref: string, pathspec: string): DiffRow[] {
+	const idxDir = mkdtempSync(join(tmpdir(), "voltg-wt-"));
+	try {
+		const env = { GIT_INDEX_FILE: join(idxDir, "index") };
+		git(["-C", root, "read-tree", ref], { env });
+		git(["-C", root, "add", "-A", "--", pathspec], { env });
+		return parseDiffRows(git(["-C", root, "diff", "-M", "--cached", "--name-status", ref, "--", pathspec], { env }).stdout);
+	} finally {
+		rmSync(idxDir, { recursive: true, force: true });
+	}
+}
+
 /** Raw bytes of `<ref>:<repoPath>` (e.g. show a file at HEAD / MERGE_HEAD / a merge-base). */
 export function gitShowBytes(root: string, ref: string, repoPath: string): Buffer | undefined {
 	const r = spawnSync("git", ["-C", root, "show", `${ref}:${repoPath}`], { maxBuffer: 1024 * 1024 * 128 });

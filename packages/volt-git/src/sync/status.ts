@@ -1,12 +1,14 @@
 /**
  * volt-git status — produces the StatusData the text renderer uses, whose StatusJson subset matches
  * @opencode-ai/volt-control's contract exactly (so the desktop panel + vscode parse it unchanged).
- * incoming = bridge vs baseline; outgoing = committed HEAD vs refs/remotes/volt/ide (git diff, item-name keyed —
- * uncommitted edits aren't "outgoing" until committed, the same rule push enforces); merging = MERGE_HEAD.
+ * incoming = bridge-refs vs the sidecar baseline (worktree-independent — the IDE axis). outgoing = the
+ * WORKING TREE vs refs/remotes/volt/ide (item-name keyed), so an edit shows the moment you save — committed
+ * or not, incl. untracked new files. (push still sends committed HEAD after auto-commit; this is the live
+ * view.) merging = MERGE_HEAD present.
  */
 import type { HealthResponse, Remote } from "../bridge/types.js";
 import { configExists, loadConfig, type WorkspaceConfig } from "../config/workspace.js";
-import { diffRefs, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
+import { diffWorktree, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
 import { computeIncoming, countChanges, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
@@ -52,7 +54,7 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 			pathByName[name] = path;
 			bucket.push(name);
 		};
-		for (const row of diffRefs(root, RANGE, "HEAD", "src")) {
+		for (const row of diffWorktree(root, RANGE, "src")) {
 			if (row.kind === "rename") {
 				place(stripSrcPrefix(row.oldPath), outgoing.removed); // a rename surfaces as remove(old) + add(new)
 				place(stripSrcPrefix(row.newPath), outgoing.added);

@@ -367,4 +367,17 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 		const l = await pull(root, bridge);
 		expect(l.kind).toBe("refused");
 	});
+
+	// ── outgoing detection reads the WORKING TREE (the UX fix: an edit shows before commit) ──
+	test("status detects outgoing from the working tree — uncommitted, untracked, AND committed-unpushed", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }, { name: "C.st", sourceText: "c1\n" }]);
+		writeSrc(root, "A.st", "a1\nmine\n"); // (1) uncommitted edit to a tracked file
+		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n"); // (2) untracked new file
+		writeSrc(root, "C.st", "c1\ndone\n"); // (3) committed but NOT pushed
+		commitAll(root, "edit C");
+		const s = await status(root, bridge);
+		expect(s.outgoing.modified).toContain("A.st"); // uncommitted edit shows immediately
+		expect(s.outgoing.added).toContain("NEW.st"); // untracked new file shows
+		expect(s.outgoing.modified).toContain("C.st"); // committed-but-unpushed shows
+	});
 });

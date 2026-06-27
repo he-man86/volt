@@ -13,7 +13,7 @@ graph as `volt/ide` — the IDE *is* a remote you fetch+merge on pull / push to 
 volt-git init     bind to the local bridge + git-init the project + first pull
 volt-git pull     auto-commit local edits → fetch IDE → git merge onto your branch
 volt-git push     auto-commit local edits → push HEAD → land refs/remotes/volt/ide on HEAD
-volt-git status   incoming (bridge) + outgoing (committed HEAD vs the ref) + merge state
+volt-git status   incoming (bridge) + outgoing (working tree vs the ref) + merge state
 ```
 
 **Simple flow:** `volt push` and `volt pull` are the only commands you need — each auto-commits your

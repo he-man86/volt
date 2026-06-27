@@ -283,9 +283,11 @@ graph as `volt/ide`). The engine reads/writes **committed git state (HEAD), neve
 **auto-commits** to get there: `volt push` commits any working changes then lands `volt/ide` **on HEAD**
 (exactly `git push` → `origin/main == main`); `volt pull` commits any working changes then `git merge
 volt/ide`. So the day-to-day flow is just **`volt push` / `volt pull`** — no manual `git commit`. A clean
-tree commits nothing, so committing by hand first keeps full control of message/granularity. `status`/diff
-compare `refs/remotes/volt/ide → HEAD`; the diff surface compares both directions against this baseline
-(incoming = baseline↔IDE, outgoing = baseline↔HEAD).
+tree commits nothing, so committing by hand first keeps full control of message/granularity. The *view*
+(`status` + the diff tab) reads the **working tree**, though, so an edit shows as outgoing the moment you
+save — committed or not. So: sync follows your commits, the view follows your files. The diff surface
+compares both directions against the baseline (incoming = baseline↔live IDE, outgoing = baseline↔your
+working file).
 **Why:** it makes the whole thing a textbook git remote — the graph shows your branch vs the IDE, `push`/
 `pull` semantics transfer directly, `volt/ide` stays local (remote-tracking refs aren't pushed to origin),
 and auto-commit collapses the workflow to two commands. Operating on committed HEAD gives one unambiguous
