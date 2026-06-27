@@ -1,9 +1,12 @@
 /**
  * volt-git show <ref> <src-relative-path> → raw file bytes at a ref. Used by the vscode diff/merge
- * editor + file-restore. Refs: HEAD / any git ref, VOLTIDE (the last-synced IDE baseline = refs/remotes/volt/ide,
- * the baseline both the incoming + outgoing diffs compare against), the merge sides (MERGE_OURS=HEAD,
- * MERGE_THEIRS=MERGE_HEAD, MERGE_BASE=merge-base), and BRIDGE (the live IDE item).
+ * editor + file-restore. Refs: HEAD / any git ref; VOLTIDE (the last-synced IDE baseline =
+ * refs/remotes/volt/ide — what both diffs compare against); WORKSPACE (the live working file — the
+ * outgoing diff's "mine" side, so an uncommitted edit shows); the merge sides (MERGE_OURS=HEAD,
+ * MERGE_THEIRS=MERGE_HEAD, MERGE_BASE=merge-base); and BRIDGE (the live IDE item).
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Remote } from "./bridge/types.js";
 import { gitShowBytes, mergeBase } from "./git/plumbing.js";
 import { fullNameFromPath } from "./registry/extensions.js";
@@ -17,6 +20,10 @@ export async function show(root: string, bridge: Remote, ref: string, rel: strin
 		const resp = await bridge.fetchChanges({ knownItems: { [name]: "" }, onlyItems: [name] });
 		const item = resp.changed.find((i) => i.name === name);
 		return item !== undefined ? Buffer.from(item.sourceText, "utf-8") : { error: `bridge has no item ${name}` };
+	}
+	if (ref === "WORKSPACE") {
+		const p = join(root, SRC_DIR, rel);
+		return existsSync(p) ? readFileSync(p) : { error: `${rel} is not in the workspace` };
 	}
 	const gitRef =
 		ref === "VOLTIDE" ? RANGE

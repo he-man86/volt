@@ -120,9 +120,9 @@ function renderGroup(status: StatusJson, idx: number, workspaceRoot: string, dir
 		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
 		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
 		// Both diff against the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
-		//   incoming → baseline ↔ BRIDGE            (what a pull brings in)
-		//   outgoing → baseline ↔ your working file (what a push sends — reflects uncommitted edits too)
-		const rightSide = dir === "incoming" ? buildUri(workspaceRoot, "BRIDGE", treePath) : onDisk
+		//   incoming → baseline ↔ BRIDGE    (the live IDE — what a pull brings in)
+		//   outgoing → baseline ↔ WORKSPACE (your live working file — reflects uncommitted edits)
+		const rightSide = buildUri(workspaceRoot, dir === "incoming" ? "BRIDGE" : "WORKSPACE", treePath)
 		const verb = dir === "incoming" ? "incoming (IDE)" : "outgoing (push)"
 		const command: vscode.Command = {
 			command: "vscode.diff",

@@ -169,14 +169,14 @@ suite("live: workspace → IDE (push)", () => {
 		expect((await pushCommitted()).kind).toBe("ok")
 		expect(await refsHas(`${n}.st`)).toBe(false)
 	})
-	it("outgoing diff: VOLTIDE = last pushed, HEAD = my new (unpushed) commit", async () => {
+	it("outgoing diff: VOLTIDE = last pushed, WORKSPACE = my live (uncommitted) edit", async () => {
 		const n = `${PREFIX}_outdiff`
 		writeWs(`${n}.st`, fb(n, "n := 1;")); expect((await pushCommitted()).kind).toBe("ok") // pushed → volt/ide = HEAD
-		writeWs(`${n}.st`, fb(n, "n := 222;")); commit("local edit, not pushed") // main moves ahead of volt/ide
+		writeWs(`${n}.st`, fb(n, "n := 222;")) // edited, NOT committed — the real UX scenario
 		const base = await show(ws, bridge, "VOLTIDE", `${n}.st`)
-		const head = await show(ws, bridge, "HEAD", `${n}.st`)
-		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // last pushed
-		expect(Buffer.isBuffer(head) ? head.toString("utf8") : "").toContain("n := 222;") // my unpushed edit
+		const work = await show(ws, bridge, "WORKSPACE", `${n}.st`)
+		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // left = last pushed baseline
+		expect(Buffer.isBuffer(work) ? work.toString("utf8") : "").toContain("n := 222;") // right = my live edit (no commit)
 	})
 	it("build: delegates to the live IDE and returns a result", async () => {
 		const r = await build(bridge, false)

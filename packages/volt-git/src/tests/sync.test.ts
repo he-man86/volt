@@ -24,6 +24,7 @@ const headParents = (root: string): string[] => git(root, "log", "-1", "--format
 const srcFile = (root: string, rel: string): string => join(root, "src", rel);
 const readSrc = (root: string, rel: string): string => readFileSync(srcFile(root, rel), "utf8");
 const writeSrc = (root: string, rel: string, content: string): void => writeFileSync(srcFile(root, rel), content);
+const buf = (r: Buffer | { error: string }): string => (Buffer.isBuffer(r) ? r.toString("utf8") : `<error: ${r.error}>`);
 
 let root: string;
 beforeEach(() => {
@@ -379,5 +380,19 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 		expect(s.outgoing.modified).toContain("A.st"); // uncommitted edit shows immediately
 		expect(s.outgoing.added).toContain("NEW.st"); // untracked new file shows
 		expect(s.outgoing.modified).toContain("C.st"); // committed-but-unpushed shows
+	});
+
+	// ── the diff TABS' content (what each side of the diff actually renders) ──
+	test("diff content: outgoing = VOLTIDE↔WORKSPACE (shows a live edit); incoming = VOLTIDE↔BRIDGE", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "base\n" }, { name: "B.st", sourceText: "b\n" }]);
+		// OUTGOING — edit A but do NOT commit. The diff is baseline ↔ working file.
+		writeSrc(root, "A.st", "base\nmine\n");
+		expect(buf(await show(root, bridge, "VOLTIDE", "A.st"))).toBe("base\n"); // left = last synced
+		expect(buf(await show(root, bridge, "WORKSPACE", "A.st"))).toBe("base\nmine\n"); // right = my LIVE uncommitted edit
+		expect(buf(await show(root, bridge, "HEAD", "A.st"))).toBe("base\n"); // HEAD = committed — why VOLTIDE↔HEAD was empty
+		// INCOMING — the IDE changes B. The diff is baseline ↔ live IDE.
+		bridge.set("B.st", "b\nide\n");
+		expect(buf(await show(root, bridge, "VOLTIDE", "B.st"))).toBe("b\n"); // left = last synced
+		expect(buf(await show(root, bridge, "BRIDGE", "B.st"))).toBe("b\nide\n"); // right = live IDE
 	});
 });
