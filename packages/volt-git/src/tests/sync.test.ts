@@ -191,4 +191,14 @@ describe("volt-git sync", () => {
 		expect(keys(refs.items)).toEqual(["B.st"]);
 		expect(refs.folders["B.st"]).toBe("F2");
 	});
+
+	test("14. a brand-new (untracked, never git-added) file is pushed as a create", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n"); // never `git add`ed
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("ok");
+		const setOp = bridge.pushCalls[0]!.ops.find((o) => o.op === "set" && o.name === "NEW.st");
+		expect(setOp).toMatchObject({ op: "set", name: "NEW.st", ifVersion: null }); // create
+		expect(keys((await bridge.getRefs()).items)).toContain("NEW.st");
+	});
 });

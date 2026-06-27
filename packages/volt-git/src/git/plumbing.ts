@@ -207,9 +207,7 @@ export type DiffRow =
 	| { kind: "add" | "modify" | "delete"; path: string }
 	| { kind: "rename"; oldPath: string; newPath: string; identical: boolean };
 
-/** Rename-aware diff (`-M`): worktree vs ref. `identical` = R100 (pure move/rename, content unchanged). */
-export function diffRows(root: string, ref: string, pathspec: string): DiffRow[] {
-	const out = git(["-C", root, "diff", "-M", "--name-status", ref, "--", pathspec]).stdout;
+function parseDiffRows(out: string): DiffRow[] {
 	const rows: DiffRow[] = [];
 	for (const line of out.split("\n")) {
 		if (line.length === 0) continue;
@@ -222,6 +220,25 @@ export function diffRows(root: string, ref: string, pathspec: string): DiffRow[]
 		else rows.push({ kind: "modify", path: parts[1]! });
 	}
 	return rows;
+}
+
+/**
+ * Rename-aware diff of the **working tree** (INCLUDING untracked new files) vs a ref. Plain
+ * `git diff <ref>` only sees tracked files, so a freshly-created `.st` would be invisible to push —
+ * we stage the worktree into a throwaway index (seeded from the ref) and diff that, with `-M` for
+ * renames. `identical` = R100 (pure move/rename, content unchanged).
+ */
+export function diffRows(root: string, ref: string, pathspec: string): DiffRow[] {
+	const idxDir = mkdtempSync(join(tmpdir(), "voltg-wt-"));
+	const indexFile = join(idxDir, "index");
+	try {
+		const env = { GIT_INDEX_FILE: indexFile };
+		git(["-C", root, "read-tree", ref], { env }); // seed the temp index with the ref's tree
+		git(["-C", root, "add", "-A", "--", pathspec], { env }); // stage the worktree (incl untracked) into it
+		return parseDiffRows(git(["-C", root, "diff", "-M", "--cached", "--name-status", ref, "--", pathspec], { env }).stdout);
+	} finally {
+		rmSync(idxDir, { recursive: true, force: true });
+	}
 }
 
 /** Raw bytes of `<ref>:<repoPath>` (e.g. show a file at HEAD / MERGE_HEAD / a merge-base). */
