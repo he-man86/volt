@@ -112,7 +112,7 @@ const checkpoint = (): void => {
 }
 
 // Push and pull are tested in SEPARATE workspaces on purpose: `push` records the workspace's bytes into
-// refs/volt/ide, while `pull` re-materializes every item from the IDE — so a workspace that has pushed
+// refs/remotes/volt/ide, while `pull` re-materializes every item from the IDE — so a workspace that has pushed
 // original bytes and then pulls would try to 3-way-merge original-vs-materialized. Each block stays
 // internally consistent (push = workspace bytes; pull = IDE bytes), which is exactly real usage.
 suite("live: workspace → IDE (push)", () => {
@@ -201,7 +201,7 @@ suite("live: IDE → workspace + merge + git", () => {
 		const n = `${PREFIX}_diffbase`
 		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n, "n := 1;") })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
-		// the IDE changes it again → incoming. VOLTIDE (refs/volt/ide) is the synced baseline, NOT the live IDE.
+		// the IDE changes it again → incoming. VOLTIDE (refs/remotes/volt/ide) is the synced baseline, NOT the live IDE.
 		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 999;") })
 		const base = await show(ws, bridge, "VOLTIDE", `${n}.st`)
 		const live = await show(ws, bridge, "BRIDGE", `${n}.st`)

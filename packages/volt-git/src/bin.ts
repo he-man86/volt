@@ -56,7 +56,7 @@ const USAGE = `volt <command> [args] — git-native Volt CLI
 
   init     bind to the bridge, git-init the project, first pull
   pull     fetch the IDE → git merge into your branch       [--force] [--dry-run]
-  push     workspace → IDE → fast-forward refs/volt/ide      [--force] [--dry-run] [--force-with-lease=<v>]
+  push     workspace → IDE → fast-forward refs/remotes/volt/ide      [--force] [--dry-run] [--force-with-lease=<v>]
   status   incoming / outgoing / merge state                [--json]
   build    build via the IDE; returns diagnostics            [--full] [--json]
   log      the IDE-sync history                              [--json] [--limit N]

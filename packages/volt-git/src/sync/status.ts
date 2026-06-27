@@ -1,7 +1,7 @@
 /**
  * volt-git status — produces the StatusData the text renderer uses, whose StatusJson subset matches
  * @opencode-ai/volt-control's contract exactly (so the desktop panel + vscode parse it unchanged).
- * incoming = bridge vs baseline; outgoing = committed HEAD vs refs/volt/ide (git diff, item-name keyed —
+ * incoming = bridge vs baseline; outgoing = committed HEAD vs refs/remotes/volt/ide (git diff, item-name keyed —
  * uncommitted edits aren't "outgoing" until committed, the same rule push enforces); merging = MERGE_HEAD.
  */
 import type { HealthResponse, Remote } from "../bridge/types.js";

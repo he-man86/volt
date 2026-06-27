@@ -1,6 +1,6 @@
 /**
  * Workspace config — the bridge binding (which bridge + which IDE project this workspace is linked to).
- * Volt's machine-local state lives INSIDE the repo at `.git/volt/` — right next to the `refs/volt/ide`
+ * Volt's machine-local state lives INSIDE the repo at `.git/volt/` — right next to the `refs/remotes/volt/ide`
  * ref it already keeps there — so a Volt workspace has no visible `.volt/` directory. The git-native
  * sidecar (`.git/volt/ide-refs.json`) lives alongside the config but is owned by sync/refs.ts.
  */

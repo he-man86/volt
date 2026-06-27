@@ -1,6 +1,6 @@
 /**
  * volt-git show <ref> <src-relative-path> → raw file bytes at a ref. Used by the vscode diff/merge
- * editor + file-restore. Refs: HEAD / any git ref, VOLTIDE (the last-synced IDE baseline = refs/volt/ide,
+ * editor + file-restore. Refs: HEAD / any git ref, VOLTIDE (the last-synced IDE baseline = refs/remotes/volt/ide,
  * the baseline both the incoming + outgoing diffs compare against), the merge sides (MERGE_OURS=HEAD,
  * MERGE_THEIRS=MERGE_HEAD, MERGE_BASE=merge-base), and BRIDGE (the live IDE item).
  */

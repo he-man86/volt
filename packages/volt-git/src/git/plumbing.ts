@@ -1,6 +1,6 @@
 /**
  * git plumbing — the only place we shell out to `git`. Two families:
- *   • object-store ops take the absolute **git dir** (build the refs/volt/ide tree in the object DB)
+ *   • object-store ops take the absolute **git dir** (build the refs/remotes/volt/ide tree in the object DB)
  *   • worktree ops take the project **root** (status/merge/diff need the working tree)
  *
  * IDE commits use a FIXED author/committer + epoch so the same IDE state yields the same SHA
@@ -224,7 +224,7 @@ function parseDiffRows(out: string): DiffRow[] {
 
 /**
  * Rename-aware name-status diff between two committed refs (`-M` for renames). Both sides are commits,
- * never the working tree: volt diffs git history (refs/volt/ide → HEAD), so only committed work syncs to
+ * never the working tree: volt diffs git history (refs/remotes/volt/ide → HEAD), so only committed work syncs to
  * the IDE — the worktree is the user's editing surface, the same way `git push` only sends commits.
  * `identical` = R100 (pure move/rename, content unchanged).
  */
@@ -232,7 +232,7 @@ export function diffRefs(root: string, fromRef: string, toRef: string, pathspec:
 	return parseDiffRows(git(["-C", root, "diff", "-M", "--name-status", fromRef, toRef, "--", pathspec]).stdout);
 }
 
-/** Tree SHA of a commit-ish (`<rev>^{tree}`) — the committed tree we mirror to refs/volt/ide on push. */
+/** Tree SHA of a commit-ish (`<rev>^{tree}`) — the committed tree we mirror to refs/remotes/volt/ide on push. */
 export function treeOf(root: string, rev: string): string {
 	return git(["-C", root, "rev-parse", `${rev}^{tree}`]).stdout.trim();
 }

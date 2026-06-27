@@ -89,7 +89,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			}
 
 			// Both are the IDE axis git's UI can't show — each diffs against the last-synced baseline
-			// (refs/volt/ide): incoming = baseline ↔ live IDE (what pull brings), outgoing = baseline ↔
+			// (refs/remotes/volt/ide): incoming = baseline ↔ live IDE (what pull brings), outgoing = baseline ↔
 			// HEAD (what push sends). (Source Control shows working-vs-HEAD — a different, git-side axis.)
 			const inc = changeCount(s.status.incoming)
 			if (inc > 0) nodes.push({ kind: "group", label: "Incoming (IDE → pull)", group: "incoming", idx, count: inc })
@@ -119,7 +119,7 @@ function renderGroup(status: StatusJson, idx: number, workspaceRoot: string, dir
 	return names.map((name) => {
 		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
 		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
-		// Both diff the last-synced baseline (VOLTIDE = refs/volt/ide):
+		// Both diff the last-synced baseline (VOLTIDE = refs/remotes/volt/ide):
 		//   incoming → baseline ↔ BRIDGE (what a pull brings in)
 		//   outgoing → baseline ↔ HEAD   (what a push sends to the IDE)
 		const [right, verb] = dir === "incoming" ? (["BRIDGE", "incoming (IDE)"] as const) : (["HEAD", "outgoing (push)"] as const)

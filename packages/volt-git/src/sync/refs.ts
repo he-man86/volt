@@ -1,7 +1,9 @@
 /**
- * refs/volt/ide — the live IDE modelled as a hidden ref inside the project repo. Each commit's tree is
- * the user's branch tree with ONLY `src/` swapped for the IDE's state, so `git merge refs/volt/ide`
- * never touches the scaffold. The optimistic-concurrency baseline (what the IDE last had) lives in the
+ * refs/remotes/volt/ide — the live IDE modelled as a git REMOTE-tracking branch, so it shows in the
+ * graph as `volt/ide` (the IDE is literally a remote you fetch+merge on pull / push to on push). Each
+ * commit's tree is the user's branch tree with ONLY `src/` swapped for the IDE's state, so the merge
+ * never touches the scaffold. Living under refs/remotes/ means it's visible locally but never pushed to
+ * a real origin. The optimistic-concurrency baseline (what the IDE last had) lives in the
  * `.git/volt/ide-refs.json` sidecar (machine-local, inside `.git` so git never tracks it).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,7 +13,7 @@ import type { MaterializedFile } from "../translate/materialize.js";
 import { SRC_DIR } from "../workspace/files.js";
 import { workspacePaths } from "../config/workspace.js";
 
-export const RANGE = "refs/volt/ide";
+export const RANGE = "refs/remotes/volt/ide";
 
 export function voltIdeHead(gitDir: string): string | undefined {
 	return resolveRef(gitDir, RANGE);

@@ -1,6 +1,6 @@
 /**
- * volt-git push — diff the committed branch (HEAD) against the IDE baseline (refs/volt/ide), send the
- * changes to the bridge (with ifVersion optimistic-concurrency guards), then fast-forward refs/volt/ide
+ * volt-git push — diff the committed branch (HEAD) against the IDE baseline (refs/remotes/volt/ide), send the
+ * changes to the bridge (with ifVersion optimistic-concurrency guards), then fast-forward refs/remotes/volt/ide
  * to HEAD's tree. Like `git push`, it operates on your COMMITTED history — a dirty src/ tree is refused
  * so uncommitted edits are never silently skipped. The worktree is the editing surface, git is the truth.
  */
@@ -125,7 +125,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 		return { kind: "rejected", reason: `the bridge rejected the push:\n${lines}` };
 	}
 
-	// Advance the baseline + fast-forward refs/volt/ide to HEAD's tree (what we just pushed == the IDE).
+	// Advance the baseline + fast-forward refs/remotes/volt/ide to HEAD's tree (what we just pushed == the IDE).
 	const after = await bridge.getRefs();
 	saveIdeRefs(root, { projectVersion: after.projectVersion, items: after.items, folders: after.folders });
 	updateRef(gitDir, RANGE, commitVoltIde(gitDir, treeOf(root, "HEAD"), voltHead, `volt: pushed → IDE @ ${after.projectVersion}`));

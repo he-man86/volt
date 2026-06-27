@@ -1,5 +1,5 @@
 /**
- * volt-git pull — fetch the IDE, commit it onto refs/volt/ide, then `git merge` into the current branch.
+ * volt-git pull — fetch the IDE, commit it onto refs/remotes/volt/ide, then `git merge` into the current branch.
  *
  *   no local edits  → fast-forward (no merge commit)
  *   local edits      → one merge commit (or conflict markers)
