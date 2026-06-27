@@ -44,7 +44,7 @@ describe(`endpoints / health+build+contract (${BASE})`, () => {
 				expect(yaml).toContain(`${s}:`)
 		})
 		it("/refs returns items as a list", async () => {
-			const refs = await (await fetch(`${BASE}/refs`)).json()
+			const refs = (await (await fetch(`${BASE}/refs`)).json()) as { items: unknown[] }
 			expect(Array.isArray(refs.items)).toBe(true)
 		})
 		it("/swagger serves the UI", async () => {
