@@ -84,6 +84,12 @@ const rmWs = (rel: string): void => rmSync(wsPath(rel), { force: true })
 
 const fb = (name: string, body = "n := n + 1;"): string => `FUNCTION_BLOCK ${name}\nVAR\n\tn : INT;\nEND_VAR\n\n${body}\nEND_FUNCTION_BLOCK\n`
 
+/** push now operates on the committed branch — commit the worktree first, then push (commit-before-push). */
+const pushCommitted = async () => {
+	commit("wip")
+	return push(ws, bridge)
+}
+
 async function freshWorkspace(): Promise<void> {
 	bridge = new BridgeClient({ port: PORT })
 	await purge() // clear strays from an interrupted run / the previous block
@@ -121,42 +127,42 @@ suite("live: workspace → IDE (push)", () => {
 		expect((await pull(ws, bridge)).kind).toBe("ok")
 	})
 	it("push with no edits sends nothing", async () => {
-		expect((await push(ws, bridge)).kind).toBe("ok")
+		expect((await pushCommitted()).kind).toBe("ok")
 	})
 
 	it("create: new POU → push → exists in the IDE", async () => {
 		const n = `${PREFIX}_create`
 		writeWs(`${n}.st`, fb(n))
-		expect((await push(ws, bridge)).kind).toBe("ok")
+		expect((await pushCommitted()).kind).toBe("ok")
 		expect(await refsHas(`${n}.st`)).toBe(true)
 	})
 	it("edit: change a POU → push → its version moves", async () => {
 		const n = `${PREFIX}_edit`
-		writeWs(`${n}.st`, fb(n)); expect((await push(ws, bridge)).kind).toBe("ok")
+		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok")
 		const v1 = (await refs()).items[`${n}.st`]
-		writeWs(`${n}.st`, fb(n, "n := n + 99;")); expect((await push(ws, bridge)).kind).toBe("ok")
+		writeWs(`${n}.st`, fb(n, "n := n + 99;")); expect((await pushCommitted()).kind).toBe("ok")
 		expect((await refs()).items[`${n}.st`]).not.toBe(v1)
 	})
 	it("rename + edit: git mv + header change → push → renamed in the IDE", async () => {
 		const a = `${PREFIX}_ren_a`, b = `${PREFIX}_ren_b`
-		writeWs(`${a}.st`, fb(a)); expect((await push(ws, bridge)).kind).toBe("ok"); commit("create ren")
+		writeWs(`${a}.st`, fb(a)); expect((await pushCommitted()).kind).toBe("ok"); commit("create ren")
 		mvWs(`${a}.st`, `${b}.st`); writeWs(`${b}.st`, fb(b))
-		expect((await push(ws, bridge)).kind).toBe("ok")
+		expect((await pushCommitted()).kind).toBe("ok")
 		expect(await refsHas(`${b}.st`)).toBe(true)
 		expect(await refsHas(`${a}.st`)).toBe(false)
 	})
 	it("move: into a folder → push → folder changes in the IDE", async () => {
 		const n = `${PREFIX}_move`
-		writeWs(`${n}.st`, fb(n)); expect((await push(ws, bridge)).kind).toBe("ok"); commit("create move")
+		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create move")
 		mvWs(`${n}.st`, `RtFolder/${n}.st`)
-		expect((await push(ws, bridge)).kind).toBe("ok")
+		expect((await pushCommitted()).kind).toBe("ok")
 		expect(await refsFolder(`${n}.st`)).toBe("RtFolder")
 	})
 	it("delete: rm → push → gone from the IDE", async () => {
 		const n = `${PREFIX}_del`
-		writeWs(`${n}.st`, fb(n)); expect((await push(ws, bridge)).kind).toBe("ok"); commit("create del")
+		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create del")
 		rmWs(`${n}.st`)
-		expect((await push(ws, bridge)).kind).toBe("ok")
+		expect((await pushCommitted()).kind).toBe("ok")
 		expect(await refsHas(`${n}.st`)).toBe(false)
 	})
 })

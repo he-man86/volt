@@ -92,6 +92,7 @@ describe("volt-git sync", () => {
 	test("6. push sends workspace edits to the bridge + ff's volt/ide", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
 		writeSrc(root, "A.st", "a1\nmine\n");
+		commitAll(root, "edit A");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		if (r.kind === "ok") expect(r.items).toContain("A.st");
@@ -105,6 +106,7 @@ describe("volt-git sync", () => {
 	test("7. read-only items can't be pushed", async () => {
 		const bridge = await setup([{ name: "Lib.library", sourceText: "ref\n" }]);
 		writeSrc(root, "Lib.library", "ref\nedited\n");
+		commitAll(root, "edit lib");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason).toContain("read-only");
@@ -113,6 +115,7 @@ describe("volt-git sync", () => {
 	test("8. push is rejected when the IDE drifted", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
 		writeSrc(root, "A.st", "a1\nmine\n");
+		commitAll(root, "edit A");
 		bridge.set("A.st", "a1\nide-moved\n"); // drift after the last sync
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
@@ -192,13 +195,22 @@ describe("volt-git sync", () => {
 		expect(refs.folders["B.st"]).toBe("F2");
 	});
 
-	test("14. a brand-new (untracked, never git-added) file is pushed as a create", async () => {
+	test("14. a brand-new file, once committed, is pushed as a create", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
-		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n"); // never `git add`ed
+		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n");
+		commitAll(root, "add NEW");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		const setOp = bridge.pushCalls[0]!.ops.find((o) => o.op === "set" && o.name === "NEW.st");
 		expect(setOp).toMatchObject({ op: "set", name: "NEW.st", ifVersion: null }); // create
 		expect(keys((await bridge.getRefs()).items)).toContain("NEW.st");
+	});
+
+	test("15. commit-before-push guard refuses a dirty tree (symmetric with pull)", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
+		writeSrc(root, "A.st", "a1\nuncommitted\n"); // dirty, not committed
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("rejected");
+		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("commit");
 	});
 });

@@ -1,12 +1,12 @@
 /**
  * volt-git status — produces the StatusData the text renderer uses, whose StatusJson subset matches
  * @opencode-ai/volt-control's contract exactly (so the desktop panel + vscode parse it unchanged).
- * incoming = bridge vs baseline; outgoing = workspace vs refs/volt/ide (git diff, item-name keyed);
- * merging = MERGE_HEAD present.
+ * incoming = bridge vs baseline; outgoing = committed HEAD vs refs/volt/ide (git diff, item-name keyed —
+ * uncommitted edits aren't "outgoing" until committed, the same rule push enforces); merging = MERGE_HEAD.
  */
 import type { HealthResponse, Remote } from "../bridge/types.js";
 import { configExists, loadConfig, type WorkspaceConfig } from "../config/workspace.js";
-import { diffRows, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
+import { diffRefs, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
 import { computeIncoming, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
@@ -52,7 +52,7 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 			pathByName[name] = path;
 			bucket.push(name);
 		};
-		for (const row of diffRows(root, RANGE, "src")) {
+		for (const row of diffRefs(root, RANGE, "HEAD", "src")) {
 			if (row.kind === "rename") {
 				place(stripSrcPrefix(row.oldPath), outgoing.removed); // a rename surfaces as remove(old) + add(new)
 				place(stripSrcPrefix(row.newPath), outgoing.added);

@@ -3,10 +3,9 @@
  * `.gitattributes`. All paths here are **src-relative** (e.g. "POUs/FB_Motor.st"); the on-disk
  * location is `<root>/src/<path>`.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { gitattributesContent, isTrackedPath } from "../registry/extensions.js";
-import { normalizeLineEndings } from "../translate/materialize.js";
+import { gitattributesContent } from "../registry/extensions.js";
 
 export const SRC_DIR = "src";
 
@@ -24,27 +23,6 @@ export function writeSrcFiles(root: string, files: readonly SrcFile[]): void {
 		mkdirSync(dirname(abs), { recursive: true });
 		writeFileSync(abs, f.content);
 	}
-}
-
-/** All tracked files under `src/`, content normalized to LF. */
-export function listSrcFiles(root: string): SrcFile[] {
-	const base = join(root, SRC_DIR);
-	if (!existsSync(base)) return [];
-	const out: SrcFile[] = [];
-	const walk = (dir: string, rel: string): void => {
-		for (const entry of readdirSync(dir)) {
-			const abs = join(dir, entry);
-			const r = rel.length > 0 ? `${rel}/${entry}` : entry;
-			if (statSync(abs).isDirectory()) walk(abs, r);
-			else if (isTrackedPath(r)) out.push({ path: r, content: normalizeLineEndings(readFileSync(abs, "utf-8")) });
-		}
-	};
-	walk(base, "");
-	return out;
-}
-
-export function readSrcFile(root: string, rel: string): string {
-	return normalizeLineEndings(readFileSync(join(root, SRC_DIR, rel), "utf-8"));
 }
 
 export function removeSrcFiles(root: string, paths: readonly string[]): void {
