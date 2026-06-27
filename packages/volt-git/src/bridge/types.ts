@@ -41,6 +41,8 @@ export const BridgeDiagnosticSchema = z
 		severity: z.enum(["error", "warning", "info"]),
 		message: z.string().min(1),
 		line: z.number().int().nonnegative(),
+		/** 1-based column; some bridges (live TC) supply it. 0/absent when not. */
+		column: z.number().int().nullish(),
 		object: z.string().regex(OBJECT_RE).nullish(),
 		section: z.enum(["decl", "impl"]).nullish(),
 	})

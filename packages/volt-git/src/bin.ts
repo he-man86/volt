@@ -5,6 +5,7 @@
  */
 import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
+import { build } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
 import { listLog, resolveGitDir } from "./git/plumbing.js";
 import { init } from "./init.js";
@@ -14,7 +15,7 @@ import { RANGE } from "./sync/refs.js";
 import { status } from "./sync/status.js";
 import type { ChangeSet } from "./sync/types.js";
 
-const VALUE_FLAGS = new Set(["--workspace", "--port"]);
+const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit"]);
 
 function parseArgs(argv: string[]) {
 	const flags = new Set<string>();
@@ -32,6 +33,7 @@ function parseArgs(argv: string[]) {
 		verb: positional[0],
 		operands: positional.slice(1),
 		has: (f: string) => flags.has(f),
+		value: (f: string) => values[f],
 		workspace: values["--workspace"] ?? process.env.VOLT_WORKSPACE ?? process.cwd(),
 		port: portStr !== undefined && portStr !== "" ? Number(portStr) : undefined,
 	};
@@ -76,6 +78,10 @@ async function main(): Promise<number> {
 		}
 		case "pull": {
 			const r = await pull(root, bridge, { dryRun: args.has("--dry-run") });
+			if (args.has("--json")) {
+				process.stdout.write(`${JSON.stringify(r)}\n`);
+				return r.kind === "ok" ? 0 : 2;
+			}
 			if (r.kind === "refused") {
 				console.error(r.reason);
 				return 1;
@@ -90,12 +96,26 @@ async function main(): Promise<number> {
 		}
 		case "push": {
 			const r = await push(root, bridge, { force: args.has("--force"), dryRun: args.has("--dry-run") });
+			if (args.has("--json")) {
+				process.stdout.write(`${JSON.stringify(r)}\n`);
+				return r.kind === "ok" ? 0 : 2;
+			}
 			if (r.kind === "rejected") {
 				console.error(r.reason);
 				return 1;
 			}
 			console.log(r.message !== undefined ? r.message : `pushed ${r.items.length} item(s)`);
 			return 0;
+		}
+		case "build": {
+			const r = await build(bridge, args.has("--full"));
+			if (args.has("--json")) {
+				process.stdout.write(`${JSON.stringify(r)}\n`);
+				return r.success ? 0 : 2;
+			}
+			console.log(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`);
+			for (const d of r.diagnostics) console.log(`  [${d.severity}] ${d.object ?? "(project)"}: ${d.message}`);
+			return r.success ? 0 : 2;
 		}
 		case "status": {
 			const s = await status(root, bridge);
@@ -112,7 +132,12 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "log": {
-			const entries = listLog(resolveGitDir(root), RANGE, args.operands[0] !== undefined ? Number(args.operands[0]) : 20);
+			const limit = Number(args.value("--limit") ?? args.operands[0] ?? "20");
+			const entries = listLog(resolveGitDir(root), RANGE, Number.isFinite(limit) ? limit : 20);
+			if (args.has("--json")) {
+				for (const e of entries) process.stdout.write(`${JSON.stringify({ sha: e.sha, date: e.date, subject: e.subject })}\n`);
+				return 0;
+			}
 			if (entries.length === 0) {
 				console.log("no sync history yet — run `volt-git pull`.");
 				return 0;
