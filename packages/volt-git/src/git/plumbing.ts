@@ -216,6 +216,33 @@ export function diffNameStatus(root: string, ref: string, pathspec: string): Arr
 	return rows;
 }
 
+/** Raw bytes of `<ref>:<repoPath>` (e.g. show a file at HEAD / MERGE_HEAD / a merge-base). */
+export function gitShowBytes(root: string, ref: string, repoPath: string): Buffer | undefined {
+	const r = spawnSync("git", ["-C", root, "show", `${ref}:${repoPath}`], { maxBuffer: 1024 * 1024 * 128 });
+	if ((r.status ?? -1) !== 0) return undefined;
+	return r.stdout as Buffer;
+}
+
+export function mergeBase(root: string, a: string, b: string): string | undefined {
+	const r = git(["-C", root, "merge-base", a, b], { allowFail: true });
+	return r.code === 0 ? r.stdout.trim() : undefined;
+}
+
+export function mergeAbort(root: string): void {
+	git(["-C", root, "merge", "--abort"]);
+}
+
+/** Finalize a resolved merge (caller must have checked there are no unmerged paths). */
+export function mergeContinue(root: string): void {
+	git(["-C", root, "commit", "--no-edit"], { env: DET_ENV });
+}
+
+/** Resolve one conflicted path by taking a whole side, then stage it. */
+export function checkoutSide(root: string, repoPath: string, side: "ours" | "theirs"): void {
+	git(["-C", root, "checkout", `--${side}`, "--", repoPath]);
+	git(["-C", root, "add", "--", repoPath]);
+}
+
 export type MergeOutcome = { kind: "clean" } | { kind: "conflict"; paths: string[] };
 
 /** `git merge <ref>` into the current branch (deterministic identity). Requires a clean tree. */

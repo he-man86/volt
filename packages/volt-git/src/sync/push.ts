@@ -15,6 +15,8 @@ import type { PushResult } from "./types.js";
 
 export interface PushOptions {
 	force?: boolean;
+	/** Lease version: force only if the bridge is still at this projectVersion (atomic force). */
+	forceWithLease?: string;
 	dryRun?: boolean;
 }
 
@@ -33,16 +35,21 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 		return { kind: "rejected", reason: "no IDE baseline yet — run `volt-git pull` once before pushing" };
 	}
 
-	// Drift: the IDE moved since our baseline → pull first (unless forced).
 	const refs = await bridge.getRefs();
+	if (opts.forceWithLease !== undefined && opts.forceWithLease !== refs.projectVersion) {
+		return { kind: "rejected", reason: `--force-with-lease is stale: the IDE is at ${refs.projectVersion}, not ${opts.forceWithLease} — run \`volt-git pull\` first` };
+	}
+	const forcing = opts.force === true || opts.forceWithLease === refs.projectVersion;
+
+	// Drift: the IDE moved since our baseline → pull first (unless forcing).
 	const drift = computeIncoming(refs.items, sidecar.items);
-	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && opts.force !== true) {
+	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && !forcing) {
 		const n = drift.added.length + drift.modified.length + drift.removed.length;
 		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt-git pull\` first (or push --force)` };
 	}
-	// --force clobbers the IDE's current state, so guard against THAT (not the stale baseline).
-	const guardItems = opts.force === true ? refs.items : sidecar.items;
-	const guardProjectVersion = opts.force === true ? refs.projectVersion : sidecar.projectVersion;
+	// Forcing clobbers the IDE's current state, so guard against THAT (not the stale baseline).
+	const guardItems = forcing ? refs.items : sidecar.items;
+	const guardProjectVersion = forcing ? refs.projectVersion : sidecar.projectVersion;
 
 	const changes = diffNameStatus(root, RANGE, "src");
 

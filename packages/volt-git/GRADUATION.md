@@ -12,13 +12,12 @@ until you've tested; **deletion is the last commit.**
       outgoing, pathByName, projectMismatch, summary), not volt-cli's ignored superset. Verified live.
 - [x] A4 `log --json` — **JSON array** of `{sha,date,summary,paths}` + `--limit`. NB: fixes a latent bug —
       volt-cli emits NDJSON `{subject,…}` which volt-control's array parser silently drops (empty history).
-- [ ] A5 `show <ref> <path>` — HEAD / arbitrary ref via `git show ref:path`; MERGE_BASE/OURS/THEIRS via
-      merge-base / HEAD / MERGE_HEAD; BRIDGE via live `fetchChanges`
+- [x] A5 `show <ref> <path>` — HEAD/any ref via `git show`; MERGE_OURS/THEIRS/BASE via HEAD/MERGE_HEAD/merge-base; BRIDGE via live `fetchChanges`. Verified live.
 - [ ] A6 `init` scaffold + corpus — `writeWorkspaceScaffold` equivalent (.vscode/package.json/tsconfig/
       bunfig/README/tests) + `installCorpus` from `@opencode-ai/volt-lsp` + vendor detect
-- [ ] A7 `push --force-with-lease=<version>` (atomic force)
-- [ ] A8 `merge` shim — map `--continue`/`--abort` to native `git merge` (keep the verb so gates/docs work)
-- [ ] A9 typecheck + tests green
+- [x] A7 `push --force-with-lease=<version>` (atomic force; stale-lease refusal)
+- [x] A8 `merge` shim — `--continue`/`--abort`/`--resolve <p> --use-ours|--use-theirs` over native git (verb kept for gates/docs)
+- [ ] A9 typecheck + tests green (ongoing — green after each step)
 
 ## Phase B — rewire consumers (point at volt-git; volt-cli still present)
 - [ ] B1 `.opencode/tool/volt.ts:18` VOLT_BIN → `packages/volt-git/dist/bin.js`

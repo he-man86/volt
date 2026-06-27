@@ -9,13 +9,15 @@ import { build } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
 import { commitPaths, listLog, resolveGitDir } from "./git/plumbing.js";
 import { init } from "./init.js";
+import { merge } from "./merge.js";
+import { show } from "./show.js";
 import { pull } from "./sync/pull.js";
 import { push } from "./sync/push.js";
 import { RANGE } from "./sync/refs.js";
 import { status } from "./sync/status.js";
 import type { ChangeSet, LogEntry, StatusJson } from "./sync/types.js";
 
-const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit"]);
+const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit", "--resolve"]);
 
 function parseArgs(argv: string[]) {
 	const flags = new Set<string>();
@@ -24,7 +26,9 @@ function parseArgs(argv: string[]) {
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;
 		if (a.startsWith("--")) {
-			if (VALUE_FLAGS.has(a)) values[a] = argv[++i] ?? "";
+			const eq = a.indexOf("=");
+			if (eq >= 0) values[a.slice(0, eq)] = a.slice(eq + 1); // --key=value
+			else if (VALUE_FLAGS.has(a)) values[a] = argv[++i] ?? "";
 			else flags.add(a);
 		} else positional.push(a);
 	}
@@ -95,7 +99,7 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "push": {
-			const r = await push(root, bridge, { force: args.has("--force"), dryRun: args.has("--dry-run") });
+			const r = await push(root, bridge, { force: args.has("--force"), forceWithLease: args.value("--force-with-lease"), dryRun: args.has("--dry-run") });
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
 				return r.kind === "ok" ? 0 : 2;
@@ -158,6 +162,32 @@ async function main(): Promise<number> {
 			}
 			for (const e of entries) console.log(`${e.sha.slice(0, 8)}  ${e.date.slice(0, 10)}  ${e.subject}`);
 			return 0;
+		}
+		case "show": {
+			const [ref, rel] = args.operands;
+			if (ref === undefined || rel === undefined) {
+				console.error("usage: volt-git show <ref> <path>");
+				return 1;
+			}
+			const r = await show(root, bridge, ref, rel);
+			if (Buffer.isBuffer(r)) {
+				process.stdout.write(r);
+				return 0;
+			}
+			console.error(r.error);
+			return 1;
+		}
+		case "merge": {
+			const r = merge(root, {
+				continue: args.has("--continue"),
+				abort: args.has("--abort"),
+				resolve: args.value("--resolve"),
+				useOurs: args.has("--use-ours"),
+				useTheirs: args.has("--use-theirs"),
+			});
+			if (r.code === 0) console.log(r.message);
+			else console.error(r.message);
+			return r.code;
 		}
 		default:
 			console.log(USAGE);
