@@ -5,7 +5,7 @@
  *   1. packages/volt-bridge/item-kinds.json   — the shared contract (source of truth)
  *   2. ItemKind.cs `Map()`                     — what the BRIDGE actually emits
  *
- * (Ported from volt-cli at graduation; extensions.ts access is exercised by the sync tests.)
+ * (extensions.ts access is exercised by the sync tests.)
  */
 import { describe, test, expect } from "bun:test"
 import { readFileSync } from "node:fs"
