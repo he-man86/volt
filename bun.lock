@@ -1043,7 +1043,7 @@
       "name": "@opencode-ai/volt-git",
       "version": "0.1.0",
       "bin": {
-        "volt-git": "./dist/bin.js",
+        "volt": "./dist/bin.js",
       },
       "dependencies": {
         "@opencode-ai/volt-lsp": "workspace:*",

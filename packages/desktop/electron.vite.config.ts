@@ -38,9 +38,9 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        // Volt seam — bundle the volt CLI beside the main bundle (out/main/volt-cli.js), resolved
-        // at runtime like sidecar.js. A PLC workspace has no volt-cli in node_modules.
-        input: { index: "src/main/index.ts", sidecar: "src/main/sidecar.ts", "volt-cli": "../volt-git/src/bin.ts" },
+        // Volt seam — bundle the volt CLI beside the main bundle (out/main/volt.js), resolved
+        // at runtime like sidecar.js. A PLC workspace has no volt CLI in node_modules.
+        input: { index: "src/main/index.ts", sidecar: "src/main/sidecar.ts", volt: "../volt-git/src/bin.ts" },
       },
       externalizeDeps: { include: [nodePtyPkg] },
     },

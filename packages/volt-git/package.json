@@ -7,7 +7,7 @@
   "description": "Git-native Volt CLI — single-repo pull/push/status for IEC 61131-3 projects (the IDE is a git branch; git does the merge).",
   "type": "module",
   "bin": {
-    "volt-git": "./dist/bin.js"
+    "volt": "./dist/bin.js"
   },
   "files": [
     "dist"

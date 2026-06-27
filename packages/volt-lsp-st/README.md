@@ -107,7 +107,7 @@ opencode does not consume completion / semantic tokens / signature help (the LLM
 
 ### 2. Proactive knowledge — Skill
 
-Running `volt init` (from `@opencode-ai/volt-cli`) in a workspace installs:
+Running `volt init` (from `@opencode-ai/volt-git`) in a workspace installs:
 
 - `docs/codesys-reference/` — the language reference corpus
 - `.claude/skills/st-reference/SKILL.md` — an [agent skill](https://opencode.ai/docs/skills/) that points to the corpus

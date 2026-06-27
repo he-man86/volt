@@ -36,7 +36,7 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/app/package.json", // @opencode-ai/volt-app dependency
   // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
   "packages/desktop/src/preload/index.ts", // expose window.volt
-  "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt-cli.js)
+  "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt.js)
   "packages/desktop/package.json", // @opencode-ai/volt-git + volt-control deps
 ])
 

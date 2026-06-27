@@ -273,9 +273,9 @@ const main = Effect.gen(function* () {
   })
   registerWslIpcHandlers(wslServers)
   // Volt: wire the volt CLI over IPC so the renderer panel can call window.volt.* — the CLI is
-  // bundled beside this main bundle (electron.vite.config volt-cli input), resolved like sidecar.js.
+  // bundled beside this main bundle (electron.vite.config volt input), resolved like sidecar.js.
   try {
-    registerVoltIpcHandlers(ipcMain, join(dirname(fileURLToPath(import.meta.url)), "volt-cli.js"))
+    registerVoltIpcHandlers(ipcMain, join(dirname(fileURLToPath(import.meta.url)), "volt.js"))
   } catch (e) {
     logger.log("volt ipc registration failed", { error: String(e) })
   }

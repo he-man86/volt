@@ -10,7 +10,7 @@ health / workspace detection. It contains **no UI framework code**, so it can be
 > `PushOutcome`/`StatusResult` contracts). `volt-vscode` consumes all of it — no UI logic
 > duplicated (typecheck ✓, 13 tests ✓, extension build ✓).
 > **Next:** `volt-app` renders this same core as a Solid panel (Phase 3, via the GUI `<Slot/>` in
-> Phase 2). Distinct from `@opencode-ai/volt-cli` — that's the CLI *binary*; this *spawns and parses* it.
+> Phase 2). Distinct from `@opencode-ai/volt-git` — that's the CLI *binary*; this *spawns and parses* it.
 
 ```
         @opencode-ai/volt-control   (drives volt CLI/bridge — no UI)
@@ -45,7 +45,7 @@ here and *splitting* the two vscode-coupled files.
 5. **Re-point `volt-vscode`:** `import { … } from "@opencode-ai/volt-control"` instead of `./cli`,
    `./state/status`, etc. Add `"@opencode-ai/volt-control": "workspace:*"` to its deps.
 6. **Build setup:** add `tsconfig.json` + `"build": "tsc"` + `"typecheck"` / `"test"` scripts
-   (mirror `volt-cli`). `dist/` is what `volt-vscode`/`volt-app` consume in production.
+   (mirror `volt-git`). `dist/` is what `volt-vscode`/`volt-app` consume in production.
 
 ## Public API (target — see `src/index.ts`)
 

@@ -65,7 +65,7 @@ console/app  (opencode.ai landing)     ◄── volt-web  (parallel site)      
 packages/volt-vscode  (VS Code)        ◄── renders volt-control                   🔶 own
 
 Volt-owned packages (never merge upstream):
-  volt-bridge · volt-cli · volt-lsp-st · volt-vscode · volt-control · volt-app · volt-web
+  volt-bridge · volt-git · volt-lsp-st · volt-vscode · volt-control · volt-app · volt-web
   (+ planned: volt-docs)
 ```
 
@@ -74,7 +74,7 @@ drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream f
 
 ## Packages — current & planned
 
-**Exist:** `volt-bridge`, `volt-cli`, `volt-lsp-st`, `volt-vscode` (PLC toolchain) ·
+**Exist:** `volt-bridge`, `volt-git`, `volt-lsp-st`, `volt-vscode` (PLC toolchain) ·
 `volt-web` (landing — *scaffold*, `packages/volt-web/README.md`).
 
 **Planned:**
@@ -96,7 +96,7 @@ drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream f
 
 → Green light; the only real work is peeling `vscode` out of `status.ts`/`commands.ts`.
 
-> **`volt-control` vs `volt-cli`:** distinct. `volt-cli` is the CLI *binary*; `volt-control` is the
+> **`volt-control` vs `volt-git`:** distinct. `volt-git` is the CLI *binary*; `volt-control` is the
 > UI-agnostic wrapper that *spawns/parses* it and is rendered by `volt-vscode` and `volt-app`.
 
 ## Runtime layer stack (consumers → CLI → bridge → IDE)
@@ -170,7 +170,7 @@ metering + monetization already lives **server-side in the reused backend, all i
 `LiteTable` weekly/rolling **usage limits**, Stripe credit products), `console/function/log-processor.ts`
 (usage pipeline). So you **reuse it as-is** — deploy your own instance with your provider keys +
 Stripe products, and add a **"Volt" hosted-provider entry** the app points at (`api.volt.ai`).
-**No `volt-cli` gate, no app fork** — the PLC tools stay free; the AI subscription is the product.
+**No `volt-git` gate, no app fork** — the PLC tools stay free; the AI subscription is the product.
 The **cloud deploy *is* the revenue path**, so the commercial track moves early.
 
 ## Open product decisions
@@ -178,7 +178,7 @@ The **cloud deploy *is* the revenue path**, so the commercial track moves early.
 | Decision | Choice | Notes |
 |---|---|---|
 | **What Volt sells** | ★ **hosted AI subscriptions** (opencode Go/Zen-style) | reuse the in-repo gateway (`llm`) + billing (`console-core`); PLC tools (`volt-*`) stay free |
-| **Where metering lives** | **server-side, reused backend** | `console-core` `UsageTable`/`LiteTable` + `log-processor`; **no `volt-cli` gate** |
+| **Where metering lives** | **server-side, reused backend** | `console-core` `UsageTable`/`LiteTable` + `log-processor`; **no `volt-git` gate** |
 | **Billing shape** | **metered credits + subscription** | reuse `console-core` + Stripe **as-is**; your products/prices via `infra/` config |
 | **Platform** | **Windows-first** | bridges are Windows-only; PLC work is Windows-centric. Remote bridge later |
 | **`<Slot/>`** | **try upstream first** | one local seam only if rejected |
@@ -258,7 +258,7 @@ distribution model — was **removed**; superseded by "Volt is a product deploye
 ## Explicitly NOT doing
 
 - **Fork `packages/app`** (the agent GUI) — it's opencode's core, synced not copied.
-- **Marketplace** / **`volt-cli` license gate** — dropped (Volt sells AI subs, not tooling licenses).
+- **Marketplace** / **`volt-git` license gate** — dropped (Volt sells AI subs, not tooling licenses).
 - **Rewrite the backend** — none. Reuse `console-core` (incl. the metered-credit "Zen"/Go billing),
   `packages/llm` (the model gateway), and the usage pipeline **as-is**; only `infra/` config differs
   (your Stripe products, provider keys, domain).
@@ -287,7 +287,7 @@ whole flow. **Rejected:** the patch-overlay distribution model (`export-overlay.
 **Decision:** Volt sells **hosted AI access**, reusing the in-repo gateway (`packages/llm`) + billing
 (`console-core`: `UsageTable`/`LiteTable`/Stripe) as-is; the PLC tools stay free.
 **Why:** keeps the backend identical (deploy + config, not a rewrite); the moat is the PLC
-integration, not the AI. **Rejected:** gating the `volt-cli`/bridge by license (would require new
+integration, not the AI. **Rejected:** gating the `volt-git`/bridge by license (would require new
 entitlement code; opencode's app is BYO-key with no gate). **Trade-off:** you front the model cost —
 `LiteTable` limits are the margin throttle.
 

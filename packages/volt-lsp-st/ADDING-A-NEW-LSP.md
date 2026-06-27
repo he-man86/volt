@@ -148,12 +148,12 @@ package's `init.ts`. Don't hand-author a committed skill file.
 ## 4. Install hook for downstream users
 
 `volt init` installs the corpus by calling `installCorpus` (= this package's `runInit`). The
-call site is `packages/volt-cli/src/commands/init.ts` — `tryInstallCorpus()` (line 145)
-invokes `installCorpus` imported from `@opencode-ai/volt-lsp`.
+call site is `packages/volt-git/src/init.ts` — `tryInstallCorpus()` invokes `installCorpus`
+imported from `@opencode-ai/volt-lsp`.
 
 Today it installs from this one package. For multiple LSPs, `tryInstallCorpus` needs to fan
 out — install the corpus from every Volt LSP package present in `node_modules`. Refactor
-`packages/volt-cli/src/commands/init.ts` when you add the second LSP; premature now.
+`packages/volt-git/src/init.ts` when you add the second LSP; premature now.
 
 ## 5. Update the Volt agent prompt
 

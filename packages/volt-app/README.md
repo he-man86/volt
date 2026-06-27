@@ -42,5 +42,5 @@ A persistent "Volt" tab needs ~4 small insertions, all wiring (no Volt logic):
 The renderer can't spawn the CLI. The desktop **main** process runs `@opencode-ai/volt-control`
 (Node) via `registerVoltIpcHandlers(ipcMain, cliPath)`, and a preload exposes `window.volt`
 (`contextBridge.exposeInMainWorld("volt", …)`, channel names from `@opencode-ai/volt-control/channels`).
-The volt CLI is bundled beside the main bundle (`out/main/volt-cli.js`, an electron.vite input),
-resolved at runtime like the sidecar — a PLC workspace has no `volt-cli` in `node_modules`.
+The volt CLI is bundled beside the main bundle (`out/main/volt.js`, an electron.vite input),
+resolved at runtime like the sidecar — a PLC workspace has no volt CLI in `node_modules`.
