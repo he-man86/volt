@@ -11,73 +11,30 @@
  * (exactly what the engineer's edit in the IDE produces); the "workspace side" goes through the CLI +
  * git, just like a user.
  */
-import { describe, expect, it, beforeAll, afterAll, beforeEach, setDefaultTimeout } from "bun:test"
-import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { expect, it, beforeAll, afterAll, beforeEach, setDefaultTimeout } from "bun:test"
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
-import { BridgeClient } from "../bridge/client.js"
-import { init } from "../init.js"
+import type { BridgeClient } from "../bridge/client.js"
 import { pull } from "../sync/pull.js"
 import { push } from "../sync/push.js"
 import { show } from "../show.js"
 import { build } from "../build.js"
+import { checkpoint as checkpointWs, commit as commitWs, freshWorkspace, git as gitWs, ideDelete, ideSet, purge, refs, suite } from "./live-harness.js"
 
-const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
-const BASE = `http://127.0.0.1:${PORT}`
 const PREFIX = "VltRT"
-
-// Skip cleanly when no bridge is up (CI / dev without a running IDE) instead of hard-failing.
-const bridgeUp = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) }).then((r) => r.ok).catch(() => false)
-const suite = bridgeUp ? describe : describe.skip
-
-const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" }
 
 let bridge: BridgeClient
 let ws: string
 let cleanup: () => void
 
-// ── raw bridge = "the engineer editing in the IDE" ──────────────────────────
-async function api(method: string, path: string, body?: unknown): Promise<any> {
-	const r = await fetch(`${BASE}${path}`, body !== undefined ? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : { method })
-	return r.json()
-}
-async function refs(): Promise<{ projectVersion: string; items: Record<string, string>; folders: Record<string, string> }> {
-	return api("GET", "/refs")
-}
-/** Apply one `set` straight to the bridge — i.e. "the engineer just did this in the IDE". */
-async function ideSet(name: string, o: { folder?: string; toName?: string; toFolder?: string; sourceText?: string }): Promise<void> {
-	const r = await refs()
-	const cur = name in r.items ? r.items[name] : null
-	const op: Record<string, unknown> = { op: "set", name, ifVersion: cur }
-	if (cur === null && o.folder !== undefined) op.toFolder = o.folder // placement on create
-	if (o.toName !== undefined) op.toName = o.toName
-	if (o.toFolder !== undefined) op.toFolder = o.toFolder
-	if (o.sourceText !== undefined) op.sourceText = o.sourceText
-	const res = await api("POST", "/push", { expectedProjectVersion: r.projectVersion, ops: [op] })
-	if (!res.accepted) throw new Error(`ideSet ${name} rejected: ${JSON.stringify(res.conflicts)}`)
-}
-async function ideDelete(...names: string[]): Promise<void> {
-	const r = await refs()
-	const ops = names.filter((n) => n in r.items).map((n) => ({ op: "deleteItem", name: n, ifVersion: r.items[n] }))
-	if (ops.length === 0) return
-	const res = await api("POST", "/push", { expectedProjectVersion: r.projectVersion, ops })
-	if (!res.accepted) console.warn("ideDelete failed:", JSON.stringify(res.conflicts))
-}
-/** Delete every VltRT_* item from the bridge (scoped cleanup — never the real project). */
-async function purge(): Promise<void> {
-	const r = await refs()
-	await ideDelete(...Object.keys(r.items).filter((full) => full.replace(/\.[^.]+$/, "").startsWith(PREFIX)))
-}
+// ws-bound wrappers so the call sites below stay terse (each acts on the current suite's workspace).
+const git = (...args: string[]): string => gitWs(ws, ...args)
+const commit = (msg: string): void => commitWs(ws, msg)
+const checkpoint = (): void => checkpointWs(ws)
+
 const refsHas = async (name: string): Promise<boolean> => name in (await refs()).items
 const refsFolder = async (name: string): Promise<string | undefined> => (await refs()).folders[name]
 
-// ── workspace + git (the user side) ─────────────────────────────────────────
-const git = (...args: string[]): string => execFileSync("git", ["-C", ws, ...args], { encoding: "utf8", env: ENV }).trim()
-const commit = (msg: string): void => {
-	git("add", "-A")
-	if (git("status", "--porcelain").length > 0) git("commit", "-q", "-m", msg) // no-op on a clean tree (e.g. just after a pull ff/merge)
-}
 const wsPath = (rel: string): string => join(ws, "src", rel)
 const readWs = (rel: string): string => readFileSync(wsPath(rel), "utf8")
 const writeWs = (rel: string, content: string): void => { mkdirSync(dirname(wsPath(rel)), { recursive: true }); writeFileSync(wsPath(rel), content) }
@@ -86,32 +43,18 @@ const rmWs = (rel: string): void => rmSync(wsPath(rel), { force: true })
 
 const fb = (name: string, body = "n := n + 1;"): string => `FUNCTION_BLOCK ${name}\nVAR\n\tn : INT;\nEND_VAR\n\n${body}\nEND_FUNCTION_BLOCK\n`
 
-/** push now operates on the committed branch — commit the worktree first, then push (commit-before-push). */
+/** push operates on the committed branch — commit the worktree first, then push. */
 const pushCommitted = async () => {
 	commit("wip")
 	return push(ws, bridge)
 }
 
-async function freshWorkspace(): Promise<void> {
-	bridge = new BridgeClient({ port: PORT })
-	await purge() // clear strays from an interrupted run / the previous block
-	const root = mkdtempSync(join(tmpdir(), "voltg-live-"))
-	ws = join(root, "ws")
-	mkdirSync(ws, { recursive: true })
-	cleanup = () => rmSync(root, { recursive: true, force: true })
-	const r = await init(ws, bridge)
-	expect(r.kind).toBe("ok")
-	git("config", "core.autocrlf", "false")
-	git("config", "user.name", "t") // autoCommitSrc commits via plumbing git → reads repo config
-	git("config", "user.email", "t@t")
-}
-// pull needs a clean tree — checkpoint the worktree between tests so each starts fresh.
-const checkpoint = (): void => {
-	try {
-		commit("checkpoint")
-	} catch {
-		/* nothing to commit */
-	}
+// Fresh workspace for a suite — bind the shared module lets from the harness handle.
+async function setup(): Promise<void> {
+	const h = await freshWorkspace(PREFIX)
+	bridge = h.bridge
+	ws = h.ws
+	cleanup = h.cleanup
 }
 
 // Push and pull are tested in SEPARATE workspaces on purpose: `push` records the workspace's bytes into
@@ -120,8 +63,8 @@ const checkpoint = (): void => {
 // internally consistent (push = workspace bytes; pull = IDE bytes), which is exactly real usage.
 suite("live: workspace → IDE (push)", () => {
 	setDefaultTimeout(30_000)
-	beforeAll(freshWorkspace)
-	afterAll(async () => { await purge(); cleanup?.() })
+	beforeAll(setup)
+	afterAll(async () => { await purge(PREFIX); cleanup?.() })
 	beforeEach(checkpoint)
 
 	it("init materialized the project under src/", () => {
@@ -187,8 +130,8 @@ suite("live: workspace → IDE (push)", () => {
 
 suite("live: IDE → workspace + merge + git", () => {
 	setDefaultTimeout(30_000)
-	beforeAll(freshWorkspace)
-	afterAll(async () => { await purge(); cleanup?.() })
+	beforeAll(setup)
+	afterAll(async () => { await purge(PREFIX); cleanup?.() })
 	beforeEach(checkpoint)
 
 	// ── IDE → workspace (pull) ──
