@@ -135,7 +135,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			expect(src).toContain("NETWORK")
 
 			const refs = await bridge.refs()
-			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: src, ifVersion: null }] })
+			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: src, ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
@@ -151,7 +151,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			// Round-trip: push the same source back, should be accepted and unchanged
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
 			expect(r2.accepted).toBe(true)
 			const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after2.sourceText).toBe(after.sourceText)
@@ -163,7 +163,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const name = id(`vg_ld_${label}`)
 			const fullName = fid(`vg_ld_${label}`, "ld")
 			const refs = await bridge.refs()
-			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: buildSrc(name), ifVersion: null }] })
+			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
@@ -173,7 +173,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
 			expect(r2.accepted).toBe(true)
 			const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === v1.name)
 			expect(v2.sourceText).toBe(v1.sourceText)
@@ -200,7 +200,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("vg_existing")
 		const fullName = fid("vg_existing", "fbd")
 		const refs0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
 		const g = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(g).toBeDefined()
@@ -208,7 +208,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(s1).toContain("NETWORK")
 
 		const refs = await bridge.refs()
-		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
 		expect(r.accepted).toBe(true)
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === g.name)
 		expect(after.sourceText).toBe(s1)
@@ -220,13 +220,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("vg_guard_st")
 		const fullName = fid("vg_guard_st", "fbd")
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(before.name.endsWith(".fbd")).toBe(true)
 
 		const r1 = await bridge.refs()
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
 
@@ -239,12 +239,12 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const name = id("vg_guard_malformed")
 		const fullName = fid("vg_guard_malformed", "fbd")
 		const r0 = await bridge.refs()
-		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
+		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 
 		const r1 = await bridge.refs()
 		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "pushItem", name: fullName, folder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
 

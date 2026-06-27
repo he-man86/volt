@@ -7,8 +7,8 @@ using Xunit;
 namespace Volt.Bridge.Tests;
 
 /// <summary>Direct tests for the unified <c>set</c> apply path: that one op dispatches to the right IDE
-/// primitives (native rename / recreate-move / in-place write), incl. the combinations the legacy
-/// pushItem/renameItem/moveItem ops could not express, and that the optimistic-concurrency guard holds.</summary>
+/// primitives (native rename / recreate-move / in-place write), including the rename+edit and rename+move
+/// combinations, and that the optimistic-concurrency guard holds.</summary>
 public class PushServiceTests
 {
     private static FakeIde OneProgram(string name = "PLC_PRG", string folder = "") =>
@@ -87,19 +87,5 @@ public class PushServiceTests
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nEND_PROGRAM\n" });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
-    }
-
-    [Fact]
-    public void Legacy_renameItem_normalizes_to_the_same_mutations_as_set()
-    {
-        var legacy = OneProgram();
-        var (lv, lpv) = Ver(legacy, "PLC_PRG.st");
-        Push(legacy, lpv, new RenameItemOp { Name = "PLC_PRG.st", IfVersion = lv, NewName = "MOTOR.st" });
-
-        var unified = OneProgram();
-        var (uv, upv) = Ver(unified, "PLC_PRG.st");
-        Push(unified, upv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = uv, ToName = "MOTOR.st" });
-
-        Assert.Equal(legacy.Recorded, unified.Recorded); // the legacy wire is a thin adapter over set
     }
 }

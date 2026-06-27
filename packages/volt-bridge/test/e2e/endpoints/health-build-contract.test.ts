@@ -40,7 +40,7 @@ describe(`endpoints / health+build+contract (${BASE})`, () => {
 	describe("contract", () => {
 		it("/openapi.yaml lists every push-op + request schema", async () => {
 			const yaml = await bridge.openapi()
-			for (const s of ["PushOp", "PushItemOp", "DeleteItemOp", "RenameItemOp", "MoveItemOp", "FetchRequest", "BuildRequest"])
+			for (const s of ["PushOp", "SetItemOp", "DeleteItemOp", "FetchRequest", "BuildRequest"])
 				expect(yaml).toContain(`${s}:`)
 		})
 		it("/swagger serves the UI", async () => {

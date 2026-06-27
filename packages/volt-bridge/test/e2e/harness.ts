@@ -72,14 +72,14 @@ export async function pushOps(ops: unknown[]): Promise<any> {
 }
 /** Create a NEW item — `name` is the FULL wire name (e.g. `fid("x")`, or `fid("x","ld")`). */
 export async function createItem(name: string, src: string, folder = FOLDER): Promise<any> {
-	const r = await pushOps([{ op: "pushItem", name, folder, sourceText: src, ifVersion: null }])
+	const r = await pushOps([{ op: "set", name, toFolder: folder, sourceText: src, ifVersion: null }])
 	expect(r.accepted).toBe(true)
 	return r
 }
 /** Update an existing item by its FULL wire name, guarded with its current version. */
 export async function updateItem(name: string, src: string, folder = FOLDER): Promise<any> {
 	const v = (await bridge.refs()).items[name] ?? null
-	const r = await pushOps([{ op: "pushItem", name, folder, sourceText: src, ifVersion: v }])
+	const r = await pushOps([{ op: "set", name, toFolder: folder, sourceText: src, ifVersion: v }])
 	expect(r.accepted).toBe(true)
 	return r
 }
@@ -117,9 +117,9 @@ export async function fixPlcPrg(): Promise<void> {
 	const clean = lines.filter((l: string) => !l.includes(PREFIX))
 	const newSrc = clean.join("\n")
 	const r = await pushOps([{
-		op: "pushItem",
+		op: "set",
 		name: PLC_PRG,
-		folder: "",
+		toFolder: "",
 		sourceText: newSrc,
 		ifVersion: item.version,
 	}])
@@ -138,9 +138,9 @@ export async function restorePlcPrg(): Promise<void> {
 	const current = await fetchItem(PLC_PRG)
 	if (current.sourceText === _plcPrgOriginal) { _plcPrgOriginal = null; return }
 	const r = await pushOps([{
-		op: "pushItem",
+		op: "set",
 		name: PLC_PRG,
-		folder: "",
+		toFolder: "",
 		sourceText: _plcPrgOriginal,
 		ifVersion: current.version,
 	}])
@@ -159,9 +159,9 @@ export async function instantiateInPlcPrg(fbName: string): Promise<void> {
 	const varName = `inst_${fbName.replace(PREFIX + "_", "")}`
 	lines.splice(endVarIdx, 0, `\t${varName} : ${fbName};`)
 	const r = await pushOps([{
-		op: "pushItem",
+		op: "set",
 		name: PLC_PRG,
-		folder: "",
+		toFolder: "",
 		sourceText: lines.join("\n"),
 		ifVersion: item.version,
 	}])

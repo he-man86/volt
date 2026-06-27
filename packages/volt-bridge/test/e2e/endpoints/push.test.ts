@@ -14,7 +14,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		const name = id("p_ver"), wire = fid("p_ver")
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
-		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "pushItem", name: wire, folder: FOLDER, sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
+		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: FOLDER, sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
 		expect(r.conflicts.some((c: any) => c.name === wire)).toBe(true)
 	})
@@ -23,7 +23,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		const name = id("p_exists"), wire = fid("p_exists")
 		await createItem(wire, fb(name))
 		await ensureCompiles(name)
-		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "pushItem", name: wire, folder: FOLDER, sourceText: fb(name), ifVersion: null }] })
+		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: FOLDER, sourceText: fb(name), ifVersion: null }] })
 		expect(r.accepted).toBe(false)
 	})
 
@@ -45,14 +45,14 @@ describe(`endpoints / push (${BASE})`, () => {
 		const add = id("p_add"), upd = id("p_upd"), del = id("p_del2")
 		const addKey = fid("p_add"), updKey = fid("p_upd"), delKey = fid("p_del2")
 		await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [
-			{ op: "pushItem", name: updKey, folder: FOLDER, sourceText: fb(upd), ifVersion: null },
-			{ op: "pushItem", name: delKey, folder: FOLDER, sourceText: fb(del), ifVersion: null },
+			{ op: "set", name: updKey, toFolder: FOLDER, sourceText: fb(upd), ifVersion: null },
+			{ op: "set", name: delKey, toFolder: FOLDER, sourceText: fb(del), ifVersion: null },
 		] })
 		await ensureCompiles(upd)
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [
-			{ op: "pushItem", name: addKey, folder: FOLDER, sourceText: fb(add, { body: "x := 1;" }), ifVersion: null },
-			{ op: "pushItem", name: updKey, folder: FOLDER, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[updKey] },
+			{ op: "set", name: addKey, toFolder: FOLDER, sourceText: fb(add, { body: "x := 1;" }), ifVersion: null },
+			{ op: "set", name: updKey, toFolder: FOLDER, sourceText: fb(upd, { body: "x := 99;" }), ifVersion: refs.items[updKey] },
 			{ op: "deleteItem", name: delKey, ifVersion: refs.items[delKey] },
 		] })
 		expect(r.accepted).toBe(true)
@@ -72,7 +72,7 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(bad)
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [
-			{ op: "pushItem", name: okKey, folder: FOLDER, sourceText: fb(ok), ifVersion: null },      // OK
+			{ op: "set", name: okKey, toFolder: FOLDER, sourceText: fb(ok), ifVersion: null },      // OK
 			{ op: "deleteItem", name: badKey, ifVersion: "wrongversion" },                              // CONFLICT
 		] })
 		expect(r.accepted).toBe(false)

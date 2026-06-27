@@ -105,8 +105,7 @@ export type FetchResponse = z.infer<typeof FetchResponseSchema>;
 // One declarative `set` op per changed item: the item named `name` ends up as `toName ?? name`, in
 // `toFolder ?? (current)`, with `sourceText ?? (current)`. Each absent = unchanged. ifVersion: null =
 // create, string = update guard. `delete` is the one distinct verb. The whole batch validates + applies
-// atomically against pre-batch state. (The bridge also accepts the legacy pushItem/rename/move ops and
-// normalizes them to `set`; volt-git only ever emits set/delete.)
+// atomically against pre-batch state.
 export const SetItemOpSchema = z.object({
 	op: z.literal("set"),
 	name: z.string(),

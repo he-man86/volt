@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Volt Bridge Protocol
-  version: "1.0.0"
+  version: "2.0.0"
   description: |
     Vendor-agnostic HTTP contract for IDE bridges (Beckhoff TwinCAT, CODESYS, TIA, etc.).
     Every bridge MUST satisfy this spec — identical routes, request/response shapes,
@@ -219,11 +219,13 @@ paths:
         Validates ALL ops' ifVersion against pre-batch state, applies in order on success,
         rejects the whole batch on any conflict.
 
-        Four item-level ops:
-        - pushItem: create (ifVersion=null) or update (ifVersion=string)
+        Two item-level ops:
+        - set: the declarative final state of one item — create (ifVersion=null) or
+          update/rename/move (ifVersion=string). toName? renames, toFolder? sets/moves the folder,
+          sourceText? sets content; each absent field is left unchanged. One `set` expresses
+          rename+edit and rename+move atomically (a rename uses the IDE's native rename so call-sites
+          are preserved; a move recreates under the same name so name-based references survive).
         - deleteItem: remove item (requires ifVersion match)
-        - renameItem: rename item (requires ifVersion match)
-        - moveItem: move item to new folder (requires ifVersion match)
 
         Batch-level guard: expectedProjectVersion must match current /refs.projectVersion.
       requestBody:
@@ -243,28 +245,28 @@ paths:
                 value:
                   expectedProjectVersion: "a1b2c3d4e5f6a7b8"
                   ops:
-                    - op: "pushItem"
+                    - op: "set"
                       name: "PLC_NewProgram"
-                      folder: "POUs"
+                      toFolder: "POUs"
                       sourceText: "PROGRAM PLC_NewProgram\nVAR\nEND_VAR\n\n"
                       ifVersion: null
               batchEdit:
-                summary: Update + delete + move in one batch
+                summary: Update one item, delete another, rename+move a third — one atomic batch
                 value:
                   expectedProjectVersion: "a1b2c3d4e5f6a7b8"
                   ops:
-                    - op: "pushItem"
+                    - op: "set"
                       name: "FB_Motor"
-                      folder: "POUs/Motors"
                       sourceText: "FUNCTION_BLOCK FB_Motor\nVAR\n  speed : INT;\nEND_VAR\n\nspeed := 200;\n"
                       ifVersion: "a1b2c3d4e5f60002"
                     - op: "deleteItem"
                       name: "PLC_PRG_OLD"
                       ifVersion: "a1b2c3d4e5f69999"
-                    - op: "moveItem"
-                      name: "FB_Motor"
-                      newFolder: "POUs/Drives"
-                      ifVersion: "a1b2c3d4e5f60002"
+                    - op: "set"
+                      name: "FB_Pump"
+                      toName: "FB_PumpV2"
+                      toFolder: "POUs/Drives"
+                      ifVersion: "a1b2c3d4e5f60005"
       responses:
         "200":
           description: Batch result — accepted or rejected with conflicts
@@ -566,26 +568,34 @@ components:
           description: "Full ref map — client can replace its cache wholesale"
 
     # ── Push ops ───────────────────────────────────────────────────────
-    PushItemOp:
+    SetItemOp:
       type: object
       additionalProperties: false
+      description: |
+        Declarative final state of one item. The item currently named `name` ends up as
+        `toName ?? name`, in `toFolder ?? (current folder)`, with `sourceText ?? (current content)` —
+        each absent field is left unchanged. One op covers create/update/rename/move and any
+        combination (rename+edit, rename+move), applied atomically.
       required:
         - op
         - name
-        - sourceText
         - ifVersion
       properties:
         op:
           type: string
-          const: "pushItem"
+          const: "set"
         name:
           type: string
-        folder:
+          description: "The item's current name (or the new name, on create)"
+        toName:
           type: string
-          description: "Slash-joined target folder; absent/empty = root"
+          description: "Present iff renamed — the new name"
+        toFolder:
+          type: string
+          description: "Folder placement on create, or the new folder on move; absent = folder unchanged"
         sourceText:
           type: string
-          description: "Full assembled file content"
+          description: "Present iff content changed; absent = content unchanged. Required on create."
         ifVersion:
           type: string
           nullable: true
@@ -608,47 +618,6 @@ components:
           type: string
           description: "Must match current version of the item"
 
-    RenameItemOp:
-      type: object
-      additionalProperties: false
-      required:
-        - op
-        - name
-        - newName
-        - ifVersion
-      properties:
-        op:
-          type: string
-          const: "renameItem"
-        name:
-          type: string
-        newName:
-          type: string
-        ifVersion:
-          type: string
-          description: "Must match current version of the item"
-
-    MoveItemOp:
-      type: object
-      additionalProperties: false
-      required:
-        - op
-        - name
-        - newFolder
-        - ifVersion
-      properties:
-        op:
-          type: string
-          const: "moveItem"
-        name:
-          type: string
-        newFolder:
-          type: string
-          description: "Target folder path (empty string = root)"
-        ifVersion:
-          type: string
-          description: "Must match current version of the item"
-
     PushRequest:
       type: object
       additionalProperties: false
@@ -667,23 +636,17 @@ components:
       discriminator:
         propertyName: op
         mapping:
-          pushItem: "#/components/schemas/PushItemOp"
+          set: "#/components/schemas/SetItemOp"
           deleteItem: "#/components/schemas/DeleteItemOp"
-          renameItem: "#/components/schemas/RenameItemOp"
-          moveItem: "#/components/schemas/MoveItemOp"
       oneOf:
-        - $ref: "#/components/schemas/PushItemOp"
+        - $ref: "#/components/schemas/SetItemOp"
         - $ref: "#/components/schemas/DeleteItemOp"
-        - $ref: "#/components/schemas/RenameItemOp"
-        - $ref: "#/components/schemas/MoveItemOp"
 
     PushConflict:
       type: object
       additionalProperties: false
       required:
         - name
-        - yourVersion
-        - currentVersion
         - reason
       properties:
         name:
@@ -696,6 +659,14 @@ components:
           nullable: true
         reason:
           type: string
+        code:
+          type: string
+          nullable: true
+          description: "Stable diagnostic code for a thrown-op error (e.g. VG_NESTED_EXPR); null for a plain version conflict"
+        line:
+          type: integer
+          nullable: true
+          description: "1-based source line within the pushed body, when the diagnostic knows it"
 
     PushAccepted:
       type: object

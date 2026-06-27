@@ -12,7 +12,7 @@ namespace Volt.Bridge.Core.Sync;
 /// <summary><c>/push</c>: apply a batch of <c>set</c> (declarative create/update/rename/move) +
 /// <c>delete</c> ops with optimistic concurrency (per-item <c>ifVersion</c> + an optional project
 /// version), then return a fresh version map from a cold re-walk so the receipt matches the next
-/// <c>/refs</c> exactly. The legacy pushItem/rename/move ops are normalized to <c>set</c> on entry.</summary>
+/// <c>/refs</c> exactly.</summary>
 public static class PushService
 {
     public static PushResponse Handle(IIdeDriver ide, PushRequest request)
@@ -38,15 +38,12 @@ public static class PushService
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(currentVersions);
-        // Normalize the legacy 4-op wire (pushItem/renameItem/moveItem) into the unified set/delete pair, so
-        // the engine below has exactly two cases. (Remove Normalize + the legacy ops at graduation.)
-        var ops = request.Ops.Select(Normalize).ToList();
-        var conflicts = DetectConflicts(ops, request.ExpectedProjectVersion, currentVersions, currentProjectVersion);
+        var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
             return PushResponse.RejectedResult(conflicts, currentProjectVersion);
 
         var parent = ide.GetPlcProjectRoot();
-        foreach (var op in ops)
+        foreach (var op in request.Ops)
         {
             try { ApplyOp(ide, parent, itemCache, op); }
             catch (Exception ex)
@@ -78,16 +75,6 @@ public static class PushService
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
     }
 
-    /// <summary>Map the legacy 4-op wire onto the unified set/delete pair, so the engine has two cases.
-    /// (Remove at graduation together with the legacy DTOs.)</summary>
-    private static PushOp Normalize(PushOp op) => op switch
-    {
-        PushItemOp p => new SetItemOp { Name = p.Name, IfVersion = p.IfVersion, ToFolder = p.Folder, SourceText = p.SourceText },
-        RenameItemOp r => new SetItemOp { Name = r.Name, IfVersion = r.IfVersion, ToName = r.NewName },
-        MoveItemOp m => new SetItemOp { Name = m.Name, IfVersion = m.IfVersion, ToFolder = m.NewFolder },
-        _ => op, // SetItemOp / DeleteItemOp pass through
-    };
-
     private static List<PushConflict> DetectConflicts(
         List<PushOp> ops, string? expectedProjectVersion,
         Dictionary<string, string> currentVersions, string currentProjectVersion)
@@ -102,8 +89,8 @@ public static class PushService
                 Reason = "expected project version does not match current project version",
             });
 
-        // Forward simulation: name → version, mutated per op so in-batch dependencies validate. After
-        // normalization every op is SetItemOp or DeleteItemOp.
+        // Forward simulation: name → version, mutated per op so in-batch dependencies validate. Every op
+        // is a SetItemOp or a DeleteItemOp.
         var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
         foreach (var op in ops)
         {

@@ -61,7 +61,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 
 			// 6. RENAME → structure + project change; the renamed item keeps its content version
 			const newWire = fid(`lc_${k.key}_r`, ext)
-			const rn = await pushOps([{ op: "renameItem", name: wire, newName: newWire, ifVersion: snapshotItem(s3, wire) }])
+			const rn = await pushOps([{ op: "set", name: wire, toName: newWire, ifVersion: snapshotItem(s3, wire) }])
 			expect(rn.accepted).toBe(true)
 			const s4 = await snapshot()
 			expect(snapshotHas(s4, wire)).toBe(false)
@@ -71,7 +71,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			expect(s4.project).not.toBe(s3.project)
 
 			// 7. MOVE → item version changes (folder is in the hash), names unchanged ⇒ structure same
-			const mv = await pushOps([{ op: "moveItem", name: newWire, newFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newWire) }])
+			const mv = await pushOps([{ op: "set", name: newWire, toFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newWire) }])
 			expect(mv.accepted).toBe(true)
 			const s5 = await snapshot()
 			expect(snapshotItem(s5, newWire)).not.toBe(snapshotItem(s4, newWire))

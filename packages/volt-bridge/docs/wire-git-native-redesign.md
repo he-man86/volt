@@ -5,12 +5,13 @@ graduation** (it would touch volt-cli's read path, the fallback — cleaner once
 **Driver:** make the git sync layer (`packages/volt-git`) the easiest thing in the system to maintain ·
 **Owner of the contract:** `Volt.Bridge.Core` (both vendors serve it byte-identically)
 
-> **Implemented (`/push`):** `Volt.Bridge.Core` `Wire/PushModels.cs` (added `SetItemOp`; legacy ops kept +
-> normalized to `set` in `PushService.Normalize`), `Sync/PushService.cs` (one `ApplySetItem` apply path;
-> `DetectConflicts` unified; `ApplyOp` 4→2 branches; `ApplyPushItem` deleted). IDE contract + both vendors
+> **Implemented (`/push`):** `Volt.Bridge.Core` `Wire/PushModels.cs` (`SetItemOp` + `DeleteItemOp` only —
+> the legacy pushItem/rename/move ops were **removed**, clean cutover, no backward compat), `Sync/PushService.cs`
+> (one `ApplySetItem` apply path; `DetectConflicts` unified; `ApplyOp` 2 branches). IDE contract + both vendors
 > **unchanged**. volt-git `bridge/types.ts` (`PushOp = set | delete`) + `sync/push.ts` (one op per diff row;
 > `cleanStructural` + the rename+edit/rename+move refusals **deleted** — they now succeed as one `set`).
-> 170 C# tests + 13 volt-git tests green. **rename+edit and rename+move now just work.**
+> openapi spec bumped to **2.0.0**; C# + volt-git + e2e tests all on `set`. **rename+edit and rename+move
+> now just work** — validated live against real CODESYS (create/rename+edit/move/delete).
 
 ## Why this exists
 
@@ -153,9 +154,9 @@ diffRows(-M)                                     diffRows(-M)
 ## Migration & impact
 
 **Bridge (C#)** — `Volt.Bridge.Core` wire types + the apply logic; both vendor bridges; the parity tests.
-The apply logic *shrinks* (one `set` handler replaces three op handlers, sharing the rename→move→content
-sequence). Suggest a wire-version bump and a short window where the bridge accepts **both** shapes
-(old 4-op + new `set`) so `volt-git` and the bridge can land independently; drop the old ops after.
+The apply logic *shrank* (one `set` handler replaced three op handlers, sharing the rename→move→content
+sequence). Shipped as a **clean cutover** — the legacy ops were removed outright (no backward compat) and
+the openapi spec bumped to 2.0.0.
 
 **Git layer (`volt-git`)** — `push.ts` collapses to "one op per diff row" (delete the `cleanStructural`
 helper + the unsplittable pre-pass + the rename/move branch). `status.ts`/`refs.ts` read `/refs` as a
