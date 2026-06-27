@@ -7,6 +7,10 @@ import { init } from "../init.js";
 import { pull } from "../sync/pull.js";
 import { push } from "../sync/push.js";
 import { status } from "../sync/status.js";
+import { merge } from "../merge.js";
+import { build } from "../build.js";
+import { show } from "../show.js";
+import { isMerging } from "../git/plumbing.js";
 import { MockBridge, type MockItem } from "./mock-bridge.js";
 
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
@@ -214,5 +218,120 @@ describe("volt-git sync", () => {
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("commit");
+	});
+});
+
+describe("collisions, conflict resolution, diff/show + the remaining commands", () => {
+	// Both sides change A from a common base, overlapping → a real merge conflict (MERGE_HEAD present).
+	async function reachConflict(): Promise<MockBridge> {
+		const bridge = await setup([{ name: "A.st", sourceText: "base\n" }]);
+		writeSrc(root, "A.st", "MINE\n");
+		commitAll(root, "mine");
+		bridge.set("A.st", "IDE\n");
+		expect((await pull(root, bridge)).kind).toBe("conflict");
+		return bridge;
+	}
+
+	// ── collisions (both sides moved before a sync) ──
+	test("collision: both sides change DIFFERENT items → push still blocked (any IDE drift ⇒ pull first)", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }, { name: "B.st", sourceText: "b\n" }]);
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit A");
+		bridge.set("B.st", "b\nide\n"); // IDE moved an UNRELATED item
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("rejected");
+		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("pull");
+	});
+
+	test("collision: IDE deletes an item I edited → pull is a delete/modify conflict", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit A");
+		bridge.remove("A.st"); // IDE deleted exactly what I changed
+		expect((await pull(root, bridge)).kind).toBe("conflict");
+	});
+
+	// ── diff/show — the 3-way data the merge editor + diff tab read ──
+	test("diff/show: MERGE_OURS / MERGE_THEIRS / MERGE_BASE during a conflict", async () => {
+		const bridge = await reachConflict();
+		const ours = await show(root, bridge, "MERGE_OURS", "A.st");
+		const theirs = await show(root, bridge, "MERGE_THEIRS", "A.st");
+		const base = await show(root, bridge, "MERGE_BASE", "A.st");
+		expect(Buffer.isBuffer(ours) ? ours.toString("utf8") : "").toBe("MINE\n"); // my side (HEAD)
+		expect(Buffer.isBuffer(theirs) ? theirs.toString("utf8") : "").toBe("IDE\n"); // IDE side (MERGE_HEAD)
+		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toBe("base\n"); // common ancestor
+	});
+
+	// ── conflict resolution through `volt merge` ──
+	test("resolve: merge --abort restores the pre-merge tree", async () => {
+		await reachConflict();
+		expect(isMerging(root)).toBe(true);
+		expect(merge(root, { abort: true }).code).toBe(0);
+		expect(isMerging(root)).toBe(false);
+		expect(readSrc(root, "A.st")).toBe("MINE\n");
+	});
+
+	test("resolve: --resolve --use-theirs then --continue takes the IDE side", async () => {
+		await reachConflict();
+		expect(merge(root, { resolve: "A.st", useTheirs: true }).code).toBe(0);
+		expect(merge(root, { continue: true }).code).toBe(0);
+		expect(isMerging(root)).toBe(false);
+		expect(readSrc(root, "A.st")).toBe("IDE\n");
+	});
+
+	test("resolve: --resolve --use-ours keeps my side", async () => {
+		await reachConflict();
+		merge(root, { resolve: "A.st", useOurs: true });
+		expect(merge(root, { continue: true }).code).toBe(0);
+		expect(readSrc(root, "A.st")).toBe("MINE\n");
+	});
+
+	test("resolve: --continue refuses while files are still unresolved", async () => {
+		await reachConflict();
+		const r = merge(root, { continue: true }); // markers still present
+		expect(r.code).toBe(2);
+		expect(r.message.toLowerCase()).toContain("unresolved");
+		merge(root, { abort: true });
+	});
+
+	// ── dry-run (no side effects) ──
+	test("push --dry-run reports items but sends nothing + leaves volt/ide put", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		const before = git(root, "rev-parse", "refs/remotes/volt/ide");
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit");
+		const r = await push(root, bridge, { dryRun: true });
+		expect(r.kind).toBe("ok");
+		if (r.kind === "ok") expect(r.items).toContain("A.st");
+		expect(bridge.pushCalls.length).toBe(0);
+		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(before);
+	});
+
+	test("pull --dry-run reports incoming but doesn't merge", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		bridge.set("A.st", "a\nide\n");
+		const before = git(root, "rev-parse", "HEAD");
+		expect((await pull(root, bridge, { dryRun: true })).kind).toBe("ok");
+		expect(git(root, "rev-parse", "HEAD")).toBe(before); // no merge commit
+		expect(readSrc(root, "A.st")).toBe("a\n"); // worktree untouched
+	});
+
+	// ── force-with-lease ──
+	test("push --force-with-lease: stale lease rejected, current lease clobbers the drift", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit");
+		bridge.set("A.st", "a\nide\n"); // IDE drifted
+		const lease = (await bridge.getRefs()).projectVersion;
+		expect((await push(root, bridge, { forceWithLease: "deadbeefdeadbeef" })).kind).toBe("rejected");
+		expect((await push(root, bridge, { forceWithLease: lease })).kind).toBe("ok");
+	});
+
+	// ── build ──
+	test("build delegates to the bridge + returns normalized diagnostics", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		const r = await build(bridge, false);
+		expect(r.success).toBe(true);
+		expect(Array.isArray(r.diagnostics)).toBe(true);
 	});
 });
