@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.21.2",
+  "version": "1.21.3",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -24,7 +24,6 @@
     "onLanguage:plc-interface",
     "onLanguage:plc-gvl",
     "onLanguage:plc-dut",
-    "workspaceContains:**/.volt/config.json",
     "workspaceContains:**/*.{st,itf,gvl,struct,union,enum,alias,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
