@@ -1,7 +1,16 @@
 # Bridge wire — git-native redesign
 
-**Status:** proposal · **Driver:** make the git sync layer (`packages/volt-git`) the easiest thing in
-the system to maintain · **Owner of the contract:** `Volt.Bridge.Core` (both vendors serve it byte-identically)
+**Status:** `/push` **IMPLEMENTED** (the `set` op — both sides, tested); `/refs` list **deferred to
+graduation** (it would touch volt-cli's read path, the fallback — cleaner once volt-cli is deleted).
+**Driver:** make the git sync layer (`packages/volt-git`) the easiest thing in the system to maintain ·
+**Owner of the contract:** `Volt.Bridge.Core` (both vendors serve it byte-identically)
+
+> **Implemented (`/push`):** `Volt.Bridge.Core` `Wire/PushModels.cs` (added `SetItemOp`; legacy ops kept +
+> normalized to `set` in `PushService.Normalize`), `Sync/PushService.cs` (one `ApplySetItem` apply path;
+> `DetectConflicts` unified; `ApplyOp` 4→2 branches; `ApplyPushItem` deleted). IDE contract + both vendors
+> **unchanged**. volt-git `bridge/types.ts` (`PushOp = set | delete`) + `sync/push.ts` (one op per diff row;
+> `cleanStructural` + the rename+edit/rename+move refusals **deleted** — they now succeed as one `set`).
+> 170 C# tests + 13 volt-git tests green. **rename+edit and rename+move now just work.**
 
 ## Why this exists
 
