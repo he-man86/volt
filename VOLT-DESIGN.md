@@ -207,10 +207,13 @@ desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is stric
 | **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
 
 > **Git-native delegation (post-refactor) ✅** — since sync is now standard `git merge`, the Volt UI (vscode +
-> desktop) is a **thin IDE-sync surface only**: bridge bind/pull/push/build + the incoming-drift indicator +
-> drift colors. Git history, diffs, local-change discard, and merge-conflict resolution use the editor's
-> **built-in Git** (VS Code's SCM + merge editor; opencode's Review tab). The custom `merge.*` commands, the
-> "Sync history" view/tab, the `discardOutgoing` command, and the `log` IPC were removed.
+> desktop) is a **thin IDE-sync surface only**. It owns the **IDE axis** git can't see: bind/pull/push/build,
+> the incoming/outgoing drift, drift colors, and the two diffs *against the last sync* — Incoming
+> (`VOLTIDE↔BRIDGE`, what a pull brings) and Outgoing (`VOLTIDE↔HEAD`, what a push sends), each clickable in
+> the Volt view. The **git axis** — working-tree edits, history, local-change discard, merge-conflict
+> resolution — uses the editor's **built-in Git** (VS Code's SCM + merge editor; opencode's Review tab). The
+> custom `merge.*` commands, the "Sync history" view/tab, the `discardOutgoing` command, and the `log` IPC
+> were removed. See **D11** for the engine model the diffs read from.
 
 ## Deployment & subdomains (your `infra/`)
 
@@ -273,6 +276,22 @@ distribution model — was **removed**; superseded by "Volt is a product deploye
 
 Lightweight ADRs — the load-bearing choices, with what we **rejected**, so they aren't relitigated.
 Newest first.
+
+### D11 — The IDE is a git *remote*; the engine operates on committed HEAD (2026-06-27)
+**Decision:** model the live IDE as a git remote-tracking branch **`refs/remotes/volt/ide`** (renders in the
+graph as `volt/ide`). The engine reads/writes **committed git state (HEAD), never the worktree**: `volt
+push` = commit-before-push (refuses a dirty tree, like `git push`) and lands `volt/ide` **on HEAD** (exactly
+`git push` → `origin/main == main`); `volt pull` = `git merge volt/ide`; `status`/diff compare
+`refs/remotes/volt/ide → HEAD`. The diff surface compares both directions against this baseline
+(incoming = baseline↔IDE, outgoing = baseline↔HEAD).
+**Why:** it makes the whole thing a textbook git remote — the graph shows your branch vs the IDE, `push`/
+`pull` semantics transfer directly, `volt/ide` stays local (remote-tracking refs aren't pushed to origin),
+and **auto-commit-on-push** becomes a trivial future layer (commit, then push HEAD). Operating on HEAD gives
+one unambiguous source of truth and kills the split-brain (IDE ahead of git) the worktree-based push caused.
+**Rejected:** the hidden `refs/volt/ide` ref (invisible in the graph); pushing the uncommitted worktree (git
+never pushes uncommitted work; it left the IDE ahead of git); a parallel deterministic IDE-commit on push
+(showed `volt/ide` on its own chain, not aligned with HEAD); delegating the *outgoing* diff to Source Control
+(it shows working-vs-HEAD, which is empty once you've committed in order to push).
 
 ### D10 — CI + scheduled auto-sync (2026-06-26)
 **Decision:** GitHub Actions enforce the fork invariants (`.github/workflows/volt-ci.yml`) on every
