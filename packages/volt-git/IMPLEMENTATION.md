@@ -40,4 +40,7 @@ Git-native single-repo Volt CLI (option ② in `../volt-cli/SYNC-OPTIONS.md`), b
 - **Conflicts** finish via native `git merge --continue` / `--abort` (no `volt merge` wrapper).
 - **Conflict → resolve → re-pull**: on conflict the sidecar baseline isn't advanced; resolve in git, then `volt-git pull` again to finalize (may leave one empty merge commit — cosmetic).
 - **No scaffold/corpus** generated at init yet (just `.gitignore`/`.gitattributes`); volt-cli still owns rich scaffolding until graduation.
-- **Graphical/rename/move** ops not built (pushItem/deleteItem only); covers the common ST/GVL/struct loop.
+- **Rename/move** use the bridge's `renameItem`/`moveItem` ops (git `-M`): a clean one-axis R100 move
+  or rename preserves IDE references. Renamed-AND-edited / renamed-AND-moved is **refused loudly** (no
+  silent delete+add that would drop references) — do one change at a time. **No fallbacks.**
+- **Graphical** bodies stay pull-only (read-only ST views; can't round-trip back to PlcOpenXML).

@@ -216,6 +216,27 @@ export function diffNameStatus(root: string, ref: string, pathspec: string): Arr
 	return rows;
 }
 
+export type DiffRow =
+	| { kind: "add" | "modify" | "delete"; path: string }
+	| { kind: "rename"; oldPath: string; newPath: string; identical: boolean };
+
+/** Rename-aware diff (`-M`): worktree vs ref. `identical` = R100 (pure move/rename, content unchanged). */
+export function diffRows(root: string, ref: string, pathspec: string): DiffRow[] {
+	const out = git(["-C", root, "diff", "-M", "--name-status", ref, "--", pathspec]).stdout;
+	const rows: DiffRow[] = [];
+	for (const line of out.split("\n")) {
+		if (line.length === 0) continue;
+		const parts = line.split("\t");
+		const status = parts[0]!;
+		if (status.startsWith("R")) {
+			rows.push({ kind: "rename", oldPath: parts[1]!, newPath: parts[2]!, identical: Number.parseInt(status.slice(1), 10) >= 100 });
+		} else if (status.startsWith("A")) rows.push({ kind: "add", path: parts[1]! });
+		else if (status.startsWith("D")) rows.push({ kind: "delete", path: parts[1]! });
+		else rows.push({ kind: "modify", path: parts[1]! });
+	}
+	return rows;
+}
+
 /** Raw bytes of `<ref>:<repoPath>` (e.g. show a file at HEAD / MERGE_HEAD / a merge-base). */
 export function gitShowBytes(root: string, ref: string, repoPath: string): Buffer | undefined {
 	const r = spawnSync("git", ["-C", root, "show", `${ref}:${repoPath}`], { maxBuffer: 1024 * 1024 * 128 });

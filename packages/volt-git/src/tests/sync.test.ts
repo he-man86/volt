@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { init } from "../init.js";
@@ -132,5 +132,50 @@ describe("volt-git sync", () => {
 		const s = await status(root, bridge);
 		expect(s.outgoing.modified).toContain("A.st");
 		expect(s.incoming.added).toContain("B.st");
+	});
+
+	test("10. pure rename → renameItem (preserves IDE references)", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "x\n" }]);
+		git(root, "mv", "src/A.st", "src/B.st");
+		commitAll(root, "rename A→B");
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("ok");
+		const ops = bridge.pushCalls[0]!.ops;
+		expect(ops).toHaveLength(1);
+		expect(ops[0]).toMatchObject({ op: "renameItem", name: "A.st", newName: "B.st" });
+	});
+
+	test("11. pure move (folder change, name kept) → moveItem", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "x\n", folder: "F1" }]);
+		mkdirSync(join(root, "src", "F2"), { recursive: true });
+		git(root, "mv", "src/F1/A.st", "src/F2/A.st");
+		commitAll(root, "move A F1→F2");
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("ok");
+		const ops = bridge.pushCalls[0]!.ops;
+		expect(ops).toHaveLength(1);
+		expect(ops[0]).toMatchObject({ op: "moveItem", name: "A.st", newFolder: "F2" });
+	});
+
+	test("12. rename + content edit → refused (no silent fallback)", async () => {
+		const big = "PROGRAM P\nVAR\n" + Array.from({ length: 30 }, (_, i) => `  v${i} : INT;`).join("\n") + "\nEND_VAR\nEND_PROGRAM\n";
+		const bridge = await setup([{ name: "A.st", sourceText: big }]);
+		git(root, "mv", "src/A.st", "src/B.st");
+		writeSrc(root, "B.st", big.replace("v0 : INT;", "v0 : DINT;")); // ~97% similar → git sees R<100
+		commitAll(root, "rename + edit");
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("rejected");
+		if (r.kind === "rejected") expect(r.reason).toContain("one step");
+		expect(bridge.pushCalls.length).toBe(0); // nothing pushed
+	});
+
+	test("13. rename AND move in one step → refused", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "x\n", folder: "F1" }]);
+		mkdirSync(join(root, "src", "F2"), { recursive: true });
+		git(root, "mv", "src/F1/A.st", "src/F2/B.st"); // name + folder both change (content identical)
+		commitAll(root, "rename + move");
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("rejected");
+		if (r.kind === "rejected") expect(r.reason).toContain("one step");
 	});
 });

@@ -98,7 +98,7 @@ export class MockBridge implements Remote {
 				const cur = this.items.get(op.name);
 				if (op.ifVersion === null && cur !== undefined) return reject(op.name, "already exists");
 				if (op.ifVersion !== null && (cur === undefined || ver(cur.sourceText) !== op.ifVersion)) return reject(op.name, "version mismatch");
-			} else if (op.op === "deleteItem") {
+			} else if (op.op === "deleteItem" || op.op === "renameItem" || op.op === "moveItem") {
 				const cur = this.items.get(op.name);
 				if (cur === undefined || ver(cur.sourceText) !== op.ifVersion) return reject(op.name, "version mismatch");
 			}
@@ -106,6 +106,16 @@ export class MockBridge implements Remote {
 		for (const op of req.ops) {
 			if (op.op === "pushItem") this.items.set(op.name, { name: op.name, folder: op.folder ?? "", sourceText: op.sourceText });
 			else if (op.op === "deleteItem") this.items.delete(op.name);
+			else if (op.op === "renameItem") {
+				const it = this.items.get(op.name);
+				if (it !== undefined) {
+					this.items.delete(op.name);
+					this.items.set(op.newName, { ...it, name: op.newName });
+				}
+			} else if (op.op === "moveItem") {
+				const it = this.items.get(op.name);
+				if (it !== undefined) it.folder = op.newFolder;
+			}
 		}
 		return { accepted: true, newProjectVersion: this.projectVersion(), newItems: this.versions() };
 	}

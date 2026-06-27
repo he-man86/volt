@@ -62,14 +62,13 @@ export interface IdeRefs {
 
 export function loadIdeRefs(root: string): IdeRefs | undefined {
 	const p = workspacePaths(root).ideRefsPath;
-	if (!existsSync(p)) return undefined;
-	try {
-		const raw = JSON.parse(readFileSync(p, "utf-8")) as Partial<IdeRefs>;
-		if (raw.projectVersion === undefined || raw.items === undefined || raw.folders === undefined) return undefined;
-		return raw as IdeRefs;
-	} catch {
-		return undefined;
+	if (!existsSync(p)) return undefined; // no baseline yet — expected before the first pull
+	// A present-but-corrupt sidecar is unexpected: throw loudly (malformed JSON throws here too).
+	const raw = JSON.parse(readFileSync(p, "utf-8")) as Partial<IdeRefs>;
+	if (raw.projectVersion === undefined || raw.items === undefined || raw.folders === undefined) {
+		throw new Error(`.volt/ide-refs.json is malformed — delete it and run \`volt-git pull\` to rebuild the baseline`);
 	}
+	return raw as IdeRefs;
 }
 
 export function saveIdeRefs(root: string, refs: IdeRefs): void {
