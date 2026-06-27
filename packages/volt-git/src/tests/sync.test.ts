@@ -89,7 +89,7 @@ describe("volt-git sync", () => {
 		if (r.kind === "refused") expect(r.reason).toContain("commit or stash");
 	});
 
-	test("6. push sends workspace edits to the bridge + ff's volt/ide", async () => {
+	test("6. push sends edits to the bridge + lands volt/ide on HEAD (like git push)", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
 		writeSrc(root, "A.st", "a1\nmine\n");
 		commitAll(root, "edit A");
@@ -97,6 +97,8 @@ describe("volt-git sync", () => {
 		expect(r.kind).toBe("ok");
 		if (r.kind === "ok") expect(r.items).toContain("A.st");
 		expect(bridge.pushCalls.length).toBe(1);
+		// volt/ide now points AT the pushed commit — origin/main == main after a git push
+		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(git(root, "rev-parse", "HEAD"));
 		// pushing again is a no-op (IDE now matches)
 		const r2 = await push(root, bridge);
 		expect(r2.kind).toBe("ok");

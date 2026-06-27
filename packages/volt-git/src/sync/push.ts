@@ -6,12 +6,12 @@
  */
 import type { PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
-import { diffRefs, dirtySrc, gitShowBytes, resolveGitDir, treeOf, updateRef } from "../git/plumbing.js";
+import { diffRefs, dirtySrc, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { getByPath } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, hasChanges } from "./diff.js";
-import { commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
+import { loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
 import type { PushResult } from "./types.js";
 
 export interface PushOptions {
@@ -125,10 +125,12 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 		return { kind: "rejected", reason: `the bridge rejected the push:\n${lines}` };
 	}
 
-	// Advance the baseline + fast-forward refs/remotes/volt/ide to HEAD's tree (what we just pushed == the IDE).
+	// Point refs/remotes/volt/ide AT HEAD — exactly what you just pushed. Like `git push` landing
+	// origin/main on main: the graph now shows `volt/ide` sitting on your pushed commit (in sync). As you
+	// commit more locally, main moves ahead of volt/ide → your unpushed work, shown the git-native way.
 	const after = await bridge.getRefs();
 	saveIdeRefs(root, { projectVersion: after.projectVersion, items: after.items, folders: after.folders });
-	updateRef(gitDir, RANGE, commitVoltIde(gitDir, treeOf(root, "HEAD"), voltHead, `volt: pushed → IDE @ ${after.projectVersion}`));
+	updateRef(gitDir, RANGE, headCommit(root)!);
 
 	return { kind: "ok", items: ops.map((o) => o.name) };
 }
