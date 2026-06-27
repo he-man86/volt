@@ -1,6 +1,6 @@
 /**
  * volt-git init — bind the workspace to the bridge's loaded project, git-init the project root, write
- * `.volt/config.json` + `.gitignore`/`.gitattributes`, scaffold the Bun project, install the LSP
+ * `.git/volt/config.json` + `.gitignore`/`.gitattributes`, scaffold the Bun project, install the LSP
  * language-reference corpus, and do the first pull.
  */
 import { mkdirSync, readFileSync } from "node:fs";

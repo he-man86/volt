@@ -38,8 +38,8 @@ describe("isPouFile", () => {
 	});
 
 	test("only the rightmost extension counts", () => {
-		// state.json.bak ÔÇö .bak isn't a PLC extension.
-		expect(isPouFile("state.json.bak")).toBe(false);
+		// ide-refs.json.bak ÔÇö .bak isn't a PLC extension.
+		expect(isPouFile("ide-refs.json.bak")).toBe(false);
 		// foo.st.bak ÔÇö last segment is .bak, not .st.
 		expect(isPouFile("foo.st.bak")).toBe(false);
 	});
@@ -57,26 +57,26 @@ describe("readStateMtime", () => {
 		rmSync(testDir, { recursive: true, force: true });
 	});
 
-	test("returns 0 when state.json doesn't exist", () => {
+	test("returns 0 when ide-refs.json doesn't exist", () => {
 		expect(readStateMtime(testDir)).toBe(0);
 	});
 
-	test("returns 0 when only .volt/ exists but no state.json", () => {
-		mkdirSync(join(testDir, ".volt", "snapshot"), { recursive: true });
+	test("returns 0 when only .git/volt/ exists but no ide-refs.json", () => {
+		mkdirSync(join(testDir, ".git", "volt"), { recursive: true });
 		expect(readStateMtime(testDir)).toBe(0);
 	});
 
-	test("returns positive mtime once state.json exists", () => {
-		const snapshotDir = join(testDir, ".volt", "snapshot");
-		mkdirSync(snapshotDir, { recursive: true });
-		writeFileSync(join(snapshotDir, "state.json"), "{}");
+	test("returns positive mtime once ide-refs.json exists", () => {
+		const stateDir = join(testDir, ".git", "volt");
+		mkdirSync(stateDir, { recursive: true });
+		writeFileSync(join(stateDir, "ide-refs.json"), "{}");
 		expect(readStateMtime(testDir)).toBeGreaterThan(0);
 	});
 
 	test("returns a larger value after the file is touched forward in time", () => {
-		const snapshotDir = join(testDir, ".volt", "snapshot");
-		mkdirSync(snapshotDir, { recursive: true });
-		const statePath = join(snapshotDir, "state.json");
+		const stateDir = join(testDir, ".git", "volt");
+		mkdirSync(stateDir, { recursive: true });
+		const statePath = join(stateDir, "ide-refs.json");
 		writeFileSync(statePath, "{}");
 		const initial = readStateMtime(testDir);
 		// Bump mtime explicitly to dodge filesystem mtime resolution races
@@ -88,10 +88,10 @@ describe("readStateMtime", () => {
 		expect(after).toBeGreaterThan(initial);
 	});
 
-	test("returns 0 again after state.json is deleted", () => {
-		const snapshotDir = join(testDir, ".volt", "snapshot");
-		mkdirSync(snapshotDir, { recursive: true });
-		const statePath = join(snapshotDir, "state.json");
+	test("returns 0 again after ide-refs.json is deleted", () => {
+		const stateDir = join(testDir, ".git", "volt");
+		mkdirSync(stateDir, { recursive: true });
+		const statePath = join(stateDir, "ide-refs.json");
 		writeFileSync(statePath, "{}");
 		expect(readStateMtime(testDir)).toBeGreaterThan(0);
 		rmSync(statePath);

@@ -2,7 +2,7 @@
  * refs/volt/ide — the live IDE modelled as a hidden ref inside the project repo. Each commit's tree is
  * the user's branch tree with ONLY `src/` swapped for the IDE's state, so `git merge refs/volt/ide`
  * never touches the scaffold. The optimistic-concurrency baseline (what the IDE last had) lives in the
- * `.volt/ide-refs.json` sidecar (gitignored, machine-local).
+ * `.git/volt/ide-refs.json` sidecar (machine-local, inside `.git` so git never tracks it).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { buildTree, commitTree, listTree, resolveRef, writeBlob, type IndexEntry } from "../git/plumbing.js";
@@ -52,7 +52,7 @@ export function srcRelEntries(gitDir: string, treeish: string): Array<{ path: st
 		.map((e) => ({ path: e.path.slice(SRC_DIR.length + 1), sha: e.sha }));
 }
 
-// ─── sidecar baseline (.volt/ide-refs.json) ─────────────────────────────────
+// ─── sidecar baseline (.git/volt/ide-refs.json) ─────────────────────────────
 
 export interface IdeRefs {
 	projectVersion: string;
@@ -66,7 +66,7 @@ export function loadIdeRefs(root: string): IdeRefs | undefined {
 	// A present-but-corrupt sidecar is unexpected: throw loudly (malformed JSON throws here too).
 	const raw = JSON.parse(readFileSync(p, "utf-8")) as Partial<IdeRefs>;
 	if (raw.projectVersion === undefined || raw.items === undefined || raw.folders === undefined) {
-		throw new Error(`.volt/ide-refs.json is malformed — delete it and run \`volt-git pull\` to rebuild the baseline`);
+		throw new Error(`.git/volt/ide-refs.json is malformed — delete it and run \`volt-git pull\` to rebuild the baseline`);
 	}
 	return raw as IdeRefs;
 }

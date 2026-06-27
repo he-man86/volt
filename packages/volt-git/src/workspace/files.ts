@@ -54,10 +54,11 @@ export function removeSrcFiles(root: string, paths: readonly string[]): void {
 	}
 }
 
-/** Ensure the root `.gitignore` ignores `/.volt/` + `/node_modules/`, and `.gitattributes` forces LF. */
+/** Ensure the root `.gitignore` ignores `/node_modules/`, and `.gitattributes` forces LF. (Volt's own
+ *  state lives in `.git/volt/`, which git never tracks — so it needs no ignore entry.) */
 export function ensureGitignore(root: string): void {
 	const giPath = join(root, ".gitignore");
-	const wanted = ["/.volt/", "/node_modules/"];
+	const wanted = ["/node_modules/"];
 	let lines = existsSync(giPath) ? readFileSync(giPath, "utf-8").split("\n") : [];
 	let changed = false;
 	for (const w of wanted) {

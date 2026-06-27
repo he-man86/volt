@@ -50,7 +50,7 @@ export class VoltStatus {
 		this.isRefreshing = true
 
 		try {
-			const configPath = join(this.workspaceRoot, ".volt", "config.json")
+			const configPath = join(this.workspaceRoot, ".git", "volt", "config.json")
 			if (!existsSync(configPath)) {
 				this.cached = undefined
 				this.statusError = undefined
@@ -105,5 +105,5 @@ export function workspaceFolders(): readonly vscode.WorkspaceFolder[] {
 }
 
 export function hasVoltConfig(folder: vscode.WorkspaceFolder): boolean {
-	return existsSync(join(folder.uri.fsPath, ".volt", "config.json"))
+	return existsSync(join(folder.uri.fsPath, ".git", "volt", "config.json"))
 }

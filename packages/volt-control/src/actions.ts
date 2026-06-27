@@ -121,7 +121,7 @@ export async function log(workspaceRoot: string, opts: { limit?: number } = {}):
   return parseJson<LogEntry[]>(r.stdout) ?? []
 }
 
-/** Cheap check: does this dir have an initialized `.volt` workspace? (no bridge probe) */
+/** Cheap check: does this dir have an initialized `.git/volt` Volt workspace? (no bridge probe) */
 export function detect(workspaceRoot: string): boolean {
   return readBridgePort(workspaceRoot) !== undefined
 }

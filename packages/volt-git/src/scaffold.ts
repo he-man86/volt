@@ -71,7 +71,7 @@ function tsconfig(): string {
 				extends: "@tsconfig/bun/tsconfig.json",
 				compilerOptions: { strict: true, noEmit: true, types: ["bun-types"] },
 				include: ["tests/**/*.ts", "scripts/**/*.ts"],
-				exclude: ["node_modules", "src", ".volt", ".claude"],
+				exclude: ["node_modules", "src", ".claude"],
 			},
 			null,
 			2,
@@ -83,8 +83,8 @@ function vscodeSettings(): string {
 	return (
 		JSON.stringify(
 			{
-				"files.watcherExclude": { "**/.volt/**": true, "**/node_modules/**": true },
-				"search.exclude": { "**/.volt": true, "**/node_modules": true },
+				"files.watcherExclude": { "**/node_modules/**": true },
+				"search.exclude": { "**/node_modules": true },
 				"typescript.tsdk": "node_modules/typescript/lib",
 			},
 			null,
@@ -101,7 +101,7 @@ function readme(plcProjectName: string): string {
 	return [
 		`# ${plcProjectName} (Volt workspace)`,
 		"",
-		"Bound to a running PLC IDE — see `.volt/config.json` for the bridge port + project binding.",
+		"Bound to a running PLC IDE — Volt keeps its binding + IDE baseline in `.git/volt/` (managed for you).",
 		"",
 		"## Two axes",
 		"- **`volt pull` / `volt push`** sync `src/` with the live IDE (the machine).",
@@ -111,7 +111,7 @@ function readme(plcProjectName: string): string {
 		"`.sfc`/`.cfc` are read-only views of graphical bodies (don't hand-edit).",
 		"",
 		"## What lives where",
-		"- `.volt/`   internal Volt state (bridge binding + IDE baseline; gitignored)",
+		"- `.git/`    a normal git repo — Volt keeps its binding + IDE baseline in `.git/volt/`",
 		"- `.claude/` AI language reference for ST (committed)",
 		"- `src/`     synced from the IDE",
 		"- `tests/`   your tests (`.test.ts`)",

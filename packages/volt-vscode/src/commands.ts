@@ -315,7 +315,7 @@ async function doInit(
 		return
 	}
 	vscode.window.showInformationMessage("Workspace initialized.")
-	// The folder now has .volt/config.json — register it so the SCM view, status
+	// The folder now has .git/volt/config.json — register it so the SCM view, status
 	// bar and decorations come alive without a reload.
 	ensureWorkspace(workspaceRoot)
 	await refreshFor(statuses, workspaceRoot)
@@ -449,13 +449,13 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 
 		reg("volt.openConfig", () => {
 			const w = ws(); if (!w) return
-			void vscode.commands.executeCommand("vscode.open", vscode.Uri.file(join(w, ".volt", "config.json")))
+			void vscode.commands.executeCommand("vscode.open", vscode.Uri.file(join(w, ".git", "volt", "config.json")))
 		}),
 		reg("volt.openSettings", () => { void vscode.commands.executeCommand("workbench.action.openSettings", "volt") }),
 		reg("volt.openReference", async () => {
 			const w = ws(); if (!w) return
-			// Init scaffolds the language reference + SKILL.md under .volt/.
-			for (const candidate of [join(w, ".volt", "reference", "SKILL.md"), join(w, ".volt", "SKILL.md")]) {
+			// Init installs the ST language reference as a skill under .claude/skills/.
+			for (const candidate of [join(w, ".claude", "skills", "st-reference", "SKILL.md")]) {
 				try {
 					const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(candidate))
 					await vscode.window.showTextDocument(doc)
