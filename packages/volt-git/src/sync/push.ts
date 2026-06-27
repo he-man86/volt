@@ -8,7 +8,7 @@ import { loadConfig, verifyBinding } from "../config/workspace.js";
 import { diffNameStatus, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { getByPath } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
-import { listSrcFiles, readSrcFile } from "../workspace/files.js";
+import { listSrcFiles, readSrcFile, stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
 import type { PushResult } from "./types.js";
@@ -18,7 +18,6 @@ export interface PushOptions {
 	dryRun?: boolean;
 }
 
-const stripSrc = (p: string): string => (p.startsWith("src/") ? p.slice(4) : p);
 const isReadOnly = (rel: string): boolean => getByPath(rel)?.defaultAccess === "r";
 const isPushable = (rel: string): boolean => getByPath(rel)?.defaultAccess === "rw";
 
@@ -47,14 +46,14 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 
 	const changes = diffNameStatus(root, RANGE, "src");
 
-	const readOnly = changes.map((c) => stripSrc(c.path)).filter(isReadOnly);
+	const readOnly = changes.map((c) => stripSrcPrefix(c.path)).filter(isReadOnly);
 	if (readOnly.length > 0) {
 		return { kind: "rejected", reason: `read-only items can't be pushed — revert these:\n${readOnly.map((p) => `  ${p}`).join("\n")}` };
 	}
 
 	const ops: PushOp[] = [];
 	for (const c of changes) {
-		const rel = stripSrc(c.path);
+		const rel = stripSrcPrefix(c.path);
 		if (!isPushable(rel)) continue; // folder markers / foreign files
 		const item = pathToItem(rel);
 		if (item === undefined) continue;

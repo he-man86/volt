@@ -8,10 +8,10 @@ until you've tested; **deletion is the last commit.**
 ## Phase A — volt-git CLI parity (drop-in surface)
 - [x] A1 `--json` for `pull` / `push` — `JSON.stringify(result)`, exit 0 ok / 2 otherwise (verified live)
 - [x] A2 `build` command — `bridge.build({buildType})` + diagnostics (verified live; also accepts the bridge's `column` field)
-- [ ] A3 `status --json` — emit volt-cli's exact shape (initialized, merging{projectVersion,conflicts},
-      incoming, outgoing, pathByName, snapshot/bridgeProjectVersion, ideDrifted, workspaceDirty,
-      driftLikelySelfCaused, nextAction, summary, projectMismatch) + `--porcelain`
-- [x] A4 `log --json` — `JSON.stringify({sha,date,subject})` per line + `--limit`
+- [x] A3 `status --json` — emits volt-control's **lean** `StatusJson` (initialized, merging, incoming,
+      outgoing, pathByName, projectMismatch, summary), not volt-cli's ignored superset. Verified live.
+- [x] A4 `log --json` — **JSON array** of `{sha,date,summary,paths}` + `--limit`. NB: fixes a latent bug —
+      volt-cli emits NDJSON `{subject,…}` which volt-control's array parser silently drops (empty history).
 - [ ] A5 `show <ref> <path>` — HEAD / arbitrary ref via `git show ref:path`; MERGE_BASE/OURS/THEIRS via
       merge-base / HEAD / MERGE_HEAD; BRIDGE via live `fetchChanges`
 - [ ] A6 `init` scaffold + corpus — `writeWorkspaceScaffold` equivalent (.vscode/package.json/tsconfig/

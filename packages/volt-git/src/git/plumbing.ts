@@ -128,6 +128,16 @@ export interface LogEntry {
 	subject: string;
 }
 
+/** src-relative paths touched by a commit (--root so a root commit lists all its files). */
+export function commitPaths(gitDir: string, sha: string): string[] {
+	const out = git(["--git-dir", gitDir, "diff-tree", "-r", "--root", "--name-only", "--no-commit-id", sha]).stdout;
+	return out
+		.split("\n")
+		.map((l) => l.trim())
+		.filter((l) => l.startsWith("src/"))
+		.map((l) => l.slice(4));
+}
+
 export function listLog(gitDir: string, ref: string, limit: number): LogEntry[] {
 	if (resolveRef(gitDir, ref) === undefined) return [];
 	const out = git(["--git-dir", gitDir, "log", `--max-count=${limit}`, "--format=%H%x1f%cI%x1f%s", ref]).stdout;

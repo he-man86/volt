@@ -7,13 +7,13 @@ import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
-import { listLog, resolveGitDir } from "./git/plumbing.js";
+import { commitPaths, listLog, resolveGitDir } from "./git/plumbing.js";
 import { init } from "./init.js";
 import { pull } from "./sync/pull.js";
 import { push } from "./sync/push.js";
 import { RANGE } from "./sync/refs.js";
 import { status } from "./sync/status.js";
-import type { ChangeSet } from "./sync/types.js";
+import type { ChangeSet, LogEntry, StatusJson } from "./sync/types.js";
 
 const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit"]);
 
@@ -119,23 +119,37 @@ async function main(): Promise<number> {
 		}
 		case "status": {
 			const s = await status(root, bridge);
-			console.log(`bridge: ${s.bridge.online ? "connected" : "offline"} — ${s.bridge.detail}`);
+			if (args.has("--json")) {
+				const json: StatusJson = {
+					initialized: s.initialized,
+					merging: s.merging,
+					incoming: s.incoming,
+					outgoing: s.outgoing,
+					pathByName: s.pathByName,
+					projectMismatch: s.projectMismatch,
+					summary: s.summary,
+				};
+				process.stdout.write(`${JSON.stringify(json)}\n`);
+				return 0;
+			}
+			console.log(`bridge: ${s.online ? "connected" : "offline"} — ${s.detail}`);
 			fmtChangeSet("incoming (IDE → you)", s.incoming);
 			fmtChangeSet("outgoing (you → IDE)", s.outgoing);
 			if (s.merging !== null) {
-				console.log(`merge in progress — ${s.merging.paths.length} conflict(s):`);
-				for (const p of s.merging.paths) console.log(`  ! ${p}`);
+				console.log(`merge in progress — ${s.merging.conflicts.length} conflict(s):`);
+				for (const c of s.merging.conflicts) console.log(`  ! ${c.path}`);
 			}
-			const clean = s.incoming.added.length + s.incoming.modified.length + s.incoming.removed.length === 0 && s.outgoing.added.length + s.outgoing.modified.length + s.outgoing.removed.length === 0 && s.merging === null;
-			if (clean) console.log("in sync with the IDE.");
+			console.log(s.summary);
 			if (s.recommend !== null) console.log(`next: ${s.recommend}`);
 			return 0;
 		}
 		case "log": {
+			const gitDir = resolveGitDir(root);
 			const limit = Number(args.value("--limit") ?? args.operands[0] ?? "20");
-			const entries = listLog(resolveGitDir(root), RANGE, Number.isFinite(limit) ? limit : 20);
+			const entries = listLog(gitDir, RANGE, Number.isFinite(limit) ? limit : 20);
 			if (args.has("--json")) {
-				for (const e of entries) process.stdout.write(`${JSON.stringify({ sha: e.sha, date: e.date, subject: e.subject })}\n`);
+				const arr: LogEntry[] = entries.map((e) => ({ sha: e.sha, date: e.date, summary: e.subject, paths: commitPaths(gitDir, e.sha) }));
+				process.stdout.write(`${JSON.stringify(arr)}\n`);
 				return 0;
 			}
 			if (entries.length === 0) {

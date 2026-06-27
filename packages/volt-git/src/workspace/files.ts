@@ -10,6 +10,9 @@ import { normalizeLineEndings } from "../translate/materialize.js";
 
 export const SRC_DIR = "src";
 
+/** Strip a leading "src/" — repo-relative path → src-relative path. */
+export const stripSrcPrefix = (p: string): string => (p.startsWith(`${SRC_DIR}/`) ? p.slice(SRC_DIR.length + 1) : p);
+
 export interface SrcFile {
 	path: string;
 	content: string;

@@ -21,7 +21,7 @@ import {
 	updateRef,
 } from "../git/plumbing.js";
 import { materializeItem } from "../translate/materialize.js";
-import { ensureGitignore, writeSrcFiles } from "../workspace/files.js";
+import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
 import type { PullResult } from "./types.js";
@@ -29,8 +29,6 @@ import type { PullResult } from "./types.js";
 export interface PullOptions {
 	dryRun?: boolean;
 }
-
-const stripSrc = (p: string): string => (p.startsWith("src/") ? p.slice(4) : p);
 
 export async function pull(root: string, bridge: Remote, opts: PullOptions = {}): Promise<PullResult> {
 	const gitDir = resolveGitDir(root);
@@ -89,7 +87,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const outcome = gitMerge(root, RANGE, `volt: merge IDE @ ${fetched.projectVersion}`);
 	if (outcome.kind === "conflict") {
-		return { kind: "conflict", paths: outcome.paths.map(stripSrc) };
+		return { kind: "conflict", paths: outcome.paths.map(stripSrcPrefix) };
 	}
 	saveIdeRefs(root, newSidecar);
 	return { kind: "ok", synced: changeList(incoming) };
