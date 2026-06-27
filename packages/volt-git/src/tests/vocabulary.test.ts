@@ -1,31 +1,30 @@
 /**
- * Cross-language extension vocabulary contract.
+ * Cross-language item-kind vocabulary contract.
  *
- * Three definitions must agree:
+ * Two committed definitions must agree (no codegen, no live bridge — compared as sets):
  *   1. packages/volt-bridge/item-kinds.json   — the shared contract (source of truth)
- *   2. ItemKind.cs `Map()`                      — what the BRIDGE actually emits
- *   3. registry/extensions.ts `EXTENSIONS`      — what the CLI materializes as files
+ *   2. ItemKind.cs `Map()`                     — what the BRIDGE actually emits
  *
- * No codegen, no live bridge — just three committed files compared as sets.
+ * (Ported from volt-cli at graduation; extensions.ts access is exercised by the sync tests.)
  */
 import { describe, test, expect } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const BRIDGES = join(import.meta.dir, "..", "..", "..", "..", "volt-bridge")
+const BRIDGES = join(import.meta.dir, "..", "..", "..", "volt-bridge")
 const ITEMKIND_CS = join(BRIDGES, "src", "Volt.Bridge.Core", "Workspace", "ItemKind.cs")
 
-interface KindDef { kind: string; family?: "inlined" | "container" }
+interface KindDef {
+	kind: string
+	family?: "inlined" | "container"
+}
 
-const contract = (
+const contractKinds = (
 	JSON.parse(readFileSync(join(BRIDGES, "item-kinds.json"), "utf-8")) as { kinds: KindDef[] }
-).kinds
+).kinds.map((k) => k.kind)
 
-const contractKinds = contract.map((k) => k.kind)
-const fileKinds = contract.filter((k) => k.family === undefined).map((k) => k.kind)
-
-// Map() is the only place in ItemKind.cs that returns kind STRINGS. Extract only the
-// Map method body (code switch … };) — skip ExtFor and other switches in the same file.
+// Map() is the only place in ItemKind.cs that returns kind STRINGS. Slice out just the Map method
+// body (`=> code switch … };`) so other switches in the file (ExtFor, …) don't leak into the set.
 const itemKindSrc = readFileSync(ITEMKIND_CS, "utf-8")
 const mapStart = itemKindSrc.indexOf("=> code switch")
 const mapEnd = itemKindSrc.indexOf("/// <summary>Top-level", mapStart)

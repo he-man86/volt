@@ -6,7 +6,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node"],
-    "typeRoots": ["../packages/volt-cli/node_modules/@types", "../packages/volt-lsp-st/node_modules/@types"],
+    "typeRoots": ["../packages/volt-git/node_modules/@types", "../packages/volt-lsp-st/node_modules/@types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,

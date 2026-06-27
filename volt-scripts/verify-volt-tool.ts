@@ -8,7 +8,7 @@
  * including a `tools` map of id -> enabled. We assert `tools.volt === true`.
  *
  * This proves the tool LOADED. Executing a verb end-to-end (e.g. `volt status`)
- * additionally needs a live bridge + bound workspace — covered by volt-cli tests.
+ * additionally needs a live bridge + bound workspace — covered by volt-git tests.
  *
  * Run from anywhere:  bun volt-scripts/verify-volt-tool.ts
  */
@@ -20,7 +20,7 @@ const repoRoot = resolve(import.meta.dirname, "..")
 
 const voltBin = resolve(repoRoot, "packages/volt-git/dist/bin.js")
 if (!existsSync(voltBin)) {
-  console.error(`✗ volt CLI not built: ${voltBin}\n  Run: bun --cwd packages/volt-cli run build`)
+  console.error(`✗ volt CLI not built: ${voltBin}\n  Run: bun --cwd packages/volt-git run build`)
   process.exit(1)
 }
 

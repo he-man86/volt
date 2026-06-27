@@ -16,7 +16,7 @@ export function setBundledCli(path: string): void {
  *  it can be run as a Node script — never the platform shell shim. */
 export function cliScript(workspaceRoot: string): string {
 	if (bundledCli !== undefined) return bundledCli
-	const wsPkg = join(workspaceRoot, "node_modules", "@opencode-ai", "volt-cli", "dist", "bin.js")
+	const wsPkg = join(workspaceRoot, "node_modules", "@opencode-ai", "volt-git", "dist", "bin.js")
 	if (existsSync(wsPkg)) return wsPkg
 	throw new Error("volt CLI not found (no bundled CLI, none installed in the workspace)")
 }

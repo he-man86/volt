@@ -47,8 +47,8 @@ Top-level `BridgeException` (the error type the wire boundary catches) and `Poly
 
 The whole wire is keyed by bare item name — `/refs` `items`/`kinds`/`folders`, `/fetch`
 `knownItems`, every push op, `structureVersion` (hash of sorted *names*), and the workspace's
-"one item per file" layout. This is deliberate and load-bearing across the bridge, `volt-cli`
-(merge/snapshot/commands) and `volt-vscode`.
+"one item per file" layout. This is deliberate and load-bearing across the bridge, `volt-git`
+(the git-native CLI) and `volt-vscode`.
 
 Consequence: two items with the **same name** collapse in the version map (last-write-wins). This
 is a non-issue for **source** items (POUs/DUTs/GVLs/interfaces) — IEC guarantees their names are

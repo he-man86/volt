@@ -1,7 +1,7 @@
 /**
  * Bridge wire types + schemas — the HTTP shape every bridge daemon speaks (Beckhoff, CODESYS, …).
  * Protocol: git-inspired refs + atomic batched push. Schemas are the source of truth and are
- * `.parse()`-validated at the client boundary. Verbatim contract copy from volt-cli.
+ * `.parse()`-validated at the client boundary.
  *
  *   GET  /health  → liveness + stable identifiers (platform, projectName, plcProjectName)
  *   GET  /refs    → project + per-item content versions (cheap, no payload)

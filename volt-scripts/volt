@@ -3,7 +3,7 @@
 #
 # bun does not always create node_modules/.bin symlinks for private
 # workspace packages (Windows in particular), so the bare bin name `volt`
-# declared in packages/volt-cli/package.json may not resolve from a
+# declared in packages/volt-git/package.json may not resolve from a
 # shell. This wrapper bridges the gap: add the directory containing
 # this script to your PATH and `volt <verb>` works from any cwd, exactly
 # like a published CLI.

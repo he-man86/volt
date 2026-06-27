@@ -37,7 +37,7 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
   "packages/desktop/src/preload/index.ts", // expose window.volt
   "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt-cli.js)
-  "packages/desktop/package.json", // @opencode-ai/volt-control + volt-cli deps
+  "packages/desktop/package.json", // @opencode-ai/volt-git + volt-control deps
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
@@ -123,7 +123,7 @@ export function classify(nameStatusLines: readonly string[]): Classification {
 
 function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
-    { name: "volt package edit is exempt", lines: ["M\tpackages/volt-cli/src/x.ts"], allowed: 0, violations: 0 },
+    { name: "volt package edit is exempt", lines: ["M\tpackages/volt-git/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
     { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-DESIGN.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
     { name: "branding seams (logo / app-name) count as allowed", lines: ["M\tpackages/ui/src/components/logo.tsx", "M\tpackages/desktop/src/main/index.ts", "M\tpackages/desktop/electron-builder.config.ts"], allowed: 3, violations: 0 },
@@ -143,7 +143,7 @@ function selfTest(): void {
     { name: "renamed upstream file is a violation (dest path)", lines: ["R100\tpackages/core/a.ts\tpackages/core/b.ts"], allowed: 0, violations: 1 },
     { name: "mixed real-world set", lines: ["M\tbun.lock", "A\tvolt-scripts/x.ts", "M\tpackages/volt-lsp-st/src/y.ts", "M\tpackages/server/src/z.ts"], allowed: 1, violations: 1 },
     { name: "committed junk in a fork-owned path is a violation", lines: ["A\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 1 },
-    { name: "OS/editor cruft is a violation", lines: ["A\tpackages/volt-cli/.DS_Store"], allowed: 0, violations: 1 },
+    { name: "OS/editor cruft is a violation", lines: ["A\tpackages/volt-git/.DS_Store"], allowed: 0, violations: 1 },
     { name: "deleting junk is fine (not a violation)", lines: ["D\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 0 },
   ]
 

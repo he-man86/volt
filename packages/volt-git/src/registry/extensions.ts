@@ -2,8 +2,6 @@
  * Extension registry — the single source of truth for every workspace file extension Volt tracks.
  * The bridge sends full filenames (name.ext); the CLI only looks up the extension in this flat table
  * to determine access (rw for source items, r for references).
- *
- * Verbatim copy of the stable contract from volt-cli (this package is self-contained).
  */
 
 export type DefaultAccess = "r" | "rw";

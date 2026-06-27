@@ -9,7 +9,7 @@ export interface IpcMainLike {
 
 /**
  * Wire the Volt CLI over Electron IPC. Call once from the desktop main process, passing the
- * path to the bundled `volt` CLI (a PLC workspace has no volt-cli in node_modules). The renderer
+ * path to the bundled `volt` CLI (a PLC workspace has no volt CLI in node_modules). The renderer
  * passes the workspace dir on every call; this process is a thin pass-through to volt-control.
  *
  * Channel names match the `window.volt` contract the desktop preload exposes (see volt-app/ipc.ts).

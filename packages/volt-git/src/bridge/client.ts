@@ -2,7 +2,7 @@
  * BridgeClient — talks to a local bridge daemon on 127.0.0.1:<port> (8555 default). The CLI depends
  * only on the `Remote` interface. Loopback HTTP via node:http (NOT global fetch — undici's keep-alive
  * pool races process.exit on Windows and trips a libuv assertion in short-lived CLIs). Every 2xx is
- * schema-validated. Verbatim contract copy from volt-cli.
+ * schema-validated.
  */
 import { request as httpRequest } from "node:http";
 import type { z } from "zod";

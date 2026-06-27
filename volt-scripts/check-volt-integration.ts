@@ -72,7 +72,7 @@ check("volt-lsp-st dist/bin.js", () => {
 });
 check("volt CLI dist/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-git/dist/bin.js");
-	return existsSync(path) || "not built — run: bun run --cwd packages/volt-cli build";
+	return existsSync(path) || "not built — run: bun run --cwd packages/volt-git build";
 });
 
 console.log("\nRuntime smoke test");
