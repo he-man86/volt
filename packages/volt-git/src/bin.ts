@@ -7,15 +7,14 @@ import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
-import { commitPaths, listLog, resolveGitDir } from "./git/plumbing.js";
 import { init } from "./init.js";
+import { log } from "./log.js";
 import { merge } from "./merge.js";
 import { show } from "./show.js";
 import { pull } from "./sync/pull.js";
 import { push } from "./sync/push.js";
-import { RANGE } from "./sync/refs.js";
 import { status } from "./sync/status.js";
-import type { ChangeSet, LogEntry, StatusJson } from "./sync/types.js";
+import type { ChangeSet, StatusJson } from "./sync/types.js";
 
 const VALUE_FLAGS = new Set(["--workspace", "--port", "--limit", "--resolve"]);
 
@@ -165,19 +164,17 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "log": {
-			const gitDir = resolveGitDir(root);
 			const limit = Number(args.value("--limit") ?? args.operands[0] ?? "20");
-			const entries = listLog(gitDir, RANGE, Number.isFinite(limit) ? limit : 20);
+			const entries = log(root, Number.isFinite(limit) ? limit : 20);
 			if (args.has("--json")) {
-				const arr: LogEntry[] = entries.map((e) => ({ sha: e.sha, date: e.date, summary: e.subject, paths: commitPaths(gitDir, e.sha) }));
-				process.stdout.write(`${JSON.stringify(arr)}\n`);
+				process.stdout.write(`${JSON.stringify(entries)}\n`);
 				return 0;
 			}
 			if (entries.length === 0) {
 				console.log("no sync history yet — run `volt-git pull`.");
 				return 0;
 			}
-			for (const e of entries) console.log(`${e.sha.slice(0, 8)}  ${e.date.slice(0, 10)}  ${e.subject}`);
+			for (const e of entries) console.log(`${e.sha.slice(0, 8)}  ${e.date.slice(0, 10)}  ${e.summary}`);
 			return 0;
 		}
 		case "show": {

@@ -10,6 +10,7 @@ import { status } from "../sync/status.js";
 import { merge } from "../merge.js";
 import { build } from "../build.js";
 import { show } from "../show.js";
+import { log } from "../log.js";
 import { isMerging } from "../git/plumbing.js";
 import { MockBridge, type MockItem } from "./mock-bridge.js";
 
@@ -333,5 +334,31 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 		const r = await build(bridge, false);
 		expect(r.success).toBe(true);
 		expect(Array.isArray(r.diagnostics)).toBe(true);
+	});
+
+	// ── log (the IDE-sync history on volt/ide) ──
+	test("log returns the sync history, newest first, with summary + paths", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]); // init = first pull → a volt/ide commit
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit A");
+		await push(root, bridge); // push → volt/ide = HEAD (the edit commit)
+		const entries = log(root);
+		expect(entries.length).toBeGreaterThan(0);
+		expect(entries[0]!.summary).toBe("edit A"); // newest first
+		expect(Array.isArray(entries[0]!.paths)).toBe(true);
+		expect(entries[0]!.sha.length).toBeGreaterThan(0);
+	});
+
+	// ── binding guard (wrong project open in the IDE) ──
+	test("binding guard: a project mismatch blocks both push and pull", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]); // binds to the mock's project
+		bridge.project = { ...bridge.project, projectName: "DifferentProject" }; // IDE now reports another project
+		writeSrc(root, "A.st", "a\nmine\n");
+		commitAll(root, "edit");
+		const p = await push(root, bridge);
+		expect(p.kind).toBe("rejected");
+		if (p.kind === "rejected") expect(p.reason.toLowerCase()).toContain("bound");
+		const l = await pull(root, bridge);
+		expect(l.kind).toBe("refused");
 	});
 });
