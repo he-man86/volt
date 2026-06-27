@@ -12,4 +12,4 @@
 # required, and bun resolves workspace imports natively.
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec bun "${SCRIPT_DIR}/../packages/volt-cli/dist/bin.js" "$@"
+exec bun "${SCRIPT_DIR}/../packages/volt-git/dist/bin.js" "$@"

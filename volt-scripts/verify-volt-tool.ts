@@ -18,7 +18,7 @@ import { resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
 
-const voltBin = resolve(repoRoot, "packages/volt-cli/dist/bin.js")
+const voltBin = resolve(repoRoot, "packages/volt-git/dist/bin.js")
 if (!existsSync(voltBin)) {
   console.error(`✗ volt CLI not built: ${voltBin}\n  Run: bun --cwd packages/volt-cli run build`)
   process.exit(1)

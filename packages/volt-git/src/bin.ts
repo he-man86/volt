@@ -52,13 +52,16 @@ function fmtChangeSet(label: string, c: ChangeSet): void {
 	for (const p of c.removed) console.log(`  - ${p}`);
 }
 
-const USAGE = `volt-git — git-native Volt CLI
+const USAGE = `volt <command> [args] — git-native Volt CLI
 
-  volt-git init     bind to the bridge, git-init the project, first pull
-  volt-git pull     fetch the IDE → git merge into your branch   [--force] [--dry-run]
-  volt-git push     workspace → IDE → fast-forward refs/volt/ide  [--force] [--dry-run]
-  volt-git status   incoming / outgoing / merge state
-  volt-git log      the IDE-sync history (git log refs/volt/ide)
+  init     bind to the bridge, git-init the project, first pull
+  pull     fetch the IDE → git merge into your branch       [--force] [--dry-run]
+  push     workspace → IDE → fast-forward refs/volt/ide      [--force] [--dry-run] [--force-with-lease=<v>]
+  status   incoming / outgoing / merge state                [--json]
+  build    build via the IDE; returns diagnostics            [--full] [--json]
+  log      the IDE-sync history                              [--json] [--limit N]
+  show     a file at a ref:  <ref> <path>   (HEAD / MERGE_OURS|THEIRS|BASE / BRIDGE)
+  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]
 
   flags: --workspace <dir>  --port <n>`;
 
@@ -125,6 +128,18 @@ async function main(): Promise<number> {
 		}
 		case "status": {
 			const s = await status(root, bridge);
+			if (args.has("--porcelain")) {
+				const emit = (code: string, names: string[]): void => {
+					for (const n of names) console.log(`${code} ${s.pathByName[n] ?? n}`);
+				};
+				emit("iA", s.incoming.added);
+				emit("iM", s.incoming.modified);
+				emit("iD", s.incoming.removed);
+				emit("oA", s.outgoing.added);
+				emit("oM", s.outgoing.modified);
+				emit("oD", s.outgoing.removed);
+				return 0;
+			}
 			if (args.has("--json")) {
 				const json: StatusJson = {
 					initialized: s.initialized,
@@ -191,6 +206,10 @@ async function main(): Promise<number> {
 			else console.error(r.message);
 			return r.code;
 		}
+		case "help":
+		case "--help":
+			console.log(USAGE);
+			return 0;
 		default:
 			console.log(USAGE);
 			return args.verb === undefined ? 0 : 1;

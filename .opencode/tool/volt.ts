@@ -15,20 +15,20 @@ const MUTATING = new Set(["init", "pull", "push", "merge"])
 // This file lives at <repoRoot>/.opencode/tool/volt.ts, so the built CLI is a
 // fixed two levels up — resolved from the file (not ctx.directory) so it works
 // regardless of which project the agent has open.
-const VOLT_BIN = resolve(import.meta.dirname, "../../packages/volt-cli/dist/bin.js")
+const VOLT_BIN = resolve(import.meta.dirname, "../../packages/volt-git/dist/bin.js")
 
 export default tool({
   description: `Drive a CODESYS / TwinCAT 3 (IEC 61131-3) PLC IDE through the Volt CLI — a git-style workflow over text. Prefer this over guessing shell commands.
 
 Verbs (pass via "command"):
-- status  drift between IDE, snapshot, and workspace. Read-only. Run first.
+- status  incoming/outgoing between the IDE and your workspace. Read-only. Run first.
 - build   ask the IDE to build; returns diagnostics. Read-only.
 - show    display a file at a ref:  args ["<ref>", "<path>"]
-- log     snapshot history:         args ["--limit", "10"]
+- log     IDE-sync history:         args ["--limit", "10"]
 - init    bind this workspace to the IDE project (one-time). Mutating.
-- pull    IDE -> workspace.  Mutating.
+- pull    IDE -> workspace (git merge).  Mutating.
 - push    workspace -> IDE.  Mutating.
-- merge   resolve 3-way conflicts.  Mutating.
+- merge   finish a conflicted pull (--continue/--abort/--resolve).  Mutating.
 
 Extra flags/operands go in "args" (e.g. ["--json"], ["--dry-run"]). Mutating verbs prompt for human approval.`,
   args: {
@@ -43,7 +43,7 @@ Extra flags/operands go in "args" (e.g. ["--json"], ["--dry-run"]). Mutating ver
   },
   async execute(args, ctx) {
     if (!existsSync(VOLT_BIN)) {
-      return `volt CLI not built: ${VOLT_BIN}\nRun: bun --cwd packages/volt-cli run build`
+      return `volt CLI not built: ${VOLT_BIN}\nRun: bun --cwd packages/volt-git run build`
     }
 
     const rest = args.args ?? []
