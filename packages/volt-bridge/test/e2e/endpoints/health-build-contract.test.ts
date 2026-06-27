@@ -40,8 +40,12 @@ describe(`endpoints / health+build+contract (${BASE})`, () => {
 	describe("contract", () => {
 		it("/openapi.yaml lists every push-op + request schema", async () => {
 			const yaml = await bridge.openapi()
-			for (const s of ["PushOp", "SetItemOp", "DeleteItemOp", "FetchRequest", "BuildRequest"])
+			for (const s of ["PushOp", "SetItemOp", "DeleteItemOp", "RefsResponse", "RefItem", "FetchRequest", "BuildRequest"])
 				expect(yaml).toContain(`${s}:`)
+		})
+		it("/refs returns items as a list", async () => {
+			const refs = await (await fetch(`${BASE}/refs`)).json()
+			expect(Array.isArray(refs.items)).toBe(true)
 		})
 		it("/swagger serves the UI", async () => {
 			const html = await (await fetch(`${BASE}/swagger`)).text()

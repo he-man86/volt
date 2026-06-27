@@ -134,7 +134,9 @@ describe("volt-git sync", () => {
 		expect(s.incoming.added).toContain("B.st");
 	});
 
-	const keys = (items: Record<string, string>): string[] => Object.keys(items).sort();
+	type Refs = { items: { name: string; folder: string }[] };
+	const names = (r: Refs): string[] => r.items.map((i) => i.name).sort();
+	const folderOf = (r: Refs, name: string): string | undefined => r.items.find((i) => i.name === name)?.folder;
 
 	test("10. pure rename → one `set` op carrying just the new name", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "x\n" }]);
@@ -146,7 +148,7 @@ describe("volt-git sync", () => {
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st" });
 		expect((ops[0] as Record<string, unknown>).sourceText).toBeUndefined(); // refs preserved, content not resent
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.st"]); // A.st renamed to B.st
+		expect(names(await bridge.getRefs())).toEqual(["B.st"]); // A.st renamed to B.st
 	});
 
 	test("11. pure move (folder change, name kept) → one `set` op with the new folder", async () => {
@@ -159,7 +161,7 @@ describe("volt-git sync", () => {
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toFolder: "F2" });
-		expect((await bridge.getRefs()).folders["A.st"]).toBe("F2");
+		expect(folderOf(await bridge.getRefs(), "A.st")).toBe("F2");
 	});
 
 	test("12. rename + content edit → one atomic `set` (no refusal)", async () => {
@@ -174,7 +176,7 @@ describe("volt-git sync", () => {
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st", sourceText: edited });
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.st"]); // A.st gone; B.st has the edit
+		expect(names(await bridge.getRefs())).toEqual(["B.st"]); // A.st gone; B.st has the edit
 	});
 
 	test("13. rename AND move in one step → one atomic `set` (no refusal)", async () => {
@@ -188,8 +190,8 @@ describe("volt-git sync", () => {
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st", toFolder: "F2" });
 		const refs = await bridge.getRefs();
-		expect(keys(refs.items)).toEqual(["B.st"]);
-		expect(refs.folders["B.st"]).toBe("F2");
+		expect(names(refs)).toEqual(["B.st"]);
+		expect(folderOf(refs, "B.st")).toBe("F2");
 	});
 
 	test("14. a brand-new (untracked, never git-added) file is pushed as a create", async () => {
@@ -199,6 +201,6 @@ describe("volt-git sync", () => {
 		expect(r.kind).toBe("ok");
 		const setOp = bridge.pushCalls[0]!.ops.find((o) => o.op === "set" && o.name === "NEW.st");
 		expect(setOp).toMatchObject({ op: "set", name: "NEW.st", ifVersion: null }); // create
-		expect(keys((await bridge.getRefs()).items)).toContain("NEW.st");
+		expect(names(await bridge.getRefs())).toContain("NEW.st");
 	});
 });

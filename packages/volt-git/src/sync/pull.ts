@@ -23,7 +23,7 @@ import {
 import { materializeItem } from "../translate/materialize.js";
 import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
-import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
+import { buildVoltIdeTree, commitVoltIde, folderMap, loadIdeRefs, RANGE, saveIdeRefs, versionMap, voltIdeHead, type IdeRefs } from "./refs.js";
 import type { PullResult } from "./types.js";
 
 export interface PullOptions {
@@ -44,7 +44,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const refs = await bridge.getRefs();
 	const sidecar = loadIdeRefs(root);
-	const incoming = computeIncoming(refs.items, sidecar?.items ?? {});
+	const incoming = computeIncoming(versionMap(refs), sidecar?.items ?? {});
 	if (sidecar !== undefined && refs.projectVersion === sidecar.projectVersion && !hasChanges(incoming)) {
 		return { kind: "ok", synced: [], message: "already up to date with the IDE" };
 	}
@@ -64,7 +64,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
 	const ideFiles = fetched.changed.flatMap(materializeItem);
-	const newSidecar: IdeRefs = { projectVersion: fetched.projectVersion, items: fetched.items, folders: refs.folders };
+	const newSidecar: IdeRefs = { projectVersion: fetched.projectVersion, items: fetched.items, folders: folderMap(refs) };
 	const head = headCommit(root);
 
 	// Bootstrap: unborn HEAD — no merge target. Seed both refs + materialize files + sync the index.

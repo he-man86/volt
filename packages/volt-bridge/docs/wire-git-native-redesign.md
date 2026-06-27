@@ -1,7 +1,6 @@
 # Bridge wire — git-native redesign
 
-**Status:** `/push` **IMPLEMENTED** (the `set` op — both sides, tested); `/refs` list **deferred to
-graduation** (it would touch volt-cli's read path, the fallback — cleaner once volt-cli is deleted).
+**Status:** **IMPLEMENTED** — both `/push` (the `set` op) and `/refs` (one item list) shipped + live-tested.
 **Driver:** make the git sync layer (`packages/volt-git`) the easiest thing in the system to maintain ·
 **Owner of the contract:** `Volt.Bridge.Core` (both vendors serve it byte-identically)
 
@@ -12,6 +11,11 @@ graduation** (it would touch volt-cli's read path, the fallback — cleaner once
 > `cleanStructural` + the rename+edit/rename+move refusals **deleted** — they now succeed as one `set`).
 > openapi spec bumped to **2.0.0**; C# + volt-git + e2e tests all on `set`. **rename+edit and rename+move
 > now just work** — validated live against real CODESYS (create/rename+edit/move/delete).
+>
+> **Implemented (`/refs`):** `RefsResponse` carries `items: [{name, folder, version}]` (one list, not the
+> parallel `items`+`folders` maps); `RefsService` builds it; `structureVersion` kept (a tested stability
+> invariant, so deliberately NOT dropped). volt-git unpacks via `versionMap`/`folderMap` helpers. C# +
+> volt-git + e2e green; live cycle (init/status/push/delete) verified on real CODESYS.
 
 ## Why this exists
 
@@ -168,12 +172,12 @@ which spawns the CLI; the wire change is below them. A GUI that wants imperative
 
 ---
 
-## Recommendation
+## Recommendation — both shipped ✅
 
-Make exactly two changes, both load-bearing for maintainability:
-1. **`/push`: replace `pushItem`+`renameItem`+`moveItem` with one `set` op** (keep `delete`). This is the
-   change that dissolves the rename+edit / rename+move refusals and halves the push code.
-2. **`/refs`: return one `[{name, folder, version}]` list** instead of two parallel maps (ergonomic).
+1. **`/push`: one `set` op** (+ `delete`) — dissolved the rename+edit / rename+move refusals and halved the
+   push code. ✅
+2. **`/refs`: one `[{name, folder, version}]` list** — replaced the two parallel maps. ✅ (`structureVersion`
+   kept — it's a tested stability invariant. volt-git unpacks the list to name-keyed maps for its keyed
+   lookups via small `versionMap`/`folderMap` helpers.)
 
-Everything else about the wire is already a good fit for git-native sync — the imperative `/push` is the
-single thing shaped against the grain.
+Everything else about the wire was already a good fit for git-native sync.

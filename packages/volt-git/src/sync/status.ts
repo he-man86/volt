@@ -9,7 +9,7 @@ import { configExists, loadConfig, type WorkspaceConfig } from "../config/worksp
 import { diffRows, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
 import { computeIncoming, hasChanges } from "./diff.js";
-import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
+import { folderMap, loadIdeRefs, RANGE, versionMap, voltIdeHead } from "./refs.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import type { ChangeSet, ProjectMismatch, StatusData } from "./types.js";
 
@@ -31,8 +31,8 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 		if (cfg !== undefined) projectMismatch = mismatch(cfg, health);
 		if (projectMismatch === null) {
 			const refs = await bridge.getRefs();
-			bridgeItems = refs.items;
-			bridgeFolders = refs.folders;
+			bridgeItems = versionMap(refs);
+			bridgeFolders = folderMap(refs);
 			bridgeProjectVersion = refs.projectVersion;
 		}
 	} catch (err) {

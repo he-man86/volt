@@ -5,6 +5,7 @@
  * `.volt/ide-refs.json` sidecar (gitignored, machine-local).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import type { RefsResponse } from "../bridge/types.js";
 import { buildTree, commitTree, listTree, resolveRef, writeBlob, type IndexEntry } from "../git/plumbing.js";
 import { isTrackedPath } from "../registry/extensions.js";
 import type { MaterializedFile } from "../translate/materialize.js";
@@ -59,6 +60,13 @@ export interface IdeRefs {
 	items: Record<string, string>; // full name → version  (what the IDE last had)
 	folders: Record<string, string>; // full name → folder
 }
+
+/** /refs items list → name→version map (drift detection + optimistic-concurrency guards). */
+export const versionMap = (refs: RefsResponse): Record<string, string> =>
+	Object.fromEntries(refs.items.map((i) => [i.name, i.version]));
+/** /refs items list → name→folder map (for workspace paths). */
+export const folderMap = (refs: RefsResponse): Record<string, string> =>
+	Object.fromEntries(refs.items.map((i) => [i.name, i.folder]));
 
 export function loadIdeRefs(root: string): IdeRefs | undefined {
 	const p = workspacePaths(root).ideRefsPath;
