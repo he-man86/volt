@@ -19,13 +19,13 @@ until you've tested; **deletion is the last commit.**
 - [x] A8 `merge` shim — `--continue`/`--abort`/`--resolve <p> --use-ours|--use-theirs` over native git (verb kept for gates/docs)
 - [x] A9 typecheck + 9 tests green ✅ **Phase A complete — volt-git is a drop-in for volt-cli's CLI contract**
 
-## Phase B — rewire consumers (point at volt-git; volt-cli still present)
-- [ ] B1 `.opencode/tool/volt.ts:18` VOLT_BIN → `packages/volt-git/dist/bin.js`
-- [ ] B2 `.opencode/agent/volt.md` — note conflicts use `git merge --continue/--abort` (merge shim covers the verb)
-- [ ] B3 `packages/desktop/package.json` dep + `electron.vite.config.ts:43` input + `src/main/index.ts:278` (keep `volt-cli.js` output name → no path change)
-- [ ] B4 `packages/volt-vscode/package.json` build → bundle `../volt-git/src/bin.ts`
-- [ ] B5 `volt-scripts/volt.cmd:12`, `verify-volt-tool.ts:21`, `check-volt-integration.ts:74` → volt-git path
-- [ ] B6 `bun run build` volt-git → dist; verify-volt-tool + check-volt-integration + verify-lsp green
+## Phase B — rewire consumers (point at volt-git; volt-cli still present) ✅
+- [x] B1 `.opencode/tool/volt.ts` VOLT_BIN → volt-git + git-native verb docs (verify-volt-tool ✓)
+- [x] B2 `.opencode/agent/volt.md` — six verbs incl. merge, commit-before-pull note, snapshot→workspace
+- [x] B3 desktop seams: package.json dep + electron.vite input → volt-git (output name kept `volt-cli.js`)
+- [x] B4 `volt-vscode/package.json` build → `../volt-git/src/bin.ts`
+- [x] B5 `volt-scripts/volt`+`volt.cmd`, `verify-volt-tool.ts`, `check-volt-integration.ts` → volt-git
+- [x] B6 status `--porcelain` + `help` added; build → dist; **sync.ts all green** (install/divergence/integration/lsp/tool)
 
 ## Phase C — YOU test the fully-integrated product (desktop + agent + terminal)
 - [ ] C1 sign-off
