@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
-  "version": "1.21.1",
+  "version": "1.21.2",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -694,7 +694,7 @@
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
     "test": "bun test",
-    "package": "vsce package --no-dependencies"
+    "package": "bun run build && vsce package --no-dependencies"
   },
   "dependencies": {
     "@opencode-ai/volt-control": "workspace:*",
