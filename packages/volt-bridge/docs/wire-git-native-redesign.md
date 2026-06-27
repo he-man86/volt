@@ -188,3 +188,22 @@ which spawns the CLI; the wire change is below them. A GUI that wants imperative
    the top.
 
 Everything else about the wire was already a good fit for git-native sync.
+
+---
+
+## Shipped — the full git-native refactor (close-out record)
+
+This wire reshape was the centre of a larger refactor; for the record, what landed on
+`feat/git-native-sync` (all tested, live-validated on headless CODESYS, `sync.ts` green):
+
+- **`/push`** → one `set` op + `delete`; legacy ops removed; openapi → 2.0.0. ✅
+- **`/refs`** → kept the two maps (list reverted). ✅
+- **`/debug`** → folded the old `/raw` POU-XML dump into one `GET /debug?name=&xml=1` (tree + bodies). ✅
+- **volt-cli deleted** (graduation Phase D) — volt-git is the sole `volt` CLI; the item-kind vocabulary
+  contract test was recovered into volt-git; bin + desktop bundle renamed to `volt`. ✅
+- **Workspace layout** → Volt's machine-local state moved from a visible `.volt/` into `.git/volt/`, so a
+  Volt workspace invents no directory (just `git` + `.claude` skills). ✅
+
+**Open:** branch not yet merged to `dev`; the auto-stash-on-pull ergonomic is a planned fast-follow. The
+next phase re-evaluates the **vscode + desktop UI** now that sync is standard git (built-in Git tooling can
+likely replace much of the custom SCM surface).
