@@ -77,6 +77,8 @@ async function main(): Promise<number> {
 			}
 			console.log(`bound to ${r.project}`);
 			if (r.gitCreated) console.log("initialized a git repo for version control");
+			if (r.scaffold > 0) console.log(`scaffolded ${r.scaffold} project file(s)`);
+			if (r.corpus > 0) console.log(`installed ${r.corpus} language-reference file(s)`);
 			console.log(r.note !== undefined ? r.note : `pulled ${r.pulled} file(s) — workspace ready`);
 			return 0;
 		}

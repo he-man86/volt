@@ -13,11 +13,11 @@ until you've tested; **deletion is the last commit.**
 - [x] A4 `log --json` — **JSON array** of `{sha,date,summary,paths}` + `--limit`. NB: fixes a latent bug —
       volt-cli emits NDJSON `{subject,…}` which volt-control's array parser silently drops (empty history).
 - [x] A5 `show <ref> <path>` — HEAD/any ref via `git show`; MERGE_OURS/THEIRS/BASE via HEAD/MERGE_HEAD/merge-base; BRIDGE via live `fetchChanges`. Verified live.
-- [ ] A6 `init` scaffold + corpus — `writeWorkspaceScaffold` equivalent (.vscode/package.json/tsconfig/
-      bunfig/README/tests) + `installCorpus` from `@opencode-ai/volt-lsp` + vendor detect
+- [x] A6 `init` scaffold (6 files; git-native README, .volt excludes) + `installCorpus` from
+      `@opencode-ai/volt-lsp` (st-reference skill) + vendor-from-platform. Verified live: scaffolded 6 + 32 ref files.
 - [x] A7 `push --force-with-lease=<version>` (atomic force; stale-lease refusal)
 - [x] A8 `merge` shim — `--continue`/`--abort`/`--resolve <p> --use-ours|--use-theirs` over native git (verb kept for gates/docs)
-- [ ] A9 typecheck + tests green (ongoing — green after each step)
+- [x] A9 typecheck + 9 tests green ✅ **Phase A complete — volt-git is a drop-in for volt-cli's CLI contract**
 
 ## Phase B — rewire consumers (point at volt-git; volt-cli still present)
 - [ ] B1 `.opencode/tool/volt.ts:18` VOLT_BIN → `packages/volt-git/dist/bin.js`

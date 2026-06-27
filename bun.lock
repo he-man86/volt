@@ -1064,6 +1064,7 @@
         "volt-git": "./dist/bin.js",
       },
       "dependencies": {
+        "@opencode-ai/volt-lsp": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {
