@@ -13,8 +13,11 @@ public class PushRequest
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
-[JsonDerivedType(typeof(PushItemOp), "pushItem")]
+[JsonDerivedType(typeof(SetItemOp), "set")]
 [JsonDerivedType(typeof(DeleteItemOp), "deleteItem")]
+// Legacy ops — accepted during the transition; normalized to SetItemOp at the apply boundary
+// (PushService.Normalize). Drop these three + their derived-type lines at graduation.
+[JsonDerivedType(typeof(PushItemOp), "pushItem")]
 [JsonDerivedType(typeof(RenameItemOp), "renameItem")]
 [JsonDerivedType(typeof(MoveItemOp), "moveItem")]
 public class PushOp
@@ -24,6 +27,23 @@ public class PushOp
 
     [JsonPropertyName("ifVersion")]
     public string? IfVersion { get; set; }
+}
+
+/// <summary>Unified declarative item change: the item named <c>Name</c> should end up as
+/// <c>ToName ?? Name</c>, in <c>ToFolder ?? (current folder)</c>, with <c>SourceText ?? (current content)</c>.
+/// Each field absent = that facet unchanged. One op expresses create / update / rename / move and any
+/// combination, applied atomically — a rename uses the IDE's native rename (so call-sites update); a move
+/// recreates (names are globally unique, so name-based references survive). Replaces pushItem/renameItem/moveItem.</summary>
+public class SetItemOp : PushOp
+{
+    [JsonPropertyName("toName")]
+    public string? ToName { get; set; }
+
+    [JsonPropertyName("toFolder")]
+    public string? ToFolder { get; set; }
+
+    [JsonPropertyName("sourceText")]
+    public string? SourceText { get; set; }
 }
 
 public class PushItemOp : PushOp

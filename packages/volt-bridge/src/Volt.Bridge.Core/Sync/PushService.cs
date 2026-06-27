@@ -37,12 +37,15 @@ public static class PushService
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(currentVersions);
-        var conflicts = DetectConflicts(request, currentVersions, currentProjectVersion);
+        // Normalize the legacy 4-op wire (pushItem/renameItem/moveItem) into the unified set/delete pair, so
+        // the engine below has exactly two cases. (Remove Normalize + the legacy ops at graduation.)
+        var ops = request.Ops.Select(Normalize).ToList();
+        var conflicts = DetectConflicts(ops, request.ExpectedProjectVersion, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
             return PushResponse.RejectedResult(conflicts, currentProjectVersion);
 
         var parent = ide.GetPlcProjectRoot();
-        foreach (var op in request.Ops)
+        foreach (var op in ops)
         {
             try { ApplyOp(ide, parent, itemCache, op); }
             catch (Exception ex)
@@ -74,46 +77,63 @@ public static class PushService
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
     }
 
+    /// <summary>Map the legacy 4-op wire onto the unified set/delete pair, so the engine has two cases.
+    /// (Remove at graduation together with the legacy DTOs.)</summary>
+    private static PushOp Normalize(PushOp op) => op switch
+    {
+        PushItemOp p => new SetItemOp { Name = p.Name, IfVersion = p.IfVersion, ToFolder = p.Folder, SourceText = p.SourceText },
+        RenameItemOp r => new SetItemOp { Name = r.Name, IfVersion = r.IfVersion, ToName = r.NewName },
+        MoveItemOp m => new SetItemOp { Name = m.Name, IfVersion = m.IfVersion, ToFolder = m.NewFolder },
+        _ => op, // SetItemOp / DeleteItemOp pass through
+    };
+
     private static List<PushConflict> DetectConflicts(
-        PushRequest request, Dictionary<string, string> currentVersions, string currentProjectVersion)
+        List<PushOp> ops, string? expectedProjectVersion,
+        Dictionary<string, string> currentVersions, string currentProjectVersion)
     {
         var conflicts = new List<PushConflict>();
 
-        if (request.ExpectedProjectVersion != null && request.ExpectedProjectVersion != currentProjectVersion)
+        if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
             conflicts.Add(new PushConflict
             {
-                Name = "<project>", YourVersion = request.ExpectedProjectVersion,
+                Name = "<project>", YourVersion = expectedProjectVersion,
                 CurrentVersion = currentProjectVersion,
                 Reason = "expected project version does not match current project version",
             });
 
+        // Forward simulation: name → version, mutated per op so in-batch dependencies validate. After
+        // normalization every op is SetItemOp or DeleteItemOp.
         var pending = currentVersions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
-        foreach (var op in request.Ops)
+        foreach (var op in ops)
         {
             var name = op.Name;                       // FULL wire name — echoed back in the conflict
             var bare = Materializer.Bare(name);       // the IDE/version-map key (bare-keyed)
             var clientVersion = op.IfVersion;
             var currentVersion = pending.TryGetValue(bare, out var v) ? v : null;
 
-            if (op is PushItemOp)
+            if (op is SetItemOp set)
             {
-                if (clientVersion == null)
+                if (clientVersion == null)            // create
                 {
                     if (currentVersion != null)
                         conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
                     else pending[bare] = "";
                 }
-                else if (currentVersion != clientVersion)
+                else if (currentVersion != clientVersion)   // update / rename / move guard
                 {
                     conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
                 }
+                else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
+                {
+                    pending.Remove(bare);             // rename: the new identity exists for later ops
+                    pending[Materializer.Bare(toName)] = "";
+                }
             }
-            else
+            else                                      // DeleteItemOp
             {
                 if (clientVersion != null && currentVersion != clientVersion)
                     conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
-                else if (op is DeleteItemOp) pending.Remove(bare);
-                else if (op is RenameItemOp renameOp && renameOp.NewName != null) { pending.Remove(bare); pending[Materializer.Bare(renameOp.NewName)] = ""; }
+                else pending.Remove(bare);
             }
         }
         return conflicts;
@@ -124,37 +144,68 @@ public static class PushService
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
-        ItemRef? existing = itemCache.TryGetValue(name, out var cached) ? cached.Item : ide.Lookup(name);
+        var inCache = itemCache.TryGetValue(name, out var cached);
+        ItemRef? existing = inCache ? cached.Item : ide.Lookup(name);
+        var currentFolder = inCache ? cached.Folder : "";
 
         switch (op)
         {
-            case PushItemOp pushOp:
-                ApplyPushItem(ide, parent, name, existing, pushOp);
+            case SetItemOp set:
+                ApplySetItem(ide, parent, name, existing, currentFolder, set);
                 break;
             case DeleteItemOp when existing is { } del:
                 ide.Delete(ide.Parent(del), name);
                 break;
-            case RenameItemOp { NewName: { } newName } when existing is { } ren:
-                ide.Rename(ren, Materializer.Bare(newName));
-                break;
-            case MoveItemOp { NewFolder: { } newFolder } when existing is { } mv:
-                MoveItem(ide, parent, name, mv, newFolder);
-                break;
         }
+    }
+
+    /// <summary>Apply one unified change. A rename uses the IDE's native rename (rewrites call-sites) and
+    /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
+    /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
+    private static void ApplySetItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string currentFolder, SetItemOp op)
+    {
+        if (op.SourceText is { } st && string.IsNullOrWhiteSpace(st))
+            throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': sourceText is empty");
+
+        // CREATE — no existing item; sourceText is required, toFolder is the placement.
+        if (existing is not { } item)
+        {
+            if (op.SourceText is null)
+                throw new BridgeException(400, "BAD_REQUEST", $"set '{op.Name}': a new item needs sourceText");
+            WriteItemFromSource(ide, parent, name, existing: null, op.SourceText, op.ToFolder);
+            return;
+        }
+
+        var currentName = name;
+        var toName = op.ToName is { } t ? Materializer.Bare(t) : null;
+        if (toName != null && !string.Equals(toName, currentName, StringComparison.OrdinalIgnoreCase))
+        {
+            ide.Rename(item, toName);                  // native rename → IDE rewrites references
+            currentName = toName;
+            item = ide.Lookup(currentName) ?? item;    // refresh the (possibly staled) handle
+        }
+
+        if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
+            MoveItem(ide, parent, currentName, item, toFolder, op.SourceText);       // recreate in the new folder
+        else if (op.SourceText is { } src)
+            WriteItemFromSource(ide, parent, currentName, item, src, currentFolder); // content update in place
+        // else: rename-only (or no-op) — already applied.
     }
 
     /// <summary>Move an item to a new folder by full-fidelity recreate (declaration + implementation +
     /// children), so a moved FB never loses its methods/actions/properties the way a text-only recreate
     /// would. Graphical bodies can't be recreated from scratch, so a move of a graphical item is REFUSED
     /// before any deletion rather than silently corrupting it — reorganize those in the IDE, then pull.</summary>
-    private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder)
+    private static void MoveItem(IIdeDriver ide, ItemRef parent, string name, ItemRef item, string newFolder, string? sourceText)
     {
         var code = ide.KindCode(item);
         var kind = ItemKind.Map(code);
         if (kind == null || !ItemKind.IsSourceKind(kind))
             throw new BridgeException(400, "UNSUPPORTED", $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
-        var src = Materializer.Materialize(ide, name, kind, item).Text;
+        // The moved item's content: the push's new sourceText if it carried one (move+edit), else the item's
+        // current source (pure move), read back for the full-fidelity recreate.
+        var src = sourceText ?? Materializer.Materialize(ide, name, kind, item).Text;
         var split = StSplitter.SplitSt(src);
         if (VgBody.Is(split.PouImplementation) || split.Children.Any(c => VgBody.Is(c.Implementation)))
             throw new BridgeException(400, "UNSUPPORTED",
@@ -164,16 +215,8 @@ public static class PushService
         WriteItemFromSource(ide, parent, name, existing: null, src, newFolder);
     }
 
-    private static void ApplyPushItem(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, PushItemOp pushOp)
-    {
-        var src = pushOp.SourceText ?? "";
-        if (string.IsNullOrWhiteSpace(src))
-            throw new BridgeException(400, "BAD_REQUEST", "pushItem missing 'sourceText'");
-        WriteItemFromSource(ide, parent, name, existing, src, pushOp.Folder);
-    }
-
-    /// <summary>Create-or-update an item and its children from full canonical .st source. Shared by
-    /// pushItem and the moveItem recreate, so both apply identical full-fidelity write semantics.</summary>
+    /// <summary>Create-or-update an item and its children from full canonical .st source. Shared by the
+    /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.</summary>
     private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
     {
         var split = StSplitter.SplitSt(src);

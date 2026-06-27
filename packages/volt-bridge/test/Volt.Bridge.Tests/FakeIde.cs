@@ -35,6 +35,9 @@ public sealed class FakeIde : IIdeDriver
     public FakeIde(params Item[] items) => _items = items.ToList();
     private Item Find(ItemRef r) => _items.First(i => i.Name == (string)r.Native);
 
+    /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
+    public List<string> Recorded { get; } = new();
+
     // ── IProjectTree (only the walk + accessors the services use are real) ──
     public IReadOnlyList<ProjectItem> WalkItems() =>
         _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.IsTopLevel, i.Folder)).ToList();
@@ -44,15 +47,21 @@ public sealed class FakeIde : IIdeDriver
     public ItemRef? Lookup(string name) => _items.Any(i => i.Name == name) ? new ItemRef(name) : (ItemRef?)null;
     public ItemRef GetPlcProjectRoot() => new ItemRef("<root>");
     public ItemRef ChildAt(ItemRef parent, int index1Based) => throw new NotSupportedException();
-    public ItemRef Parent(ItemRef item) => throw new NotSupportedException();
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) => throw new NotSupportedException();
-    public void Delete(ItemRef parent, string name) { }
-    public void Rename(ItemRef item, string newName) { }
+    public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }
+    public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
+    public void Rename(ItemRef item, string newName)
+    {
+        var old = (string)item.Native;
+        Recorded.Add($"rename:{old}->{newName}");
+        var idx = _items.FindIndex(i => i.Name == old);
+        if (idx >= 0) _items[idx] = _items[idx] with { Name = newName }; // so a follow-up Lookup(newName) resolves
+    }
 
     // ── ICodeStore ──
     public string ReadDeclaration(ItemRef item) => Find(item).Declaration ?? "";
     public string ReadImplementation(ItemRef item) => Find(item).Implementation ?? "";
-    public void WriteText(ItemRef item, string? declaration, string implementation) { }
+    public void WriteText(ItemRef item, string? declaration, string implementation) => Recorded.Add($"write:{(string)item.Native}");
     public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
     public string ReadXml(ItemRef item) => Find(item).Xml ?? throw new InvalidOperationException("no XML for " + Find(item).Name);
     public void WriteXml(ItemRef item, string xml) { }
