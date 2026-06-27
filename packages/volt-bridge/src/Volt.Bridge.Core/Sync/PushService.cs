@@ -9,9 +9,10 @@ using Volt.Bridge.Core.Workspace.SourceText;
 
 namespace Volt.Bridge.Core.Sync;
 
-/// <summary><c>/push</c>: apply a batch of create/update/delete/rename/move ops with optimistic
-/// concurrency (per-item <c>ifVersion</c> + an optional project version), then return a fresh version
-/// map from a cold re-walk so the receipt matches the next <c>/refs</c> exactly.</summary>
+/// <summary><c>/push</c>: apply a batch of <c>set</c> (declarative create/update/rename/move) +
+/// <c>delete</c> ops with optimistic concurrency (per-item <c>ifVersion</c> + an optional project
+/// version), then return a fresh version map from a cold re-walk so the receipt matches the next
+/// <c>/refs</c> exactly. The legacy pushItem/rename/move ops are normalized to <c>set</c> on entry.</summary>
 public static class PushService
 {
     public static PushResponse Handle(IIdeDriver ide, PushRequest request)
@@ -121,7 +122,7 @@ public static class PushService
                 }
                 else if (currentVersion != clientVersion)   // update / rename / move guard
                 {
-                    conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
+                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
                 }
                 else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
                 {
@@ -132,12 +133,16 @@ public static class PushService
             else                                      // DeleteItemOp
             {
                 if (clientVersion != null && currentVersion != clientVersion)
-                    conflicts.Add(new PushConflict { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion, Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" });
+                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
                 else pending.Remove(bare);
             }
         }
         return conflicts;
     }
+
+    private static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
+        new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
+                Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
 
     private static void ApplyOp(IIdeDriver ide, ItemRef parent,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op)

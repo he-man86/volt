@@ -6,7 +6,7 @@
  */
 import type { HealthResponse, Remote } from "../bridge/types.js";
 import { configExists, loadConfig, type WorkspaceConfig } from "../config/workspace.js";
-import { diffNameStatus, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
+import { diffRows, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
 import { computeIncoming, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
@@ -47,13 +47,18 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 	const pathByName: Record<string, string> = {};
 	const outgoing: ChangeSet = empty();
 	if (voltIdeHead(gitDir) !== undefined) {
-		for (const c of diffNameStatus(root, RANGE, "src")) {
-			const path = stripSrcPrefix(c.path);
+		const place = (path: string, bucket: string[]): void => {
 			const name = fullNameFromPath(path) ?? path;
 			pathByName[name] = path;
-			if (c.status === "A") outgoing.added.push(name);
-			else if (c.status === "D") outgoing.removed.push(name);
-			else outgoing.modified.push(name);
+			bucket.push(name);
+		};
+		for (const row of diffRows(root, RANGE, "src")) {
+			if (row.kind === "rename") {
+				place(stripSrcPrefix(row.oldPath), outgoing.removed); // a rename surfaces as remove(old) + add(new)
+				place(stripSrcPrefix(row.newPath), outgoing.added);
+			} else if (row.kind === "add") place(stripSrcPrefix(row.path), outgoing.added);
+			else if (row.kind === "delete") place(stripSrcPrefix(row.path), outgoing.removed);
+			else place(stripSrcPrefix(row.path), outgoing.modified);
 		}
 	}
 	for (const name of [...incoming.added, ...incoming.modified, ...incoming.removed]) {

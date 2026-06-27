@@ -203,19 +203,6 @@ export function unmergedPaths(root: string): string[] {
 		.filter((l) => l.length > 0);
 }
 
-/** `git diff --name-status <ref> -- <pathspec>` (worktree vs ref). A/M/D, no rename detection. */
-export function diffNameStatus(root: string, ref: string, pathspec: string): Array<{ status: string; path: string }> {
-	const out = git(["-C", root, "diff", "--name-status", ref, "--", pathspec]).stdout;
-	const rows: Array<{ status: string; path: string }> = [];
-	for (const line of out.split("\n")) {
-		if (line.length === 0) continue;
-		const tab = line.indexOf("\t");
-		if (tab < 0) continue;
-		rows.push({ status: line.slice(0, tab), path: line.slice(tab + 1) });
-	}
-	return rows;
-}
-
 export type DiffRow =
 	| { kind: "add" | "modify" | "delete"; path: string }
 	| { kind: "rename"; oldPath: string; newPath: string; identical: boolean };
