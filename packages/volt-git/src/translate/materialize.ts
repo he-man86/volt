@@ -25,11 +25,6 @@ export function materializeItem(item: FetchedItem): MaterializedFile[] {
 	return [{ path: joinPath(folder, name), content: item.sourceText }];
 }
 
-/** Canonical line endings for hashing/diffing (the workspace is eol=lf). */
-export function normalizeLineEndings(s: string): string {
-	return s.replace(/\r\n/g, "\n");
-}
-
 /** A src-relative workspace path → its bridge wire name + containing folder. undefined if untracked. */
 export function pathToItem(relPath: string): { name: string; folder: string } | undefined {
 	const name = fullNameFromPath(relPath);

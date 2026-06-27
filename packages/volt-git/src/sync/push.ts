@@ -7,10 +7,10 @@
 import type { PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
 import { diffRefs, dirtySrc, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
-import { getByPath } from "../registry/extensions.js";
+import { isPushable, isReadOnly } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
-import { computeIncoming, hasChanges } from "./diff.js";
+import { computeIncoming, countChanges, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
 import type { PushResult } from "./types.js";
 
@@ -20,9 +20,6 @@ export interface PushOptions {
 	forceWithLease?: string;
 	dryRun?: boolean;
 }
-
-const isReadOnly = (rel: string): boolean => getByPath(rel)?.defaultAccess === "r";
-const isPushable = (rel: string): boolean => getByPath(rel)?.defaultAccess === "rw";
 
 export async function push(root: string, bridge: Remote, opts: PushOptions = {}): Promise<PushResult> {
 	const gitDir = resolveGitDir(root);
@@ -53,7 +50,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	// Drift: the IDE moved since our baseline → pull first (unless forcing).
 	const drift = computeIncoming(refs.items, sidecar.items);
 	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && !forcing) {
-		const n = drift.added.length + drift.modified.length + drift.removed.length;
+		const n = countChanges(drift);
 		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt-git pull\` first (or push --force)` };
 	}
 	// Forcing clobbers the IDE's current state, so guard against THAT (not the stale baseline).

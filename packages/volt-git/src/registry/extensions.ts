@@ -67,10 +67,6 @@ export function getByPath(relPath: string): ExtensionDef | undefined {
 	return getByExt(base.slice(dot));
 }
 
-export function accessForExt(ext: string): DefaultAccess | undefined {
-	return BY_EXT.get(ext.toLowerCase())?.defaultAccess;
-}
-
 /** The full filename from a workspace path ("POUs/FB_Motor.st" → "FB_Motor.st"). Folder markers resolve
  *  to the containing folder name. Used to match the bridge's wire names (which include extensions). */
 export function fullNameFromPath(relPath: string): string | undefined {
@@ -101,8 +97,11 @@ export function isTrackedPath(relPath: string): boolean {
 }
 
 export function isPushable(relPath: string): boolean {
-	const def = getByPath(relPath);
-	return def !== undefined && def.defaultAccess === "rw";
+	return getByPath(relPath)?.defaultAccess === "rw";
+}
+
+export function isReadOnly(relPath: string): boolean {
+	return getByPath(relPath)?.defaultAccess === "r";
 }
 
 export function sourceExtensions(): readonly string[] {

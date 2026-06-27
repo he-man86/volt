@@ -31,13 +31,10 @@ export function buildVoltIdeTree(gitDir: string, headCommit: string | undefined,
 	}
 	if (headCommit !== undefined) {
 		for (const e of listTree(gitDir, headCommit)) {
-			if (e.path.startsWith(`${SRC_DIR}/`)) {
-				const rel = e.path.slice(SRC_DIR.length + 1);
-				if (isTrackedPath(rel)) continue; // IDE-owned → replaced by ideFiles, or deleted
-				entries.push({ mode: e.mode, sha: e.sha, path: e.path }); // foreign src/ file → preserve
-			} else {
-				entries.push({ mode: e.mode, sha: e.sha, path: e.path }); // scaffold → verbatim
-			}
+			// IDE-owned src/ files are replaced by ideFiles (or deleted); the scaffold + any foreign src/ file is kept verbatim.
+			const rel = e.path.startsWith(`${SRC_DIR}/`) ? e.path.slice(SRC_DIR.length + 1) : null;
+			if (rel !== null && isTrackedPath(rel)) continue;
+			entries.push({ mode: e.mode, sha: e.sha, path: e.path });
 		}
 	}
 	return buildTree(gitDir, entries);
@@ -45,13 +42,6 @@ export function buildVoltIdeTree(gitDir: string, headCommit: string | undefined,
 
 export function commitVoltIde(gitDir: string, treeSha: string, parent: string | undefined, message: string): string {
 	return commitTree(gitDir, treeSha, parent !== undefined ? [parent] : [], message);
-}
-
-/** The volt/ide src files as src-relative {path, sha} — the baseline for push/status diffs. */
-export function srcRelEntries(gitDir: string, treeish: string): Array<{ path: string; sha: string }> {
-	return listTree(gitDir, treeish)
-		.filter((e) => e.path.startsWith(`${SRC_DIR}/`))
-		.map((e) => ({ path: e.path.slice(SRC_DIR.length + 1), sha: e.sha }));
 }
 
 // ─── sidecar baseline (.git/volt/ide-refs.json) ─────────────────────────────

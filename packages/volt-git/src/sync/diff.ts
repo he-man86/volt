@@ -14,8 +14,12 @@ export function computeIncoming(bridge: Record<string, string>, base: Record<str
 	return { added: added.sort(), modified: modified.sort(), removed: removed.sort() };
 }
 
+export function countChanges(c: ChangeSet): number {
+	return c.added.length + c.modified.length + c.removed.length;
+}
+
 export function hasChanges(c: ChangeSet): boolean {
-	return c.added.length + c.modified.length + c.removed.length > 0;
+	return countChanges(c) > 0;
 }
 
 export function changeList(c: ChangeSet): string[] {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * volt-git CLI entry — init · pull · push · status · log. Resolves the bridge port from --port / env /
+ * volt-git CLI entry — init · pull · push · status · build · log · show · merge. Resolves the bridge port from --port / env /
  * the workspace binding (8555 default), dispatches, renders the result, sets the exit code.
  */
 import { resolve } from "node:path";

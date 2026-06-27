@@ -8,7 +8,7 @@ import type { HealthResponse, Remote } from "../bridge/types.js";
 import { configExists, loadConfig, type WorkspaceConfig } from "../config/workspace.js";
 import { diffRefs, isMerging, resolveGitDir, unmergedPaths } from "../git/plumbing.js";
 import { fullNameFromPath } from "../registry/extensions.js";
-import { computeIncoming, hasChanges } from "./diff.js";
+import { computeIncoming, countChanges, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, voltIdeHead } from "./refs.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import type { ChangeSet, ProjectMismatch, StatusData } from "./types.js";
@@ -98,8 +98,8 @@ function mismatch(cfg: WorkspaceConfig, health: HealthResponse): ProjectMismatch
 }
 
 function countSummary(incoming: ChangeSet, outgoing: ChangeSet): string {
-	const i = incoming.added.length + incoming.modified.length + incoming.removed.length;
-	const o = outgoing.added.length + outgoing.modified.length + outgoing.removed.length;
+	const i = countChanges(incoming);
+	const o = countChanges(outgoing);
 	if (i === 0 && o === 0) return "in sync with the IDE";
 	return [i > 0 ? `${i} incoming` : "", o > 0 ? `${o} outgoing` : ""].filter((s) => s.length > 0).join(", ");
 }

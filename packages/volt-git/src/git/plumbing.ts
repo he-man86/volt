@@ -232,11 +232,6 @@ export function diffRefs(root: string, fromRef: string, toRef: string, pathspec:
 	return parseDiffRows(git(["-C", root, "diff", "-M", "--name-status", fromRef, toRef, "--", pathspec]).stdout);
 }
 
-/** Tree SHA of a commit-ish (`<rev>^{tree}`) — the committed tree we mirror to refs/remotes/volt/ide on push. */
-export function treeOf(root: string, rev: string): string {
-	return git(["-C", root, "rev-parse", `${rev}^{tree}`]).stdout.trim();
-}
-
 /** Raw bytes of `<ref>:<repoPath>` (e.g. show a file at HEAD / MERGE_HEAD / a merge-base). */
 export function gitShowBytes(root: string, ref: string, repoPath: string): Buffer | undefined {
 	const r = spawnSync("git", ["-C", root, "show", `${ref}:${repoPath}`], { maxBuffer: 1024 * 1024 * 128 });
