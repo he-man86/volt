@@ -47,10 +47,10 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			return item
 		}
 
-		// node.kind === "item" — only incoming (IDE-side) items reach the tree now.
+		// node.kind === "item" — an incoming (IDE-side) or outgoing (workspace-side) changed file.
 		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None)
 		item.id = `${node.group}-${node.letter}-${node.rel}`
-		item.contextValue = "volt.item.incoming"
+		item.contextValue = `volt.item.${node.group}`
 		item.description = node.letter
 		item.tooltip = node.tooltip
 		item.resourceUri = node.uri
@@ -63,7 +63,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			if (node.kind === "group") {
 				const s = this.statuses[node.idx]
 				if (s === undefined || s.status === undefined) return []
-				return renderIncoming(s.status, node.idx, s.workspaceRoot)
+				return renderGroup(s.status, node.idx, s.workspaceRoot, node.group === "outgoing" ? "outgoing" : "incoming")
 			}
 			return []
 		}
@@ -88,13 +88,14 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 				return nodes
 			}
 
-			// Incoming = the IDE-only axis git can't see; list it. Outgoing = plain git working-tree
-			// changes, shown in Source Control — summarise the count here, don't re-list the files.
+			// Both are the IDE axis git's UI can't show — each diffs against the last-synced baseline
+			// (refs/volt/ide): incoming = baseline ↔ live IDE (what pull brings), outgoing = baseline ↔
+			// HEAD (what push sends). (Source Control shows working-vs-HEAD — a different, git-side axis.)
 			const inc = changeCount(s.status.incoming)
-			if (inc > 0) nodes.push({ kind: "group", label: "Incoming (IDE)", group: "incoming", idx, count: inc })
+			if (inc > 0) nodes.push({ kind: "group", label: "Incoming (IDE → pull)", group: "incoming", idx, count: inc })
 
 			const out = changeCount(s.status.outgoing)
-			if (out > 0) nodes.push({ kind: "empty", label: `${out} local change(s) to push — see Source Control` })
+			if (out > 0) nodes.push({ kind: "group", label: "Outgoing (push → IDE)", group: "outgoing", idx, count: out })
 
 			if (inc === 0 && out === 0) {
 				nodes.push({ kind: "empty", label: "In sync with IDE" })
@@ -105,27 +106,29 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 	}
 }
 
-function renderIncoming(status: StatusJson, idx: number, workspaceRoot: string): TreeNode[] {
-	// Snapshot-tree paths have no `src/` prefix (src is the tree root); incoming names come through
-	// pathByName as `src/…`. Normalize to the tree path + the on-disk file uri.
+function renderGroup(status: StatusJson, idx: number, workspaceRoot: string, dir: "incoming" | "outgoing"): TreeNode[] {
+	// pathByName gives `src/…`; the tree path drops that prefix (src is the tree root).
 	const mk = (rawPath: string): { treePath: string; onDisk: vscode.Uri } => {
 		const treePath = rawPath.startsWith("src/") ? rawPath.slice(4) : rawPath
 		return { treePath, onDisk: vscode.Uri.file(join(workspaceRoot, "src", treePath)) }
 	}
 
-	const cs = status.incoming
+	const cs = dir === "incoming" ? status.incoming : status.outgoing
 	const names = [...cs.added, ...cs.modified, ...cs.removed]
 
 	return names.map((name) => {
 		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
 		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
-		// HEAD (last synced) ↔ BRIDGE (live IDE) — what a pull would bring in.
+		// Both diff the last-synced baseline (VOLTIDE = refs/volt/ide):
+		//   incoming → baseline ↔ BRIDGE (what a pull brings in)
+		//   outgoing → baseline ↔ HEAD   (what a push sends to the IDE)
+		const [right, verb] = dir === "incoming" ? (["BRIDGE", "incoming (IDE)"] as const) : (["HEAD", "outgoing (push)"] as const)
 		const command: vscode.Command = {
 			command: "vscode.diff",
 			title: "Diff",
-			arguments: [buildUri(workspaceRoot, "HEAD", treePath), buildUri(workspaceRoot, "BRIDGE", treePath), `${name} — incoming (IDE)`],
+			arguments: [buildUri(workspaceRoot, "VOLTIDE", treePath), buildUri(workspaceRoot, right, treePath), `${name} — ${verb}`],
 		}
-		return { kind: "item" as const, label: treePath, uri: onDisk, group: "incoming", letter: sub, idx, rel: treePath, tooltip: `incoming ${sub.toLowerCase()}: ${name}`, command }
+		return { kind: "item" as const, label: treePath, uri: onDisk, group: dir, letter: sub, idx, rel: treePath, tooltip: `${verb} ${sub.toLowerCase()}: ${name}`, command }
 	})
 }
 

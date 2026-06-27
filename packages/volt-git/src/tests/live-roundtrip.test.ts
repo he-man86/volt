@@ -20,6 +20,7 @@ import { BridgeClient } from "../bridge/client.js"
 import { init } from "../init.js"
 import { pull } from "../sync/pull.js"
 import { push } from "../sync/push.js"
+import { show } from "../show.js"
 
 const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 const BASE = `http://127.0.0.1:${PORT}`
@@ -195,6 +196,17 @@ suite("live: IDE → workspace + merge + git", () => {
 		await ideDelete(`${n}.st`)
 		expect((await pull(ws, bridge)).kind).toBe("ok")
 		expect(existsSync(wsPath(`${n}.st`))).toBe(false)
+	})
+	it("diff baselines: VOLTIDE = last-synced, BRIDGE = live IDE (what the diff tab compares)", async () => {
+		const n = `${PREFIX}_diffbase`
+		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n, "n := 1;") })
+		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
+		// the IDE changes it again → incoming. VOLTIDE (refs/volt/ide) is the synced baseline, NOT the live IDE.
+		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 999;") })
+		const base = await show(ws, bridge, "VOLTIDE", `${n}.st`)
+		const live = await show(ws, bridge, "BRIDGE", `${n}.st`)
+		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // baseline = last synced
+		expect(Buffer.isBuffer(live) ? live.toString("utf8") : "").toContain("n := 999;") // BRIDGE = live IDE
 	})
 
 	// ── dual-side / merge (the round-trip-fidelity tests) ──
