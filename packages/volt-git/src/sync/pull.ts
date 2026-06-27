@@ -11,8 +11,8 @@
 import type { Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
 import {
+	autoCommitSrc,
 	currentBranch,
-	dirtySrc,
 	gitMerge,
 	headCommit,
 	isMerging,
@@ -49,18 +49,12 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 		return { kind: "ok", synced: [], message: "already up to date with the IDE" };
 	}
 
-	const dirty = dirtySrc(root);
-	if (dirty.length > 0) {
-		const preview = dirty.slice(0, 6).map((d) => `  ${d}`).join("\n");
-		return {
-			kind: "refused",
-			reason: `uncommitted changes in src/ — commit or stash them before pulling (git won't merge a dirty tree):\n${preview}`,
-		};
-	}
-
 	if (opts.dryRun === true) {
 		return { kind: "ok", synced: changeList(incoming), message: "dry run — these IDE items would be merged in" };
 	}
+
+	// Simple flow (auto-commit-on-pull): commit any local edits, then merge — git won't merge a dirty tree.
+	autoCommitSrc(root);
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
 	const ideFiles = fetched.changed.flatMap(materializeItem);

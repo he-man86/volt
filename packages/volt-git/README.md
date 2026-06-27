@@ -11,14 +11,15 @@ graph as `volt/ide` — the IDE *is* a remote you fetch+merge on pull / push to 
 
 ```
 volt-git init     bind to the local bridge + git-init the project + first pull
-volt-git pull     fetch IDE → commit refs/remotes/volt/ide → git merge into your branch
-volt-git push     commit first → HEAD → bridge → fast-forward refs/remotes/volt/ide
+volt-git pull     auto-commit local edits → fetch IDE → git merge onto your branch
+volt-git push     auto-commit local edits → push HEAD → land refs/remotes/volt/ide on HEAD
 volt-git status   incoming (bridge) + outgoing (committed HEAD vs the ref) + merge state
 ```
 
-**Trade-off:** git won't merge a dirty tree, so you **commit before pull** (an auto-stash wrapper is a
-planned fast-follow). Everything that touches the PLC (bridge wire, guardrails) and version control
-(commits, branches, GitHub) is unchanged from the Volt model.
+**Simple flow:** `volt push` and `volt pull` are the only commands you need — each auto-commits your
+working changes first (no manual `git commit`), so the engine always operates on committed state. A clean
+tree commits nothing, so committing by hand keeps full control. Everything that touches the PLC (bridge
+wire, guardrails) and version control (commits, branches, GitHub) is unchanged from the Volt model.
 
 Self-contained: this package carries its own copies of the stable contracts (extension registry,
 bridge wire), with no cross-package imports.

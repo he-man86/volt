@@ -186,13 +186,27 @@ export function isMerging(root: string): boolean {
 	return existsSync(join(resolveGitDir(root), "MERGE_HEAD"));
 }
 
-/** Porcelain status lines for `src/` only — drives the commit-before-pull guard. */
+/** Porcelain status lines for `src/` only. */
 export function dirtySrc(root: string): string[] {
 	const out = git(["-C", root, "status", "--porcelain", "--", "src"]).stdout;
 	return out
 		.split("\n")
 		.map((l) => l.trimEnd())
 		.filter((l) => l.length > 0);
+}
+
+/**
+ * Auto-commit any uncommitted `src/` changes so push/pull operate on a clean HEAD — the simple flow where
+ * `volt push` / `volt pull` are the only commands needed (no manual `git commit`). The working edits are
+ * the user's, so it uses their git identity (no deterministic override). Additive: a clean tree commits
+ * nothing, so committing by hand first keeps full control. Returns the number of changes committed.
+ */
+export function autoCommitSrc(root: string): number {
+	const dirty = dirtySrc(root);
+	if (dirty.length === 0) return 0;
+	git(["-C", root, "add", "-A", "--", "src"]);
+	git(["-C", root, "commit", "-q", "-m", `volt: ${dirty.length} working change(s)`]);
+	return dirty.length;
 }
 
 export function unmergedPaths(root: string): string[] {

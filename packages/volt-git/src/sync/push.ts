@@ -6,7 +6,7 @@
  */
 import type { PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
-import { diffRefs, dirtySrc, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
+import { autoCommitSrc, diffRefs, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { isPushable, isReadOnly } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
@@ -33,13 +33,9 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 		return { kind: "rejected", reason: "no IDE baseline yet — run `volt-git pull` once before pushing" };
 	}
 
-	// volt pushes your COMMITTED branch (like `git push`) — refuse a dirty src/ tree so uncommitted
-	// edits can't be silently skipped. Commit (or stash), then push.
-	const dirty = dirtySrc(root);
-	if (dirty.length > 0) {
-		const preview = dirty.slice(0, 6).map((d) => `  ${d}`).join("\n");
-		return { kind: "rejected", reason: `uncommitted changes in src/ — commit them first, then push (volt pushes your committed branch):\n${preview}` };
-	}
+	// Simple flow (auto-commit-on-push): commit any working changes, then push the committed branch. A
+	// clean tree commits nothing — commit by hand first if you want to control the message/granularity.
+	autoCommitSrc(root);
 
 	const refs = await bridge.getRefs();
 	if (opts.forceWithLease !== undefined && opts.forceWithLease !== refs.projectVersion) {

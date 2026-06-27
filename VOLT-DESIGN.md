@@ -279,15 +279,17 @@ Newest first.
 
 ### D11 — The IDE is a git *remote*; the engine operates on committed HEAD (2026-06-27)
 **Decision:** model the live IDE as a git remote-tracking branch **`refs/remotes/volt/ide`** (renders in the
-graph as `volt/ide`). The engine reads/writes **committed git state (HEAD), never the worktree**: `volt
-push` = commit-before-push (refuses a dirty tree, like `git push`) and lands `volt/ide` **on HEAD** (exactly
-`git push` → `origin/main == main`); `volt pull` = `git merge volt/ide`; `status`/diff compare
-`refs/remotes/volt/ide → HEAD`. The diff surface compares both directions against this baseline
+graph as `volt/ide`). The engine reads/writes **committed git state (HEAD), never the worktree**, and
+**auto-commits** to get there: `volt push` commits any working changes then lands `volt/ide` **on HEAD**
+(exactly `git push` → `origin/main == main`); `volt pull` commits any working changes then `git merge
+volt/ide`. So the day-to-day flow is just **`volt push` / `volt pull`** — no manual `git commit`. A clean
+tree commits nothing, so committing by hand first keeps full control of message/granularity. `status`/diff
+compare `refs/remotes/volt/ide → HEAD`; the diff surface compares both directions against this baseline
 (incoming = baseline↔IDE, outgoing = baseline↔HEAD).
 **Why:** it makes the whole thing a textbook git remote — the graph shows your branch vs the IDE, `push`/
 `pull` semantics transfer directly, `volt/ide` stays local (remote-tracking refs aren't pushed to origin),
-and **auto-commit-on-push** becomes a trivial future layer (commit, then push HEAD). Operating on HEAD gives
-one unambiguous source of truth and kills the split-brain (IDE ahead of git) the worktree-based push caused.
+and auto-commit collapses the workflow to two commands. Operating on committed HEAD gives one unambiguous
+source of truth and kills the split-brain (IDE ahead of git) the worktree-based push caused.
 **Rejected:** the hidden `refs/volt/ide` ref (invisible in the graph); pushing the uncommitted worktree (git
 never pushes uncommitted work; it left the IDE ahead of git); a parallel deterministic IDE-commit on push
 (showed `volt/ide` on its own chain, not aligned with HEAD); delegating the *outgoing* diff to Source Control

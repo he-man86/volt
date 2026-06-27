@@ -38,6 +38,8 @@ async function setup(items: MockItem[]): Promise<MockBridge> {
 	const r = await init(root, bridge);
 	expect(r.kind).toBe("ok");
 	git(root, "config", "core.autocrlf", "false");
+	git(root, "config", "user.name", "t"); // autoCommitSrc commits via plumbing git → reads repo config
+	git(root, "config", "user.email", "t@t");
 	return bridge;
 }
 
@@ -85,13 +87,15 @@ describe("volt-git sync", () => {
 		expect(s.merging).toBeNull();
 	});
 
-	test("5. commit-before-pull guard refuses on a dirty tree", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
-		writeSrc(root, "A.st", "a1\nuncommitted\n"); // dirty, not committed
-		bridge.set("A.st", "a2\n");
+	test("5. pull auto-commits local edits, then merges (simple flow)", async () => {
+		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }, { name: "B.st", sourceText: "b1\n" }]);
+		writeSrc(root, "A.st", "a1\nmine\n"); // dirty local edit, NOT committed
+		bridge.set("B.st", "b1\nide\n"); // IDE changed a DIFFERENT item
 		const r = await pull(root, bridge);
-		expect(r.kind).toBe("refused");
-		if (r.kind === "refused") expect(r.reason).toContain("commit or stash");
+		expect(r.kind).toBe("ok"); // no refusal — auto-commits A, then merges B in
+		expect(readSrc(root, "A.st")).toContain("mine"); // my edit preserved (auto-committed)
+		expect(readSrc(root, "B.st")).toContain("ide"); // IDE change merged in
+		expect(git(root, "status", "--porcelain", "--", "src").trim()).toBe(""); // clean tree after
 	});
 
 	test("6. push sends edits to the bridge + lands volt/ide on HEAD (like git push)", async () => {
@@ -213,12 +217,14 @@ describe("volt-git sync", () => {
 		expect(keys((await bridge.getRefs()).items)).toContain("NEW.st");
 	});
 
-	test("15. commit-before-push guard refuses a dirty tree (symmetric with pull)", async () => {
+	test("15. push auto-commits working changes, then pushes (simple flow)", async () => {
 		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
-		writeSrc(root, "A.st", "a1\nuncommitted\n"); // dirty, not committed
+		writeSrc(root, "A.st", "a1\nmine\n"); // dirty, NOT committed
 		const r = await push(root, bridge);
-		expect(r.kind).toBe("rejected");
-		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("commit");
+		expect(r.kind).toBe("ok"); // no rejection — auto-commits, then pushes
+		if (r.kind === "ok") expect(r.items).toContain("A.st");
+		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(git(root, "rev-parse", "HEAD")); // volt/ide on the auto-commit
+		expect(git(root, "status", "--porcelain", "--", "src").trim()).toBe(""); // clean tree after
 	});
 });
 

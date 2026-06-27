@@ -102,6 +102,8 @@ async function freshWorkspace(): Promise<void> {
 	const r = await init(ws, bridge)
 	expect(r.kind).toBe("ok")
 	git("config", "core.autocrlf", "false")
+	git("config", "user.name", "t") // autoCommitSrc commits via plumbing git → reads repo config
+	git("config", "user.email", "t@t")
 }
 // pull needs a clean tree — checkpoint the worktree between tests so each starts fresh.
 const checkpoint = (): void => {
@@ -238,6 +240,17 @@ suite("live: IDE → workspace + merge + git", () => {
 		expect(after).toContain("counter := counter + 2")
 		expect(after).not.toContain("<<<<<<<")
 	})
+	// ── git interplay ──
+	it("simple flow: pull auto-commits local edits, then merges the IDE", async () => {
+		const n = `${PREFIX}_dirty`
+		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) }) // incoming from the IDE
+		writeWs(`${PREFIX}_dirty_local.st`, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
+		expect((await pull(ws, bridge)).kind).toBe("ok") // auto-commits the local edit, then merges the incoming
+		expect(existsSync(wsPath(`${PREFIX}_dirty_local.st`))).toBe(true) // my local item preserved
+		expect(existsSync(wsPath(`${n}.st`))).toBe(true) // IDE item pulled in
+	})
+
+	// Runs LAST: an aborted merge leaves volt/ide diverged from the branch, so any later pull would re-hit it.
 	it("overlapping edits conflict (both edit the same line)", async () => {
 		const n = `${PREFIX}_conflict`
 		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n, "n := 1;") })
@@ -245,15 +258,6 @@ suite("live: IDE → workspace + merge + git", () => {
 		writeWs(`${n}.st`, readWs(`${n}.st`).replace("n := 1;", "n := 111;")); commit("ws edit")
 		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 222;") })
 		expect((await pull(ws, bridge)).kind).toBe("conflict")
-		git("merge", "--abort") // recover the clean state for the next test
-	})
-
-	// ── git interplay ──
-	it("commit-before-pull: a dirty src/ tree refuses the pull", async () => {
-		const n = `${PREFIX}_dirty`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) }) // give pull something to bring in
-		writeWs(`${PREFIX}_dirty_local.st`, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
-		expect((await pull(ws, bridge)).kind).toBe("refused")
-		commit("clean up dirty") // recover
+		git("merge", "--abort")
 	})
 })
