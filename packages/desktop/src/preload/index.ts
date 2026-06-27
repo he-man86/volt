@@ -131,6 +131,5 @@ contextBridge.exposeInMainWorld("volt", {
   pull: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke(CH.pull, dir, opts),
   push: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke(CH.push, dir, opts),
   build: (dir: string) => ipcRenderer.invoke(CH.build, dir),
-  log: (dir: string, opts?: { limit?: number }) => ipcRenderer.invoke(CH.log, dir, opts),
   show: (dir: string, ref: string, rel: string) => ipcRenderer.invoke(CH.show, dir, ref, rel),
 })

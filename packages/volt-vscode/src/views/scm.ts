@@ -47,15 +47,10 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			return item
 		}
 
-		// node.kind === "item"
+		// node.kind === "item" — only incoming (IDE-side) items reach the tree now.
 		const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.None)
 		item.id = `${node.group}-${node.letter}-${node.rel}`
-		// Per-group contextValue so the inline menus (use-mine/theirs on conflicts,
-		// discard on outgoing) match their `viewItem ==` when-clauses.
-		item.contextValue =
-			node.group === "merge" ? "volt.item.merge"
-			: node.group === "outgoing" ? "volt.item.outgoing"
-			: "volt.item.incoming"
+		item.contextValue = "volt.item.incoming"
 		item.description = node.letter
 		item.tooltip = node.tooltip
 		item.resourceUri = node.uri
@@ -68,7 +63,7 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 			if (node.kind === "group") {
 				const s = this.statuses[node.idx]
 				if (s === undefined || s.status === undefined) return []
-				return renderItems(s.status, node.group, node.idx, s.workspaceRoot)
+				return renderIncoming(s.status, node.idx, s.workspaceRoot)
 			}
 			return []
 		}
@@ -87,17 +82,21 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 				return nodes
 			}
 
+			// Merge in progress → defer to the editor's built-in Git merge tools (no custom resolve UI).
 			if (s.status.merging !== null) {
-				nodes.push({ kind: "group", label: "Merge", group: "merge", idx, count: s.status.merging.conflicts.length })
+				nodes.push({ kind: "empty", label: `Merge in progress — resolve in the editor, then Pull again (${s.status.merging.conflicts.length} conflict(s))` })
+				return nodes
 			}
 
+			// Incoming = the IDE-only axis git can't see; list it. Outgoing = plain git working-tree
+			// changes, shown in Source Control — summarise the count here, don't re-list the files.
 			const inc = changeCount(s.status.incoming)
-			if (inc > 0) nodes.push({ kind: "group", label: "Incoming", group: "incoming", idx, count: inc })
+			if (inc > 0) nodes.push({ kind: "group", label: "Incoming (IDE)", group: "incoming", idx, count: inc })
 
 			const out = changeCount(s.status.outgoing)
-			if (out > 0) nodes.push({ kind: "group", label: "Changes", group: "outgoing", idx, count: out })
+			if (out > 0) nodes.push({ kind: "empty", label: `${out} local change(s) to push — see Source Control` })
 
-			if (inc === 0 && out === 0 && s.status.merging === null) {
+			if (inc === 0 && out === 0) {
 				nodes.push({ kind: "empty", label: "In sync with IDE" })
 			}
 
@@ -106,57 +105,27 @@ export class VoltScmTree implements vscode.TreeDataProvider<TreeNode> {
 	}
 }
 
-function renderItems(status: StatusJson, group: string, idx: number, workspaceRoot: string): TreeNode[] {
-	// Snapshot-tree paths have no `src/` prefix (src is the tree root) — incoming/
-	// outgoing come through pathByName as `src/…`, merge conflicts come tree-relative.
-	// Normalize to the tree path (for `volt show`) + the on-disk file uri.
+function renderIncoming(status: StatusJson, idx: number, workspaceRoot: string): TreeNode[] {
+	// Snapshot-tree paths have no `src/` prefix (src is the tree root); incoming names come through
+	// pathByName as `src/…`. Normalize to the tree path + the on-disk file uri.
 	const mk = (rawPath: string): { treePath: string; onDisk: vscode.Uri } => {
 		const treePath = rawPath.startsWith("src/") ? rawPath.slice(4) : rawPath
 		return { treePath, onDisk: vscode.Uri.file(join(workspaceRoot, "src", treePath)) }
 	}
 
-	if (group === "merge") {
-		return (status.merging?.conflicts ?? []).map((c) => {
-			const { treePath, onDisk } = mk(c.path)
-			return {
-				kind: "item" as const,
-				label: treePath,
-				uri: onDisk,
-				group: "merge",
-				letter: "C",
-				idx,
-				rel: treePath,
-				tooltip: `Merge conflict: ${c.kind} ${c.reason}`,
-				command: { command: "volt.merge.openEditor", title: "Resolve", arguments: [{ rel: treePath }] },
-			}
-		})
-	}
-
-	const dir = group === "incoming" ? "incoming" : "outgoing"
-	const cs = dir === "incoming" ? status.incoming : status.outgoing
+	const cs = status.incoming
 	const names = [...cs.added, ...cs.modified, ...cs.removed]
 
 	return names.map((name) => {
 		const { treePath, onDisk } = mk(status.pathByName[name] ?? name)
 		const sub = cs.added.includes(name) ? "A" : cs.removed.includes(name) ? "D" : "M"
-		const head = buildUri(workspaceRoot, "HEAD", treePath)
-		// incoming: HEAD (last synced) ↔ BRIDGE (live IDE) — what a pull would bring.
-		// outgoing: HEAD (last synced) ↔ your on-disk file — what a push would send.
-		const command: vscode.Command =
-			dir === "incoming"
-				? { command: "vscode.diff", title: "Diff", arguments: [head, buildUri(workspaceRoot, "BRIDGE", treePath), `${name} — incoming (IDE)`] }
-				: { command: "vscode.diff", title: "Diff", arguments: [head, onDisk, `${name} — outgoing (yours)`] }
-		return {
-			kind: "item" as const,
-			label: treePath,
-			uri: onDisk,
-			group,
-			letter: sub,
-			idx,
-			rel: treePath,
-			tooltip: `${dir} ${sub.toLowerCase()}: ${name}`,
-			command,
+		// HEAD (last synced) ↔ BRIDGE (live IDE) — what a pull would bring in.
+		const command: vscode.Command = {
+			command: "vscode.diff",
+			title: "Diff",
+			arguments: [buildUri(workspaceRoot, "HEAD", treePath), buildUri(workspaceRoot, "BRIDGE", treePath), `${name} — incoming (IDE)`],
 		}
+		return { kind: "item" as const, label: treePath, uri: onDisk, group: "incoming", letter: sub, idx, rel: treePath, tooltip: `incoming ${sub.toLowerCase()}: ${name}`, command }
 	})
 }
 

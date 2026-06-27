@@ -12,6 +12,5 @@ export const VOLT_CHANNELS = {
   pull: "volt:pull",
   push: "volt:push",
   build: "volt:build",
-  log: "volt:log",
   show: "volt:show",
 } as const

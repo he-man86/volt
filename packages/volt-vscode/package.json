@@ -79,95 +79,210 @@
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {
           "light": "./icons/st.svg",
-          "dark":  "./icons/st.svg"
+          "dark": "./icons/st.svg"
         }
       },
       {
         "id": "plc-interface",
-        "aliases": ["PLC Interface", "ITF"],
-        "extensions": [".itf"],
+        "aliases": [
+          "PLC Interface",
+          "ITF"
+        ],
+        "extensions": [
+          ".itf"
+        ],
         "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": { "light": "./icons/itf.svg", "dark": "./icons/itf.svg" }
+        "icon": {
+          "light": "./icons/itf.svg",
+          "dark": "./icons/itf.svg"
+        }
       },
       {
         "id": "plc-gvl",
-        "aliases": ["PLC Global Variable List", "GVL"],
-        "extensions": [".gvl"],
+        "aliases": [
+          "PLC Global Variable List",
+          "GVL"
+        ],
+        "extensions": [
+          ".gvl"
+        ],
         "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": { "light": "./icons/gvl.svg", "dark": "./icons/gvl.svg" }
+        "icon": {
+          "light": "./icons/gvl.svg",
+          "dark": "./icons/gvl.svg"
+        }
       },
       {
         "id": "plc-dut",
-        "aliases": ["PLC Data Unit Type", "DUT", "Structure", "Enumeration", "Union", "Alias"],
-        "extensions": [".struct", ".enum", ".union", ".alias"],
+        "aliases": [
+          "PLC Data Unit Type",
+          "DUT",
+          "Structure",
+          "Enumeration",
+          "Union",
+          "Alias"
+        ],
+        "extensions": [
+          ".struct",
+          ".enum",
+          ".union",
+          ".alias"
+        ],
         "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": { "light": "./icons/dut.svg", "dark": "./icons/dut.svg" }
+        "icon": {
+          "light": "./icons/dut.svg",
+          "dark": "./icons/dut.svg"
+        }
       },
       {
         "id": "plc-library",
-        "aliases": ["PLC Library Reference", "LIB"],
-        "extensions": [".library"],
-        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
+        "aliases": [
+          "PLC Library Reference",
+          "LIB"
+        ],
+        "extensions": [
+          ".library"
+        ],
+        "icon": {
+          "light": "./icons/library.svg",
+          "dark": "./icons/library.svg"
+        }
       },
       {
         "id": "plc-library-manager",
-        "aliases": ["PLC Library Manager"],
-        "extensions": [".library_manager"],
-        "icon": { "light": "./icons/library.svg", "dark": "./icons/library.svg" }
+        "aliases": [
+          "PLC Library Manager"
+        ],
+        "extensions": [
+          ".library_manager"
+        ],
+        "icon": {
+          "light": "./icons/library.svg",
+          "dark": "./icons/library.svg"
+        }
       },
       {
         "id": "plc-task",
-        "aliases": ["PLC Task"],
-        "extensions": [".task"],
-        "icon": { "light": "./icons/task.svg", "dark": "./icons/task.svg" }
+        "aliases": [
+          "PLC Task"
+        ],
+        "extensions": [
+          ".task"
+        ],
+        "icon": {
+          "light": "./icons/task.svg",
+          "dark": "./icons/task.svg"
+        }
       },
       {
         "id": "plc-image-pool",
-        "aliases": ["PLC Image Pool", "IMG"],
-        "extensions": [".image_pool"],
-        "icon": { "light": "./icons/imagepool.svg", "dark": "./icons/imagepool.svg" }
+        "aliases": [
+          "PLC Image Pool",
+          "IMG"
+        ],
+        "extensions": [
+          ".image_pool"
+        ],
+        "icon": {
+          "light": "./icons/imagepool.svg",
+          "dark": "./icons/imagepool.svg"
+        }
       },
       {
         "id": "plc-text-list",
-        "aliases": ["PLC Text List", "TXT"],
-        "extensions": [".text_list"],
-        "icon": { "light": "./icons/textlist.svg", "dark": "./icons/textlist.svg" }
+        "aliases": [
+          "PLC Text List",
+          "TXT"
+        ],
+        "extensions": [
+          ".text_list"
+        ],
+        "icon": {
+          "light": "./icons/textlist.svg",
+          "dark": "./icons/textlist.svg"
+        }
       },
       {
         "id": "plc-recipe-manager",
-        "aliases": ["PLC Recipe Manager", "RCPE"],
-        "extensions": [".recipe_manager"],
-        "icon": { "light": "./icons/recipes.svg", "dark": "./icons/recipes.svg" }
+        "aliases": [
+          "PLC Recipe Manager",
+          "RCPE"
+        ],
+        "extensions": [
+          ".recipe_manager"
+        ],
+        "icon": {
+          "light": "./icons/recipes.svg",
+          "dark": "./icons/recipes.svg"
+        }
       },
       {
         "id": "plc-visualization",
-        "aliases": ["PLC Visualization Screen", "VISU"],
-        "extensions": [".visualization"],
-        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
+        "aliases": [
+          "PLC Visualization Screen",
+          "VISU"
+        ],
+        "extensions": [
+          ".visualization"
+        ],
+        "icon": {
+          "light": "./icons/visu.svg",
+          "dark": "./icons/visu.svg"
+        }
       },
       {
         "id": "plc-visualization-manager",
-        "aliases": ["PLC Visualization Manager"],
-        "extensions": [".visualization_manager"],
-        "icon": { "light": "./icons/visu.svg", "dark": "./icons/visu.svg" }
+        "aliases": [
+          "PLC Visualization Manager"
+        ],
+        "extensions": [
+          ".visualization_manager"
+        ],
+        "icon": {
+          "light": "./icons/visu.svg",
+          "dark": "./icons/visu.svg"
+        }
       },
       {
         "id": "plc-class-diagram",
-        "aliases": ["PLC Class Diagram", "UML"],
-        "extensions": [".class_diagram"],
-        "icon": { "light": "./icons/uml.svg", "dark": "./icons/uml.svg" }
+        "aliases": [
+          "PLC Class Diagram",
+          "UML"
+        ],
+        "extensions": [
+          ".class_diagram"
+        ],
+        "icon": {
+          "light": "./icons/uml.svg",
+          "dark": "./icons/uml.svg"
+        }
       },
       {
         "id": "plc-external-types",
-        "aliases": ["PLC External Types"],
-        "extensions": [".external_types"],
-        "icon": { "light": "./icons/generic-file.svg", "dark": "./icons/generic-file.svg" }
+        "aliases": [
+          "PLC External Types"
+        ],
+        "extensions": [
+          ".external_types"
+        ],
+        "icon": {
+          "light": "./icons/generic-file.svg",
+          "dark": "./icons/generic-file.svg"
+        }
       },
       {
         "id": "plc-tmc",
-        "aliases": ["TwinCAT Module Class", "TMC"],
-        "extensions": [".tmc"],
-        "icon": { "light": "./icons/tmc.svg", "dark": "./icons/tmc.svg" }
+        "aliases": [
+          "TwinCAT Module Class",
+          "TMC"
+        ],
+        "extensions": [
+          ".tmc"
+        ],
+        "icon": {
+          "light": "./icons/tmc.svg",
+          "dark": "./icons/tmc.svg"
+        }
       }
     ],
     "grammars": [
@@ -219,7 +334,11 @@
         },
         "volt.structuredText.vendor": {
           "type": "string",
-          "enum": ["codesys", "twincat", "auto"],
+          "enum": [
+            "codesys",
+            "twincat",
+            "auto"
+          ],
           "default": "auto",
           "description": "Which vendor's ST dialect this project targets. `auto` scans the workspace for vendor signals (.TcPOU, Tc-prefix pragmas → twincat; .project, OSCAT → codesys). Affects hover/completion filtering and the wrong-vendor-pragma diagnostic."
         },
@@ -427,52 +546,6 @@
         "icon": "$(output)"
       },
       {
-        "command": "volt.discardOutgoing",
-        "title": "Volt: Discard Local Change",
-        "category": "Volt",
-        "icon": "$(discard)"
-      },
-      {
-        "command": "volt.merge.continue",
-        "title": "Volt: Merge — Continue",
-        "category": "Volt",
-        "icon": "$(check)"
-      },
-      {
-        "command": "volt.merge.abort",
-        "title": "Volt: Merge — Abort",
-        "category": "Volt",
-        "icon": "$(discard)"
-      },
-      {
-        "command": "volt.merge.openEditor",
-        "title": "Volt: Open in Merge Editor",
-        "category": "Volt",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "volt.merge.useMine",
-        "title": "Volt: Resolve — Use My Version",
-        "category": "Volt",
-        "icon": "$(arrow-left)"
-      },
-      {
-        "command": "volt.merge.useTheirs",
-        "title": "Volt: Resolve — Use IDE's Version",
-        "category": "Volt",
-        "icon": "$(arrow-right)"
-      },
-      {
-        "command": "volt.merge.useAllMine",
-        "title": "Volt: Resolve All — Use My Version",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.merge.useAllTheirs",
-        "title": "Volt: Resolve All — Use IDE's Version",
-        "category": "Volt"
-      },
-      {
         "command": "volt.lsp.restart",
         "title": "Volt: Restart Language Server",
         "category": "Volt"
@@ -527,16 +600,6 @@
           "group": "navigation@3"
         },
         {
-          "command": "volt.merge.continue",
-          "when": "view == volt.scm && volt.merging",
-          "group": "navigation@4"
-        },
-        {
-          "command": "volt.merge.abort",
-          "when": "view == volt.scm && volt.merging",
-          "group": "navigation@5"
-        },
-        {
           "submenu": "volt.scm.more",
           "when": "view == volt.scm",
           "group": "navigation@99"
@@ -561,16 +624,6 @@
           "command": "volt.forcePush",
           "when": "volt.workspaceInitialized",
           "group": "2_force@2"
-        },
-        {
-          "command": "volt.merge.useAllMine",
-          "when": "volt.merging",
-          "group": "3_mergeAll@1"
-        },
-        {
-          "command": "volt.merge.useAllTheirs",
-          "when": "volt.merging",
-          "group": "3_mergeAll@2"
         },
         {
           "command": "volt.openConfig",
@@ -602,36 +655,6 @@
           "command": "volt.showOutput",
           "when": "view == volt.scm && viewItem == volt.health",
           "group": "1_health@3"
-        },
-        {
-          "command": "volt.merge.useMine",
-          "when": "view == volt.scm && viewItem == volt.item.merge",
-          "group": "inline@1"
-        },
-        {
-          "command": "volt.merge.useTheirs",
-          "when": "view == volt.scm && viewItem == volt.item.merge",
-          "group": "inline@2"
-        },
-        {
-          "command": "volt.merge.useMine",
-          "when": "view == volt.scm && viewItem == volt.item.merge",
-          "group": "1_resolve@1"
-        },
-        {
-          "command": "volt.merge.useTheirs",
-          "when": "view == volt.scm && viewItem == volt.item.merge",
-          "group": "1_resolve@2"
-        },
-        {
-          "command": "volt.merge.openEditor",
-          "when": "view == volt.scm && viewItem == volt.item.merge",
-          "group": "2_editor@1"
-        },
-        {
-          "command": "volt.discardOutgoing",
-          "when": "view == volt.scm && viewItem == volt.item.outgoing",
-          "group": "inline@1"
         }
       ]
     },
@@ -649,11 +672,6 @@
         {
           "id": "volt.scm",
           "name": "Sync with IDE",
-          "contextualTitle": "Volt"
-        },
-        {
-          "id": "volt.history",
-          "name": "Sync history",
           "contextualTitle": "Volt"
         }
       ]

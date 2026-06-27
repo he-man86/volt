@@ -201,10 +201,16 @@ desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is stric
 | **W5** | `volt-web` landing + signup | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
 | **W6** | **Deploy the revenue cloud** — Volt `infra/`: `llm` gateway + `console-core` billing + Stripe (your products/keys) + a **"Volt" hosted-provider** entry (`api.volt.ai`); + CI/release | parallel `infra/`; config; ⚠ `.github/` (CI) | **AWS + Stripe + SES + provider keys**, domain | paid sub → metered model call works end-to-end |
 | **1 ✅** | Extract `volt-control` from `volt-vscode` (primitives + actions) | new `volt-control`; refactor `volt-vscode` | none | — | ✅ done — typecheck + 13 tests + extension build |
-| **2 ✅** | `VoltPanel` as a persistent **"⚡ Volt" tab** in the session changes panel (next to Review/Context) — the multipurpose viewer already hosts Review+Context+files, so Volt is a sibling tab, not a separate column. Native v2 components (FileIcon/Accordion/SegmentedControlV2/IconButtonV2). All UI in `volt-app`. | ⚠ `session-side-panel.tsx` (trigger+content) + `helpers.ts` (persistent tab) + dep | 2 | — | ✅ app builds; `dev:desktop` → changes panel → Volt tab |
-| **3** | Wire the panel: Electron IPC (`packages/desktop` main runs `volt-control`; preload exposes `window.volt`) → `VoltPanel` calls `window.volt.*`; render live status/history | grow `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | panel UX | panel drives the CLI in the desktop app |
+| **2 ✅** | `VoltPanel` as a persistent **"⚡ Volt" tab** in the session changes panel (next to Review/Context) — the multipurpose viewer already hosts Review+Context+files, so Volt is a sibling tab, not a separate column. Native v2 components (FileIcon/IconButtonV2). All UI in `volt-app`. | ⚠ `session-side-panel.tsx` (trigger+content) + `helpers.ts` (persistent tab) + dep | 2 | — | ✅ app builds; `dev:desktop` → changes panel → Volt tab |
+| **3 ✅** | Wire the panel: Electron IPC (`packages/desktop` main runs `volt-control`; preload exposes `window.volt`) → `VoltPanel` calls `window.volt.*`; render live **IDE-sync** status (incoming drift + Pull/Push/Build) | grow `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | — | ✅ IPC wired; panel drives the CLI in the desktop app |
 | **B ◐** | **Branding + desktop distribution** — logo, app name *(done)*; `opencode.ai` constants, Sentry DSN, **code-signing + updater feed + release** *(todo)* | ⚠ `ui` (logo) · ⚠ `desktop` (name) | done: 3 | *(done: logo + name)* · signing certs | ◐ logo + name done; distribution todo |
 | **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
+
+> **Git-native delegation (post-refactor) ✅** — since sync is now standard `git merge`, the Volt UI (vscode +
+> desktop) is a **thin IDE-sync surface only**: bridge bind/pull/push/build + the incoming-drift indicator +
+> drift colors. Git history, diffs, local-change discard, and merge-conflict resolution use the editor's
+> **built-in Git** (VS Code's SCM + merge editor; opencode's Review tab). The custom `merge.*` commands, the
+> "Sync history" view/tab, the `discardOutgoing` command, and the `log` IPC were removed.
 
 ## Deployment & subdomains (your `infra/`)
 

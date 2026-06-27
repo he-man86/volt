@@ -5,7 +5,6 @@ import { setBundledCli } from "@opencode-ai/volt-control"
 import { registerCommands } from "./commands.js"
 import { VoltStatus, hasVoltConfig, workspaceFolders } from "./state/status.js"
 import { VoltScmTree } from "./views/scm.js"
-import { VoltHistoryTree } from "./views/history.js"
 import { VoltDecorations } from "./providers/decorations.js"
 import { VoltContentProvider, SCHEME } from "./providers/content.js"
 import { changeCount } from "@opencode-ai/volt-control"
@@ -33,7 +32,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		statusBar,
 		vscode.window.registerTreeDataProvider("volt.scm", scmTree),
-		vscode.window.registerTreeDataProvider("volt.history", new VoltHistoryTree("")),
 		vscode.window.registerFileDecorationProvider(decorations),
 		vscode.workspace.registerTextDocumentContentProvider(SCHEME, new VoltContentProvider()),
 		...registerCommands(statuses, ensureWorkspace),
@@ -70,8 +68,6 @@ function addWorkspace(
 	statusBar: vscode.StatusBarItem,
 ): void {
 	const s = new VoltStatus(folder.uri.fsPath)
-	const historyTree = new VoltHistoryTree(folder.uri.fsPath)
-	vscode.window.registerTreeDataProvider("volt.history", historyTree)
 
 	s.onDidChange.event(() => {
 		scmTree.setSources([...statuses.values()].map((st) => ({
@@ -111,7 +107,6 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 	}
 
 	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
-	void vscode.commands.executeCommand("setContext", "volt.merging", merging)
 
 	if (!initialized) { statusBar.hide(); return }
 
@@ -121,7 +116,7 @@ function updateGlobalUi(statusBar: vscode.StatusBarItem): void {
 
 	if (merging) {
 		statusBar.text = "$(git-merge) Volt: merge"
-		statusBar.tooltip = "Merge in progress — resolve conflicts, then run Volt: Continue Merge"
+		statusBar.tooltip = "Merge in progress — resolve conflicts with your editor's Git tools, then Pull again"
 	} else if (conn === "offline") {
 		statusBar.text = "$(plug) Volt: bridge offline"
 		statusBar.tooltip = "No bridge on the configured port — click to start it via the connector"

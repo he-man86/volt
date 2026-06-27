@@ -1,10 +1,8 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { writeFileSync } from "node:fs"
-import { pull, push, build, init as voltInit, mergeCmd, showFile, readBridgePort } from "@opencode-ai/volt-control"
+import { pull, push, build, init as voltInit, readBridgePort } from "@opencode-ai/volt-control"
 import { VoltStatus } from "./state/status.js"
 import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges, launchInstall, selectInstance, type TcTargetSel } from "./connector.js"
-import { buildUri } from "./providers/content.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
 const output = (() => {
@@ -40,16 +38,6 @@ async function refreshFor(statuses: Map<string, VoltStatus>, workspaceRoot: stri
 	if (s !== undefined) await s.refresh(true)
 }
 
-/** The tree element passed to view/item/context commands carries the bare,
- *  snapshot-tree-relative path in `rel` (e.g. "POUs/Foo.st"). */
-function nodeRel(arg: unknown): string | undefined {
-	if (typeof arg === "object" && arg !== null) {
-		const rel = (arg as { rel?: unknown }).rel
-		if (typeof rel === "string" && rel.length > 0) return rel
-	}
-	return undefined
-}
-
 /** On-disk absolute path for a snapshot-tree-relative path (src/ is the tree root).
  *  Tolerates an already-src/-prefixed rel so we never produce src/src/…. */
 function onDiskPath(workspaceRoot: string, rel: string): string {
@@ -77,14 +65,12 @@ async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 		const pick = await vscode.window.showWarningMessage(`volt: ${outcome.reason}`, "Force Pull")
 		if (pick === "Force Pull") await confirmForcePull(statuses, workspaceRoot)
 	} else {
-		// conflict
+		// conflict — a standard `git merge` state; the editor's built-in Git tools resolve it.
 		const pick = await vscode.window.showWarningMessage(
-			`Pull produced ${outcome.paths.length} merge conflict(s). Resolve the markers, then continue.`,
+			`Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve them with your editor's merge tools, commit, then Pull again to finish.`,
 			"Open Conflicts",
-			"Abort Merge",
 		)
 		if (pick === "Open Conflicts") await openConflicts(workspaceRoot, outcome.paths)
-		else if (pick === "Abort Merge") await runMerge(statuses, workspaceRoot, ["--abort"])
 	}
 }
 
@@ -138,87 +124,6 @@ async function openConflicts(workspaceRoot: string, paths: readonly string[]): P
 		} catch (err) {
 			logln(`openConflicts: ${p}: ${err instanceof Error ? err.message : String(err)}`)
 		}
-	}
-}
-
-// ── merge ───────────────────────────────────────────────────────────────
-async function runMerge(statuses: Map<string, VoltStatus>, workspaceRoot: string, mergeArgs: string[]): Promise<boolean> {
-	const r = await mergeCmd(workspaceRoot, mergeArgs)
-	if (r.code !== 0) {
-		vscode.window.showErrorMessage(`volt merge failed: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-		await refreshFor(statuses, workspaceRoot)
-		return false
-	}
-	await refreshFor(statuses, workspaceRoot)
-	return true
-}
-
-async function resolveOne(statuses: Map<string, VoltStatus>, workspaceRoot: string, rel: string, side: "ours" | "theirs"): Promise<void> {
-	await runMerge(statuses, workspaceRoot, ["--resolve", rel, side === "ours" ? "--use-ours" : "--use-theirs"])
-}
-
-/** Open VS Code's native 3-way merge editor for one conflict: base = last-synced,
- *  the two inputs = your workspace edits vs. the IDE's incoming version, output =
- *  the file on disk. When the resolved result is saved, mark the path resolved so
- *  `merge --continue` succeeds. Falls back to the marker file if the (internal)
- *  merge-editor command is unavailable. */
-async function openMergeEditor(statuses: Map<string, VoltStatus>, workspaceRoot: string, rel: string): Promise<void> {
-	const output = vscode.Uri.file(onDiskPath(workspaceRoot, rel))
-	const name = rel.split("/").pop() ?? rel
-	try {
-		await vscode.commands.executeCommand("_open.mergeEditor", {
-			base: buildUri(workspaceRoot, "MERGE_BASE", rel),
-			input1: { uri: buildUri(workspaceRoot, "MERGE_OURS", rel), title: `${name} — Yours`, detail: "your workspace edits" },
-			input2: { uri: buildUri(workspaceRoot, "MERGE_THEIRS", rel), title: `${name} — IDE`, detail: "incoming from the PLC IDE" },
-			output,
-		})
-		// Mark resolved once the merged result is saved (continue reads the live
-		// workspace bytes, so later edits are still picked up). Time-boxed so an
-		// abandoned merge doesn't leak the listener.
-		const sub = vscode.workspace.onDidSaveTextDocument(async (doc) => {
-			if (doc.uri.fsPath !== output.fsPath) return
-			sub.dispose()
-			await runMerge(statuses, workspaceRoot, ["--resolve", rel])
-		})
-		setTimeout(() => sub.dispose(), 15 * 60 * 1000)
-	} catch {
-		// Fallback: the conflict file already carries <<<<<<< markers.
-		try {
-			const doc = await vscode.workspace.openTextDocument(output)
-			await vscode.window.showTextDocument(doc, { preview: false })
-		} catch (err) {
-			vscode.window.showErrorMessage(`Couldn't open ${rel}: ${err instanceof Error ? err.message : String(err)}`)
-		}
-	}
-}
-
-async function resolveAll(statuses: Map<string, VoltStatus>, workspaceRoot: string, side: "ours" | "theirs"): Promise<void> {
-	const s = statuses.get(workspaceRoot)
-	const conflicts = s?.cached?.merging?.conflicts ?? []
-	if (conflicts.length === 0) return
-	for (const c of conflicts) {
-		await runMerge(statuses, workspaceRoot, ["--resolve", c.path, side === "ours" ? "--use-ours" : "--use-theirs"])
-	}
-}
-
-// ── discard a single outgoing edit (restore the snapshot/HEAD version) ──
-async function discardOutgoing(statuses: Map<string, VoltStatus>, workspaceRoot: string, rel: string): Promise<void> {
-	const pick = await vscode.window.showWarningMessage(
-		`Discard your local change to ${rel} and restore the last-synced version?`,
-		{ modal: true },
-		"Discard",
-	)
-	if (pick !== "Discard") return
-	const r = await showFile(workspaceRoot, "HEAD", rel)
-	if (r.code !== 0) {
-		vscode.window.showErrorMessage(`Couldn't restore ${rel}: ${firstLine(r.stderr) ?? `exit ${r.code}`}`)
-		return
-	}
-	try {
-		writeFileSync(onDiskPath(workspaceRoot, rel), r.stdout)
-		await refreshFor(statuses, workspaceRoot)
-	} catch (err) {
-		vscode.window.showErrorMessage(`Couldn't write ${rel}: ${err instanceof Error ? err.message : String(err)}`)
 	}
 }
 
@@ -465,20 +370,5 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 			vscode.window.showInformationMessage("No language reference found — run `volt init` to scaffold it.")
 		}),
 		reg("volt.showOutput", () => { output().show() }),
-
-		// ── merge ──
-		reg("volt.merge.continue", async () => { const w = ws(); if (w) await runMerge(statuses, w, ["--continue"]) }),
-		reg("volt.merge.abort", async () => { const w = ws(); if (w) await runMerge(statuses, w, ["--abort"]) }),
-		reg("volt.merge.openEditor", async (arg: unknown) => {
-			const w = ws(); const rel = nodeRel(arg); if (!w || !rel) return
-			await openMergeEditor(statuses, w, rel)
-		}),
-		reg("volt.merge.useMine", async (arg: unknown) => { const w = ws(); const rel = nodeRel(arg); if (w && rel) await resolveOne(statuses, w, rel, "ours") }),
-		reg("volt.merge.useTheirs", async (arg: unknown) => { const w = ws(); const rel = nodeRel(arg); if (w && rel) await resolveOne(statuses, w, rel, "theirs") }),
-		reg("volt.merge.useAllMine", async () => { const w = ws(); if (w) await resolveAll(statuses, w, "ours") }),
-		reg("volt.merge.useAllTheirs", async () => { const w = ws(); if (w) await resolveAll(statuses, w, "theirs") }),
-
-		// ── discard a single outgoing change ──
-		reg("volt.discardOutgoing", async (arg: unknown) => { const w = ws(); const rel = nodeRel(arg); if (w && rel) await discardOutgoing(statuses, w, rel) }),
 	]
 }

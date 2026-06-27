@@ -1,32 +1,26 @@
-import { createResource, createSignal, For, Show, Switch, Match, type JSX } from "solid-js"
-import { SegmentedControlV2, SegmentedControlItemV2 } from "@opencode-ai/ui/v2/segmented-control-v2"
+import { createResource, createSignal, For, Show, type JSX } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { FileIcon } from "@opencode-ai/ui/file-icon"
-import { Accordion } from "@opencode-ai/ui/accordion"
 import { Icon } from "@opencode-ai/ui/icon"
 import type { ChangeSet, StatusResult } from "@opencode-ai/volt-control"
 import "./ipc" // window.volt augmentation
 
 /**
- * Volt control panel — the volt-vscode SCM + Sync-history UX, in the opencode desktop app.
- * Rendered as the "⚡ Volt" tab in opencode's session changes panel (next to Review/Context).
- * Pure renderer UI: every action calls `window.volt.*` (Electron IPC → volt-control). No
- * volt-control import (types only).
+ * Volt control panel — the IDE-sync surface in the opencode desktop app, rendered as the "⚡ Volt"
+ * tab next to Review/Context. Pure renderer UI: every action calls `window.volt.*` (Electron IPC →
+ * volt-control); no volt-control import (types only).
  *
- * Visually mirrors opencode's review panel (session-review): FileIcon + dim-directory /
- * strong-filename + a colored change label, history as an Accordion. Same `--icon-diff-*`
- * colors and v2 tokens.
- * v1 scope: Status + History. Inline diffs, merge resolution, force, drift = fast-follow.
+ * Scope is deliberately thin: bridge health, the INCOMING drift (what the IDE changed — the one axis
+ * git can't see), and Pull/Push/Build. Local git changes, diffs, history, and merge-conflict
+ * resolution are plain git — use opencode's Review tab + the editor's built-in Git tools.
  */
 const CHANGE = {
   added: { label: "Added", color: "var(--icon-diff-add-base)" },
   modified: { label: "Modified", color: "var(--icon-diff-modified-base)" },
   removed: { label: "Removed", color: "var(--icon-diff-delete-base)" },
-  conflict: { label: "Conflict", color: "var(--icon-diff-delete-base)" },
 } as const
 
 type Kind = keyof typeof CHANGE
-type Sub = "status" | "history"
 type Row = { path: string; kind: Kind }
 
 function rowsOf(set: ChangeSet | undefined): Row[] {
@@ -39,7 +33,6 @@ function rowsOf(set: ChangeSet | undefined): Row[] {
 }
 
 export function VoltPanel(props: { workspaceRoot: string }) {
-  const [sub, setSub] = createSignal<Sub>("status")
   const [busy, setBusy] = createSignal(false)
   const [msg, setMsg] = createSignal("")
 
@@ -48,10 +41,6 @@ export function VoltPanel(props: { workspaceRoot: string }) {
   const [status, { refetch: refetchStatus }] = createResource(
     () => props.workspaceRoot,
     async (dir) => await bridge()?.status(dir),
-  )
-  const [history] = createResource(
-    () => (sub() === "history" ? props.workspaceRoot : undefined),
-    async (dir) => (await bridge()?.log(dir, { limit: 50 })) ?? [],
   )
 
   async function run(verb: "pull" | "push" | "build") {
@@ -62,7 +51,7 @@ export function VoltPanel(props: { workspaceRoot: string }) {
     try {
       if (verb === "pull") {
         const o = await b.pull(props.workspaceRoot)
-        setMsg(o.kind === "ok" ? `Pulled ${o.synced.length} file(s)` : o.kind === "conflict" ? `${o.paths.length} conflict(s) — resolve in the IDE` : o.kind === "refused" ? o.reason : o.message)
+        setMsg(o.kind === "ok" ? `Pulled ${o.synced.length} file(s)` : o.kind === "conflict" ? `${o.paths.length} conflict(s) — resolve with Git, then Pull again` : o.kind === "refused" ? o.reason : o.message)
       } else if (verb === "push") {
         const o = await b.push(props.workspaceRoot)
         setMsg(o.kind === "ok" ? `Pushed ${o.items.length} item(s)` : o.kind === "rejected" ? o.reason : o.message)
@@ -81,18 +70,17 @@ export function VoltPanel(props: { workspaceRoot: string }) {
 
   const merging = () => status()?.status?.merging ?? null
   const incoming = () => rowsOf(status()?.status?.incoming)
-  const outgoing = () => rowsOf(status()?.status?.outgoing)
-  const inSync = () => !!status()?.status && !merging() && incoming().length === 0 && outgoing().length === 0
+  const outgoingCount = () => {
+    const o = status()?.status?.outgoing
+    return o ? o.added.length + o.modified.length + o.removed.length : 0
+  }
+  const inSync = () => !!status()?.status && !merging() && incoming().length === 0 && outgoingCount() === 0
 
   return (
     <div class="h-full min-h-0 flex flex-col text-12-regular">
-      {/* header: Status/History tabs (left) + action icons (right) — VS Code SCM style.
-          No "Volt" title — the enclosing tab is already labelled "⚡ Volt". */}
+      {/* header: a label + action icons (the enclosing tab is already labelled "⚡ Volt"). */}
       <div class="shrink-0 flex items-center gap-2 pl-3 pr-2 py-1.5 border-b border-border-weaker-base">
-        <SegmentedControlV2 value={sub()} onChange={(v) => v && setSub(v as Sub)}>
-          <SegmentedControlItemV2 value="status">Status</SegmentedControlItemV2>
-          <SegmentedControlItemV2 value="history">History</SegmentedControlItemV2>
-        </SegmentedControlV2>
+        <span class="text-text-weak">Sync with IDE</span>
         <div class="flex-1" />
         <ActionBtn label="Pull (bridge → workspace)" disabled={busy()} onClick={() => run("pull")}>
           <Icon name="arrow-down-to-line" size="small" />
@@ -108,70 +96,37 @@ export function VoltPanel(props: { workspaceRoot: string }) {
         </ActionBtn>
       </div>
 
-      <Switch>
-        <Match when={!bridge()}>
-          <div class="px-3 py-2 text-text-weak">Volt is available in the desktop app.</div>
-        </Match>
+      <Show when={bridge()} fallback={<div class="px-3 py-2 text-text-weak">Volt is available in the desktop app.</div>}>
+        <div class="px-3 py-1.5 text-text-weak shrink-0 border-b border-border-weaker-base">
+          <Show when={!status.loading} fallback={<span>Probing IDE…</span>}>
+            <HealthDot result={status()} />
+          </Show>
+        </div>
 
-        {/* ── Status ── */}
-        <Match when={sub() === "status"}>
-          <div class="px-3 py-1.5 text-text-weak shrink-0 border-b border-border-weaker-base">
-            <Show when={!status.loading} fallback={<span>Probing IDE…</span>}>
-              <HealthDot result={status()} />
-            </Show>
-          </div>
-
-          <div class="flex-1 min-h-0 overflow-y-auto">
-            <Show when={merging()}>
-              <GroupHeader label="Merge" count={merging()!.conflicts.length} />
-              <For each={merging()!.conflicts}>{(c) => <FileRow path={c.path} kind="conflict" />}</For>
-            </Show>
-            <Show when={incoming().length > 0}>
-              <GroupHeader label="Incoming" count={incoming().length} />
-              <For each={incoming()}>{(r) => <FileRow path={r.path} kind={r.kind} />}</For>
-            </Show>
-            <Show when={outgoing().length > 0}>
-              <GroupHeader label="Changes" count={outgoing().length} />
-              <For each={outgoing()}>{(r) => <FileRow path={r.path} kind={r.kind} />}</For>
-            </Show>
-            <Show when={inSync()}>
-              <div class="px-3 py-3 text-text-weaker">In sync with the IDE.</div>
-            </Show>
-            <Show when={msg()}>
-              <div class="px-3 py-2 text-text-weak">{msg()}</div>
-            </Show>
-          </div>
-        </Match>
-
-        {/* ── History ── */}
-        <Match when={sub() === "history"}>
-          <div class="flex-1 min-h-0 overflow-y-auto">
-            <Show when={!history.loading} fallback={<div class="px-3 py-3 text-text-weak">Loading…</div>}>
-              <Show when={(history()?.length ?? 0) > 0} fallback={<div class="px-3 py-3 text-text-weaker">No sync history yet.</div>}>
-                <Accordion multiple>
-                  <For each={history()}>
-                    {(entry) => (
-                      <Accordion.Item value={entry.sha}>
-                        <Accordion.Header>
-                          <Accordion.Trigger class="group/row w-full flex items-center gap-2 h-8 px-3 text-left hover:bg-[var(--v2-overlay-simple-overlay-hover)]">
-                            <Icon name="chevron-down" size="small" class="shrink-0 text-text-weak -rotate-90 group-data-[expanded]/row:rotate-0 transition-transform" />
-                            <span class="shrink-0 text-text-weak">{entry.date.split("T")[0]}</span>
-                            <span class="flex-1 min-w-0 truncate text-text-strong">{entry.summary}</span>
-                            <span class="shrink-0 text-text-weaker">{entry.sha.slice(0, 7)}</span>
-                          </Accordion.Trigger>
-                        </Accordion.Header>
-                        <Accordion.Content>
-                          <For each={entry.paths}>{(p) => <FileRow path={p} indent />}</For>
-                        </Accordion.Content>
-                      </Accordion.Item>
-                    )}
-                  </For>
-                </Accordion>
-              </Show>
-            </Show>
-          </div>
-        </Match>
-      </Switch>
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          {/* Merge conflicts are plain git — defer to the editor's built-in Git tools. */}
+          <Show when={merging()}>
+            <div class="px-3 py-3 text-text-weak">
+              Merge in progress — {merging()!.conflicts.length} conflict(s). Resolve them with your editor's Git tools, commit, then Pull again.
+            </div>
+          </Show>
+          {/* Incoming = what the IDE changed (the axis git can't see) — list it. */}
+          <Show when={!merging() && incoming().length > 0}>
+            <GroupHeader label="Incoming (IDE)" count={incoming().length} />
+            <For each={incoming()}>{(r) => <FileRow path={r.path} kind={r.kind} />}</For>
+          </Show>
+          {/* Outgoing = plain git working-tree changes — summarise the count; the Review tab lists them. */}
+          <Show when={!merging() && outgoingCount() > 0}>
+            <div class="px-3 py-2 text-text-weaker">{outgoingCount()} local change(s) to push — see the Review tab.</div>
+          </Show>
+          <Show when={inSync()}>
+            <div class="px-3 py-3 text-text-weaker">In sync with the IDE.</div>
+          </Show>
+          <Show when={msg()}>
+            <div class="px-3 py-2 text-text-weak">{msg()}</div>
+          </Show>
+        </div>
+      </Show>
     </div>
   )
 }
@@ -218,16 +173,13 @@ function GroupHeader(props: { label: string; count: number }) {
 }
 
 /** A changed-file row mirroring session-review: icon + dim directory / strong filename + label. */
-function FileRow(props: { path: string; kind?: Kind; indent?: boolean }) {
+function FileRow(props: { path: string; kind: Kind }) {
   const cut = () => {
     const i = props.path.replace(/\\/g, "/").lastIndexOf("/")
     return i >= 0 ? { dir: props.path.slice(0, i + 1), base: props.path.slice(i + 1) } : { dir: "", base: props.path }
   }
   return (
-    <div
-      class="flex items-center gap-2.5 h-8 px-3 hover:bg-[var(--v2-overlay-simple-overlay-hover)]"
-      classList={{ "pl-8": props.indent }}
-    >
+    <div class="flex items-center gap-2.5 h-8 px-3 hover:bg-[var(--v2-overlay-simple-overlay-hover)]">
       <FileIcon node={{ path: props.path, type: "file" }} class="w-4 h-4 shrink-0" />
       <div class="flex-1 min-w-0 flex">
         <Show when={cut().dir}>
@@ -235,9 +187,7 @@ function FileRow(props: { path: string; kind?: Kind; indent?: boolean }) {
         </Show>
         <span class="shrink-0 text-text-strong">{cut().base}</span>
       </div>
-      <Show when={props.kind}>
-        <span class="shrink-0" style={{ color: CHANGE[props.kind!].color }}>{CHANGE[props.kind!].label}</span>
-      </Show>
+      <span class="shrink-0" style={{ color: CHANGE[props.kind].color }}>{CHANGE[props.kind].label}</span>
     </div>
   )
 }

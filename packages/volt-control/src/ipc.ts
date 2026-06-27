@@ -1,5 +1,5 @@
 import { setBundledCli } from "./cli.js"
-import { fetchStatus, pull, push, build, log, detect, showFile } from "./actions.js"
+import { fetchStatus, pull, push, build, detect, showFile } from "./actions.js"
 import { VOLT_CHANNELS as CH } from "./channels.js"
 
 /** Minimal shape of Electron's `ipcMain` we use — keeps volt-control free of an electron dep. */
@@ -21,7 +21,6 @@ export function registerVoltIpcHandlers(ipcMain: IpcMainLike, cliPath?: string):
   ipcMain.handle(CH.pull, (_e, dir: string, opts?: { force?: boolean }) => pull(dir, opts))
   ipcMain.handle(CH.push, (_e, dir: string, opts?: { force?: boolean }) => push(dir, opts))
   ipcMain.handle(CH.build, (_e, dir: string) => build(dir))
-  ipcMain.handle(CH.log, (_e, dir: string, opts?: { limit?: number }) => log(dir, opts))
   ipcMain.handle(CH.show, async (_e, dir: string, ref: string, rel: string) => {
     const r = await showFile(dir, ref, rel)
     return { stdout: r.stdout.toString("utf-8"), stderr: r.stderr, code: r.code }
