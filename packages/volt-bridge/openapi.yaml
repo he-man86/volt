@@ -130,7 +130,8 @@ paths:
 
         - projectVersion: SHA1 of sorted (name → version) map — changes on ANY edit
         - structureVersion: SHA1 of sorted names only — stable across content edits
-        - items: one entry per item — { name, folder, version } (no source payload)
+        - items: name → content fingerprint map
+        - folders: name → slash-joined folder path
       responses:
         "200":
           description: Current project reference map
@@ -142,15 +143,13 @@ paths:
                 projectVersion: "a1b2c3d4e5f6a7b8"
                 structureVersion: "9f8e7d6c5b4a3210"
                 items:
-                  - name: "PLC_PRG.st"
-                    folder: ""
-                    version: "a1b2c3d4e5f60001"
-                  - name: "FB_Motor.st"
-                    folder: "POUs/Motors"
-                    version: "a1b2c3d4e5f60002"
-                  - name: "GVL_Constants.gvl"
-                    folder: ""
-                    version: "a1b2c3d4e5f60003"
+                  PLC_PRG: "a1b2c3d4e5f60001"
+                  FB_Motor: "a1b2c3d4e5f60002"
+                  GVL_Constants: "a1b2c3d4e5f60003"
+                folders:
+                  PLC_PRG: ""
+                  FB_Motor: "POUs/Motors"
+                  GVL_Constants: ""
 
   # ── /fetch ────────────────────────────────────────────────────────────────
   /fetch:
@@ -461,24 +460,6 @@ components:
             $ref: "#/components/schemas/BridgeDiagnostic"
 
     # ── Refs ───────────────────────────────────────────────────────────
-    RefItem:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-        - folder
-        - version
-      properties:
-        name:
-          type: string
-          description: "Item name with extension (e.g. PLC_PRG.st, FB_Motor.st, GVL_Constants.gvl)"
-        folder:
-          type: string
-          description: "Slash-joined containing folder; empty string = root"
-        version:
-          type: string
-          description: "Per-item content fingerprint (SHA1 short)"
-
     RefsResponse:
       type: object
       additionalProperties: false
@@ -486,6 +467,7 @@ components:
         - projectVersion
         - structureVersion
         - items
+        - folders
       properties:
         projectVersion:
           type: string
@@ -494,10 +476,15 @@ components:
           type: string
           description: "SHA1 of sorted item names only — stable across content edits"
         items:
-          type: array
-          items:
-            $ref: "#/components/schemas/RefItem"
-          description: "One entry per item (name + folder + version) — not two parallel name-keyed maps"
+          type: object
+          additionalProperties:
+            type: string
+          description: "name → content fingerprint map"
+        folders:
+          type: object
+          additionalProperties:
+            type: string
+          description: "name → slash-joined folder path (empty string = root)"
 
     # ── Common item shapes ─────────────────────────────────────────────
 

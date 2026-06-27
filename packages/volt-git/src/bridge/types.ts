@@ -73,19 +73,12 @@ export const FetchedItemSchema = z
 export type FetchedItem = z.infer<typeof FetchedItemSchema>;
 
 // ─── /refs ──────────────────────────────────────────────────────────────────
-// One entry per item (name + folder + content version) — not two parallel name-keyed maps.
-export const RefItemSchema = z.object({
-	name: z.string(),
-	folder: z.string(),
-	version: z.string(),
-});
-export type RefItem = z.infer<typeof RefItemSchema>;
-
 export const RefsResponseSchema = z
 	.object({
 		projectVersion: z.string(),
 		structureVersion: z.string(),
-		items: z.array(RefItemSchema),
+		items: z.record(z.string(), z.string()),
+		folders: z.record(z.string(), z.string()),
 	})
 	.strict();
 export type RefsResponse = z.infer<typeof RefsResponseSchema>;

@@ -17,8 +17,9 @@ public static class RefsService
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
-        var versions = new Dictionary<string, string>();   // bare-name keyed — drives the aggregate hashes
-        var items = new List<RefItem>();                    // the wire payload — one entry per item
+        var versions = new Dictionary<string, string>();
+        var fullVersions = new Dictionary<string, string>();
+        var folders = new Dictionary<string, string>();
 
         foreach (var it in ide.WalkItems())
         {
@@ -27,17 +28,22 @@ public static class RefsService
 
             // Per-item resilience: a malformed item (e.g. an LD POU whose PLCopen export has no body) must not
             // brick all of /refs. Isolate it with the sentinel; it stays in the project hash but, being
-            // unreadable, is omitted from the items list (nothing to materialize) — and remains deletable.
+            // unreadable, is omitted from the Items map (nothing to materialize) — and remains deletable.
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             versions[it.Name] = version;
-            if (mat != null) items.Add(new RefItem { Name = mat.FullName, Folder = it.Folder, Version = version });
+            if (mat != null)
+            {
+                fullVersions[mat.FullName] = version;
+                folders[mat.FullName] = it.Folder;
+            }
         }
 
         return new RefsResponse
         {
             ProjectVersion = Hasher.ComputeProjectVersion(versions),
             StructureVersion = Hasher.ComputeStructureVersion(versions),
-            Items = items,
+            Items = fullVersions,
+            Folders = folders,
         };
     }
 }

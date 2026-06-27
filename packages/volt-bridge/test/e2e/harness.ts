@@ -31,18 +31,7 @@ export async function post(path: string, body?: unknown): Promise<any> {
 export const bridge = {
 	health: (): Promise<any> => get("/health"),
 	instances: (): Promise<any> => get("/instances"),
-	// /refs returns items as a LIST ({name, folder, version}); expose name-keyed items/folders maps for
-	// test ergonomics. The raw list shape is asserted by the openapi contract test + the volt-git schema.
-	refs: async (): Promise<any> => {
-		const r = await get("/refs")
-		const items: Record<string, string> = {}
-		const folders: Record<string, string> = {}
-		for (const it of r.items ?? []) {
-			items[it.name] = it.version
-			folders[it.name] = it.folder
-		}
-		return { ...r, items, folders }
-	},
+	refs: (): Promise<any> => get("/refs"),
 	raw: (): Promise<any> => get("/raw"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => post("/fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => post("/push", req),

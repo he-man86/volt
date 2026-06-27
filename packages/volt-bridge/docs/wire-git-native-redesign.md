@@ -1,6 +1,7 @@
 # Bridge wire — git-native redesign
 
-**Status:** **IMPLEMENTED** — both `/push` (the `set` op) and `/refs` (one item list) shipped + live-tested.
+**Status:** `/push` (the `set` op) **IMPLEMENTED** + live-tested. `/refs`: the "one list" idea was
+**tried and reverted** — the two name-keyed maps are the proper shape (see the `/refs` note below).
 **Driver:** make the git sync layer (`packages/volt-git`) the easiest thing in the system to maintain ·
 **Owner of the contract:** `Volt.Bridge.Core` (both vendors serve it byte-identically)
 
@@ -12,10 +13,15 @@
 > openapi spec bumped to **2.0.0**; C# + volt-git + e2e tests all on `set`. **rename+edit and rename+move
 > now just work** — validated live against real CODESYS (create/rename+edit/move/delete).
 >
-> **Implemented (`/refs`):** `RefsResponse` carries `items: [{name, folder, version}]` (one list, not the
-> parallel `items`+`folders` maps); `RefsService` builds it; `structureVersion` kept (a tested stability
-> invariant, so deliberately NOT dropped). volt-git unpacks via `versionMap`/`folderMap` helpers. C# +
-> volt-git + e2e green; live cycle (init/status/push/delete) verified on real CODESYS.
+> **`/refs` — list idea reverted (kept the two maps):** this doc proposed returning one
+> `[{name, folder, version}]` list instead of the parallel `items`+`folders` maps. On implementation that
+> proved **anti-ergonomic**: the protocol is name-keyed (name = identity), and the sidecar + every consumer
+> (`computeIncoming`, push guards, status paths) read by name — so the two maps flow to them with **zero
+> transformation** (`sidecar = {items: refs.items, folders: refs.folders}`). A list *de-keys* identity-keyed
+> data, forcing a `versionMap`/`folderMap` rebuild at every consumer. The version map `{name→version}` is also
+> the wire's established shape (`/fetch.items`, push `newItems`, the sidecar). So the two maps were kept and
+> the list reverted. (One genuine fix retained: the openapi no longer documents a `kinds` field the bridge
+> never emitted.)
 
 ## Why this exists
 
@@ -86,7 +92,7 @@ know "this is a rename" (to preserve references), so the wire must carry that **
 ```
 GET  /health → (unchanged)
 
-GET  /refs   → { projectVersion, items: [ { name, folder, version }, … ] }   ⟵ ONE list, not two maps
+GET  /refs   → (unchanged — kept the two name-keyed maps; the "one list" idea below was tried + reverted)
 
 POST /fetch  → (unchanged — already per-item)
 
@@ -163,8 +169,8 @@ sequence). Shipped as a **clean cutover** — the legacy ops were removed outrig
 the openapi spec bumped to 2.0.0.
 
 **Git layer (`volt-git`)** — `push.ts` collapses to "one op per diff row" (delete the `cleanStructural`
-helper + the unsplittable pre-pass + the rename/move branch). `status.ts`/`refs.ts` read `/refs` as a
-list (drop the parallel-map re-join). `bridge/types.ts` updates the schemas. Net: **less** code.
+helper + the unsplittable pre-pass + the rename/move branch). `bridge/types.ts` updates the push schemas.
+Net: **less** code. (`/refs` stayed as the two maps — see the reversal note up top.)
 
 **Other clients** (volt-vscode SCM, the desktop panel) — unaffected: they go through `volt-control`,
 which spawns the CLI; the wire change is below them. A GUI that wants imperative "rename this" just sends
@@ -172,12 +178,13 @@ which spawns the CLI; the wire change is below them. A GUI that wants imperative
 
 ---
 
-## Recommendation — both shipped ✅
+## Recommendation — outcome
 
-1. **`/push`: one `set` op** (+ `delete`) — dissolved the rename+edit / rename+move refusals and halved the
-   push code. ✅
-2. **`/refs`: one `[{name, folder, version}]` list** — replaced the two parallel maps. ✅ (`structureVersion`
-   kept — it's a tested stability invariant. volt-git unpacks the list to name-keyed maps for its keyed
-   lookups via small `versionMap`/`folderMap` helpers.)
+1. **`/push`: one `set` op** (+ `delete`) — **shipped.** Dissolved the rename+edit / rename+move refusals and
+   halved the push code. ✅
+2. **`/refs`: KEPT the two name-keyed maps** — the proposed list was tried and **reverted.** The protocol is
+   name-keyed (name = identity), so the maps flow to the sidecar + consumers with zero transformation; a list
+   de-keys that data and forces a `versionMap`/`folderMap` rebuild at every consumer. See the reversal note at
+   the top.
 
 Everything else about the wire was already a good fit for git-native sync.

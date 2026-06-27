@@ -40,8 +40,8 @@ public class ResilienceTests
 
         var refs = RefsService.Handle(ide);   // must NOT throw — the malformed item used to 500 the whole call
 
-        Assert.Contains(refs.Items, i => i.Name.StartsWith("Good"));      // the good item is listed (Good.st)
-        Assert.DoesNotContain(refs.Items, i => i.Name.StartsWith("Bad")); // the malformed one is isolated (unmaterializable)
+        Assert.Contains(refs.Items.Keys, k => k.StartsWith("Good"));      // the good item is listed (Good.st)
+        Assert.DoesNotContain(refs.Items.Keys, k => k.StartsWith("Bad")); // the malformed one is isolated (unmaterializable)
         Assert.False(string.IsNullOrEmpty(refs.ProjectVersion));          // the project version still computes (sentinel in the hash)
     }
 }

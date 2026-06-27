@@ -44,6 +44,11 @@ export class MockBridge implements Remote {
 		for (const [n, it] of this.items) o[n] = ver(it.sourceText);
 		return o;
 	}
+	private folderMap(): Record<string, string> {
+		const o: Record<string, string> = {};
+		for (const [n, it] of this.items) o[n] = it.folder ?? "";
+		return o;
+	}
 	private projectVersion(): string {
 		const sorted = [...this.items.keys()].sort().map((n) => `${n}:${ver(this.items.get(n)!.sourceText)}`);
 		return ver(sorted.join(";"));
@@ -66,8 +71,7 @@ export class MockBridge implements Remote {
 	}
 
 	async getRefs(): Promise<RefsResponse> {
-		const items = [...this.items.values()].map((it) => ({ name: it.name, folder: it.folder ?? "", version: ver(it.sourceText) }));
-		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), items };
+		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), items: this.versions(), folders: this.folderMap() };
 	}
 
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {

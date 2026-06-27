@@ -17,7 +17,7 @@ public class PushServiceTests
     private static (string Version, string ProjectVersion) Ver(FakeIde ide, string fullName)
     {
         var refs = RefsService.Handle(ide);
-        return (refs.Items.First(i => i.Name == fullName).Version, refs.ProjectVersion!);
+        return (refs.Items[fullName], refs.ProjectVersion!);
     }
 
     private static PushResponse Push(FakeIde ide, string pv, params PushOp[] ops) =>

@@ -10,7 +10,7 @@ import { getByPath } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { listSrcFiles, readSrcFile, stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, hasChanges } from "./diff.js";
-import { buildVoltIdeTree, commitVoltIde, folderMap, loadIdeRefs, RANGE, saveIdeRefs, versionMap, voltIdeHead } from "./refs.js";
+import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
 import type { PushResult } from "./types.js";
 
 export interface PushOptions {
@@ -42,13 +42,13 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	const forcing = opts.force === true || opts.forceWithLease === refs.projectVersion;
 
 	// Drift: the IDE moved since our baseline → pull first (unless forcing).
-	const drift = computeIncoming(versionMap(refs), sidecar.items);
+	const drift = computeIncoming(refs.items, sidecar.items);
 	if (refs.projectVersion !== sidecar.projectVersion && hasChanges(drift) && !forcing) {
 		const n = drift.added.length + drift.modified.length + drift.removed.length;
 		return { kind: "rejected", reason: `the IDE changed since your last sync (${n} item(s)) — run \`volt-git pull\` first (or push --force)` };
 	}
 	// Forcing clobbers the IDE's current state, so guard against THAT (not the stale baseline).
-	const guardItems = forcing ? versionMap(refs) : sidecar.items;
+	const guardItems = forcing ? refs.items : sidecar.items;
 	const guardProjectVersion = forcing ? refs.projectVersion : sidecar.projectVersion;
 
 	const rows = diffRows(root, RANGE, "src");
@@ -114,7 +114,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 
 	// Advance the baseline + fast-forward refs/volt/ide to the pushed state.
 	const after = await bridge.getRefs();
-	saveIdeRefs(root, { projectVersion: after.projectVersion, items: versionMap(after), folders: folderMap(after) });
+	saveIdeRefs(root, { projectVersion: after.projectVersion, items: after.items, folders: after.folders });
 	const tree = buildVoltIdeTree(gitDir, headCommit(root), listSrcFiles(root));
 	updateRef(gitDir, RANGE, commitVoltIde(gitDir, tree, voltHead, `volt: pushed → IDE @ ${after.projectVersion}`));
 

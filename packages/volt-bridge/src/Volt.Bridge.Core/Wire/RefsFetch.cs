@@ -3,19 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Bridge.Core.Wire;
 
-/// <summary>One item on the <c>/refs</c> wire: identity + folder + content version (no payload).</summary>
-public class RefItem
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    [JsonPropertyName("folder")]
-    public string Folder { get; set; } = "";
-
-    [JsonPropertyName("version")]
-    public string Version { get; set; } = "";
-}
-
 public class RefsResponse
 {
     [JsonPropertyName("projectVersion")]
@@ -24,9 +11,11 @@ public class RefsResponse
     [JsonPropertyName("structureVersion")]
     public string StructureVersion { get; set; } = "";
 
-    // One list (name + folder + version per item) — not two parallel name-keyed maps.
     [JsonPropertyName("items")]
-    public List<RefItem> Items { get; set; } = new();
+    public Dictionary<string, string> Items { get; set; } = new();
+
+    [JsonPropertyName("folders")]
+    public Dictionary<string, string> Folders { get; set; } = new();
 }
 
 public class FetchRequest

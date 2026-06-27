@@ -60,7 +60,7 @@ export class BridgeClient implements Remote {
 		// Defense: a bridge can return 200 with an empty items map when the IDE handle has gone stale.
 		// Treating that as truth risks a destructive pull ("engineer deleted every POU"). Cross-check
 		// /health; if no IDE is attached, throw the same disconnected error every consumer already routes.
-		if (refs.items.length === 0) {
+		if (Object.keys(refs.items).length === 0) {
 			const health = await this.getHealth().catch(() => undefined);
 			if (health !== undefined && health.connected !== true) {
 				process.stderr.write(
