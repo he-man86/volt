@@ -277,20 +277,34 @@ distribution model — was **removed**; superseded by "Volt is a product deploye
 Lightweight ADRs — the load-bearing choices, with what we **rejected**, so they aren't relitigated.
 Newest first.
 
+### D13 — The LSP is vendor-keyed (`volt-lsp-codesys`); a new LSP = a new vendor (2026-06-28)
+**Decision:** the language server is named for the **vendor ecosystem** it serves — `@opencode-ai/volt-lsp-codesys`
+(CODESYS + TwinCAT, which is CODESYS-derived) — not a single language. It already covers that whole family's
+languages (ST + VG + the declaration kinds) off the embedded CODESYS reference. So a new LSP is a different-
+structure **vendor** (e.g. Siemens TIA/SCL → a sibling `volt-lsp-siemens`), not a new language. The
+opencode-loading + verification mechanics and the "adding a vendor" recipe live in the package README (the
+standalone `ADDING-A-NEW-LSP.md` was folded in and deleted).
+**Why:** the old `volt-lsp-st` name implied ST-only, but the server *is* the CODESYS/TwinCAT language server.
+Keying by vendor is honest and leaves a clean extension axis (per-vendor), not per-language.
+**Rejected:** `volt-lsp-st` (misnomer — not ST-only); bare `volt-lsp` (drops the vendor, no room for a Siemens
+sibling); `volt-lsp-codesys-beckhoff` (redundant — TwinCAT is CODESYS-based).
+
 ### D12 — VG is a first-class Volt language (FBD/LD as text), not "graphical transpiled to ST" (2026-06-28)
 **Decision:** editable FBD/LD graphical bodies are **VG (Volt Graphical)** — Volt's own textual language. It
 reads like Structured Text but is **distinct** (its own grammar, parser, type-inference, and diagnostics).
 The bridge round-trips it exactly (PLCopen XML ⇄ graph ⇄ VG text) and is the source of truth; `volt-lsp-codesys`
 analyzes it as a first-class sublanguage (routed by the leading `NETWORK` token to `src/vg/` + `queries/vg/`);
-`volt-vscode` gives it its own `volt-graphical` editor language id. `.fbd`/`.ld` are editable VG; CFC/SFC are
-read-only. The spec is `packages/volt-bridge/docs/vg-language.md`.
+`volt-vscode` highlights it by **content** — a TextMate injection on the `NETWORK` token — so it covers whole
+`.fbd`/`.ld` files *and* a graphical body inlined in a `.st` POU (a graphical method). `.fbd`/`.ld` are editable
+VG; CFC/SFC are read-only. The spec is `packages/volt-bridge/docs/vg-language.md`.
 **Why:** graphical bodies must be editable *as text* for the AI + the LSP, and an exact round trip makes the
 whole project text-native. Treating VG as its own language (not "ST") is honest — it has its own grammar and
 checks — and lets the editor + LSP handle it correctly instead of mislabelling it.
 **Rejected:** "transpile graphical to ST / one source language" (the old framing — VG isn't ST; the LSP routes
-it separately); mapping `.fbd`/`.ld` to the `structured-text` editor language (hid VG *as* ST in VS Code —
-*the* gap this closes); a bespoke VG TextMate grammar now (overkill — VG reads like ST, so the ST grammar is a
-fine highlight approximation under the VG language id, with room to specialise later).
+it separately); a separate `volt-graphical` editor language keyed on `.fbd`/`.ld` (tried + reverted — graphical
+is content-detected and can be inlined inside a `.st` POU, e.g. a graphical method, so a file-extension language
+misses those; the `NETWORK` injection catches both); a bespoke VG TextMate grammar now (overkill — VG reads like
+ST, so the ST grammar highlights it well enough through the injection, room to specialise later).
 
 ### D11 — The IDE is a git *remote*; the engine operates on committed HEAD (2026-06-27)
 **Decision:** model the live IDE as a git remote-tracking branch **`refs/remotes/volt/ide`** (renders in the
