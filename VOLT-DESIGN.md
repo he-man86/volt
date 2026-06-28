@@ -72,29 +72,12 @@ Volt-owned packages (never merge upstream):
 **The rule to stay on track:** a new Volt capability attaches at the **highest ✅ row that fits**;
 drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream file that isn't a ⚠ row here.
 
-## Packages — current & planned
+## Packages
 
-**Exist:** `volt-bridge`, `volt-git`, `volt-lsp-codesys`, `volt-vscode` (PLC toolchain) ·
-`volt-web` (landing — *scaffold*, `packages/volt-web/README.md`).
-
-**Planned:**
-- **`volt-control`** — shared, UI-agnostic core that drives the `volt` CLI/bridge (status/push/
-  pull/build, parse, health). Consumed by both `volt-vscode` and the future desktop panel.
-- **`volt-app`** — Solid panel component(s) for the opencode **desktop** app (the volt-vscode UX),
-  mounted into `packages/app` via the `<Slot/>`. Holds *only* override/added components — **not** a
-  copy of `app`.
-
-### `volt-control` extractability — VERIFIED (load-bearing)
-
-`volt-vscode`'s core is cleanly separable:
-- **Pure today (move as-is):** `cli.ts` (CLI driver, only node built-ins), `workspace.ts`,
-  `state/health.ts`, `gate.ts`, `types.ts`.
-- **vscode-coupled but logic delegates to the pure files:** `commands.ts`, `state/status.ts`,
-  `connector.ts` — split the action/parse logic (→ `volt-control`) from the `vscode` presentation
-  (status bar / command registration; stays in `volt-vscode`).
-- **Stays VS Code-only:** `extension.ts`, `lsp.ts`, `providers/*`, `views/*`.
-
-→ Green light; the only real work is peeling `vscode` out of `status.ts`/`commands.ts`.
+**PLC toolchain (built):** `volt-bridge` (C# bridges) · `volt-git` (the `volt` CLI) · `volt-lsp-codesys`
+(the CODESYS/TwinCAT LSP) · `volt-vscode` (editor extension) · `volt-control` (UI-agnostic CLI/bridge
+driver) · `volt-app` (the desktop "⚡ Volt" panel). **Commercial (scaffold):** `volt-web` (landing —
+`packages/volt-web/README.md`). Each package has its own `README.md`.
 
 > **`volt-control` vs `volt-git`:** distinct. `volt-git` is the CLI *binary*; `volt-control` is the
 > UI-agnostic wrapper that *spawns/parses* it and is rendered by `volt-vscode` and `volt-app`.
@@ -173,47 +156,10 @@ Stripe products, and add a **"Volt" hosted-provider entry** the app points at (`
 **No `volt-git` gate, no app fork** — the PLC tools stay free; the AI subscription is the product.
 The **cloud deploy *is* the revenue path**, so the commercial track moves early.
 
-## Open product decisions
+## Roadmap, status & open decisions
 
-| Decision | Choice | Notes |
-|---|---|---|
-| **What Volt sells** | ★ **hosted AI subscriptions** (opencode Go/Zen-style) | reuse the in-repo gateway (`llm`) + billing (`console-core`); PLC tools (`volt-*`) stay free |
-| **Where metering lives** | **server-side, reused backend** | `console-core` `UsageTable`/`LiteTable` + `log-processor`; **no `volt-git` gate** |
-| **Billing shape** | **metered credits + subscription** | reuse `console-core` + Stripe **as-is**; your products/prices via `infra/` config |
-| **Platform** | **Windows-first** | bridges are Windows-only; PLC work is Windows-centric. Remote bridge later |
-| **`<Slot/>`** | **try upstream first** | one local seam only if rejected |
-| **MVP** | **deploy the reused cloud** (gateway + `console-core` + Stripe) + a Volt provider entry | it's the product; mostly **config + deploy, not new code** |
-
-> **Trade-off of the AI-reseller model (eyes open):** you hold the provider keys and **front the
-> model cost**, so your sub price must beat real usage — the `LiteTable` weekly/rolling limits are
-> exactly the throttle for that. Heavier **ops** than a license key (running a billed gateway: keys,
-> abuse limits, reconciliation), but it's **reuse + deploy, not build**.
-
-## Phased build plan
-
-Tracks: **W5→W6** = commercial (**your revenue path** — deploy the reused cloud) · **1→2→3** =
-desktop panel (polish) · **B** = branding+distribution. Only 1→2→3 is strictly ordered.
-
-| Phase | Goal | Packages / files | Seams | Inputs you provide | Verify |
-|---|---|---|---|---|---|
-| **0 ✅** | Additive integration foundation | `.opencode/*`, verifiers, package map, this doc | none | — | ✅ done |
-| **0.5 ✅** | **License/attribution** — keep opencode's MIT notice + add a Volt `NOTICE` | `NOTICE` | none | — | ✅ done |
-| **W5** | `volt-web` landing + signup | `packages/volt-web` (steps in its README) | none | branding/copy, domain | site renders; signup via `console-core` |
-| **W6** | **Deploy the revenue cloud** — Volt `infra/`: `llm` gateway + `console-core` billing + Stripe (your products/keys) + a **"Volt" hosted-provider** entry (`api.volt.ai`); + CI/release | parallel `infra/`; config; ⚠ `.github/` (CI) | **AWS + Stripe + SES + provider keys**, domain | paid sub → metered model call works end-to-end |
-| **1 ✅** | Extract `volt-control` from `volt-vscode` (primitives + actions) | new `volt-control`; refactor `volt-vscode` | none | — | ✅ done — typecheck + 13 tests + extension build |
-| **2 ✅** | `VoltPanel` as a persistent **"⚡ Volt" tab** in the session changes panel (next to Review/Context) — the multipurpose viewer already hosts Review+Context+files, so Volt is a sibling tab, not a separate column. Native v2 components (FileIcon/IconButtonV2). All UI in `volt-app`. | ⚠ `session-side-panel.tsx` (trigger+content) + `helpers.ts` (persistent tab) + dep | 2 | — | ✅ app builds; `dev:desktop` → changes panel → Volt tab |
-| **3 ✅** | Wire the panel: Electron IPC (`packages/desktop` main runs `volt-control`; preload exposes `window.volt`) → `VoltPanel` calls `window.volt.*`; render live **IDE-sync** status (incoming drift + Pull/Push/Build) | grow `volt-app` + ⚠ `packages/desktop` (IPC) | reuses #2 | — | ✅ IPC wired; panel drives the CLI in the desktop app |
-| **B ◐** | **Branding + desktop distribution** — logo, app name *(done)*; `opencode.ai` constants, Sentry DSN, **code-signing + updater feed + release** *(todo)* | ⚠ `ui` (logo) · ⚠ `desktop` (name) | done: 3 | *(done: logo + name)* · signing certs | ◐ logo + name done; distribution todo |
-| **D** | *(optional)* Volt docs site | new `volt-docs` (Astro) or fold into `volt-web` | none | docs content | `docs.volt.ai` renders |
-
-> **Git-native delegation (post-refactor) ✅** — since sync is now standard `git merge`, the Volt UI (vscode +
-> desktop) is a **thin IDE-sync surface only**. It owns the **IDE axis** git can't see: bind/pull/push/build,
-> the incoming/outgoing drift, drift colors, and the two diffs *against the last sync* — Incoming
-> (`VOLTIDE↔BRIDGE`, what a pull brings) and Outgoing (`VOLTIDE↔HEAD`, what a push sends), each clickable in
-> the Volt view. The **git axis** — working-tree edits, history, local-change discard, merge-conflict
-> resolution — uses the editor's **built-in Git** (VS Code's SCM + merge editor; opencode's Review tab). The
-> custom `merge.*` commands, the "Sync history" view/tab, the `discardOutgoing` command, and the `log` IPC
-> were removed. See **D11** for the engine model the diffs read from.
+→ **[VOLT-PLAN.md](./VOLT-PLAN.md)**. The current status, the phased build plan, and the open product
+decisions live there. This file stays the design rationale + the decision log.
 
 ## Deployment & subdomains (your `infra/`)
 

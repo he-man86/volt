@@ -59,7 +59,8 @@ const JUNK_FILE = /\.(bak|orig|swp)$|(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$
 const ADDITIVE_ALLOWLIST = new Set<string>([
   "CLAUDE.md",
   "NOTICE", // MIT attribution for the opencode fork
-  "VOLT-DESIGN.md", // Volt design reference: architecture + roadmap + decision log (companion to CLAUDE.md)
+  "VOLT-DESIGN.md", // Volt design reference: architecture + decision log (companion to CLAUDE.md)
+  "VOLT-PLAN.md", // Volt roadmap + status (the plan; companion to VOLT-DESIGN.md)
   ".opencode/agent/volt.md",
   ".opencode/themes/volt.json", // Volt brand theme (selected via the .opencode/tui.json seam)
   ".opencode/tool/volt.ts", // Volt CLI exposed as an opencode custom tool (opencode scans .opencode/tool/ only)
@@ -125,7 +126,7 @@ function selfTest(): void {
   const cases: { name: string; lines: string[]; allowed: number; violations: number }[] = [
     { name: "volt package edit is exempt", lines: ["M\tpackages/volt-git/src/x.ts"], allowed: 0, violations: 0 },
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
-    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-DESIGN.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
+    { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-DESIGN.md", "A\tVOLT-PLAN.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
     { name: "branding seams (logo / app-name) count as allowed", lines: ["M\tpackages/ui/src/components/logo.tsx", "M\tpackages/desktop/src/main/index.ts", "M\tpackages/desktop/electron-builder.config.ts"], allowed: 3, violations: 0 },
     { name: "GUI panel seams count as allowed", lines: ["M\tpackages/app/src/pages/session/session-side-panel.tsx", "M\tpackages/app/src/pages/session/helpers.ts", "M\tpackages/app/package.json"], allowed: 3, violations: 0 },
     { name: "desktop IPC seams count as allowed", lines: ["M\tpackages/desktop/src/preload/index.ts", "M\tpackages/desktop/electron.vite.config.ts"], allowed: 2, violations: 0 },
