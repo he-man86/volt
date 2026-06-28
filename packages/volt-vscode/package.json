@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
-  "version": "1.21.9",
+  "version": "1.21.10",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
