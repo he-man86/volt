@@ -9,6 +9,8 @@ import { describe, expect, it } from "bun:test";
 import { parseSource } from "../../parser/parser.js";
 import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
 import { buildBodyModelsForParseResult } from "../../semantic/body.js";
+import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
+import { DEFAULT_DIAGNOSTIC_CONFIG } from "../../lsp/config/index.js";
 import { prepareCallHierarchy, incomingCalls, outgoingCalls } from "../../lsp/queries/call-hierarchy.js";
 import { documentHighlight } from "../../lsp/queries/document-highlight.js";
 import { selectionRanges } from "../../lsp/queries/selection-range.js";
@@ -153,5 +155,37 @@ describe("vg shared features: code action", () => {
 			project,
 		});
 		expect(actions.length).toBeGreaterThan(0);
+	});
+
+	it("offers to create a label a graphical JMP targets but the network lacks", () => {
+		const JMP = `FUNCTION_BLOCK FB_J
+VAR
+	done : BOOL;
+END_VAR
+NETWORK 0 FBD
+	IF done THEN JMP skip; END_IF
+END_NETWORK
+END_FUNCTION_BLOCK`;
+		const { doc, project } = ctx(JMP);
+		// The diagnostic is real + on by default — the pipeline emits it for the missing `skip:`.
+		const diags = computeSemanticDiagnostics({
+			parseResult: doc.parseResult,
+			source: JMP,
+			project,
+			config: DEFAULT_DIAGNOSTIC_CONFIG,
+			bodyModels: doc.bodyModels,
+		});
+		expect(diags.some((d) => d.code === "vg-undefined-label")).toBe(true);
+		// The client sends the LSP (range-based) diagnostic in CodeActionParams; assert the fix.
+		const range = rangeOf(JMP, "skip");
+		const diag = { code: "vg-undefined-label", message: "jump target 'skip' is not a label", severity: 1, range } as Diagnostic;
+		const actions = codeActions({
+			doc,
+			params: { textDocument: { uri: doc.uri }, range, context: { diagnostics: [diag] } },
+			project,
+		});
+		const create = actions.find((a) => a.title.startsWith("Create label"));
+		expect(create).toBeDefined();
+		expect(create!.edit!.changes![doc.uri]![0]!.newText).toContain("skip:");
 	});
 });

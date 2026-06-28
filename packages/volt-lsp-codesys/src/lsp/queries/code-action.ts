@@ -16,6 +16,7 @@
  *   - `missing-interface-implementation` → insert METHOD/PROPERTY stub
  *   - `deref-non-pointer` → remove the `^` caret
  *   - `var-section-placement` → remove NON_RETAIN modifier (sub-case only)
+ *   - `vg-undefined-label` → create the missing `<name>:` label at the network end
  *
  * Codes we do NOT auto-fix (judgment call required):
  *   - `reserved-keyword` — user must rename meaningfully
@@ -90,12 +91,43 @@ export function codeActions(args: CodeActionArgs): CodeAction[] {
 				if (a !== undefined) actions.push(a);
 				break;
 			}
+			case "vg-undefined-label":
+				actions.push(...fixUndefinedVgLabel(uri, diag, args.doc));
+				break;
 		}
 	}
 	return actions;
 }
 
 // ─── Fix builders ────────────────────────────────────────────────────
+
+/** `vg-undefined-label` — a graphical `JMP` targets a label the network never defines. Insert
+ *  `<name>:` at the end of the enclosing network (the common skip-ahead intent; the user can
+ *  move it). The label name comes from the diagnostic message; the network is the first
+ *  `END_NETWORK` at/after the jump. */
+function fixUndefinedVgLabel(uri: string, diag: Diagnostic, doc: Document): CodeAction[] {
+	const m = /'([^']+)'/.exec(diag.message);
+	if (m === null) return [];
+	const label = m[1] as string;
+	const lines = doc.source.split("\n");
+	let endLine = -1;
+	for (let i = diag.range.start.line; i < lines.length; i++) {
+		if (/^\s*END_NETWORK\b/.test(lines[i] ?? "")) {
+			endLine = i;
+			break;
+		}
+	}
+	if (endLine < 0) return [];
+	const insertRange: Range = { start: { line: endLine, character: 0 }, end: { line: endLine, character: 0 } };
+	return [
+		{
+			title: `Create label '${label}'`,
+			kind: CodeActionKind.QuickFix,
+			diagnostics: [diag],
+			edit: { changes: { [uri]: [{ range: insertRange, newText: `\t${label}:\n` }] } },
+		},
+	];
+}
 
 function fixMissingCompanion(uri: string, diag: Diagnostic, doc: Document): CodeAction[] {
 	const m = /requires companion '([^']+)'/.exec(diag.message);
