@@ -18,6 +18,7 @@
  * them into the one flow you run on every upstream merge. Exit 0 = fork holds.
  */
 import { spawnSync } from "node:child_process"
+import { readdirSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
@@ -41,11 +42,24 @@ const FLOW: [string, string, string[]][] = [
 ]
 
 console.log("Volt ⇄ opencode sync — signal flow\n" + "─".repeat(60))
+// ponytail: root listing only — verifiers scratch at repoRoot (resolve(repoRoot, ".volt-*.st")).
+// Catches a step that leaves a file behind (e.g. a process.exit() that skipped its cleanup `finally`).
+const rootBefore = new Set(readdirSync(repoRoot))
 let ok = true
 for (const [label, cmd, args] of FLOW) {
   if (!step(label, cmd, args)) {
     ok = false
     break // first ✗ is the signal — stop here
+  }
+}
+if (ok) {
+  process.stdout.write("▶ clean tree   — no verifier left a scratch file behind … ")
+  const leaked = readdirSync(repoRoot).filter((f) => !rootBefore.has(f))
+  if (leaked.length === 0) console.log("✓")
+  else {
+    console.log("✗")
+    console.log("\n  a step created these at the repo root and didn't clean up:\n" + leaked.map((f) => "    " + f).join("\n") + "\n")
+    ok = false
   }
 }
 console.log("─".repeat(60))
