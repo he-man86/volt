@@ -1,58 +1,44 @@
 # @opencode-ai/volt-web
 
-Volt's own public **website** — the landing / marketing site (the `volt.ai` homepage).
-This is the **one** frontend Volt fully owns; everything else (the agent app, the
-backend) is **reused from opencode and kept in sync**.
+> Volt's public landing/marketing site (`volt.ai`) — the one frontend Volt fully owns. **Scaffold.**
 
-> **Status: scaffold.** The landing UI is not built yet — this package records the
-> plan and reserves the workspace slot. See "Build plan" below.
+Volt's own **website** — the `volt.ai` landing/marketing page. It's the single frontend Volt fully owns; everything else (the agent GUI, the backend) is reused from opencode and kept in sync. **Status: scaffold** — this package reserves the workspace slot and records the plan; the UI isn't built yet.
 
-## Why this package exists
+## Role in Volt
 
-Volt is a white-label of opencode (see the root `CLAUDE.md` → "Fork surface"). The
-guiding split is **own what's purely yours, sync what *is* the product**:
+Volt is a white-label of opencode (root `CLAUDE.md` → "Fork surface"). The guiding split is **own what's purely yours, sync what _is_ the product**:
 
 | Surface | opencode package | Volt move |
 |---|---|---|
-| **Public landing page** | `packages/console/app` (`src/routes/index.tsx`) | **Own it fully → this package.** Volt branding/copy/pricing; opencode's landing is throwaway to us. Never synced. |
-| **Agent GUI** | `packages/app` + `packages/ui` + `packages/desktop` | **Keep + sync as upstream deps.** This *is* the product (chat/sessions/tools), improved daily. Customize only via minimal branding seams (logo, app name) — **never fork it.** |
-| **Backend** | `@opencode-ai/console-core` (billing/Stripe, auth, email/SES, accounts) | **Reuse as-is.** Point its SST `Resource.*` at *our* Stripe keys, prices, SES domain, DB. Config, not code. |
+| **Public landing page** | `console/app` (`src/routes/index.tsx`) | **Own it fully → this package.** Volt branding/copy/pricing; opencode's landing is throwaway to us, never synced. |
+| **Agent GUI** | `app` + `ui` + `desktop` | **Keep + sync as upstream deps** — _this is the product_ (chat/sessions/tools), improved daily; customize only via minimal branding seams (logo, app name), never fork. |
+| **Backend** | `@opencode-ai/console-core` | **Reuse as-is** — point its SST `Resource.*` at Volt's Stripe keys/prices, SES domain, DB. Config, not code. |
 
-So `volt-web` (this) and opencode's `console/app` become **two parallel frontends over
-one shared backend (`console-core`)**.
+So `volt-web` (this) and opencode's `console/app` become two parallel frontends over one shared backend (`console-core`).
 
-## What it will be
+## How it works (planned)
 
-- A **solid-start** app (same framework as `console/app`) so it can import
-  `@opencode-ai/console-core` server-side for signup / auth / billing exactly the way
-  `console/app` does (`"use server"` functions + `routes/api`).
-- Deployed at Volt's domain (`volt.ai`, TBD) via Volt's **own `infra/` SST stack** — a
-  parallel to opencode's `infra/`, bound to Volt's AWS / Stripe / SES resources.
-- Homepage modeled on `packages/console/app/src/routes/index.tsx` (hero, install,
-  features, pricing) but with Volt branding and PLC messaging.
+- A **solid-start** app (same framework as `console/app`) so it can import `@opencode-ai/console-core` server-side for signup / auth / billing exactly the way `console/app` does (`"use server"` functions + `routes/api`).
+- Deployed at Volt's domain (`volt.ai`, TBD) via Volt's **own `infra/`** SST stack — a parallel to opencode's `infra/`, bound to Volt's AWS / Stripe / SES resources.
+- Homepage modeled on `console/app/src/routes/index.tsx` (hero, install, features, pricing) but with Volt branding and PLC messaging.
 
-## Build plan (next steps — not done yet)
+**Not** a fork of `packages/app` (the agent GUI stays a synced upstream dep), **not** a backend rewrite (`console-core` is reused as-is), and **not** a monolith (the agent app, the backend, and this site are separate, each with one job). `volt-marketplace` / `volt-commerce` were dropped — no marketplace; billing is reused from `console-core`.
 
-1. Add deps mirroring `console/app`: `@solidjs/start`, `solid-js`, `vite`,
-   `@opencode-ai/console-core`.
-2. Scaffold solid-start: `app.config.ts`, `src/entry-{client,server}.tsx`,
-   `src/routes/index.tsx`.
-3. Build the landing `index.tsx` (Volt hero / features / pricing) + brand assets under
-   `src/asset/`.
-4. Wire auth/billing by importing `console-core` in `"use server"` functions (mirror
-   `console/app`).
-5. Stand up Volt's `infra/` SST stack (domain + `Resource.*` for Stripe / SES / DB).
+## Commands
 
-## What this is NOT
+None yet — scaffold (empty `scripts`). The build plan (not started):
 
-- **Not** a fork of `packages/app` — the agent GUI stays a synced upstream dependency.
-- **Not** a backend rewrite — `console-core` is reused as-is (your config).
-- **Not** a monolith — the agent app, the backend, and this site are separate, each with
-  one job.
+1. Add deps mirroring `console/app`: `@solidjs/start`, `solid-js`, `vite`, `@opencode-ai/console-core`.
+2. Scaffold solid-start: `app.config.ts`, `src/entry-{client,server}.tsx`, `src/routes/index.tsx`.
+3. Build the landing `index.tsx` (Volt hero / features / pricing) + brand assets under `src/asset/`.
+4. Wire auth / billing by importing `console-core` in `"use server"` functions; deploy via Volt's `infra/` SST stack (domain + `Resource.*` for Stripe / SES / DB).
 
-## Deferred / dropped
+## Layout
 
-- **Desktop/GUI branding** (logo → `packages/ui`, app name → `packages/desktop`): minimal
-  upstream seams or a tiny override package *later*, only when a feature needs it. Not here.
-- ~~`volt-marketplace`~~, ~~`volt-commerce`~~ — **dropped.** No marketplace; billing is
-  reused identically from `console-core`, not rewritten.
+Scaffold — only `package.json` + this README so far. The planned tree mirrors `console/app` (solid-start: `app.config.ts`, `src/routes/`, `src/entry-{client,server}.tsx`, `src/asset/`).
+
+## See also
+
+- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — product/architecture overview (own-vs-sync, deployment, the W5/W6 build phases).
+- [`../../CLAUDE.md`](../../CLAUDE.md) — the fork-surface guide.
+- [`../console-core`](../console-core) (upstream) — the reused billing/auth/email backend.

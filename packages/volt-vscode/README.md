@@ -1,142 +1,76 @@
-# @opencode-ai/volt-vscode
+# volt-vscode
 
-VS Code extension that gives PLC source files (`.st` today, more vendors and languages later) syntax highlighting, full language intelligence backed by an embedded CODESYS reference corpus, AND buttons / commands for the `volt` CLI so workspace ↔ IDE sync is one click away.
+> The VS Code / Windsurf extension for PLC code — Structured Text language intelligence plus one-click sync with your live PLC IDE.
 
-Three layers, each useful on its own:
+Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into ordinary, editable files in your editor. You get Structured Text (IEC 61131-3) syntax highlighting and full language intelligence — hover, go-to-definition, completion, diagnostics — over `.st` and the related PLC file kinds, and a dedicated **Volt** activity-bar view that shows how your workspace and the IDE have diverged and lets you pull, push, and merge between them.
 
-1. **TextMate grammar** — works the moment the extension is installed. Highlights keywords, types, strings, comments, numeric literals (including based `16#FF`, typed `INT#42`, and duration `T#10s`). No process required.
+## Role in Volt
 
-2. **Language server** — spawned by the extension when a `.st` file is opened. Delivers hover (with CODESYS docs inline), goto-definition, references, document/workspace symbols, call hierarchy, type hierarchy, completion + signature help, 11 diagnostic checks, semantic tokens, folding ranges, document highlight, selection ranges, and code actions. The server lives in `@opencode-ai/volt-lsp-st`; the extension finds it via Node module resolution from the workspace.
+This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@opencode-ai/volt-control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-st` server, started as an LSP client.
 
-3. **CLI integration** — status bar buttons + command palette entries that drive the `volt` CLI. `volt status` and `volt push` are status-bar one-clicks; `volt pull` / `volt build` / `volt init` live in the command palette. `volt push --force` opens a modal confirmation. `volt build` parses its JSON output into VS Code's Problems panel so build errors show inline as red squigglies.
+The heart of the UI is the **`volt.scm`** tree view ("Sync with IDE"). It renders, per workspace:
 
-## Install (development / local use)
+- a **health** row (connected / degraded / disconnected / unreachable to the bridge), and
+- two drift groups — **Incoming (IDE → pull)** and **Outgoing (push → IDE)** — each file a clickable `vscode.diff` against the last-synced baseline ref `refs/remotes/volt/ide` (`VOLTIDE`).
 
-```bash
-# 1. Build the workspace (LSP server + extension TypeScript)
-cd <repo root>
-npm run build
+Git history, conflict resolution, and discard are **delegated to the editor's built-in Git** — when a pull hits conflicts, Volt opens the files and tells you to resolve them with your normal merge tools, then pull again. Volt owns only the IDE axis git can't see; it adds no custom history or merge engine.
 
-# 2. Tell VS Code to load this extension from disk
-code --extensionDevelopmentPath="<repo root>/packages/volt-vscode" .
-```
+## How it works
 
-Open any `.st` file in the new VS Code window. Syntax highlighting is immediate; the LSP starts on first `.st` activation (look for "Volt — Structured Text" in the Output panel).
+**Activation.** The extension activates on `onStartupFinished`, on opening any registered PLC language (`.st`, `.itf`, `.gvl`, the DUT kinds, …), and on a workspace that contains matching PLC files. On activation it scans each workspace folder for `.git/volt/config.json` (`hasVoltConfig`); a folder with that file is registered as a live Volt workspace, which lights up the SCM view, the status bar, and file decorations without a reload. The `volt.workspaceInitialized` context key gates the welcome view vs. the SCM toolbar.
 
-## Install (packaged `.vsix`)
+**Status tracking** (`state/status.ts`). Each workspace gets a `VoltStatus` that probes bridge health every 30s, polls the Volt state mtime every 3s, refreshes on save of tracked POU files, and runs `volt status --json` (via `fetchStatus` in `@opencode-ai/volt-control`) to populate the cached `StatusJson`. On error it keeps the last good status and just surfaces the message.
 
-```bash
-npm run --workspace=@opencode-ai/volt-vscode package
-# produces volt-vscode-0.0.1.vsix in packages/volt-vscode/
-code --install-extension packages/volt-vscode/volt-vscode-0.0.1.vsix
-```
+**The SCM tree** (`views/scm.ts`). Incoming items diff `VOLTIDE ↔ BRIDGE` (the baseline vs. the live IDE — what a pull brings in); outgoing items diff `VOLTIDE ↔ WORKSPACE` (the baseline vs. your working file — what a push sends). A project mismatch or an in-progress merge short-circuits the tree to a single explanatory row.
 
-## Resolving the LSP server
+**Diff content** (`providers/content.ts`). A `volt://` text-document content provider backs every diff: it parses the `volt://<workspaceRoot>/<ref>/<path>` URI and shells out to `volt show <ref> <path>` (via `spawnVoltBuffer`) to materialize that ref's version of a file. Exit code 2 (absent) renders as empty so adds/deletes diff cleanly.
 
-The extension auto-discovers `@opencode-ai/volt-lsp-st` by walking up from your workspace folder looking for `node_modules/@opencode-ai/volt-lsp-st/dist/bin.js`. If your workspace doesn't have the package as a dep, the extension also checks the extension's install dir and the global npm dir.
+**Drift decorations** (`providers/decorations.ts`). A file-decoration provider badges changed files in the Explorer: `i` (incoming, `volt.driftIncomingForeground`), `o` (outgoing, `volt.driftOutgoingForeground`), `C` (merge conflict, `volt.driftConflictForeground`), and `RO` for read-only kinds (graphical/config files the AI reads but can't push, from `extensionAccess`). These colors are deliberately distinct from git's own.
 
-Explicit override (settings):
+**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp` (falling back to the sibling `volt-lsp-st` workspace build). Graphical bodies (`.fbd/.ld/.cfc/.sfc`) are mapped to the `structured-text` language since their VG/declaration content is ST-shaped. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
-```json
-{
-  "volt.structuredText.lspServer": "C:/path/to/volt-lsp-st/dist/bin.js"
-}
-```
-
-If the server can't be found, syntax highlighting still works — the LSP-powered features (hover, goto, etc.) just won't fire, and you'll see a warning toast.
-
-## Adding another PLC language
-
-The extension is wired language-neutral. To add (say) Instruction List:
-
-1. Drop a TextMate grammar + language-configuration into `languages/instruction-list/`.
-2. Register a new entry in `package.json`:
-   ```json
-   { "id": "instruction-list", "extensions": [".il"], "configuration": "./languages/instruction-list/language-configuration.json" }
-   ```
-3. Add a row to `PLC_LANGUAGES` in `src/extension.ts` pointing at the corresponding LSP package.
-
-The extension activates per language id; one LSP client is started per registered language.
-
-## Layout
-
-```
-packages/volt-vscode/
-├── package.json                          extension manifest (languages, grammars, settings, commands)
-├── src/
-│   ├── extension.ts                      activate/deactivate + LSP client lifecycle
-│   └── cli.ts                            volt CLI integration (commands, status bar, build diagnostics)
-└── languages/
-    └── structured-text/
-        ├── language-configuration.json   brackets, comments, folding markers
-        └── syntax.tmLanguage.json        TextMate grammar
-```
-
-## Settings
-
-All of the LSP's tunables are exposed as VS Code settings under `volt.structuredText.*`. Changes hot-reload — the language server restarts when a setting changes.
-
-| Setting | Default | Effect |
-|---|---|---|
-| `lspServer` | `""` (auto) | Override LSP bin path |
-| `trace` | `"off"` | LSP trace level: off / messages / verbose |
-| `hover.showSource` | `true` | Append CODESYS doc URL to hover |
-| `completion.snippetSupport` | `true` | Snippet expansions for pragmas |
-| `diagnostics.<check>` | `true` | Toggle each of 11 diagnostic checks individually |
-
-Diagnostic flags: `reservedKeyword`, `doubleUnderscore`, `consecutiveUnderscores`, `duplicateDeclaration`, `unresolvedIdentifier`, `unknownPragma`, `pragmaMissingCompanion`, `pragmaConflict`, `fbLifecycleSignature`, `shadowingDeclaration`, `initSlotCollision`.
+**Status bar + Start Bridge** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. When the bridge is offline the item retargets to **`volt.startBridge`**, which (via `connector.ts`) ensures the Volt Connector is running and starts the configured bridge port. Onboarding (`volt.setup`) asks the connector which IDE/project is live and binds to it directly, falling back to an explicit TwinCAT/CODESYS pick.
 
 ## Commands
 
-LSP control:
-- `Volt: Restart Language Server` — restart all PLC LSP clients
-- `Volt: Show Structured Text Output` — open the LSP output channel
-- `Volt: Open CODESYS Language Reference` — open the local corpus (offers to run `volt init` if missing)
+Build and package from the package directory (`packages/volt-vscode`):
 
-CLI shortcuts (all run in the integrated terminal named "Volt"):
-- `Volt: Status` — `volt status` (read-only drift check)
-- `Volt: Pull (bridge → workspace)` — `volt pull`. Output is captured and surfaced as a toast with the per-kind breakdown so you see what synced.
-- `Volt: Push (workspace → bridge)` — quick-pick between normal and `--force`; force-push opens a modal confirmation. Push refusal (drift, access policy) shows a warning toast with a "Show Volt SCM log" action.
-- `Volt: Build (writes diagnostics to Problems panel)` — runs `volt build`, parses JSON output, populates VS Code's Problems panel + maps errors to `.st` files inline
-- `Volt: Init Workspace` — `volt init`
-- `Volt: Configure Extension Access` — opens `.volt/config.json` at the `extensionAccess` key. Per-extension `r` / `rw` / `off` modes override the registry defaults (e.g. flip `.library` to `"off"` to skip pulling library refs, flip `.fbd` to `"rw"` to allow pushing graphical bodies back).
+```bash
+# Type-check, then bundle the extension, the LSP server, and the volt CLI into dist/.
+bun run build
 
-## Status bar
-
-Three items, right-aligned:
-- `$(check) Structured Text` — LSP health (running / starting / failed / not found). Click → opens output channel.
-- `$(git-pull-request) Volt: Status` — runs `volt status`.
-- `$(cloud-upload) Volt: Push` — opens push quick-pick (normal vs force).
-
-## CLI requirements
-
-The CLI integration assumes the `volt` binary is on `PATH`. `bun install` populates `node_modules/.bin/volt` automatically from the `@opencode-ai/volt-git` workspace package. For non-standard installs, override via:
-
-```json
-{
-  "volt.cli.path": "/abs/path/to/volt"
-}
+# Build, then produce a .vsix marketplace package (vsce, no dependency tree).
+bun run package
 ```
 
-## Build diagnostics → Problems panel
+`package` runs `vsce package --no-dependencies`, producing `volt-<version>.vsix`. Reinstalling the **same** version string is a no-op for VS Code, so bump `version` in `package.json` before each rebuild you intend to install.
 
-`Volt: Build` captures `volt build`'s JSON output (the CLI emits `{ success, errors, warnings, diagnostics: [...] }` on stdout), parses each diagnostic, maps it to the corresponding `POUs/<name>.st` file in the workspace, and pushes it into a `volt-build` `DiagnosticCollection`. Errors show as red squigglies inline + entries in the Problems panel; warnings show as yellow. The collection clears on the next build so stale errors don't accumulate.
+Install the packaged extension into VS Code or Windsurf:
 
-If a diagnostic can't be mapped to a file (e.g. project-level errors with no `object` field), it's dropped silently — better to lose one than to pin it to the wrong file.
+```bash
+code     --install-extension volt-<version>.vsix
+windsurf --install-extension volt-<version>.vsix
+```
 
-## Status
+## Layout
 
-- ✅ Syntax highlighting (TextMate grammar)
-- ✅ Hover with CODESYS docs (via `@opencode-ai/volt-lsp-st`)
-- ✅ Goto-definition, references, document/workspace symbols
-- ✅ Call hierarchy + type hierarchy
-- ✅ Completion + signature help (with two-phase resolve)
-- ✅ Semantic tokens (richer than TextMate)
-- ✅ 11 diagnostic checks with quick-fix code actions
-- ✅ Folding ranges, document highlight, selection ranges
-- ⏳ Inlay hints, code lens (future polish)
-- ⏳ Other PLC languages (the structure's ready; grammars + LSPs aren't)
+| Path | Role |
+|---|---|
+| `src/extension.ts` | `activate`/`deactivate`; wires the SCM tree, decorations, content provider, status bar, per-workspace `VoltStatus`, and `setBundledCli`; starts the LSP. |
+| `src/commands.ts` | All `volt.*` command handlers — pull/push (with force confirmations), init/setup, build, status, refresh, start-bridge, open config/settings/reference. |
+| `src/views/scm.ts` | The `volt.scm` tree: health row + Incoming/Outgoing drift groups, each item a `vscode.diff` against `refs/remotes/volt/ide`. |
+| `src/providers/content.ts` | `volt://` content provider; resolves a ref's file via `volt show`. |
+| `src/providers/decorations.ts` | Explorer drift badges (`i`/`o`/`C`/`RO`) using the `volt.drift*` theme colors. |
+| `src/state/status.ts` | `VoltStatus` — health probe, mtime poll, `volt status --json` refresh, config detection. |
+| `src/lsp.ts` | Starts the Volt LSP client for the ST-family languages. |
+| `src/connector.ts` | Talks to the Volt Connector (bridge discovery, start-bridge, CODESYS/TwinCAT instance selection). |
+| `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language configuration shared by ST/ITF/GVL/DUT. |
+| `icons/` | File-kind icons and the `volt-icons` icon theme + activity-bar icon. |
 
-## Tip: Volt's `(* folder: X *)` annotation
+## See also
 
-The grammar gives our metadata comment its own scope (`meta.annotation.folder.structured-text`) so themes can color it distinctly from regular comments. Useful visual cue that the annotation is load-bearing — the engine reads it to round-trip in-FB folder organization to the bridge.
+- [`../volt-control/README.md`](../volt-control/README.md) — the shared TS control layer (`pull`/`push`/`status`/`show`, health, gates) the extension calls.
+- [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI bundled into `dist/cli.js`.
+- [`../volt-lsp-st/README.md`](../volt-lsp-st/README.md) — the Structured Text language server.
+- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log.
+- [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and the fork's architecture.

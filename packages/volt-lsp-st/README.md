@@ -1,214 +1,97 @@
-# @opencode-ai/volt-lsp-st
+# @opencode-ai/volt-lsp
 
-A TypeScript-native Language Server for IEC 61131-3 Structured Text (ST), the textual language used by CODESYS, TwinCAT, and most modern PLC IDEs.
+> TypeScript-native LSP for IEC 61131-3 Structured Text — navigation, diagnostics, and language intelligence over `.st`.
 
-The server is **navigation + diagnostics first**. Type-checking and code generation are explicitly out of scope — the IDE (CODESYS / TwinCAT / etc.) remains authoritative for those.
+A from-scratch language server for Structured Text (the textual IEC 61131-3 language used by CODESYS and
+TwinCAT/Beckhoff), written in TypeScript with no LSP framework. It speaks LSP 3.17 JSON-RPC over stdio and is
+navigation-and-diagnostics first: type-checking and code generation stay the IDE's job.
 
-## What it does
+## Role in Volt
 
-Advertised LSP capabilities (LSP 3.17):
+This is the analysis layer of the Volt data path. `volt-git` materializes a live PLC project into one text file per
+item under the project root; this LSP analyzes those files. opencode and editors attach it for `.st` (and the related
+text extensions `volt-git` writes — `.gvl`, `.struct`, `.enum`, `.union`, `.alias`), and it cross-indexes the whole
+workspace so types declared in unopened files resolve.
 
-- `textDocument/documentSymbol` — outline view
-- `textDocument/definition` — go to declaration
-- `textDocument/references` — find all references
-- `textDocument/implementation` — find FBs that `IMPLEMENTS` an interface
-- `textDocument/hover` — declaration line + CODESYS reference docs (rich markdown)
-- `workspace/symbol` — project-wide symbol search
-- `textDocument/prepareCallHierarchy` + `callHierarchy/{incoming,outgoing}Calls`
-- `textDocument/prepareTypeHierarchy` + `typeHierarchy/{super,sub}types`
-- `textDocument/completion` + `completionItem/resolve` — two-phase completion (keywords, types, operators, pragmas, local symbols, member access)
-- `textDocument/signatureHelp` — parameter info on FB/method/function calls
-- `textDocument/semanticTokens/full` — semantic coloring (keyword / type / function / variable / pragma / etc.)
-- `textDocument/foldingRange` — folds POU bodies, VAR sections, type bodies, namespaces, region pragmas
-- `textDocument/documentHighlight` — same-symbol highlights in the current document
-- `textDocument/selectionRange` — AST-aware smart-expand (identifier → declaration → VAR section → POU)
-- `textDocument/codeAction` — quick fixes for fixable diagnostics
-- `textDocument/publishDiagnostics` — push, 150ms debounced
-- `textDocument/diagnostic` — pull (LSP 3.17, advertised only when client opts in)
-- `$/cancelRequest` — cancellation honored on the wire boundary
-- `TextDocumentSyncKind.Incremental` document sync
+It provides go-to-definition, find-references, implementation, document/workspace symbols, call hierarchy, type
+hierarchy, hover, completion, signature help, semantic tokens, folding, document highlights, selection ranges, rename,
+conservative formatting, code actions, and both push and pull diagnostics. It does not type-check or generate code —
+the CODESYS/TwinCAT compiler remains authoritative. Graphical bodies are handled too: FBD/LD bodies round-trip through
+a textual **VG** form (Volt Graphical), which this server parses and analyzes as a first-class sublanguage rather than
+as ST.
 
-The local CODESYS reference (14 MD files, 250+ sub-pages catalogued) lives at [`docs/codesys-reference/`](./docs/codesys-reference/00-index.md). TwinCAT 3 deltas live at [`docs/twincat-reference/`](./docs/twincat-reference/00-index.md). Both power hover, completion, and diagnostics content.
+## How it works
 
-## Dual-vendor support
+The pipeline is a layered, single-direction stack (the rust-analyzer shape): `lexer` → `parser` → `semantic` → `lsp`,
+with `reference` as a pure-data sidecar that none of the lower layers depend on.
 
-This LSP serves both **CODESYS** and **TwinCAT** (Beckhoff). TwinCAT shares ~90% of the language (it was forked from CODESYS V3); the reference catalog tags each entry with `vendor: "shared" | "codesys" | "twincat"` and the active vendor is selected via `initializationOptions.vendor` (or `"auto"` for filesystem detection).
+- **Lexer / parser.** `src/lexer/` tokenizes ST; `src/parser/` builds an AST, with one parser per POU kind under
+  `parser/units/` (program, function, function-block, method, action, property, interface, type-decl, namespace,
+  global-var-list). The parser is error-tolerant so a half-typed file still yields symbols and diagnostics.
+- **Semantic layer.** `src/semantic/` builds the symbol table and project scope, a name resolver, and a language-neutral
+  `BodyModel` per POU body. Diagnostics are a registry of small checks in `semantic/checks/` (identifier shape, unresolved
+  identifiers, pragmas, FB lifecycle signatures, shadowing, interface implementation, type/operator/assignment mismatch,
+  deref-on-non-pointer, vendor-only operators, and the VG checks), each gated by a per-check enable flag. The default
+  config mirrors TwinCAT: a check is on only if TC itself rejects the code; stricter-than-TC lints ship off-by-default.
+- **Embedded language reference.** `src/reference/` is structured, machine-readable facts (keywords, data types,
+  operators, type conversions, pragmas, lifecycle methods, standard FBs, init slots) derived from the markdown corpora in
+  `docs/codesys-reference/` and `docs/twincat-reference/`. It drives hover and completion content and the pragma/vendor
+  diagnostics. Each entry is tagged `shared | codesys | twincat`; an `initializationOptions.vendor` setting
+  (`codesys | twincat | auto`) selects the active dialect, so a CODESYS project never suggests TwinCAT-only names.
+- **LSP wire.** `src/lsp/` is the only layer that knows LSP types. `lsp/server/` hand-rolls JSON-RPC framing, a flat
+  request/notification dispatcher, debounced (push) diagnostics, and cancellation; `lsp/queries/` has one module per
+  capability (with `queries/vg/` mirroring them for graphical bodies). `runServer({ input, output })` is embeddable on
+  any stream pair. Capabilities are advertised gated by what the client declares it supports.
+- **Graphical bodies (VG).** A POU body whose first significant token is `NETWORK` is routed to `src/vg/` (lexer-on-tokens,
+  parser, writer, type inference) and the `queries/vg/` handlers instead of the ST path. This is the textual form of an
+  editable FBD/LD body; CFC/SFC are read-only and not analyzed here.
 
-The `wrong-vendor-pragma` diagnostic fires when a vendor-specific pragma is used in the other vendor's project, with an `equivalentIn` suggestion where one exists.
+The directory is `volt-lsp-st` (this server is ST-specific, leaving room for sibling language servers — see
+`ADDING-A-NEW-LSP.md`), while the published package is `@opencode-ai/volt-lsp`. The bin is `volt-lsp-st` → `dist/bin.js`;
+opencode and editors only ever spawn it with `--stdio`.
 
-## Diagnostics
+## Commands
 
-Mechanical checks driven by the reference catalog:
-
-| Check | Severity | What it catches |
-|---|---|---|
-| `reserved-keyword` | Error | Identifier matches a reserved keyword |
-| `double-underscore-prefix` | Error | Identifier starts with `__` (reserved for system-generated names) |
-| `consecutive-underscores` | Error | `_{2,}` anywhere in identifier |
-| `duplicate-declaration` | Error | Two declarations with the same name in the same scope |
-| `unresolved-identifier` | Warning | Identifier in a body that doesn't resolve in any reachable scope |
-| `unknown-pragma` | Warning | Pragma name not in either vendor's catalog |
-| `wrong-vendor-pragma` | Warning | Pragma known but belongs to the OTHER vendor — suggests equivalent |
-| `pragma-missing-companion` | Error | `instance-path` / `is_connected` without `reflection` on parent FB |
-| `pragma-conflict` | Warning | `pingroup` coexists with `pin_presentation_order_*` |
-| `fb-lifecycle-signature` | Error | `FB_Init` / `FB_Reinit` / `FB_Exit` with wrong return type or parameters |
-| `shadowing-declaration` | Information | A declaration shadows a same-name symbol in an outer scope |
-| `init-slot-collision` | Warning | `{attribute 'global_init_slot' := 'N'}` collides with a reserved slot |
-| `conversion-source-mismatch` | Warning | `<X>_TO_<Y>(arg)` where arg's type isn't `<X>` — suggests the right conversion |
-
-Each check has an enable flag in `initializationOptions.diagnostics` — disable selectively to mute noise.
-
-## Install
+Per-package, from `packages/volt-lsp-st`:
 
 ```bash
-npm install --save-dev @opencode-ai/volt-lsp-st
+bun typecheck        # tsgo --noEmit
+bun test             # bun test runner (unit + conformance + e2e under src/tests/)
+bun run build        # tsc -> dist/ (also runs on `prepare`, i.e. before publish)
+bun run dev          # tsc --watch
 ```
 
-The package ships a `volt-lsp-st` binary that speaks LSP over stdio.
+The e2e tests spawn the built `dist/bin.js`, so build before running the full suite. Standalone, the bin also exposes
+`volt-lsp-st lex <file>` (dump the token stream) and `--version`.
 
-## Using with VS Code
-
-This package is consumed by the `@opencode-ai/volt-vscode` extension, which spawns it as a language server. No standalone configuration needed — install the extension and `.st` files light up.
-
-## Using with opencode (and Claude Code)
-
-[opencode](https://opencode.ai) is an AI coding agent that talks to LSP servers for real-time code intelligence. There are two integration layers:
-
-### 1. Reactive intelligence — LSP
-
-Add an entry to your `opencode.jsonc`:
-
-```jsonc
-{
-  "lsp": {
-    "volt-st": {
-      "command": ["node", "node_modules/@opencode-ai/volt-lsp-st/dist/bin.js", "--stdio"],
-      "extensions": [".st", ".iecst", ".exp"]
-    }
-  }
-}
-```
-
-In a monorepo workspace consuming this package directly, point at the workspace path instead:
-
-```jsonc
-"command": ["node", "packages/volt-lsp-st/dist/bin.js", "--stdio"]
-```
-
-Why absolute paths and not bare `["volt-lsp-st", "--stdio"]`: on Windows, bun does not create `node_modules/.bin` symlinks for private workspace packages, so the bare bin name does not resolve. Absolute paths work the same on every platform.
-
-opencode will then automatically start the server when you open a `.st` file. The AI in your opencode session receives:
-
-- Parse-error diagnostics as you edit (debounced 150ms)
-- Hover content (file types, FBs, methods, variables — and starting in Phase 2, full CODESYS docs)
-- Go-to-definition, find-references, document/workspace symbols, call hierarchy
-
-opencode does not consume completion / semantic tokens / signature help (the LLM proposes code directly), so those features — when shipped in later phases — are inert for opencode and active for VS Code.
-
-### 2. Proactive knowledge — Skill
-
-Running `volt init` (from `@opencode-ai/volt-git`) in a workspace installs:
-
-- `docs/codesys-reference/` — the language reference corpus
-- `.claude/skills/st-reference/SKILL.md` — an [agent skill](https://opencode.ai/docs/skills/) that points to the corpus
-
-Both opencode and Claude Code discover skills from `.claude/skills/`. The skill is loaded on-demand (lazy, token-efficient) when the agent decides it needs language details — pragma semantics, FB lifecycle, shadowing rules, etc. The agent invokes it via `skill({ name: "st-reference" })`.
-
-This is the future-proof pattern that scales to multiple LSPs: each LSP package ships its own SKILL.md. Adding a new language reference doesn't bloat the always-loaded context — only the skill descriptions appear there, and full content loads only when relevant.
-
-## Using with other LSP clients
-
-The server is spec-compliant LSP 3.17. Any client that speaks JSON-RPC framed messages on stdio works. Helix, Neovim with `nvim-lspconfig`, Emacs `lsp-mode`, Zed — all should work out of the box.
-
-Generic invocation:
+Launched and verified inside opencode from the repo root (opencode spawns the server lazily, with `cwd` = the project
+dir, so it must be the built monorepo root — see `ADDING-A-NEW-LSP.md`):
 
 ```bash
-volt-lsp-st --stdio
+bun volt-scripts/verify-lsp.ts   # non-interactive proof: plants a bad .st, asserts source:"volt-lsp-st" diagnostics
+bun volt-scripts/dev.ts          # opencode TUI from source with this LSP attached for .st files
 ```
 
-## Initialization options
+## Layout
 
-Pass via LSP `initializationOptions` at the `initialize` handshake. All fields are optional; defaults are sensible.
+| Path | Role |
+|---|---|
+| `src/bin.ts` | CLI entry — routes `--stdio` to the server, plus `lex` / `--version` |
+| `src/index.ts` | Public API re-exports (consumed by `volt-git` + the VS Code extension + the conformance harness) |
+| `src/lexer/` | ST tokenizer (`lex`, tokens, spans) |
+| `src/parser/` | AST + per-POU-kind parsers (`parser/units/`), type expressions, VAR sections |
+| `src/semantic/` | Symbol table, resolver, type resolver, `BodyModel`, diagnostics orchestrator + `checks/` registry |
+| `src/reference/` | Structured CODESYS/TwinCAT language facts (pure data) driving hover, completion, pragma diagnostics |
+| `src/vg/` | VG (graphical FBD/LD textual form) — parser, writer, type inference, operator table |
+| `src/lsp/` | LSP wire: `server/` (framing/dispatch/diagnostics-push), `queries/` (+ `queries/vg/`), `capabilities`, `config/`, `workspace` |
+| `src/init.ts` | `installCorpus` — copies the reference corpus + writes `SKILL.md` into a consumer project at `volt init` |
+| `src/detect-vendor.ts` | Vendor auto-detection from project files |
+| `src/bridge-diagnostic-lines.ts` | Maps an IDE build diagnostic onto a line in the assembled `.st` file |
+| `src/tests/` | Unit tests + the replayable conformance harness (`tests/conformance/`) and live/e2e tests |
+| `docs/` | `codesys-reference/` + `twincat-reference/` corpora (shipped via `files`), `plcopen-xml/` notes |
 
-```jsonc
-{
-  "diagnostics": {
-    // Per-check enable flags. All true by default.
-    "reservedKeyword": true,
-    "doubleUnderscore": true,
-    "consecutiveUnderscores": true,
-    "duplicateDeclaration": true,
-    "unresolvedIdentifier": true,
-    "unknownPragma": true
-  },
-  "hover": {
-    "showSource": true  // append the CODESYS doc URL to hover content
-  },
-  "completion": {
-    "snippetSupport": true  // honor LSP snippet syntax in completion items
-  }
-}
-```
+## See also
 
-## Architecture
-
-Layered modules with strict dependency direction (rust-analyzer pattern):
-
-```
-src/
-├── lexer/        tokenization — knows nothing about higher layers
-├── parser/       AST — depends only on lexer
-├── semantic/     symbol tables, name resolution, diagnostics — knows nothing about LSP
-├── reference/    structured CODESYS language facts (Phase 2) — pure data
-└── lsp/          LSP wire + JSON-RPC framing — only place that knows about LSP types
-    ├── server.ts             event loop, request dispatch, debouncing, cancellation
-    ├── capabilities.ts       client-gated capability advertisement
-    ├── workspace.ts          document manager (uses vscode-languageserver-textdocument)
-    ├── config.ts             initializationOptions shape
-    ├── types.ts              re-exports from vscode-languageserver-protocol
-    └── queries/<feature>.ts  one file per LSP capability
-```
-
-Dependencies (type-only / utility, no framework):
-
-- [`vscode-languageserver-protocol`](https://github.com/microsoft/vscode-languageserver-node) — canonical LSP type definitions
-- [`vscode-languageserver-textdocument`](https://github.com/microsoft/vscode-languageserver-node) — incremental document buffer
-
-JSON-RPC framing is hand-rolled in `src/lsp/server.ts` — no framework. The server is embeddable from any `Readable`/`Writable` stream pair: `runServer({ input, output })`.
-
-## Development
-
-```bash
-npm install
-npm run build      # tsc -b
-npm test           # vitest run — 168 tests (158 unit + 10 e2e)
-npm run typecheck  # tsc --noEmit
-npm run dev        # tsc -b --watch
-```
-
-End-to-end tests spawn the built binary and exercise each advertised capability via real LSP traffic. They skip if `dist/bin.js` is missing — run `npm run build` first if needed.
-
-## Test status
-
-263 tests passing across 14 files:
-
-- Lexer (~80 incl. address literals + ExST ops + backticks + operator keywords), parser (~55 incl. NAMESPACE + implicit enums + VAR_GENERIC), symbol table (~16 incl. namespace scope), resolver (12)
-- Queries: definition (4), references (3), document-symbol (7), phase4 (16, hover/workspace/call/type), completion (6), semantic-tokens (8)
-- Reference modules (11)
-- Diagnostics (35) — incl. wrong-vendor-pragma + conversion-source-mismatch
-- LSP end-to-end (11)
-- Init (8) — corpus install / CLAUDE.md merge / idempotency
-
-End-to-end tests spawn the built binary and exercise each advertised capability via real LSP traffic. They skip if `dist/bin.js` is missing — run `npm run build` first.
-
-## Corpus install (called from `volt init`)
-
-The package exports an `installCorpus()` helper consumed by `volt-agent`'s `volt init` command. When a user runs `volt init` in a PLC workspace, the corpus + a CLAUDE.md pointer is copied into that workspace so any AI session there can read the language reference proactively.
-
-```ts
-import { installCorpus } from "@opencode-ai/volt-lsp-st";
-const result = await installCorpus({ targetDir: ".", update: false });
-// → copies docs/codesys-reference/ into targetDir, manages CLAUDE.md
-```
-
-Idempotent. Re-running without `update: true` is a no-op.
+- [`./ADDING-A-NEW-LSP.md`](./ADDING-A-NEW-LSP.md) — how a second/Nth Volt language server is added and proven to load
+- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log
+- [`../../CLAUDE.md`](../../CLAUDE.md) — fork overview, architecture, and conventions

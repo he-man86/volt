@@ -1,61 +1,65 @@
 # @opencode-ai/volt-control
 
-UI-agnostic core that **drives the `volt` CLI / bridge** — `status` / `push` / `pull` / `build` /
-health / workspace detection. It contains **no UI framework code**, so it can be rendered by both
-`volt-vscode` (VS Code tree views) and `volt-app` (a Solid panel in the opencode desktop app).
+> UI-agnostic core that drives the `volt` CLI / bridge — one shared driver behind both Volt GUIs.
 
-> **Status — Phase 1 done.** The full UI-agnostic core lives here: the primitives
-> (`cli` · `types` · `workspace` · `gate` · `health`) **and** the actions
-> (`fetchStatus` · `pull` · `push` · `build` · `init` · `mergeCmd` · `showFile` + the `PullOutcome`/
-> `PushOutcome`/`StatusResult` contracts). `volt-vscode` consumes all of it — no UI logic
-> duplicated (typecheck ✓, 13 tests ✓, extension build ✓).
-> **Next:** `volt-app` renders this same core as a Solid panel (Phase 3, via the GUI `<Slot/>` in
-> Phase 2). Distinct from `@opencode-ai/volt-git` — that's the CLI *binary*; this *spawns and parses* it.
+The shared CLI/bridge driver plus the Electron IPC layer that sits behind the two Volt GUIs. It spawns the bundled `volt` CLI, parses its `--json` output into typed outcomes, probes bridge health, and exposes the IPC contract — with **no UI-framework code**, so it can be rendered by both the desktop panel (`volt-app`) and the VS Code extension (`volt-vscode`).
 
+## Role in Volt
+
+volt-control is the layer **below** the GUIs. Both renderers — `volt-app` (the Solid panel in the opencode desktop app) and `volt-vscode` (VS Code tree views) — go through it; it drives the `volt` binary (`@opencode-ai/volt-git`), parses its output, and owns the channel names that define the desktop IPC contract. **One shared core, two renderers.** It is distinct from `volt-git`: that package *is* the CLI binary, while this one *spawns and parses* it.
+
+The package is Node-bound (it spawns child processes and reads files), so the desktop main process imports the full package. The `/channels` subpath is deliberately **Node-free** (zero imports) so the **sandboxed** Electron preload can import the channel names without pulling in any CLI/Node code it can't load.
+
+## How it works
+
+**Actions (`actions.ts`)** — the CLI-mirror. Each function shells out to the bundled CLI and returns data or a typed outcome; the caller owns spinners and dialogs:
+
+- `fetchStatus` — reads the bridge port from `.git/volt/config.json`, probes `/health`, then runs `volt status --json` and returns `{ status, health, error? }`.
+- `pull` / `push` — run `volt pull|push [--force] --json` and parse the `PullOutcome` / `PushOutcome` union (ok / refused|rejected / conflict / error).
+- `build` / `init` / `mergeCmd` / `showFile` — `volt build|init|merge|show`; raw CLI result (or buffer for `show`'s bytes).
+- `log` — mirrors `volt log --json --limit N` into `LogEntry[]`. (The current GUIs don't call it; it's there to complete the CLI surface.)
+- `detect` — cheap check for an initialized workspace (does `.git/volt/config.json` carry a bridge port), no bridge probe.
+
+Mutating actions (`pull`/`push`/`init`) take a per-workspace mutation gate (`gate.ts`: `withGate` / `isMutationInFlight`) so a concurrent health probe can skip, and release it before returning so outcome dialogs never hold the lock.
+
+**IPC (`ipc.ts`)** — `registerVoltIpcHandlers(ipcMain, cliPath?)` is called once from the desktop main process. It calls `setBundledCli(cliPath)` then registers one handler per channel (`detect`/`status`/`pull`/`push`/`build`/`show`) as a thin pass-through to the actions; the renderer passes the workspace dir on every call. `IpcMainLike` keeps the package free of an `electron` dependency.
+
+**Channels (`channels.ts`)** — `VOLT_CHANNELS` is the single source of truth for the channel names (`volt:detect`, `volt:status`, …) shared by the main-process handlers and the preload bridge.
+
+**CLI spawning (`cli.ts`)** — `setBundledCli` pins the CLI shipped inside the host (so a PLC workspace needs no Node toolchain or `node_modules/.bin/volt`); `cliScript` falls back to the workspace's installed `volt-git`. `spawnVolt` / `spawnVoltBuffer` run it as a Node script via the editor's own runtime (`process.execPath` + `ELECTRON_RUN_AS_NODE=1`), so it works under VS Code, Cursor, Windsurf, or Electron with no external node.
+
+**Health & workspace (`health.ts`, `workspace.ts`)** — `probeHealth` GETs `/health` on `127.0.0.1:<port>` and maps it to a `HealthState` (connected / degraded / disconnected / unreachable); `readBridgePort` / `readExtensionAccess` read `.git/volt/config.json`; `healthLabel` renders a one-line status. `isPouFile` classifies editable source extensions and `readStateMtime` reads the IDE baseline mtime (`.git/volt/ide-refs.json`) for last-sync time.
+
+## Commands
+
+Run from `packages/volt-control`:
+
+```bash
+bun typecheck    # tsgo --noEmit
 ```
-        @opencode-ai/volt-control   (drives volt CLI/bridge — no UI)
-        ├─ rendered by  volt-vscode  → VS Code tree views   (exists)
-        └─ rendered by  volt-app     → Solid panel in desktop (Phase 3)
+
+```bash
+bun test         # bun test runner (gate + workspace-detection tests)
 ```
 
-## Phase 1 — extraction (step by step)
+## Layout
 
-`volt-vscode`'s core is already cleanly separable (verified). The work is *moving* the pure parts
-here and *splitting* the two vscode-coupled files.
+| File | Role |
+|---|---|
+| `actions.ts` | UI-agnostic actions over the CLI (`fetchStatus`/`pull`/`push`/`build`/`init`/`mergeCmd`/`showFile`/`log`/`detect`) + outcome contracts |
+| `ipc.ts` | `registerVoltIpcHandlers` — wires the actions over Electron IPC; `IpcMainLike` |
+| `channels.ts` | `VOLT_CHANNELS` — Node-free channel-name source of truth (the `/channels` subpath) |
+| `cli.ts` | Bundled-CLI resolution + `spawnVolt` / `spawnVoltBuffer` child-process spawning |
+| `health.ts` | Bridge `/health` probe, `HealthState`, port/extension-access config reads, `healthLabel` |
+| `workspace.ts` | `isPouFile` source-extension test, `readStateMtime` last-sync time |
+| `gate.ts` | Per-workspace mutation gate (`withGate`, `isMutationInFlight`) |
+| `types.ts` | `StatusJson`, `ChangeSet`, `ProjectMismatch`, `changeCount` |
+| `index.ts` | Public API barrel (full package); `/channels` subpath is separate |
 
-**Extraction map:**
+## See also
 
-| `volt-vscode/src` file | Coupled to `vscode`? | Action |
-|---|---|---|
-| `cli.ts` (`spawnVolt`, `spawnVoltBuffer`) | no | **move verbatim** → `src/cli.ts` |
-| `workspace.ts` (detection) | no | **move verbatim** → `src/workspace.ts` |
-| `state/health.ts` (`probeHealth`, `readBridgePort`, `isBridgeOnline`) | no | **move verbatim** → `src/health.ts` |
-| `gate.ts` (`withGate`) | no | **move verbatim** → `src/gate.ts` |
-| `types.ts` (`StatusJson`, …) | no | **move verbatim** → `src/types.ts` |
-| `state/status.ts` | **yes** (status-bar/events) | **split**: status *fetch/parse* (uses `cli` + `health`) → here as `getStatus()`; the `vscode.StatusBarItem`/event wiring stays in `volt-vscode` |
-| `commands.ts` | **yes** (command registration) | **split**: the *actions* (`push`/`pull`/`build` via `cli`) → here; `vscode.commands.registerCommand(...)` stays in `volt-vscode` |
-
-**Steps:**
-1. **Move the 5 pure files** into `src/`. They import only `node:*` — no changes needed.
-2. **Refactor `status.ts`:** pull the `spawnVolt('status --json')` + parse + health-merge into
-   `getStatus(ctx)` here; leave the status-bar rendering in `volt-vscode` (it now calls `getStatus`).
-3. **Refactor `commands.ts`:** move the action bodies into `push()`/`pull()`/`build()` here (wrapped
-   in `withGate`); `volt-vscode`'s `registerCommand` handlers become one-liners that call these.
-4. **Finalize the public API** in `src/index.ts` (replace the throwing stubs with the moved code).
-5. **Re-point `volt-vscode`:** `import { … } from "@opencode-ai/volt-control"` instead of `./cli`,
-   `./state/status`, etc. Add `"@opencode-ai/volt-control": "workspace:*"` to its deps.
-6. **Build setup:** add `tsconfig.json` + `"build": "tsc"` + `"typecheck"` / `"test"` scripts
-   (mirror `volt-git`). `dist/` is what `volt-vscode`/`volt-app` consume in production.
-
-## Public API (target — see `src/index.ts`)
-
-`detectWorkspace(cwd)` · `getHealth(ctx)` · `getStatus(ctx)` · `pull(ctx, flags?)` ·
-`push(ctx, flags?)` · `build(ctx)` · types `StatusJson`, `HealthState`, `VoltContext`.
-
-## Verify (Phase 1 exit)
-
-- `bun --cwd packages/volt-vscode run build` succeeds; its tests pass (it now sources `volt-control`).
-- `bun --cwd packages/volt-control test` — unit tests for `getStatus`/`push`/… against a fake `volt`.
-- `bun run volt-scripts/check-divergence.ts` — clean (both packages are fork-owned).
-
-No upstream files are touched in Phase 1.
+- [`../volt-app/README.md`](../volt-app/README.md) — desktop panel renderer
+- [`../volt-vscode/README.md`](../volt-vscode/README.md) — VS Code extension renderer
+- [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI this drives
+- [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — D4: one shared core, two renderers
+- [`../../CLAUDE.md`](../../CLAUDE.md) — fork architecture & conventions
