@@ -12,7 +12,7 @@ live PLC IDE  ──HTTP──  bridge (C#)  ──HTTP wire──  volt-git (TS
                                                      status/build/log         edited in volt-vscode
 ```
 
-volt-git sits between two things it talks to: the **bridge** (a local daemon exposing one live IDE over a small HTTP wire) and the **git repo** of `src/` text it materializes from that IDE. It pulls items from the bridge into `src/` for `volt-lsp-st` to analyze and `volt-vscode` to edit, and pushes committed `src/` edits back to the IDE. It depends only on the `Remote` interface (`bridge/client.ts`), so the wire — not the vendor driver — is the boundary. Self-contained: it carries its own copies of the stable contracts (extension registry, bridge wire) with no cross-package imports beyond `@opencode-ai/volt-lsp` (the language-reference corpus installed at `init`).
+volt-git sits between two things it talks to: the **bridge** (a local daemon exposing one live IDE over a small HTTP wire) and the **git repo** of `src/` text it materializes from that IDE. It pulls items from the bridge into `src/` for `volt-lsp-st` to analyze and `volt-vscode` to edit, and pushes committed `src/` edits back to the IDE. It depends only on the `Remote` interface (`bridge/client.ts`), so the wire — not the vendor driver — is the boundary. Self-contained: it carries its own copies of the stable contracts (extension registry, bridge wire) with no cross-package imports beyond `@opencode-ai/volt-lsp-st` (the language-reference corpus installed at `init`).
 
 ## How it works
 

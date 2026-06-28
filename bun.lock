@@ -1019,7 +1019,7 @@
       },
     },
     "packages/volt-bridge": {
-      "name": "@opencode-ai/volt-bridges",
+      "name": "@opencode-ai/volt-bridge",
       "version": "1.16.0",
       "devDependencies": {
         "@tsconfig/node22": "catalog:",
@@ -1046,7 +1046,7 @@
         "volt": "./dist/bin.js",
       },
       "dependencies": {
-        "@opencode-ai/volt-lsp": "workspace:*",
+        "@opencode-ai/volt-lsp-st": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -1058,7 +1058,7 @@
       },
     },
     "packages/volt-lsp-st": {
-      "name": "@opencode-ai/volt-lsp",
+      "name": "@opencode-ai/volt-lsp-st",
       "version": "1.15.11",
       "bin": {
         "volt-lsp-st": "./dist/bin.js",
@@ -1077,10 +1077,10 @@
     },
     "packages/volt-vscode": {
       "name": "volt-vscode",
-      "version": "1.21.9",
+      "version": "1.21.10",
       "dependencies": {
         "@opencode-ai/volt-control": "workspace:*",
-        "@opencode-ai/volt-lsp": "workspace:*",
+        "@opencode-ai/volt-lsp-st": "workspace:*",
         "vscode-languageclient": "^9.0.1",
       },
       "devDependencies": {
@@ -2089,13 +2089,13 @@
 
     "@opencode-ai/volt-app": ["@opencode-ai/volt-app@workspace:packages/volt-app"],
 
-    "@opencode-ai/volt-bridges": ["@opencode-ai/volt-bridges@workspace:packages/volt-bridge"],
+    "@opencode-ai/volt-bridge": ["@opencode-ai/volt-bridge@workspace:packages/volt-bridge"],
 
     "@opencode-ai/volt-control": ["@opencode-ai/volt-control@workspace:packages/volt-control"],
 
     "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 
-    "@opencode-ai/volt-lsp": ["@opencode-ai/volt-lsp@workspace:packages/volt-lsp-st"],
+    "@opencode-ai/volt-lsp-st": ["@opencode-ai/volt-lsp-st@workspace:packages/volt-lsp-st"],
 
     "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
 

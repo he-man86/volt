@@ -1,5 +1,5 @@
 /**
- * Public entry point for `@opencode-ai/volt-lsp/conformance`.
+ * Public entry point for `@opencode-ai/volt-lsp-st/conformance`.
  *
  * Re-exports the catalog (`CATEGORIES`, `ALL_TESTS`) and the
  * `LanguageTest` / `CategoryGroup` shapes. Consumers outside this

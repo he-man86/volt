@@ -3,11 +3,11 @@ import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, TransportKind } from "vscode-languageclient/node"
 
-// FBD/LD bodies are their own `volt-graphical` (VG) language — Volt's ST-flavored graphical language;
-// the server routes them to its VG path by the leading NETWORK token. (.cfc/.sfc are read-only and stay
-// on structured-text.) The LSP attaches to all of these ids.
+// All PLC source is the structured-text family. A graphical (VG) body isn't a separate file type — it's
+// detected by content (a leading NETWORK token) and can be inlined inside a .st POU (a graphical method),
+// so the server routes per-body and the editor highlights VG networks via a TextMate injection.
 const LANGUAGE_IDS = [
-	"structured-text", "volt-graphical", "plc-interface", "plc-gvl", "plc-dut",
+	"structured-text", "plc-interface", "plc-gvl", "plc-dut",
 ]
 
 export async function startLsp(context: vscode.ExtensionContext): Promise<LanguageClient[]> {
@@ -47,7 +47,7 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<Langua
 }
 
 function resolveServerModule(context: vscode.ExtensionContext): string {
-	const bundled = join(context.extensionPath, "node_modules", "@opencode-ai", "volt-lsp", "dist", "server.js")
+	const bundled = join(context.extensionPath, "node_modules", "@opencode-ai", "volt-lsp-st", "dist", "server.js")
 	if (existsSync(bundled)) return bundled
 
 	const workspaceModule = join(dirname(context.extensionPath), "volt-lsp-st", "dist", "server.js")

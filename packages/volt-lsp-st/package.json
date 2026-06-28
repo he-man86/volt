@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/volt-lsp",
+  "name": "@opencode-ai/volt-lsp-st",
   "version": "1.15.11",
   "private": true,
   "license": "MIT",

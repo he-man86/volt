@@ -27,7 +27,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Drift decorations** (`providers/decorations.ts`). A file-decoration provider badges changed files in the Explorer: `i` (incoming, `volt.driftIncomingForeground`), `o` (outgoing, `volt.driftOutgoingForeground`), `C` (merge conflict, `volt.driftConflictForeground`), and `RO` for read-only kinds (graphical/config files the AI reads but can't push, from `extensionAccess`). These colors are deliberately distinct from git's own.
 
-**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp` (falling back to the sibling `volt-lsp-st` workspace build). Editable FBD/LD bodies are their **own** `volt-graphical` (VG) language — Volt's ST-flavored graphical language; it's highlighted with the ST TextMate grammar (VG reads like ST) but the server routes it to its dedicated VG analysis by the leading `NETWORK` token. Read-only `.cfc/.sfc` stay on `structured-text`. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
+**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp-st` (falling back to the sibling `volt-lsp-st` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up whole `.fbd/.ld` files **and** a graphical body inlined in a `.st` POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
 **Status bar + Start Bridge** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. When the bridge is offline the item retargets to **`volt.startBridge`**, which (via `connector.ts`) ensures the Volt Connector is running and starts the configured bridge port. Onboarding (`volt.setup`) asks the connector which IDE/project is live and binds to it directly, falling back to an explicit TwinCAT/CODESYS pick.
 
@@ -64,7 +64,7 @@ windsurf --install-extension volt-<version>.vsix
 | `src/state/status.ts` | `VoltStatus` — health probe, mtime poll, `volt status --json` refresh, config detection. |
 | `src/lsp.ts` | Starts the Volt LSP client for the ST-family languages. |
 | `src/connector.ts` | Talks to the Volt Connector (bridge discovery, start-bridge, CODESYS/TwinCAT instance selection). |
-| `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language configuration, reused by ST, **VG** (`volt-graphical`), ITF/GVL/DUT. |
+| `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language config (ST/ITF/GVL/DUT) + `vg.injection.tmLanguage.json` — the injection that highlights VG `NETWORK` networks by content. |
 | `icons/` | File-kind icons and the `volt-icons` icon theme + activity-bar icon. |
 
 ## See also

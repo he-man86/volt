@@ -20,7 +20,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@opencode-ai/volt-lsp": "workspace:*",
+    "@opencode-ai/volt-lsp-st": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

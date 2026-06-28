@@ -1,4 +1,4 @@
-# @opencode-ai/volt-bridges
+# @opencode-ai/volt-bridge
 
 > The C# bridges that expose one live PLC IDE (CODESYS / TwinCAT) to Volt over a small HTTP wire.
 

@@ -21,7 +21,6 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
-    "onLanguage:volt-graphical",
     "onLanguage:plc-interface",
     "onLanguage:plc-gvl",
     "onLanguage:plc-dut",
@@ -71,6 +70,8 @@
         ],
         "extensions": [
           ".st",
+          ".fbd",
+          ".ld",
           ".cfc",
           ".sfc"
         ],
@@ -78,22 +79,6 @@
         "icon": {
           "light": "./icons/st.svg",
           "dark": "./icons/st.svg"
-        }
-      },
-      {
-        "id": "volt-graphical",
-        "aliases": [
-          "Volt Graphical",
-          "VG"
-        ],
-        "extensions": [
-          ".fbd",
-          ".ld"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/fbd.svg",
-          "dark": "./icons/fbd.svg"
         }
       },
       {
@@ -306,9 +291,11 @@
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       },
       {
-        "language": "volt-graphical",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
+        "scopeName": "vg.injection",
+        "path": "./languages/structured-text/vg.injection.tmLanguage.json",
+        "injectTo": [
+          "source.structured-text"
+        ]
       },
       {
         "language": "plc-interface",
@@ -717,7 +704,7 @@
   },
   "dependencies": {
     "@opencode-ai/volt-control": "workspace:*",
-    "@opencode-ai/volt-lsp": "workspace:*",
+    "@opencode-ai/volt-lsp-st": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

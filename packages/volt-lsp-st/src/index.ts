@@ -1,5 +1,5 @@
 /**
- * Public API surface for `@opencode-ai/volt-lsp`.
+ * Public API surface for `@opencode-ai/volt-lsp-st`.
  *
  * Every export here is consumed by another package (primarily
  * volt-agent's conformance harness, recorder, and VS Code extension).

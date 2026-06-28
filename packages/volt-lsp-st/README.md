@@ -1,4 +1,4 @@
-# @opencode-ai/volt-lsp
+# @opencode-ai/volt-lsp-st
 
 > TypeScript-native LSP for IEC 61131-3 Structured Text — navigation, diagnostics, and language intelligence over `.st`.
 
@@ -46,9 +46,9 @@ with `reference` as a pure-data sidecar that none of the lower layers depend on.
   parser, writer, type inference) and the `queries/vg/` handlers instead of the ST path. This is the textual form of an
   editable FBD/LD body; CFC/SFC are read-only and not analyzed here.
 
-The directory is `volt-lsp-st` (this server is ST-specific, leaving room for sibling language servers — see
-`ADDING-A-NEW-LSP.md`), while the published package is `@opencode-ai/volt-lsp`. The bin is `volt-lsp-st` → `dist/bin.js`;
-opencode and editors only ever spawn it with `--stdio`.
+The package, directory, and bin are all `volt-lsp-st` — this server is ST-specific, leaving room for sibling
+language servers (`@opencode-ai/volt-lsp-<lang>`; see `ADDING-A-NEW-LSP.md`). opencode and editors only ever
+spawn the bin (`dist/bin.js`) with `--stdio`.
 
 ## Commands
 

@@ -93,7 +93,7 @@ Use this package (`packages/volt-lsp-st/`) as the template. Required files:
 
 ```
 packages/volt-lsp-<lang>/
-├── package.json          name: @opencode-ai/volt-lsp-<lang>   (this package is @opencode-ai/volt-lsp)
+├── package.json          name: @opencode-ai/volt-lsp-<lang>   (this package is @opencode-ai/volt-lsp-st)
 │                          bin: { "volt-lsp-<lang>": "./dist/bin.js" }
 │                          scripts.build + scripts.prepare = "tsc"
 ├── tsconfig.json
@@ -149,7 +149,7 @@ package's `init.ts`. Don't hand-author a committed skill file.
 
 `volt init` installs the corpus by calling `installCorpus` (= this package's `runInit`). The
 call site is `packages/volt-git/src/init.ts` — `tryInstallCorpus()` invokes `installCorpus`
-imported from `@opencode-ai/volt-lsp`.
+imported from `@opencode-ai/volt-lsp-st`.
 
 Today it installs from this one package. For multiple LSPs, `tryInstallCorpus` needs to fan
 out — install the corpus from every Volt LSP package present in `node_modules`. Refactor

@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp";
+import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-st";
 import type { Remote } from "./bridge/types.js";
 import { saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo } from "./git/plumbing.js";

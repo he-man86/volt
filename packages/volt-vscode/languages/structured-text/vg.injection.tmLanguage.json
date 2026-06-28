@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "VG graphical networks",
+  "scopeName": "vg.injection",
+  "injectionSelector": "L:source.structured-text -comment -string",
+  "patterns": [
+    {
+      "comment": "A VG (Volt Graphical) network — the textual form of an FBD/LD body. Detected by content (the NETWORK header), so it lights up whether it's a whole .fbd/.ld file or a graphical body inlined in a .st POU (e.g. a graphical method). Mirrors the LSP's isVgBody discriminator.",
+      "name": "meta.network.vg",
+      "begin": "^\\s*(NETWORK)\\b[ \\t]*(\\d+)?[ \\t]*(FBD|LD)?\\b[ \\t]*(\"[^\"]*\")?[ \\t]*(DISABLED)?",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.vg" },
+        "2": { "name": "constant.numeric.vg" },
+        "3": { "name": "storage.type.vg" },
+        "4": { "name": "string.quoted.double.vg" },
+        "5": { "name": "keyword.other.vg" }
+      },
+      "end": "^\\s*(END_NETWORK)\\b",
+      "endCaptures": {
+        "1": { "name": "keyword.control.vg" }
+      },
+      "patterns": [
+        { "match": "\\b(LET)\\b", "name": "keyword.operator.wire.vg" },
+        { "include": "source.structured-text" }
+      ]
+    }
+  ]
+}
