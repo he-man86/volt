@@ -1,6 +1,7 @@
 /**
  * Item ⇄ file translation. One IDE item = one workspace file (src-relative path). The bridge already
- * transpiles graphical bodies to ST, so this layer is pure path/content mapping — no PLC knowledge.
+ * materialized graphical FBD/LD bodies as VG (CFC/SFC read-only), so this layer is pure path/content
+ * mapping — no PLC knowledge.
  */
 import type { FetchedItem } from "../bridge/types.js";
 import { defFromName, fullNameFromPath, FOLDER_MARKER } from "../registry/extensions.js";

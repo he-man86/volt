@@ -9,15 +9,16 @@
 
 ## 1. Purpose & context
 
-**VG** ("Volt Graphical") is the **textual form of an FBD/LD graphical PLC body** — a graphical network of
-boxes and wires rendered as readable Structured Text. It exists so that an AI agent and a language server
-can work in **one language (ST)** across an entire project, even though some POU bodies are authored
-graphically in the vendor IDE (TwinCAT, CODESYS).
+**VG** ("Volt Graphical") is Volt's **own textual language for FBD/LD graphical PLC bodies** — a graphical
+network of boxes and wires rendered as *readable, ST-flavored* text. It reads like Structured Text but is a
+**distinct language** with its own grammar, parser, and analysis. It exists so an AI agent and a language
+server can work over a graphical body **as text**, even though it was authored graphically in the vendor IDE
+(TwinCAT, CODESYS).
 
-**The workspace is ST-only.** When a project is pulled, every body — textual *or* graphical — is materialised
-as `.st` text; an FBD/LD body becomes its VG rendering. When pushed, the bridge parses the VG back to the
-graphical node graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a
-graphical body can be read, edited, and written entirely as text.
+**Bodies are ST _or_ VG.** When a project is pulled, a textual POU body materialises as ST (`.st`); an FBD/LD
+body materialises as VG (`.fbd`/`.ld`). When pushed, the bridge parses the VG back to the graphical node
+graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a graphical body
+can be read, edited, and written entirely as VG text. (CFC/SFC are surfaced read-only.)
 
 ```
   Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──VgWriter──►  VG text   (pull / read)

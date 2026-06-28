@@ -93,5 +93,7 @@ bun volt-scripts/dev.ts          # opencode TUI from source with this LSP attach
 ## See also
 
 - [`./ADDING-A-NEW-LSP.md`](./ADDING-A-NEW-LSP.md) — how a second/Nth Volt language server is added and proven to load
+- [`../volt-bridge/docs/vg-language.md`](../volt-bridge/docs/vg-language.md) — the VG (Volt Graphical) language spec for FBD/LD bodies
+- [`../volt-bridge/docs/vg-diagnostics.md`](../volt-bridge/docs/vg-diagnostics.md) — VG diagnostics reference
 - [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log
 - [`../../CLAUDE.md`](../../CLAUDE.md) — fork overview, architecture, and conventions

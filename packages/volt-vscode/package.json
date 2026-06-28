@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "volt-vscode",
   "displayName": "Volt",
-  "description": "Syntax highlighting and language intelligence for PLC languages (currently Structured Text / IEC 61131-3; more vendors and languages to come).",
+  "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
   "version": "1.21.9",
   "publisher": "volt",
   "private": true,
@@ -21,6 +21,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
+    "onLanguage:volt-graphical",
     "onLanguage:plc-interface",
     "onLanguage:plc-gvl",
     "onLanguage:plc-dut",
@@ -70,8 +71,6 @@
         ],
         "extensions": [
           ".st",
-          ".fbd",
-          ".ld",
           ".cfc",
           ".sfc"
         ],
@@ -79,6 +78,22 @@
         "icon": {
           "light": "./icons/st.svg",
           "dark": "./icons/st.svg"
+        }
+      },
+      {
+        "id": "volt-graphical",
+        "aliases": [
+          "Volt Graphical",
+          "VG"
+        ],
+        "extensions": [
+          ".fbd",
+          ".ld"
+        ],
+        "configuration": "./languages/structured-text/language-configuration.json",
+        "icon": {
+          "light": "./icons/fbd.svg",
+          "dark": "./icons/fbd.svg"
         }
       },
       {
@@ -287,6 +302,11 @@
     "grammars": [
       {
         "language": "structured-text",
+        "scopeName": "source.structured-text",
+        "path": "./languages/structured-text/syntax.tmLanguage.json"
+      },
+      {
+        "language": "volt-graphical",
         "scopeName": "source.structured-text",
         "path": "./languages/structured-text/syntax.tmLanguage.json"
       },

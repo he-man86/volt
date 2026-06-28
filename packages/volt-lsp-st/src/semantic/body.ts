@@ -1,11 +1,12 @@
 /**
  * Body model — the LSP's view of a POU's body region.
  *
- * The workspace is ST-only (graphical POUs are transpiled to ST at
- * pull time by volt-agent — see memory `st-only-workspace`), so this
- * module deals exclusively with structured text. The thin adapter
- * here turns a BodySpan (token slice from the parser) into a
- * `BodyModel` (the identifier + call list every LSP query consumes).
+ * A body is either ST or VG ("Volt Graphical", the textual form of an
+ * FBD/LD body — a distinct language routed by its `NETWORK` first
+ * token; see `src/vg/`). This thin adapter turns a BodySpan (token
+ * slice from the parser) into a `BodyModel` (the identifier + call
+ * list every LSP query consumes), dispatching to the VG parser for VG
+ * bodies and the ST scan otherwise.
  */
 import type { BodySpan, TopLevel } from "../parser/ast.js";
 import type { Span } from "../lexer/span.js";

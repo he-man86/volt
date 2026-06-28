@@ -277,6 +277,21 @@ distribution model — was **removed**; superseded by "Volt is a product deploye
 Lightweight ADRs — the load-bearing choices, with what we **rejected**, so they aren't relitigated.
 Newest first.
 
+### D12 — VG is a first-class Volt language (FBD/LD as text), not "graphical transpiled to ST" (2026-06-28)
+**Decision:** editable FBD/LD graphical bodies are **VG (Volt Graphical)** — Volt's own textual language. It
+reads like Structured Text but is **distinct** (its own grammar, parser, type-inference, and diagnostics).
+The bridge round-trips it exactly (PLCopen XML ⇄ graph ⇄ VG text) and is the source of truth; `volt-lsp-st`
+analyzes it as a first-class sublanguage (routed by the leading `NETWORK` token to `src/vg/` + `queries/vg/`);
+`volt-vscode` gives it its own `volt-graphical` editor language id. `.fbd`/`.ld` are editable VG; CFC/SFC are
+read-only. The spec is `packages/volt-bridge/docs/vg-language.md`.
+**Why:** graphical bodies must be editable *as text* for the AI + the LSP, and an exact round trip makes the
+whole project text-native. Treating VG as its own language (not "ST") is honest — it has its own grammar and
+checks — and lets the editor + LSP handle it correctly instead of mislabelling it.
+**Rejected:** "transpile graphical to ST / one source language" (the old framing — VG isn't ST; the LSP routes
+it separately); mapping `.fbd`/`.ld` to the `structured-text` editor language (hid VG *as* ST in VS Code —
+*the* gap this closes); a bespoke VG TextMate grammar now (overkill — VG reads like ST, so the ST grammar is a
+fine highlight approximation under the VG language id, with room to specialise later).
+
 ### D11 — The IDE is a git *remote*; the engine operates on committed HEAD (2026-06-27)
 **Decision:** model the live IDE as a git remote-tracking branch **`refs/remotes/volt/ide`** (renders in the
 graph as `volt/ide`). The engine reads/writes **committed git state (HEAD), never the worktree**, and

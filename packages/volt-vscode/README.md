@@ -1,6 +1,6 @@
 # volt-vscode
 
-> The VS Code / Windsurf extension for PLC code — Structured Text language intelligence plus one-click sync with your live PLC IDE.
+> The VS Code / Windsurf extension for PLC code — Structured Text **and the VG graphical language** intelligence, plus one-click sync with your live PLC IDE.
 
 Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into ordinary, editable files in your editor. You get Structured Text (IEC 61131-3) syntax highlighting and full language intelligence — hover, go-to-definition, completion, diagnostics — over `.st` and the related PLC file kinds, and a dedicated **Volt** activity-bar view that shows how your workspace and the IDE have diverged and lets you pull, push, and merge between them.
 
@@ -27,7 +27,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Drift decorations** (`providers/decorations.ts`). A file-decoration provider badges changed files in the Explorer: `i` (incoming, `volt.driftIncomingForeground`), `o` (outgoing, `volt.driftOutgoingForeground`), `C` (merge conflict, `volt.driftConflictForeground`), and `RO` for read-only kinds (graphical/config files the AI reads but can't push, from `extensionAccess`). These colors are deliberately distinct from git's own.
 
-**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp` (falling back to the sibling `volt-lsp-st` workspace build). Graphical bodies (`.fbd/.ld/.cfc/.sfc`) are mapped to the `structured-text` language since their VG/declaration content is ST-shaped. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
+**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp` (falling back to the sibling `volt-lsp-st` workspace build). Editable FBD/LD bodies are their **own** `volt-graphical` (VG) language — Volt's ST-flavored graphical language; it's highlighted with the ST TextMate grammar (VG reads like ST) but the server routes it to its dedicated VG analysis by the leading `NETWORK` token. Read-only `.cfc/.sfc` stay on `structured-text`. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
 **Status bar + Start Bridge** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. When the bridge is offline the item retargets to **`volt.startBridge`**, which (via `connector.ts`) ensures the Volt Connector is running and starts the configured bridge port. Onboarding (`volt.setup`) asks the connector which IDE/project is live and binds to it directly, falling back to an explicit TwinCAT/CODESYS pick.
 
@@ -64,13 +64,14 @@ windsurf --install-extension volt-<version>.vsix
 | `src/state/status.ts` | `VoltStatus` — health probe, mtime poll, `volt status --json` refresh, config detection. |
 | `src/lsp.ts` | Starts the Volt LSP client for the ST-family languages. |
 | `src/connector.ts` | Talks to the Volt Connector (bridge discovery, start-bridge, CODESYS/TwinCAT instance selection). |
-| `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language configuration shared by ST/ITF/GVL/DUT. |
+| `languages/structured-text/` | TextMate grammar (`syntax.tmLanguage.json`) + language configuration, reused by ST, **VG** (`volt-graphical`), ITF/GVL/DUT. |
 | `icons/` | File-kind icons and the `volt-icons` icon theme + activity-bar icon. |
 
 ## See also
 
 - [`../volt-control/README.md`](../volt-control/README.md) — the shared TS control layer (`pull`/`push`/`status`/`show`, health, gates) the extension calls.
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI bundled into `dist/cli.js`.
-- [`../volt-lsp-st/README.md`](../volt-lsp-st/README.md) — the Structured Text language server.
+- [`../volt-lsp-st/README.md`](../volt-lsp-st/README.md) — the Structured Text **+ VG** language server.
+- [`../volt-bridge/docs/vg-language.md`](../volt-bridge/docs/vg-language.md) — the **VG (Volt Graphical)** language spec.
 - [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and the fork's architecture.

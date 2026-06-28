@@ -30,7 +30,7 @@ public static class GraphicalCode
         var xml = code.ReadXml(item);                        // graphical → the PLCopen transport (throws on failure)
         var decl = DeclarationFrom(code, item, xml);
 
-        if (lang is "CFC" or "SFC")                          // not transpiled yet → read-only marker, real decl
+        if (lang is "CFC" or "SFC")                          // CFC/SFC: read-only (no VG round-trip) → read-only marker, real decl
             return new GraphicalBody(lang, "", decl);
 
         var fbd = PlcOpenDocument.FindFbdLdBody(xml)

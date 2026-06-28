@@ -8,8 +8,8 @@
  * merges results with parse errors before push/pull delivery.
  *
  * Adding a new check: add a `CheckSpec` to the `CHECKS` array below.
- * All checks run on ST — the workspace is ST-only since graphical
- * bodies are transpiled at pull time (see memory `st-only-workspace`).
+ * The checks registered here run on ST bodies; VG ("Volt Graphical")
+ * bodies have their own checks (`checks/check-vg-*`).
  */
 import type { BodySpan, ParseResult } from "../parser/ast.js";
 import type { BodyModel } from "./body.js";
@@ -68,9 +68,9 @@ interface CheckSpec {
 }
 
 /**
- * The check registry. Every check runs on ST source — the workspace
- * is ST-only since graphical bodies are transpiled at pull time (see
- * memory `st-only-workspace`).
+ * The check registry. The checks here run on ST bodies; VG ("Volt
+ * Graphical") bodies are analyzed by their own checks (`check-vg-*`),
+ * which the orchestrator also registers below.
  *
  * The previous build had a `languages` field distinguishing checks
  * that read raw ST tokens from those that read the language-neutral

@@ -60,8 +60,9 @@ export type BuildResponse = z.infer<typeof BuildResponseSchema>;
 
 // ─── Item content (used by /fetch and /push) ────────────────────────────────
 // An item on the wire is one assembled file (.st/.gvl/.itf/…). The bridge owns the POU↔children split
-// and transpiles graphical bodies to ST; the client only ever sees plain ST `sourceText`. The extension
-// is part of `name` and drives access (rw source vs r reference).
+// and materializes editable FBD/LD bodies as VG text (.fbd/.ld); CFC/SFC are read-only. The client sees
+// each item's `sourceText` (ST, or VG for graphical bodies). The extension is part of `name` and drives
+// access (rw source vs r reference).
 export const FetchedItemSchema = z
 	.object({
 		name: z.string(),

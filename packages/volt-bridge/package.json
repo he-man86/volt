@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/anomalyco/opencode"
   },
-  "description": "Volt IDE bridges — C# binaries with shared Core (Beckhoff TwinCAT, CODESYS, more vendors coming)",
+  "description": "Volt IDE bridges — C# binaries with shared Core (Beckhoff TwinCAT, CODESYS, more vendors coming); round-trips FBD/LD graphical bodies as VG (Volt Graphical) text",
   "type": "module",
   "scripts": {
     "build": "dotnet build src/Volt.Bridge.Beckhoff/Volt.Bridge.Beckhoff.csproj -c Release --nologo",

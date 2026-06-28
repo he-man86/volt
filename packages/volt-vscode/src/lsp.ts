@@ -3,10 +3,11 @@ import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, TransportKind } from "vscode-languageclient/node"
 
-// Graphical bodies (.fbd/.ld/.cfc/.sfc) are associated with the structured-text language
-// (their VG/declaration content is ST-shaped), so structured-text covers them here too.
+// FBD/LD bodies are their own `volt-graphical` (VG) language — Volt's ST-flavored graphical language;
+// the server routes them to its VG path by the leading NETWORK token. (.cfc/.sfc are read-only and stay
+// on structured-text.) The LSP attaches to all of these ids.
 const LANGUAGE_IDS = [
-	"structured-text", "plc-interface", "plc-gvl", "plc-dut",
+	"structured-text", "volt-graphical", "plc-interface", "plc-gvl", "plc-dut",
 ]
 
 export async function startLsp(context: vscode.ExtensionContext): Promise<LanguageClient[]> {

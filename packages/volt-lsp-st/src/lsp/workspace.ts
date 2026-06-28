@@ -85,9 +85,11 @@ export class Workspace {
 	}
 
 	openDocument(uri: string, source: string, version: number, _languageId: string = ST_LANGUAGE_ID): void {
-		// Workspace is ST-only — graphical bodies are transpiled to ST at
-		// pull time. We accept the languageId parameter for VS Code
-		// compatibility but always treat the document as ST.
+		// A body is ST or VG — VG ("Volt Graphical") is a distinct language
+		// for FBD/LD bodies, routed by its `NETWORK` first token (see
+		// `src/vg/`). Both share one document/language id at the LSP wire;
+		// per-body routing happens downstream. We accept the languageId
+		// parameter for VS Code compatibility.
 		const textDocument = TextDocument.create(uri, ST_LANGUAGE_ID, version, source);
 		this.documents.set(uri, this.buildDocument(textDocument));
 		this.invalidate();
@@ -150,10 +152,10 @@ export class Workspace {
 	private buildDocument(textDocument: TextDocument): Document {
 		const source = textDocument.getText();
 		const parseResult = parseSource(source);
-		// Eagerly build a BodyModel for every body in the parse tree.
-		// Workspace is ST-only — graphical bodies are transpiled to ST
-		// at pull time. Cost shifts from query time to parse time,
-		// which keeps LSP query latency predictable.
+		// Eagerly build a BodyModel for every body in the parse tree —
+		// each body is analyzed as ST or VG depending on its first token.
+		// Cost shifts from query time to parse time, which keeps LSP
+		// query latency predictable.
 		const bodyModels = buildBodyModelsForParseResult(parseResult, source);
 		return {
 			uri: textDocument.uri,
