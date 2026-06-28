@@ -30,9 +30,8 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/ui/src/components/logo.tsx", // Volt logo (bolt mark + wordmark)
   "packages/desktop/src/main/index.ts", // Volt app name
   "packages/desktop/electron-builder.config.ts", // Volt productName / protocol display name
-  // ── GUI panel seams (Volt tab in the changes panel; packages/app has no plugin hook) ──
-  "packages/app/src/pages/session/session-side-panel.tsx", // "Volt" tab trigger + <VoltPanel/> content
-  "packages/app/src/pages/session/helpers.ts", // treat "volt" as a persistent (non-file) tab
+  // ── GUI panel seam (Volt "IDE" changes-source in the session panel; packages/app has no plugin hook) ──
+  "packages/app/src/pages/session.tsx", // "IDE" changes-source option + ideQuery + <VoltIdeHeader/> mount
   "packages/app/package.json", // @opencode-ai/volt-app dependency
   // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
   "packages/desktop/src/preload/index.ts", // expose window.volt
@@ -69,7 +68,7 @@ const ADDITIVE_ALLOWLIST = new Set<string>([
 ])
 
 // Prefixes under which fork-added files are allowed (Volt-namespaced files in upstream dirs).
-const ADDITIVE_PREFIXES = [".github/workflows/volt-"] // Volt's own CI / scheduled-sync workflows
+const ADDITIVE_PREFIXES = [".github/workflows/volt-", "openspec/"] // Volt CI/scheduled-sync workflows; OpenSpec specs + changes
 
 function isForkOwned(path: string): boolean {
   return FORK_OWNED_PREFIXES.some((p) => path.startsWith(p))
@@ -128,10 +127,12 @@ function selfTest(): void {
     { name: "volt-scripts edit is exempt", lines: ["M\tvolt-scripts/check-divergence.ts"], allowed: 0, violations: 0 },
     { name: "allowlisted additive files are fine", lines: ["A\tCLAUDE.md", "A\tNOTICE", "A\tVOLT-DESIGN.md", "A\tVOLT-PLAN.md", "A\t.opencode/agent/volt.md", "A\t.opencode/themes/volt.json", "A\t.opencode/tool/volt.ts", "A\t.opencode/opencode.json"], allowed: 0, violations: 0 },
     { name: "branding seams (logo / app-name) count as allowed", lines: ["M\tpackages/ui/src/components/logo.tsx", "M\tpackages/desktop/src/main/index.ts", "M\tpackages/desktop/electron-builder.config.ts"], allowed: 3, violations: 0 },
-    { name: "GUI panel seams count as allowed", lines: ["M\tpackages/app/src/pages/session/session-side-panel.tsx", "M\tpackages/app/src/pages/session/helpers.ts", "M\tpackages/app/package.json"], allowed: 3, violations: 0 },
+    { name: "GUI panel seam counts as allowed", lines: ["M\tpackages/app/src/pages/session.tsx", "M\tpackages/app/package.json"], allowed: 2, violations: 0 },
+    { name: "the retired Volt-tab files are no longer seams (reverted to upstream)", lines: ["M\tpackages/app/src/pages/session/session-side-panel.tsx"], allowed: 0, violations: 1 },
     { name: "desktop IPC seams count as allowed", lines: ["M\tpackages/desktop/src/preload/index.ts", "M\tpackages/desktop/electron.vite.config.ts"], allowed: 2, violations: 0 },
     { name: "an unrelated packages/app edit is still a violation", lines: ["M\tpackages/app/src/app.tsx"], allowed: 0, violations: 1 },
     { name: "Volt-namespaced CI workflow is allowed (prefix)", lines: ["A\t.github/workflows/volt-ci.yml"], allowed: 0, violations: 0 },
+    { name: "openspec specs/changes are allowed (prefix)", lines: ["A\topenspec/specs/ide-sync/spec.md"], allowed: 0, violations: 0 },
     { name: "other committed theme is a violation (only volt.json is sanctioned)", lines: ["A\t.opencode/themes/other.json"], allowed: 0, violations: 1 },
     { name: "a non-volt .github workflow is a violation", lines: ["A\t.github/workflows/evil.yml"], allowed: 0, violations: 1 },
     { name: "added file outside the surface is a violation (scratch)", lines: ["A\tscratch/.gitignore"], allowed: 0, violations: 1 },
