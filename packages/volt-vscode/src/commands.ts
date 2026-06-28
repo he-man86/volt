@@ -1,8 +1,8 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { pull, push, build, init as voltInit, readBridgePort } from "@opencode-ai/volt-control"
+import { pull, push, build, init as voltInit, readBridgePort, probeVendors, isBridgeOnline, healthLabel } from "@opencode-ai/volt-control"
 import { VoltStatus } from "./state/status.js"
-import { startBridgeByPort, ensureConnectorRunning, getConnectorBridges, launchInstall, selectInstance, type TcTargetSel } from "./connector.js"
+import { startBridgeByPort, ensureConnectorRunning } from "./connector.js"
 
 // ── Output channel ──────────────────────────────────────────────────────
 const output = (() => {
@@ -147,48 +147,27 @@ function vendorPort(vendor: "twincat" | "codesys"): number {
 	return vendor === "codesys" ? cfg.get<number>("codesysPort", 8556) : cfg.get<number>("twincatPort", 8555)
 }
 
-/** Smart onboarding: detect the running IDE/project via the connector and bind to
- *  it directly — no "which vendor?" guessing. Falls back to an explicit pick when
- *  nothing is detected. */
+// Probe both configured bridge ports and bind to a LIVE IDE — showing its project, so you pick the
+// right one when both TwinCAT and CODESYS are connected. (You can only init what's actually live.)
 async function setupWorkspace(statuses: Map<string, VoltStatus>, ensureWorkspace: (folder: string) => void): Promise<void> {
 	const target = await initTarget()
 	if (target === undefined) return
 
-	const ensured = await ensureConnectorRunning()
-	const bridges = ensured === "not-found" ? undefined : await getConnectorBridges()
-	const ready = (bridges ?? []).filter((b) => b.status === "connected") // a project is loaded
-
-	if (ready.length === 1) {
-		await doInit(statuses, ensureWorkspace, target, ready[0]!.port, false)
-		return
-	}
-	if (ready.length > 1) {
-		const pick = await vscode.window.showQuickPick(
-			ready.map((b) => ({ label: b.displayName, description: `port ${b.port}`, port: b.port })),
-			{ placeHolder: "Initialize for which running IDE?" },
+	const probed = await probeVendors(vendorPort("twincat"), vendorPort("codesys"), 2500)
+	const live = probed.filter((p) => isBridgeOnline(p.state))
+	if (live.length === 0) {
+		vscode.window.showWarningMessage(
+			`No live PLC IDE on the configured ports (TwinCAT ${vendorPort("twincat")}, CODESYS ${vendorPort("codesys")}). Open a project in TwinCAT or CODESYS, then try again.`,
 		)
-		if (pick === undefined) return
-		await doInit(statuses, ensureWorkspace, target, pick.port, false)
 		return
 	}
 
-	// Nothing detected — guide, but still let them pick a target explicitly.
-	const choice = await vscode.window.showInformationMessage(
-		"No PLC project detected. Open a project in your IDE (and make sure the bridge is running), then try again — or choose a target:",
-		"Start bridge", "TwinCAT", "CODESYS",
+	const pick = await vscode.window.showQuickPick(
+		live.map((p) => ({ label: `$(plug) ${healthLabel(p.state)}`, description: `${p.vendor} · port ${p.port}`, port: p.port })),
+		{ placeHolder: "Bind this folder to which live PLC IDE?" },
 	)
-	if (choice === "Start bridge") {
-		if (ensured === "not-found") {
-			vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it, then try again.")
-			return
-		}
-		await startBridgeByPort(vendorPort("twincat"))
-		vscode.window.showInformationMessage("Starting the bridge — once your project is open in the IDE, run Set Up again.")
-	} else if (choice === "TwinCAT") {
-		await doInit(statuses, ensureWorkspace, target, vendorPort("twincat"), false)
-	} else if (choice === "CODESYS") {
-		await doInit(statuses, ensureWorkspace, target, vendorPort("codesys"), false)
-	}
+	if (pick === undefined) return
+	await doInit(statuses, ensureWorkspace, target, pick.port, false)
 }
 
 async function doInit(
@@ -226,62 +205,6 @@ async function doInit(
 	await refreshFor(statuses, workspaceRoot)
 }
 
-// ── connector pickers: which CODESYS version / which TwinCAT project ──────
-async function openCodesysVersion(): Promise<void> {
-	if (await ensureConnectorRunning() === "not-found") {
-		vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it.")
-		return
-	}
-	const bridges = await getConnectorBridges()
-	const installs = bridges?.find((b) => b.id === "codesys")?.installs ?? []
-	if (installs.length === 0) {
-		vscode.window.showWarningMessage("No CODESYS install detected — add one from the tray (Open CODESYS ▸ Add install…).")
-		return
-	}
-	const pick = await vscode.window.showQuickPick(
-		installs.map((i) => ({
-			label: i.displayName,
-			description: i.variant === "CODESYS" || i.variant === "Manual" ? (i.version ?? "") : i.variant,
-			id: i.id,
-		})),
-		{ placeHolder: "Open which CODESYS version?" },
-	)
-	if (pick === undefined) return
-	const ok = await launchInstall("codesys", pick.id)
-	vscode.window.showInformationMessage(ok ? `Launching ${pick.label}…` : "Couldn't launch — is the Volt Connector running?")
-}
-
-async function selectTwincatProject(): Promise<void> {
-	if (await ensureConnectorRunning() === "not-found") {
-		vscode.window.showWarningMessage("Volt Connector isn't installed — set `volt.connector.path` or install it.")
-		return
-	}
-	const bridges = await getConnectorBridges()
-	const instances = bridges?.find((b) => b.id === "twincat")?.instances ?? []
-	if (instances.length === 0) {
-		vscode.window.showInformationMessage("No running TwinCAT instances detected — open a project in TwinCAT first.")
-		return
-	}
-	type Item = vscode.QuickPickItem & { target: TcTargetSel }
-	const items: Item[] = [{ label: "Default (first active)", target: { instance: null, project: null, plcProject: null } }]
-	for (const inst of instances) {
-		for (const proj of inst.projects) {
-			const plcs = proj.plcProjects.length > 0 ? proj.plcProjects : [""]
-			for (const plc of plcs) {
-				items.push({
-					label: `${inst.ideName ?? "IDE"} — ${proj.project}${plc ? ` / ${plc}` : ""}`,
-					description: inst.solution ?? undefined,
-					target: { instance: inst.instanceId, project: proj.project, plcProject: plc || null },
-				})
-			}
-		}
-	}
-	const pick = await vscode.window.showQuickPick(items, { placeHolder: "Attach the TwinCAT bridge to which project?" })
-	if (pick === undefined) return
-	const ok = await selectInstance("twincat", pick.target)
-	vscode.window.showInformationMessage(ok ? "Reattaching the TwinCAT bridge…" : "Couldn't switch — is the Volt Connector running?")
-}
-
 async function doBuild(workspaceRoot: string): Promise<void> {
 	const r = await build(workspaceRoot)
 	output().appendLine(r.stdout)
@@ -302,9 +225,6 @@ export function registerCommands(statuses: Map<string, VoltStatus>, ensureWorksp
 
 	return [
 		reg("volt.setup", async () => { await setupWorkspace(statuses, ensureWorkspace) }),
-		reg("volt.openCodesysVersion", async () => { await openCodesysVersion() }),
-		reg("volt.selectTwincatProject", async () => { await selectTwincatProject() }),
-		reg("volt.init", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initTwincat", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("twincat"), false) }),
 		reg("volt.initCodesys", async () => { const w = await initTarget(); if (w) await doInit(statuses, ensureWorkspace, w, vendorPort("codesys"), false) }),
 		reg("volt.acceptProjectRename", async () => { const w = ws(); if (w) await doInit(statuses, ensureWorkspace, w, readBridgePort(w) ?? vendorPort("twincat"), true) }),

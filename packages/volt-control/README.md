@@ -16,8 +16,8 @@ The package is Node-bound (it spawns child processes and reads files), so the de
 
 - `fetchStatus` — reads the bridge port from `.git/volt/config.json`, probes `/health`, then runs `volt status --json` and returns `{ status, health, error? }`.
 - `pull` / `push` — run `volt pull|push [--force] --json` and parse the `PullOutcome` / `PushOutcome` union (ok / refused|rejected / conflict / error).
-- `build` / `init` / `mergeCmd` / `showFile` — `volt build|init|merge|show`; raw CLI result (or buffer for `show`'s bytes).
-- `log` — mirrors `volt log --json --limit N` into `LogEntry[]`. (The current GUIs don't call it; it's there to complete the CLI surface.)
+- `build` / `init` / `showFile` — `volt build|init|show`; raw CLI result (or buffer for `show`'s bytes).
+  (`volt merge`/`log` stay CLI/agent verbs — no GUI wrapper, since history + conflict resolution delegate to the editor's Git.)
 - `detect` — cheap check for an initialized workspace (does `.git/volt/config.json` carry a bridge port), no bridge probe.
 
 Mutating actions (`pull`/`push`/`init`) take a per-workspace mutation gate (`gate.ts`: `withGate` / `isMutationInFlight`) so a concurrent health probe can skip, and release it before returning so outcome dialogs never hold the lock.
@@ -46,7 +46,7 @@ bun test         # bun test runner (gate + workspace-detection tests)
 
 | File | Role |
 |---|---|
-| `actions.ts` | UI-agnostic actions over the CLI (`fetchStatus`/`pull`/`push`/`build`/`init`/`mergeCmd`/`showFile`/`log`/`detect`) + outcome contracts |
+| `actions.ts` | UI-agnostic actions over the CLI (`fetchStatus`/`pull`/`push`/`build`/`init`/`showFile`/`detect`) + outcome contracts |
 | `ipc.ts` | `registerVoltIpcHandlers` — wires the actions over Electron IPC; `IpcMainLike` |
 | `channels.ts` | `VOLT_CHANNELS` — Node-free channel-name source of truth (the `/channels` subpath) |
 | `cli.ts` | Bundled-CLI resolution + `spawnVolt` / `spawnVoltBuffer` child-process spawning |

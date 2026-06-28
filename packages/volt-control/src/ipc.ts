@@ -1,5 +1,6 @@
 import { setBundledCli } from "./cli.js"
-import { fetchStatus, pull, push, build, detect, showFile } from "./actions.js"
+import { fetchStatus, pull, push, build, detect, showFile, ideDiff, init } from "./actions.js"
+import { probeVendors } from "./health.js"
 import { VOLT_CHANNELS as CH } from "./channels.js"
 
 /** Minimal shape of Electron's `ipcMain` we use — keeps volt-control free of an electron dep. */
@@ -25,4 +26,9 @@ export function registerVoltIpcHandlers(ipcMain: IpcMainLike, cliPath?: string):
     const r = await showFile(dir, ref, rel)
     return { stdout: r.stdout.toString("utf-8"), stderr: r.stderr, code: r.code }
   })
+  ipcMain.handle(CH.diff, (_e, dir: string) => ideDiff(dir))
+  ipcMain.handle(CH.probe, (_e, twincatPort?: number, codesysPort?: number) =>
+    probeVendors(twincatPort ?? 8555, codesysPort ?? 8556),
+  )
+  ipcMain.handle(CH.init, (_e, dir: string, port: number) => init(dir, port))
 }

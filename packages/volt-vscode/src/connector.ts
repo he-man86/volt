@@ -12,30 +12,6 @@ import { join } from "node:path"
 const CONTROL = "http://127.0.0.1:8550"
 const TIMEOUT_MS = 1500
 
-export interface IdeInstall {
-	id: string
-	displayName: string
-	version: string | null
-	exePath: string
-	variant: string
-}
-export interface TcProject {
-	project: string
-	plcProjects: string[]
-}
-export interface TcInstance {
-	instanceId: string
-	ideName: string | null
-	ideVersion: string | null
-	solution: string | null
-	projects: TcProject[]
-}
-export interface TcTargetSel {
-	instance: string | null
-	project: string | null
-	plcProject: string | null
-}
-
 export interface ConnectorBridge {
 	id: string
 	displayName: string
@@ -44,9 +20,6 @@ export interface ConnectorBridge {
 	enabled: boolean
 	status: string
 	workerRunning: boolean
-	installs?: IdeInstall[] | null
-	instances?: TcInstance[] | null
-	target?: TcTargetSel | null
 }
 
 /** Returns the connector's bridge list, or undefined if the connector isn't reachable. */
@@ -126,30 +99,3 @@ export async function startBridgeByPort(port: number): Promise<StartResult> {
 	}
 }
 
-async function post(path: string, body?: unknown): Promise<boolean> {
-	try {
-		const r = await fetch(`${CONTROL}/${path}`, {
-			method: "POST",
-			body: body === undefined ? "" : JSON.stringify(body),
-			headers: body === undefined ? undefined : { "content-type": "application/json" },
-			signal: AbortSignal.timeout(TIMEOUT_MS),
-		})
-		return r.ok
-	} catch {
-		return false
-	}
-}
-
-/** Launch a specific CODESYS install (version/fork) via the connector. */
-export async function launchInstall(bridgeId: string, installId: string): Promise<boolean> {
-	return post(`bridges/${bridgeId}/launch`, { installId })
-}
-
-/** Retarget a TwinCAT bridge to a specific instance/project (restarts its worker). */
-export async function selectInstance(bridgeId: string, target: TcTargetSel): Promise<boolean> {
-	return post(`bridges/${bridgeId}/select`, {
-		instanceId: target.instance,
-		project: target.project,
-		plcProject: target.plcProject,
-	})
-}

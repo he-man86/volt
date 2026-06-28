@@ -96,32 +96,28 @@ export function init(workspaceRoot: string, port: number, opts: { force?: boolea
   )
 }
 
-/** `volt merge <args>` (--continue / --abort / --resolve / --use-ours|theirs). */
-export function mergeCmd(workspaceRoot: string, args: string[]): Promise<CliResult> {
-  return spawnVolt(workspaceRoot, ["merge", ...args, "--workspace", workspaceRoot])
-}
-
 /** `volt show <ref> <rel>` → raw bytes (for restoring a file). */
 export function showFile(workspaceRoot: string, ref: string, rel: string): Promise<{ stdout: Buffer; stderr: string; code: number }> {
   return spawnVoltBuffer(workspaceRoot, ["show", ref, rel, "--workspace", workspaceRoot])
 }
 
-// ── history ──────────────────────────────────────────────────────────────────
-export interface LogEntry {
-  sha: string
-  date: string
-  summary: string
-  paths: string[]
-}
-
-/** `volt log --json --limit N` → snapshot history (newest first). Never throws. */
-export async function log(workspaceRoot: string, opts: { limit?: number } = {}): Promise<LogEntry[]> {
-  const r = await spawnVolt(workspaceRoot, ["log", "--json", "--limit", String(opts.limit ?? 50), "--workspace", workspaceRoot])
-  if (r.code !== 0) return []
-  return parseJson<LogEntry[]>(r.stdout) ?? []
-}
-
 /** Cheap check: does this dir have an initialized `.git/volt` Volt workspace? (no bridge probe) */
 export function detect(workspaceRoot: string): boolean {
   return readBridgePort(workspaceRoot) !== undefined
+}
+
+export interface IdeDiff {
+  file: string
+  patch: string
+  additions: number
+  deletions: number
+  status: "added" | "deleted" | "modified"
+}
+
+/** `volt diff --json` → the outgoing IDE drift (working tree vs the IDE baseline) as a per-file
+ *  unified-diff list, shaped to the GUI's `VcsFileDiff`. Never throws (unbound → []). */
+export async function ideDiff(workspaceRoot: string): Promise<IdeDiff[]> {
+  const r = await spawnVolt(workspaceRoot, ["diff", "--json", "--workspace", workspaceRoot])
+  if (r.code !== 0) return []
+  return parseJson<IdeDiff[]>(r.stdout) ?? []
 }

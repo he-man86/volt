@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
+import { diff } from "./diff.js";
 import { init } from "./init.js";
 import { log } from "./log.js";
 import { merge } from "./merge.js";
@@ -175,6 +176,17 @@ async function main(): Promise<number> {
 				return 0;
 			}
 			for (const e of entries) console.log(`${e.sha.slice(0, 8)}  ${e.date.slice(0, 10)}  ${e.summary}`);
+			return 0;
+		}
+		case "diff": {
+			const r = diff(root);
+			if (r.kind === "error") {
+				if (args.has("--json")) { process.stdout.write("[]\n"); return 0; } // unbound → no outgoing diff
+				console.error(r.reason);
+				return 1;
+			}
+			if (args.has("--json")) { process.stdout.write(`${JSON.stringify(r.diffs)}\n`); return 0; }
+			for (const d of r.diffs) console.log(`${d.status[0]!.toUpperCase()}  ${d.file}  +${d.additions} -${d.deletions}`);
 			return 0;
 		}
 		case "show": {

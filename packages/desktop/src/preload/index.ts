@@ -132,4 +132,7 @@ contextBridge.exposeInMainWorld("volt", {
   push: (dir: string, opts?: { force?: boolean }) => ipcRenderer.invoke(CH.push, dir, opts),
   build: (dir: string) => ipcRenderer.invoke(CH.build, dir),
   show: (dir: string, ref: string, rel: string) => ipcRenderer.invoke(CH.show, dir, ref, rel),
+  diff: (dir: string) => ipcRenderer.invoke(CH.diff, dir),
+  probe: (twincatPort?: number, codesysPort?: number) => ipcRenderer.invoke(CH.probe, twincatPort, codesysPort),
+  init: (dir: string, port: number) => ipcRenderer.invoke(CH.init, dir, port),
 })

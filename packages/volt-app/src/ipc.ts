@@ -7,9 +7,9 @@
  *
  * Types are erased at build (`import type`), so importing volt-control here pulls in NO runtime.
  */
-import type { StatusResult, PullOutcome, PushOutcome, CliResult } from "@opencode-ai/volt-control"
+import type { StatusResult, PullOutcome, PushOutcome, CliResult, IdeDiff, VendorProbe } from "@opencode-ai/volt-control"
 
-export type { StatusResult, PullOutcome, PushOutcome, CliResult }
+export type { StatusResult, PullOutcome, PushOutcome, CliResult, IdeDiff, VendorProbe }
 
 export interface VoltBridge {
   detect(dir: string): Promise<boolean>
@@ -18,6 +18,9 @@ export interface VoltBridge {
   push(dir: string, opts?: { force?: boolean }): Promise<PushOutcome>
   build(dir: string): Promise<CliResult>
   show(dir: string, ref: string, rel: string): Promise<{ stdout: string; stderr: string; code: number }>
+  diff(dir: string): Promise<IdeDiff[]>
+  probe(twincatPort?: number, codesysPort?: number): Promise<VendorProbe[]>
+  init(dir: string, port: number): Promise<CliResult>
 }
 
 declare global {

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-codesys";
 import type { Remote } from "./bridge/types.js";
 import { saveConfig, type WorkspaceConfig } from "./config/workspace.js";
-import { gitInit, isInsideRepo } from "./git/plumbing.js";
+import { gitInit, isInsideRepo, commitAll } from "./git/plumbing.js";
 import { writeWorkspaceScaffold } from "./scaffold.js";
 import { pull } from "./sync/pull.js";
 import { ensureGitignore } from "./workspace/files.js";
@@ -43,6 +43,12 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
 
 	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
+
+	// Baseline commit: when we created the repo, commit the scaffold + corpus so init leaves a clean
+	// repo with a real HEAD, and the first pull merges the IDE's src onto it. Never auto-commit into a
+	// repo the user already manages.
+	if (gitCreated) commitAll(root, `volt init: ${health.plcProjectName}`);
+
 	const pulled = await pull(root, bridge);
 	const base = { project, gitCreated, scaffold: scaffold.created.length, corpus };
 	if (pulled.kind === "ok") return { kind: "ok", ...base, pulled: pulled.synced.length };

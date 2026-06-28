@@ -3,7 +3,7 @@
   "name": "volt-vscode",
   "displayName": "Volt",
   "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
-  "version": "1.21.12",
+  "version": "1.21.22",
   "publisher": "volt",
   "private": true,
   "license": "MIT",
@@ -452,35 +452,21 @@
     "commands": [
       {
         "command": "volt.setup",
-        "title": "Volt: Set Up Workspace (detect IDE)",
+        "title": "Volt: Set Up Workspace (pick a live IDE)",
         "category": "Volt",
         "icon": "$(rocket)"
       },
       {
-        "command": "volt.openCodesysVersion",
-        "title": "Volt: Open CODESYS (choose version/fork)",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.selectTwincatProject",
-        "title": "Volt: Select TwinCAT Project to Connect",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.init",
-        "title": "Volt: Initialize Workspace",
-        "category": "Volt",
-        "icon": "$(zap)"
-      },
-      {
         "command": "volt.initTwincat",
         "title": "Volt: Initialize for TwinCAT (port 8555)",
-        "category": "Volt"
+        "category": "Volt",
+        "enablement": "volt.twincatLive"
       },
       {
         "command": "volt.initCodesys",
         "title": "Volt: Initialize for CODESYS (port 8556)",
-        "category": "Volt"
+        "category": "Volt",
+        "enablement": "volt.codesysLive"
       },
       {
         "command": "volt.acceptProjectRename",
@@ -535,7 +521,7 @@
       },
       {
         "command": "volt.openConfig",
-        "title": "Volt: Open .volt/config.json",
+        "title": "Volt: Open Workspace Config",
         "category": "Volt",
         "icon": "$(gear)"
       },
@@ -577,49 +563,41 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "volt.initTwincat",
-          "when": "false"
-        },
-        {
-          "command": "volt.initCodesys",
-          "when": "false"
-        },
-        {
           "command": "volt.acceptProjectRename",
           "when": "false"
         }
       ],
-      "view/title": [
+      "scm/title": [
         {
           "command": "volt.pull",
-          "when": "view == volt.scm && volt.workspaceInitialized",
+          "when": "scmProvider == volt && volt.workspaceInitialized",
           "group": "navigation@1"
         },
         {
           "command": "volt.push",
-          "when": "view == volt.scm && volt.workspaceInitialized",
+          "when": "scmProvider == volt && volt.workspaceInitialized",
           "group": "navigation@2"
         },
         {
-          "command": "volt.refresh",
-          "when": "view == volt.scm && volt.workspaceInitialized",
+          "command": "volt.build",
+          "when": "scmProvider == volt && volt.workspaceInitialized",
           "group": "navigation@3"
         },
         {
+          "command": "volt.refresh",
+          "when": "scmProvider == volt && volt.workspaceInitialized",
+          "group": "navigation@4"
+        },
+        {
           "submenu": "volt.scm.more",
-          "when": "view == volt.scm",
+          "when": "scmProvider == volt",
           "group": "navigation@99"
         }
       ],
       "volt.scm.more": [
         {
-          "command": "volt.init",
-          "when": "!volt.workspaceInitialized",
-          "group": "1_init@1"
-        },
-        {
           "command": "volt.openSettings",
-          "group": "1_init@2"
+          "group": "1_init@1"
         },
         {
           "command": "volt.forcePull",
@@ -640,58 +618,23 @@
           "command": "volt.showOutput",
           "group": "9_diag@2"
         }
-      ],
-      "view/item/context": [
-        {
-          "command": "volt.startBridge",
-          "when": "view == volt.scm && viewItem == volt.health",
-          "group": "inline@1"
-        },
-        {
-          "command": "volt.refresh",
-          "when": "view == volt.scm && viewItem == volt.health",
-          "group": "1_health@1"
-        },
-        {
-          "command": "volt.startBridge",
-          "when": "view == volt.scm && viewItem == volt.health",
-          "group": "1_health@2"
-        },
-        {
-          "command": "volt.showOutput",
-          "when": "view == volt.scm && viewItem == volt.health",
-          "group": "1_health@3"
-        }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "volt",
-          "title": "Volt",
-          "icon": "icons/volt-activitybar.svg"
-        }
-      ]
-    },
-    "views": {
-      "volt": [
-        {
-          "id": "volt.scm",
-          "name": "Sync with IDE",
-          "contextualTitle": "Volt"
-        }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "volt.scm",
-        "contents": "Open a folder to start using Volt.\n\n[Open Folder](command:vscode.openFolder)",
-        "when": "workbenchState == empty"
+        "view": "scm",
+        "contents": "$(check) TwinCAT IDE connected.\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
+        "when": "!volt.workspaceInitialized && volt.twincatLive"
       },
       {
-        "view": "volt.scm",
-        "contents": "No Volt workspace here.\n\nVolt syncs your folder with the running PLC IDE so you can read, edit and merge POU files alongside the rest of your code.\n\n[Set Up Volt — detect my IDE](command:volt.setup)\n\nThis finds the project open in your IDE and binds to it automatically. Or pick a target manually:\n\n[Initialize for TwinCAT](command:volt.initTwincat)\n[Initialize for CODESYS](command:volt.initCodesys)\n\nFor a non-standard port, set `volt.bridge.twincatPort` or `volt.bridge.codesysPort` in [Settings](command:volt.openSettings).\n\nIf you already have a `.volt/config.json` somewhere in this workspace, open that folder as the workspace root.",
-        "when": "workbenchState != empty && !volt.workspaceInitialized"
+        "view": "scm",
+        "contents": "$(check) CODESYS IDE connected.\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)",
+        "when": "!volt.workspaceInitialized && volt.codesysLive"
+      },
+      {
+        "view": "scm",
+        "contents": "$(circle-slash) No PLC IDE connected.\nOpen a project in TwinCAT or CODESYS and start its bridge — the button appears here.",
+        "when": "!volt.workspaceInitialized && !volt.twincatLive && !volt.codesysLive"
       }
     ]
   },

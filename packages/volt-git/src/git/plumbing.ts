@@ -209,6 +209,15 @@ export function autoCommitSrc(root: string): number {
 	return dirty.length;
 }
 
+/** Stage and commit the entire working tree — the baseline commit on `volt init`, so a freshly
+ *  created repo starts clean (scaffold + corpus + src) instead of a pile of untracked files. Returns
+ *  false if there was nothing to commit. */
+export function commitAll(root: string, message: string): boolean {
+	git(["-C", root, "add", "-A"]);
+	const r = git(["-C", root, "commit", "-q", "-m", message], { allowFail: true });
+	return r.code === 0;
+}
+
 export function unmergedPaths(root: string): string[] {
 	const out = git(["-C", root, "diff", "--name-only", "--diff-filter=U"]).stdout;
 	return out
@@ -259,6 +268,44 @@ export function diffWorktree(root: string, ref: string, pathspec: string): DiffR
 		git(["-C", root, "read-tree", ref], { env });
 		git(["-C", root, "add", "-A", "--", pathspec], { env });
 		return parseDiffRows(git(["-C", root, "diff", "-M", "--cached", "--name-status", ref, "--", pathspec], { env }).stdout);
+	} finally {
+		rmSync(idxDir, { recursive: true, force: true });
+	}
+}
+
+export type FileDiff = { file: string; patch: string; additions: number; deletions: number; status: "added" | "deleted" | "modified" };
+
+/**
+ * Per-file unified diffs of the WORKING TREE (incl. untracked) vs a committed ref — the OUTGOING
+ * changes you'd push to the IDE (what `volt diff` feeds the desktop "IDE" changes source). Same
+ * throwaway-index trick as diffWorktree, then one patch + numstat per changed file.
+ */
+export function outgoingDiffs(root: string, ref: string, pathspec: string): FileDiff[] {
+	const idxDir = mkdtempSync(join(tmpdir(), "voltg-diff-"));
+	try {
+		const env = { GIT_INDEX_FILE: join(idxDir, "index") };
+		git(["-C", root, "read-tree", ref], { env });
+		git(["-C", root, "add", "-A", "--", pathspec], { env });
+
+		const rows = parseDiffRows(git(["-C", root, "diff", "-M", "--cached", "--name-status", ref, "--", pathspec], { env }).stdout);
+
+		// path → [additions, deletions] from numstat (binary files report "-").
+		const counts = new Map<string, [number, number]>();
+		for (const line of git(["-C", root, "diff", "-M", "--cached", "--numstat", ref, "--", pathspec], { env }).stdout.split("\n")) {
+			const p = line.split("\t");
+			if (p.length < 3) continue;
+			counts.set(p[2]!, [p[0] === "-" ? 0 : Number(p[0]), p[1] === "-" ? 0 : Number(p[1])]);
+		}
+
+		const diffs: FileDiff[] = [];
+		for (const row of rows) {
+			const file = row.kind === "rename" ? row.newPath : row.path;
+			const status = row.kind === "add" ? "added" : row.kind === "delete" ? "deleted" : "modified";
+			const patch = git(["-C", root, "diff", "-M", "--cached", ref, "--", file], { env }).stdout;
+			const [additions, deletions] = counts.get(file) ?? [0, 0];
+			diffs.push({ file, patch, additions, deletions, status });
+		}
+		return diffs;
 	} finally {
 		rmSync(idxDir, { recursive: true, force: true });
 	}

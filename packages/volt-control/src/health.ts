@@ -87,3 +87,15 @@ export function healthLabel(state: HealthState): string {
 		case "unreachable": return `Bridge unreachable: ${state.reason.slice(0, 80)}`
 	}
 }
+
+export type VendorProbe = { vendor: "twincat" | "codesys"; port: number; state: HealthState }
+
+/** Probe the two configured bridge ports in parallel → which vendor's IDE is live. The one place both
+ *  renderers' onboarding shares: gating the init buttons + the "pick a live IDE" flow. */
+export async function probeVendors(twincatPort: number, codesysPort: number, timeoutMs = 1500): Promise<VendorProbe[]> {
+	const [tc, cs] = await Promise.all([probeHealth(twincatPort, timeoutMs), probeHealth(codesysPort, timeoutMs)])
+	return [
+		{ vendor: "twincat", port: twincatPort, state: tc },
+		{ vendor: "codesys", port: codesysPort, state: cs },
+	]
+}
