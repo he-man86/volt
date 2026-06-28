@@ -6,7 +6,7 @@ Volt turns the source inside a running CODESYS or TwinCAT/Beckhoff project into 
 
 ## Role in Volt
 
-This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@opencode-ai/volt-control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-st` server, started as an LSP client.
+This package is Volt's **editor front-end** — the layer an engineer actually looks at. It ships self-contained: the build bundles the `volt-git` CLI into `dist/cli.js`, and the extension points its CLI calls at that bundled binary via `setBundledCli()` (from `@opencode-ai/volt-control`), so no per-workspace Node install is needed. Language intelligence comes from the `volt-lsp-codesys` server, started as an LSP client.
 
 The heart of the UI is the **`volt.scm`** tree view ("Sync with IDE"). It renders, per workspace:
 
@@ -27,7 +27,7 @@ Git history, conflict resolution, and discard are **delegated to the editor's bu
 
 **Drift decorations** (`providers/decorations.ts`). A file-decoration provider badges changed files in the Explorer: `i` (incoming, `volt.driftIncomingForeground`), `o` (outgoing, `volt.driftOutgoingForeground`), `C` (merge conflict, `volt.driftConflictForeground`), and `RO` for read-only kinds (graphical/config files the AI reads but can't push, from `extensionAccess`). These colors are deliberately distinct from git's own.
 
-**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp-st` (falling back to the sibling `volt-lsp-st` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up whole `.fbd/.ld` files **and** a graphical body inlined in a `.st` POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
+**The language client** (`lsp.ts`). One `LanguageClient` ("Volt LSP") is started over stdio for the ST-family language ids, resolving the server module from the bundled `@opencode-ai/volt-lsp-codesys` (falling back to the sibling `volt-lsp-codesys` workspace build). Graphical (VG) bodies aren't a separate file type — a TextMate **injection** (`vg.injection`) highlights `NETWORK…END_NETWORK` networks by content, so it lights up whole `.fbd/.ld` files **and** a graphical body inlined in a `.st` POU (e.g. a graphical method). The server routes each body to ST or VG analysis by the same `NETWORK` discriminator. `Volt: Restart Language Server` and `Volt: Show Language Server Output` drive it.
 
 **Status bar + Start Bridge** (`extension.ts`). A single status-bar item aggregates all workspaces (worst-state-wins): merge in progress, bridge offline, no project, degraded, `N↑ M↓` drift, or in-sync. When the bridge is offline the item retargets to **`volt.startBridge`**, which (via `connector.ts`) ensures the Volt Connector is running and starts the configured bridge port. Onboarding (`volt.setup`) asks the connector which IDE/project is live and binds to it directly, falling back to an explicit TwinCAT/CODESYS pick.
 
@@ -71,7 +71,7 @@ windsurf --install-extension volt-<version>.vsix
 
 - [`../volt-control/README.md`](../volt-control/README.md) — the shared TS control layer (`pull`/`push`/`status`/`show`, health, gates) the extension calls.
 - [`../volt-git/README.md`](../volt-git/README.md) — the `volt` CLI bundled into `dist/cli.js`.
-- [`../volt-lsp-st/README.md`](../volt-lsp-st/README.md) — the Structured Text **+ VG** language server.
+- [`../volt-lsp-codesys/README.md`](../volt-lsp-codesys/README.md) — the Structured Text **+ VG** language server.
 - [`../volt-bridge/docs/vg-language.md`](../volt-bridge/docs/vg-language.md) — the **VG (Volt Graphical)** language spec.
 - [`../../VOLT-DESIGN.md`](../../VOLT-DESIGN.md) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and the fork's architecture.

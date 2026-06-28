@@ -9,13 +9,13 @@
  *
  * This drives opencode's own `debug lsp diagnostics` command against a
  * deliberately-malformed `.st` file:
- *   - LSP loaded   -> diagnostics tagged `source: "volt-lsp-st"`.
+ *   - LSP loaded   -> diagnostics tagged `source: "volt-lsp-codesys"`.
  *   - LSP not loaded -> opencode returns `{}` (the exact silent failure you hit
  *     under `bun run dev`, where cwd is forced to packages/opencode and the
  *     repo-root-relative LSP command can't resolve).
  *
  * Run from anywhere:  bun volt-scripts/verify-lsp.ts
- * See packages/volt-lsp-st/ADDING-A-NEW-LSP.md for the why behind the cwd rule.
+ * See packages/volt-lsp-codesys/README.md ("Running inside opencode") for the why behind the cwd rule.
  */
 import { spawnSync } from "node:child_process"
 import { existsSync, writeFileSync, rmSync } from "node:fs"
@@ -23,9 +23,9 @@ import { resolve } from "node:path"
 
 const repoRoot = resolve(import.meta.dirname, "..")
 
-const lspBin = resolve(repoRoot, "packages/volt-lsp-st/dist/bin.js")
+const lspBin = resolve(repoRoot, "packages/volt-lsp-codesys/dist/bin.js")
 if (!existsSync(lspBin)) {
-  console.error(`✗ volt LSP not built: ${lspBin}\n  Run: bun --cwd packages/volt-lsp-st run build`)
+  console.error(`✗ volt LSP not built: ${lspBin}\n  Run: bun --cwd packages/volt-lsp-codesys run build`)
   process.exit(1)
 }
 
@@ -47,13 +47,13 @@ try {
     { cwd: repoRoot, encoding: "utf8" },
   )
   const out = (r.stdout ?? "") + (r.stderr ?? "")
-  if (out.includes('"source": "volt-lsp-st"')) {
+  if (out.includes('"source": "volt-lsp-codesys"')) {
     console.log("✓ PASS — volt LSP loaded and produced diagnostics:")
     console.log((r.stdout ?? "").trim())
     process.exit(0)
   }
-  console.error("✗ FAIL — volt LSP did not load (no volt-lsp-st diagnostics returned).")
-  console.error("  Likely cause: opencode's project dir isn't the repo root, or packages/volt-lsp-st/dist is stale.")
+  console.error("✗ FAIL — volt LSP did not load (no volt-lsp-codesys diagnostics returned).")
+  console.error("  Likely cause: opencode's project dir isn't the repo root, or packages/volt-lsp-codesys/dist is stale.")
   console.error(out.trim().slice(0, 1000))
   process.exit(1)
 } finally {

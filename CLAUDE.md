@@ -32,7 +32,7 @@ How the host fits together: **one backend, two frontends.** `opencode` is the bi
 
 **Cloud / infra — rarely relevant to Volt:** `console/*` (cloud console), `stats/*` (analytics), `@opencode-ai/{enterprise,function,slack}`, `@opencode-ai/cli` (separate `lildax` binary, *not* the opencode entry), `@opencode-ai/{effect-sqlite-node,effect-drizzle-sqlite}` (Effect SQLite adapters).
 
-**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridge`), `volt-git` (the `volt` CLI), `volt-lsp-st` (`@opencode-ai/volt-lsp-st`), `volt-vscode` — detailed under "Volt architecture" below. Planned commercial layer: `volt-web` (Volt's own landing site — *scaffold*, see `packages/volt-web/README.md`).
+**Volt product (the fork — where ~all your work lives):** `volt-bridge` (`@opencode-ai/volt-bridge`), `volt-git` (the `volt` CLI), `volt-lsp-codesys` (`@opencode-ai/volt-lsp-codesys`), `volt-vscode` — detailed under "Volt architecture" below. Planned commercial layer: `volt-web` (Volt's own landing site — *scaffold*, see `packages/volt-web/README.md`).
 
 **Volt-as-a-SaaS principle (white-label opencode):** *own what's purely Volt's, sync what is the product.* The public **landing page** is fully owned (`volt-web`, modeled on `console/app`'s homepage — never synced). The **agent GUI** (`packages/app`/`ui`/`desktop`) and the **backend** (`console-core` billing/auth/email) are **reused and kept in sync** with upstream — customized only via minimal branding seams (logo, app name) and Volt's own `infra/` SST config (your Stripe/SES/DB). Never fork `packages/app` — it's opencode's core product, improved daily. The full design + roadmap + decision log is in **`VOLT-DESIGN.md`**.
 
@@ -57,7 +57,7 @@ bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool load
 
 The `volt` CLI is exposed to opencode two ways: as a first-class **custom tool** (`.opencode/tool/volt.ts`, typed `command`+`args`, mutating verbs prompt for approval) and via gated **bash** (`volt …`, init/pull/push = `ask`). Verify the tool with `opencode debug agent volt` (look for `tools.volt: true`).
 
-`bun run dev` does **not** load the volt LSP — it forces opencode's cwd to `packages/opencode`, so the repo-root-relative LSP path can't resolve. Use `bun volt-scripts/dev.ts` (passes the repo root as the project dir). See `packages/volt-lsp-st/ADDING-A-NEW-LSP.md` for the why + the launch matrix (CLI/TUI/desktop).
+`bun run dev` does **not** load the volt LSP — it forces opencode's cwd to `packages/opencode`, so the repo-root-relative LSP path can't resolve. Use `bun volt-scripts/dev.ts` (passes the repo root as the project dir). See `packages/volt-lsp-codesys/README.md` → "Running inside opencode" for the why + the launch matrix (CLI/TUI/desktop).
 
 Each `volt-*` package has its own `README.md` with package-level detail — read it before deep work in that package.
 
@@ -68,7 +68,7 @@ bun typecheck               # tsc/tsgo --noEmit — ALWAYS use this, never raw `
 bun test                    # bun test runner
 bun test path/to/file.test.ts          # single test file
 bun test -t "name of the test"         # single test by name
-bun run build               # tsc -> dist/ (volt-git, volt-lsp-st are compiled before publish)
+bun run build               # tsc -> dist/ (volt-git, volt-lsp-codesys are compiled before publish)
 ```
 
 Tests cannot run from the repo root (guard `do-not-run-tests-from-root`) — always `cd` into the package.
@@ -94,13 +94,13 @@ Volt mirrors a git-like workflow for PLC code. The data path is:
 
 ```
 live PLC IDE  ──HTTP──  bridge (C#)  ──HTTP wire──  volt-git (TS)  ──>  git repo of text files
- CODESYS / TwinCAT       per-vendor                  init/pull/push          analyzed by volt-lsp-st
+ CODESYS / TwinCAT       per-vendor                  init/pull/push          analyzed by volt-lsp-codesys
                                                       status/build/log         edited in volt-vscode
 ```
 
 - **`packages/volt-bridge`** — C# bridges exposing one live IDE over a small HTTP wire. **`Volt.Bridge.Core` holds everything shareable; only irreducible vendor glue lives in a bridge.** The parity boundary is the HTTP wire (not the driver), so both vendors serve byte-identical responses for the same project. See `packages/volt-bridge/ARCHITECTURE.md` — read it before touching bridge code; it documents the Core layer stack (`Ide` contract → `Wire` → `Sync` → `Workspace`/`Graphical`) and the **load-bearing CODESYS↔Beckhoff asymmetries that must not be "unified"**.
 - **`packages/volt-git`** (`@opencode-ai/volt-git`) — the `volt` command (`init`, `pull`, `push`, `status`, `build`, `log`, `show`, `merge`). **Git-native, single-repo:** `init` makes the project root a git repo; the live IDE is modeled as a git **remote-tracking branch** (`refs/remotes/volt/ide`, shown in the graph as `volt/ide` — the IDE *is* a remote you fetch+merge on pull / push to on push), so `pull`/`push` reconcile through native `git merge` — no custom 3-way merge engine and no separate `.volt/` snapshot. Talks to a bridge over HTTP (one declarative `set`/`delete` push wire); resolves the bridge port from the workspace binding (CODESYS `8556`, Beckhoff `8555`; override via `--port` or `VOLT_BRIDGE_PORT`). See `packages/volt-git/README.md`.
-- **`packages/volt-lsp-st`** (`@opencode-ai/volt-lsp-st`) — TypeScript-native LSP for Structured Text (nav, diagnostics, completion, hover, signature help, semantic tokens), driven by an embedded CODESYS language reference. Editable FBD/LD bodies are materialized as a textual **VG** form the LSP analyzes as its own first-class sublanguage (CFC/SFC are read-only) — see the VG language note below. Type-checking/codegen stay the IDE's job.
+- **`packages/volt-lsp-codesys`** (`@opencode-ai/volt-lsp-codesys`) — TypeScript-native LSP for Structured Text (nav, diagnostics, completion, hover, signature help, semantic tokens), driven by an embedded CODESYS language reference. Editable FBD/LD bodies are materialized as a textual **VG** form the LSP analyzes as its own first-class sublanguage (CFC/SFC are read-only) — see the VG language note below. Type-checking/codegen stay the IDE's job.
 - **`packages/volt-vscode`** — VS Code extension: syntax + language intelligence for PLC languages, plus drift coloring (files the IDE changed vs. git changes).
 
 ### Protocol invariant: the item **name** is the identity
@@ -115,14 +115,14 @@ Editable graphical bodies (FBD/LD) round-trip PlcOpen XML ⇄ a textual **VG** f
 
 - **Git:** default branch is `dev` (not `main` — local `main` may not exist; diff against `dev`/`origin/dev`). Conventional commit messages/PR titles: `type(scope): summary` with types `feat|fix|docs|chore|refactor|test`. Useful Volt scopes: `bridge`, `cli`, `lsp`.
 - **Platform:** primary dev is Windows + PowerShell (the bridges and CODESYS tooling are Windows-only). Bun's Bash tool is also available for POSIX scripts. `volt-scripts/*.ps1` drive the bridges and installers (fork scripts live in `volt-scripts/`; upstream's stay in `script/`).
-- The repo retains upstream's package name `opencode` and the `.opencode/` config (LSP wiring for `volt-lsp-st`, and `ask` permission gates on `volt init/pull/push`). Don't confuse `.opencode/` (opencode agent config) with `.volt/` (a CLI-managed PLC workspace).
+- The repo retains upstream's package name `opencode` and the `.opencode/` config (LSP wiring for `volt-lsp-codesys`, and `ask` permission gates on `volt init/pull/push`). Don't confuse `.opencode/` (opencode agent config) with `.volt/` (a CLI-managed PLC workspace).
 
 ## Fork surface & upstream sync
 
 Volt is **purely additive** — all product code lives in `packages/volt-*`, and integration uses opencode's extension points (auto-discovered files + config), **never edits to opencode source**. The complete divergence from upstream:
 
 - **Product:** `packages/volt-{bridge,cli,lsp-st,vscode}` — auto-included via the `packages/*` workspace glob (no registration needed).
-- **Additive files:** `.opencode/opencode.json` (LSP registration + `volt` permission gates — opencode **deep-merges** this over upstream's pristine `opencode.jsonc`, so config is additive, not a seam), `.opencode/agent/volt.md`, `.opencode/themes/volt.json` (Volt brand theme), `.opencode/tool/volt.ts` (the `volt` CLI as a custom tool — opencode scans `.opencode/tool/` only), `packages/volt-*/turbo.json` (per-package test tasks via `extends: ["//"]`, so root `turbo.json` stays pristine), `volt-scripts/*`, `CLAUDE.md`, `VOLT-DESIGN.md`, `.github/workflows/volt-*.yml` (Volt CI + scheduled upstream-sync), plus committed dev tooling `.claude/` (BMAD skills) and `_bmad/` (BMAD framework). (Language-reference skills are **generated** into a consumer's `.claude/skills/` by `volt init` — see `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`.)
+- **Additive files:** `.opencode/opencode.json` (LSP registration + `volt` permission gates — opencode **deep-merges** this over upstream's pristine `opencode.jsonc`, so config is additive, not a seam), `.opencode/agent/volt.md`, `.opencode/themes/volt.json` (Volt brand theme), `.opencode/tool/volt.ts` (the `volt` CLI as a custom tool — opencode scans `.opencode/tool/` only), `packages/volt-*/turbo.json` (per-package test tasks via `extends: ["//"]`, so root `turbo.json` stays pristine), `volt-scripts/*`, `CLAUDE.md`, `VOLT-DESIGN.md`, `.github/workflows/volt-*.yml` (Volt CI + scheduled upstream-sync), plus committed dev tooling `.claude/` (BMAD skills) and `_bmad/` (BMAD framework). (Language-reference skills are **generated** into a consumer's `.claude/skills/` by `volt init` — see `packages/volt-lsp-codesys/README.md` → "Adding another vendor LSP".)
 - **Modified upstream files (13 seams):** *near-static* — `bun.lock` (volt deps), `.opencode/tui.json` (select the brand theme), `.husky/pre-push` (typecheck scoped to volt-*), `.gitignore` (`/memory` junction); *branding* — `packages/ui/src/components/logo.tsx` (Volt logo), `packages/desktop/src/main/index.ts` + `packages/desktop/electron-builder.config.ts` (Volt app name); *GUI panel* — `packages/app/src/pages/session/session-side-panel.tsx` (a "Volt" tab + `<VoltPanel/>`) + `packages/app/src/pages/session/helpers.ts` (treat `volt` as a persistent tab) + `packages/app/package.json` (`volt-app` dep); *desktop IPC* — `packages/desktop/src/preload/index.ts` (expose `window.volt`) + `packages/desktop/electron.vite.config.ts` (bundle the volt CLI beside main) + `packages/desktop/package.json` (`volt-control`/`volt-git` deps), handlers wired in the already-seamed `packages/desktop/src/main/index.ts`. The config/test seams were eliminated via the merge-layers above; the branding + GUI-panel + IPC seams are the deliberate white-label/desktop-product cost (no additive hook exists in `packages/{ui,desktop,app}`).
 
 **Extension-point map — where each future addition goes (route everything here to stay conflict-free):**
@@ -149,4 +149,4 @@ It stops cleanly on conflicts (resolve + commit, then `bun volt-scripts/sync.ts`
 
 Under the hood it runs **`volt-scripts/sync.ts`** — the merge-process *signal flow* that confirms the fork still holds (deps resolve → surface unchanged → wiring intact → runtime loads): it orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Run `sync.ts` standalone after resolving a manual merge.
 
-Adding another LSP: `packages/volt-lsp-st/ADDING-A-NEW-LSP.md`.
+Adding another vendor LSP: `packages/volt-lsp-codesys/README.md` → "Adding another vendor LSP".

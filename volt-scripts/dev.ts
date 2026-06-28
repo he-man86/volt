@@ -5,12 +5,12 @@
  * `bun run dev` starts opencode with `--cwd packages/opencode`, so opencode's
  * project directory becomes `packages/opencode`. The volt LSP is registered in
  * `.opencode/opencode.jsonc` with a repo-root-relative command
- * (`./packages/volt-lsp-st/dist/bin.js`), which opencode resolves against the
+ * (`./packages/volt-lsp-codesys/dist/bin.js`), which opencode resolves against the
  * project directory — so under plain `bun run dev` it never resolves and the
  * LSP silently fails to start.
  *
  * This launches the same opencode dev entry but passes the repo root as the
- * project directory, so the relative LSP command resolves and `volt-lsp-st`
+ * project directory, so the relative LSP command resolves and `volt-lsp-codesys`
  * attaches to .st files. Run from anywhere:
  *
  *   bun volt-scripts/dev.ts            # opencode TUI, volt LSP loaded
@@ -27,12 +27,12 @@ import { resolve } from "node:path"
 const repoRoot = resolve(import.meta.dirname, "..")
 const passthrough = process.argv.slice(2)
 
-// The LSP is registered at ./packages/volt-lsp-st/dist/bin.js. If it isn't
+// The LSP is registered at ./packages/volt-lsp-codesys/dist/bin.js. If it isn't
 // built, opencode starts fine but the LSP silently never attaches — guard
 // against that footgun with a clear message instead of a dead .st experience.
-const lspBin = resolve(repoRoot, "packages/volt-lsp-st/dist/bin.js")
+const lspBin = resolve(repoRoot, "packages/volt-lsp-codesys/dist/bin.js")
 if (!existsSync(lspBin)) {
-  console.error(`volt LSP not built: ${lspBin}\nRun: bun --cwd packages/volt-lsp-st run build`)
+  console.error(`volt LSP not built: ${lspBin}\nRun: bun --cwd packages/volt-lsp-codesys run build`)
   process.exit(1)
 }
 

@@ -141,7 +141,7 @@ function selfTest(): void {
     { name: "upstream source edit is a violation", lines: ["M\tpackages/opencode/src/lsp/server.ts"], allowed: 0, violations: 1 },
     { name: "upstream file delete is a violation", lines: ["D\tpackages/core/src/foo.ts"], allowed: 0, violations: 1 },
     { name: "renamed upstream file is a violation (dest path)", lines: ["R100\tpackages/core/a.ts\tpackages/core/b.ts"], allowed: 0, violations: 1 },
-    { name: "mixed real-world set", lines: ["M\tbun.lock", "A\tvolt-scripts/x.ts", "M\tpackages/volt-lsp-st/src/y.ts", "M\tpackages/server/src/z.ts"], allowed: 1, violations: 1 },
+    { name: "mixed real-world set", lines: ["M\tbun.lock", "A\tvolt-scripts/x.ts", "M\tpackages/volt-lsp-codesys/src/y.ts", "M\tpackages/server/src/z.ts"], allowed: 1, violations: 1 },
     { name: "committed junk in a fork-owned path is a violation", lines: ["A\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 1 },
     { name: "OS/editor cruft is a violation", lines: ["A\tpackages/volt-git/.DS_Store"], allowed: 0, violations: 1 },
     { name: "deleting junk is fine (not a violation)", lines: ["D\tpackages/volt-bridge/test/x.tsproj.bak"], allowed: 0, violations: 0 },

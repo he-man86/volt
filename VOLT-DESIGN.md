@@ -65,7 +65,7 @@ console/app  (opencode.ai landing)     ◄── volt-web  (parallel site)      
 packages/volt-vscode  (VS Code)        ◄── renders volt-control                   🔶 own
 
 Volt-owned packages (never merge upstream):
-  volt-bridge · volt-git · volt-lsp-st · volt-vscode · volt-control · volt-app · volt-web
+  volt-bridge · volt-git · volt-lsp-codesys · volt-vscode · volt-control · volt-app · volt-web
   (+ planned: volt-docs)
 ```
 
@@ -74,7 +74,7 @@ drop to ⚠ only when no hook exists (GUI panels/logo). Never edit an upstream f
 
 ## Packages — current & planned
 
-**Exist:** `volt-bridge`, `volt-git`, `volt-lsp-st`, `volt-vscode` (PLC toolchain) ·
+**Exist:** `volt-bridge`, `volt-git`, `volt-lsp-codesys`, `volt-vscode` (PLC toolchain) ·
 `volt-web` (landing — *scaffold*, `packages/volt-web/README.md`).
 
 **Planned:**
@@ -280,7 +280,7 @@ Newest first.
 ### D12 — VG is a first-class Volt language (FBD/LD as text), not "graphical transpiled to ST" (2026-06-28)
 **Decision:** editable FBD/LD graphical bodies are **VG (Volt Graphical)** — Volt's own textual language. It
 reads like Structured Text but is **distinct** (its own grammar, parser, type-inference, and diagnostics).
-The bridge round-trips it exactly (PLCopen XML ⇄ graph ⇄ VG text) and is the source of truth; `volt-lsp-st`
+The bridge round-trips it exactly (PLCopen XML ⇄ graph ⇄ VG text) and is the source of truth; `volt-lsp-codesys`
 analyzes it as a first-class sublanguage (routed by the leading `NETWORK` token to `src/vg/` + `queries/vg/`);
 `volt-vscode` gives it its own `volt-graphical` editor language id. `.fbd`/`.ld` are editable VG; CFC/SFC are
 read-only. The spec is `packages/volt-bridge/docs/vg-language.md`.

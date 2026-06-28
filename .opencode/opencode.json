@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": {
-    "volt-lsp-st": {
-      "command": ["node", "./packages/volt-lsp-st/dist/bin.js", "--stdio"],
+    "volt-lsp-codesys": {
+      "command": ["node", "./packages/volt-lsp-codesys/dist/bin.js", "--stdio"],
       "extensions": [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias", ".fbd", ".ld", ".sfc", ".cfc"]
     }
   },
