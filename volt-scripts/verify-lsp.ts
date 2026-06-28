@@ -37,6 +37,7 @@ if (!existsSync(lspBin)) {
 const sample = resolve(repoRoot, ".volt-lsp-verify.st")
 writeFileSync(sample, "FUNCTION_BLOCK FB_Test\nVAR\n    x : INT\nEND_VAR\nx := y + 1;\nEND_FUNCTION_BLOCK\n")
 
+let code = 1
 try {
   // cwd = repoRoot so the repo-root-relative LSP command in
   // .opencode/opencode.jsonc resolves. `debug lsp` has no --directory flag; it
@@ -50,12 +51,13 @@ try {
   if (out.includes('"source": "volt-lsp-codesys"')) {
     console.log("✓ PASS — volt LSP loaded and produced diagnostics:")
     console.log((r.stdout ?? "").trim())
-    process.exit(0)
+    code = 0
+  } else {
+    console.error("✗ FAIL — volt LSP did not load (no volt-lsp-codesys diagnostics returned).")
+    console.error("  Likely cause: opencode's project dir isn't the repo root, or packages/volt-lsp-codesys/dist is stale.")
+    console.error(out.trim().slice(0, 1000))
   }
-  console.error("✗ FAIL — volt LSP did not load (no volt-lsp-codesys diagnostics returned).")
-  console.error("  Likely cause: opencode's project dir isn't the repo root, or packages/volt-lsp-codesys/dist is stale.")
-  console.error(out.trim().slice(0, 1000))
-  process.exit(1)
 } finally {
-  rmSync(sample, { force: true })
+  rmSync(sample, { force: true }) // ponytail: process.exit() skips finally — so exit AFTER cleanup
 }
+process.exit(code)
