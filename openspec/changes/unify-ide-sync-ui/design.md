@@ -105,3 +105,8 @@ relying on `enablement` to grey welcome buttons — doesn't work.
 2. **Controls placement** → Pull/Push/Build when "IDE" is selected; a bridge-health dot always visible by the dropdown.
 3. **Replace or coexist** → retire the separate tab / `⚡` view; the co-located version replaces it.
 4. **VS Code depth** → full native `SourceControl` provider.
+5. **Layout coverage (v1 + v2)** → the seam lives in the **shared** `pages/session.tsx`. Both opencode
+   layouts render the same `<Session/>` (legacy/v1 via `SessionRoute`, new/v2 via `TargetSessionPage`);
+   the v1/v2 split is the home/shell/nav, not the session view. So **one seam covers both layouts** — no
+   layout-specific work. (`pages/new-session.tsx` is the v2 compose-a-draft screen, no changes panel,
+   out of scope.) Volt ships v1 by default — see the `pin-stable-ui-channel` change.
