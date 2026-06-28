@@ -45,8 +45,8 @@ Graphical/  graphical materialize  ── PlcOpen XML ⇄ VG text
   the bridge, `volt-git`, and `volt-vscode`. Same-name items collapse last-write-wins (fine for source items;
   IEC guarantees unique names). **Do not add a "duplicate name" guard that throws** — real projects legitimately
   repeat opaque names.
-- **Graphical bodies become ST.** FBD/LD bodies are transpiled to editable **VG** text on fetch; CFC/SFC are
-  surfaced read-only, so the rest of Volt analyzes a single source language.
+- **Graphical bodies → VG.** Editable FBD/LD bodies round-trip PlcOpen XML ⇄ a textual **VG** form (Volt
+  Graphical) on fetch/push; CFC/SFC are surfaced read-only. The LSP analyzes VG as its own sublanguage (not ST).
 - **Load-bearing CODESYS↔Beckhoff asymmetries.** In-proc reflection vs. standalone COM; in-memory vs. file-based
   PlcOpen round-trip; Beckhoff's `TcPouReader` (no CODESYS counterpart); Beckhoff's per-node `try/catch` walk.
   These are deliberate — **do not "unify" them.**

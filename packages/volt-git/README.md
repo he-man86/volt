@@ -55,7 +55,7 @@ bun run build   # tsc -> dist/ (also runs on prepare; the bin is ./dist/bin.js)
 | `src/bin.ts` | CLI entry — parses args, resolves the port, dispatches each verb, renders the result, sets the exit code. |
 | `src/sync/` | The sync engine: `pull.ts`, `push.ts`, `status.ts`, `refs.ts` (the `refs/remotes/volt/ide` model + sidecar baseline), `diff.ts`, `types.ts`. |
 | `src/git/plumbing.ts` | The only place that shells out to `git` — object-store ops (build the `volt/ide` tree) + worktree ops (status/merge/diff/auto-commit). |
-| `src/translate/materialize.ts` | Item ⇄ file translation: one IDE item = one src-relative file (pure path/content mapping; the bridge already transpiled graphical bodies to ST). |
+| `src/translate/materialize.ts` | Item ⇄ file translation: one IDE item = one src-relative file (pure path/content mapping; the bridge already materialized editable FBD/LD as VG text, CFC/SFC read-only). |
 | `src/registry/extensions.ts` | The single flat table of tracked extensions + their default access (`st`/`fbd`/`ld`/`itf` rw, `cfc`/`sfc` read-only). |
 | `src/config/workspace.ts` | The `.git/volt/` workspace binding — config paths, load/save, binding verification, configured-port lookup. |
 | `src/workspace/files.ts` | `src/` file IO + the root `.gitignore`/`.gitattributes`; src-relative path helpers. |
