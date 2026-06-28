@@ -22,6 +22,7 @@ import { findIdentifiersByName } from "../../semantic/body.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Document } from "../workspace.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
+import { vgLocalRefAt } from "./vg/shared.js";
 
 export interface DocumentHighlightArgs {
 	doc: Document;
@@ -31,6 +32,14 @@ export interface DocumentHighlightArgs {
 export function documentHighlight(args: DocumentHighlightArgs): DocumentHighlight[] {
 	const offset = offsetFromPosition(args.doc.source, args.position);
 	if (offset < 0) return [];
+
+	// VG network-local names (LET wires / labels): occurrences confined to the enclosing
+	// network, resolved via the same seam references/rename use — so a wire highlights too.
+	const vgLocal = vgLocalRefAt(args.doc.bodyModels, offset);
+	if (vgLocal !== undefined) {
+		return vgLocal.occurrences.map((span) => ({ range: rangeFromSpan(span), kind: DocumentHighlightKind.Text }));
+	}
+
 	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset, args.doc.bodyModels);
 	if (idToken === undefined) return [];
 
@@ -53,12 +62,7 @@ function collectFromUnit(
 		const model = doc.bodyModels.get(body);
 		if (model !== undefined) {
 			for (const ref of findIdentifiersByName(model, target)) {
-				out.push({
-					range: rangeFromSpan(ref.span),
-					kind: ref.isCall
-						? DocumentHighlightKind.Read
-						: DocumentHighlightKind.Read,
-				});
+				out.push({ range: rangeFromSpan(ref.span), kind: DocumentHighlightKind.Read });
 			}
 		}
 	}

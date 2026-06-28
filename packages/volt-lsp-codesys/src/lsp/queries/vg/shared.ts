@@ -8,6 +8,7 @@ import type { Token } from "../../../lexer/tokens.js";
 import type { BodySpan } from "../../../parser/ast.js";
 import type { BodyModel } from "../../../semantic/body.js";
 import type { VgBody } from "../../../vg/index.js";
+import { vgLocalNameAtOffset, type VgLocalName } from "./navigation.js";
 
 export interface VgBodyEntry {
 	span: Span;
@@ -32,4 +33,17 @@ export function vgBodyAtOffset(bodyModels: Map<BodySpan, BodyModel>, offset: num
 		if (offset >= entry.span.start && offset <= entry.span.end) return entry;
 	}
 	return undefined;
+}
+
+/**
+ * Resolve a VG network-local name (a `LET` wire or jump label) at a document offset, or
+ * undefined when the offset isn't on one. This is the single seam every per-occurrence VG
+ * query shares — `references`, `rename`/`prepareRename`, and `documentHighlight` — so wire
+ * navigation behaves identically across all of them. Occurrences are confined to the
+ * enclosing network (these names never escape to the IDE).
+ */
+export function vgLocalRefAt(bodyModels: Map<BodySpan, BodyModel>, offset: number): VgLocalName | undefined {
+	const entry = vgBodyAtOffset(bodyModels, offset);
+	if (entry === undefined) return undefined;
+	return vgLocalNameAtOffset(entry.vg, entry.tokens, offset);
 }

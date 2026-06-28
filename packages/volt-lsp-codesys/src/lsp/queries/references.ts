@@ -23,8 +23,7 @@ import type { Document, Workspace } from "../workspace.js";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
 import { findIdentifiersByName } from "../../semantic/body.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
-import { vgBodyAtOffset } from "./vg/shared.js";
-import { vgLocalNameAtOffset } from "./vg/navigation.js";
+import { vgLocalRefAt } from "./vg/shared.js";
 
 export interface ReferencesArgs {
 	workspace: Workspace;
@@ -39,14 +38,10 @@ export function references(args: ReferencesArgs): Location[] {
 	const offset = offsetFromPosition(doc.source, position);
 	if (offset < 0) return [];
 
-	// VG network-local names (LET wires, labels): references are confined
-	// to the enclosing network.
-	const vgEntry = vgBodyAtOffset(doc.bodyModels, offset);
-	if (vgEntry !== undefined) {
-		const local = vgLocalNameAtOffset(vgEntry.vg, vgEntry.tokens, offset);
-		if (local !== undefined) {
-			return local.occurrences.map((span) => ({ uri: doc.uri, range: rangeFromSpan(span) }));
-		}
+	// VG network-local names (LET wires, labels): references are confined to the enclosing network.
+	const vgLocal = vgLocalRefAt(doc.bodyModels, offset);
+	if (vgLocal !== undefined) {
+		return vgLocal.occurrences.map((span) => ({ uri: doc.uri, range: rangeFromSpan(span) }));
 	}
 
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
