@@ -40,9 +40,9 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
-// `.claude/` (BMAD skills) and `_bmad/` (BMAD framework) are committed dev tooling;
-// they don't exist upstream, so additions there are additive, never a divergence.
-const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/", ".claude/", "_bmad/"]
+// `.claude/` (Claude Code skills/commands — incl. the OpenSpec workflow) is committed dev tooling;
+// it doesn't exist upstream, so additions there are additive, never a divergence.
+const FORK_OWNED_PREFIXES = ["packages/volt-", "volt-scripts/", ".claude/"]
 
 // Committed-junk patterns — backups, merge leftovers, OS/editor cruft. Flagged anywhere in
 // the fork's tracked changes (even fork-owned dirs), so accidents (`.tsproj.bak`, `.DS_Store`,
