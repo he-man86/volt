@@ -63,8 +63,11 @@ Write-Output "`n[3/3] Volt.Bridge.Connector"
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Beckhoff\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
-Copy-Item "$SC\config.json","$SC\start_bridge.py","$SC\stop_bridge.py","$SC\run_bridge_headless.py","$SC\README.md" -Destination "$DIST\Connector\codesys-scriptcommands\" -Force
-Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ bundled workers)"
+# Ship the CODESYS bridge DLL + its deps NEXT TO the scripts — start_bridge.py loads
+# "<this folder>/Volt.Bridge.Codesys.dll" (the installed location). dist\Codesys already holds the DLL,
+# its deps, AND the scripts, so copy the whole folder.
+Copy-Item "$DIST\Codesys\*" -Destination "$DIST\Connector\codesys-scriptcommands\" -Recurse -Force
+Write-Output "  OK -> dist\Connector\VoltConnector.exe (+ bundled workers + CODESYS DLL)"
 
 # --- API-layer wire tests (opt-in: -ApiTests; needs TwinCAT open) ---
 if ($ApiTests) {
