@@ -11,7 +11,7 @@
  * The verb set must stay in sync with bin.ts's switch (a verb here but not there → falls through to USAGE;
  * a verb there but not here → wrongly routed to opencode).
  */
-const VOLT_VERBS = new Set(["init", "pull", "push", "build", "status", "log", "diff", "show", "merge", "setup", "help"])
+const VOLT_VERBS = new Set(["init", "pull", "push", "build", "status", "log", "diff", "show", "merge", "help"])
 const first = process.argv[2]
 if (first !== undefined && VOLT_VERBS.has(first)) {
   await import("./bin.js") // the PLC CLI (auto-runs main with process.argv)

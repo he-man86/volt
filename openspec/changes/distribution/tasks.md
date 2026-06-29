@@ -31,7 +31,7 @@ separate installs, like opencode. The only real Volt addition is one postinstall
 - [ ] 2.11 `volt upgrade` — reuse opencode's method-aware `installation/` logic, pointed at Volt's releases
 
 ### Shared
-- [ ] 2.12 Remove the `volt setup` CLI verb — LSP registration moves to postinstall (CLI) / startup (desktop)
+- [x] 2.12 Removed the `volt setup` CLI verb; `setup()` stays as the reusable registration function the postinstall (CLI) / startup (desktop) call
 - [ ] 2.13 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
 - [ ] 2.14 Volt branding — `home_logo` TUI plugin + replace `opencode.ai` constants + Volt Sentry DSN
 - [ ] 2.15 Code-signing (Windows certs) · signed release

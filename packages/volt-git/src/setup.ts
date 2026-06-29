@@ -1,6 +1,8 @@
 /**
- * `volt setup` — wire the volt LSP + `volt` tool into opencode's GLOBAL config, so the agent gets PLC
- * intelligence in EVERY project, not only the Volt repo. Idempotent (merge, never clobber).
+ * `setup()` — wire the volt LSP + `volt` tool into opencode's GLOBAL config, so the agent gets PLC
+ * intelligence in EVERY project. **Not a CLI verb** — called at install time by the CLI's npm postinstall
+ * and the desktop's startup (registration is the installer's job, not a command). Idempotent (merge, never
+ * clobber).
  *
  * Why global: opencode merges global config before project config, and spawns LSPs with cwd = project —
  * so a project-local relative path can't reach the LSP. One global registration with an ABSOLUTE command

@@ -11,7 +11,6 @@ import { diff } from "./diff.js";
 import { init } from "./init.js";
 import { log } from "./log.js";
 import { merge } from "./merge.js";
-import { setup } from "./setup.js";
 import { show } from "./show.js";
 import { pull } from "./sync/pull.js";
 import { push } from "./sync/push.js";
@@ -64,7 +63,6 @@ const USAGE = `volt <command> [args] — git-native Volt CLI
   log      the IDE-sync history                              [--json] [--limit N]
   show     a file at a ref:  <ref> <path>   (HEAD / MERGE_OURS|THEIRS|BASE / BRIDGE)
   merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]
-  setup    register the volt LSP + tool in opencode's global config (every project gets PLC intelligence)
 
   flags: --workspace <dir>  --port <n>`;
 
@@ -217,15 +215,6 @@ async function main(): Promise<number> {
 			if (r.code === 0) console.log(r.message);
 			else console.error(r.message);
 			return r.code;
-		}
-		case "setup": {
-			const r = setup();
-			console.log("✓ volt setup — opencode will load the volt LSP + tool in every project");
-			console.log(`  config: ${r.configFile}`);
-			console.log(`  tool:   ${r.toolFile}`);
-			console.log(`  lsp:    ${r.lspBin}`);
-			console.log(`  cli:    ${r.voltBin}`);
-			return 0;
 		}
 		case "help":
 		case "--help":
