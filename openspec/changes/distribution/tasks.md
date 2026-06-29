@@ -30,7 +30,7 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 
 ### Shared
 - [x] 2.14 Removed the `volt setup` CLI verb; `setup()` is the install-time registration function
-- [ ] 2.15 Bridge connector — IDE-side install (TwinCAT standalone `.exe` / CODESYS in-proc lib); both flows connect to a running bridge
+- [ ] 2.15 Connector — a **background Windows gateway** (CODESYS in-proc lib / TwinCAT standalone `.exe`) serving the live IDE over HTTP; installed + run separately; both flows connect to it
 - [ ] 2.16 Branding — `home_logo` plugin committed (NEEDS visual verify + bundling into the global config for shipped) · `scriptName`/`opencode.ai` constants remain
 
 ### Dropped / deferred

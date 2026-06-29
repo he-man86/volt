@@ -24,17 +24,17 @@ PLC language support (syntax / VG / drift coloring) + the agent in the editor. D
 link in the docs** (the `.vsix`) or the VS Code Marketplace. For engineers who edit in VS Code — one extension
 = editing + LSP + sync + agent, no npm, no desktop.
 
-**Shared prerequisite — the bridge** (both flows connect to a *running* one, neither hosts it). The C#
-connector runs **inside CODESYS / TwinCAT**, exposing the IDE over HTTP (8555/8556) — an IDE-side install
-(TwinCAT: a standalone `.exe`; CODESYS: an in-proc lib that CODESYS itself loads). It can be bundled + an
-install assisted, but architecturally it lives with the IDE: the desktop/extension *talk to* it.
+**Shared prerequisite — the connector** (both flows connect to it over HTTP, neither hosts it). It's a
+**background gateway** running on Windows that connects to the live IDE and exposes it over a small HTTP wire
+(8555/8556) — CODESYS via an in-proc lib, TwinCAT via a standalone background `.exe`. It's installed and runs
+**separately** from the desktop app and the extension; both just *talk to* it.
 
 ```
                    ┌─────────────────────────────┐
   Flow 1 (desktop) │ Volt.exe: agent + LSP + CLI │──┐
                    └─────────────────────────────┘  │   HTTP 8555/8556
-                   ┌─────────────────────────────┐  ├──▶  bridge  ──▶  CODESYS / TwinCAT IDE
-  Flow 2 (vscode)  │ volt-vscode: LSP+CLI+agent  │──┘   (IDE-side install, shared)
+                   ┌─────────────────────────────┐  ├──▶  connector  ──▶  CODESYS / TwinCAT
+  Flow 2 (vscode)  │ volt-vscode: LSP+CLI+agent  │──┘   (background Windows gateway, shared)
                    └─────────────────────────────┘
 ```
 
