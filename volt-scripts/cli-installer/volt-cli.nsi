@@ -32,9 +32,11 @@ ShowUnInstDetails show
 
 Function .onInit
   ; The desktop app already integrates the CLI + bridge — don't double-install (would collide on PATH/connector).
-  IfFileExists "$LOCALAPPDATA\Programs\Volt\Volt.exe" 0 +3
-    MessageBox MB_OK|MB_ICONINFORMATION "The Volt desktop app is already installed and includes the CLI + bridge.$\r$\nYou don't need the CLI installer."
+  ; Key off the desktop's bundled CLI (constant across the Volt/Volt Dev/Volt Beta channels), not the GUI exe.
+  IfFileExists "$LOCALAPPDATA\Programs\Volt\resources\volt\bin\volt.exe" 0 notDesktop
+    MessageBox MB_OK|MB_ICONINFORMATION "The Volt desktop app is already installed and includes the CLI + bridge.$\r$\nYou don't need the CLI installer." /SD IDOK
     Abort
+  notDesktop:
 FunctionEnd
 
 Section "Volt CLI"
