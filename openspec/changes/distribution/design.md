@@ -48,8 +48,11 @@ repo** (else it self-updates back to stock opencode); bundle + register the LSP 
 
 ## Updates — mirror opencode
 
-- **CLI:** `volt upgrade` reuses opencode's method-aware `installation/` logic (npm / brew / curl), pointed at Volt's releases.
-- **Desktop:** electron-updater, re-pointed feed. ⚠ The re-point is the one load-bearing change.
+**Release repo: `he-man86/volt`** (public; prod releases on the *source* repo, exactly like opencode's prod
+on `anomalyco/opencode`). Beta is unused — not split into a separate repo (opencode uses `opencode-beta`).
+
+- **CLI:** `volt upgrade` reuses opencode's method-aware `installation/` logic, pointed at `he-man86/volt`.
+- **Desktop:** electron-updater feed → `he-man86/volt` (done, 2.9). ⚠ This re-point is the load-bearing change.
 
 ## Key decisions
 
