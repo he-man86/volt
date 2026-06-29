@@ -1,6 +1,6 @@
 ## 1. Pin the channel
 
-- [ ] 1.1 Set `OPENCODE_CHANNEL=prod` in Volt's desktop packaging — interim: the build command (`OPENCODE_CHANNEL=prod bun run package:win`); permanent: bake into the `desktop-distribution` release pipeline
+- [ ] 1.1 Set `OPENCODE_CHANNEL=prod` in Volt's desktop packaging — interim: the build command (`OPENCODE_CHANNEL=prod bun run package:win`); permanent: bake into the `distribution` release pipeline
 - [ ] 1.2 Verify a prod build: app name `Volt` (not `Volt Dev`), prod icons, and the **v1** layout renders by default
 
 ## 2. Spec

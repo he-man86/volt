@@ -35,4 +35,4 @@ with no migration work.
 ## Impact
 
 Volt packaging only (interim: `OPENCODE_CHANNEL=prod bun run package:win`; permanent: the
-`desktop-distribution` pipeline). No product-code change; orthogonal to the code-merge cadence.
+`distribution` pipeline). No product-code change; orthogonal to the code-merge cadence.

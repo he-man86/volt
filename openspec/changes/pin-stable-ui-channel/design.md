@@ -46,4 +46,4 @@ Root cause: the two builds are on different **UI channels**, not different code.
 ## Open Questions
 
 - Home for the env var: an interim `OPENCODE_CHANNEL=prod` on the build command vs baked into the
-  `desktop-distribution` release pipeline. (Bake it in when that pipeline lands; use the command meanwhile.)
+  `distribution` release pipeline. (Bake it in when that pipeline lands; use the command meanwhile.)
