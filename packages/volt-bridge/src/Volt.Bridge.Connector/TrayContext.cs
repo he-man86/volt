@@ -284,10 +284,17 @@ namespace Volt.Bridge.Connector
         }
     }
 
-    /// <summary>Generates the tray dots once per status (kept for the app lifetime).</summary>
+    /// <summary>Generates the Volt-bolt tray icon once per status (kept for the app lifetime). The mark is
+    /// the Volt lightning bolt (same shape as the app logo), tinted by aggregate bridge state.</summary>
     internal static class StatusIcons
     {
         private static readonly Dictionary<BridgeStatus, Icon> Cache = new();
+
+        // Volt lightning bolt, viewBox 0 0 24 24 (matches volt-vscode/icons/volt-activitybar.svg + the app logo).
+        private static readonly PointF[] Bolt =
+        {
+            new(13.5f, 2f), new(4f, 14f), new(10f, 14f), new(8.5f, 22f), new(20f, 9f), new(13f, 9f),
+        };
 
         public static Icon For(BridgeStatus s)
         {
@@ -300,13 +307,17 @@ namespace Volt.Bridge.Connector
                 BridgeStatus.Unreachable => Color.Firebrick,
                 _ => Color.Gray,
             };
-            using var bmp = new Bitmap(16, 16);
+            const int size = 32; // crisp; the tray scales it down to 16
+            using var bmp = new Bitmap(size, size);
             using (var g = Graphics.FromImage(bmp))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.Transparent);
+                var k = size / 24f;
+                var pts = new PointF[Bolt.Length];
+                for (var i = 0; i < Bolt.Length; i++) pts[i] = new PointF(Bolt[i].X * k, Bolt[i].Y * k);
                 using var brush = new SolidBrush(color);
-                g.FillEllipse(brush, 2, 2, 12, 12);
+                g.FillPolygon(brush, pts);
             }
             var icon = Icon.FromHandle(bmp.GetHicon());
             Cache[s] = icon;
