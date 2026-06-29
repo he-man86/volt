@@ -108,7 +108,10 @@ export class DiagnosticsPusher {
 			this.send({
 				jsonrpc: "2.0",
 				method: "textDocument/publishDiagnostics",
-				params: { uri, diagnostics: computeDiagnostics(this.workspace, uri) },
+				// LSP 3.15: echo the document version. opencode's edit/write path opens the file, gets a
+				// version back, and waits for diagnostics AT that version (client.ts waitForDiagnostics) —
+				// without the version the wait never matches, so the agent never receives any diagnostics.
+				params: { uri, version: this.workspace.getDocument(uri)?.version, diagnostics: computeDiagnostics(this.workspace, uri) },
 			});
 		}, DiagnosticsPusher.DEBOUNCE_MS);
 		this.timers.set(uri, timer);
