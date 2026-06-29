@@ -91,7 +91,7 @@ const getBase = (appId: string): Configuration => ({
   },
   protocols: {
     name: "Volt",
-    schemes: ["opencode"],
+    schemes: ["volt"],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -143,7 +143,7 @@ function getConfig() {
         ...base,
         appId,
         productName: "Volt Beta",
-        protocols: { name: "Volt Beta", schemes: ["opencode"] },
+        protocols: { name: "Volt Beta", schemes: ["volt"] },
         // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
         publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "beta" },
         rpm: { packageName: "opencode-beta" },
@@ -154,7 +154,7 @@ function getConfig() {
         ...base,
         appId,
         productName: "Volt",
-        protocols: { name: "Volt", schemes: ["opencode"] },
+        protocols: { name: "Volt", schemes: ["volt"] },
         // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
         publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "latest" },
         deb: { fpm: [legacyDesktopEntryFpm] },

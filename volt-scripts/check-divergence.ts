@@ -37,6 +37,7 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   // ── GUI panel seam (Volt "IDE" changes-source in the session panel; packages/app has no plugin hook) ──
   "packages/app/src/pages/session.tsx", // "IDE" changes-source option + ideQuery + <VoltIdeHeader/> mount
   "packages/app/package.json", // @opencode-ai/volt-app dependency
+  "packages/app/src/pages/layout/deep-links.ts", // Volt deep-link scheme is volt:// (coexist — don't grab opencode://)
   // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
   "packages/desktop/src/preload/index.ts", // expose window.volt
   "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt.js)
