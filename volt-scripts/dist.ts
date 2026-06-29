@@ -70,4 +70,11 @@ for (const name of ["volt", "volt-lsp-codesys"]) {
   }
 }
 
+// Standalone agent artifact for the VS Code extension's on-demand download — it fetches volt-win-x64.exe
+// from the GitHub release when there's no desktop install. See packages/volt-vscode/src/agent.ts.
+if (process.platform === "win32") {
+  cpSync(resolve(bin, "volt" + ext), resolve(repo, "dist", "volt-win-x64.exe"))
+  console.log("  ✓ agent artifact → dist/volt-win-x64.exe")
+}
+
 console.log(`\n✓ release binaries in ${out}`)

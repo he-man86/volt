@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { existsSync } from "node:fs"
+import { resolveAgent } from "./agent.js"
 import { startLsp } from "./lsp.js"
 import { setBundledCli } from "@opencode-ai/volt-control"
 import { registerCommands } from "./commands.js"
@@ -17,13 +17,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
 	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
 
-	// "Volt: Open Agent" — open the Volt AI agent in an editor terminal. Runs the desktop install's bundled
-	// binary when present, else `volt` on PATH. (The agent binary is too large to ship inside the .vsix.)
+	// "Volt: Open Agent" — open the Volt AI agent in an editor terminal. The binary is resolved (desktop
+	// install → cached download → one-time download); too large to ship inside the .vsix. See agent.ts.
 	context.subscriptions.push(
-		vscode.commands.registerCommand("volt.openAgent", () => {
-			const local = process.env.LOCALAPPDATA
-			const installed = local ? join(local, "Programs", "Volt", "resources", "volt", "bin", "volt.exe") : undefined
-			const exe = installed !== undefined && existsSync(installed) ? installed : "volt"
+		vscode.commands.registerCommand("volt.openAgent", async () => {
+			const exe = await resolveAgent(context)
+			if (exe === undefined) return
 			const cwd = workspaceFolders()[0]?.uri.fsPath
 			vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: exe }).show()
 		}),
