@@ -6,14 +6,37 @@ Volt's releases and carry the minimal PLC / LSP / bridge additions *inside* open
 
 ## Platform — Windows only
 
-Volt targets **Windows only** — the CODESYS / TwinCAT IDEs and the C# bridges are Windows-only. That scopes
-the plan hard and collapses it toward one vehicle:
-- **The Windows NSIS installer is the single vehicle** — bundles the binaries, registers the LSP, and adds
-  `volt` to PATH, so one install gives the desktop GUI *and* the terminal `volt` CLI.
-- **Updates** ride electron-updater (feed → `he-man86/volt`); the bundled CLI updates with the app.
-- **Dropped (opencode's *other-platform* CLI channels, N/A here):** mac/linux builds, the npm `volt` wrapper +
-  postinstall, the `curl | bash` install, brew/AUR, the standalone `volt upgrade`. Volt reuses only opencode's
-  **build pipeline + electron-builder + electron-updater**.
+Volt targets **Windows only** — the CODESYS / TwinCAT IDEs and the C# bridges are Windows-only. Dropped as
+N/A (opencode's *other-platform* CLI channels): mac/linux builds, the npm wrapper + postinstall, `curl | bash`,
+brew/AUR, standalone `volt upgrade`. Volt reuses only opencode's build pipeline + electron-builder +
+electron-updater.
+
+## Delivery — two flows
+
+Volt ships **two ways**; both are Windows-only and both connect to the same IDE bridge.
+
+**1. Desktop — one install with everything.** The Volt electron app (NSIS installer) bundles the agent (our
+opencode build) + the LSP + the CLI and registers the LSP on first run. Auto-updates via electron-updater →
+`he-man86/volt`. **Published: v0.1.0.** For standalone users (no VS Code).
+
+**2. VS Code extension — `volt-vscode`.** Bundles the LSP (`dist/lsp-server.js`) + the CLI (`dist/cli.js`) +
+PLC language support (syntax / VG / drift coloring) + the agent in the editor. Distributed via a **download
+link in the docs** (the `.vsix`) or the VS Code Marketplace. For engineers who edit in VS Code — one extension
+= editing + LSP + sync + agent, no npm, no desktop.
+
+**Shared prerequisite — the bridge** (both flows connect to a *running* one, neither hosts it). The C#
+connector runs **inside CODESYS / TwinCAT**, exposing the IDE over HTTP (8555/8556) — an IDE-side install
+(TwinCAT: a standalone `.exe`; CODESYS: an in-proc lib that CODESYS itself loads). It can be bundled + an
+install assisted, but architecturally it lives with the IDE: the desktop/extension *talk to* it.
+
+```
+                   ┌─────────────────────────────┐
+  Flow 1 (desktop) │ Volt.exe: agent + LSP + CLI │──┐
+                   └─────────────────────────────┘  │   HTTP 8555/8556
+                   ┌─────────────────────────────┐  ├──▶  bridge  ──▶  CODESYS / TwinCAT IDE
+  Flow 2 (vscode)  │ volt-vscode: LSP+CLI+agent  │──┘   (IDE-side install, shared)
+                   └─────────────────────────────┘
+```
 
 ## What opencode already does (and we reuse)
 
