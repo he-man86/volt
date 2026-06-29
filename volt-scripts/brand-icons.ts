@@ -15,7 +15,7 @@ const src = resolve(repo, "packages/volt-app/assets")
 const dst = resolve(repo, "packages/desktop/resources/icons")
 
 const ico = resolve(src, "volt-icon.ico")
-const png = resolve(src, "volt-brand.png")
+const png = resolve(src, "volt-icon-mark.png") // the square bolt MARK, not volt-brand.png (the full bolt+wordmark lockup)
 if (!existsSync(ico) || !existsSync(png)) {
   console.error(`✗ Volt brand assets missing: ${ico} / ${png}`)
   process.exit(1)
