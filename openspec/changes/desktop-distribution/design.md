@@ -48,9 +48,18 @@ it is shipping our own product, not depending on a third party — and it stays 
 wrap opencode, never edit its source). The cost is install size (our opencode binary rides along); the win is
 one Volt-branded install with no external prerequisite.
 
-**Updates:** opencode's desktop already auto-updates via `electron-updater` (GitHub release feed in
-`electron-builder.config.ts`). One installer → that one updater refreshes the app *and* the bundled CLI/LSP
-together. No new update machinery. (CLI-only npm/curl installs self-update via their own channel.)
+**Updates (reuse opencode's, re-point the feed):**
+- opencode already has both halves: the **desktop** has an updater controller (`main/updater-controller.ts`,
+  electron-updater) fed by a GitHub release feed; the **CLI** has `opencode upgrade`, which is *method-aware*
+  (detects npm / brew / curl-binary via the `installation/` module and upgrades the right way).
+- **⚠ Critical re-point:** the desktop feed currently targets `anomalyco/opencode` (publish block in
+  `electron-builder.config.ts`). It MUST point at **Volt's own release repo**, or the app would auto-update
+  itself *back to stock opencode* and silently undo the fork. This is the one real change to update machinery.
+- **One installer → one updater:** electron-updater replaces the whole app, including `resources/volt/bin`, so
+  the bundled `volt` + LSP update *with* the app. No separate CLI updater needed for the primary path (the
+  install dir must be stable so the PATH entry keeps resolving across updates).
+- **CLI-only (secondary):** an `npm i -g volt` / `curl` install self-updates via its own channel (`npm update`,
+  or a thin `volt upgrade` reusing opencode's method-aware `installation/` logic, pointed at Volt's releases).
 
 ## Runtime — how the pieces talk
 

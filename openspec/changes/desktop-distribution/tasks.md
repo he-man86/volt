@@ -20,7 +20,7 @@ See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` 
 ### One installer (primary: desktop + CLI)
 - [ ] 2.5 Bundle `dist/volt/` via electron-builder `extraResources` + put `volt` on PATH (NSIS)
 - [ ] 2.6 Register LSP + tool in the shared global config on startup (idempotent); point `volt-control`'s `setBundledCli` at the bundled `volt` — collapse the `volt.js` node bundle onto the one exe
-- [ ] 2.7 Verify the existing `electron-updater` refreshes the bundled CLI/LSP, not just the app
+- [ ] 2.7 ⚠ Re-point the `electron-updater` feed from `anomalyco/opencode` to **Volt's release repo** (else auto-update reverts the app to stock opencode); verify it refreshes the bundled CLI/LSP, not just the app, and that the install dir is stable so the PATH entry survives updates
 
 ### CLI-only (secondary, later — headless users)
 - [ ] 2.8 npm `volt` wrapper + per-platform binaries + curl install script (mirror opencode-ai)
@@ -29,4 +29,4 @@ See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` 
 - [ ] 2.9 Remove the `volt setup` CLI verb — keep `setup()` as the function the installer/app calls (was the cause of the duplicate-`volt`-tool collision)
 - [ ] 2.10 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
 - [ ] 2.11 Volt branding — `home_logo` TUI plugin + replace `opencode.ai` constants + Volt Sentry DSN
-- [ ] 2.12 Code-signing (Windows certs) · updater feed · signed release
+- [ ] 2.12 Code-signing (Windows certs) · signed release
