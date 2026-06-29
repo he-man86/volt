@@ -32,4 +32,4 @@ $zip = "$repo\dist\Volt-Bridge-Connector.zip"
 Remove-Item $zip -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path "$stage\*" -DestinationPath $zip
 Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
-Write-Output ("OK -> {0} ({1:N0} KB)" -f $zip, ((Get-Item $zip).Length / 1KB))
+Write-Output ("OK -> {0} ({1:N1} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
