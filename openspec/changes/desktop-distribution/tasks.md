@@ -12,7 +12,8 @@ separate installs, like opencode. The only real Volt addition is one postinstall
 ### Foundations
 - [x] 2.1 `volt` is one entry — bare → agent, `volt <verb>` → PLC (dispatcher in volt-git `bin.ts`)
 - [x] 2.2 `volt-scripts/dist.ts` — local dev build of the binaries (not the distribution path)
-- [ ] 2.3 `volt` binary = our opencode build + the PLC dispatcher (validate: one binary in-process, else the wrapper carries both and the dispatcher spawns the sibling)
+- [x] 2.3 VALIDATED: `volt` is **one in-process binary** — dispatcher else-branch dynamic-imports opencode's `index.ts` (runs + `process.exit`s); `bun --compile` bundles it. Test passed (`volt --version` ran opencode in-process; `volt status` stayed in the dispatcher).
+- [ ] 2.3b Convert the dispatcher from `spawnSync("opencode")` to the in-process `import()`; build the combined binary with `--conditions=browser` (resolve the import via dep/relative path)
 
 ### CLI distribution (mirror `opencode-ai`)
 - [ ] 2.4 Mirror `build.ts` → per-platform `volt` binaries → Volt GitHub release

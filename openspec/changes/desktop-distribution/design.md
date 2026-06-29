@@ -53,10 +53,14 @@ repo** (else it self-updates back to stock opencode); bundle + register the LSP 
 
 ## Key decisions
 
-1. **`volt` = our opencode build + PLC dispatcher, packaged exactly like `opencode-ai`.** It *is* our
-   opencode, so there is no external opencode dependency. Additive — volt-git wraps opencode's entry, never
-   edits it. *(Open build question: one binary if volt-git can invoke opencode's CLI entry in-process; else
-   the wrapper carries two sibling binaries and the dispatcher spawns opencode. Validate when building 2.x.)*
+1. **`volt` = our opencode build + PLC dispatcher, ONE in-process binary** (validated). The dispatcher's
+   else-branch does a dynamic `import()` of opencode's `src/index.ts`, which reads `process.argv` at module
+   top, runs the CLI, and `process.exit()`s. `bun --compile` bundles opencode in, so `volt` is one
+   self-contained binary (our opencode + the PLC verbs) — no spawn, no external opencode. Additive: volt-git
+   imports opencode's entry, never edits it. *Impl notes:* resolve the import via an `opencode` dep or a
+   relative path; the volt build must pass opencode's `--conditions=browser`; the binary is opencode-sized
+   (expected). One leak: opencode's yargs `scriptName` is `"opencode"`, so `--help` text still says opencode
+   until branding (2.14).
 2. **Mirror, don't invent.** Reuse `build.ts`, `publish.ts`, the `install` script, `electron-updater`,
    `opencode upgrade`. Parameterize for Volt; carry PLC/LSP/bridge inside those shapes.
 3. **⚠ Re-point every feed to Volt's GitHub repo** (npm tag, install URL, brew/AUR source, electron-updater).
