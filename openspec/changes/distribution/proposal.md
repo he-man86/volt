@@ -28,9 +28,9 @@ whole Volt delta is small. See `design.md` for the full architecture.
 
 ## Impact
 
-Additive: `volt` is one binary built entirely from this repo (no external opencode). The **only new upstream
-seam** beyond the existing branding/IPC ones is `electron-builder.config.ts` (re-point the updater feed).
-Everything else reuses opencode's `build.ts` / `publish.ts` / `install` / electron-updater verbatim, renamed
-for Volt — keeping the upstream merge easy.
+Additive: `volt` is one binary built entirely from this repo (no external opencode). **No new upstream
+seams** — the updater re-point edits the *already-seamed* `electron-builder.config.ts`; the CLI/LSP/PLC
+additions are all fork-owned (`packages/volt-*`). Everything else reuses opencode's `build.ts` / `publish.ts`
+/ `install` / electron-updater verbatim, renamed for Volt — keeping the upstream merge easy.
 
 Inputs needed: a Volt GitHub release repo, Windows signing certs.
