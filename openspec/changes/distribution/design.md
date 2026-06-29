@@ -24,18 +24,25 @@ PLC language support (syntax / VG / drift coloring) + the agent in the editor. D
 link in the docs** (the `.vsix`) or the VS Code Marketplace. For engineers who edit in VS Code — one extension
 = editing + LSP + sync + agent, no npm, no desktop.
 
-**Shared prerequisite — the connector** (both flows connect to it over HTTP, neither hosts it). It's a
-**background gateway** running on Windows that connects to the live IDE and exposes it over a small HTTP wire
-(8555/8556) — CODESYS via an in-proc lib, TwinCAT via a standalone background `.exe`. It's installed and runs
-**separately** from the desktop app and the extension; both just *talk to* it.
+**Shared prerequisite — the connector.** A **background gateway** on Windows that connects to the live IDE and
+exposes it over a small HTTP wire (8555/8556) — CODESYS via an in-proc lib, TwinCAT via a standalone background
+`.exe`. It has its own **standalone installer** (the one shared artifact); deployment differs per flow:
+- **Desktop** *bundles + deploys + manages* it — the NSIS install chains the connector installer, so **one
+  install sets up everything** (best UX), and the desktop re-deploys it on app update.
+- **Extension** *connects to it* but can't host it (a VS Code extension can't inject the CODESYS in-proc lib,
+  nor own a persistent service) — extension users run the **same standalone connector installer** once
+  (download link in the docs).
 
 ```
-                   ┌─────────────────────────────┐
-  Flow 1 (desktop) │ Volt.exe: agent + LSP + CLI │──┐
-                   └─────────────────────────────┘  │   HTTP 8555/8556
-                   ┌─────────────────────────────┐  ├──▶  connector  ──▶  CODESYS / TwinCAT
-  Flow 2 (vscode)  │ volt-vscode: LSP+CLI+agent  │──┘   (background Windows gateway, shared)
-                   └─────────────────────────────┘
+                        ┌────────────────────────────┐
+  Desktop install ─────▶│ bundles + deploys + updates │──┐
+                        │ the connector               │  │   HTTP 8555/8556
+                        └────────────────────────────┘  ▼
+                                             connector (background gateway) ──▶ CODESYS / TwinCAT
+                        ┌────────────────────────────┐  ▲
+  VS Code extension ───▶│ connects; user runs the     │──┘
+                        │ connector installer (docs)   │
+                        └────────────────────────────┘
 ```
 
 ## What opencode already does (and we reuse)
@@ -87,6 +94,11 @@ on `anomalyco/opencode`). Beta is unused — not split into a separate repo (ope
 
 - **CLI:** `volt upgrade` reuses opencode's method-aware `installation/` logic, pointed at `he-man86/volt`.
 - **Desktop:** electron-updater feed → `he-man86/volt` (done, 2.9). ⚠ This re-point is the load-bearing change.
+- **Connector:** rides the **desktop** update (the desktop re-deploys it on app update — one updater for desktop
+  users); **extension** users self-update it from `he-man86/volt` (its own lane) or re-run the installer. The
+  **CODESYS in-proc lib can't hot-swap** → needs a "restart CODESYS to finish" prompt either way.
+- **Compatibility:** all three share the name-keyed HTTP wire → add a `protocolVersion` to the connector's
+  `/health`, checked on connect; on mismatch the flow nudges the lagging side to update.
 
 ## Key decisions
 

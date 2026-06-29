@@ -30,7 +30,9 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 
 ### Shared
 - [x] 2.14 Removed the `volt setup` CLI verb; `setup()` is the install-time registration function
-- [ ] 2.15 Connector — a **background Windows gateway** (CODESYS in-proc lib / TwinCAT standalone `.exe`) serving the live IDE over HTTP; installed + run separately; both flows connect to it
+- [ ] 2.15 Connector **standalone installer** — background Windows gateway (CODESYS in-proc lib / TwinCAT standalone `.exe`), HTTP 8555/8556
+- [ ] 2.15b Desktop **bundles + chains** the connector installer + re-deploys it on app update (one-install UX)
+- [ ] 2.15c Connector **self-update** lane (extension users) + `protocolVersion` on `/health` (compat gate) + CODESYS "restart CODESYS" prompt
 - [ ] 2.16 Branding — `home_logo` plugin committed (NEEDS visual verify + bundling into the global config for shipped) · `scriptName`/`opencode.ai` constants remain
 
 ### Dropped / deferred
