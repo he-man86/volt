@@ -3,30 +3,33 @@
 - [x] 1.1 Volt logo (`packages/ui/logo.tsx`)
 - [x] 1.2 App name (`packages/desktop`)
 
-## 2. Distribution
+## 2. Distribution — mirror opencode
 
-See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` → `dist/volt/`. `volt` is
-**self-contained** (bundles our own Volt-branded opencode — no external dependency). PRIMARY = **one installer**
-(desktop + CLI), auto-updated via opencode's `electron-updater`; CLI-only (npm/curl) is a later secondary.
+See `design.md`. **Reuse opencode's machinery** (`build.ts`, `publish.ts`, root `install`, electron-updater,
+`opencode upgrade`), parameterized for Volt and pointed at **Volt's release repo**. CLI and desktop are
+separate installs, like opencode. The only real Volt addition is one postinstall line registering the LSP.
 
-### Build (done)
-- [x] 2.1 Release build script (`volt-scripts/dist.ts`) — `volt` + `volt-lsp-codesys` + bridges → `dist/volt/`
-- [x] 2.2 `volt` is one entry point — bare → agent, `volt <verb>` → PLC CLI (dispatcher in volt-git `bin.ts`)
+### Foundations
+- [x] 2.1 `volt` is one entry — bare → agent, `volt <verb>` → PLC (dispatcher in volt-git `bin.ts`)
+- [x] 2.2 `volt-scripts/dist.ts` — local dev build of the binaries (not the distribution path)
+- [ ] 2.3 `volt` binary = our opencode build + the PLC dispatcher (validate: one binary in-process, else the wrapper carries both and the dispatcher spawns the sibling)
 
-### Self-contained `volt` (no external opencode)
-- [ ] 2.3 Add our Volt-branded opencode binary to `dist/volt/bin/` (build via opencode's `build.ts`)
-- [ ] 2.4 Dispatcher spawns the **bundled** opencode (resolve beside the volt binary, not PATH)
+### CLI distribution (mirror `opencode-ai`)
+- [ ] 2.4 Mirror `build.ts` → per-platform `volt` binaries → Volt GitHub release
+- [ ] 2.5 Mirror `publish.ts` → npm `volt` wrapper (bin, postinstall, `optionalDependencies` per-platform)
+- [ ] 2.6 postinstall = opencode's binary-link logic **+ one line: register the LSP** in `~/.config/opencode/`
+- [ ] 2.7 Mirror the `install` curl script (Volt release URL, modifies PATH)
+- [ ] 2.8 (later) brew formula / AUR PKGBUILD — mirror `publish.ts`, pointed at Volt's repo
 
-### One installer (primary: desktop + CLI)
-- [ ] 2.5 Bundle `dist/volt/` via electron-builder `extraResources` + put `volt` on PATH (NSIS)
-- [ ] 2.6 Register LSP + tool in the shared global config on startup (idempotent); point `volt-control`'s `setBundledCli` at the bundled `volt` — collapse the `volt.js` node bundle onto the one exe
-- [ ] 2.7 ⚠ Re-point the `electron-updater` feed from `anomalyco/opencode` to **Volt's release repo** (else auto-update reverts the app to stock opencode); verify it refreshes the bundled CLI/LSP, not just the app, and that the install dir is stable so the PATH entry survives updates
+### Desktop (mirror opencode)
+- [ ] 2.9 ⚠ Re-point the `electron-updater` feed `anomalyco/opencode` → **Volt's repo** (else it self-updates back to stock opencode)
+- [ ] 2.10 Bundle + register the LSP for the embedded opencode (startup); point `volt-control`'s `setBundledCli` at the bundled `volt`
 
-### CLI-only (secondary, later — headless users)
-- [ ] 2.8 npm `volt` wrapper + per-platform binaries + curl install script (mirror opencode-ai)
+### Updates (mirror opencode)
+- [ ] 2.11 `volt upgrade` — reuse opencode's method-aware `installation/` logic, pointed at Volt's releases
 
 ### Shared
-- [ ] 2.9 Remove the `volt setup` CLI verb — keep `setup()` as the function the installer/app calls (was the cause of the duplicate-`volt`-tool collision)
-- [ ] 2.10 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
-- [ ] 2.11 Volt branding — `home_logo` TUI plugin + replace `opencode.ai` constants + Volt Sentry DSN
-- [ ] 2.12 Code-signing (Windows certs) · signed release
+- [ ] 2.12 Remove the `volt setup` CLI verb — LSP registration moves to postinstall (CLI) / startup (desktop)
+- [ ] 2.13 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
+- [ ] 2.14 Volt branding — `home_logo` TUI plugin + replace `opencode.ai` constants + Volt Sentry DSN
+- [ ] 2.15 Code-signing (Windows certs) · signed release
