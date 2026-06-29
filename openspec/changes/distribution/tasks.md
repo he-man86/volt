@@ -24,7 +24,7 @@ separate installs, like opencode. The only real Volt addition is one postinstall
 - [ ] 2.8 (later) brew formula / AUR PKGBUILD — mirror `publish.ts`, pointed at Volt's repo
 
 ### Desktop (mirror opencode)
-- [ ] 2.9 ⚠ Re-point the `electron-updater` feed `anomalyco/opencode` → **Volt's repo** (else it self-updates back to stock opencode)
+- [x] 2.9 Re-pointed the `electron-updater` feed (beta + prod) → `he-man86/volt` (no longer anomalyco/opencode)
 - [ ] 2.10 Bundle + register the LSP for the embedded opencode (startup); point `volt-control`'s `setBundledCli` at the bundled `volt`
 
 ### Updates (mirror opencode)

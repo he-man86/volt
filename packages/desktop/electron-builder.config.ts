@@ -125,7 +125,8 @@ function getConfig() {
         appId,
         productName: "Volt Beta",
         protocols: { name: "Volt Beta", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
+        // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
+        publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "beta" },
         rpm: { packageName: "opencode-beta" },
       }
     }
@@ -135,7 +136,8 @@ function getConfig() {
         appId,
         productName: "Volt",
         protocols: { name: "Volt", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
+        // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
+        publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "latest" },
         deb: { fpm: [legacyDesktopEntryFpm] },
         rpm: { packageName: "opencode", fpm: [legacyDesktopEntryFpm] },
       }
