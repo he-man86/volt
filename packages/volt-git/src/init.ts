@@ -11,6 +11,7 @@ import type { Remote } from "./bridge/types.js";
 import { saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo, commitAll } from "./git/plumbing.js";
 import { writeWorkspaceScaffold } from "./scaffold.js";
+import { setup } from "./setup.js";
 import { pull } from "./sync/pull.js";
 import { ensureGitignore } from "./workspace/files.js";
 
@@ -42,6 +43,10 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName, agentVersion());
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
 
+	// Wire the volt LSP + `volt` tool into opencode's global config so the agent gets PLC intelligence in
+	// this and every project (best-effort — a failure must not block init).
+	trySetup();
+
 	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
 
 	// Baseline commit: when we created the repo, commit the scaffold + corpus so init leaves a clean
@@ -67,6 +72,14 @@ function agentVersion(): string {
 function vendorFor(platform: string): DetectedVendor {
 	const p = platform.toLowerCase();
 	return p.includes("twincat") || p.includes("beckhoff") ? "twincat" : "codesys";
+}
+
+function trySetup(): void {
+	try {
+		setup();
+	} catch (err) {
+		console.warn(`warning: could not wire the volt LSP/tool into opencode: ${err instanceof Error ? err.message : String(err)}`);
+	}
 }
 
 async function tryInstallCorpus(root: string, vendor: DetectedVendor): Promise<number> {
