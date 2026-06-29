@@ -35,7 +35,7 @@ namespace Volt.Bridge.Connector
             _icon = new NotifyIcon
             {
                 Visible = true,
-                Text = "Volt Connector",
+                Text = "Volt Bridge Connector",
                 Icon = StatusIcons.For(BridgeStatus.Unknown),
                 ContextMenuStrip = BuildMenu(),
             };
@@ -123,7 +123,7 @@ namespace Volt.Bridge.Connector
             var enabled = _providers.Where(p => p.Enabled).Select(p => _status[p.Id]).ToList();
             var agg = enabled.Count == 0 ? BridgeStatus.Unknown : enabled.OrderByDescending(Severity).First();
             _icon.Icon = StatusIcons.For(agg);
-            _icon.Text = "Volt Connector — " + string.Join(", ",
+            _icon.Text = "Volt Bridge Connector — " + string.Join(", ",
                 _providers.Where(p => p.Enabled).Select(p => $"{p.DisplayName}: {HealthProbe.Describe(_status[p.Id])}"));
             if (_icon.Text.Length > 63) _icon.Text = _icon.Text.Substring(0, 60) + "…"; // NotifyIcon.Text limit
         }
@@ -142,7 +142,7 @@ namespace Volt.Bridge.Connector
         private ContextMenuStrip BuildMenu()
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add(new ToolStripMenuItem("Volt Connector") { Enabled = false });
+            menu.Items.Add(new ToolStripMenuItem("Volt Bridge Connector") { Enabled = false });
             menu.Items.Add(new ToolStripSeparator());
 
             foreach (var p in _providers)
