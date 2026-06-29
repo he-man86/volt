@@ -38,7 +38,9 @@ function resolveBin(envVar: string, bundledName: string, devPath: string): strin
 	return existsSync(sibling) ? sibling : devPath
 }
 
-/** The `volt` custom tool, self-contained with VOLT_BIN baked in (the agent shells the CLI through it). */
+/** The `volt` custom tool, self-contained with VOLT_BIN baked in (the agent shells the CLI through it).
+ *  Twin of the repo's own dev tool `.opencode/tool/volt.ts` — same behaviour; keep the two in sync (the
+ *  generated copy must stay self-contained, so they can't share a module). */
 function toolSource(voltBin: string): string {
 	return `import { tool } from "@opencode-ai/plugin"
 import { execFile } from "node:child_process"
