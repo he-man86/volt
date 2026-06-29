@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@opencode-ai/volt-lsp-codesys": "workspace:*",
+    "opencode": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -3,7 +3,6 @@
  * volt-git CLI entry — init · pull · push · status · build · log · show · merge. Resolves the bridge port from --port / env /
  * the workspace binding (8555 default), dispatches, renders the result, sets the exit code.
  */
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build } from "./build.js";
@@ -236,15 +235,6 @@ async function main(): Promise<number> {
 			console.log(USAGE);
 			return args.verb === undefined ? 0 : 1;
 	}
-}
-
-// `volt` is the single entry point: PLC verbs run this CLI; bare `volt` and anything else (run, auth,
-// debug, …) delegate to the opencode agent. So `volt` opens the agent and `volt pull` syncs with the IDE.
-const VOLT_VERBS = new Set(["init", "pull", "push", "build", "status", "log", "diff", "show", "merge", "setup", "help"]);
-const firstArg = process.argv[2];
-if (firstArg === undefined || !VOLT_VERBS.has(firstArg)) {
-	const r = spawnSync("opencode", process.argv.slice(2), { stdio: "inherit" });
-	process.exit(r.status ?? 0);
 }
 
 main()
