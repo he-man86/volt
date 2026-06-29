@@ -5,15 +5,24 @@
 
 ## 2. Distribution
 
-One build command → every binary: `bun volt-scripts/dist.ts` → `dist/volt/` (`bin/volt`, `bin/volt-lsp-codesys`, `bridge/`).
+See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` → `dist/volt/`. CLI and desktop
+are **independent installs that coexist** (mirrors opencode), sharing one idempotent `~/.config/opencode/`.
 
-- [x] 2.0 Release build script (`volt-scripts/dist.ts`) — compiles `volt` + `volt-lsp-codesys`, builds the bridges, into `dist/volt/`
-- [x] 2.1 `volt` is one entry point — bare `volt` opens the agent, `volt <verb>` runs the PLC CLI (dispatcher in volt-git `bin.ts`)
-- [ ] 2.2 Installer bundles `dist/volt/` via electron-builder `extraResources`
-- [ ] 2.3 Installer puts `volt[.exe]` on PATH (NSIS) — so `volt pull`/`volt push` work from any project
-- [ ] 2.4 App/installer registers the LSP in the global opencode config (points at the bundled `volt-lsp-codesys`); **removes** the `volt setup` CLI verb — registration is the installer's job, not a CLI command (the cause of the duplicate-`volt`-tool collision)
-- [ ] 2.5 Bridge connector — build the C# bridges (`build:all`) + install into the IDE (Beckhoff standalone exe / CODESYS scripting dir)
-- [ ] 2.6 Replace remaining `opencode.ai` constants + wire the Volt Sentry DSN
-- [ ] 2.7 Code-signing (Windows certs)
-- [ ] 2.8 Updater feed
-- [ ] 2.9 Signed release
+### Build (done)
+- [x] 2.1 Release build script (`volt-scripts/dist.ts`) — `volt` + `volt-lsp-codesys` + bridges → `dist/volt/`
+- [x] 2.2 `volt` is one entry point — bare → agent, `volt <verb>` → PLC CLI (dispatcher in volt-git `bin.ts`)
+
+### Desktop install (electron)
+- [ ] 2.3 Bundle `dist/volt/` via electron-builder `extraResources`
+- [ ] 2.4 App registers LSP + tool in the shared global config on startup (idempotent); point `volt-control`'s `setBundledCli` at the bundled `volt` binary — collapses the `volt.js` node bundle onto the one compiled exe
+
+### CLI install (mirror opencode — independent of the desktop)
+- [ ] 2.5 npm `volt` wrapper + per-platform binaries (`optionalDependencies`, per opencode `publish.ts`)
+- [ ] 2.6 curl install script that modifies PATH — mirror opencode's `install`
+- [ ] 2.7 Decide the opencode dependency for CLI-only: (a) opencode as a peer install vs (b) `volt` = Volt-branded opencode with PLC verbs built in (one binary, no delegation)
+
+### Shared
+- [ ] 2.8 Remove the `volt setup` CLI verb — keep `setup()` as the function both installers call (registration is install-time, not a CLI command; was the cause of the duplicate-`volt`-tool collision)
+- [ ] 2.9 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
+- [ ] 2.10 Replace remaining `opencode.ai` constants + wire the Volt Sentry DSN
+- [ ] 2.11 Code-signing (Windows certs) · Updater feed · Signed release
