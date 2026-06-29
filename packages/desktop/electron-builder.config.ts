@@ -59,6 +59,12 @@ const getBase = (appId: string): Configuration => ({
       to: "native/",
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
     },
+    {
+      // Volt: bundle the LSP + CLI binaries so a fresh install carries PLC intelligence without a
+      // hand-written global config. Build them first: `bun volt-scripts/dist.ts` → dist/volt/bin.
+      from: "../../dist/volt/bin",
+      to: "volt/bin",
+    },
   ],
   mac: {
     category: "public.app-category.developer-tools",
