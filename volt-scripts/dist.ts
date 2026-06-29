@@ -58,11 +58,17 @@ if (!skipBridge) {
   const built =
     process.platform === "win32" &&
     run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-bridge/build-bridges.ps1"])
+  const priorConnector = resolve(repo, "packages/volt-bridge/dist/Connector")
   if (built) {
-    cpSync(resolve(repo, "packages/volt-bridge/dist/Connector"), resolve(out, "connector"), { recursive: true })
+    cpSync(priorConnector, resolve(out, "connector"), { recursive: true })
     console.log("  ✓ connector bundled → dist/volt/connector")
+  } else if (existsSync(resolve(priorConnector, "VoltConnector.exe"))) {
+    // The connector is channel-neutral (C# bridge — no version/channel embedded), so a prior bundle is safe to
+    // reuse when the build is skipped/fails (e.g. dotnet not resolvable). Beats a missing-connector installer.
+    cpSync(priorConnector, resolve(out, "connector"), { recursive: true })
+    console.warn("⚠ connector build skipped/failed — reused the prior bundle (channel-neutral; CI rebuilds fresh)")
   } else {
-    console.warn("⚠ bridge/connector build skipped or failed (dotnet missing? non-Windows?) — TS binaries still in dist/volt/bin")
+    console.warn("⚠ bridge/connector build skipped or failed (dotnet missing? non-Windows?) — TS binaries only")
   }
 }
 

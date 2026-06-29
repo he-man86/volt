@@ -15,14 +15,18 @@ param(
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 $DIST = "$ROOT\dist"
-# Resolve dotnet: PATH first, then the user-dir SDK (dotnet-install default), then the system path.
-$DOTNET = (Get-Command dotnet.exe -ErrorAction SilentlyContinue).Source
-if (-not $DOTNET) {
-    foreach ($p in @("$env:USERPROFILE\.dotnet\dotnet.exe", "C:\Program Files\dotnet\dotnet.exe")) {
-        if (Test-Path $p) { $DOTNET = $p; break }
-    }
+# Resolve a dotnet that actually has an SDK. The PATH entry may be the x86 stub (no x64 SDK), so validate each
+# candidate with --list-sdks and fall back to the user-dir SDK (dotnet-install default) / the system path.
+function Test-DotnetSdk($exe) {
+    if (-not $exe -or -not (Test-Path $exe)) { return $false }
+    $sdks = & $exe --list-sdks 2>$null
+    return ($LASTEXITCODE -eq 0 -and $sdks)
 }
-if (-not $DOTNET) { Write-Output "  dotnet not found - install the .NET 8 SDK"; exit 1 }
+$DOTNET = $null
+foreach ($cand in @((Get-Command dotnet.exe -ErrorAction SilentlyContinue).Source, "$env:USERPROFILE\.dotnet\dotnet.exe", "C:\Program Files\dotnet\dotnet.exe")) {
+    if (Test-DotnetSdk $cand) { $DOTNET = $cand; break }
+}
+if (-not $DOTNET) { Write-Output "  dotnet with an SDK not found - install the .NET 8 SDK"; exit 1 }
 
 Write-Output "========================================"
 Write-Output " Volt Bridges Build"
