@@ -28,16 +28,17 @@ import { resolve } from "node:path"
 const repoRoot = resolve(import.meta.dirname, "..")
 const args = process.argv.slice(2)
 
-// Optional first arg: the project directory to open. Point dev-opencode at a REAL PLC project to watch
-// the volt LSP attach to its .st files — there the LSP comes from the GLOBAL config that `volt setup`
-// writes. With no dir, default to the repo root, where `.opencode`'s repo-relative LSP command resolves.
+// Optional first arg: the project directory to open. Point dev-opencode at a REAL PLC project (one you ran
+// `volt init` in) to watch the volt LSP attach to its .st files — there the LSP comes from that project's
+// own `.opencode/` (written by `volt init`). With no dir, default to the repo root, where `.opencode`'s
+// repo-relative LSP command resolves.
 const hasDir = args[0] !== undefined && !args[0].startsWith("-") && existsSync(args[0])
 const projectDir = hasDir ? resolve(args[0]!) : repoRoot
 const passthrough = hasDir ? args.slice(1) : args
 
 // Opening the repo itself uses the repo-relative dist LSP — guard it's built, else opencode starts fine
-// but the LSP silently never attaches. An external PLC project uses the global (volt setup) binary, so
-// this guard doesn't apply there.
+// but the LSP silently never attaches. An external PLC project uses its own `.opencode/` (written by
+// `volt init`), so this guard doesn't apply there.
 const lspBin = resolve(repoRoot, "packages/volt-lsp-codesys/dist/bin.js")
 if (projectDir === repoRoot && !existsSync(lspBin)) {
   console.error(`volt LSP not built: ${lspBin}\nRun: bun --cwd packages/volt-lsp-codesys run build`)

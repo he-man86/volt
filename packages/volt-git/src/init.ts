@@ -10,6 +10,7 @@ import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-codesy
 import type { Remote } from "./bridge/types.js";
 import { saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo, commitAll } from "./git/plumbing.js";
+import { writeOpencodeConfig } from "./opencode-config.js";
 import { writeWorkspaceScaffold } from "./scaffold.js";
 import { pull } from "./sync/pull.js";
 import { ensureGitignore } from "./workspace/files.js";
@@ -41,6 +42,10 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 
 	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName, agentVersion());
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
+
+	// Wire the agent's PLC intelligence into THIS project's `.opencode/` (LSP + `volt` tool) — project-local,
+	// so it never touches the global config stock opencode shares. Gitignored (paths are machine-specific).
+	writeOpencodeConfig(root);
 
 	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
 

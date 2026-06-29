@@ -10,7 +10,6 @@ import { app, BrowserWindow, ipcMain } from "electron"
 import { fileURLToPath } from "node:url"
 import { dirname } from "node:path"
 import { registerVoltIpcHandlers } from "@opencode-ai/volt-control" // Volt seam — see CLAUDE.md "Fork surface"
-import { setup as registerVoltLsp } from "@opencode-ai/volt-git/setup" // Volt seam — register the bundled LSP on startup
 
 import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
@@ -280,18 +279,13 @@ const main = Effect.gen(function* () {
   } catch (e) {
     logger.log("volt ipc registration failed", { error: String(e) })
   }
-  // Volt: register the bundled LSP (+ tool) in the global opencode config so a fresh install's embedded
-  // agent gets PLC intelligence — production only (in dev, the global config / dev.ts handles it).
+  // Volt: point env at the bundled binaries so an in-process `volt init` (via volt-control) wires the LSP +
+  // tool into the PROJECT's .opencode/ — project-local, never the global config stock opencode shares.
   if (app.isPackaged) {
-    try {
-      const exe = process.platform === "win32" ? ".exe" : ""
-      const binDir = join(process.resourcesPath, "volt", "bin")
-      process.env.VOLT_LSP_BIN = join(binDir, "volt-lsp-codesys" + exe)
-      process.env.VOLT_BIN = join(binDir, "volt" + exe)
-      registerVoltLsp()
-    } catch (e) {
-      logger.log("volt lsp registration failed", { error: String(e) })
-    }
+    const exe = process.platform === "win32" ? ".exe" : ""
+    const binDir = join(process.resourcesPath, "volt", "bin")
+    process.env.VOLT_LSP_BIN = join(binDir, "volt-lsp-codesys" + exe)
+    process.env.VOLT_BIN = join(binDir, "volt" + exe)
   }
   void updater.start()
   const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
