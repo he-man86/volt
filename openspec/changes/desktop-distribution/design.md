@@ -24,31 +24,33 @@ bun volt-scripts/dist.ts
    └─ bridge/                          ← dotnet build:all (volt-bridge)
 ```
 
-## Install — two independent paths that coexist (mirrors opencode)
+## Install — one Volt installer; self-contained (zero external opencode)
 
-opencode ships the **CLI** via package managers (`npm i -g opencode-ai` with per-platform binaries as
-`optionalDependencies`; `curl … | bash` that modifies PATH; brew/AUR) and the **desktop** as a separate
-Electron installer. Volt mirrors this: a user installs **either or both**; they share one global config.
+`volt` is built **entirely from this repo** and bundles **our own Volt-branded opencode**, so it depends on
+no externally-installed opencode. Bare `volt` spawns the *bundled* opencode (resolved beside the binary),
+never a system one. One installer ships everything; CLI-only stays a later option for headless users.
 
 ```
-CLI install  (mirror opencode: curl | npm | brew)        DESKTOP install  (electron installer)
-  curl -fsSL https://volt.dev/install | bash               Volt-Setup.exe
-     or  npm i -g volt                                         │ installs the app
-        │ per-platform volt + volt-lsp-codesys                 │ bundles the same binaries (extraResources)
-        ├─▶ PATH += install dir                                └─▶ register LSP/tool   (app startup)
-        └─▶ register LSP/tool in ~/.config/opencode/                  in ~/.config/opencode/
-                       │                                                    │
-                       └──────────────►  ~/.config/opencode/  ◄────────────┘
-                                         shared · idempotent merge · either/both write it
-   bridge/ → IDE  (Beckhoff exe · CODESYS scripting dir) — ships with whichever install touches the IDE
+PRIMARY — one Volt installer (desktop + CLI together)
+   Volt-Setup.exe
+     ├ installs the desktop app          (embeds our opencode + the PLC panel)
+     ├ installs the CLI on PATH:  volt + opencode(ours) + volt-lsp-codesys   ← all from dist/volt/
+     ├ registers LSP + tool in ~/.config/opencode/     (idempotent, on app/CLI startup)
+     ├ installs the bridge connector into the IDE      (Beckhoff exe · CODESYS scripting dir)
+     └ auto-updates via electron-updater               (REUSED from opencode — already configured)
+
+SECONDARY (later) — CLI-only for headless/server users
+   npm i -g volt   /   curl … | bash      (per-platform binaries, mirrors opencode-ai's publish.ts)
 ```
 
-**opencode dependency (open decision).** Bare `volt` delegates to `opencode`, so the *CLI-only* install
-needs opencode on the machine. Two options:
-- **(a) peer install** — `volt` requires opencode (the user installs it via opencode's own channel). Lazy,
-  matches today's dispatcher. The desktop already embeds opencode, so only the CLI-only case is affected.
-- **(b) `volt` *is* opencode** — a Volt-branded opencode build with the PLC verbs built in. One binary, no
-  delegation, no dependency. More build work; the clean end state.
+**Self-contained, not "relying on opencode":** our opencode build *is* part of this repo (the fork). Bundling
+it is shipping our own product, not depending on a third party — and it stays additive (we build + bundle +
+wrap opencode, never edit its source). The cost is install size (our opencode binary rides along); the win is
+one Volt-branded install with no external prerequisite.
+
+**Updates:** opencode's desktop already auto-updates via `electron-updater` (GitHub release feed in
+`electron-builder.config.ts`). One installer → that one updater refreshes the app *and* the bundled CLI/LSP
+together. No new update machinery. (CLI-only npm/curl installs self-update via their own channel.)
 
 ## Runtime — how the pieces talk
 
@@ -65,8 +67,9 @@ DESKTOP  (Volt.exe)
 ## Key decisions
 
 1. **`volt` is one entry point.** Dispatcher in volt-git `bin.ts`: bare `volt` (and any non-PLC command —
-   `run`, `auth`, …) delegates to opencode; `volt <verb>` (init/pull/push/status/build/log/show/merge) runs
-   the PLC CLI. One Volt-branded command.
+   `run`, `auth`, …) spawns the **bundled** opencode (resolved beside the binary, not from PATH); `volt
+   <verb>` (init/pull/push/status/build/log/show/merge) runs the PLC CLI. One Volt-branded command, no
+   external dependency.
 
 2. **Registration is the installer/app's job, not a CLI verb.** The app writes the global LSP + tool config
    on startup (idempotent merge), pointing at the bundled binaries. The `volt setup` CLI verb is **removed** —
@@ -81,10 +84,11 @@ DESKTOP  (Volt.exe)
    to load and deliver diagnostics on the official opencode build, no fork dependency. The desktop just
    ships + registers it.
 
-5. **CLI and desktop are independent installs that coexist** (mirrors opencode). The CLI ships via package
-   managers (curl/npm/brew); the desktop is a separate Electron installer. Registration is **idempotent**
-   into one shared `~/.config/opencode/`, so having both on a machine Just Works — neither clobbers the
-   other. This replaces the earlier "desktop bundles everything" assumption.
+5. **Self-contained, one installer (decided).** `volt` bundles our own Volt-branded opencode and spawns it
+   beside the binary — zero external opencode dependency. PRIMARY distribution is **one installer** (desktop
+   + CLI together), auto-updated by opencode's existing `electron-updater`. CLI-only (npm/curl) is a later
+   secondary for headless users. Registration is idempotent into one shared `~/.config/opencode/`, so the
+   bundled CLI and the desktop coexist cleanly.
 
 ## Branding (separate track, after the plumbing works)
 

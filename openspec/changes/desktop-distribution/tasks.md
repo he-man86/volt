@@ -5,24 +5,28 @@
 
 ## 2. Distribution
 
-See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` → `dist/volt/`. CLI and desktop
-are **independent installs that coexist** (mirrors opencode), sharing one idempotent `~/.config/opencode/`.
+See `design.md`. One build command → every binary: `bun volt-scripts/dist.ts` → `dist/volt/`. `volt` is
+**self-contained** (bundles our own Volt-branded opencode — no external dependency). PRIMARY = **one installer**
+(desktop + CLI), auto-updated via opencode's `electron-updater`; CLI-only (npm/curl) is a later secondary.
 
 ### Build (done)
 - [x] 2.1 Release build script (`volt-scripts/dist.ts`) — `volt` + `volt-lsp-codesys` + bridges → `dist/volt/`
 - [x] 2.2 `volt` is one entry point — bare → agent, `volt <verb>` → PLC CLI (dispatcher in volt-git `bin.ts`)
 
-### Desktop install (electron)
-- [ ] 2.3 Bundle `dist/volt/` via electron-builder `extraResources`
-- [ ] 2.4 App registers LSP + tool in the shared global config on startup (idempotent); point `volt-control`'s `setBundledCli` at the bundled `volt` binary — collapses the `volt.js` node bundle onto the one compiled exe
+### Self-contained `volt` (no external opencode)
+- [ ] 2.3 Add our Volt-branded opencode binary to `dist/volt/bin/` (build via opencode's `build.ts`)
+- [ ] 2.4 Dispatcher spawns the **bundled** opencode (resolve beside the volt binary, not PATH)
 
-### CLI install (mirror opencode — independent of the desktop)
-- [ ] 2.5 npm `volt` wrapper + per-platform binaries (`optionalDependencies`, per opencode `publish.ts`)
-- [ ] 2.6 curl install script that modifies PATH — mirror opencode's `install`
-- [ ] 2.7 Decide the opencode dependency for CLI-only: (a) opencode as a peer install vs (b) `volt` = Volt-branded opencode with PLC verbs built in (one binary, no delegation)
+### One installer (primary: desktop + CLI)
+- [ ] 2.5 Bundle `dist/volt/` via electron-builder `extraResources` + put `volt` on PATH (NSIS)
+- [ ] 2.6 Register LSP + tool in the shared global config on startup (idempotent); point `volt-control`'s `setBundledCli` at the bundled `volt` — collapse the `volt.js` node bundle onto the one exe
+- [ ] 2.7 Verify the existing `electron-updater` refreshes the bundled CLI/LSP, not just the app
+
+### CLI-only (secondary, later — headless users)
+- [ ] 2.8 npm `volt` wrapper + per-platform binaries + curl install script (mirror opencode-ai)
 
 ### Shared
-- [ ] 2.8 Remove the `volt setup` CLI verb — keep `setup()` as the function both installers call (registration is install-time, not a CLI command; was the cause of the duplicate-`volt`-tool collision)
-- [ ] 2.9 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
-- [ ] 2.10 Replace remaining `opencode.ai` constants + wire the Volt Sentry DSN
-- [ ] 2.11 Code-signing (Windows certs) · Updater feed · Signed release
+- [ ] 2.9 Remove the `volt setup` CLI verb — keep `setup()` as the function the installer/app calls (was the cause of the duplicate-`volt`-tool collision)
+- [ ] 2.10 Bridge connector — build C# bridges + install into the IDE (Beckhoff exe / CODESYS scripting dir)
+- [ ] 2.11 Volt branding — `home_logo` TUI plugin + replace `opencode.ai` constants + Volt Sentry DSN
+- [ ] 2.12 Code-signing (Windows certs) · updater feed · signed release
