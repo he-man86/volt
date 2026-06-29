@@ -25,7 +25,8 @@ separate installs, like opencode. The only real Volt addition is one postinstall
 
 ### Desktop (mirror opencode)
 - [x] 2.9 Re-pointed the `electron-updater` feed (beta + prod) → `he-man86/volt` (no longer anomalyco/opencode)
-- [ ] 2.10 Bundle + register the LSP for the embedded opencode (startup); point `volt-control`'s `setBundledCli` at the bundled `volt`
+- [x] 2.10 Desktop self-contained — bundle `dist/volt/bin` (extraResources) + register LSP/tool on production startup (main → `setup()` with bundled paths; volt-git exposes `./setup`). Verified: desktop build bundles the wiring; runtime registration verifies on a packaged run
+- [ ] 2.10b Point `volt-control`'s `setBundledCli` at the bundled `volt` binary (unify the `volt.js` panel path onto the one exe)
 
 ### Updates (mirror opencode)
 - [ ] 2.11 `volt upgrade` — reuse opencode's method-aware `installation/` logic, pointed at Volt's releases

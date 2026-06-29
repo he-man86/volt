@@ -9,6 +9,9 @@
   "bin": {
     "volt": "./dist/bin.js"
   },
+  "exports": {
+    "./setup": "./src/setup.ts"
+  },
   "files": [
     "dist"
   ],
