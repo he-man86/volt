@@ -29,9 +29,9 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   // ── branding seams (Volt white-label; no additive hook exists for these) ──
   "packages/ui/src/components/logo.tsx", // Volt logo (bolt mark + wordmark)
   "packages/desktop/src/main/index.ts", // Volt app name
-  "packages/desktop/electron-builder.config.ts", // Volt productName / protocol display name
-  "packages/desktop/resources/icons/icon.ico", // Volt app/installer/taskbar icon (replaces opencode's)
-  "packages/desktop/resources/icons/icon.png", // Volt app icon (png)
+  "packages/desktop/electron-builder.config.ts", // Volt productName / appId / install dir / icon / updater feed
+  // (resources/icons/icon.{ico,png} are Volt-branded too, but gitignored + written by brand-icons.ts at
+  //  build time — never tracked, so they need no allowlist entry.)
   "packages/desktop/src/renderer/index.html", // Volt window title
   "packages/app/index.html", // Volt window/tab title
   // ── GUI panel seam (Volt "IDE" changes-source in the session panel; packages/app has no plugin hook) ──
