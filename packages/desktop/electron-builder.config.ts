@@ -33,9 +33,9 @@ const channel = (() => {
 })()
 
 const APP_IDS = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: "dev.volt.desktop.dev",
+  beta: "dev.volt.desktop.beta",
+  prod: "dev.volt.desktop",
 } as const
 
 const getBase = (appId: string): Configuration => ({
