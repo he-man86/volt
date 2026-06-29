@@ -21,7 +21,7 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 - [x] 2.7 Published **v0.1.0** (fresh version line; unsigned)
 - [ ] 2.8 NSIS adds `resources/volt/bin` to PATH → terminal `volt` from the desktop install
 - [ ] 2.9 Point `volt-control`'s `setBundledCli` at the bundled `volt` (unify the panel's `volt.js` onto the exe)
-- [ ] 2.10 Runtime-verify 2.6 — install on a clean profile, confirm the LSP auto-registers
+- [ ] 2.10 Runtime-verify — install on a clean profile, `volt init` a project, confirm the LSP attaches from the project `.opencode/`
 
 ### Flow 2 — VS Code extension (`volt-vscode`)
 - [x] 2.11 Extension bundles LSP (`dist/lsp-server.js`) + CLI (`dist/cli.js`) + PLC language support — built (`.vsix` exists, v1.21.20)
@@ -29,7 +29,7 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 - [ ] 2.13 Publish — VS Code Marketplace listing + a **download link in the docs** (the `.vsix`)
 
 ### Shared
-- [x] 2.14 Removed the `volt setup` CLI verb; `setup()` is the install-time registration function
+- [x] 2.14 Removed the `volt setup` CLI verb **and** the global `setup()` — `volt init` now writes the LSP + `volt` tool into the **project** `.opencode/` (coexists with stock opencode; nothing global to clean)
 - [ ] 2.15 Connector **standalone installer** — background Windows gateway (CODESYS in-proc lib / TwinCAT standalone `.exe`), HTTP 8555/8556
 - [ ] 2.15b Desktop **bundles + chains** the connector installer + re-deploys it on app update (one-install UX)
 - [ ] 2.15c Connector **self-update** lane (extension users) + `protocolVersion` on `/health` (compat gate) + CODESYS "restart CODESYS" prompt
@@ -45,8 +45,8 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 Clean-install test (`Volt-Setup-0.1.0`): **the two critical runtime gaps are CLOSED.**
 
 - [x] Agent-tool invocation — now execs the compiled `volt.exe` directly; **verified** in the installed `tool/volt.ts` (`VOLT_CMD/VOLT_ARGS`).
-- [x] LSP runtime registration (2.10) — **verified**: a clean install re-registered the LSP into the global config, pointing at the bundled binary.
+- [~] LSP registration — **moved to the project `.opencode/` via `volt init`** (was global; that leaked into stock opencode + rotted on uninstall). Re-verify on a clean install + `volt init`.
 - [~] Connector — **EXISTS** (a `VoltConnector` install: `BeckhoffBridge.exe` + `VoltConnector.exe` + bridge core, at `Programs\Volt`). Not "missing." Remaining: bundle/chain it in the desktop (2.15b), extension reference, update lane (2.15c).
 - [ ] 🔴 **Coexistence** — the desktop install dir is `@opencode-aidesktop` (from the package name `@opencode-ai/desktop`), so it **landed in + overwrote stock opencode's dir**. Volt must install to its OWN dir + appId (`dev.volt.desktop`) and **never touch opencode** — they coexist.
-- [ ] 🔴 **Clean lifecycle** — connector has **no installer/uninstaller**; neither uninstaller cleans the global-config registration (`~/.config/opencode`). Rename the connector → "**Volt Bridge Connector**" (own dir + tray name, distinct from the app "Volt" → no `Programs\Volt` clash); add an installer/uninstaller; uninstall removes the config registration.
+- [ ] 🔴 **Clean lifecycle** — connector has **no installer/uninstaller**. (Global-config rot is GONE — the LSP/tool now live in the project `.opencode/`, not `~/.config/opencode`.) Rename the connector → "**Volt Bridge Connector**" (own dir + tray name, distinct from the app "Volt" → no `Programs\Volt` clash); add an installer/uninstaller.
 - [ ] 🟠 Extension bundles `bin.ts` (PLC CLI), not the agent (2.12); terminal `volt` PATH (2.8); `setBundledCli` (2.9); `home_logo` unverified + unbundled (2.16).

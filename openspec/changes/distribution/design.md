@@ -114,8 +114,9 @@ on `anomalyco/opencode`). Beta is unused — not split into a separate repo (ope
    `opencode upgrade`. Parameterize for Volt; carry PLC/LSP/bridge inside those shapes.
 3. **⚠ Re-point every feed to Volt's GitHub repo** (npm tag, install URL, brew/AUR source, electron-updater).
    The single most load-bearing change — miss it and installs/updates pull stock opencode.
-4. **The LSP is the one real addition** to opencode's recipe: one postinstall line (CLI) / one startup call
-   (desktop) writing the `lsp` block into `~/.config/opencode/`. Replaces the `volt setup` CLI verb (removed).
+4. **The LSP is the one real addition** to opencode's recipe: `volt init` writes the `lsp` block + the `volt`
+   tool into the **project's** `.opencode/` (project-local, never the shared `~/.config/opencode`) — so Volt
+   coexists with stock opencode and nothing global rots on uninstall. Replaces the old global `setup()`.
 5. **Separate CLI and desktop** (like opencode) — npm/curl for the CLI, electron for the app. Not one
    installer. Simpler: each piece is opencode's, reused.
 

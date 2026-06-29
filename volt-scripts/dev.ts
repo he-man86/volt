@@ -14,7 +14,7 @@
  * attaches to .st files. Run from anywhere:
  *
  *   bun volt-scripts/dev.ts                          # opencode TUI on the repo (volt LSP loaded)
- *   bun volt-scripts/dev.ts "C:/path/to/plc-project" # open a REAL PLC project (LSP via the global config)
+ *   bun volt-scripts/dev.ts "C:/path/to/plc-project" # open a REAL PLC project (LSP from its volt-init'd .opencode/)
  *   bun volt-scripts/dev.ts --version                # any opencode flags pass through
  *
  * Additive by design: this lives in volt-scripts/ rather than as a root
