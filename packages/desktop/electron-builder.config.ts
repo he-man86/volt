@@ -50,6 +50,10 @@ const getBase = (appId: string): Configuration => ({
   // https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html
   // https://www.electron.build/docs/linux/
   extraMetadata: {
+    // Volt: electron-builder derives the per-user install dir from the package `name`. The real name is
+    // `@opencode-ai/desktop` (shared with stock opencode → both land in `Programs\@opencode-aidesktop` and
+    // collide). Override it for the build only, so Volt installs to `Programs\Volt` and the two COEXIST.
+    name: "Volt",
     desktopName: `${appId}.desktop`,
   },
   files: ["out/**/*", "resources/**/*"],
