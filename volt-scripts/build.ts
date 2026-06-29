@@ -26,7 +26,18 @@ const plugin = createSolidTransformPlugin()
 
 const os = process.platform === "win32" ? "windows" : process.platform
 const arch = process.arch
-const version = process.env.VOLT_VERSION ?? "0.0.0-dev"
+// Version: env override (CI) → the volt-git package version (source of truth) → dev default. Read directly
+// here so the binary is stamped no matter how build.ts is invoked (env doesn't always survive the spawn).
+const version =
+  process.env.VOLT_VERSION ??
+  (() => {
+    try {
+      return JSON.parse(fs.readFileSync(path.join(repo, "packages/volt-git/package.json"), "utf8")).version as string
+    } catch {
+      return undefined
+    }
+  })() ??
+  "0.0.0-dev"
 const channel = process.env.OPENCODE_CHANNEL ?? "dev"
 
 const voltEntry = path.join(repo, "packages/volt-git/src/volt.ts")
