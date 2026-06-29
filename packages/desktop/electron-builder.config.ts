@@ -29,7 +29,8 @@ async function signWindows(configuration: { path: string }) {
 const channel = (() => {
   const raw = process.env.OPENCODE_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
-  return "dev"
+  // Default prod — installers are prod-only; dev/beta require an explicit OPENCODE_CHANNEL (CI sets it per branch).
+  return "prod"
 })()
 
 const APP_IDS = {

@@ -38,7 +38,8 @@ const version =
     }
   })() ??
   "0.0.0-dev"
-const channel = process.env.OPENCODE_CHANNEL ?? "dev"
+// Default prod — the compiled binary is a distributable. dev/beta only when explicitly set (CI sets it per branch).
+const channel = process.env.OPENCODE_CHANNEL ?? "prod"
 
 const voltEntry = path.join(repo, "packages/volt-git/src/volt.ts")
 const localWorker = path.join(ocDir, "node_modules/@opentui/core/parser.worker.js")
