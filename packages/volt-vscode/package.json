@@ -457,6 +457,12 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "volt.newAgentSession",
+        "title": "Volt: New Agent Session",
+        "category": "Volt",
+        "icon": "$(add)"
+      },
+      {
         "command": "volt.setup",
         "title": "Volt: Set Up Workspace (pick a live IDE)",
         "category": "Volt",

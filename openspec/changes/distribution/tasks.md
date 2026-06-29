@@ -25,7 +25,7 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 
 ### Flow 2 — VS Code extension (`volt-vscode`)
 - [x] 2.11 Extension bundles LSP (`dist/lsp-server.js`) + CLI (`dist/cli.js`) + PLC language support — built (`.vsix` exists, v1.21.20)
-- [x] 2.12 **Agent in the editor** — DONE: **"Volt: Open Agent"** resolves the binary three ways — desktop install → cached → **one-time download** of `volt-win-x64.exe` from the GitHub release (cached in the extension's global storage). `agent.ts` + `dist.ts` (emits the 132 MB asset) + the `.vsix` packages (361 KB; binary downloads at runtime, not bundled). Release-time: upload `volt-win-x64.exe` to the release.
+- [x] 2.12 **Agent in the editor** — DONE, mirrors opencode's extension: **Quick Launch** ("Volt: Open Agent" — opens/focuses the agent terminal) + **New Session**. The agent binary is a **prerequisite** (the desktop install, or a standalone `volt`/`volt-win-x64.exe`) — the extension *launches* it, never bundles or downloads it. Follow-ons for full opencode parity: Windows-safe keybindings, context-awareness (share selection/tab), `@File#Lx-y` reference shortcuts.
 - [~] 2.13 Publish — Marketplace listing (**publisher `volt-ai`**, since `volt` is likely taken) + **download links in the docs**: the `.vsix` + the **standalone connector** (`pack-connector.ps1` → `dist/Volt-Bridge-Connector.zip`). Both artifacts ready; the Marketplace publish needs a publisher token (credentials), and the doc links go live with the release.
 
 ### Shared
