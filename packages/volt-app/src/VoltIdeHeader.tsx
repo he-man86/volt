@@ -13,7 +13,7 @@ import "./ipc" // window.volt augmentation
  */
 export function VoltIdeHeader(props: { workspaceRoot: string; onChanged?: () => void }) {
   const [busy, setBusy] = createSignal(false)
-  const [msg, setMsg] = createSignal("")
+  const [result, setResult] = createSignal<{ text: string; tone: "ok" | "error" | "info" } | null>(null)
   const bridge = () => (typeof window !== "undefined" ? window.volt : undefined)
 
   const [status, { refetch: refetchStatus }] = createResource(
@@ -25,65 +25,93 @@ export function VoltIdeHeader(props: { workspaceRoot: string; onChanged?: () => 
     const b = bridge()
     if (!b || busy()) return
     setBusy(true)
-    setMsg(`volt ${verb}…`)
+    setResult({ text: `volt ${verb}…`, tone: "info" })
     try {
       if (verb === "pull") {
         const o = await b.pull(props.workspaceRoot)
-        setMsg(
+        setResult(
           o.kind === "ok"
-            ? `Pulled ${o.synced.length} file(s)`
+            ? { text: `Pulled ${o.synced.length} file(s)`, tone: "ok" }
             : o.kind === "conflict"
-              ? `${o.paths.length} conflict(s) — resolve with Git, then Pull again`
-              : o.kind === "refused"
-                ? o.reason
-                : o.message,
+              ? { text: `${o.paths.length} conflict(s) — resolve with Git, then Pull again`, tone: "error" }
+              : { text: o.kind === "refused" ? o.reason : o.message, tone: "error" },
         )
       } else if (verb === "push") {
         const o = await b.push(props.workspaceRoot)
-        setMsg(o.kind === "ok" ? `Pushed ${o.items.length} item(s)` : o.kind === "rejected" ? o.reason : o.message)
+        setResult(
+          o.kind === "ok"
+            ? { text: `Pushed ${o.items.length} item(s)`, tone: "ok" }
+            : { text: o.kind === "rejected" ? o.reason : o.message, tone: "error" },
+        )
       } else {
         const r = await b.build(props.workspaceRoot)
-        setMsg(r.code === 0 ? "Build OK" : "Build reported errors")
+        setResult(r.code === 0 ? { text: "Build OK", tone: "ok" } : { text: "Build reported errors", tone: "error" })
       }
       await refetchStatus()
       props.onChanged?.() // push/pull/build changed the outgoing drift — refresh the IDE diff list
     } catch (e) {
       // an IPC rejection (main handler threw) lands here — surface it rather than swallow
-      setMsg(`volt ${verb} failed: ${e instanceof Error ? e.message : String(e)}`)
+      setResult({ text: `volt ${verb} failed: ${e instanceof Error ? e.message : String(e)}`, tone: "error" })
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <div class="shrink-0 flex items-center gap-2 pl-3 pr-2 py-1.5 border-b border-border-weaker-base text-12-regular">
-      <Show when={!status.loading} fallback={<span class="text-text-weak">Probing IDE…</span>}>
-        <HealthDot result={status()} />
+    <>
+      <div class="shrink-0 flex items-center gap-2 pl-3 pr-2 py-1.5 border-b border-border-weaker-base text-12-regular">
+        <Show when={!status.loading} fallback={<span class="text-text-weak">Probing IDE…</span>}>
+          <HealthDot result={status()} />
+        </Show>
+        <div class="flex-1" />
+        <ActionBtn label="Pull (bridge → workspace)" disabled={busy()} onClick={() => run("pull")}>
+          <Icon name="arrow-down-to-line" size="small" />
+        </ActionBtn>
+        <ActionBtn label="Push (workspace → bridge)" disabled={busy()} onClick={() => run("push")}>
+          <Icon name="arrow-up" size="small" />
+        </ActionBtn>
+        <ActionBtn label="Build" disabled={busy()} onClick={() => run("build")}>
+          <WrenchIcon />
+        </ActionBtn>
+        <ActionBtn
+          label="Refresh"
+          disabled={busy()}
+          onClick={() => {
+            void refetchStatus()
+            props.onChanged?.()
+          }}
+        >
+          <RefreshIcon />
+        </ActionBtn>
+      </div>
+
+      {/* Result surface — the header had no room for push rejections (a bridge parse error naming the
+          offending item runs long + multi-line). Full-width, wraps, preserves newlines, scrolls if long,
+          dismissable; red when the action failed. */}
+      <Show when={result()}>
+        {(r) => (
+          <div
+            class="shrink-0 flex items-start gap-2 px-3 py-1.5 border-b border-border-weaker-base text-12-regular"
+            style={{ background: r().tone === "error" ? "var(--surface-critical-weak)" : "var(--surface-raised-base)" }}
+          >
+            <span
+              class="flex-1 whitespace-pre-wrap break-words max-h-24 overflow-y-auto"
+              style={{ color: r().tone === "error" ? "var(--text-base)" : "var(--text-weak)" }}
+            >
+              {r().text}
+            </span>
+            <button
+              type="button"
+              class="shrink-0 leading-none text-text-weaker hover:text-text-base"
+              aria-label="Dismiss"
+              onClick={() => setResult(null)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </Show>
-      <Show when={msg()}>
-        <span class="truncate max-w-[16rem] text-text-weaker">{msg()}</span>
-      </Show>
-      <div class="flex-1" />
-      <ActionBtn label="Pull (bridge → workspace)" disabled={busy()} onClick={() => run("pull")}>
-        <Icon name="arrow-down-to-line" size="small" />
-      </ActionBtn>
-      <ActionBtn label="Push (workspace → bridge)" disabled={busy()} onClick={() => run("push")}>
-        <Icon name="arrow-up" size="small" />
-      </ActionBtn>
-      <ActionBtn label="Build" disabled={busy()} onClick={() => run("build")}>
-        <WrenchIcon />
-      </ActionBtn>
-      <ActionBtn
-        label="Refresh"
-        disabled={busy()}
-        onClick={() => {
-          void refetchStatus()
-          props.onChanged?.()
-        }}
-      >
-        <RefreshIcon />
-      </ActionBtn>
-    </div>
+    </>
   )
 }
 
