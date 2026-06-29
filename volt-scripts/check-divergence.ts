@@ -30,6 +30,10 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/ui/src/components/logo.tsx", // Volt logo (bolt mark + wordmark)
   "packages/desktop/src/main/index.ts", // Volt app name
   "packages/desktop/electron-builder.config.ts", // Volt productName / protocol display name
+  "packages/desktop/resources/icons/icon.ico", // Volt app/installer/taskbar icon (replaces opencode's)
+  "packages/desktop/resources/icons/icon.png", // Volt app icon (png)
+  "packages/desktop/src/renderer/index.html", // Volt window title
+  "packages/app/index.html", // Volt window/tab title
   // ── GUI panel seam (Volt "IDE" changes-source in the session panel; packages/app has no plugin hook) ──
   "packages/app/src/pages/session.tsx", // "IDE" changes-source option + ideQuery + <VoltIdeHeader/> mount
   "packages/app/package.json", // @opencode-ai/volt-app dependency
