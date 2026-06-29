@@ -38,8 +38,12 @@ const APP_IDS = {
   prod: "dev.volt.desktop",
 } as const
 
+// Per-channel product name — the single source for both productName and the uninstall entry name.
+const PRODUCT_NAMES = { dev: "Volt Dev", beta: "Volt Beta", prod: "Volt" } as const
+
 const getBase = (appId: string): Configuration => ({
   artifactName: "Volt-Setup-${version}-${arch}.${ext}",
+  productName: PRODUCT_NAMES[channel],
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -106,6 +110,9 @@ const getBase = (appId: string): Configuration => ({
     perMachine: false,
     installerIcon: `resources/icons/icon.ico`,
     installerHeaderIcon: `resources/icons/icon.ico`,
+    // Apps & Features entry: "<product> Desktop" (e.g. "Volt Desktop"). Drop the version electron-builder bakes
+    // into the name by default — it stays in DisplayVersion (the Version column). Pairs with the CLI's "Volt CLI".
+    uninstallDisplayName: `${PRODUCT_NAMES[channel]} Desktop`,
     // Volt: connector lifecycle (launch on install · stop + drop login item on uninstall). Fork-owned
     // .nsh, referenced by absolute path so it's not a new file inside the upstream desktop package.
     include: path.join(rootDir, "packages/volt-bridge/installer/connector.nsh"),
@@ -134,7 +141,6 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "Volt Dev",
         rpm: { packageName: "opencode-dev" },
       }
     }
@@ -142,7 +148,6 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "Volt Beta",
         protocols: { name: "Volt Beta", schemes: ["volt"] },
         // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
         publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "beta" },
@@ -153,7 +158,6 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "Volt",
         protocols: { name: "Volt", schemes: ["volt"] },
         // Volt updater feed — its own repo, never anomalyco/opencode (else it would self-update to stock opencode).
         publish: { provider: "github", owner: "he-man86", repo: "volt", channel: "latest" },
