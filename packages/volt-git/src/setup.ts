@@ -49,6 +49,8 @@ import { promisify } from "node:util"
 const run = promisify(execFile)
 const MUTATING = new Set(["init", "pull", "push", "merge"])
 const VOLT_BIN = ${JSON.stringify(voltBin)}
+// A .js/.ts entry runs under bun; a compiled binary (volt.exe) runs directly — bun cannot exec a compiled exe.
+const [VOLT_CMD, VOLT_ARGS] = VOLT_BIN.endsWith(".js") || VOLT_BIN.endsWith(".ts") ? ["bun", [VOLT_BIN]] : [VOLT_BIN, []]
 
 export default tool({
   description: \`Drive a CODESYS / TwinCAT 3 (IEC 61131-3) PLC IDE through the Volt CLI — a git-style workflow over text. Prefer this over guessing shell commands.
@@ -84,7 +86,7 @@ Extra flags/operands go in "args" (e.g. ["--json"]). Mutating verbs prompt for h
     }
     const title = ["volt", args.command, ...rest].join(" ").trim()
     try {
-      const { stdout, stderr } = await run("bun", [VOLT_BIN, args.command, ...rest], {
+      const { stdout, stderr } = await run(VOLT_CMD, [...VOLT_ARGS, args.command, ...rest], {
         cwd: args.cwd ?? ctx.directory,
         signal: ctx.abort,
         maxBuffer: 10 * 1024 * 1024,
