@@ -11,38 +11,36 @@ N/A (opencode's *other-platform* CLI channels): mac/linux builds, the npm wrappe
 brew/AUR, standalone `volt upgrade`. Volt reuses only opencode's build pipeline + electron-builder +
 electron-updater.
 
-## Delivery — two flows
+## Delivery — three channels
 
-Volt ships **two ways**; both are Windows-only and both connect to the same IDE bridge.
+Volt ships **three ways** (each = an opencode channel + Volt's layer); all Windows-only, all connect to the
+same IDE bridge.
 
-**1. Desktop — one install with everything.** The Volt electron app (NSIS installer) bundles the agent (our
-opencode build) + the LSP + the CLI and registers the LSP on first run. Auto-updates via electron-updater →
-`he-man86/volt`. **Published: v0.1.0.** For standalone users (no VS Code).
+**1. Desktop — one all-inclusive install.** The Volt electron app (NSIS, oneClick) bundles the agent (our
+opencode build) + the LSP + the CLI + the self-contained connector; `connector.nsh` launches the connector,
+registers its login item, **and adds `resources\volt\bin` to PATH** (so the terminal `volt` + the extension
+work too). Auto-updates via electron-updater → `he-man86/volt`. **Published: v0.1.0.** For the user who wants
+everything integrated.
 
-**2. VS Code extension — `volt-vscode`.** Bundles the LSP (`dist/lsp-server.js`) + the CLI (`dist/cli.js`) +
-PLC language support (syntax / VG / drift coloring) + the agent in the editor. Distributed via a **download
-link in the docs** (the `.vsix`) or the VS Code Marketplace. For engineers who edit in VS Code — one extension
-= editing + LSP + sync + agent, no npm, no desktop.
+**2. CLI installer — `volt` on PATH + bridge.** A standalone NSIS installer (`Volt-CLI-Setup-<ver>-x64.exe`,
+the Windows equivalent of opencode's `curl | bash`) installs the `volt` binary + the LSP + the self-contained
+connector into `%USERPROFILE%\.volt`, adds it to PATH, and launches the connector. **Detects the desktop and
+bows out** (the desktop is a superset → no PATH/connector collision). For the advanced user who works from the
+terminal + VS Code.
 
-**Shared prerequisite — the connector.** A **background gateway** on Windows that connects to the live IDE and
-exposes it over a small HTTP wire (8555/8556) — CODESYS via an in-proc lib, TwinCAT via a standalone background
-`.exe`. It has its own **standalone installer** (the one shared artifact); deployment differs per flow:
-- **Desktop** *bundles + deploys + manages* it — the NSIS install chains the connector installer, so **one
-  install sets up everything** (best UX), and the desktop re-deploys it on app update.
-- **Extension** *connects to it* but can't host it (a VS Code extension can't inject the CODESYS in-proc lib,
-  nor own a persistent service) — extension users run the **same standalone connector installer** once
-  (download link in the docs).
+**3. VS Code extension — `volt-vscode`.** A **thin launcher**: opens `volt` in a side terminal (the agent is a
+prerequisite from #1 or #2 — never bundled or downloaded), plus PLC language support (syntax / VG / drift) +
+the LSP + sync. Distributed via a docs download link (the `.vsix`) or the Marketplace.
+
+**The connector** (the background gateway to the live IDE, HTTP 8555/8556 — CODESYS in-proc lib, TwinCAT
+standalone `.exe`) is **carried by #1 and #2** (both bundle + launch + register it); #3 connects to whichever
+is installed. There is no separate connector installer — the CLI installer replaced the old standalone zip.
 
 ```
-                        ┌────────────────────────────┐
-  Desktop install ─────▶│ bundles + deploys + updates │──┐
-                        │ the connector               │  │   HTTP 8555/8556
-                        └────────────────────────────┘  ▼
-                                             connector (background gateway) ──▶ CODESYS / TwinCAT
-                        ┌────────────────────────────┐  ▲
-  VS Code extension ───▶│ connects; user runs the     │──┘
-                        │ connector installer (docs)   │
-                        └────────────────────────────┘
+  #1 Desktop installer ──┐  bundles + launches + updates the connector
+                         ├──▶ connector (background gateway) ──▶ CODESYS / TwinCAT
+  #2 CLI installer ──────┘  (HTTP 8555/8556)
+  #3 VS Code extension ─────▶ connects to whichever connector #1/#2 installed
 ```
 
 ## What opencode already does (and we reuse)
@@ -50,9 +48,9 @@ exposes it over a small HTTP wire (8555/8556) — CODESYS via an in-proc lib, Tw
 | Concern        | opencode mechanism                                                        | Volt reuse                  |
 |----------------|---------------------------------------------------------------------------|-----------------------------|
 | CLI binary     | `script/build.ts` → per-platform binaries (`bun --compile`)               | build ours the same way     |
-| npm            | `script/publish.ts` → `opencode-ai` wrapper (bin, postinstall, `optionalDependencies`) | mirror → `volt` wrapper |
-| curl           | root `install` script (downloads the release binary, modifies PATH)       | mirror → Volt install URL   |
-| brew / AUR / Docker | `publish.ts` (formula / PKGBUILD / image)                            | mirror later, Volt repo     |
+| npm            | `script/publish.ts` → `opencode-ai` wrapper (bin, postinstall, `optionalDependencies`) | — N/A (Windows-only) |
+| curl           | root `install` script (downloads the release binary, modifies PATH)       | → **NSIS CLI installer** (`volt-cli.nsi`) |
+| brew / AUR / Docker | `publish.ts` (formula / PKGBUILD / image)                            | — N/A (Windows-only)        |
 | CLI update     | `opencode upgrade` — method-aware via `installation/`                     | `volt upgrade`, reuse logic |
 | Desktop        | electron-builder + electron-updater (GitHub feed)                         | reuse, **re-point feed**    |
 | Release host   | `anomalyco/opencode` GitHub releases                                       | **Volt's own repo**         |
@@ -66,21 +64,22 @@ exposes it over a small HTTP wire (8555/8556) — CODESYS via an in-proc lib, Tw
 | `bridge/`           | `dotnet build:all`       | C# IDE connectors                                                  |
 | Volt desktop        | electron-builder         | opencode's app + branding + embedded LSP                          |
 
-## CLI distribution — mirror `opencode-ai`
+## CLI channel — a Windows installer (the curl-equivalent)
+
+opencode puts its CLI on PATH via `curl | bash` (mac/linux) or npm. Volt is Windows-only, so the CLI channel is
+a **standalone NSIS installer** (`volt-scripts/cli-installer/volt-cli.nsi`, built by `build-cli-installer.ts`
+with makensis from electron-builder's cached NSIS):
 
 ```
-build.ts (ours)  →  per-platform `volt` binaries  →  GitHub release (Volt repo)
-                                                          │
-publish.ts (mirror)  →  npm `volt` wrapper:               ▼
-   bin: { volt }                                    npm i -g volt   |   curl …|bash   |   brew install volt
-   postinstall: link binary  +  register LSP              (npm owns PATH + the binary; the ONE Volt addition
-   optionalDependencies: volt-{os}-{arch}                  is the postinstall line that writes the LSP block
-                                                           into ~/.config/opencode/)
+build.ts (ours)      →  volt + volt-lsp-codesys  ┐
+build-bridges.ps1    →  self-contained connector ┼─▶ Volt-CLI-Setup-<ver>-x64.exe ─▶ %USERPROFILE%\.volt
+                                                 ┘    (volt on PATH + connector launched + uninstaller)
 ```
 
-The **only** Volt addition to opencode's npm recipe is one postinstall line: register the LSP (+ tool).
-Everything else — the wrapper, `optionalDependencies`, the placeholder bin, `os`/`cpu` filtering — is
-opencode's `publish.ts` verbatim, renamed.
+No npm wrapper / postinstall / `optionalDependencies` — those are opencode's *other-platform* mechanisms, N/A
+for a single-target Windows installer. The LSP/tool registration is **not** a global step: `volt init` writes
+the `lsp` block + the `volt` tool into the **project's** `.opencode/` (project-local — decision #4), so nothing
+lands in the shared `~/.config/opencode` and Volt coexists with stock opencode.
 
 ## Desktop — mirror opencode's electron app
 
@@ -117,8 +116,10 @@ on `anomalyco/opencode`). Beta is unused — not split into a separate repo (ope
 4. **The LSP is the one real addition** to opencode's recipe: `volt init` writes the `lsp` block + the `volt`
    tool into the **project's** `.opencode/` (project-local, never the shared `~/.config/opencode`) — so Volt
    coexists with stock opencode and nothing global rots on uninstall. Replaces the old global `setup()`.
-5. **Separate CLI and desktop** (like opencode) — npm/curl for the CLI, electron for the app. Not one
-   installer. Simpler: each piece is opencode's, reused.
+5. **Three separate channels** (opencode keeps CLI and desktop separate; we add a thin extension on top) — a
+   Windows NSIS installer for the CLI, electron for the desktop, the `volt-vscode` extension as a thin launcher.
+   Not one mega-installer. The CLI installer and the desktop are **alternatives** (the desktop is a superset →
+   the CLI installer detects it and bows out).
 
 ## Volt-specific, unavoidable (kept minimal, ride inside opencode's shapes)
 

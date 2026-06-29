@@ -29,7 +29,8 @@ if (!makensis) {
   process.exit(1)
 }
 
-const version = JSON.parse(readFileSync(resolve(repo, "packages/volt-git/package.json"), "utf8")).version ?? "0.0.0-dev"
+// Version: env override (CI) → the volt-git package version (source of truth) → dev default — same precedence as build.ts.
+const version = process.env.VOLT_VERSION ?? JSON.parse(readFileSync(resolve(repo, "packages/volt-git/package.json"), "utf8")).version ?? "0.0.0-dev"
 
 console.log(`• makensis: ${makensis}`)
 console.log(`• building Volt-CLI-Setup-${version}-x64.exe`)

@@ -5,7 +5,6 @@
 
 Unicode true
 !include "MUI2.nsh"
-!include "WinMessages.nsh"
 
 !ifndef VERSION
   !define VERSION "0.0.0-dev"
@@ -51,10 +50,10 @@ Section "Volt CLI"
   SetOutPath "$INSTDIR"
   File "${__FILEDIR__}\volt-path.ps1"
 
-  ; Put `volt` on PATH (idempotent, per-user) + tell running shells to refresh.
+  ; Put `volt` on PATH (idempotent, per-user). volt-path.ps1 uses .NET SetEnvironmentVariable, which itself
+  ; broadcasts WM_SETTINGCHANGE so new shells pick it up — no explicit SendMessage needed.
   DetailPrint "Adding volt to your PATH..."
   nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\volt-path.ps1" add "$INSTDIR\bin"'
-  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 
   ; Start the background bridge connector — it shows the tray + self-registers its start-at-login item.
   DetailPrint "Starting the Volt bridge connector..."
@@ -77,7 +76,6 @@ Section "Uninstall"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "VoltConnector"
   ; Remove `volt` from PATH (uses the installed helper, before it is deleted).
   nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\volt-path.ps1" remove "$INSTDIR\bin"'
-  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
   ; Wipe the install. The big payload (bin + connector) goes immediately; the running Uninstall.exe + the
   ; now-empty dir are scheduled for the next reboot (NSIS can't delete a running exe).
   RMDir /r "$INSTDIR\bin"

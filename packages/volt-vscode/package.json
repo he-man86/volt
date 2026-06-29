@@ -423,11 +423,6 @@
           "default": true,
           "description": "Warn when a type-conversion function (e.g. INT_TO_DINT) is called with an argument whose declared type doesn't match the function's expected source type. Includes a suggested replacement (e.g. STRING_TO_DINT)."
         },
-        "volt.cli.path": {
-          "type": "string",
-          "default": "",
-          "description": "Override path to the `volt` CLI binary. When empty (default), the extension assumes `volt` is on PATH (populated by `bun install` via the workspace's node_modules/.bin)."
-        },
         "volt.bridge.twincatPort": {
           "type": "number",
           "default": 8555,
@@ -445,7 +440,7 @@
         "volt.connector.path": {
           "type": "string",
           "default": "",
-          "description": "Full path to VoltConnector.exe. The connector supervises the bridges from the system tray; the extension launches it automatically when needed. Leave empty to use the conventional install location (%LOCALAPPDATA%\\Programs\\Volt\\VoltConnector.exe) or the VOLT_CONNECTOR_EXE environment variable."
+          "description": "Full path to VoltConnector.exe. The connector supervises the bridges from the system tray; the extension launches it automatically when needed. Leave empty to use the conventional install location (the desktop's resources\\volt\\connector, or the CLI installer's %USERPROFILE%\\.volt\\connector) or the VOLT_CONNECTOR_EXE environment variable."
         }
       }
     },
