@@ -4,7 +4,7 @@
   "displayName": "Volt",
   "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
   "version": "1.21.22",
-  "publisher": "volt",
+  "publisher": "volt-ai",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -450,6 +450,12 @@
       }
     },
     "commands": [
+      {
+        "command": "volt.openAgent",
+        "title": "Volt: Open Agent",
+        "category": "Volt",
+        "icon": "$(comment-discussion)"
+      },
       {
         "command": "volt.setup",
         "title": "Volt: Set Up Workspace (pick a live IDE)",

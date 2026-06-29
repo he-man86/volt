@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
+import { existsSync } from "node:fs"
 import { startLsp } from "./lsp.js"
 import { setBundledCli } from "@opencode-ai/volt-control"
 import { registerCommands } from "./commands.js"
@@ -15,6 +16,18 @@ const scms = new Map<string, VoltScm>()
 export async function activate(context: vscode.ExtensionContext) {
 	// Use the CLI shipped inside the extension — no per-workspace Node install needed.
 	setBundledCli(join(context.extensionPath, "dist", "cli.js"))
+
+	// "Volt: Open Agent" — open the Volt AI agent in an editor terminal. Runs the desktop install's bundled
+	// binary when present, else `volt` on PATH. (The agent binary is too large to ship inside the .vsix.)
+	context.subscriptions.push(
+		vscode.commands.registerCommand("volt.openAgent", () => {
+			const local = process.env.LOCALAPPDATA
+			const installed = local ? join(local, "Programs", "Volt", "resources", "volt", "bin", "volt.exe") : undefined
+			const exe = installed !== undefined && existsSync(installed) ? installed : "volt"
+			const cwd = workspaceFolders()[0]?.uri.fsPath
+			vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: exe }).show()
+		}),
+	)
 
 	const decorations = new VoltDecorations()
 

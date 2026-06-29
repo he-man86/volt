@@ -40,8 +40,10 @@ Remove-Item -Recurse -Force $DIST -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force "$DIST\Beckhoff", "$DIST\Codesys", "$DIST\Connector" | Out-Null
 
 # --- Beckhoff bridge (standalone exe) ------------------------------
+# Self-contained: bundles the .NET 8 runtime so it runs on a customer machine WITHOUT a framework install.
+# (When copied next to the Connector below, the two share one runtime — no duplication.)
 Write-Output "`n[1/3] Volt.Bridge.Beckhoff"
-& $DOTNET publish "$ROOT\src\Volt.Bridge.Beckhoff\Volt.Bridge.Beckhoff.csproj" -c Release -o "$DIST\Beckhoff" --nologo -v q
+& $DOTNET publish "$ROOT\src\Volt.Bridge.Beckhoff\Volt.Bridge.Beckhoff.csproj" -c Release -o "$DIST\Beckhoff" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Write-Output "  OK -> dist\Beckhoff\Volt.Bridge.Beckhoff.exe"
 
@@ -55,8 +57,9 @@ Copy-Item "$SC\config.json","$SC\start_bridge.py","$SC\stop_bridge.py","$SC\run_
 Write-Output "  OK -> dist\Codesys\ (Volt.Bridge.Codesys.dll + deps + script commands)"
 
 # --- Connector (the one tray app) - bundle the workers next to it ---
+# Self-contained too (no framework assumption on the customer's machine).
 Write-Output "`n[3/3] Volt.Bridge.Connector"
-& $DOTNET publish "$ROOT\src\Volt.Bridge.Connector\Volt.Bridge.Connector.csproj" -c Release -o "$DIST\Connector" --nologo -v q
+& $DOTNET publish "$ROOT\src\Volt.Bridge.Connector\Volt.Bridge.Connector.csproj" -c Release -o "$DIST\Connector" --nologo -v q -r win-x64 --self-contained true
 if ($LASTEXITCODE -ne 0) { Write-Output "  FAILED"; exit 1 }
 Copy-Item "$DIST\Beckhoff\*" -Destination "$DIST\Connector\" -Recurse -Force
 New-Item -ItemType Directory -Force "$DIST\Connector\codesys-scriptcommands" | Out-Null
