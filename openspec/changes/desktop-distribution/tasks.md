@@ -13,10 +13,10 @@ separate installs, like opencode. The only real Volt addition is one postinstall
 - [x] 2.1 `volt` is one entry — bare → agent, `volt <verb>` → PLC (dispatcher in volt-git `bin.ts`)
 - [x] 2.2 `volt-scripts/dist.ts` — local dev build of the binaries (not the distribution path)
 - [x] 2.3 VALIDATED: `volt` is **one in-process binary** — dispatcher else-branch dynamic-imports opencode's `index.ts` (runs + `process.exit`s); `bun --compile` bundles it. Test passed (`volt --version` ran opencode in-process; `volt status` stayed in the dispatcher).
-- [ ] 2.3b Convert the dispatcher from `spawnSync("opencode")` to the in-process `import()`; build the combined binary with `--conditions=browser` (resolve the import via dep/relative path)
+- [x] 2.3b DONE: `src/volt.ts` in-process entry (PLC → `bin.ts`, else → `import("opencode/index")`); excluded from typecheck (imports opencode's raw `.ts`). Compiled binary validated — `volt --version` ran opencode in-process, `volt status` hit the live bridge (11 changes). ⚠ naive `bun --compile` breaks the TUI bundle (`jsxDEV`) → needs opencode's `build.ts` flags (2.4)
 
 ### CLI distribution (mirror `opencode-ai`)
-- [ ] 2.4 Mirror `build.ts` → per-platform `volt` binaries → Volt GitHub release
+- [ ] 2.4 Mirror `build.ts` → per-platform `volt` binaries → Volt GitHub release (use opencode's build flags — jsx/define/conditions; the naive `bun --compile` breaks the TUI `jsxDEV` bundle)
 - [ ] 2.5 Mirror `publish.ts` → npm `volt` wrapper (bin, postinstall, `optionalDependencies` per-platform)
 - [ ] 2.6 postinstall = opencode's binary-link logic **+ one line: register the LSP** in `~/.config/opencode/`
 - [ ] 2.7 Mirror the `install` curl script (Volt release URL, modifies PATH)
