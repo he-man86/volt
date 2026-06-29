@@ -13,7 +13,7 @@
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -21,6 +21,15 @@ const out = resolve(repo, "dist/volt")
 const bin = resolve(out, "bin")
 const ext = process.platform === "win32" ? ".exe" : ""
 const skipBridge = process.argv.includes("--no-bridge")
+
+// Stamp the real version into the binaries (build.ts reads VOLT_VERSION; without it the CLI ships as
+// "0.0.0-dev"). Source of truth: the volt-git package version.
+if (!process.env.VOLT_VERSION) {
+  try {
+    const v = JSON.parse(readFileSync(resolve(repo, "packages/volt-git/package.json"), "utf8")).version
+    if (v) process.env.VOLT_VERSION = v
+  } catch {}
+}
 
 function run(cmd: string, args: string[], cwd = repo): boolean {
   const r = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32" })
