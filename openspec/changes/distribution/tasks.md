@@ -40,12 +40,12 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 - **mac/linux · npm · `curl | bash` · brew/AUR · standalone `volt upgrade`** — opencode's *other-platform*
   channels. N/A: Volt is Windows-only and the two flows cover it.
 
-## 3. Gap review — open risks
+## 3. Gap review — verified on a clean install
 
-v0.1.0 is a **scaffold**: agent + LSP *editing* work; the **PLC-sync loop does not** (no connector + a tool bug).
+Clean-install test (`Volt-Setup-0.1.0`): **the two critical runtime gaps are CLOSED.**
 
-- [x] Agent-tool invocation — was `bun volt.exe` (fails on the compiled exe); now execs the binary directly (`setup.ts`). **Re-package the desktop to land it in a release.**
-- [ ] 🔴 **Connector missing from the install** (2.15) — a fresh install can't reach the IDE. The remaining critical gap.
-- [ ] 🟡 LSP runtime registration unverified on a packaged install (2.10); `home_logo` plugin unverified + not bundled for shipped (2.16).
-- [ ] 🟠 Extension bundles `bin.ts` (PLC CLI), **not** the agent — "agent in the editor" (2.12) needs the full opencode (132M) or a spawn/download approach.
-- [ ] 🟠 Terminal `volt` not on PATH (2.8); `setBundledCli` still on `volt.js` (2.9); connector update + `protocolVersion` (2.15c).
+- [x] Agent-tool invocation — now execs the compiled `volt.exe` directly; **verified** in the installed `tool/volt.ts` (`VOLT_CMD/VOLT_ARGS`).
+- [x] LSP runtime registration (2.10) — **verified**: a clean install re-registered the LSP into the global config, pointing at the bundled binary.
+- [~] Connector — **EXISTS** (a `VoltConnector` install: `BeckhoffBridge.exe` + `VoltConnector.exe` + bridge core, at `Programs\Volt`). Not "missing." Remaining: bundle/chain it in the desktop (2.15b), extension reference, update lane (2.15c).
+- [ ] 🟠 **Install dir is `@opencode-aidesktop`** (from the package name `@opencode-ai/desktop`), not `Volt` — landed in the old OpenCode dir. Branding/packaging fix.
+- [ ] 🟠 Extension bundles `bin.ts` (PLC CLI), not the agent (2.12); terminal `volt` PATH (2.8); `setBundledCli` (2.9); `home_logo` unverified + unbundled (2.16).
