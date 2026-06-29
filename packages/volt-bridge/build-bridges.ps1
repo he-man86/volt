@@ -15,7 +15,14 @@ param(
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot
 $DIST = "$ROOT\dist"
-$DOTNET = "C:\Program Files\dotnet\dotnet.exe"
+# Resolve dotnet: PATH first, then the user-dir SDK (dotnet-install default), then the system path.
+$DOTNET = (Get-Command dotnet.exe -ErrorAction SilentlyContinue).Source
+if (-not $DOTNET) {
+    foreach ($p in @("$env:USERPROFILE\.dotnet\dotnet.exe", "C:\Program Files\dotnet\dotnet.exe")) {
+        if (Test-Path $p) { $DOTNET = $p; break }
+    }
+}
+if (-not $DOTNET) { Write-Output "  dotnet not found - install the .NET 8 SDK"; exit 1 }
 
 Write-Output "========================================"
 Write-Output " Volt Bridges Build"

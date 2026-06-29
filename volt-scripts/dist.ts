@@ -13,7 +13,7 @@
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -47,10 +47,18 @@ console.log("• volt-lsp-codesys")
 compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")
 
 if (!skipBridge) {
-  console.log("• bridges (C#)")
-  // Best-effort: a machine without the .NET SDK can still ship the TS binaries (the bridge is the IDE side).
-  if (!run("bun", ["run", "build:all"], resolve(repo, "packages/volt-bridge"))) {
-    console.warn("⚠ bridge build failed (dotnet missing?) — binaries are still in dist/volt/bin; pass --no-bridge to silence")
+  console.log("• bridges + connector (C#)")
+  // build-bridges.ps1 runs the Core tests, publishes the bridges, and assembles the connector bundle
+  // (VoltConnector.exe + workers) into packages/volt-bridge/dist/Connector. Best-effort: a machine without
+  // the .NET SDK still ships the TS binaries (the bridge is the IDE side; pass --no-bridge to silence).
+  const built =
+    process.platform === "win32" &&
+    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "packages/volt-bridge/build-bridges.ps1"])
+  if (built) {
+    cpSync(resolve(repo, "packages/volt-bridge/dist/Connector"), resolve(out, "connector"), { recursive: true })
+    console.log("  ✓ connector bundled → dist/volt/connector")
+  } else {
+    console.warn("⚠ bridge/connector build skipped or failed (dotnet missing? non-Windows?) — TS binaries still in dist/volt/bin")
   }
 }
 

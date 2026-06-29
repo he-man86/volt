@@ -69,6 +69,12 @@ const getBase = (appId: string): Configuration => ({
       from: "../../dist/volt/bin",
       to: "volt/bin",
     },
+    {
+      // Volt: bundle the connector (background tray gateway + bridge workers) so ONE install carries
+      // everything. The nsis.include macros launch it on install + clean its login item on uninstall.
+      from: "../../dist/volt/connector",
+      to: "volt/connector",
+    },
   ],
   mac: {
     category: "public.app-category.developer-tools",
@@ -100,6 +106,9 @@ const getBase = (appId: string): Configuration => ({
     perMachine: false,
     installerIcon: `resources/icons/icon.ico`,
     installerHeaderIcon: `resources/icons/icon.ico`,
+    // Volt: connector lifecycle (launch on install · stop + drop login item on uninstall). Fork-owned
+    // .nsh, referenced by absolute path so it's not a new file inside the upstream desktop package.
+    include: path.join(rootDir, "packages/volt-bridge/installer/connector.nsh"),
   },
   linux: {
     icon: `resources/icons`,
