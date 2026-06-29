@@ -64,7 +64,7 @@ const ADDITIVE_ALLOWLIST = new Set<string>([
   ".opencode/themes/volt.json", // Volt brand theme (selected via the .opencode/tui.json seam)
   ".opencode/tool/volt.ts", // Volt CLI exposed as an opencode custom tool (opencode scans .opencode/tool/ only)
   ".opencode/opencode.json", // Volt config (LSP + permission gates) — opencode deep-merges it over upstream's pristine opencode.jsonc
-  // Future graphical Volt panel for the TUI lands at `.opencode/plugins/volt.tsx` — allowlist it here when it does.
+  ".opencode/plugins/volt.tsx", // Volt TUI branding — home_logo slot (additive plugin)
 ])
 
 // Prefixes under which fork-added files are allowed (Volt-namespaced files in upstream dirs).
