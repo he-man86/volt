@@ -26,7 +26,7 @@ See `design.md`. Windows-only. **Two delivery flows:** (1) the **desktop app** �
 ### Flow 2 — VS Code extension (`volt-vscode`)
 - [x] 2.11 Extension bundles LSP (`dist/lsp-server.js`) + CLI (`dist/cli.js`) + PLC language support — built (`.vsix` exists, v1.21.20)
 - [ ] 2.12 Add **the agent in the editor** — run the Volt agent inside VS Code (terminal panel, or webview + server; mirrors opencode's extension)
-- [ ] 2.13 Publish — VS Code Marketplace listing + a **download link in the docs** (the `.vsix`)
+- [~] 2.13 Publish — VS Code Marketplace listing + **download links in the docs**: the `.vsix` + the **standalone connector** (`pack-connector.ps1` → `dist/Volt-Bridge-Connector.zip`, 316 KB, with a clean-uninstall helper). Connector artifact built; the Marketplace publish + the actual doc links are release-time steps.
 
 ### Shared
 - [x] 2.14 Removed the `volt setup` CLI verb **and** the global `setup()` — `volt init` now writes the LSP + `volt` tool into the **project** `.opencode/` (coexists with stock opencode; nothing global to clean)
