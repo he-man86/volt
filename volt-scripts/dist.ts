@@ -37,8 +37,11 @@ function compile(entry: string, name: string): void {
 rmSync(out, { recursive: true, force: true })
 mkdirSync(bin, { recursive: true })
 
-console.log("• volt CLI")
-compile("packages/volt-git/src/bin.ts", "volt")
+console.log("• volt binary (opencode + PLC — mirrors opencode's build, TUI included)")
+if (!run("bun", ["volt-scripts/build.ts"])) {
+  console.error("✗ volt build failed")
+  process.exit(1)
+}
 
 console.log("• volt-lsp-codesys")
 compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")

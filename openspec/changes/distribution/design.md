@@ -81,7 +81,12 @@ repo** (else it self-updates back to stock opencode); bundle + register the LSP 
 GUI logo + app name: done (seams). TUI logo: `home_logo` plugin. Deep string rebrand of opencode internals is
 non-additive → out of scope; the binary name `volt` + the logo carry the brand.
 
-## Local dev build
+## Build scripts
 
-`bun volt-scripts/dist.ts` stays as a convenience to compile the binaries locally for testing. It is **not**
-the distribution path — that's the mirrored `publish.ts`.
+- `volt-scripts/build.ts` — the **volt binary** build. Mirrors opencode's `script/build.ts` (solid JSX plugin,
+  TUI worker entrypoints, tree-sitter/version/models defines) with `volt.ts` as the entry. Runs from
+  `packages/opencode` so opencode's relative paths resolve; re-port when opencode's `build.ts` changes.
+  *(Web-UI embed skipped for now → `volt web` not wired; the TUI + commands work.)*
+- `volt-scripts/dist.ts` — orchestrates a local bundle: calls `build.ts` (volt) + compiles `volt-lsp-codesys`
+  + the bridges into `dist/volt/`. Dev convenience; the **release** path is the mirrored `publish.ts` over
+  `build.ts`'s per-platform output.
