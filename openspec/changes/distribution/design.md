@@ -4,6 +4,17 @@
 opencode already solves CLI + desktop distribution and updates. Volt's job is to point those mechanisms at
 Volt's releases and carry the minimal PLC / LSP / bridge additions *inside* opencode's existing shapes.
 
+## Platform — Windows only
+
+Volt targets **Windows only** — the CODESYS / TwinCAT IDEs and the C# bridges are Windows-only. That scopes
+the plan hard and collapses it toward one vehicle:
+- **The Windows NSIS installer is the single vehicle** — bundles the binaries, registers the LSP, and adds
+  `volt` to PATH, so one install gives the desktop GUI *and* the terminal `volt` CLI.
+- **Updates** ride electron-updater (feed → `he-man86/volt`); the bundled CLI updates with the app.
+- **Dropped (opencode's *other-platform* CLI channels, N/A here):** mac/linux builds, the npm `volt` wrapper +
+  postinstall, the `curl | bash` install, brew/AUR, the standalone `volt upgrade`. Volt reuses only opencode's
+  **build pipeline + electron-builder + electron-updater**.
+
 ## What opencode already does (and we reuse)
 
 | Concern        | opencode mechanism                                                        | Volt reuse                  |
