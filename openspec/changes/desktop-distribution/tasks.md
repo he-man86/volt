@@ -9,3 +9,4 @@
 - [ ] 2.2 Code-signing (Windows certs)
 - [ ] 2.3 Updater feed
 - [ ] 2.4 Signed release
+- [ ] 2.5 Bundle the volt LSP + CLI beside the app (compiled `volt-lsp-codesys` binary for no-node customers); spawn `volt init`/`volt setup` with `VOLT_LSP_BIN`/`VOLT_BIN` pointed at them, so a fresh install gets PLC intelligence. (Registration mechanism done in `wire-lsp-for-agent`; this is the packaging side.)
