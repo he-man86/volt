@@ -758,3 +758,11 @@ END_FUNCTION_BLOCK`;
 		expect(ie.values[0]?.init).toBeDefined();
 	});
 });
+
+describe("interface methods — one canonical form (END_METHOD required)", () => {
+	it("flags an interface method with no END_METHOD (parity with the bridge's push gate)", () => {
+		const src = "INTERFACE I_X\n    METHOD Foo : INT\n    METHOD Bar : BOOL\nEND_INTERFACE";
+		const errors = parseSource(src).errors.map((e) => e.message);
+		expect(errors).toContain("expected END_METHOD to close the interface method");
+	});
+});

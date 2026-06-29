@@ -32,4 +32,31 @@ public class InterfaceRoundTripTests
         Assert.Equal("interface", split.PouKind);
         Assert.Contains(split.Children, c => c.Name == "DoIt");   // member survived the round-trip
     }
+
+    /// <summary>
+    /// One canonical form: every interface method is closed by END_METHOD — exactly what `volt pull`
+    /// (StAssembler) emits. The compact form (no END_METHOD) is NOT a second allowed shape; the bridge
+    /// rejects it, and the LSP redlines it, so there is one way in both.
+    /// </summary>
+    [Fact]
+    public void Interface_methods_require_END_METHOD_one_canonical_form()
+    {
+        // Canonical — column-0 members each closed by END_METHOD, as StAssembler emits them.
+        var canonical = string.Join("\n",
+            "INTERFACE I_EquipmentModule EXTENDS I_PackMLStateMachine",
+            "",
+            "METHOD GetEMName : STRING",
+            "END_METHOD",
+            "",
+            "METHOD GetUnitState : INT",
+            "END_METHOD",
+            "",
+            "END_INTERFACE");
+        var split = StSplitter.SplitSt(canonical);
+        Assert.Equal(new[] { "GetEMName", "GetUnitState" }, split.Children.Select(c => c.Name).ToArray());
+
+        // The compact form (no END_METHOD) is rejected — not a second allowed shape.
+        var compact = "INTERFACE I_X\nMETHOD Foo : INT\nEND_INTERFACE";
+        Assert.Throws<Volt.Bridge.Core.BridgeException>(() => StSplitter.SplitSt(compact));
+    }
 }

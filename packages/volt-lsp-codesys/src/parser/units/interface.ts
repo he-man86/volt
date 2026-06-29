@@ -110,10 +110,11 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 		returnType = parseTypeExpression(c);
 	}
 	const varSections = collectVarSections(c);
-	// Interfaces have no method bodies — the next keyword should be
-	// END_METHOD (then we look for the next interface member). Some
-	// formats omit END_METHOD entirely.
+	// One canonical form (matches the bridge + what `volt pull` emits): every interface method is
+	// closed by END_METHOD. Redline a missing one so the agent writes the canonical form, not a shape
+	// the bridge will reject on push (LSP diagnostics ⊇ bridge rejections).
 	const endMethod = c.eatKeyword("END_METHOD");
+	if (endMethod === undefined) c.pushError("expected END_METHOD to close the interface method", name.span);
 	const endSpan = endMethod?.span ?? returnType?.span ?? name.span;
 	return {
 		kind: "interface_method",
