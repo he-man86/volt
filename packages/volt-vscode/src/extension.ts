@@ -27,13 +27,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			return
 		}
 		const cwd = workspaceFolders()[0]?.uri.fsPath
-		// Open beside the editor (a side panel), mirroring Claude Code / opencode's quick-launch.
-		agentTerm = vscode.window.createTerminal({
-			name: "Volt Agent",
-			cwd,
-			shellPath: resolveAgentExe(),
-			location: { viewColumn: vscode.ViewColumn.Beside },
-		})
+		agentTerm = vscode.window.createTerminal({ name: "Volt Agent", cwd, shellPath: resolveAgentExe() })
 		agentTerm.show()
 	}
 	context.subscriptions.push(
