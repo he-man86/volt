@@ -24,6 +24,11 @@ function step(name: string, cmd: string, args: string[], cwd = repo): void {
 }
 
 step("bundle — prod volt binary + LSP + connector", "bun", ["volt-scripts/dist.ts"])
+// Rebuild the desktop renderer/main HERE under OPENCODE_CHANNEL=prod. package:win (electron-builder) only
+// packages out/ as-is — without this it ships whatever renderer was last built, and a non-prod build sets the
+// app's VITE_OPENCODE_CHANNEL≠prod, flipping it to opencode's unreleased V2 layouts. Building under prod pins
+// VITE_OPENCODE_CHANNEL=prod → the stable layouts.
+step("build — desktop app (electron-vite, prod)", "bun", ["run", "build"], resolve(repo, "packages/desktop"))
 step("installer (electron-builder NSIS)", "bun", ["run", "package:win"], resolve(repo, "packages/desktop"))
 
 console.log("\n✓ prod installer: packages/desktop/dist/Volt-Setup-<ver>-x64.exe")
