@@ -8,6 +8,47 @@ opencode resolves config from three env hooks (`packages/core/src/flag/flag.ts:2
 
 `ConfigPaths.directories()` appends `OPENCODE_CONFIG_DIR` to the dir list (`config/paths.ts:39`); `config.ts:423` loops every dir and `:424` — `if (dir.endsWith(".opencode") || dir === Flag.OPENCODE_CONFIG_DIR)` — gives the env dir the **full `.opencode` treatment**: `opencode.json` + `tool/` + `agent/` + `command/` + `plugin/` + theme, all `mergeDeep`'d. The TUI honors it too (`config/tui.ts:170,198`). So one env var = the entire agent toolchain, in both frontends.
 
+## At a glance — before → after
+
+```
+BEFORE — patchwork: per-project, machine-specific, fragile
+══════════════════════════════════════════════════════════
+  volt init ──writes──► <EACH project>/.opencode/
+                          ├─ opencode.json   lsp: "C:\Users\…\volt-lsp-codesys.exe"  ⚠ absolute → stale on update
+                          ├─ tool/volt.ts    + bun/npm install @opencode-ai/plugin    ⚠ corporate proxy breaks it
+                          └─ package.json
+                          (agent · theme · permissions live in the DEV REPO ONLY ──► a consumer never gets them ✗)
+
+   ✗ project not init'd  →  no LSP          ✗ 4 registration methods, split dev-repo vs consumer
+
+
+AFTER — one dir shipped with the app, one env var, registered globally
+══════════════════════════════════════════════════════════════════════
+  ┌──────────────────────── Volt app  (installed once) ────────────────────────┐
+  │  resources/volt/                                                            │
+  │    bin/  ─────────────────────►  on PATH:  volt-lsp-codesys.exe · volt.exe  │
+  │    volt-config/   ◄── OPENCODE_CONFIG_DIR points here  (ships STATIC)       │
+  │      ├─ opencode.json   lsp: ["volt-lsp-codesys","--stdio"] ✓ bare → PATH   │
+  │      ├─ tool/volt.ts                                  (cross-spawn resolves)│
+  │      ├─ agent/volt.md                                                       │
+  │      ├─ themes/volt.json                                                    │
+  │      └─ node_modules/@opencode-ai/plugin   ✓ vendored (zod inlined, no npm) │
+  └───────────────────────────────────┬────────────────────────────────────────┘
+            desktop sidecar fork ──┐   │   ┌── CLI / TUI launcher
+                                   └───┴───┘   both export OPENCODE_CONFIG_DIR
+                                       │
+                                       ▼
+                            opencode server   (config.ts:424 → treats it as a full .opencode)
+                                       │
+         ┌──────────────┬─────────────┼─────────────┬──────────────┐
+         ▼              ▼             ▼             ▼              ▼
+       LSP           volt tool      agent         theme        permissions
+     (.st nav)      (PLC verbs)   (volt.md)      (brand)       (ask gates)
+         └─────────────── every project · ZERO `volt init` ───────────────┘
+
+   volt init now writes ONLY:  .git/volt/config.json (IDE binding)  +  .claude/skills/ (vendor ref)
+```
+
 ## The shipped dir (`resources/volt/volt-config/`)
 ```
 volt-config/
