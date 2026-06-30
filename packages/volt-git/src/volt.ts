@@ -16,6 +16,19 @@ const first = process.argv[2]
 if (first !== undefined && VOLT_VERBS.has(first)) {
   await import("./bin.js") // the PLC CLI (auto-runs main with process.argv)
 } else {
+  // Standalone `volt` (the agent/TUI): point opencode at the bundled config dir beside the binary (LSP +
+  // `volt` tool + agent + theme + permissions) and put the bin dir on PATH so the config's bare-name commands
+  // resolve. Only the compiled binary has the sibling dir; dev-from-source falls back to the repo .opencode.
+  if (!process.env.OPENCODE_CONFIG_DIR) {
+    const { dirname, join } = await import("node:path")
+    const { existsSync } = await import("node:fs")
+    const binDir = dirname(process.execPath)
+    const cfg = join(binDir, "..", "volt-config")
+    if (existsSync(cfg)) {
+      process.env.OPENCODE_CONFIG_DIR = cfg
+      process.env.PATH = binDir + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? "")
+    }
+  }
   // Register the TUI <spinner> before opencode renders. Upstream (opencode/tui) registers it via a bare
   // `import "opentui-spinner/solid"` side-effect, but our dynamic-import entry + bundle splitting tree-shakes
   // that out → "[Reconciler] Unknown component type: spinner" when chatting. Value-referencing it here

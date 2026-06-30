@@ -14,7 +14,7 @@
  */
 import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -68,6 +68,38 @@ if (run("bun", ["run", "package"], vsixDir)) {
 } else {
   console.warn("  ⚠ extension package failed — installer ships without the bundled extension")
 }
+
+// Volt config dir — the whole agent-facing layer (LSP, `volt` tool, agent, theme, permissions) shipped ONCE
+// and handed to opencode via OPENCODE_CONFIG_DIR (set on the desktop sidecar + the CLI launcher). Static —
+// the LSP/tool resolve off PATH (bare names), so nothing machine-specific is baked. The only thing vendored
+// is @opencode-ai/plugin (the tool's import), so the tool loads with no npm/registry at runtime.
+console.log("• volt-config (agent toolchain via OPENCODE_CONFIG_DIR)")
+const cfgOut = resolve(out, "volt-config")
+cpSync(resolve(repo, "packages/volt-git/volt-config"), cfgOut, { recursive: true })
+const pluginDir = resolve(cfgOut, "node_modules/@opencode-ai/plugin")
+mkdirSync(pluginDir, { recursive: true })
+// Bundle to one file: the runtime closure is just `zod` (effect/sdk/ai-sdk are type-only, erased).
+if (
+  !run("bun", [
+    "build",
+    "--target=node",
+    "--outfile",
+    resolve(pluginDir, "index.js"),
+    resolve(repo, "node_modules/@opencode-ai/plugin/src/index.ts"),
+  ])
+) {
+  console.error("✗ failed to vendor @opencode-ai/plugin into volt-config")
+  process.exit(1)
+}
+writeFileSync(
+  resolve(pluginDir, "package.json"),
+  JSON.stringify(
+    { name: "@opencode-ai/plugin", version: "0.0.0-vendored", type: "module", main: "index.js", exports: { ".": "./index.js" } },
+    null,
+    2,
+  ) + "\n",
+)
+console.log("  ✓ volt-config → dist/volt/volt-config (+ vendored @opencode-ai/plugin)")
 
 if (!skipBridge) {
   console.log("• bridges + connector (C#)")

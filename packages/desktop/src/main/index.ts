@@ -279,12 +279,17 @@ const main = Effect.gen(function* () {
   } catch (e) {
     logger.log("volt ipc registration failed", { error: String(e) })
   }
-  // Volt: point env at the bundled binaries so an in-process `volt init` (via volt-control) wires the LSP +
-  // tool into the PROJECT's .opencode/ — project-local, never the global config stock opencode shares.
+  // Volt: hand opencode the bundled agent-config dir (LSP + `volt` tool + agent + theme + permissions) via
+  // OPENCODE_CONFIG_DIR, and prepend the bundled bin dir to PATH so the config's bare-name `volt-lsp-codesys`
+  // / `volt` commands resolve even before the installer's PATH entry takes effect. The opencode sidecar
+  // (createSidecarEnv) inherits this whole env. `volt init` now only binds the IDE project; VOLT_BIN lets
+  // volt-control shell the CLI over IPC.
   if (app.isPackaged) {
     const exe = process.platform === "win32" ? ".exe" : ""
-    const binDir = join(process.resourcesPath, "volt", "bin")
-    process.env.VOLT_LSP_BIN = join(binDir, "volt-lsp-codesys" + exe)
+    const voltRoot = join(process.resourcesPath, "volt")
+    const binDir = join(voltRoot, "bin")
+    process.env.OPENCODE_CONFIG_DIR = join(voltRoot, "volt-config")
+    process.env.PATH = binDir + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? "")
     process.env.VOLT_BIN = join(binDir, "volt" + exe)
   }
   void updater.start()
