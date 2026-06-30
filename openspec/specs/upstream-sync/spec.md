@@ -90,3 +90,41 @@ SHALL merge opencode's latest release tag and open a PR when the result is clean
 - **WHEN** a push or PR modifies an upstream file outside the 13 seams
 - **THEN** the Volt CI check fails
 
+### Requirement: Upstream sync runs daily and auto-merges when clean
+
+The scheduled auto-sync SHALL run at least **daily** (not weekly), so each merge stays small against
+opencode's high velocity (~35 commits/day). When the merge has **no conflicts** and `sync.ts` passes
+**all** signals (`check-divergence` → `check-volt-integration` → `verify-lsp` → `verify-volt-tool`),
+the sync SHALL be merged automatically (fast-forward onto the default branch) without manual review.
+A **conflict or any failed signal** SHALL instead open a PR for a human and SHALL NOT auto-merge.
+
+#### Scenario: A clean daily sync lands without manual review
+- **WHEN** the daily job merges `upstream/dev` with no conflicts and `sync.ts` passes every signal
+- **THEN** the result fast-forwards onto the default branch automatically — no PR, no human
+
+#### Scenario: A conflict or failed signal pauses for a human
+- **WHEN** the merge conflicts, or any `sync.ts` signal fails
+- **THEN** the job opens a PR for manual resolution and does not auto-merge
+
+### Requirement: Volt ships opencode's stable UI channel
+
+Volt's desktop packaging SHALL build with `OPENCODE_CHANNEL=prod` so the released app defaults to
+opencode's **stable** UI (currently the v1 legacy layout), not the in-progress v2 layout that an
+unset or `beta` channel selects. Because opencode's own default rule is
+`newLayoutDesigns = OPENCODE_CHANNEL !== "prod"`, a Volt `prod` build SHALL automatically adopt
+whatever layout opencode promotes to its `prod` channel — including v2 once opencode releases it —
+with no Volt code change. Volt MUST NOT hardcode the v1 layout or vendor a separate UI package; it
+is one flag-gated `packages/app`.
+
+#### Scenario: A Volt release ships the stable layout
+- **WHEN** Volt packages the desktop app with `OPENCODE_CHANNEL=prod`
+- **THEN** it defaults to opencode's stable (v1) layout, app name `Volt`, and prod icons
+
+#### Scenario: Volt auto-follows when opencode promotes v2
+- **WHEN** opencode makes v2 the default on its `prod` channel and Volt next syncs and rebuilds
+- **THEN** Volt's `prod` build renders v2 with no Volt-side change
+
+#### Scenario: A developer can still preview v2
+- **WHEN** a developer runs an unset/`beta` build or sets `general.newLayoutDesigns` per-install
+- **THEN** the in-progress v2 layout renders, without affecting released Volt builds
+
