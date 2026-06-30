@@ -41,11 +41,6 @@ const version =
 // Default prod — the compiled binary is a distributable. dev/beta only when explicitly set (CI sets it per branch).
 const channel = process.env.OPENCODE_CHANNEL ?? "prod"
 
-// The opencode base version this binary embeds (≠ volt's app version). `volt init` pins the @opencode-ai/plugin
-// a project tool imports to THIS — the published version, so it resolves. Read from opencode's package.json so
-// it auto-tracks upstream merges (no manual bump, no merge-script step).
-const opencodeVersion = JSON.parse(fs.readFileSync(path.join(ocDir, "package.json"), "utf8")).version as string
-
 const voltEntry = path.join(repo, "packages/volt-git/src/volt.ts")
 const localWorker = path.join(ocDir, "node_modules/@opentui/core/parser.worker.js")
 const rootWorker = path.join(repo, "node_modules/@opentui/core/parser.worker.js")
@@ -80,7 +75,6 @@ await Bun.build({
   define: {
     FFF_LIBC: JSON.stringify("gnu"),
     OPENCODE_VERSION: `'${version}'`,
-    OPENCODE_PLUGIN_VERSION: `'${opencodeVersion}'`,
     OPENCODE_MODELS_DEV: generated.modelsData,
     OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
     OPENCODE_WORKER_PATH: workerPath,

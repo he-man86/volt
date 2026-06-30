@@ -84,20 +84,17 @@ check("packages/app/vite.js still defines VITE_OPENCODE_CHANNEL", () => {
 	return (existsSync(f) && readFileSync(f, "utf-8").includes("VITE_OPENCODE_CHANNEL"))
 		|| "channel define dropped — the GUI would revert to V2 (cf. opencode PR #28612)";
 });
-// volt init pins @opencode-ai/plugin to the embedded opencode version (build.ts → opencode-config.ts). On a
-// release-tag merge opencode may tag a version before publishing it to npm — then a consumer's `volt init`
-// 404s ("Unexpected server error"). Confirm the pinned version is actually published. Best-effort: skip offline.
-check("@opencode-ai/plugin pin is published on npm", () => {
-	const v = JSON.parse(readFileSync(join(REPO_ROOT, "packages/opencode/package.json"), "utf-8")).version;
-	const r = spawnSync("npm", ["view", `@opencode-ai/plugin@${v}`, "version"], {
-		encoding: "utf-8",
-		timeout: 20_000,
-		shell: process.platform === "win32",
-	});
-	if (r.status === 0 && r.stdout.trim()) return true;
-	const err = (r.stderr || "").toLowerCase();
-	if (err.includes("404") || err.includes("no match")) return `@opencode-ai/plugin@${v} not on npm — consumers' volt init would fail`;
-	return true; // npm offline / unavailable — don't false-fail the whole sync
+// The agent toolchain ships as one OPENCODE_CONFIG_DIR dir (packages/volt-git/volt-config/), handed to opencode
+// by the desktop + the `volt` binary; @opencode-ai/plugin is vendored into it at dist time (no npm pin). Confirm
+// the dir is present + structurally intact (bare-name LSP) so the unify layer ships.
+check("volt-config dir is present (bare-name LSP + volt tool)", () => {
+	const dir = join(REPO_ROOT, "packages/volt-git/volt-config");
+	const cfg = join(dir, "opencode.json");
+	if (!existsSync(cfg)) return "packages/volt-git/volt-config/opencode.json missing";
+	if (!existsSync(join(dir, "tool", "volt.ts"))) return "volt-config/tool/volt.ts missing";
+	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-codesys"];
+	if (!lsp || lsp.command?.[0] !== "volt-lsp-codesys") return "volt-config LSP entry missing or not bare-name";
+	return true;
 });
 
 console.log("\nRuntime smoke test");
