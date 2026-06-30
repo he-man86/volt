@@ -24,10 +24,13 @@
 - [ ] `logo.tsx`, app name (`main/index.ts`), window titles (`*/index.html`), brand theme (`.opencode/tui.json`)
 - [ ] Build installer; confirm Volt branding + still 100% functional
 
-## Step 4 — Desktop GUI integration (the hot seam)
-- [ ] `window.volt` IPC (`preload` + `main` + `electron.vite` volt input) + the "IDE" changes panel (`session.tsx` + `app/package.json` volt-app dep)
-- [ ] Build installer; confirm the in-GUI Volt panel works
-- [ ] Document `session.tsx` as the irreducible hot seam (315 commits/6mo, 8 interleaves); draft an upstream `registerChangeSource()` proposal (collapses 8 conflict sites → 1)
+## Step 4 — Desktop IDE-changes panel (self-owned, ~1 seam)
+- [ ] Move ALL the IDE-changes logic into a self-contained `VoltIdePanel` in `volt-app`: its own toggle, `ideQuery` over the `window.volt` IPC, diff rows via `@opencode-ai/ui` (additive — no opencode edit)
+- [ ] Mount it with ONE line in `session.tsx` (~:1859) — `<Show when={voltDetected()}><VoltIdePanel/></Show>` beside `<SessionSidePanel/>`
+- [ ] DELETE the 8 native interleaves (`ChangeMode "ide"`, `changesOptions.push("ide")`, `ideQuery`, the `reviewDiffs`/`reviewReady`/`label`/`reviewEmptyText` branches, the `<VoltIdeHeader/>` render)
+- [ ] Keep the `window.volt` IPC seam (`preload` + `main`) — the panel needs it
+- [ ] Build installer; confirm the IDE-changes panel works (a Volt panel parallel to opencode's changes panel)
+- [ ] `check-divergence`: `session.tsx` drops from 8 touch points → 1 mount line
 
 ## Step 5 — Deep-link scheme
 - [ ] `deep-links.ts` (`volt://`) + the `setAsDefaultProtocolClient` registration
