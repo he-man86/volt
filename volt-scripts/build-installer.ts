@@ -9,6 +9,7 @@
  *   bun volt-scripts/build-installer.ts  ->  packages/desktop/dist/Volt-Setup-<ver>-x64.exe
  */
 import { spawnSync } from "node:child_process"
+import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -30,5 +31,18 @@ step("bundle — prod volt binary + LSP + connector", "bun", ["volt-scripts/dist
 // VITE_OPENCODE_CHANNEL=prod → the stable layouts.
 step("build — desktop app (electron-vite, prod)", "bun", ["run", "build"], resolve(repo, "packages/desktop"))
 step("installer (electron-builder NSIS)", "bun", ["run", "package:win"], resolve(repo, "packages/desktop"))
+
+// Guard: the packaged app MUST carry the agent-config dir (resources/volt/volt-config) — extraResources copies
+// each dist/volt/* entry individually, so a dropped/renamed entry silently ships an installer with no LSP/tool
+// while the build still exits 0. Assert the key files survived into win-unpacked.
+const packagedCfg = resolve(repo, "packages/desktop/dist/win-unpacked/resources/volt/volt-config")
+for (const f of ["opencode.json", "tool/volt.js"]) {
+  if (!existsSync(resolve(packagedCfg, f))) {
+    console.error(`✗ packaged installer is missing resources/volt/volt-config/${f} — opencode would get no LSP/tool.`)
+    console.error("  Fix: electron-builder.config.ts extraResources must include ../../dist/volt/volt-config.")
+    process.exit(1)
+  }
+}
+console.log("  ✓ packaged volt-config present (LSP + self-contained tool)")
 
 console.log("\n✓ prod installer: packages/desktop/dist/Volt-Setup-<ver>-x64.exe")
