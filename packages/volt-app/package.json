@@ -1,6 +1,6 @@
 {
   "name": "@opencode-ai/volt-app",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Volt's Solid panel components + branding overrides for the opencode desktop app (the volt-vscode UX, in-app). Pure renderer UI — the volt-control actions arrive via Electron IPC (Phase 3).",
