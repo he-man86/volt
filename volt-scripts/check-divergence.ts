@@ -40,8 +40,10 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/app/src/pages/layout/deep-links.ts", // Volt deep-link scheme is volt:// (coexist — don't grab opencode://)
   // ── desktop IPC seams (window.volt → volt-control; Electron has no plugin hook) ──
   "packages/desktop/src/preload/index.ts", // expose window.volt
-  "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main (out/main/volt.js)
+  "packages/desktop/electron.vite.config.ts", // bundle the volt CLI beside main + default the build channel to prod (V1)
   "packages/desktop/package.json", // @opencode-ai/volt-git + volt-control deps
+  // ── build-channel seam (ship opencode's STABLE prod UI, not its unreleased V2) ──
+  "packages/app/vite.js", // default the renderer build channel to prod (V1) — openspec harden-opencode-integration
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.
