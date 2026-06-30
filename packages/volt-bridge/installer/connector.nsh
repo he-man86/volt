@@ -9,6 +9,9 @@
   ; Launch the bundled connector once — it shows the tray + registers its start-at-login item, so it comes
   ; back on every login as the background gateway. Runs in the installing user's session (perMachine:false).
   ExecShell "" "$INSTDIR\resources\volt\connector\VoltConnector.exe"
+  ; Sideload the Volt VS Code extension into any editor found (VS Code / Windsurf / Cursor / VSCodium), so one
+  ; install carries the editor integration too. Best-effort — no editor = skipped.
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\resources\volt\bin\volt-extension.ps1" install "$INSTDIR\resources\volt\volt-vscode.vsix"'
 !macroend
 
 !macro customUnInstall
@@ -23,6 +26,8 @@
   ; Drop the volt:// protocol handler the app registers at runtime (setAsDefaultProtocolClient) — the NSIS
   ; uninstaller doesn't track runtime registry writes, so it would otherwise linger as a dangling handler.
   DeleteRegKey HKCU "Software\Classes\volt"
+  ; Remove the Volt VS Code extension from the user's editors (matches the install-time sideload).
+  nsExec::ExecToLog 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\resources\volt\bin\volt-extension.ps1" uninstall'
   ; Let the killed processes release their handles before the tree is removed.
   Sleep 2000
 !macroend

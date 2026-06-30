@@ -12,6 +12,7 @@
  *   dist/volt/bin/volt-lsp-codesys[.exe]  the Structured Text LSP (no node needed)
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
+import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
@@ -49,6 +50,24 @@ compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")
 // PATH helper bundled with the binaries — the installer's NSIS (connector.nsh) uses it to add/remove `volt`
 // on PATH, so the install also gives you the terminal CLI + makes the VS Code extension work.
 cpSync(resolve(import.meta.dirname, "volt-path.ps1"), resolve(bin, "volt-path.ps1"))
+
+// Extension-install helper — the installer's NSIS uses it to sideload the .vsix into the user's editors.
+cpSync(resolve(import.meta.dirname, "volt-extension.ps1"), resolve(bin, "volt-extension.ps1"))
+
+// Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
+console.log("• volt-vscode extension (.vsix)")
+const vsixDir = resolve(repo, "packages/volt-vscode")
+if (run("bun", ["run", "package"], vsixDir)) {
+  const vsix = [...new Glob("volt-vscode-*.vsix").scanSync({ cwd: vsixDir })].sort().at(-1)
+  if (vsix) {
+    cpSync(resolve(vsixDir, vsix), resolve(out, "volt-vscode.vsix"))
+    console.log(`  ✓ extension → dist/volt/volt-vscode.vsix (${vsix})`)
+  } else {
+    console.warn("  ⚠ .vsix not found after package")
+  }
+} else {
+  console.warn("  ⚠ extension package failed — installer ships without the bundled extension")
+}
 
 if (!skipBridge) {
   console.log("• bridges + connector (C#)")

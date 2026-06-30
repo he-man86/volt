@@ -80,6 +80,12 @@ const getBase = (appId: string): Configuration => ({
       from: "../../dist/volt/connector",
       to: "volt/connector",
     },
+    {
+      // Volt: bundle the VS Code extension so the installer sideloads it into the user's editors
+      // (connector.nsh customInstall → volt-extension.ps1). Built by dist.ts → dist/volt/volt-vscode.vsix.
+      from: "../../dist/volt/volt-vscode.vsix",
+      to: "volt/volt-vscode.vsix",
+    },
   ],
   mac: {
     category: "public.app-category.developer-tools",
