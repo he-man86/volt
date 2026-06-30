@@ -111,9 +111,9 @@ const getBase = (appId: string): Configuration => ({
     perMachine: false,
     installerIcon: `resources/icons/icon.ico`,
     installerHeaderIcon: `resources/icons/icon.ico`,
-    // Apps & Features entry: "<product> Desktop" (e.g. "Volt Desktop"). Drop the version electron-builder bakes
-    // into the name by default — it stays in DisplayVersion (the Version column). Pairs with the CLI's "Volt CLI".
-    uninstallDisplayName: `${PRODUCT_NAMES[channel]} Desktop`,
+    // Apps & Features entry: just the product name (e.g. "Volt"). Drop the version electron-builder bakes into
+    // the name by default — it stays in DisplayVersion (the Version column). One all-inclusive installer.
+    uninstallDisplayName: PRODUCT_NAMES[channel],
     // Volt: connector lifecycle (launch on install · stop + drop login item on uninstall). Fork-owned
     // .nsh, referenced by absolute path so it's not a new file inside the upstream desktop package.
     include: path.join(rootDir, "packages/volt-bridge/installer/connector.nsh"),

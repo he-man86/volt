@@ -3,13 +3,19 @@
 - [x] 1.1 Volt logo (`packages/ui/logo.tsx`)
 - [x] 1.2 App name (`packages/desktop`)
 
-## 2. Distribution — Windows only, three channels (mirror opencode + Volt's layer)
+## 2. Distribution — Windows only, ONE installer + the extension
 
-See `design.md`. Windows-only. **Three delivery channels, each = an opencode channel + Volt's layer (bridge +
-PLC LSP + PLC commands):** (1) **desktop app** — one all-inclusive install (GUI + CLI + LSP + bridge);
-(2) **CLI installer** — `volt` on PATH + LSP + self-contained bridge (the curl-install equivalent, for the
-advanced CLI + VS Code user); (3) **`volt-vscode` extension** — thin launcher that runs `volt` in a side
-terminal (the agent is a prerequisite from #1 or #2). All connect to the same IDE **bridge**.
+See `design.md`. Windows-only. **One all-inclusive installer + the VS Code extension:** (1) **the Volt installer**
+(electron-builder NSIS) bundles the GUI app + the `volt` CLI on PATH + the bridge + the LSP — a terminal/advanced
+user installs the same thing and uses `volt` + the extension, ignoring the GUI; (2) **`volt-vscode` extension** —
+a thin launcher that runs `volt` (from the install) in a side terminal + PLC language support.
+
+> **Collapsed 3 channels → 1 installer** (was: desktop + a standalone CLI installer + extension). The CLI
+> installer was opencode-channel-mirroring Volt doesn't need: opencode splits CLI/desktop for headless/cross-platform
+> (servers, CI), but Volt is Windows-only and the bridge talks to a live GUI IDE on the same workstation — never
+> headless. The desktop is a superset that already puts `volt` on PATH, so a 2nd installer only created collisions
+> (two `volt` on PATH, shared `VoltConnector.exe`/Run-key → uninstalling one broke the other). **Updates** =
+> electron-updater (`he-man86/volt`, opencode's mechanism) → GUI + CLI + bridge update together.
 
 ### Build (done)
 - [x] 2.1 `volt` is one entry — bare → agent, `volt <verb>` → PLC (dispatcher in volt-git)
@@ -25,14 +31,17 @@ terminal (the agent is a prerequisite from #1 or #2). All connect to the same ID
 - [ ] 2.9 Point `volt-control`'s `setBundledCli` at the bundled `volt` (unify the panel's `volt.js` onto the exe)
 - [ ] 2.10 Runtime-verify — install on a clean profile, `volt init` a project, confirm the LSP attaches from the project `.opencode/`
 
-### Channel #2 — CLI installer (NEW — done + tested)
-- [x] 2.10a Standalone NSIS (`volt-scripts/cli-installer/volt-cli.nsi` + `build-cli-installer.ts`, makensis from electron-builder's NSIS cache) → installs `volt` + LSP + the self-contained connector to `%USERPROFILE%\.volt`, adds `.volt\bin` to PATH (idempotent `volt-path.ps1`), launches+registers the connector, ships an uninstaller. **Tested:** install (files + PATH + `volt --version`=0.1.0) → uninstall (files + PATH + Run-key all removed).
-- [x] 2.10b **Desktop-detection guard** — keys off `Programs\Volt\resources\volt\bin\volt.exe` (constant across the Volt/Dev/Beta channels; same path `resolveAgentExe` checks); bows out if the desktop is present (alternatives — no PATH/connector collision). **Tested:** desktop present → aborts, no `.volt` created.
+### ~~CLI installer~~ — REMOVED (collapsed into the one installer)
+Built + tested (a standalone NSIS to `~/.volt` with a desktop-detection guard), then **removed**: the
+install-matrix test showed the both-installed case (CLI-then-desktop) collides on the shared `VoltConnector.exe`
++ Run-key — uninstalling one breaks the other. The desktop already covers the CLI, so deleting the 2nd installer
+retires the whole collision class. Removed `volt-cli.nsi` + `build-cli-installer.ts`; `volt-path.ps1` kept (the
+installer's NSIS uses it for PATH); `build-installers.ts` → `build-installer.ts` (one installer).
 
 ### Flow 2 — VS Code extension (`volt-vscode`)
 - [x] 2.11 Extension bundles LSP (`dist/lsp-server.js`) + CLI (`dist/cli.js`) + PLC language support — built (`.vsix` exists, v1.21.20)
-- [x] 2.12 **Agent in the editor** — DONE, mirrors opencode's extension: **Quick Launch** ("Volt: Open Agent" — opens/focuses the agent terminal) + **New Session**. The agent binary is a **prerequisite** (the desktop install or the CLI installer — both put `volt` on PATH; `resolveAgentExe` resolves the desktop binary, else `volt` on PATH) — the extension *launches* it, never bundles or downloads it. (Dropped the standalone `volt-win-x64.exe` artifact — the CLI installer is the standalone channel now.) Follow-ons for full opencode parity: Windows-safe keybindings, context-awareness (share selection/tab), `@File#Lx-y` reference shortcuts.
-- [~] 2.13 Publish — Marketplace listing (**publisher `volt-ai`**, since `volt` is likely taken) + **download links in the docs**: the `.vsix` + the **CLI installer** (`Volt-CLI-Setup-<ver>-x64.exe` — supersedes the old standalone connector zip; carries `volt` + LSP + the self-contained bridge). Both ready; the Marketplace publish needs a publisher token, and the doc links go live with the release.
+- [x] 2.12 **Agent in the editor** — DONE, mirrors opencode's extension: **Quick Launch** ("Volt: Open Agent" — opens/focuses the agent terminal) + **New Session**. The agent binary is a **prerequisite** (the Volt install puts `volt` on PATH; `resolveAgentExe` resolves the install's bundled binary, else `volt` on PATH) — the extension *launches* it, never bundles or downloads it. Follow-ons for full opencode parity: Windows-safe keybindings, context-awareness (share selection/tab), `@File#Lx-y` reference shortcuts.
+- [~] 2.13 Publish — Marketplace listing (**publisher `volt-ai`**, since `volt` is likely taken) + **download links in the docs**: the `.vsix` + the **Volt installer** (`Volt-Setup-<ver>-x64.exe` — the one install; the extension uses its bundled `volt`). Both ready; the Marketplace publish needs a publisher token, and the doc links go live with the release.
 
 ### Shared
 - [x] 2.14 Removed the `volt setup` CLI verb **and** the global `setup()` — `volt init` now writes the LSP + `volt` tool into the **project** `.opencode/` (coexists with stock opencode; nothing global to clean)
@@ -44,7 +53,7 @@ terminal (the agent is a prerequisite from #1 or #2). All connect to the same ID
 ### Dropped / deferred
 - **Code-signing** — skipped for now (opencode ships unsigned too).
 - **mac/linux · npm · `curl | bash` · brew/AUR · standalone `volt upgrade`** — opencode's *other-platform*
-  channels. N/A: Volt is Windows-only and the two flows cover it.
+  channels. N/A: Volt is Windows-only and the one all-inclusive installer covers it (updates via electron-updater).
 
 ## 3. Gap review — verified on a clean install
 

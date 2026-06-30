@@ -46,9 +46,9 @@ if (!run("bun", ["volt-scripts/build.ts"])) {
 console.log("• volt-lsp-codesys")
 compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")
 
-// PATH helper bundled with the binaries — the desktop NSIS (connector.nsh) uses it to add/remove `volt`
-// on PATH, so a desktop user gets the terminal CLI + the extension too.
-cpSync(resolve(import.meta.dirname, "cli-installer/volt-path.ps1"), resolve(bin, "volt-path.ps1"))
+// PATH helper bundled with the binaries — the installer's NSIS (connector.nsh) uses it to add/remove `volt`
+// on PATH, so the install also gives you the terminal CLI + makes the VS Code extension work.
+cpSync(resolve(import.meta.dirname, "volt-path.ps1"), resolve(bin, "volt-path.ps1"))
 
 if (!skipBridge) {
   console.log("• bridges + connector (C#)")
