@@ -10,10 +10,17 @@
  * Binaries resolve via env override → beside the running volt binary (packaged: resources/volt/bin) → the
  * repo build (dev).
  */
+import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 
 const EXTENSIONS = [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias", ".fbd", ".ld", ".sfc", ".cfc"]
+
+// The `volt` tool imports @opencode-ai/plugin. opencode auto-installs a tool's deps at THIS binary's version —
+// volt's (e.g. 0.1.0), which isn't on npm, so the install 404s and the prompt fails. Pin it instead to the
+// opencode base version this binary embeds (which IS published). The fork is opencode 1.17.11; bump this on
+// upstream merges (= packages/opencode/package.json version).
+const OPENCODE_VERSION = "1.17.11"
 
 export interface WireResult {
 	configFile: string
@@ -127,6 +134,27 @@ export function writeOpencodeConfig(root: string): WireResult {
 	const toolFile = join(dir, "tool", "volt.ts")
 	mkdirSync(dirname(toolFile), { recursive: true })
 	writeFileSync(toolFile, toolSource(voltBin))
+
+	// Pin @opencode-ai/plugin (the tool's import) to the published opencode base version and install it now, so
+	// opencode resolves it from node_modules instead of trying — and failing — to auto-install volt's version.
+	writeFileSync(
+		join(dir, "package.json"),
+		JSON.stringify(
+			{ name: "volt-workspace-tools", private: true, dependencies: { "@opencode-ai/plugin": OPENCODE_VERSION } },
+			null,
+			2,
+		) + "\n",
+	)
+	// Keep the machine-specific package.json + node_modules out of the consumer's repo (opencode writes the same
+	// .gitignore when it first runs; do it now so a commit before the first chat can't leak them).
+	const giFile = join(dir, ".gitignore")
+	if (!existsSync(giFile)) writeFileSync(giFile, "node_modules\npackage.json\npackage-lock.json\nbun.lock\n.gitignore\n")
+	const win = process.platform === "win32"
+	const installed =
+		spawnSync("bun", ["install"], { cwd: dir, stdio: "ignore", shell: win }).status === 0 ||
+		spawnSync("npm", ["install"], { cwd: dir, stdio: "ignore", shell: win }).status === 0
+	if (!installed)
+		console.warn("⚠ Could not install the volt tool's deps (need bun or npm on PATH) — run `bun install` in .opencode/ if the agent's `volt` tool fails to load.")
 
 	return { configFile, toolFile, lspBin, voltBin }
 }
