@@ -24,13 +24,13 @@
 - [ ] `logo.tsx`, app name (`main/index.ts`), window titles (`*/index.html`), brand theme (`.opencode/tui.json`)
 - [ ] Build installer; confirm Volt branding + still 100% functional
 
-## Step 4 — Desktop IDE-changes panel (self-owned, ~1 seam)
-- [ ] Move ALL the IDE-changes logic into a self-contained `VoltIdePanel` in `volt-app`: its own toggle, `ideQuery` over the `window.volt` IPC, diff rows via `@opencode-ai/ui` (additive — no opencode edit)
-- [ ] Mount it with ONE line in `session.tsx` (~:1859) — `<Show when={voltDetected()}><VoltIdePanel/></Show>` beside `<SessionSidePanel/>`
-- [ ] DELETE the 8 native interleaves (`ChangeMode "ide"`, `changesOptions.push("ide")`, `ideQuery`, the `reviewDiffs`/`reviewReady`/`label`/`reviewEmptyText` branches, the `<VoltIdeHeader/>` render)
-- [ ] Keep the `window.volt` IPC seam (`preload` + `main`) — the panel needs it
-- [ ] Build installer; confirm the IDE-changes panel works (a Volt panel parallel to opencode's changes panel)
-- [ ] `check-divergence`: `session.tsx` drops from 8 touch points → 1 mount line
+## Step 4 — Desktop IDE-changes panel (self-owned) — UI design: always-on section
+- [x] Move ALL the IDE-changes logic into a self-contained `VoltIdePanel` in `volt-app`: own `detect`/`diff` resources over `window.volt`, diffs rendered by opencode's published `SessionReview` (`@opencode-ai/session-ui`, additive)
+- [x] Mount it in `session.tsx`'s `reviewPanel` (where the old `VoltIdeHeader`/`VoltOnboard` block was) — one `<VoltIdePanel/>` element
+- [x] DELETE the 10 native interleaves (`import`, `ChangeMode "ide"`, `voltDetected`, `changesOptions.push("ide")`, `ideQuery`, the `reviewDiffs`/`reviewReady`/`label`/`reviewEmptyText` branches, the `<VoltIdeHeader/>`+`<VoltOnboard/>` render)
+- [x] Keep the `window.volt` IPC seam (`preload` + `main`) — the panel needs it
+- [x] Typecheck: `volt-app` clean; `session.tsx` is now deletions + 1 import + 1 mount (app full-typecheck blocked only by a pre-existing Windows symlink artifact in `custom-elements.d.ts`)
+- [ ] Build installer / desktop run; confirm the always-on IDE section renders + Pull/Push/Build work
 
 ## Step 5 — Deep-link scheme
 - [ ] `deep-links.ts` (`volt://`) + the `setAsDefaultProtocolClient` registration

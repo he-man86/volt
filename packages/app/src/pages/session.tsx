@@ -28,7 +28,7 @@ import { Tabs } from "@opencode-ai/ui/tabs"
 import { createAutoScroll } from "@opencode-ai/ui/hooks"
 import { previewSelectedLines } from "@opencode-ai/session-ui/pierre/selection-bridge"
 import { Button } from "@opencode-ai/ui/button"
-import { VoltIdeHeader, VoltOnboard } from "@opencode-ai/volt-app" // Volt seam — the "IDE" changes-source + onboarding (see CLAUDE.md "Fork surface")
+import { VoltIdePanel } from "@opencode-ai/volt-app" // Volt seam — self-owned IDE-changes panel (see CLAUDE.md "Fork surface")
 import { showToast } from "@/utils/toast"
 import { base64Encode, checksum } from "@opencode-ai/core/util/encode"
 import { useLocation, useNavigate, useSearchParams } from "@solidjs/router"
@@ -84,7 +84,7 @@ type FollowupItem = FollowupDraft & { id: string }
 type FollowupEdit = Pick<FollowupItem, "id" | "prompt" | "context">
 const emptyFollowups: FollowupItem[] = []
 
-type ChangeMode = "git" | "branch" | "turn" | "ide"
+type ChangeMode = "git" | "branch" | "turn"
 type VcsMode = "git" | "branch"
 
 const sessionViewState = () => ({
@@ -360,11 +360,6 @@ export default function Page() {
     const project = sync().project
     return !!project && project.vcs !== "git"
   })
-  // Volt seam — is this a bound Volt workspace? Gates the "IDE" changes-source option (desktop only).
-  const [voltDetected, { refetch: refetchVolt }] = createResource(
-    () => sdk().directory,
-    async (dir) => (typeof window !== "undefined" && window.volt ? await window.volt.detect(dir) : false),
-  )
   const changesOptions = createMemo<ChangeMode[]>(() => {
     const list: ChangeMode[] = []
     const project = sync().project
@@ -374,7 +369,6 @@ export default function Page() {
       list.push("branch")
     }
     list.push("turn")
-    if (voltDetected()) list.push("ide")
     return list
   })
   const mobileChanges = createMemo(() => !isDesktop() && store.mobileTab === "changes")
@@ -409,26 +403,17 @@ export default function Page() {
         : skipToken,
     }
   })
-  // Volt seam — the "IDE" changes-source: drift between the workspace and the live PLC IDE, from
-  // `volt diff` over window.volt (desktop only). Mirrors vcsQuery; rendered by the same review pipeline.
-  const ideQuery = createQuery(() => ({
-    queryKey: ["session-ide", sdk().directory, store.changes] as const,
-    enabled: store.changes === "ide" && wantsReview() && typeof window !== "undefined" && !!window.volt,
-    queryFn: () => window.volt!.diff(sdk().directory).catch(() => []),
-  }))
   const refreshVcs = debounce(() => void queryClient.invalidateQueries({ queryKey: vcsKey() }), 100)
   const reviewDiffs = () => {
     if (store.changes === "git" || store.changes === "branch")
       // avoids suspense
       return vcsQuery.isFetched ? (vcsQuery.data ?? []) : []
-    if (store.changes === "ide") return ideQuery.isFetched ? (ideQuery.data ?? []) : []
     return turnDiffs()
   }
   const reviewCount = () => reviewDiffs().length
   const hasReview = () => reviewCount() > 0
   const reviewReady = () => {
     if (store.changes === "git" || store.changes === "branch") return !vcsQuery.isPending
-    if (store.changes === "ide") return !ideQuery.isPending
     return true
   }
 
@@ -829,7 +814,6 @@ export default function Page() {
     const label = (option: ChangeMode) => {
       if (option === "git") return language.t("ui.sessionReview.title.git")
       if (option === "branch") return language.t("ui.sessionReview.title.branch")
-      if (option === "ide") return "IDE"
       return language.t("ui.sessionReview.title.lastTurn")
     }
 
@@ -871,7 +855,6 @@ export default function Page() {
   const reviewEmptyText = createMemo(() => {
     if (store.changes === "git") return language.t("session.review.noUncommittedChanges")
     if (store.changes === "branch") return language.t("session.review.noBranchChanges")
-    if (store.changes === "ide") return "In sync with the IDE — no changes to push."
     return language.t("session.review.noChanges")
   })
 
@@ -934,15 +917,15 @@ export default function Page() {
         "bg-background-stronger": !settings.general.newLayoutDesigns(),
       }}
     >
-      <Show when={store.changes === "ide"}>
-        <VoltIdeHeader
-          workspaceRoot={sdk().directory}
-          onChanged={() => void queryClient.invalidateQueries({ queryKey: ["session-ide"] })}
-        />
-      </Show>
-      <Show when={!voltDetected()}>
-        <VoltOnboard workspaceRoot={sdk().directory} onInitialized={() => void refetchVolt()} />
-      </Show>
+      <VoltIdePanel
+        workspaceRoot={sdk().directory}
+        readFile={(path) =>
+          sdk()
+            .client.file.read({ path })
+            .then((x) => x.data)
+            .catch(() => undefined)
+        }
+      />
       <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
         {reviewContent({
           diffStyle: layout.review.diffStyle(),
