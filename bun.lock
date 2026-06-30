@@ -364,7 +364,7 @@
     },
     "packages/desktop": {
       "name": "@opencode-ai/desktop",
-      "version": "1.17.11",
+      "version": "0.1.0",
       "dependencies": {
         "@zip.js/zip.js": "2.7.62",
         "effect": "catalog:",
@@ -1050,7 +1050,9 @@
       },
       "dependencies": {
         "@opencode-ai/volt-lsp-codesys": "workspace:*",
+        "@opentui/solid": "catalog:",
         "opencode": "workspace:*",
+        "opentui-spinner": "catalog:",
         "zod": "catalog:",
       },
       "devDependencies": {

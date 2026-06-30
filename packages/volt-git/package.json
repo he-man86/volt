@@ -21,7 +21,9 @@
   },
   "dependencies": {
     "@opencode-ai/volt-lsp-codesys": "workspace:*",
+    "@opentui/solid": "catalog:",
     "opencode": "workspace:*",
+    "opentui-spinner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

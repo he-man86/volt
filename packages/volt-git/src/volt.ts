@@ -16,5 +16,11 @@ const first = process.argv[2]
 if (first !== undefined && VOLT_VERBS.has(first)) {
   await import("./bin.js") // the PLC CLI (auto-runs main with process.argv)
 } else {
+  // Register the TUI <spinner> before opencode renders. Upstream (opencode/tui) registers it via a bare
+  // `import "opentui-spinner/solid"` side-effect, but our dynamic-import entry + bundle splitting tree-shakes
+  // that out → "[Reconciler] Unknown component type: spinner" when chatting. Value-referencing it here
+  // (volt-owned, additive — no edit to opencode) into the SAME @opentui/solid catalogue keeps it in the bundle.
+  const { registerSpinner } = await import("opentui-spinner/solid")
+  registerSpinner()
   await import("opencode/index") // our opencode, in-process — never returns (it process.exit()s)
 }
