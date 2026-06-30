@@ -18,9 +18,10 @@ const EXTENSIONS = [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias
 
 // The `volt` tool imports @opencode-ai/plugin. opencode auto-installs a tool's deps at THIS binary's version —
 // volt's (e.g. 0.1.0), which isn't on npm, so the install 404s and the prompt fails. Pin it instead to the
-// opencode base version this binary embeds (which IS published). The fork is opencode 1.17.11; bump this on
-// upstream merges (= packages/opencode/package.json version).
-const OPENCODE_VERSION = "1.17.11"
+// opencode base version this binary embeds (which IS published). OPENCODE_PLUGIN_VERSION is injected at build
+// (build.ts) from packages/opencode/package.json, so it auto-tracks upstream merges; fall back for dev-from-source.
+declare const OPENCODE_PLUGIN_VERSION: string | undefined
+const OPENCODE_VERSION = typeof OPENCODE_PLUGIN_VERSION === "string" ? OPENCODE_PLUGIN_VERSION : "1.17.11"
 
 export interface WireResult {
 	configFile: string
