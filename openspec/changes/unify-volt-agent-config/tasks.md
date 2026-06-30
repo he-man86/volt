@@ -1,8 +1,8 @@
 # Tasks
 
-## Spike (de-risk before building — both have safe fallbacks)
-- [ ] **LSP bare-name spawn:** read `packages/opencode/src/lsp/lsp.ts:160-181`; does the spawn PATH-resolve a bare `volt-lsp-codesys` on Windows (Bun.spawn / child_process semantics)? → picks bare-name (static dir) vs resolved-at-first-run.
-- [ ] **Env passthrough:** set `OPENCODE_CONFIG_DIR` to a temp dir with an `opencode.json` LSP entry, launch the volt binary against a `.st` project, confirm the LSP loads (`opencode debug` / log). Proves the env hook end-to-end before wiring the desktop.
+## Spike (de-risk before building)
+- [x] **LSP bare-name spawn — CONFIRMED.** `lsp.ts:174` → `./launch` `spawn` → `util/process.ts:3` uses **`cross-spawn`**, which PATH/PATHEXT-resolves a bare command on Windows. So `["volt-lsp-codesys","--stdio"]` works off the installer's PATH → **the config dir ships static, no absolute path, no first-run write.** (Same for `VOLT_BIN` = bare `volt`.)
+- [ ] **Env passthrough (low-risk confirm at build):** opencode reads `process.env["OPENCODE_CONFIG_DIR"]` (`flag.ts:64`); we control the sidecar fork env, so just include it. Only check: `preferAppEnv` doesn't strip it. Confirm with one run (`opencode debug` shows the LSP) once wired.
 
 ## Build the shipped config dir
 - [ ] Create one template that generates `volt-config/` (opencode.json LSP+permission, `tool/volt.ts`, `agent/volt.md`, `themes/volt.json`) — single source for both this dir AND the dev-repo `.opencode/` (no drift).
