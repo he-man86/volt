@@ -18,6 +18,19 @@
 - [ ] `writeOpencodeConfig`: delete the `.opencode/{opencode.json, tool/volt.ts, package.json}` writes + the `bun/npm install`. Keep only what's per-project elsewhere (the `.git/volt` binding + skills already live in `init.ts`/`installCorpus`).
 - [ ] Remove the now-dead `OPENCODE_PLUGIN_VERSION` pin path if nothing else uses it.
 
+## Cleanup — delete (audited, file:line)
+- [ ] `OPENCODE_PLUGIN_VERSION` pin → `volt-scripts/build.ts:44-47,83` + `volt-git/src/opencode-config.ts:19-24` (dead once plugin vendored)
+- [ ] Per-project `.opencode/package.json` + `bun/npm install` → `opencode-config.ts:139-158`
+- [ ] `resolveBin` helper + call sites → `opencode-config.ts:40-47,117-118` (dead once bare-name everywhere)
+- [ ] Dev-repo `tool/volt.ts` twin + the generator `toolSource()` → one shipped template feeds both (`opencode-config.ts:49-112,134-137` + `.opencode/tool/volt.ts`)
+- [ ] `.env` `OPENCODE_CHANNEL` remnant — channel is now an in-code default; remove
+- [ ] Archive stale openspec: `tighten-upstream-cadence` (SUPERSEDED), `pin-stable-ui-channel` (IMPLEMENTED)
+
+## Extensions (audited — fold in)
+- [ ] Ship `st-reference` skill ONCE globally (`~/.claude/skills/` or the config-dir `skill/`) — drop the per-project write (`volt-lsp-codesys/src/init.ts:46`)
+- [ ] Generated `volt` tool: bare-name `VOLT_BIN = "volt"` (PATH) like the LSP
+- [ ] Move `tui.json` theme-select into the config dir (drops seam #2 → floor 16→15)
+
 ## Verify
 - [ ] Fresh project, NO `volt init`, opened in the Volt desktop: `.st` gets LSP diagnostics/nav + the `volt` tool loads + the agent/theme are present.
 - [ ] Offline / proxied machine: same works (plugin vendored, no registry).

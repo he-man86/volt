@@ -81,5 +81,17 @@ The LSP/tool paths are the only machine-specific risk. Two options, decided by t
 - `.claude/skills/*-reference/` — vendor-specific (CODESYS vs TwinCAT differs per project).
 Everything else `writeOpencodeConfig` writes today is deleted.
 
+## Audited: the simplification ceiling (how far it goes)
+- **opencode's whole agent-facing surface is config-driven** — LSP, `tool/`, `agent/`, `command/`, `mode/`, `plugin/`, `themes/`, `tui.json`, `mcp`, `permission`, `instructions`, `skill/` all load off `config.directories()`, which includes `OPENCODE_CONFIG_DIR`. And `OPENCODE_CONFIG_DIR` **replaces `Global.Path.config`** (`core/global.ts:64`), so even global-keyed loaders honor it. → the entire agent layer collapses into the one shipped dir.
+- **Branding / GUI has NO hook** (confirmed): logo (`packages/ui`), app name (`packages/desktop`), window titles (`*/index.html`), the `session.tsx` panel — none reads config. **Irreducible.**
+- **The env is set inside existing seam #14** (`desktop/src/main/server.ts` `preferAppEnv`, which already sets `OPENCODE_CLIENT` etc.) → **no new seam.**
+
+**Extra wins the audit surfaced:**
+- **Skills ship once, globally** — `~/.claude/skills/**/SKILL.md` is scanned from `$HOME` (`skill/index.ts:21,191`); `st-reference` is already vendor-agnostic (covers CODESYS + TwinCAT), so one copy serves every project. Drop the per-project write.
+- **Bare-name covers the `volt` tool too** — the generated tool's `VOLT_BIN` is `execFile`'d (PATH-resolving), so `"volt"` on PATH works (`volt-control`'s CLI + the C# connector stay absolute — different lifecycles, fine).
+- **`tui.json` theme-select is movable** into the config dir (`config/tui.ts:201` honors `OPENCODE_CONFIG_DIR`) — the one current seam the config layer absorbs.
+
+**The floor: 15 irreducible seams** — all branding / GUI / desktop-mount / build (logo, app name, titles, `session.tsx`, deep-links, preload IPC, CLI+channel bundling, `bun.lock`/`.husky`/`.gitignore`). No config or plugin hook exists for any. That is as far as it goes: **agent layer → 1 dir + 1 env var; floor → 15 white-label edits.**
+
 ## Supersedes
 `harden-opencode-integration` Step 0's plugin-vendoring task folds in here (the plugin is vendored into `volt-config/node_modules`). The `<spinner>` + channel work there is unaffected.
