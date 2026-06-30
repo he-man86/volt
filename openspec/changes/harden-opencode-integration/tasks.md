@@ -1,27 +1,38 @@
-## 1. Channel → in-code prod default (Tier 0/2 — fix the plain-opencode base)
-- [x] `packages/desktop/electron.vite.config.ts`: channel default `"dev"` → `"prod"`
-- [x] `packages/app/vite.js`: channel default `"dev"` → `"prod"` (new 16th seam)
-- [x] `volt-scripts/check-divergence.ts`: allowlist `packages/app/vite.js` as a seam
-- [x] `CLAUDE.md`: add `packages/app/vite.js` to the seam list (→ 16); fix the "12 seams" vs "15 seams" inconsistency
-- [x] `.env`: remove `OPENCODE_CHANNEL=prod` (decouple from secrets; `build-installer.ts` keeps forcing it as belt-and-suspenders)
-- [x] Footgun proven fixed: bypass build (no env) now resolves `VITE_OPENCODE_CHANNEL="prod"`
-- [ ] Build installer; confirm the desktop ships **V1** with no env set
+> **Execution rule (every step):** add the override → `check-divergence` names the new drift → build the installer → verify 100% functional → commit. Never advance on a red step.
+>
+> The current `dev` already has all of Step 0-5 baked in (the full fork). To genuinely build *up*, work on an `integration-buildup` branch: reduce to the Step-1 baseline (revert the behavioral overrides 3-5), confirm it, then re-add 3 → 4 → 5 one at a time.
 
-## 2. Plugin → vendored (Tier 5)
-- [ ] `dist.ts`: vendor `@opencode-ai/plugin` (+ its runtime deps) into `dist/volt/plugin/`
-- [ ] `electron-builder.config.ts`: ship it in the install resources
-- [ ] `opencode-config.ts`: copy the vendored plugin into `.opencode/node_modules` at init (drop the runtime PM install + `.opencode/package.json`)
-- [ ] Test: `volt init` in a temp dir with NO bun/npm on PATH → the volt tool loads + chat works
-- [ ] Build installer; confirm
+## Step 0 — Additive product, ZERO opencode drift (the floor)
+- [ ] Confirm the `volt` binary + LSP + connector + vscode + `.opencode/` work with **0 modified opencode files** (`check-divergence` clean for this set)
+- [ ] **Plugin → vendored:** ship `@opencode-ai/plugin` in the install resources + copy into `.opencode/node_modules` at `volt init` — drop the runtime `bun/npm install` (offline / no-PM safe)
+  - [ ] `dist.ts`: vendor `@opencode-ai/plugin` (+ runtime deps) into `dist/volt/plugin/`
+  - [ ] `electron-builder.config.ts`: ship it in resources
+  - [ ] `opencode-config.ts`: copy it in at init (drop `.opencode/package.json` + the PM shell-out)
+  - [ ] Test: `volt init` in a temp dir with NO bun/npm on PATH → the volt tool loads + chat works
+- [ ] **Spinner:** keep the `volt.ts` value-reference + the `dist.ts` `registerSpinner` guard (audited sound — only tree-shake-vulnerable registration; static-entry root fix infeasible)
 
-## 3. Spinner (Tier 5) — confirm, no change
-- [ ] Keep the value-reference + the `dist.ts` grep guard (audited sound)
+## Step 1 — One-installer bundling (structural override — the FIRST release)
+- [ ] Keep ONLY the structural seams: `electron-builder.config.ts` (extraFiles + `Programs\Volt` + updater feed), `desktop/package.json` deps, the NSIS scripts (`connector.nsh` — PATH, vscode sideload, connector lifecycle)
+- [ ] Build the installer; confirm **stock opencode GUI + the full bundled volt product** is 100% functional (agent + PLC + LSP + vscode + connector)
+- [ ] `check-divergence` shows ONLY the structural drift (no behavioral)
 
-## 4. Docs / cleanup
-- [ ] CLAUDE.md: "outside those **12** seams" → 15 (consistency with the rest)
-- [ ] CLAUDE.md: `deep-links.ts` is a **replacement** of `opencode://`→`volt://`, not "coexist" (only the two apps coexist)
+## Step 2 — Stable UI channel (V1) — DONE (Task 1)
+- [x] `app/vite.js` + `electron.vite.config.ts` channel default → prod (in-code, not `.env`)
+- [x] 16th seam allowlisted; `.env` channel removed; footgun proven fixed (bypass build → prod)
+
+## Step 3 — Branding
+- [ ] `logo.tsx`, app name (`main/index.ts`), window titles (`*/index.html`), brand theme (`.opencode/tui.json`)
+- [ ] Build installer; confirm Volt branding + still 100% functional
+
+## Step 4 — Desktop GUI integration (the hot seam)
+- [ ] `window.volt` IPC (`preload` + `main` + `electron.vite` volt input) + the "IDE" changes panel (`session.tsx` + `app/package.json` volt-app dep)
+- [ ] Build installer; confirm the in-GUI Volt panel works
+- [ ] Document `session.tsx` as the irreducible hot seam (315 commits/6mo, 8 interleaves); draft an upstream `registerChangeSource()` proposal (collapses 8 conflict sites → 1)
+
+## Step 5 — Deep-link scheme
+- [ ] `deep-links.ts` (`volt://`) + the `setAsDefaultProtocolClient` registration
+- [ ] Build installer; confirm volt:// opens Volt (coexists with stock opencode://)
+
+## Docs / cleanup (ride the steps)
+- [x] CLAUDE.md seam count 12→16; deep-links "replacement" not "coexist" (Task 1)
 - [ ] `.husky/pre-push`: delete the dead commented `# bun typecheck` line
-
-## 5. session.tsx (Tier 4) — the ceiling
-- [ ] Document `session.tsx` as the irreducible hot seam (315 commits/6mo, 8 interleaves)
-- [ ] Draft an upstream `registerChangeSource({id,label,query,header})` proposal — collapses 8 conflict sites to 1

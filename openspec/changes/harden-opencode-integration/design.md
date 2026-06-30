@@ -28,9 +28,20 @@ Build it from the **base up**. The base — opencode's own GUI + CLI + embedded 
 
 **Tier 4 — the ceiling.** `session.tsx` — the "IDE" changes-source, 8 edits interleaved through opencode's hottest file. Irreducible to additive (no GUI change-source hook). → accept short-term; long-term an upstream `registerChangeSource()` slot collapses 8 conflict sites to 1. **This is where the integration is structurally shaky — and it's upstream's to fix, not ours.**
 
-## Ladder (execution — bottom-up; build + smoke the installer after each)
-1. **Channel** (Tier 0/2) — make the plain opencode GUI ship stable V1 via an in-code default. *Build → confirm V1, no env.*
-2. **Plugin** (Tier 5) — vendor it; offline-safe init. *Build → confirm init with no PM.*
-3. **Spinner** (Tier 5) — confirm the guard; no change.
-4. **Docs / cleanup** — seam count (15), deep-links wording, dead pre-push line.
-5. **session.tsx** (Tier 4) — the ceiling; draft the upstream hook proposal.
+## Build-up sequence (the execution — zero-drift → full; verify EVERY step)
+**Rule:** add the override → `check-divergence` names the exact new drift → build the installer → confirm 100% functional → commit. Never advance on a red step.
+
+| # | Step | Override(s) added to opencode's packages | Drift after |
+|---|---|---|---|
+| **0** | **Additive product** (the floor) | none — `volt-*` packages + `.opencode/` only | **0 files** |
+| **1** | **One-installer bundling** | `electron-builder.config.ts` (ship the product + `Programs\Volt` dir + updater feed) + `desktop/package.json` deps + the NSIS scripts (PATH, vscode sideload, connector) | structural only |
+| **2** | **Stable UI channel (V1)** | `app/vite.js` + `electron.vite.config.ts` default → prod | +channel — **done (Task 1)** |
+| **3** | **Branding** | `logo.tsx`, app name (`main/index.ts`), window titles (×2 html), brand theme (`tui.json`) | +branding |
+| **4** | **Desktop GUI integration** | `window.volt` IPC (`preload` + `main` + `electron.vite` volt input) + the "IDE" changes panel (`session.tsx` + `app/package.json` volt-app dep) | +IPC/panel |
+| **5** | **Deep-link scheme** | `deep-links.ts` (`volt://`) | +scheme |
+
+**First release = Step 1:** stock opencode GUI + the full bundled volt product; the ONLY opencode drift is the structural bundling. Behavioral overrides (3-5) layer on + are verified after.
+
+**Honest caveat:** Step 0 (the product) is genuinely **0 drift** and fully functional — the `volt` binary is *built from* opencode source without changing an opencode file; the LSP/connector/vscode are `volt-*` packages; `.opencode/` is opencode's own hook. A single bundled installer needs Step 1's structural override — that's the irreducible floor for one package.
+
+**Quality fixes fold into the steps, not a separate ladder:** the `@opencode-ai/plugin` vendoring (offline-safe `volt init`) is **Step 0** (the product must work standalone); the `<spinner>` value-reference + `dist.ts` guard are **Step 0** build-hardening (audited sound — keep); the doc/seam-count cleanup rode **Step 2** (done). `session.tsx` (Step 4) is the structural ceiling — an upstream `registerChangeSource()` hook is the only thing that makes it additive.
