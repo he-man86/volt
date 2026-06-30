@@ -75,6 +75,13 @@ const getBase = (appId: string): Configuration => ({
       to: "volt/bin",
     },
     {
+      // Volt: bundle the agent config dir (LSP + `volt` tool + agent + theme + permissions + the vendored
+      // @opencode-ai/plugin) handed to opencode via OPENCODE_CONFIG_DIR (set in main/index.ts). This is what
+      // gives a fresh install PLC intelligence with NO `volt init`. Built by dist.ts → dist/volt/volt-config.
+      from: "../../dist/volt/volt-config",
+      to: "volt/volt-config",
+    },
+    {
       // Volt: bundle the connector (background tray gateway + bridge workers) so ONE install carries
       // everything. The nsis.include macros launch it on install + clean its login item on uninstall.
       from: "../../dist/volt/connector",
