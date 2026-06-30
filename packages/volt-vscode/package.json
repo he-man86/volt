@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "volt-vscode",
   "displayName": "Volt",
+  "icon": "icons/volt.png",
   "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
   "version": "0.1.0",
   "publisher": "volt-ai",
@@ -449,7 +450,7 @@
         "command": "volt.openAgent",
         "title": "Volt: Open Agent",
         "category": "Volt",
-        "icon": "$(comment-discussion)"
+        "icon": "icons/volt.svg"
       },
       {
         "command": "volt.newAgentSession",
@@ -568,6 +569,12 @@
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "command": "volt.openAgent",
+          "group": "navigation@99"
+        }
+      ],
       "commandPalette": [
         {
           "command": "volt.acceptProjectRename",
