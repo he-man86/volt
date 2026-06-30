@@ -1,6 +1,6 @@
 > **Execution rule (every step):** add the override → `check-divergence` names the new drift → build the installer → verify 100% functional → commit. Never advance on a red step.
 >
-> The current `dev` already has all of Step 0-5 baked in (the full fork). To genuinely build *up*, work on an `integration-buildup` branch: reduce to the Step-1 baseline (revert the behavioral overrides 3-5), confirm it, then re-add 3 → 4 → 5 one at a time.
+> **No revert / rebuild needed.** The audit showed the integration is already mostly clean — every seam is cheap *except* `session.tsx`. So this is **targeted in-place hardening**, not a from-zero rebuild. Only three changes earn their keep: **Step 4** (the `VoltIdePanel` — kills the one chronic seam), **Step 0** (vendor the plugin — offline-safe `volt init`), and the doc cleanup. Steps 1/2/3/5 already ship cheap + verified — leave them.
 
 ## Step 0 — Additive product, ZERO opencode drift (the floor)
 - [ ] Confirm the `volt` binary + LSP + connector + vscode + `.opencode/` work with **0 modified opencode files** (`check-divergence` clean for this set)
