@@ -1,3 +1,12 @@
+## Status: IMPLEMENTED (2026-06-30)
+
+Shipped as designed: `OPENCODE_CHANNEL=prod` lives in the gitignored root `.env` (bun auto-loads it, so every
+local build — the `volt` binary + the desktop renderer — defaults to prod/v1), and `volt-scripts/build-installer.ts`
+forces it + rebuilds the renderer under prod as the CI-safe guarantee (a stale non-prod renderer was the actual
+bug). The auto-follow holds: the default *is* opencode's own `VITE_OPENCODE_CHANNEL !== "prod"` rule, so a
+prod-promoted v2 is inherited with no Volt change. `check-volt-integration.ts` now guards `app/vite.js`'s channel
+`define` against an upstream drop (cf. opencode PR #28612). No new seam.
+
 ## Why
 
 opencode gates its UI behind a runtime flag whose default keys off the build channel:

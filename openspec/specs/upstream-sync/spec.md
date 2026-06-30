@@ -59,10 +59,18 @@ for the custom tool.
 
 ### Requirement: Upstream sync is one signal-flow command
 
-Syncing upstream SHALL be native `git merge` plus a single signal flow (`sync.ts`) that runs
-`check-divergence` → `check-volt-integration` → `verify-lsp` → `verify-volt-tool`, stopping at
-the first failure. `merge-upstream.ts` SHALL wrap the whole flow (fetch → dated `sync/…` branch
-→ merge → `sync.ts`) and stop cleanly on conflict, leaving resolution to the engineer.
+Syncing upstream SHALL target opencode's **latest release tag** (`vX.Y.Z`) — by default the newest
+tag within the **current major** (a new major is opted into by naming the tag) — NOT the moving
+`dev` trunk. It SHALL be native `git merge` plus a single signal flow (`sync.ts`) that runs
+`check-divergence` → `check-volt-integration` → `verify-lsp` → `verify-volt-tool`, stopping at the
+first failure. `merge-upstream.ts` SHALL wrap the whole flow (fetch tags → resolve the target tag →
+dated `sync/…` branch → merge → `sync.ts`) and stop cleanly on conflict, leaving resolution to the
+engineer. `check-volt-integration` SHALL additionally guard the release-merge regressions: the GUI
+build-channel `define` is intact and the `@opencode-ai/plugin` pin is published on npm.
+
+#### Scenario: The default target is the newest current-major release tag
+- **WHEN** `merge-upstream.ts` runs with no argument
+- **THEN** it resolves the newest `v<current-major>.*` release tag and merges it (a newer major is reported, not auto-taken)
 
 #### Scenario: A clean merge passes every signal
 - **WHEN** `merge-upstream.ts` runs and the merge has no conflicts
@@ -75,8 +83,8 @@ the first failure. `merge-upstream.ts` SHALL wrap the whole flow (fetch → date
 ### Requirement: The invariants are enforced in CI
 
 The fork invariants SHALL be enforced by CI (`.github/workflows/volt-ci.yml`) on every push and
-PR — not only by the bypassable pre-push hook — and a scheduled job SHALL merge `upstream/dev`
-and open a PR when the result is clean.
+PR — not only by the bypassable pre-push hook — and a scheduled job (`volt-upstream-sync.yml`)
+SHALL merge opencode's latest release tag and open a PR when the result is clean.
 
 #### Scenario: A surface violation fails CI
 - **WHEN** a push or PR modifies an upstream file outside the 13 seams

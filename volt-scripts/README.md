@@ -8,7 +8,7 @@ outside the fork's allowed seams; see `CLAUDE.md` → "Fork surface".)
 
 | Command | What it does |
 |---|---|
-| `bun volt-scripts/merge-upstream.ts` | **The one sync command.** fetch → dated `sync/…` branch → merge `upstream/dev` → run `sync.ts`. Stops on conflict; prints the fast-forward to land it. `--land` fast-forwards `volt` + pushes on green. |
+| `bun volt-scripts/merge-upstream.ts [vX.Y.Z]` | **The one sync command.** Tracks opencode's **release tags**, not `dev`: fetch tags → newest `v<current-major>.*` (or a named tag — `v2.0.0` to opt into a new major) → dated `sync/…` branch → merge → run `sync.ts`. Stops on conflict; prints the fast-forward to land it. `--land` fast-forwards `volt` + pushes on green. |
 | `bun volt-scripts/sync.ts` | **The merge-process signal flow** — install → divergence → integration → lsp → tool, stopping at the first ✗. Run standalone after resolving a manual merge. |
 | `bun run volt-scripts/check-divergence.ts` | **Keystone guard.** Fails if the fork touched upstream outside the 15 seams, added a file outside the allowlist, or committed junk (`*.bak`/`.DS_Store`/…). `--self-test` runs the classifier unit tests. Also run by the pre-push hook + CI. |
 
@@ -16,7 +16,7 @@ outside the fork's allowed seams; see `CLAUDE.md` → "Fork surface".)
 
 | Command | What it does |
 |---|---|
-| `bun run volt-scripts/check-volt-integration.ts` | Configs/bins/wiring present (files exist, dist built, corpus, vscode entry). |
+| `bun run volt-scripts/check-volt-integration.ts` | Configs/bins/wiring present (files exist, dist built, corpus, vscode entry) + the release-merge guards: GUI channel `define` intact, `@opencode-ai/plugin` pin published on npm. |
 | `bun volt-scripts/verify-lsp.ts` | Proves the volt **LSP** attaches in opencode (drives `opencode debug lsp`). |
 | `bun volt-scripts/verify-volt-tool.ts` | Proves the volt **CLI tool** registers (drives `opencode debug agent volt`). Needs a configured model/provider. |
 

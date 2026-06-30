@@ -14,7 +14,7 @@
  */
 import { Glob } from "bun"
 import { spawnSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import { resolve } from "node:path"
 
 const repo = resolve(import.meta.dirname, "..")
@@ -97,6 +97,15 @@ for (const name of ["volt", "volt-lsp-codesys"]) {
     console.error(`✗ missing expected artifact: ${name}${ext}`)
     process.exit(1)
   }
+}
+
+// Guard: the compiled `volt` must still register the TUI <spinner>. build.ts's minify+splitting can tree-shake
+// the bare side-effect import (opentui-spinner) → chat crashes with "[Reconciler] Unknown component type:
+// spinner". volt.ts value-references registerSpinner() to keep it; verify it survived the bundle.
+if (!readFileSync(resolve(bin, "volt" + ext), "latin1").includes("registerSpinner")) {
+  console.error("✗ TUI spinner registration tree-shaken out of the volt binary — chat would crash.")
+  console.error("  Fix: packages/volt-git/src/volt.ts must value-reference registerSpinner().")
+  process.exit(1)
 }
 
 console.log(`\n✓ release binaries in ${out}`)

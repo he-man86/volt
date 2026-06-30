@@ -1,3 +1,12 @@
+## Status: SUPERSEDED (2026-06-30) by the release-tag sync model
+
+This proposal's premise — opencode ships ~35 commits/day on `dev`, so a weekly sync drifts hundreds of
+commits — assumed Volt tracks the `dev` **trunk**. Volt now tracks opencode's **release tags** (see the
+`upstream-sync` spec → "latest release tag"): we sync only when opencode cuts a new release (infrequent),
+so the daily-cadence drift this change targeted no longer exists. The weekly cron is kept (it no-ops until
+a release lands). Sub-points absorbed elsewhere: stale `sync/*` cleanup is done by `merge-upstream.ts
+--land`; the seam-audit reasoning remains in this change's `design.md`.
+
 ## Why
 
 opencode ships **~35 commits/day**. The fork's auto-sync runs **weekly** (`cron: "0 6 * * 1"`), so it

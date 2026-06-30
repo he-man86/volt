@@ -75,6 +75,31 @@ check("volt CLI dist/bin.js", () => {
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-git build";
 });
 
+console.log("\nUpstream-sync guards (a release-tag merge can silently regress these)");
+// The desktop GUI's stable-vs-V2 layout is gated on import.meta.env.VITE_OPENCODE_CHANNEL, which packages/app's
+// vite plugin DEFINES from the build channel. If an upstream merge drops that define (as opencode PR #28612 did),
+// the GUI silently defaults to the unreleased V2 layout regardless of OPENCODE_CHANNEL=prod.
+check("packages/app/vite.js still defines VITE_OPENCODE_CHANNEL", () => {
+	const f = join(REPO_ROOT, "packages/app/vite.js");
+	return (existsSync(f) && readFileSync(f, "utf-8").includes("VITE_OPENCODE_CHANNEL"))
+		|| "channel define dropped — the GUI would revert to V2 (cf. opencode PR #28612)";
+});
+// volt init pins @opencode-ai/plugin to the embedded opencode version (build.ts → opencode-config.ts). On a
+// release-tag merge opencode may tag a version before publishing it to npm — then a consumer's `volt init`
+// 404s ("Unexpected server error"). Confirm the pinned version is actually published. Best-effort: skip offline.
+check("@opencode-ai/plugin pin is published on npm", () => {
+	const v = JSON.parse(readFileSync(join(REPO_ROOT, "packages/opencode/package.json"), "utf-8")).version;
+	const r = spawnSync("npm", ["view", `@opencode-ai/plugin@${v}`, "version"], {
+		encoding: "utf-8",
+		timeout: 20_000,
+		shell: process.platform === "win32",
+	});
+	if (r.status === 0 && r.stdout.trim()) return true;
+	const err = (r.stderr || "").toLowerCase();
+	if (err.includes("404") || err.includes("no match")) return `@opencode-ai/plugin@${v} not on npm — consumers' volt init would fail`;
+	return true; // npm offline / unavailable — don't false-fail the whole sync
+});
+
 console.log("\nRuntime smoke test");
 check("volt-lsp-codesys --version exits 0", () => {
 	const binJs = join(REPO_ROOT, "packages/volt-lsp-codesys/dist/bin.js");

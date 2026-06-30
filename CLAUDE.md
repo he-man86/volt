@@ -46,7 +46,7 @@ Monorepo: **Bun** workspaces + **Turbo**. Package manager is `bun@1.3.14`. Lint 
 bun install                 # install (postinstall patches node-pty)
 bun typecheck               # turbo typecheck across all packages
 bun lint                    # oxlint
-bun volt-scripts/merge-upstream.ts                # sync with upstream: fetch → branch → merge → verify (one command)
+bun volt-scripts/merge-upstream.ts                # sync to opencode's latest RELEASE tag: fetch tags → merge → verify (one command)
 bun volt-scripts/sync.ts                          # AFTER an upstream merge: the full signal flow (install→divergence→integration→lsp→tool)
 bun run volt-scripts/check-divergence.ts          # (sub-step) enforce the fork surface — also run by the pre-push hook
 bun run volt-scripts/check-volt-integration.ts    # (sub-step) confirm configs/bins/wiring are present
@@ -139,14 +139,15 @@ Build graphical features as a **TUI plugin** or in fork-owned `volt-vscode` to s
 
 ### Syncing upstream (runbook)
 
-**One command** does the whole safe flow — fetch → dated `sync/…` branch → merge → verify:
+Volt tracks opencode's **prod-ready releases** (tags like `v1.17.11`), **not** its moving `dev` trunk — opencode is trunk-based, so `dev` is unreleased work-in-progress. **One command** does the whole safe flow — fetch tags → resolve the latest release → dated `sync/…` branch → merge → verify:
 
 ```
-bun volt-scripts/merge-upstream.ts
+bun volt-scripts/merge-upstream.ts            # newest v<current-major>.* release tag
+bun volt-scripts/merge-upstream.ts v1.18.0    # a specific tag (or v2.0.0 to opt into a new major)
 ```
 
-It stops cleanly on conflicts (resolve + commit, then `bun volt-scripts/sync.ts`), and on success prints the fast-forward to land it on `volt`. It does **not** move/push your branch for you.
+By default it merges the newest tag within the **current major** (held back from a breaking new major until you name it). It stops cleanly on conflicts (resolve + commit, then `bun volt-scripts/sync.ts`), and on success prints the fast-forward to land it on `volt` — it does **not** move/push your branch. The scheduled CI job (`.github/workflows/volt-upstream-sync.yml`) does the same weekly and opens a PR.
 
-Under the hood it runs **`volt-scripts/sync.ts`** — the merge-process *signal flow* that confirms the fork still holds (deps resolve → surface unchanged → wiring intact → runtime loads): it orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Run `sync.ts` standalone after resolving a manual merge.
+Under the hood it runs **`volt-scripts/sync.ts`** — the merge-process *signal flow* that confirms the fork still holds (deps resolve → surface unchanged → wiring intact → runtime loads): it orchestrates `check-divergence` + `check-volt-integration` + `verify-lsp` + `verify-volt-tool`, stopping at the first ✗. Run `sync.ts` standalone after resolving a manual merge. `check-volt-integration` also guards the release-merge regressions (the GUI channel `define`, the `@opencode-ai/plugin` pin being published on npm); `dist.ts` guards that the TUI `<spinner>` survived the bundle.
 
 Adding another vendor LSP: `packages/volt-lsp-codesys/README.md` → "Adding another vendor LSP".
