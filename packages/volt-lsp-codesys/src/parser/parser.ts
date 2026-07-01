@@ -45,6 +45,16 @@ export function parse(tokens: readonly Token[]): ParseResult {
 	const units: TopLevel[] = [];
 
 	while (!c.atEof()) {
+		// Skip a `%FOLDER <path>` directive at file scope — the bridge emits it between top-level items
+		// (a POU's methods/properties) to mark their sub-folder. It's metadata, not a unit; left unhandled
+		// it desyncs the whole file (the following members mis-parse as strays).
+		const head = c.peek();
+		if (head.kind === "punct" && head.text === "%" && c.peek(1).kind === "identifier" && c.peek(1).text.toUpperCase() === "FOLDER") {
+			const line = head.span.startLine;
+			c.consume();
+			while (!c.atEof() && c.peek().span.startLine === line) c.consume();
+			continue;
+		}
 		const unit = parseTopLevel(c);
 		if (unit !== undefined) {
 			units.push(unit);

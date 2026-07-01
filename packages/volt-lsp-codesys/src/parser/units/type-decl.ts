@@ -214,9 +214,12 @@ function parseEnumBody(c: Cursor): EnumBody | undefined {
 		const assign = c.eatPunct(":=");
 		if (assign !== undefined) {
 			const tokens: Token[] = [];
+			let depth = 0; // balance nested parens so a `)` inside e.g. `TO_WORD(...)` isn't read as the enum-body close
 			while (!c.atEof()) {
 				const next = c.peek();
-				if (next.kind === "punct" && (next.text === "," || next.text === ")")) break;
+				if (depth === 0 && next.kind === "punct" && (next.text === "," || next.text === ")")) break;
+				if (next.kind === "punct" && next.text === "(") depth++;
+				else if (next.kind === "punct" && next.text === ")") depth--;
 				tokens.push(c.consume());
 			}
 			value = bodySpanFromTokens(tokens, assign.span);

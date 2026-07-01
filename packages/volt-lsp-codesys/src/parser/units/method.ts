@@ -16,6 +16,19 @@ import type { Method } from "../ast.js";
 import type { Cursor } from "../cursor.js";
 import { parseTypeExpression } from "../type-expr.js";
 import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js";
+import type { Keyword } from "../../lexer/tokens.js";
+
+function isMethodModifier(kw: Keyword | undefined): boolean {
+	return (
+		kw === "PUBLIC" ||
+		kw === "PRIVATE" ||
+		kw === "PROTECTED" ||
+		kw === "INTERNAL" ||
+		kw === "FINAL" ||
+		kw === "ABSTRACT" ||
+		kw === "OVERRIDE"
+	);
+}
 
 export function parseMethod(c: Cursor): Method | undefined {
 	const start = c.expectKeyword("METHOD", "at start of METHOD");
@@ -26,6 +39,16 @@ export function parseMethod(c: Cursor): Method | undefined {
 	let isAbstract = false;
 	let isOverride = false;
 	while (true) {
+		// A modifier keyword is only a modifier if a name (or further modifiers) follow it. Otherwise it
+		// IS the method name — e.g. `METHOD PROTECTED Override`, where `Override` (the OVERRIDE keyword)
+		// names the method. Peek ahead so we don't swallow the name as a modifier.
+		const here = c.peek();
+		if (here.kind !== "keyword" || !isMethodModifier(here.keyword)) break;
+		const after = c.peek(1);
+		const followsWithName =
+			after.kind === "identifier" ||
+			(after.kind === "keyword" && (isMethodModifier(after.keyword) || after.keyword === "GET" || after.keyword === "SET"));
+		if (!followsWithName) break;
 		const mod = c.eatAnyKeyword(
 			"PUBLIC",
 			"PRIVATE",
@@ -52,7 +75,7 @@ export function parseMethod(c: Cursor): Method | undefined {
 		}
 	}
 
-	const nameTok = c.expectIdent("for METHOD name");
+	const nameTok = c.expectName("for METHOD name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 

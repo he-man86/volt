@@ -33,12 +33,12 @@ export function parseInterface(c: Cursor): Interface | undefined {
 	let extendsList: Identifier[] | undefined;
 	if (c.eatKeyword("EXTENDS") !== undefined) {
 		extendsList = [];
-		const first = c.expectIdent("after EXTENDS");
-		if (first !== undefined) extendsList.push(identFromToken(first));
+		const first = parseQualifiedName(c, "after EXTENDS");
+		if (first !== undefined) extendsList.push(first);
 		while (c.eatPunct(",") !== undefined) {
-			const more = c.expectIdent("in EXTENDS list");
+			const more = parseQualifiedName(c, "in EXTENDS list");
 			if (more === undefined) break;
-			extendsList.push(identFromToken(more));
+			extendsList.push(more);
 		}
 	}
 
@@ -85,6 +85,19 @@ export function parseInterface(c: Cursor): Interface | undefined {
 	};
 }
 
+/** Read a possibly-qualified name (`Foo` or `__SYSTEM.IQueryInterface`) as a single dotted Identifier. */
+function parseQualifiedName(c: Cursor, ctx: string): Identifier | undefined {
+	const head = c.expectIdent(ctx);
+	if (head === undefined) return undefined;
+	let id = identFromToken(head);
+	while (c.peek().kind === "punct" && c.peek().text === "." && c.peek(1).kind === "identifier") {
+		c.consume(); // .
+		const part = identFromToken(c.consume());
+		id = { kind: "identifier", text: `${id.text}.${part.text}`, span: joinSpans(id.span, part.span) };
+	}
+	return id;
+}
+
 function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 	const start = c.expectKeyword("METHOD", "at start of interface method");
 	if (start === undefined) return undefined;
@@ -102,7 +115,7 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 	) {
 		// consume and ignore
 	}
-	const nameTok = c.expectIdent("for interface method name");
+	const nameTok = c.expectName("for interface method name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 	let returnType: InterfaceMethod["returnType"];
@@ -132,12 +145,13 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
 	while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE") !== undefined) {
 		// consume and ignore
 	}
-	const nameTok = c.expectIdent("for interface property name");
+	const nameTok = c.expectName("for interface property name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 	if (c.expectPunct(":", "after interface property name") === undefined) return undefined;
 	const dataType = parseTypeExpression(c);
 	if (dataType === undefined) return undefined;
+	c.eatPunct(";"); // some exports terminate the property data type with a trailing `;`
 	// Interfaces may declare which of GET/SET accessors are required.
 	let hasGetter = false;
 	let hasSetter = false;

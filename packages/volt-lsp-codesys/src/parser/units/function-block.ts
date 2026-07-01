@@ -10,7 +10,7 @@
  */
 import type { FunctionBlock, Identifier } from "../ast.js";
 import type { Cursor } from "../cursor.js";
-import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js";
+import { collectBodyUntil, collectBodyUntilAny, collectVarSections, identFromToken, joinSpans } from "../util.js";
 
 export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
 	const start = c.expectKeyword("FUNCTION_BLOCK", "at start of FB");
@@ -55,7 +55,12 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
 	}
 
 	const varSections = collectVarSections(c);
-	const body = collectBodyUntil(c, "END_FUNCTION_BLOCK", "function block");
+	// A graphical (FBD/LD) implementation body materializes as a second `FUNCTION_BLOCK` block whose
+	// NETWORK content is closed by END_METHOD (not END_FUNCTION_BLOCK) — accept either for graphical bodies.
+	const graphical = c.peek().kind === "identifier" && c.peek().text.toUpperCase() === "NETWORK";
+	const body = graphical
+		? collectBodyUntilAny(c, ["END_FUNCTION_BLOCK", "END_METHOD"], "function block")
+		: collectBodyUntil(c, "END_FUNCTION_BLOCK", "function block");
 
 	return {
 		kind: "function_block",

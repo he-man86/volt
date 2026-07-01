@@ -160,7 +160,7 @@ function parseVarDecl(c: Cursor): VarDecl | undefined {
 		}
 		init = bodySpanFromTokens(tokens, open.span);
 	}
-	const assign = c.eatPunct(":=");
+	const assign = c.eatPunct(":=") ?? c.eatPunct("REF="); // `REF=` binds a REFERENCE TO var to its target
 	if (assign !== undefined) {
 		const tokens: Token[] = [];
 		while (!c.atEof()) {

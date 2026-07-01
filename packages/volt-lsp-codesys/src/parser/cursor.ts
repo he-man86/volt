@@ -138,6 +138,33 @@ export class Cursor {
 		return t;
 	}
 
+	/**
+	 * Like `expectIdent`, but also accepts contextual keywords as a name. `GET`/`SET` (reserved only
+	 * inside a PROPERTY) and the access/inheritance modifiers (`PUBLIC`/`PRIVATE`/`PROTECTED`/`INTERNAL`/
+	 * `FINAL`/`ABSTRACT`/`OVERRIDE`) are all legal identifiers elsewhere — real code has methods named
+	 * `Set`, `Override`, etc. The token's `.text` keeps its source casing, so it reads as the name.
+	 */
+	expectName(context: string): Token | undefined {
+		const t = this.peek();
+		if (t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
+			return this.consume();
+		}
+		this.pushError(`expected identifier ${context}, got ${describeToken(t)}`, t.span);
+		return undefined;
+	}
+
+	private static readonly SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
+		"GET",
+		"SET",
+		"PUBLIC",
+		"PRIVATE",
+		"PROTECTED",
+		"INTERNAL",
+		"FINAL",
+		"ABSTRACT",
+		"OVERRIDE",
+	]);
+
 	// ─── Body collection (raw — preserves trivia) ──────────────────
 
 	/**

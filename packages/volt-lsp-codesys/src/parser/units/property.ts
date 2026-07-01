@@ -20,12 +20,18 @@ export function parseProperty(c: Cursor): Property | undefined {
 	const start = c.expectKeyword("PROPERTY", "at start of PROPERTY");
 	if (start === undefined) return undefined;
 
-	const accessModifier = (() => {
-		const m = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL");
-		return m?.keyword;
-	})();
+	// Modifiers before the name, in any order: an access level plus optional ABSTRACT/FINAL
+	// (e.g. `PROPERTY PUBLIC ABSTRACT Busy`). Keep the access level; ABSTRACT/FINAL are eaten but unused.
+	let accessModifier: Keyword | undefined;
+	for (;;) {
+		const m = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL");
+		if (m === undefined) break;
+		if (m.keyword === "PUBLIC" || m.keyword === "PRIVATE" || m.keyword === "PROTECTED" || m.keyword === "INTERNAL") {
+			accessModifier = m.keyword;
+		}
+	}
 
-	const nameTok = c.expectIdent("for PROPERTY name");
+	const nameTok = c.expectName("for PROPERTY name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 
@@ -33,6 +39,7 @@ export function parseProperty(c: Cursor): Property | undefined {
 	if (colon === undefined) return undefined;
 	const dataType = parseTypeExpression(c);
 	if (dataType === undefined) return undefined;
+	c.eatPunct(";"); // some exports terminate the property data type with a trailing `;`
 
 	let getter: Property["getter"];
 	let setter: Property["setter"];
