@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "autoupdate": "notify",
   "lsp": {
     "volt-lsp-codesys": {
       "command": ["volt-lsp-codesys", "--stdio"],

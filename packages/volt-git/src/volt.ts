@@ -27,6 +27,11 @@ if (first !== undefined && VOLT_VERBS.has(first)) {
     if (existsSync(cfg)) {
       process.env.OPENCODE_CONFIG_DIR = cfg
       process.env.PATH = binDir + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? "")
+      // Point opencode's self-updater at Volt's own release feed (not opencode's npm/curl). The redirect lives
+      // behind this env var (installation/index.ts); the "upgrade" downloads + runs the Volt installer. The
+      // desktop instead uses electron-updater and sets OPENCODE_DISABLE_AUTOUPDATE, so only the terminal CLI
+      // self-updates. autoupdate mode ("notify") is set in volt-config so it prompts rather than auto-runs.
+      process.env.VOLT_UPDATE_REPO ??= "he-man86/volt"
     }
   }
   // Register the TUI <spinner> before opencode renders. Upstream (opencode/tui) registers it via a bare

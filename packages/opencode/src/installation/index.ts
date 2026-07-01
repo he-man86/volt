@@ -14,7 +14,7 @@ import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/inst
 import { NpmConfig } from "@opencode-ai/core/npm-config"
 import { InstallationEvent } from "@opencode-ai/schema/installation-event"
 
-export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
+export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "volt" | "unknown"
 
 export type ReleaseType = "patch" | "minor" | "major"
 
@@ -61,6 +61,11 @@ export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedErr
 
 // Response schemas for external version APIs
 const GitHubRelease = Schema.Struct({ tag_name: Schema.String })
+// Volt: the release + its installer assets (a fork seam — see VOLT_UPDATE_REPO below).
+const GitHubReleaseAssets = Schema.Struct({
+  tag_name: Schema.String,
+  assets: Schema.Array(Schema.Struct({ name: Schema.String, browser_download_url: Schema.String })),
+})
 const NpmPackage = Schema.Struct({ version: Schema.String })
 const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
 const BrewInfoV2 = Schema.Struct({
@@ -171,6 +176,10 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
         }
       }),
       method: Effect.fn("Installation.method")(function* () {
+        // Volt fork seam: when the launcher sets VOLT_UPDATE_REPO (the CLI does; the desktop uses
+        // electron-updater instead and disables autoupdate), the self-updater tracks Volt's own GitHub
+        // releases + installer, not opencode's npm/curl feed. Everything else is unchanged upstream.
+        if (process.env.VOLT_UPDATE_REPO) return "volt" as Method
         if (process.execPath.includes(path.join(".opencode", "bin"))) return "curl" as Method
         if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
         const exec = process.execPath.toLowerCase()
@@ -206,6 +215,16 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
       }),
       latest: Effect.fn("Installation.latest")(function* (installMethod?: Method) {
         const detectedMethod = installMethod || (yield* result.method())
+
+        if (detectedMethod === "volt") {
+          const response = yield* httpOk.execute(
+            HttpClientRequest.get(`https://api.github.com/repos/${process.env.VOLT_UPDATE_REPO}/releases/latest`).pipe(
+              HttpClientRequest.acceptJson,
+            ),
+          )
+          const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
+          return data.tag_name.replace(/^v/, "")
+        }
 
         if (detectedMethod === "brew") {
           const formula = yield* getBrewFormula()
@@ -264,6 +283,33 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
       upgrade: Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
         let upgradeResult: { code: number; stdout: string; stderr: string } | undefined
         switch (m) {
+          case "volt": {
+            // Volt updates as ONE installed app, so "upgrade" = fetch the latest release's installer asset and
+            // launch it (it closes + replaces the running app). Windows-only, like the rest of Volt.
+            const asset = yield* Effect.gen(function* () {
+              const response = yield* httpOk.execute(
+                HttpClientRequest.get(
+                  `https://api.github.com/repos/${process.env.VOLT_UPDATE_REPO}/releases/tags/v${target}`,
+                ).pipe(HttpClientRequest.acceptJson),
+              )
+              const release = yield* HttpClientResponse.schemaBodyJson(GitHubReleaseAssets)(response)
+              return release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"))
+            }).pipe(
+              Effect.mapError(
+                (e) =>
+                  new UpgradeFailedError({ stderr: `Could not resolve Volt installer for v${target}: ${errorMessage(e)}` }),
+              ),
+            )
+            if (!asset) return yield* new UpgradeFailedError({ stderr: `No installer asset in release v${target}` })
+            const dest = path.join(process.env.TEMP ?? process.env.TMP ?? ".", asset.name)
+            upgradeResult = yield* run([
+              "powershell",
+              "-NoProfile",
+              "-Command",
+              `Invoke-WebRequest -Uri '${asset.browser_download_url}' -OutFile '${dest}'; Start-Process -FilePath '${dest}'`,
+            ])
+            break
+          }
           case "curl":
             upgradeResult = yield* upgradeCurl(target)
             break

@@ -44,6 +44,8 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/desktop/package.json", // @opencode-ai/volt-git + volt-control deps
   // ── build-channel seam (ship opencode's STABLE prod UI, not its unreleased V2) ──
   "packages/app/vite.js", // default the renderer build channel to prod (V1) — openspec harden-opencode-integration
+  // ── updater seam (self-updater tracks Volt's release feed, not opencode's) ──
+  "packages/opencode/src/installation/index.ts", // VOLT_UPDATE_REPO → he-man86/volt releases + Volt installer (no additive hook for the update feed)
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.

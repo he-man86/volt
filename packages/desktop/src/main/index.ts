@@ -291,6 +291,10 @@ const main = Effect.gen(function* () {
     process.env.OPENCODE_CONFIG_DIR = join(voltRoot, "volt-config")
     process.env.PATH = binDir + (process.platform === "win32" ? ";" : ":") + (process.env.PATH ?? "")
     process.env.VOLT_BIN = join(binDir, "volt" + exe)
+    // The desktop updates via electron-updater (its own he-man86/volt feed), so silence opencode's in-sidecar
+    // self-updater — otherwise volt-config's `autoupdate: notify` would double-prompt. The terminal CLI keeps
+    // its self-updater (volt.ts sets VOLT_UPDATE_REPO instead), since it has no electron-updater.
+    process.env.OPENCODE_DISABLE_AUTOUPDATE = "1"
   }
   void updater.start()
   const updateTimer = setInterval(() => void updater.check(), 10 * 60 * 1000)
