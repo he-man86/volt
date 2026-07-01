@@ -43,6 +43,8 @@ export interface Namespace {
 export interface FunctionBlock {
 	kind: "function_block";
 	name: Identifier;
+	/** Resolved access modifier (PUBLIC / PRIVATE / PROTECTED / INTERNAL) or `undefined` if not specified. */
+	accessModifier?: Keyword;
 	extends?: Identifier;
 	implements?: Identifier[];
 	abstract?: boolean;

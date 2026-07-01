@@ -16,14 +16,18 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
 	const start = c.expectKeyword("FUNCTION_BLOCK", "at start of FB");
 	if (start === undefined) return undefined;
 
-	// Optional modifiers before name: FINAL, ABSTRACT
+	// Optional modifiers before name (any order): access (PUBLIC/PRIVATE/PROTECTED/INTERNAL),
+	// FINAL, ABSTRACT — real CODESYS code writes e.g. `FUNCTION_BLOCK PUBLIC FB_X`.
+	let accessModifier: FunctionBlock["accessModifier"];
 	let isFinal = false;
 	let isAbstract = false;
 	while (true) {
-		const mod = c.eatAnyKeyword("FINAL", "ABSTRACT");
+		const mod = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT");
 		if (mod === undefined) break;
-		if (mod.keyword === "FINAL") isFinal = true;
-		if (mod.keyword === "ABSTRACT") isAbstract = true;
+		if (mod.keyword === "PUBLIC" || mod.keyword === "PRIVATE" || mod.keyword === "PROTECTED" || mod.keyword === "INTERNAL") {
+			accessModifier = mod.keyword;
+		} else if (mod.keyword === "FINAL") isFinal = true;
+		else if (mod.keyword === "ABSTRACT") isAbstract = true;
 	}
 
 	const nameTok = c.expectIdent("for FUNCTION_BLOCK name");
@@ -56,6 +60,7 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
 	return {
 		kind: "function_block",
 		name,
+		...(accessModifier !== undefined ? { accessModifier } : {}),
 		...(extendsName !== undefined ? { extends: extendsName } : {}),
 		...(implementsList !== undefined ? { implements: implementsList } : {}),
 		...(isFinal ? { final: true } : {}),

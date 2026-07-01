@@ -50,6 +50,9 @@ export function parseProperty(c: Cursor): Property | undefined {
 				span: joinSpans(start.span, endProp.span),
 			};
 		}
+		// The bridge prepends a `%FOLDER <path>` directive to a child body when the item lives in a
+		// sub-folder (StAssembler). It sits before the accessors — skip it (LSP doesn't need the folder).
+		if (skipFolderDirective(c)) continue;
 		const accessor = parseInlineAccessor(c);
 		if (accessor !== undefined) {
 			if (accessor.kind === "get") getter = accessor;
@@ -72,6 +75,17 @@ export function parseProperty(c: Cursor): Property | undefined {
 		...(setter !== undefined ? { setter } : {}),
 		span: joinSpans(start.span, dataType.span),
 	};
+}
+
+/** Skip a `%FOLDER <path>` directive (bridge metadata for a child's sub-folder). It occupies one line;
+ *  the path may be multiple tokens (`%FOLDER PackML States`). Returns true if one was consumed. */
+function skipFolderDirective(c: Cursor): boolean {
+	const p = c.peek();
+	if (p.kind !== "punct" || p.text !== "%") return false;
+	const line = p.span.startLine;
+	c.consume(); // %
+	while (!c.atEof() && c.peek().span.startLine === line) c.consume();
+	return true;
 }
 
 function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {

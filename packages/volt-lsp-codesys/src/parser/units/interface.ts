@@ -128,6 +128,10 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
 	const start = c.expectKeyword("PROPERTY", "at start of interface property");
 	if (start === undefined) return undefined;
+	// Modifiers are allowed but informational on interfaces (e.g. `PROPERTY PUBLIC Foo : T`).
+	while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE") !== undefined) {
+		// consume and ignore
+	}
 	const nameTok = c.expectIdent("for interface property name");
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
