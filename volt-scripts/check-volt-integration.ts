@@ -84,6 +84,18 @@ check("packages/app/vite.js still defines VITE_OPENCODE_CHANNEL", () => {
 	return (existsSync(f) && readFileSync(f, "utf-8").includes("VITE_OPENCODE_CHANNEL"))
 		|| "channel define dropped — the GUI would revert to V2 (cf. opencode PR #28612)";
 });
+// The terminal TUI runs its server in a Bun Worker, and Bun snapshots a worker's env at PROCESS START — so
+// the volt binary's runtime OPENCODE_CONFIG_DIR/PATH only reach it because tui.ts passes { env } explicitly
+// (a seam). A merge that reverts it to `new Worker(file)` silently strips the LSP + `volt` tool + agent from
+// the terminal TUI while every main-process check (debug lsp/agent) still passes — the exact blind spot that
+// hid this once. This source guard is the only cheap catch: the dev verify-* scripts can't reproduce it
+// (they use .opencode auto-discovery, not runtime OPENCODE_CONFIG_DIR). Upstreamed as anomalyco/opencode#34759.
+check("tui.ts passes live env to the TUI worker (worker-env seam)", () => {
+	const f = join(REPO_ROOT, "packages/opencode/src/cli/cmd/tui.ts");
+	if (!existsSync(f)) return "packages/opencode/src/cli/cmd/tui.ts missing";
+	return /new Worker\(\s*file\s*,\s*\{\s*env\b/.test(readFileSync(f, "utf-8"))
+		|| "worker-env seam dropped — `new Worker(file, { env })` reverted to `new Worker(file)`; the terminal TUI would lose the LSP/tool/agent (OPENCODE_CONFIG_DIR/PATH never reach the worker)";
+});
 // The agent toolchain ships as one OPENCODE_CONFIG_DIR dir (packages/volt-git/volt-config/), handed to opencode
 // by the desktop + the `volt` binary; @opencode-ai/plugin is vendored into it at dist time (no npm pin). Confirm
 // the dir is present + structurally intact (bare-name LSP) so the unify layer ships.
