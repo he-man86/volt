@@ -23,12 +23,15 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   multi EXTENDS, GET/SET/OVERRIDE/… as method|property names (expectName), enum initializers with
 //   nested parens (`TO_WORD(…)`), `REF=` reference initializer, graphical FB body closed by END_METHOD:
 //   parse 375→424 (100%). Precision 6878→6894 (more parsing surfaces a few more library-blind refs).
-//   Remaining precision is project GVLs, library base classes, and genuine library symbols.
+// + scope-identity fix (findScopeForUnit matches by AST-span identity, not first same-named scope):
+//   diags 6894→1851. Same-named methods across FBs (Reset/Set/Map/…) no longer resolve a body against
+//   the wrong FB's members. Remaining ~1573 unresolved are external library/builtin symbols that
+//   `volt pull` does not mirror (L_MC1P, SER_*, CONCAT, …) + a small tail of project-local gaps.
 const BASE = {
 	files: 424, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 424, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 424, // 100% — floor
-	totalDiags: 6894, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
+	totalDiags: 1851, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
 };
 
 describe("real-project coverage (pro2193)", () => {

@@ -74,24 +74,38 @@ export function getAnyBody(unit: TopLevel): BodySpan | undefined {
 }
 
 export function findScopeForUnit(project: Scope, unit: TopLevel): Scope | undefined {
-	const targetName = getUnitName(unit)?.text.toLowerCase();
-	if (targetName === undefined) return undefined;
-	// Walk the WHOLE scope tree — standalone METHOD / ACTION /
-	// PROPERTY units live as children of their containing FB / PROGRAM
-	// scope, not directly under project (workspace-layout convention,
-	// see ingestStandaloneMethod). A flat scan of project.children
-	// would miss them and the body-walking checks (conversion source
-	// mismatch, unresolved identifier) would silently skip every
-	// method body.
-	function walk(scope: Scope): Scope | undefined {
+	// Primary: match by AST-span IDENTITY. A POU/method scope's `span` is the very unit.span object
+	// (shared at ingest), so reference equality pins THIS unit's scope unambiguously. Name matching
+	// alone is wrong here: the corpus has many FBs sharing method names (Reset/Set/Map/GoIn/…), and a
+	// name walk returns the FIRST same-named scope — often a method on a DIFFERENT FB. That wrong scope
+	// resolves against the wrong FB's members and lacks this body's locals, so every FB-member and
+	// method-local reference (`data`, `drive`, loop `i`, …) false-positives as unresolved.
+	const unitSpan = unit.span;
+	function bySpan(scope: Scope): Scope | undefined {
 		for (const child of scope.children) {
-			if (child.name.toLowerCase() === targetName) return child;
-			const inner = walk(child);
+			if (child.span === unitSpan) return child;
+			const inner = bySpan(child);
 			if (inner !== undefined) return inner;
 		}
 		return undefined;
 	}
-	return walk(project);
+	const identity = bySpan(project);
+	if (identity !== undefined) return identity;
+
+	// Fallback: name match — for inputs whose scope spans aren't shared object refs (some unit tests
+	// construct scopes independently of the parsed unit). Walk the WHOLE tree: standalone METHOD /
+	// ACTION / PROPERTY units live under their containing FB/PROGRAM scope, not directly under project.
+	const targetName = getUnitName(unit)?.text.toLowerCase();
+	if (targetName === undefined) return undefined;
+	function byName(scope: Scope): Scope | undefined {
+		for (const child of scope.children) {
+			if (child.name.toLowerCase() === targetName) return child;
+			const inner = byName(child);
+			if (inner !== undefined) return inner;
+		}
+		return undefined;
+	}
+	return byName(project);
 }
 
 /** Find any scope (project-wide tree walk) whose name matches. */
