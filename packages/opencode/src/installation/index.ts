@@ -285,27 +285,33 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
         let upgradeResult: { code: number; stdout: string; stderr: string } | undefined
         switch (m) {
           case "volt": {
-            // Volt updates as ONE installed app, so "upgrade" = fetch the latest release's installer asset and
+            // Volt updates as ONE installed app, so "upgrade" = fetch the release's NSIS installer asset and
             // launch it (it closes + replaces the running app). Windows-only, like the rest of Volt.
             const asset = yield* Effect.gen(function* () {
               const response = yield* httpOk.execute(
                 HttpClientRequest.get(voltReleasesApi(`tags/v${target}`)).pipe(HttpClientRequest.acceptJson),
               )
               const release = yield* HttpClientResponse.schemaBodyJson(GitHubReleaseAssets)(response)
-              return release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"))
+              // Match the electron-builder artifact ("Volt-Setup-<version>-<arch>.exe") exactly — never a bare
+              // ".exe" (a release also ships bridge/connector .exes; grabbing the wrong one would mis-install).
+              return release.assets.find((a) => /^volt-setup-.*\.exe$/i.test(a.name))
             }).pipe(
               Effect.mapError(
                 (e) =>
                   new UpgradeFailedError({ stderr: `Could not resolve Volt installer for v${target}: ${errorMessage(e)}` }),
               ),
             )
-            if (!asset) return yield* new UpgradeFailedError({ stderr: `No installer asset in release v${target}` })
+            if (!asset) return yield* new UpgradeFailedError({ stderr: `No Volt-Setup installer asset in release v${target}` })
             const dest = path.join(process.env.TEMP ?? process.env.TMP ?? ".", asset.name)
+            // ProgressPreference=SilentlyContinue: Invoke-WebRequest is ~10x slower on large files with the
+            // progress bar on — the installer is ~240 MB. ErrorActionPreference=Stop: a failed/partial download
+            // aborts before Start-Process, so we never launch a half-written installer (run() then reports the
+            // non-zero exit as UpgradeFailedError).
             upgradeResult = yield* run([
               "powershell",
               "-NoProfile",
               "-Command",
-              `Invoke-WebRequest -Uri '${asset.browser_download_url}' -OutFile '${dest}'; Start-Process -FilePath '${dest}'`,
+              `$ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; Invoke-WebRequest -Uri '${asset.browser_download_url}' -OutFile '${dest}'; Start-Process -FilePath '${dest}'`,
             ])
             break
           }
