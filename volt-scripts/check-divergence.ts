@@ -46,6 +46,8 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   "packages/app/vite.js", // default the renderer build channel to prod (V1) — openspec harden-opencode-integration
   // ── updater seam (self-updater tracks Volt's release feed, not opencode's) ──
   "packages/opencode/src/installation/index.ts", // VOLT_UPDATE_REPO → he-man86/volt releases + Volt installer (no additive hook for the update feed)
+  // ── TUI worker env seam (Bun snapshots worker env at process start, missing volt.ts's runtime OPENCODE_CONFIG_DIR/PATH) ──
+  "packages/opencode/src/cli/cmd/tui.ts", // pass live env to the TUI worker so its config carries the Volt LSP (else sidebar shows "disabled")
 ])
 
 // Paths that are wholly fork-owned — changes here never count as divergence.

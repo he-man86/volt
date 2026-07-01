@@ -191,7 +191,11 @@ export const TuiThreadCommand = cmd({
       }
       const cwd = Filesystem.resolve(process.cwd())
 
-      const worker = new Worker(file)
+      // Volt seam: Bun snapshots a worker's env at PROCESS START, so runtime-set vars (the `volt` binary sets
+      // OPENCODE_CONFIG_DIR + PATH in volt.ts before launching the TUI) never reach this worker — which runs
+      // the server the sidebar's config.get hits. Without them the worker's config has no LSP (sidebar shows
+      // "LSPs are disabled") and can't spawn volt-lsp-codesys. Pass the live env through explicitly.
+      const worker = new Worker(file, { env: { ...process.env } } as WorkerOptions)
       const client = Rpc.client<typeof rpc>(worker)
       const reload = () => {
         client.call("reload", undefined).catch(() => {})
