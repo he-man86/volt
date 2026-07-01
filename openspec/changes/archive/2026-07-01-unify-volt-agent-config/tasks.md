@@ -1,5 +1,7 @@
 # Tasks
 
+> **ARCHIVED 2026-07-01 — SHIPPED.** The `OPENCODE_CONFIG_DIR` unify model is live: the desktop (`main/index.ts`) + the `volt` binary set the env var + PATH, `volt-config/` ships (with `@opencode-ai/plugin` vendored at dist), and `volt init` no longer writes a per-project `.opencode/` (`init.ts:46`). This is now the documented reality in the `language-server` spec (Req 6) and CLAUDE.md. Remaining optional items (global `st-reference`, the final installer smoke build, doc polish) are covered by the `distribution` change.
+
 > **STATUS — CORE BUILT + PROVEN (this session).** `packages/volt-git/volt-config/` ships via `dist.ts` → `dist/volt/volt-config/` (plugin vendored, one bundle); the desktop (`main/index.ts`) + the `volt` binary (`volt.ts`) set `OPENCODE_CONFIG_DIR` + PATH; `volt init` no longer writes per-project `.opencode`; dead code deleted (`opencode-config.ts`, the `OPENCODE_PLUGIN_VERSION` pin, `resolveBin`). **Proven:** a no-`.opencode` project + a compiled `volt-lsp-codesys.exe` as the only copy on PATH + the real config dir → live `volt-lsp-codesys` diagnostics. `check-volt-integration` + `check-divergence` green. **Remaining:** ship `st-reference` globally (optional), one full installer smoke build (final acceptance), doc polish.
 
 ## Spike (de-risk before building)

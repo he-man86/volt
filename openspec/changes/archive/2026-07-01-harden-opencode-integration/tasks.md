@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-07-01 — SHIPPED / SUPERSEDED.** The earned changes landed: the UI-channel in-code prod default (`packages/app/vite.js` + `packages/desktop/electron.vite.config.ts`), the `VoltIdePanel` (Step 4), and the doc cleanup; plugin-vendoring (Step 0) was **superseded by `unify-volt-agent-config`**. The rated-inventory outcome is reflected in the `upstream-sync` spec (now 18 seams + the cleanest-tier rule). The Impact's "16th seam" framing is itself outdated (we're at 18).
+>
 > **Execution rule (every step):** add the override → `check-divergence` names the new drift → build the installer → verify 100% functional → commit. Never advance on a red step.
 >
 > **No revert / rebuild needed.** The audit showed the integration is already mostly clean — every seam is cheap *except* `session.tsx`. So this is **targeted in-place hardening**, not a from-zero rebuild. Only three changes earn their keep: **Step 4** (the `VoltIdePanel` — kills the one chronic seam), **Step 0** (vendor the plugin — offline-safe `volt init`), and the doc cleanup. Steps 1/2/3/5 already ship cheap + verified — leave them.

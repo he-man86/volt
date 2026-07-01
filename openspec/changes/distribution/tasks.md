@@ -48,6 +48,7 @@ installer's NSIS uses it for PATH); `build-installers.ts` → `build-installer.t
 - [ ] 2.15 Connector **standalone installer** — background Windows gateway (CODESYS in-proc lib / TwinCAT standalone `.exe`), HTTP 8555/8556
 - [ ] 2.15b Desktop **bundles + chains** the connector installer + re-deploys it on app update (one-install UX)
 - [ ] 2.15c Connector **self-update** lane (extension users) + `protocolVersion` on `/health` (compat gate) + CODESYS "restart CODESYS" prompt
+- [ ] 2.15d Verify a clean **standalone** connector install (VoltConnector + the net48/net8 bridges → `%LocalAppData%\Programs\Volt\`) on a fresh Windows box — folded in from the retired `connector-installer` change (its installer rework = 2.15, bridge bundling = 2.15b + gap-review, install path already verified for the desktop)
 - [ ] 2.16 Branding — `home_logo` plugin committed (NEEDS visual verify + bundling into the global config for shipped) · `scriptName`/`opencode.ai` constants remain
 
 ### Dropped / deferred
