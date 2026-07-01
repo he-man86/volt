@@ -28,8 +28,8 @@ const ALLOWED_MODIFICATIONS = new Set<string>([
   ".opencode/tui.json", // select the Volt brand theme (TUI theme is configured here, not in opencode.jsonc)
   // ── branding seams (Volt white-label; no additive hook exists for these) ──
   "packages/ui/src/components/logo.tsx", // Volt logo (bolt mark + wordmark)
-  "packages/desktop/src/main/index.ts", // Volt app name + volt IPC wiring + OPENCODE_CONFIG_DIR/PATH env (ships the agent config)
-  "packages/desktop/electron-builder.config.ts", // Volt productName / appId / install dir / icon / updater feed
+  "packages/desktop/src/main/index.ts", // Volt app name + volt IPC wiring + sidecar env (OPENCODE_CONFIG_DIR/PATH ships the agent config; OPENCODE_DISABLE_AUTOUPDATE hands updates to electron-updater)
+  "packages/desktop/electron-builder.config.ts", // Volt productName/appId/install dir/icon/updater feed + extraResources bundling dist/volt (bin, volt-config, docs, connector, vsix)
   // (resources/icons/icon.{ico,png} are Volt-branded too, but gitignored + written by brand-icons.ts at
   //  build time — never tracked, so they need no allowlist entry.)
   "packages/desktop/src/renderer/index.html", // Volt window title
