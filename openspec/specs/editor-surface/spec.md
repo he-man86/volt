@@ -69,13 +69,18 @@ but can't push). These colors SHALL be deliberately distinct from the editor's o
 ### Requirement: One status item aggregates all workspaces
 
 A single status item SHALL aggregate all bound workspaces worst-state-wins (merge in progress >
-bridge offline > no project > degraded > `N↑ M↓` drift > in-sync). When the bridge is offline the
-item SHALL retarget to a Start-Bridge action that ensures the Connector is running and starts the
-configured bridge port.
+project mismatch > bridge offline > no project > degraded > `N↑ M↓` drift > in-sync). When the bridge
+is offline the item SHALL retarget to a Start-Bridge action that ensures the Connector is running and
+starts the configured bridge port; on a project mismatch it SHALL retarget to an Accept-Project-Rename
+action.
 
 #### Scenario: Offline retargets to Start Bridge
 - **WHEN** the bridge is offline for a bound workspace
 - **THEN** the status item shows the offline state and triggers the Start-Bridge action when invoked
+
+#### Scenario: A project mismatch retargets to Accept Rename
+- **WHEN** the bound IDE project's name no longer matches the workspace binding
+- **THEN** the status item shows the mismatch and triggers the Accept-Project-Rename action when invoked
 
 ### Requirement: The git axis is delegated to the editor
 
@@ -89,38 +94,41 @@ re-implementing git's own history/merge/staging.
 - **WHEN** a pull hits conflicts
 - **THEN** Volt opens the files and directs the user to resolve them with the editor's normal merge tools, then pull again
 
-#### Scenario: The IDE axis sits beside git, not in a separate location
+#### Scenario: The IDE axis sits beside git, not behind a separate tab
 - **WHEN** the user views version state
-- **THEN** the git axis and the IDE axis are both reachable in the host's native changes UI, without a separate Volt panel
+- **THEN** the git axis and the IDE axis are both reachable in the host's native changes UI (VS Code: a native SCM group beside Git; desktop: the IDE panel mounted in the session view) — never behind a separate activity-bar icon or tab
 
 ### Requirement: The IDE-sync surface is co-located in the host's native changes UI
 
-The editor-side IDE-sync surface SHALL be presented inside the host editor's native
-changes/source-control UI, not as a separate panel, tab, or activity-bar view. In VS Code it SHALL
-be a full native `SourceControl` provider group rendered beside Git in the Source Control view. In
-the desktop GUI it SHALL be a selectable "IDE" source in the existing session changes selector,
-rendering IDE drift through the same diff/review pipeline as the other sources. The user SHALL NOT
+The editor-side IDE-sync surface SHALL be presented inside the host editor's session/changes view,
+not behind a separate tab or activity-bar view. In VS Code it SHALL be a full native `SourceControl`
+provider group rendered beside Git in the Source Control view. In the desktop GUI it SHALL be a
+self-owned panel (`VoltIdePanel`) mounted in the session view via a single `<VoltIdePanel/>` seam line
+in `session.tsx`, shown when a Volt workspace is detected, sitting alongside the session's review
+content and rendering IDE drift through the same `SessionReview` pipeline (fed by `volt diff`) — not
+interleaved into opencode's changes-source selector, which has no additive hook. The user SHALL NOT
 have to switch to a separate icon or tab to see or act on IDE drift.
 
 #### Scenario: VS Code shows the IDE group beside Git
 - **WHEN** the user opens the Source Control view
 - **THEN** a Volt IDE-sync group appears alongside Git, with its own incoming/outgoing items
 
-#### Scenario: Desktop offers IDE as a changes source
-- **WHEN** the user opens the session changes selector
-- **THEN** an "IDE" source is offered that renders IDE drift through the standard review pipeline
+#### Scenario: Desktop shows the IDE panel in the session view
+- **WHEN** a Volt workspace is detected and the user opens the session view
+- **THEN** the IDE-sync panel renders alongside the review content through the standard `SessionReview` pipeline, without a separate tab
 
 ### Requirement: IDE-sync controls accompany the co-located view
 
-Pull, Push, and Build SHALL be available wherever the IDE-sync view is presented — when the IDE
-group/source is active — so the user can act on the IDE, not only read the diff. A bridge-health
-indicator SHALL remain visible alongside the changes selector regardless of which source is selected.
+Pull, Push, and Build SHALL be available wherever the IDE-sync view is presented — the VS Code IDE
+group or the desktop IDE panel — so the user can act on the IDE, not only read the diff. A
+bridge-health indicator SHALL remain visible in the IDE-sync surface (VS Code: by the SCM group;
+desktop: in the panel header) whenever a Volt workspace is bound.
 
-#### Scenario: Controls appear with the IDE source
-- **WHEN** the IDE group (VS Code) or the "IDE" source (desktop) is active
+#### Scenario: Controls appear with the IDE surface
+- **WHEN** the IDE group (VS Code) or the IDE panel (desktop) is shown
 - **THEN** Pull, Push, and Build actions are available in that context
 
-#### Scenario: Health is visible independent of source
-- **WHEN** any changes source is selected
-- **THEN** the bridge-health indicator is visible by the changes selector
+#### Scenario: Health is visible in the IDE surface
+- **WHEN** a Volt workspace is bound
+- **THEN** the bridge-health indicator is visible in the IDE-sync surface (the panel header on desktop, beside the SCM group in VS Code)
 

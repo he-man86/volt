@@ -7,7 +7,7 @@ TBD - created by archiving change review-upstream-sync. Update Purpose after arc
 
 Volt SHALL NOT modify the contents of any upstream opencode file except the enumerated
 integration seams. New Volt code SHALL live under `packages/volt-*/` or an allowlisted path
-(`volt-scripts/`, `.claude/`, `_bmad/`, `.github/workflows/volt-*`, the `.opencode/{agent,themes,tool}`
+(`volt-scripts/`, `.claude/`, `.github/workflows/volt-*`, `openspec/`, the `.opencode/{agent,themes,tool,plugins}`
 + `.opencode/opencode.json` additive set, `CLAUDE.md`, `NOTICE`, `VOLT-DESIGN.md`, `VOLT-PLAN.md`).
 Integration SHALL use opencode's extension points — auto-discovered files and deep-merged
 config — never edits to opencode source. A new capability SHALL attach at the highest additive
@@ -27,16 +27,20 @@ hook that fits; a tiny seam is used only where no hook exists (GUI logo / app-na
 
 ### Requirement: The merge conflict surface is the enumerated seams
 
-The entire divergence from upstream SHALL be exactly 12 modified upstream files, in four
-clusters: config (4: `.gitignore`, `.husky/pre-push`, `.opencode/tui.json`, `bun.lock`),
-branding (2: `packages/ui/src/components/logo.tsx`, `packages/desktop/electron-builder.config.ts`),
-GUI panel (2: `packages/app/src/pages/session.tsx` — the "IDE" changes-source — and `packages/app/package.json`),
-and desktop IPC (4: `packages/desktop/{package.json, electron.vite.config.ts, src/main/index.ts, src/preload/index.ts}`).
-`check-divergence` SHALL pass only when no upstream file outside this set is modified or deleted.
+The entire divergence from upstream SHALL be exactly 18 modified upstream files, in these
+clusters: config (4: `bun.lock`, `.husky/pre-push`, `.gitignore`, `.opencode/tui.json`),
+branding (5: `packages/ui/src/components/logo.tsx`, `packages/desktop/src/main/index.ts`,
+`packages/desktop/electron-builder.config.ts`, `packages/desktop/src/renderer/index.html`,
+`packages/app/index.html`), GUI panel (3: `packages/app/src/pages/session.tsx` — the one-line mount
+of the self-owned "IDE" changes panel — `packages/app/package.json`, `packages/app/src/pages/layout/deep-links.ts`),
+desktop IPC (3: `packages/desktop/{src/preload/index.ts, electron.vite.config.ts, package.json}`),
+build channel (1: `packages/app/vite.js`), updater (1: `packages/opencode/src/installation/index.ts`),
+and TUI worker env (1: `packages/opencode/src/cli/cmd/tui.ts`). `check-divergence` SHALL pass only
+when no upstream file outside this set is modified or deleted.
 
 #### Scenario: A clean fork enumerates exactly the seams
 - **WHEN** `check-divergence` runs against `upstream/dev` at `HEAD`
-- **THEN** it lists the seams and reports clean
+- **THEN** it lists the 18 seams and reports clean
 
 ### Requirement: Committed build/editor junk is rejected
 
@@ -66,7 +70,9 @@ tag within the **current major** (a new major is opted into by naming the tag) �
 first failure. `merge-upstream.ts` SHALL wrap the whole flow (fetch tags → resolve the target tag →
 dated `sync/…` branch → merge → `sync.ts`) and stop cleanly on conflict, leaving resolution to the
 engineer. `check-volt-integration` SHALL additionally guard the release-merge regressions: the GUI
-build-channel `define` is intact and the `@opencode-ai/plugin` pin is published on npm.
+build-channel `define` (`VITE_OPENCODE_CHANNEL`) is intact, the TUI worker-env seam survives, and the
+vendored `volt-config` agent-config dir is present (the `@opencode-ai/plugin` SDK is vendored into it
+at dist time — there is no npm pin).
 
 #### Scenario: The default target is the newest current-major release tag
 - **WHEN** `merge-upstream.ts` runs with no argument
@@ -87,24 +93,25 @@ PR — not only by the bypassable pre-push hook — and a scheduled job (`volt-u
 SHALL merge opencode's latest release tag and open a PR when the result is clean.
 
 #### Scenario: A surface violation fails CI
-- **WHEN** a push or PR modifies an upstream file outside the 13 seams
+- **WHEN** a push or PR modifies an upstream file outside the 18 seams
 - **THEN** the Volt CI check fails
 
-### Requirement: Upstream sync runs daily and auto-merges when clean
+### Requirement: The scheduled upstream sync opens a PR, never auto-merges
 
-The scheduled auto-sync SHALL run at least **daily** (not weekly), so each merge stays small against
-opencode's high velocity (~35 commits/day). When the merge has **no conflicts** and `sync.ts` passes
-**all** signals (`check-divergence` → `check-volt-integration` → `verify-lsp` → `verify-volt-tool`),
-the sync SHALL be merged automatically (fast-forward onto the default branch) without manual review.
-A **conflict or any failed signal** SHALL instead open a PR for a human and SHALL NOT auto-merge.
+The scheduled auto-sync (`volt-upstream-sync.yml`) SHALL run **weekly** (Mondays 06:00 UTC), resolve
+opencode's newest current-major release tag, merge it onto a dated sync branch, and verify the
+key-free surface (divergence vs the tag + typecheck). When the result is **clean** it SHALL **open a
+PR** into the release branch for human review — it SHALL NOT fast-forward or auto-merge. A merge
+**conflict** SHALL fail the run (GitHub notifies a human), landing nothing. The full runtime signal
+flow (`sync.ts`, incl. the LSP/tool verifiers) is run locally when landing the PR.
 
-#### Scenario: A clean daily sync lands without manual review
-- **WHEN** the daily job merges `upstream/dev` with no conflicts and `sync.ts` passes every signal
-- **THEN** the result fast-forwards onto the default branch automatically — no PR, no human
+#### Scenario: A clean weekly sync opens a PR
+- **WHEN** the weekly job merges the latest release tag with no conflicts and the surface verifies
+- **THEN** it opens a PR into the release branch — it does not auto-merge
 
-#### Scenario: A conflict or failed signal pauses for a human
-- **WHEN** the merge conflicts, or any `sync.ts` signal fails
-- **THEN** the job opens a PR for manual resolution and does not auto-merge
+#### Scenario: A conflict fails the run for a human
+- **WHEN** the merge conflicts
+- **THEN** the run fails and nothing is landed
 
 ### Requirement: Volt ships opencode's stable UI channel
 

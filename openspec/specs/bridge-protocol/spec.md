@@ -5,19 +5,23 @@ TBD - created by archiving change review-bridge-protocol. Update Purpose after a
 ## Requirements
 ### Requirement: The item name is the wire identity
 
-The bridge wire SHALL key every operation by bare item name — `/refs` (`items`/`kinds`/`folders`),
-`/fetch` `knownItems`, every push op, `structureVersion` (a hash of the sorted names), and the
-"one item per file" workspace layout. The system SHALL NOT reject duplicate names: same-name items
-collapse last-write-wins. This is acceptable because IEC guarantees unique names for source items,
-and only opaque non-source items (which the AI never edits) can collide.
+The bridge wire SHALL key every operation by the **full** item name — the bare IEC name plus its
+extension (e.g. `PLC_PRG.st`) — across `/refs` (`items`/`folders`), `/fetch` `knownItems`, and every
+push op, mirroring the "one item per file" workspace layout. Item **kind** is not carried on the wire
+for source items; the bridge recovers it from the `.st` file content on push. The aggregate
+`structureVersion` and `projectVersion` hash the sorted **bare** names (extension stripped), so they
+stay vendor-neutral and are unchanged by the writable-source extension collapse to `.st`. The system
+SHALL NOT reject duplicate names: same-name items collapse last-write-wins. This is acceptable because
+IEC guarantees unique names for source items, and only opaque non-source items (which the AI never
+edits) can collide.
 
 #### Scenario: Duplicate opaque names do not throw
 - **WHEN** a project contains two non-source items with the same name (e.g. a per-application `Library Manager`)
 - **THEN** `/refs` succeeds and the items collapse last-write-wins — no "duplicate name" error is raised
 
-#### Scenario: Structure version is the hash of sorted names
+#### Scenario: Structure version is the hash of sorted bare names
 - **WHEN** the set of item names is unchanged
-- **THEN** `structureVersion` is unchanged, regardless of vendor
+- **THEN** `structureVersion` is unchanged, regardless of vendor or file extension
 
 ### Requirement: Both vendor bridges serve byte-identical responses
 
@@ -29,20 +33,23 @@ project, even though one is an in-process net48 library and the other a standalo
 - **WHEN** the same project is served by the CODESYS bridge and the Beckhoff bridge
 - **THEN** the wire responses and per-item content versions are identical
 
-### Requirement: Push is one declarative set/delete wire
+### Requirement: Push is one declarative set/deleteItem wire
 
-A push SHALL be a flat list of `set` / `delete` ops keyed by item name, each carrying an
+A push SHALL be a flat list of `set` / `deleteItem` ops keyed by the full item name, each carrying an
 `ifVersion` optimistic-concurrency guard; the bridge reconciles the IDE to match and applies the
-batch atomically. Read-only items (`.cfc`/`.sfc`/opaque config kinds) SHALL be refused.
+batch atomically. Read-only items (`.cfc`/`.sfc`/opaque config kinds) SHALL be refused, as is a
+textual push over an item that is graphical in the IDE.
 
 #### Scenario: A read-only item is refused
 - **WHEN** a push includes a `set` for a `.cfc` or `.sfc` item
 - **THEN** the bridge refuses the op rather than writing it to the IDE
 
-### Requirement: A vendor bridge implements exactly one contract seam
+### Requirement: A vendor bridge implements the core driver contract
 
-A vendor bridge SHALL implement only `IIdeDriver` (`IIdeSession` + `IProjectTree` + `ICodeStore`);
-everything above it lives in shared `Volt.Bridge.Core`. The load-bearing CODESYS↔Beckhoff
+A vendor bridge SHALL implement the core contract `IIdeDriver` (`IIdeSession` + `IProjectTree` +
+`ICodeStore`), plus any optional capability seams it can serve (e.g. `IInstanceProvider`,
+`IDebugIntrospect`) which the server feature-detects; everything above them lives in shared
+`Volt.Bridge.Core`. The load-bearing CODESYS↔Beckhoff
 asymmetries behind that seam (in-proc reflection vs. standalone COM, in-memory vs. file-based
 PlcOpen, `TcPouReader`, per-node `try/catch` walk) are intentional and SHALL NOT be unified.
 

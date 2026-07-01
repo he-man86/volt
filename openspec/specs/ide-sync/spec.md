@@ -50,9 +50,21 @@ tree SHALL never be merged (auto-commit clears it first). There SHALL be no cust
 Volt's machine-local state SHALL live inside `.git/volt/` (so git never tracks it): `config.json`
 (the bridge binding) and `ide-refs.json` (the optimistic-concurrency baseline). There SHALL be no
 visible `.volt/` directory. The bridge port SHALL resolve from `--port`, then `VOLT_BRIDGE_PORT`,
-then the workspace binding (default CODESYS `8556`, Beckhoff `8555`).
+then the workspace binding (the port recorded at `init` from the live bridge), falling back to `8555`.
 
-#### Scenario: No tracked workspace directory
+#### Scenario: Machine-local state is never tracked
 - **WHEN** a project is initialized with `volt init`
-- **THEN** the binding is written under `.git/volt/` and nothing is added to the tracked tree
+- **THEN** the bridge binding and IDE baseline are written under `.git/volt/` and never tracked — the tracked tree receives only the project scaffold (`package.json`/`.gitignore`/`.gitattributes`/corpus), which `init` commits
+
+### Requirement: Workspace files are normalized to LF for deterministic diffs
+
+`volt init` SHALL write a root `.gitattributes` that normalizes every workspace file to LF
+(`* text=auto eol=lf`). The bridge always materializes LF, so without this Windows git could
+round-trip files through CRLF and make the committed `HEAD` blob differ from the verbatim-LF
+`volt/ide` baseline — surfacing spurious, unpushable drift, since `pull`/`push` diff
+`refs/remotes/volt/ide` ↔ `HEAD`. This normalization is a sync-engine invariant, not cosmetic.
+
+#### Scenario: A read-only manifest shows no phantom drift on Windows
+- **WHEN** a workspace is pulled on Windows and a read-only manifest (e.g. a `.library`) is committed
+- **THEN** its committed blob matches the `volt/ide` baseline byte-for-byte (LF), so `status`/`push` report no drift for it
 

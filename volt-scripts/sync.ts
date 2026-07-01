@@ -11,7 +11,7 @@
  * Signal flow (stops at the first ✗):
  *
  *     install ─▶ divergence ─▶ integration ─▶ lsp loads ─▶ tool loads ─▶ ✓ SYNC OK
- *      deps      4 seams        configs+bins    opencode     opencode
+ *      deps      18 seams       configs+bins    opencode     opencode
  *                only?          present?        runtime      runtime
  *
  * Each step is an existing, independently-runnable script — this just orchestrates

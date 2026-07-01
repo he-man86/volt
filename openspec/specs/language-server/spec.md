@@ -54,18 +54,21 @@ The server SHALL cross-index the whole workspace so that types declared in unope
 ### Requirement: The LSP is wired into the agent's session for a consumer PLC project
 
 The volt LSP SHALL be available to the AI agent when it edits Structured Text in an **end-user PLC
-project**, not only inside the Volt dev repo. `volt init` SHALL register the LSP in the consumer
-project's opencode config with a command path that **resolves outside the Volt repo** (e.g. the
-published `@opencode-ai/volt-lsp-codesys`, a global install, or a bundled binary). An agent editing
-`.st`/`.itf`/… in a bound PLC project MUST receive the LSP's diagnostics through its tool loop.
+project**, not only inside the Volt dev repo. The agent toolchain — LSP + `volt` tool + agent + theme
++ permissions — SHALL be handed to opencode as one read-only config dir via the **`OPENCODE_CONFIG_DIR`**
+env var (set by the desktop shell and the `volt` binary), with that config's bin dir prepended to
+`PATH` so its bare-name `volt-lsp-codesys` command resolves **outside the Volt repo** (published /
+global / bundled — never a repo-relative path). `volt init` SHALL NOT write a per-project `.opencode/`;
+it only binds the IDE project and installs vendor skills. An agent editing `.st` in a bound PLC
+project MUST receive the LSP's diagnostics through its tool loop.
 
 #### Scenario: Agent gets PLC diagnostics in a consumer project
 - **WHEN** the agent edits a `.st` file in an end-user PLC project (not the Volt repo)
 - **THEN** the volt LSP is running and its diagnostics are surfaced to the agent — it is not writing ST blind from training data
 
-#### Scenario: The repo-relative path is not relied upon outside the repo
+#### Scenario: The command resolves by bare name, not a repo-relative path
 - **WHEN** opencode opens a PLC project whose directory is not the Volt repo
-- **THEN** the LSP command still resolves (published/global/bundled), not via `./packages/volt-lsp-codesys/...`
+- **THEN** the LSP command resolves via the `OPENCODE_CONFIG_DIR` bin on `PATH` (published/global/bundled), not via `./packages/volt-lsp-codesys/...`
 
 ### Requirement: LSP diagnostics cover what the bridge rejects
 

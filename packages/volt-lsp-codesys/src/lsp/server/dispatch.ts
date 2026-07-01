@@ -435,7 +435,7 @@ export function handleNotification(
 	try {
 		switch (msg.method) {
 		case "initialized": {
-			// Seed the workspace with every .st / type-def file found
+			// Seed the workspace with every .st file found
 			// under the workspace roots so cross-file types (enums,
 			// structs, FBs defined in files the user hasn't opened yet)
 			// are visible to the symbol table immediately.
