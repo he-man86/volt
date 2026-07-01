@@ -35,13 +35,20 @@
  * Idempotent. Re-running with update:true refreshes the corpus and
  * rewrites SKILL.md from the canonical template.
  */
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile, stat, copyFile } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE_CODESYS_DOCS_DIR = join(PKG_DIR, "docs", "codesys-reference");
-const SOURCE_TC_DOCS_DIR = join(PKG_DIR, "docs", "twincat-reference");
+// Dev/npm layout: the docs tree lives in the package (PKG_DIR/docs). In the compiled `volt`/`volt-lsp-codesys`
+// binary, `import.meta.url` points at Bun's virtual root (`B:\~BUN\`) where the tree isn't embedded, so fall
+// back to the `docs/` dir shipped beside the executable (`resources/volt/docs`, a sibling of `bin/`).
+const DOCS_DIR = existsSync(join(PKG_DIR, "docs"))
+	? join(PKG_DIR, "docs")
+	: resolve(dirname(process.execPath), "..", "docs");
+const SOURCE_CODESYS_DOCS_DIR = join(DOCS_DIR, "codesys-reference");
+const SOURCE_TC_DOCS_DIR = join(DOCS_DIR, "twincat-reference");
 
 const SKILL_DIR_REL = ".claude/skills/st-reference";
 const SKILL_REL_PATH = `${SKILL_DIR_REL}/SKILL.md`;

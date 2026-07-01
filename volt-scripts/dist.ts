@@ -47,6 +47,13 @@ if (!run("bun", ["volt-scripts/build.ts"])) {
 console.log("• volt-lsp-codesys")
 compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")
 
+// Ship the language-reference corpus beside the binaries. `bun --compile` only embeds imported JS, not this
+// fs-read docs tree, so `volt init`'s installCorpus reads it from `resources/volt/docs` (init.ts resolves
+// `dirname(process.execPath)/../docs` when the package layout isn't present). Without this, `volt init` warns
+// "Source corpus not found at B:\~BUN\docs\codesys-reference" and skips the ST language-reference skill.
+cpSync(resolve(repo, "packages/volt-lsp-codesys/docs"), resolve(out, "docs"), { recursive: true })
+console.log("  ✓ docs corpus → dist/volt/docs")
+
 // PATH helper bundled with the binaries — the installer's NSIS (connector.nsh) uses it to add/remove `volt`
 // on PATH, so the install also gives you the terminal CLI + makes the VS Code extension work.
 cpSync(resolve(import.meta.dirname, "volt-path.ps1"), resolve(bin, "volt-path.ps1"))

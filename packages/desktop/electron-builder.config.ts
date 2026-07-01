@@ -93,6 +93,13 @@ const getBase = (appId: string): Configuration => ({
       from: "../../dist/volt/volt-vscode.vsix",
       to: "volt/volt-vscode.vsix",
     },
+    {
+      // Volt: bundle the ST language-reference corpus beside the binaries. `volt init`'s installCorpus reads
+      // it from `resources/volt/docs` (init.ts resolves `dirname(process.execPath)/../docs` in the compiled
+      // binary — `bun --compile` can't embed this fs-read tree). Built by dist.ts → dist/volt/docs.
+      from: "../../dist/volt/docs",
+      to: "volt/docs",
+    },
   ],
   mac: {
     category: "public.app-category.developer-tools",
