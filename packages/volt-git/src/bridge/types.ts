@@ -59,10 +59,10 @@ export const BuildResponseSchema = z
 export type BuildResponse = z.infer<typeof BuildResponseSchema>;
 
 // ─── Item content (used by /fetch and /push) ────────────────────────────────
-// An item on the wire is one assembled file (.st/.gvl/.itf/…). The bridge owns the POU↔children split
-// and materializes editable FBD/LD bodies as VG text (.fbd/.ld); CFC/SFC are read-only. The client sees
-// each item's `sourceText` (ST, or VG for graphical bodies). The extension is part of `name` and drives
-// access (rw source vs r reference).
+// An item on the wire is one assembled file. Every writable source kind (POU/DUT/GVL/interface) is one
+// `.st` file, including editable FBD/LD graphical bodies (materialized as VG text); only read-only
+// CFC/SFC + reference manifests carry a distinct extension. The client sees each item's `sourceText`
+// (ST, or VG for graphical bodies). The extension is part of `name` and drives access (rw `.st` vs r).
 export const FetchedItemSchema = z
 	.object({
 		name: z.string(),

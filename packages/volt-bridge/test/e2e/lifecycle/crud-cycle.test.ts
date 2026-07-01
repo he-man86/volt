@@ -14,11 +14,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDe
 import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, FOLDER, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
-// wire-name extension per kind (the `kind` field on each LIFECYCLE_KINDS entry → file extension)
-const EXT_BY_KIND: Record<string, string> = {
-	function_block: "st", program: "st", gvl: "gvl",
-	structure: "struct", enumeration: "enum", union: "union", alias: "alias",
-}
+// Every writable source kind (POU/GVL/DUT/interface) materializes as one `.st` file — the wire name
+// carries no per-kind extension, so `fid` defaults to `.st` for all of them.
 
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	setDefaultTimeout(60_000) // TC COM calls are slow; default 5s is too tight
@@ -30,8 +27,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	for (const k of LIFECYCLE_KINDS) {
 		it(`${k.key}: create→fetch→fixedpoint→edit→rename→move→delete, versions track correctly`, async () => {
 			const name = id(`lc_${k.key}`)
-			const ext = EXT_BY_KIND[k.kind]
-			const wire = fid(`lc_${k.key}`, ext)             // FULL wire name for every op/helper/lookup
+			const wire = fid(`lc_${k.key}`)                  // FULL wire name (.st) for every op/helper/lookup
 
 			// 1. baseline
 			const s0 = await snapshot()
@@ -60,7 +56,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			expect(await fetchSource(wire)).toMatch(k.editToken)
 
 			// 6. RENAME → structure + project change; the renamed item keeps its content version
-			const newWire = fid(`lc_${k.key}_r`, ext)
+			const newWire = fid(`lc_${k.key}_r`)
 			const rn = await pushOps([{ op: "set", name: wire, toName: newWire, ifVersion: snapshotItem(s3, wire) }])
 			expect(rn.accepted).toBe(true)
 			const s4 = await snapshot()

@@ -20,13 +20,13 @@ describe("rename — ST body across files", () => {
 	test("renaming a global VAR updates declaration + every ST usage", () => {
 		const ws = makeWorkspace();
 		ws.openDocument(
-			"file:///GVL.gvl",
+			"file:///GVL.st",
 			`VAR_GLOBAL
 \tcounter: INT;
 END_VAR
 `,
 			1,
-			"plc-gvl",
+			"structured-text",
 		);
 		ws.openDocument(
 			"file:///PLC_PRG.st",
@@ -41,7 +41,7 @@ END_PROGRAM
 			1,
 			"structured-text",
 		);
-		const doc = ws.getDocument("file:///GVL.gvl")!;
+		const doc = ws.getDocument("file:///GVL.st")!;
 		const result = rename({
 			workspace: ws,
 			doc,
@@ -52,7 +52,7 @@ END_PROGRAM
 		});
 		expect(result).not.toBeNull();
 		const changesByFile = result!.changes;
-		const gvlEdits = changesByFile["file:///GVL.gvl"] ?? [];
+		const gvlEdits = changesByFile["file:///GVL.st"] ?? [];
 		const stEdits = changesByFile["file:///PLC_PRG.st"] ?? [];
 		// One declaration edit + 3 usages in PLC_PRG.
 		expect(gvlEdits.length).toBe(1);

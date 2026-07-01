@@ -130,7 +130,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
 			const name = id(`vg_${lang.toLowerCase()}`)
-			const fullName = fid(`vg_${lang.toLowerCase()}`, lang.toLowerCase())
+			const fullName = fid(`vg_${lang.toLowerCase()}`)   // graphical POUs materialize as .st (kept graphical by content)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
 
@@ -140,7 +140,8 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
-			expect(after.sourceText).toContain("NETWORK")
+			expect(after.name.endsWith(".st")).toBe(true)                         // one extension for every writable source kind
+			expect(after.sourceText).toMatch(new RegExp(`NETWORK\\s+\\d+\\s+${lang}\\b`))   // stayed ${lang}, not flattened to ST
 
 			// The program-scope DECLARATION must survive a push-create — GraphicalCode.Write writes the BODY
 			// only, so without an explicit decl write the VAR section comes back empty and the vars the
@@ -159,17 +160,17 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	}
 
 	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
-		it(`LD featureset (${label}) round-trips to a stable .ld body`, async () => {
+		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
 			const name = id(`vg_ld_${label}`)
-			const fullName = fid(`vg_ld_${label}`, "ld")
+			const fullName = fid(`vg_ld_${label}`)
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 			expect(v1).toBeDefined()
-			expect(v1.name.endsWith(".ld")).toBe(true)   // stayed ladder
-			expect(v1.sourceText).toContain("NETWORK")
+			expect(v1.name.endsWith(".st")).toBe(true)                 // graphical POU is a .st file now
+			expect(v1.sourceText).toMatch(/NETWORK\s+\d+\s+LD\b/)      // stayed ladder (LD), not flattened to ST
 
 			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
@@ -188,7 +189,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// UNREFERENCED POU builds clean on TC (skipped), a REFERENCED one with a bad var fails with "Identifier
 		// not defined". CODESYS compiles every POU regardless. So this build-verifies the declaration on BOTH.
 		const name = id("vg_build_fb")
-		await createItem(fid("vg_build_fb", "ld"), ldFb(name), "")
+		await createItem(fid("vg_build_fb"), ldFb(name), "")
 		await ensureCompiles(name)   // declare an instance in PLC_PRG + build + assert zero errors
 	})
 
@@ -198,7 +199,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// POU that already lives in the project. (CFC/SFC read-only behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
 		const name = id("vg_existing")
-		const fullName = fid("vg_existing", "fbd")
+		const fullName = fid("vg_existing")
 		const refs0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
@@ -218,11 +219,12 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
 	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
 		const name = id("vg_guard_st")
-		const fullName = fid("vg_guard_st", "fbd")
+		const fullName = fid("vg_guard_st")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
-		expect(before.name.endsWith(".fbd")).toBe(true)
+		expect(before.name.endsWith(".st")).toBe(true)                 // .st file holding an FBD body
+		expect(before.sourceText).toMatch(/NETWORK\s+\d+\s+FBD\b/)
 
 		const r1 = await bridge.refs()
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
@@ -231,13 +233,13 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
-		expect(after.name).toBe(before.name)              // still .fbd — never flattened to ST
+		expect(after.name).toBe(before.name)              // unchanged — the textual push was refused, body still FBD
 		expect(after.sourceText).toBe(before.sourceText)  // byte-identical: the bad push never reached the IDE
 	})
 
 	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
 		const name = id("vg_guard_malformed")
-		const fullName = fid("vg_guard_malformed", "fbd")
+		const fullName = fid("vg_guard_malformed")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))

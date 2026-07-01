@@ -5,26 +5,19 @@ import { join } from "node:path";
 import { isPouFile, readStateMtime } from "./workspace";
 
 describe("isPouFile", () => {
-	test("matches every tracked PLC extension", () => {
-		for (const ext of ["st", "gvl", "struct", "enum", "union", "alias", "itf"]) {
-			expect(isPouFile(`Foo.${ext}`)).toBe(true);
-		}
+	test("matches the .st source extension", () => {
+		expect(isPouFile("Foo.st")).toBe(true);
 	});
 
 	test("is case-insensitive (Windows paths arrive mixed-case)", () => {
 		expect(isPouFile("Foo.ST")).toBe(true);
-		expect(isPouFile("Bar.Struct")).toBe(true);
-		expect(isPouFile("Bar.ITF")).toBe(true);
+		expect(isPouFile("FB_Motor.St")).toBe(true);
 	});
 
-	test("rejects untracked extensions", () => {
+	test("rejects non-source extensions", () => {
 		expect(isPouFile("README.md")).toBe(false);
 		expect(isPouFile("package.json")).toBe(false);
 		expect(isPouFile("config.yaml")).toBe(false);
-		// The old `.dut` extension was retired in favour of split kinds
-		// (.struct/.enum/.union/.alias). Make sure we don't silently
-		// re-add it via the test list.
-		expect(isPouFile("Old.dut")).toBe(false);
 	});
 
 	test("rejects files with no extension", () => {
@@ -38,9 +31,9 @@ describe("isPouFile", () => {
 	});
 
 	test("only the rightmost extension counts", () => {
-		// ide-refs.json.bak ÔÇö .bak isn't a PLC extension.
+		// ide-refs.json.bak - .bak isn't a PLC extension.
 		expect(isPouFile("ide-refs.json.bak")).toBe(false);
-		// foo.st.bak ÔÇö last segment is .bak, not .st.
+		// foo.st.bak - last segment is .bak, not .st.
 		expect(isPouFile("foo.st.bak")).toBe(false);
 	});
 });

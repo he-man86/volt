@@ -12,15 +12,6 @@
 import { Workspace, type Document } from "../../lsp/workspace.js";
 import type { LanguageTest } from "./types.js";
 
-export const KIND_EXT: Record<LanguageTest["kind"], string> = {
-	function_block: "st",
-	function: "st",
-	program: "st",
-	gvl: "gvl",
-	structure: "struct",
-	interface: "itf",
-};
-
 export const PLC_PRG_URI = "file:///conformance/PLC_PRG.st";
 
 /**
@@ -53,7 +44,8 @@ export interface CorpusWorkspace {
  * indicates a setup-side bug, not a test failure.
  */
 export function buildCorpusWorkspace(t: LanguageTest): CorpusWorkspace {
-	const pouUri = `file:///conformance/${t.pouName}.${KIND_EXT[t.kind]}`;
+	// Every writable source kind materializes as one `.st` file (POU/DUT/GVL/interface).
+	const pouUri = `file:///conformance/${t.pouName}.st`;
 	const plcPrgSource = buildPlcPrgForTest(t);
 
 	const ws = new Workspace();

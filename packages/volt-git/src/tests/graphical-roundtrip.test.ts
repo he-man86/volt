@@ -1,7 +1,8 @@
 /**
  * Live graphical round-trip — drives the volt-git CLI against a real bridge with FBD/LD POUs.
- * Verifies a graphical root body materializes as an editable, marker-free .fbd/.ld file (leading with
- * the NETWORK marker) and round-trips: provision (IDE) → pull → edit VG → push → pull → the edit survives.
+ * Verifies a graphical root body materializes as an editable, marker-free .st file (every writable
+ * source kind is .st; graphical bodies lead with the NETWORK marker) and round-trips:
+ * provision (IDE) → pull → edit VG → push → pull → the edit survives.
  *
  * Defaults to :8556 (CODESYS headless — the proven WriteGraphicalBody path); override VOLT_TC_PORT.
  * Self-provisions every fixture (a `Vlt*`-named POU) and purges them on entry/exit — never touches a
@@ -28,7 +29,7 @@ const provision = (name: string, sourceText: string): Promise<void> => ideSet(na
 
 /** This suite's OWN graphical fixture file, or null — keyed by name so an ambient POU can't be picked up. */
 function findGraphical(name: string): string | null {
-	for (const f of walk(ws)) if (f.endsWith(`${name}.fbd`) || f.endsWith(`${name}.ld`)) return f
+	for (const f of walk(ws)) if (f.endsWith(`${name}.st`)) return f // graphical POUs are .st now (content leads with NETWORK)
 	return null
 }
 
@@ -44,12 +45,12 @@ const FIXTURE = "VltRtGfx"
 // A boolean leaf (FALSE/TRUE) so the edit-round-trip has an operand to flip.
 const FIXTURE_FBD = `PROGRAM ${FIXTURE}\nVAR\n\tout : BOOL;\nEND_VAR\n\nNETWORK 0 FBD\n  out := (FALSE AND TRUE);\nEND_NETWORK\nEND_PROGRAM\n`
 
-suite("graphical round-trip (FBD ↔ .fbd)", () => {
+suite("graphical round-trip (FBD ↔ .st)", () => {
 	setDefaultTimeout(30_000)
 
 	beforeAll(async () => {
 		await setup()
-		await provision(`${FIXTURE}.fbd`, FIXTURE_FBD)
+		await provision(`${FIXTURE}.st`, FIXTURE_FBD)
 	})
 	afterAll(async () => {
 		await purge(PREFIX)
@@ -57,7 +58,7 @@ suite("graphical round-trip (FBD ↔ .fbd)", () => {
 	})
 	beforeEach(checkpoint)
 
-	it("pull materializes an FBD root body as a marker-free .fbd file", async () => {
+	it("pull materializes an FBD root body as a marker-free .st file", async () => {
 		expect((await pull(ws, bridge)).kind).toBe("ok")
 		const f = findGraphical(FIXTURE)
 		expect(f).not.toBeNull()
@@ -92,7 +93,7 @@ const LD_VARIATIONS: [string, (n: string) => string, string][] = [
 	["series3", (n) => ldProg(n, "\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout : BOOL;\n", "  out := ((a AND b) AND c);\n"), "AND"],
 ]
 
-suite("LD featureset — each variation materializes as a .ld file with the right logic", () => {
+suite("LD featureset — each variation materializes as a .st file with the right logic", () => {
 	setDefaultTimeout(30_000)
 
 	beforeAll(setup)
@@ -103,9 +104,9 @@ suite("LD featureset — each variation materializes as a .ld file with the righ
 	beforeEach(checkpoint)
 
 	for (const [label, build, mustContain] of LD_VARIATIONS) {
-		it(`pull materializes the ${label} ladder as a .ld file`, async () => {
+		it(`pull materializes the ${label} ladder as a .st file`, async () => {
 			const name = `VltGfxLd_${label}`
-			await provision(`${name}.ld`, build(name))
+			await provision(`${name}.st`, build(name))
 			expect((await pull(ws, bridge)).kind).toBe("ok")
 			const f = findGraphical(name)
 			expect(f).not.toBeNull()

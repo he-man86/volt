@@ -4,7 +4,7 @@
   "lsp": {
     "volt-lsp-codesys": {
       "command": ["volt-lsp-codesys", "--stdio"],
-      "extensions": [".st", ".gvl", ".itf", ".struct", ".enum", ".union", ".alias", ".fbd", ".ld", ".sfc", ".cfc"]
+      "extensions": [".st", ".sfc", ".cfc"]
     }
   },
   "permission": {

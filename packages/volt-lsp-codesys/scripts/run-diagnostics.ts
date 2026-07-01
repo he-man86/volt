@@ -21,7 +21,7 @@ if (!root) {
 	process.exit(1);
 }
 
-const ST_EXTENSIONS = new Set([".st", ".enum", ".struct", ".union", ".alias", ".gvl"]);
+const ST_EXTENSIONS = new Set([".st"]); // every writable source kind now materializes as one .st file
 
 function collectSt(dir: string): string[] {
 	const result: string[] = [];

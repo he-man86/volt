@@ -17,7 +17,7 @@ export interface LanguageTest {
 	name: string;
 	/** TwinCAT POU name as it appears in the project tree. Must start with a `LANG_`-prefixed identifier (FB_LANG_*, GVL_LANG_*, DUT_LANG_*, ITF_LANG_*) so the recorder's cleanup sweep catches it. */
 	pouName: string;
-	/** Item kind on the bridge — picks the workspace extension (.st / .gvl / .dut / .itf). */
+	/** Item kind on the bridge. Every writable source kind materializes as one `.st` file. */
 	kind: "function_block" | "function" | "program" | "gvl" | "structure" | "interface";
 	/** What the test exercises — short label for reports. */
 	feature: string;

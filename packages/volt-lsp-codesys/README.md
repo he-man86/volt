@@ -12,8 +12,9 @@ vendor ecosystem, not one language; a structurally-different vendor (Siemens) wo
 ## Role in Volt
 
 This is the analysis layer of the Volt data path. `volt-git` materializes a live PLC project into one text file per
-item under the project root; this LSP analyzes those files. opencode and editors attach it for `.st` (and the related
-text extensions `volt-git` writes — `.gvl`, `.struct`, `.enum`, `.union`, `.alias`), and it cross-indexes the whole
+item under the project root; this LSP analyzes those files. Every writable source kind — POUs, GVLs, interfaces, and
+the DUT subkinds (struct/enum/union/alias), textual or editable graphical FBD/LD — is one `.st` file, so opencode and
+editors attach the LSP for `.st` (plus the read-only graphical views `.cfc`/`.sfc`), and it cross-indexes the whole
 workspace so types declared in unopened files resolve.
 
 It provides go-to-definition, find-references, implementation, document/workspace symbols, call hierarchy, type

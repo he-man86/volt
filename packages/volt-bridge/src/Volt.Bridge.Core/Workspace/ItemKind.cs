@@ -129,18 +129,14 @@ public static class ItemKind
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef
              or PlcItfPropGet or PlcItfPropSet;
 
-    /// <summary>Workspace file extension for a kind string (lowercase). Every file-producing kind
-    /// in item-kinds.json must have an entry — no silent fallback. POU extensions come from the
-    /// body language (ST→st, FBD→fbd, LD→ld, …), not from the kind, so this mapping skips POUs.</summary>
+    /// <summary>Workspace file extension for a NON-source kind string (lowercase) — the read-only
+    /// reference manifests. No silent fallback. Source kinds (POUs, interface, gvl, DUTs) do NOT come
+    /// here: their extension is decided by <c>Materializer.SourceExt</c> — writable ST and editable
+    /// graphical (FBD/LD) collapse to <c>st</c>; only read-only graphical (CFC/SFC) keeps its
+    /// body-language extension. Kind is recovered from file content on push, so <c>.st</c> carries none.</summary>
     public static string ExtFor(string kind) => kind switch
     {
-        "interface" => "itf",
-        "structure" => "struct",
-        "enumeration" => "enum",
         "tmc_file" => "tmc",
-        "gvl" => "gvl",
-        "union" => "union",
-        "alias" => "alias",
         "library" => "library",
         "task" => "task",
         "image_pool" => "image_pool",

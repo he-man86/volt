@@ -1323,7 +1323,7 @@ exports[`workspaceSymbol corpus (search by pouName) literal_string_to_int_assign
 exports[`workspaceSymbol corpus (search by pouName) interface_empty 1`] = `
 [
   {
-    "file": "ITF_LANG_empty.itf",
+    "file": "ITF_LANG_empty.st",
     "kind": 11,
     "name": "ITF_LANG_empty",
   },
@@ -1343,7 +1343,7 @@ exports[`workspaceSymbol corpus (search by pouName) interface_empty_impl 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) interface_with_method 1`] = `
 [
   {
-    "file": "ITF_LANG_with_method.itf",
+    "file": "ITF_LANG_with_method.st",
     "kind": 11,
     "name": "ITF_LANG_with_method",
   },
@@ -1373,7 +1373,7 @@ exports[`workspaceSymbol corpus (search by pouName) interface_missing_implementa
 exports[`workspaceSymbol corpus (search by pouName) interface_extends_another 1`] = `
 [
   {
-    "file": "ITF_LANG_extends_another.itf",
+    "file": "ITF_LANG_extends_another.st",
     "kind": 11,
     "name": "ITF_LANG_extends_another",
   },
@@ -1393,7 +1393,7 @@ exports[`workspaceSymbol corpus (search by pouName) interface_extends_another_im
 exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return_type 1`] = `
 [
   {
-    "file": "ITF_LANG_method_returns.itf",
+    "file": "ITF_LANG_method_returns.st",
     "kind": 11,
     "name": "ITF_LANG_method_returns",
   },
@@ -1413,7 +1413,7 @@ exports[`workspaceSymbol corpus (search by pouName) interface_method_with_return
 exports[`workspaceSymbol corpus (search by pouName) interface_with_property 1`] = `
 [
   {
-    "file": "ITF_LANG_with_property.itf",
+    "file": "ITF_LANG_with_property.st",
     "kind": 11,
     "name": "ITF_LANG_with_property",
   },
@@ -1593,7 +1593,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_deref_non_pointer 1`] =
 exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_simple 1`] = `
 [
   {
-    "file": "DUT_LANG_struct_simple.struct",
+    "file": "DUT_LANG_struct_simple.st",
     "kind": 23,
     "name": "DUT_LANG_struct_simple",
   },
@@ -1603,7 +1603,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_simple 1`] =
 exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_extends 1`] = `
 [
   {
-    "file": "DUT_LANG_struct_extends.struct",
+    "file": "DUT_LANG_struct_extends.st",
     "kind": 23,
     "name": "DUT_LANG_struct_extends",
   },
@@ -1613,7 +1613,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_extends 1`] 
 exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_nested 1`] = `
 [
   {
-    "file": "DUT_LANG_struct_nested.struct",
+    "file": "DUT_LANG_struct_nested.st",
     "kind": 23,
     "name": "DUT_LANG_struct_nested",
   },
@@ -1623,7 +1623,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_nested 1`] =
 exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_simple 1`] = `
 [
   {
-    "file": "DUT_LANG_enum_simple.struct",
+    "file": "DUT_LANG_enum_simple.st",
     "kind": 23,
     "name": "DUT_LANG_enum_simple",
   },
@@ -1633,7 +1633,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_simple 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_with_base 1`] = `
 [
   {
-    "file": "DUT_LANG_enum_with_base.struct",
+    "file": "DUT_LANG_enum_with_base.st",
     "kind": 23,
     "name": "DUT_LANG_enum_with_base",
   },
@@ -1643,7 +1643,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_with_base 1`] 
 exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_explicit_values 1`] = `
 [
   {
-    "file": "DUT_LANG_enum_explicit_values.struct",
+    "file": "DUT_LANG_enum_explicit_values.st",
     "kind": 23,
     "name": "DUT_LANG_enum_explicit_values",
   },
@@ -1653,7 +1653,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_enum_explicit_value
 exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_int 1`] = `
 [
   {
-    "file": "DUT_LANG_alias_int.struct",
+    "file": "DUT_LANG_alias_int.st",
     "kind": 23,
     "name": "DUT_LANG_alias_int",
   },
@@ -1663,7 +1663,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_int 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_string 1`] = `
 [
   {
-    "file": "DUT_LANG_alias_string.struct",
+    "file": "DUT_LANG_alias_string.st",
     "kind": 23,
     "name": "DUT_LANG_alias_string",
   },
@@ -1673,7 +1673,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_string 1`] = 
 exports[`workspaceSymbol corpus (search by pouName) type_dut_union 1`] = `
 [
   {
-    "file": "DUT_LANG_union.struct",
+    "file": "DUT_LANG_union.st",
     "kind": 23,
     "name": "DUT_LANG_union",
   },
@@ -1683,7 +1683,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_union 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) type_dut_subrange 1`] = `
 [
   {
-    "file": "DUT_LANG_subrange.struct",
+    "file": "DUT_LANG_subrange.st",
     "kind": 23,
     "name": "DUT_LANG_subrange",
   },
@@ -1773,7 +1773,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_implicit_enum_inline 1`
 exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_with_bit_fields 1`] = `
 [
   {
-    "file": "DUT_LANG_struct_bit_fields.struct",
+    "file": "DUT_LANG_struct_bit_fields.st",
     "kind": 23,
     "name": "DUT_LANG_struct_bit_fields",
   },
@@ -1783,7 +1783,7 @@ exports[`workspaceSymbol corpus (search by pouName) type_dut_struct_with_bit_fie
 exports[`workspaceSymbol corpus (search by pouName) type_dut_alias_with_init 1`] = `
 [
   {
-    "file": "DUT_LANG_alias_with_init.struct",
+    "file": "DUT_LANG_alias_with_init.st",
     "kind": 23,
     "name": "DUT_LANG_alias_with_init",
   },
@@ -1863,7 +1863,7 @@ exports[`workspaceSymbol corpus (search by pouName) var_non_retain 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) var_config_address_binding 1`] = `
 [
   {
-    "file": "GVL_LANG_var_config.gvl",
+    "file": "GVL_LANG_var_config.st",
     "kind": 2,
     "name": "GVL_LANG_var_config",
   },
@@ -1873,7 +1873,7 @@ exports[`workspaceSymbol corpus (search by pouName) var_config_address_binding 1
 exports[`workspaceSymbol corpus (search by pouName) var_external_gvl 1`] = `
 [
   {
-    "file": "GVL_LANG_var_external_target.gvl",
+    "file": "GVL_LANG_var_external_target.st",
     "kind": 2,
     "name": "GVL_LANG_var_external_target",
   },
@@ -2133,7 +2133,7 @@ exports[`workspaceSymbol corpus (search by pouName) use_fb_callable 1`] = `
 exports[`workspaceSymbol corpus (search by pouName) use_struct_member_access 1`] = `
 [
   {
-    "file": "DUT_LANG_use_struct_member.struct",
+    "file": "DUT_LANG_use_struct_member.st",
     "kind": 23,
     "name": "DUT_LANG_use_struct_member",
   },
@@ -2143,7 +2143,7 @@ exports[`workspaceSymbol corpus (search by pouName) use_struct_member_access 1`]
 exports[`workspaceSymbol corpus (search by pouName) use_struct_nested_member 1`] = `
 [
   {
-    "file": "DUT_LANG_use_struct_outer.struct",
+    "file": "DUT_LANG_use_struct_outer.st",
     "kind": 23,
     "name": "DUT_LANG_use_struct_outer",
   },
@@ -2153,7 +2153,7 @@ exports[`workspaceSymbol corpus (search by pouName) use_struct_nested_member 1`]
 exports[`workspaceSymbol corpus (search by pouName) use_gvl_field_access 1`] = `
 [
   {
-    "file": "GVL_LANG_use_field_access.gvl",
+    "file": "GVL_LANG_use_field_access.st",
     "kind": 2,
     "name": "GVL_LANG_use_field_access",
   },

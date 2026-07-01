@@ -498,7 +498,7 @@ components:
       properties:
         name:
           type: string
-          description: "Item name with file extension (.st, .gvl, .itf, .struct, .enum, .union, .alias, .library, .task, .device, .trace, .imagepool, .textlist, .recipemanager, .visumanager, .visualization, .symbolconfig, .projectinfo, .librarymanager, .uml, .exttypes, .tmc)"
+          description: "Item name with file extension. Every writable source kind (POU/DUT/GVL/interface, textual or editable graphical FBD/LD) is .st; only read-only kinds carry a distinct extension (.cfc, .sfc, .library, .task, .device, .trace, .imagepool, .textlist, .recipemanager, .visumanager, .visualization, .symbolconfig, .projectinfo, .librarymanager, .uml, .exttypes, .tmc)"
         folder:
           type: string
           description: "Slash-joined containing folder in the project tree; absent/empty = root"

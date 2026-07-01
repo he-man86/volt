@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Volt.Bridge.Core.Graphical;
 
 /// <summary>
-/// The VG graphical-body contract. An EDITABLE graphical body (FBD/LD — a ROOT POU's own .fbd/.ld file,
+/// The VG graphical-body contract. An EDITABLE graphical body (FBD/LD — a ROOT POU's own .st file,
 /// or a CHILD action/method inline in a .st) leads with a network block <c>NETWORK &lt;index&gt;
 /// &lt;LANG&gt; …</c>; the language rides on the marker (no separate header) and the body round-trips.
 /// Read-only CFC/SFC are NOT VG bodies — they have no networks and materialize declaration-only (their

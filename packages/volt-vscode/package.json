@@ -22,10 +22,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
-    "onLanguage:plc-interface",
-    "onLanguage:plc-gvl",
-    "onLanguage:plc-dut",
-    "workspaceContains:**/*.{st,itf,gvl,struct,union,enum,alias,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
+    "workspaceContains:**/*.{st,cfc,sfc,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -71,8 +68,6 @@
         ],
         "extensions": [
           ".st",
-          ".fbd",
-          ".ld",
           ".cfc",
           ".sfc"
         ],
@@ -80,58 +75,6 @@
         "icon": {
           "light": "./icons/st.svg",
           "dark": "./icons/st.svg"
-        }
-      },
-      {
-        "id": "plc-interface",
-        "aliases": [
-          "PLC Interface",
-          "ITF"
-        ],
-        "extensions": [
-          ".itf"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/itf.svg",
-          "dark": "./icons/itf.svg"
-        }
-      },
-      {
-        "id": "plc-gvl",
-        "aliases": [
-          "PLC Global Variable List",
-          "GVL"
-        ],
-        "extensions": [
-          ".gvl"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/gvl.svg",
-          "dark": "./icons/gvl.svg"
-        }
-      },
-      {
-        "id": "plc-dut",
-        "aliases": [
-          "PLC Data Unit Type",
-          "DUT",
-          "Structure",
-          "Enumeration",
-          "Union",
-          "Alias"
-        ],
-        "extensions": [
-          ".struct",
-          ".enum",
-          ".union",
-          ".alias"
-        ],
-        "configuration": "./languages/structured-text/language-configuration.json",
-        "icon": {
-          "light": "./icons/dut.svg",
-          "dark": "./icons/dut.svg"
         }
       },
       {
@@ -297,21 +240,6 @@
         "injectTo": [
           "source.structured-text"
         ]
-      },
-      {
-        "language": "plc-interface",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
-      },
-      {
-        "language": "plc-gvl",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
-      },
-      {
-        "language": "plc-dut",
-        "scopeName": "source.structured-text",
-        "path": "./languages/structured-text/syntax.tmLanguage.json"
       }
     ],
     "iconThemes": [

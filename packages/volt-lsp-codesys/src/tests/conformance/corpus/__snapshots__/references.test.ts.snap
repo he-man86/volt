@@ -20438,7 +20438,7 @@ exports[`references corpus (POU + PLC_PRG) interface_empty 1`] = `
       {
         "char": 10,
         "line": 0,
-        "uri": "ITF_LANG_empty.itf",
+        "uri": "ITF_LANG_empty.st",
       },
     ],
     "text": "ITF_LANG_empty",
@@ -20606,7 +20606,7 @@ exports[`references corpus (POU + PLC_PRG) interface_with_method 1`] = `
       {
         "char": 10,
         "line": 0,
-        "uri": "ITF_LANG_with_method.itf",
+        "uri": "ITF_LANG_with_method.st",
       },
     ],
     "text": "ITF_LANG_with_method",
@@ -20978,7 +20978,7 @@ exports[`references corpus (POU + PLC_PRG) interface_extends_another 1`] = `
       {
         "char": 10,
         "line": 0,
-        "uri": "ITF_LANG_extends_another.itf",
+        "uri": "ITF_LANG_extends_another.st",
       },
     ],
     "text": "ITF_LANG_extends_another",
@@ -21132,7 +21132,7 @@ exports[`references corpus (POU + PLC_PRG) interface_method_with_return_type 1`]
       {
         "char": 10,
         "line": 0,
-        "uri": "ITF_LANG_method_returns.itf",
+        "uri": "ITF_LANG_method_returns.st",
       },
     ],
     "text": "ITF_LANG_method_returns",
@@ -21386,7 +21386,7 @@ exports[`references corpus (POU + PLC_PRG) interface_with_property 1`] = `
       {
         "char": 10,
         "line": 0,
-        "uri": "ITF_LANG_with_property.itf",
+        "uri": "ITF_LANG_with_property.st",
       },
     ],
     "text": "ITF_LANG_with_property",
@@ -24131,7 +24131,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_simple 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_simple.struct",
+        "uri": "DUT_LANG_struct_simple.st",
       },
     ],
     "text": "DUT_LANG_struct_simple",
@@ -24222,7 +24222,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_simple 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_simple.struct",
+        "uri": "DUT_LANG_struct_simple.st",
       },
     ],
     "text": "DUT_LANG_struct_simple",
@@ -24307,7 +24307,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_extends.struct",
+        "uri": "DUT_LANG_struct_extends.st",
       },
     ],
     "text": "DUT_LANG_struct_base",
@@ -24343,7 +24343,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
       {
         "char": 5,
         "line": 6,
-        "uri": "DUT_LANG_struct_extends.struct",
+        "uri": "DUT_LANG_struct_extends.st",
       },
     ],
     "text": "DUT_LANG_struct_extends",
@@ -24357,7 +24357,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_extends.struct",
+        "uri": "DUT_LANG_struct_extends.st",
       },
     ],
     "text": "DUT_LANG_struct_base",
@@ -24418,7 +24418,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
       {
         "char": 5,
         "line": 6,
-        "uri": "DUT_LANG_struct_extends.struct",
+        "uri": "DUT_LANG_struct_extends.st",
       },
     ],
     "text": "DUT_LANG_struct_extends",
@@ -24503,7 +24503,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_nested.struct",
+        "uri": "DUT_LANG_struct_nested.st",
       },
     ],
     "text": "DUT_LANG_struct_inner",
@@ -24555,7 +24555,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
       {
         "char": 5,
         "line": 7,
-        "uri": "DUT_LANG_struct_nested.struct",
+        "uri": "DUT_LANG_struct_nested.st",
       },
     ],
     "text": "DUT_LANG_struct_nested",
@@ -24583,7 +24583,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_nested.struct",
+        "uri": "DUT_LANG_struct_nested.st",
       },
     ],
     "text": "DUT_LANG_struct_inner",
@@ -24641,7 +24641,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
       {
         "char": 5,
         "line": 7,
-        "uri": "DUT_LANG_struct_nested.struct",
+        "uri": "DUT_LANG_struct_nested.st",
       },
     ],
     "text": "DUT_LANG_struct_nested",
@@ -24707,7 +24707,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_simple 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_simple.struct",
+        "uri": "DUT_LANG_enum_simple.st",
       },
     ],
     "text": "DUT_LANG_enum_simple",
@@ -24784,7 +24784,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_simple 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_simple.struct",
+        "uri": "DUT_LANG_enum_simple.st",
       },
     ],
     "text": "DUT_LANG_enum_simple",
@@ -24817,7 +24817,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_simple 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_simple.struct",
+        "uri": "DUT_LANG_enum_simple.st",
       },
     ],
     "text": "DUT_LANG_enum_simple",
@@ -24855,7 +24855,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_with_base 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_with_base.struct",
+        "uri": "DUT_LANG_enum_with_base.st",
       },
     ],
     "text": "DUT_LANG_enum_with_base",
@@ -24940,7 +24940,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_with_base 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_with_base.struct",
+        "uri": "DUT_LANG_enum_with_base.st",
       },
     ],
     "text": "DUT_LANG_enum_with_base",
@@ -24973,7 +24973,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_with_base 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_with_base.struct",
+        "uri": "DUT_LANG_enum_with_base.st",
       },
     ],
     "text": "DUT_LANG_enum_with_base",
@@ -25011,7 +25011,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_explicit_values 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_explicit_values.struct",
+        "uri": "DUT_LANG_enum_explicit_values.st",
       },
     ],
     "text": "DUT_LANG_enum_explicit_values",
@@ -25088,7 +25088,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_explicit_values 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_explicit_values.struct",
+        "uri": "DUT_LANG_enum_explicit_values.st",
       },
     ],
     "text": "DUT_LANG_enum_explicit_values",
@@ -25121,7 +25121,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_enum_explicit_values 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_enum_explicit_values.struct",
+        "uri": "DUT_LANG_enum_explicit_values.st",
       },
     ],
     "text": "DUT_LANG_enum_explicit_values",
@@ -25154,7 +25154,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_int 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_int.struct",
+        "uri": "DUT_LANG_alias_int.st",
       },
     ],
     "text": "DUT_LANG_alias_int",
@@ -25204,7 +25204,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_int 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_int.struct",
+        "uri": "DUT_LANG_alias_int.st",
       },
     ],
     "text": "DUT_LANG_alias_int",
@@ -25237,7 +25237,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_string 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_string.struct",
+        "uri": "DUT_LANG_alias_string.st",
       },
     ],
     "text": "DUT_LANG_alias_string",
@@ -25279,7 +25279,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_string 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_string.struct",
+        "uri": "DUT_LANG_alias_string.st",
       },
     ],
     "text": "DUT_LANG_alias_string",
@@ -25312,7 +25312,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_union 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_union.struct",
+        "uri": "DUT_LANG_union.st",
       },
     ],
     "text": "DUT_LANG_union",
@@ -25392,7 +25392,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_union 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_union.struct",
+        "uri": "DUT_LANG_union.st",
       },
     ],
     "text": "DUT_LANG_union",
@@ -25439,7 +25439,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_subrange 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_subrange.struct",
+        "uri": "DUT_LANG_subrange.st",
       },
     ],
     "text": "DUT_LANG_subrange",
@@ -25489,7 +25489,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_subrange 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_subrange.struct",
+        "uri": "DUT_LANG_subrange.st",
       },
     ],
     "text": "DUT_LANG_subrange",
@@ -26830,7 +26830,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] =
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_bit_fields.struct",
+        "uri": "DUT_LANG_struct_bit_fields.st",
       },
     ],
     "text": "DUT_LANG_struct_bit_fields",
@@ -26926,7 +26926,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_struct_with_bit_fields 1`] =
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_struct_bit_fields.struct",
+        "uri": "DUT_LANG_struct_bit_fields.st",
       },
     ],
     "text": "DUT_LANG_struct_bit_fields",
@@ -26973,7 +26973,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_with_init.struct",
+        "uri": "DUT_LANG_alias_with_init.st",
       },
     ],
     "text": "DUT_LANG_alias_with_init",
@@ -27028,7 +27028,7 @@ exports[`references corpus (POU + PLC_PRG) type_dut_alias_with_init 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_alias_with_init.struct",
+        "uri": "DUT_LANG_alias_with_init.st",
       },
     ],
     "text": "DUT_LANG_alias_with_init",
@@ -28606,7 +28606,7 @@ exports[`references corpus (POU + PLC_PRG) var_config_address_binding 1`] = `
       {
         "char": 1,
         "line": 1,
-        "uri": "GVL_LANG_var_config.gvl",
+        "uri": "GVL_LANG_var_config.st",
       },
     ],
     "text": "PLC_PRG",
@@ -28620,7 +28620,7 @@ exports[`references corpus (POU + PLC_PRG) var_config_address_binding 1`] = `
       {
         "char": 1,
         "line": 1,
-        "uri": "GVL_LANG_var_config.gvl",
+        "uri": "GVL_LANG_var_config.st",
       },
     ],
     "text": "iSensorReading",
@@ -28661,7 +28661,7 @@ exports[`references corpus (POU + PLC_PRG) var_external_gvl 1`] = `
       {
         "char": 1,
         "line": 1,
-        "uri": "GVL_LANG_var_external_target.gvl",
+        "uri": "GVL_LANG_var_external_target.st",
       },
     ],
     "text": "gShared",
@@ -34195,7 +34195,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_member_access 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_use_struct_member.struct",
+        "uri": "DUT_LANG_use_struct_member.st",
       },
     ],
     "text": "DUT_LANG_use_struct_member",
@@ -34275,7 +34275,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_member_access 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_use_struct_member.struct",
+        "uri": "DUT_LANG_use_struct_member.st",
       },
     ],
     "text": "DUT_LANG_use_struct_member",
@@ -34322,7 +34322,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_use_struct_outer.struct",
+        "uri": "DUT_LANG_use_struct_outer.st",
       },
     ],
     "text": "DUT_LANG_use_struct_inner",
@@ -34358,7 +34358,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
       {
         "char": 5,
         "line": 6,
-        "uri": "DUT_LANG_use_struct_outer.struct",
+        "uri": "DUT_LANG_use_struct_outer.st",
       },
     ],
     "text": "DUT_LANG_use_struct_outer",
@@ -34386,7 +34386,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
       {
         "char": 5,
         "line": 0,
-        "uri": "DUT_LANG_use_struct_outer.struct",
+        "uri": "DUT_LANG_use_struct_outer.st",
       },
     ],
     "text": "DUT_LANG_use_struct_inner",
@@ -34428,7 +34428,7 @@ exports[`references corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
       {
         "char": 5,
         "line": 6,
-        "uri": "DUT_LANG_use_struct_outer.struct",
+        "uri": "DUT_LANG_use_struct_outer.st",
       },
     ],
     "text": "DUT_LANG_use_struct_outer",
@@ -34494,7 +34494,7 @@ exports[`references corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `
       {
         "char": 1,
         "line": 2,
-        "uri": "GVL_LANG_use_field_access.gvl",
+        "uri": "GVL_LANG_use_field_access.st",
       },
     ],
     "text": "gValue",
@@ -34535,7 +34535,7 @@ exports[`references corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `
       {
         "char": 0,
         "line": 1,
-        "uri": "GVL_LANG_use_field_access.gvl",
+        "uri": "GVL_LANG_use_field_access.st",
       },
     ],
     "text": "GVL_LANG_use_field_access",
@@ -34554,7 +34554,7 @@ exports[`references corpus (POU + PLC_PRG) use_gvl_field_access 1`] = `
       {
         "char": 1,
         "line": 2,
-        "uri": "GVL_LANG_use_field_access.gvl",
+        "uri": "GVL_LANG_use_field_access.st",
       },
     ],
     "text": "gValue",

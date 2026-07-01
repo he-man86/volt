@@ -71,9 +71,10 @@ When force IS warranted (rare):
 
 ## Reactive language intelligence — LSP
 
-The `volt-lsp-codesys` LSP is auto-started by opencode on Structured Text (`.st`),
-declaration files (`.gvl`, `.itf`, DUTs `.struct`/`.enum`/`.union`/`.alias`), and
-graphical bodies (`.fbd`/`.ld`/`.sfc`/`.cfc`, rendered as VG text). You get:
+The `volt-lsp-codesys` LSP is auto-started by opencode on Structured Text (`.st`).
+Every writable source — POUs, DUTs, GVLs, interfaces, and editable graphical FBD/LD
+bodies (rendered as VG text) — is a `.st` file; only the read-only graphical views
+`.sfc`/`.cfc` keep their own extension. You get:
 - Parse-error and code-correctness diagnostics inline as files are edited
 - Hover information on identifiers (incl. inferred VG wire types)
 - Go-to-definition, find-references, document symbols, completion, signature help

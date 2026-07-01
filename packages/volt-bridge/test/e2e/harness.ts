@@ -48,7 +48,8 @@ export async function requireHealthy(): Promise<void> {
 // identifier used INSIDE source text ("FUNCTION_BLOCK VltE2E_x"); `fid` is the FULL wire/file name (IEC
 // name + extension) used for every op and lookup. No bare↔full resolution anywhere.
 export function id(s: string): string { return `${PREFIX}_${s}` }
-/** The FULL wire name: the IEC name + extension (defaults to .st; pass ".fbd"/".ld"/".struct"/… per kind). */
+/** The FULL wire name: the IEC name + extension. Every writable source kind (POU/DUT/GVL/interface,
+ *  textual or editable graphical) is `.st`; only read-only kinds carry a distinct ext (pass ".cfc"/…). */
 export function fid(s: string, ext = "st"): string { return `${id(s)}.${ext}` }
 
 export async function cleanup(): Promise<void> {

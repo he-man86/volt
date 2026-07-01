@@ -1,7 +1,8 @@
 import { statSync } from "node:fs"
 import { join } from "node:path"
 
-const EXTS = new Set(["st", "gvl", "struct", "enum", "union", "alias", "itf"])
+// Every writable source kind (POU/DUT/GVL/interface, textual or editable graphical) is one `.st` file.
+const EXTS = new Set(["st"])
 
 export function isPouFile(path: string): boolean {
 	const dot = path.lastIndexOf(".")

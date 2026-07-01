@@ -12,17 +12,12 @@ export interface ExtensionDef {
 }
 
 const EXTENSIONS: readonly ExtensionDef[] = [
+	// Every writable source kind (POU/DUT/GVL/interface, textual or editable graphical FBD/LD) is one
+	// `.st` file — the bridge collapses them (Materializer.SourceExt) and recovers kind from content on
+	// push. Only read-only kinds keep a distinct extension.
 	{ ext: "st", defaultAccess: "rw" },
-	{ ext: "fbd", defaultAccess: "rw" },
-	{ ext: "ld", defaultAccess: "rw" },
 	{ ext: "cfc", defaultAccess: "r" },
 	{ ext: "sfc", defaultAccess: "r" },
-	{ ext: "itf", defaultAccess: "rw" },
-	{ ext: "gvl", defaultAccess: "rw" },
-	{ ext: "struct", defaultAccess: "rw" },
-	{ ext: "union", defaultAccess: "rw" },
-	{ ext: "enum", defaultAccess: "rw" },
-	{ ext: "alias", defaultAccess: "rw" },
 	{ ext: "library", defaultAccess: "r" },
 	{ ext: "task", defaultAccess: "r" },
 	{ ext: "image_pool", defaultAccess: "r" },
@@ -39,10 +34,6 @@ const EXTENSIONS: readonly ExtensionDef[] = [
 ] as const;
 
 export const FOLDER_MARKER = ".gitkeep";
-
-export function isSourcePou(def: ExtensionDef): boolean {
-	return def.defaultAccess === "rw";
-}
 
 const BY_EXT: ReadonlyMap<string, ExtensionDef> = (() => {
 	const m = new Map<string, ExtensionDef>();
@@ -104,15 +95,10 @@ export function isReadOnly(relPath: string): boolean {
 	return getByPath(relPath)?.defaultAccess === "r";
 }
 
-export function sourceExtensions(): readonly string[] {
-	const out = new Set<string>();
-	for (const def of EXTENSIONS) {
-		if (!isSourcePou(def) || def.ext.length === 0) continue;
-		out.add(`.${def.ext}`);
-	}
-	return [...out].sort();
-}
-
 export function gitattributesContent(): string {
-	return sourceExtensions().map((e) => `*${e} text eol=lf`).join("\n") + "\n";
+	// Normalize EVERY workspace file to LF. The bridge always emits LF and the whole workspace is text
+	// (ST, VG, and the read-only manifests). Without a blanket rule, Windows git (core.autocrlf) round-
+	// trips the un-attributed read-only kinds (.library/.task/…) through CRLF, so their committed blob
+	// differs from the verbatim-LF `volt/ide` baseline and pull/push see spurious, unpushable drift.
+	return "* text=auto eol=lf\n";
 }

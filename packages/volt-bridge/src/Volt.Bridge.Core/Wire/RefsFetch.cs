@@ -29,7 +29,8 @@ public class FetchRequest
 
 public class FetchedItem
 {
-    /// <summary>Full workspace filename including extension (e.g. "PLC_PRG.st", "FB_Motor.fbd").</summary>
+    /// <summary>Full workspace filename including extension (e.g. "PLC_PRG.st"; graphical FBD/LD POUs
+    /// are ".st" too, only read-only "Foo.cfc"/reference manifests carry a distinct extension).</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
