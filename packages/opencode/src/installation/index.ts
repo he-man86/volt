@@ -66,6 +66,9 @@ const GitHubReleaseAssets = Schema.Struct({
   tag_name: Schema.String,
   assets: Schema.Array(Schema.Struct({ name: Schema.String, browser_download_url: Schema.String })),
 })
+// Volt's GitHub releases API — the one external dependency of the "volt" update method (VOLT_UPDATE_REPO).
+const voltReleasesApi = (suffix: string) =>
+  `https://api.github.com/repos/${process.env.VOLT_UPDATE_REPO}/releases/${suffix}`
 const NpmPackage = Schema.Struct({ version: Schema.String })
 const BrewFormula = Schema.Struct({ versions: Schema.Struct({ stable: Schema.String }) })
 const BrewInfoV2 = Schema.Struct({
@@ -218,9 +221,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
 
         if (detectedMethod === "volt") {
           const response = yield* httpOk.execute(
-            HttpClientRequest.get(`https://api.github.com/repos/${process.env.VOLT_UPDATE_REPO}/releases/latest`).pipe(
-              HttpClientRequest.acceptJson,
-            ),
+            HttpClientRequest.get(voltReleasesApi("latest")).pipe(HttpClientRequest.acceptJson),
           )
           const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
           return data.tag_name.replace(/^v/, "")
@@ -288,9 +289,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
             // launch it (it closes + replaces the running app). Windows-only, like the rest of Volt.
             const asset = yield* Effect.gen(function* () {
               const response = yield* httpOk.execute(
-                HttpClientRequest.get(
-                  `https://api.github.com/repos/${process.env.VOLT_UPDATE_REPO}/releases/tags/v${target}`,
-                ).pipe(HttpClientRequest.acceptJson),
+                HttpClientRequest.get(voltReleasesApi(`tags/v${target}`)).pipe(HttpClientRequest.acceptJson),
               )
               const release = yield* HttpClientResponse.schemaBodyJson(GitHubReleaseAssets)(response)
               return release.assets.find((a) => a.name.toLowerCase().endsWith(".exe"))

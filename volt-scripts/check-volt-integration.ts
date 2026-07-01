@@ -97,6 +97,21 @@ check("volt-config dir is present (bare-name LSP + volt tool)", () => {
 	return true;
 });
 
+// The dev `.opencode/` and shipped `volt-config/` share a few files verbatim (they only differ in the LSP
+// command + the dev-only smoke plugin). Until they're generated from one template, guard that the shared
+// ones don't drift — an edit to one must land in the other. Compare normalized for line-ending (autocrlf).
+check("shared .opencode/ ↔ volt-config/ files are in sync (no drift)", () => {
+	const shared = ["agent/volt.md", "themes/volt.json", "plugins/volt.tsx"];
+	const norm = (p: string) => readFileSync(p, "utf-8").replace(/\r\n/g, "\n");
+	for (const rel of shared) {
+		const dev = join(REPO_ROOT, ".opencode", rel);
+		const shipped = join(REPO_ROOT, "packages/volt-git/volt-config", rel);
+		if (!existsSync(dev) || !existsSync(shipped)) return `${rel} missing in one location`;
+		if (norm(dev) !== norm(shipped)) return `${rel} drifted — sync .opencode/ and volt-config/`;
+	}
+	return true;
+});
+
 console.log("\nRuntime smoke test");
 check("volt-lsp-codesys --version exits 0", () => {
 	const binJs = join(REPO_ROOT, "packages/volt-lsp-codesys/dist/bin.js");
