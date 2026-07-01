@@ -7,8 +7,8 @@ using System.Text.Json.Nodes;
 namespace Volt.Bridge.Core.Workspace.SourceText;
 
 /// <summary>
-/// Render a fetched item back to its assembled `.st` source text (all writable source kinds —
-/// POU/GVL/DUT/interface — share the one extension) — the inverse of <see cref="StSplitter"/>.
+/// Render a fetched item back to its assembled Structured Text source (POU/GVL/DUT/interface, each
+/// named by its kind — .fb/.prg/.fun/.itf/.struct/…) — the inverse of <see cref="StSplitter"/>.
 ///
 /// Used by FetchHandler to ship `sourceText` on the wire so the agent
 /// can drop the file directly into the workspace without any

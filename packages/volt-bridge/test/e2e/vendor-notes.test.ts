@@ -14,7 +14,7 @@ describe(`vendor notes (${BASE})`, () => {
 	afterAll(cleanup)
 
 	it("a function creates + round-trips", async () => {
-		const name = id("vn_func"), wire = fid("vn_func")
+		const name = id("vn_func"), wire = fid("vn_func", "fun")
 		await createItem(wire, func(name))
 		const item = await fetchItem(wire)
 		expect(item.sourceText).toMatch(/FUNCTION \w+ : BOOL/)

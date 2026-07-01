@@ -21,22 +21,14 @@ public static class Materializer
         {
             var build = BuildSource(ide, name, item, kind);
             var text = StAssembler.Assemble(build);
-            var lang = build.TryGetValue("language", out var l) ? l as string : null;
-            return new WorkspaceItem(text, FullWireName(name, SourceExt(lang)));
+            // The extension is the item's KIND. Use the RESOLVED kind (build["kind"]), which refines a
+            // DUT reported as a bare alias into structure/enumeration/union — the outer `kind` may be coarser.
+            var resolvedKind = (build.TryGetValue("kind", out var k) ? k as string : null) ?? kind;
+            return new WorkspaceItem(text, FullWireName(name, ItemKind.ExtFor(resolvedKind)));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind),
             FullWireName(name, ItemKind.ExtFor(kind)));
     }
-
-    /// <summary>The workspace extension for a source item. Writable source — textual ST and editable
-    /// graphical (FBD/LD, which round-trip through the NETWORK-token VG form) — all collapse to <c>st</c>;
-    /// the item's kind is recovered from file content on push, so the extension carries no kind. Only a
-    /// read-only graphical body (CFC/SFC) keeps its own extension, since its language is declaration-only
-    /// and can't be content-detected. A null language (interface/gvl/DUTs) is textual → <c>st</c>.</summary>
-    private static string SourceExt(string? language) =>
-        language is null || language == "ST" || VgBody.IsEditable(language)
-            ? "st"
-            : language.ToLowerInvariant();
 
     /// <summary>Append the extension to the name. For verbatim kinds (tmc_file), the IDE name
     /// already includes the extension — don't double it.</summary>
@@ -91,13 +83,20 @@ public static class Materializer
         var children = CollectChildren(ide, item);
         var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
 
-        // The POU's OWN body may be graphical. Its LANGUAGE travels as a field: editable FBD/LD collapses
-        // to the .st extension (SourceExt), read-only CFC/SFC keeps its own .cfc/.sfc. FBD/LD bodies lead
-        // with the NETWORK marker; CFC/SFC come back empty. A null graphical means the gate found a
-        // textual body — never a missed graphical one.
+        // The POU's OWN body may be graphical. The file is named by KIND regardless of language; the body
+        // language rides in the CONTENT: editable FBD/LD leads with the NETWORK marker, read-only CFC/SFC
+        // (which come back empty) get a `READONLY <LANG>` marker so the file self-describes as read-only.
+        // A null graphical means the gate found a textual body — never a missed graphical one.
         if (graphical is not null)
         {
-            if (!string.IsNullOrEmpty(graphical.Body)) result["implementation"] = graphical.Body;
+            if (VgBody.IsEditable(graphical.Language))
+            {
+                if (!string.IsNullOrEmpty(graphical.Body)) result["implementation"] = graphical.Body;
+            }
+            else
+            {
+                result["implementation"] = $"READONLY {graphical.Language}";
+            }
             result["language"] = graphical.Language;
         }
         else

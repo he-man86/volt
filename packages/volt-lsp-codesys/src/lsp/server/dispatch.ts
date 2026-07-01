@@ -513,11 +513,13 @@ export function handleNotification(
 
 /**
  * Recursively walk `dir` and yield absolute paths of every PLC-text source file.
- * Every writable source kind — POU bodies, GVLs, interfaces, and the DUT subkinds
- * (struct/enum/union/alias) — now materializes as a single `.st` file, so `.st` is
- * the whole set. Skips `node_modules` and hidden directories.
+ * Every writable source kind is named by its KIND: POUs (.fb/.prg/.fun), interfaces
+ * (.itf), GVLs (.gvl), and the DUT subkinds (.struct/.enum/.union/.alias). Skips
+ * `node_modules` and hidden directories.
  */
-const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([".st"]);
+const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([
+	".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl",
+]);
 function* walkForStFiles(dir: string): Generator<string> {
 	let entries: fs.Dirent[];
 	try {

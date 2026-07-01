@@ -19,6 +19,20 @@ import type { Token } from "../lexer/tokens.js";
  * VG handling instead of ST handling.
  */
 export function isVgBody(tokens: readonly Token[]): boolean {
+	return firstSignificant(tokens) === "NETWORK";
+}
+
+/**
+ * True when a body is the read-only graphical marker — its first significant
+ * token is `READONLY` (a CFC/SFC body the IDE authored graphically, materialized
+ * as `READONLY <LANG>`). Such a body is neither editable ST nor VG: it is not
+ * analyzed, produces no diagnostics, and cannot be pushed.
+ */
+export function isReadOnlyBody(tokens: readonly Token[]): boolean {
+	return firstSignificant(tokens) === "READONLY";
+}
+
+function firstSignificant(tokens: readonly Token[]): string | undefined {
 	for (const t of tokens) {
 		if (
 			t.kind === "whitespace" ||
@@ -29,7 +43,7 @@ export function isVgBody(tokens: readonly Token[]): boolean {
 		) {
 			continue;
 		}
-		return t.text.toUpperCase() === "NETWORK";
+		return t.text.toUpperCase();
 	}
-	return false;
+	return undefined;
 }

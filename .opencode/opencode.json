@@ -3,7 +3,7 @@
   "lsp": {
     "volt-lsp-codesys": {
       "command": ["node", "./packages/volt-lsp-codesys/dist/bin.js", "--stdio"],
-      "extensions": [".st", ".sfc", ".cfc"]
+      "extensions": [".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]
     }
   },
   "permission": {

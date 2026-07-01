@@ -21,7 +21,8 @@ if (!root) {
 	process.exit(1);
 }
 
-const ST_EXTENSIONS = new Set([".st"]); // every writable source kind now materializes as one .st file
+// Every writable source kind is named by its kind (.fb/.prg/.fun/.itf/DUTs/.gvl).
+const ST_EXTENSIONS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
 
 function collectSt(dir: string): string[] {
 	const result: string[] = [];

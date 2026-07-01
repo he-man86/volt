@@ -11,7 +11,7 @@
  *
  * This launches the same opencode dev entry but passes the repo root as the
  * project directory, so the relative LSP command resolves and `volt-lsp-codesys`
- * attaches to .st files. Run from anywhere:
+ * attaches to kind files (.fb/.prg/…). Run from anywhere:
  *
  *   bun volt-scripts/dev.ts                          # opencode TUI on the repo (volt LSP loaded)
  *   bun volt-scripts/dev.ts "C:/path/to/plc-project" # open a REAL PLC project (LSP from its volt-init'd .opencode/)
@@ -29,7 +29,7 @@ const repoRoot = resolve(import.meta.dirname, "..")
 const args = process.argv.slice(2)
 
 // Optional first arg: the project directory to open. Point dev-opencode at a REAL PLC project (one you ran
-// `volt init` in) to watch the volt LSP attach to its .st files — there the LSP comes from that project's
+// `volt init` in) to watch the volt LSP attach to its kind files — there the LSP comes from that project's
 // own `.opencode/` (written by `volt init`). With no dir, default to the repo root, where `.opencode`'s
 // repo-relative LSP command resolves.
 const hasDir = args[0] !== undefined && !args[0].startsWith("-") && existsSync(args[0])

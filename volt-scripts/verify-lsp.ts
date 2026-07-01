@@ -10,7 +10,7 @@
  *
  * opencode spawns the LSP *lazily* (on first matching-file open) with `cwd = the project dir`, and logs nothing
  * on spawn failure — so "is it actually working?" is otherwise invisible. Each phase drives opencode's own
- * `debug lsp diagnostics` against a deliberately-malformed `.st`: a loaded LSP flags it (`source:
+ * `debug lsp diagnostics` against a deliberately-malformed `.fb`: a loaded LSP flags it (`source:
  * "volt-lsp-codesys"`); a missing one returns `{}` (the exact silent failure).
  *
  * Scope: this runs in DEV (bun, source), so it cannot reproduce the compiled binary's Bun-worker env-snapshot
@@ -56,7 +56,7 @@ let failed = false
 {
   // Must live inside the repo: `debug lsp` only analyzes files within the project dir. Gitignored so an
   // interrupted run can't leave a committable file.
-  const sample = resolve(repoRoot, ".volt-lsp-verify.st")
+  const sample = resolve(repoRoot, ".volt-lsp-verify.fb")
   writeFileSync(sample, MALFORMED_ST)
   try {
     const { ok, out } = lspLoads(sample, repoRoot, process.env)
@@ -76,13 +76,13 @@ let failed = false
 {
   const cfgDir = mkdtempSync(join(tmpdir(), "volt-verify-cfg-"))
   const projDir = mkdtempSync(join(tmpdir(), "volt-verify-proj-"))
-  const sample = join(projDir, "verify.st")
+  const sample = join(projDir, "verify.fb")
   try {
     // Absolute node LSP command so it resolves with cwd = the (external) project dir. Mirrors how the shipped
     // volt-config supplies the LSP via OPENCODE_CONFIG_DIR — except the project itself carries no .opencode.
     writeFileSync(
       join(cfgDir, "opencode.json"),
-      JSON.stringify({ lsp: { "volt-lsp-codesys": { command: ["node", lspBin, "--stdio"], extensions: [".st"] } } }),
+      JSON.stringify({ lsp: { "volt-lsp-codesys": { command: ["node", lspBin, "--stdio"], extensions: [".fb"] } } }),
     )
     writeFileSync(sample, MALFORMED_ST)
     const { ok, out } = lspLoads(sample, projDir, { ...process.env, OPENCODE_CONFIG_DIR: cfgDir })

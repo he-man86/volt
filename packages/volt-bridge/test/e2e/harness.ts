@@ -48,9 +48,9 @@ export async function requireHealthy(): Promise<void> {
 // identifier used INSIDE source text ("FUNCTION_BLOCK VltE2E_x"); `fid` is the FULL wire/file name (IEC
 // name + extension) used for every op and lookup. No bare↔full resolution anywhere.
 export function id(s: string): string { return `${PREFIX}_${s}` }
-/** The FULL wire name: the IEC name + extension. Every writable source kind (POU/DUT/GVL/interface,
- *  textual or editable graphical) is `.st`; only read-only kinds carry a distinct ext (pass ".cfc"/…). */
-export function fid(s: string, ext = "st"): string { return `${id(s)}.${ext}` }
+/** The FULL wire name: the IEC name + KIND extension. A POU is named by kind — default `.fb` (function
+ *  block); pass "prg"/"fun"/"itf"/"struct"/"enum"/"union"/"alias"/"gvl" for other kinds. */
+export function fid(s: string, ext = "fb"): string { return `${id(s)}.${ext}` }
 
 export async function cleanup(): Promise<void> {
 	const refs = await bridge.refs()
@@ -96,14 +96,14 @@ export async function fetchSource(name: string): Promise<string> { return (await
 let _plcPrgOriginal: string | null = null
 
 // The project's main/entry program — the POU we add FB instances to so the compiler reaches them.
-// CODESYS default-names it PLC_PRG; TwinCAT default-names it MAIN. Resolve it from /refs (the wire
-// name carries the .st extension) instead of hardcoding, so the SAME suite runs against either vendor's
+// CODESYS default-names it PLC_PRG; TwinCAT default-names it MAIN. Resolve it from /refs (a program is
+// named `.prg`) instead of hardcoding, so the SAME suite runs against either vendor's
 // default project. Cached after the first lookup.
 let _mainProgram: string | null = null
 async function mainProgram(): Promise<string | null> {
 	if (_mainProgram) return _mainProgram
 	const items = (await bridge.refs()).items ?? {}
-	for (const cand of ["PLC_PRG.st", "MAIN.st"]) if (items[cand] !== undefined) { _mainProgram = cand; return cand }
+	for (const cand of ["PLC_PRG.prg", "MAIN.prg"]) if (items[cand] !== undefined) { _mainProgram = cand; return cand }
 	return null   // some projects (a library / PackML app) have no standard main program — callers tolerate it
 }
 

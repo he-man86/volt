@@ -11,7 +11,7 @@
 import type { BodySpan, TopLevel } from "../parser/ast.js";
 import type { Span } from "../lexer/span.js";
 import { scanAllIdentifiersInBody } from "./identifier-scan.js";
-import { isVgBody, parseVgBody, type VgBody } from "../vg/index.js";
+import { isVgBody, isReadOnlyBody, parseVgBody, type VgBody } from "../vg/index.js";
 import { collectVgIdentifierRefs } from "../vg/identifiers.js";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -21,9 +21,10 @@ export interface BodyModel {
 	span: Span;
 	/** Which sublanguage this body is. A POU body is `vg` when its first
 	 *  significant token is `NETWORK` (a graphical FBD/LD body rendered as
-	 *  VG text); otherwise `st`. The discriminator every query/check uses
-	 *  to route a body to VG-aware logic. */
-	language: "st" | "vg";
+	 *  VG text); `readonly` when it is a `READONLY <LANG>` marker (a read-only
+	 *  CFC/SFC body — not analyzed); otherwise `st`. The discriminator every
+	 *  query/check uses to route a body. */
+	language: "st" | "vg" | "readonly";
 	/** Every name occurrence — drives references, highlight,
 	 *  completion, and the unresolved-identifier diagnostic. For a VG
 	 *  body these are only declaration-scope references (real vars / FB
@@ -77,6 +78,8 @@ export interface CallSite {
  */
 export function buildBodyModel(st: BodySpan, source?: string): BodyModel {
 	if (isVgBody(st.tokens)) return buildVgBodyModel(st, source);
+	// A read-only graphical body (`READONLY <LANG>`) is not analyzed — no identifiers, no diagnostics.
+	if (isReadOnlyBody(st.tokens)) return { span: st.span, language: "readonly", identifiers: [], calls: [], st };
 
 	const occurrences = scanAllIdentifiersInBody(st);
 	const identifiers: IdentifierRef[] = occurrences.map((o) => ({

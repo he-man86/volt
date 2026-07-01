@@ -12,12 +12,19 @@ export interface ExtensionDef {
 }
 
 const EXTENSIONS: readonly ExtensionDef[] = [
-	// Every writable source kind (POU/DUT/GVL/interface, textual or editable graphical FBD/LD) is one
-	// `.st` file — the bridge collapses them (Materializer.SourceExt) and recovers kind from content on
-	// push. Only read-only kinds keep a distinct extension.
-	{ ext: "st", defaultAccess: "rw" },
-	{ ext: "cfc", defaultAccess: "r" },
-	{ ext: "sfc", defaultAccess: "r" },
+	// Writable source is named by KIND (bridge: ItemKind.ExtFor). A POU's read-only-ness is NOT the
+	// extension — a read-only CFC/SFC body is the same .fb/.prg/.fun, self-described by a `READONLY <LANG>`
+	// body marker (see bodyIsReadOnly). So these default `rw` and push filters read-only by content;
+	// only reference kinds are read-only by extension.
+	{ ext: "fb", defaultAccess: "rw" },
+	{ ext: "prg", defaultAccess: "rw" },
+	{ ext: "fun", defaultAccess: "rw" },
+	{ ext: "itf", defaultAccess: "rw" },
+	{ ext: "struct", defaultAccess: "rw" },
+	{ ext: "union", defaultAccess: "rw" },
+	{ ext: "enum", defaultAccess: "rw" },
+	{ ext: "alias", defaultAccess: "rw" },
+	{ ext: "gvl", defaultAccess: "rw" },
 	{ ext: "library", defaultAccess: "r" },
 	{ ext: "task", defaultAccess: "r" },
 	{ ext: "image_pool", defaultAccess: "r" },
@@ -93,6 +100,13 @@ export function isPushable(relPath: string): boolean {
 
 export function isReadOnly(relPath: string): boolean {
 	return getByPath(relPath)?.defaultAccess === "r";
+}
+
+/** A source POU is read-only if its materialized body is the `READONLY <LANG>` marker (a CFC/SFC body
+ *  the IDE authored graphically). Read-only is thus self-describing in the file, not in the extension:
+ *  a `.fb`/`.prg`/`.fun` can be writable (textual/FBD/LD) or read-only (this marker). */
+export function bodyIsReadOnly(content: string): boolean {
+	return /^\s*READONLY\s+\w+\s*$/m.test(content);
 }
 
 export function gitattributesContent(): string {

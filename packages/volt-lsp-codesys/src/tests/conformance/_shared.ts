@@ -12,7 +12,17 @@
 import { Workspace, type Document } from "../../lsp/workspace.js";
 import type { LanguageTest } from "./types.js";
 
-export const PLC_PRG_URI = "file:///conformance/PLC_PRG.st";
+/** Each writable source kind is named by its kind (bridge: ItemKind.ExtFor). */
+export const KIND_EXT: Record<LanguageTest["kind"], string> = {
+	function_block: "fb",
+	function: "fun",
+	program: "prg",
+	gvl: "gvl",
+	structure: "struct",
+	interface: "itf",
+};
+
+export const PLC_PRG_URI = "file:///conformance/PLC_PRG.prg";
 
 /**
  * Build the PLC_PRG source that instantiates this test's POU. Matches
@@ -44,8 +54,8 @@ export interface CorpusWorkspace {
  * indicates a setup-side bug, not a test failure.
  */
 export function buildCorpusWorkspace(t: LanguageTest): CorpusWorkspace {
-	// Every writable source kind materializes as one `.st` file (POU/DUT/GVL/interface).
-	const pouUri = `file:///conformance/${t.pouName}.st`;
+	// Each writable source kind is named by its kind (POU→.fb/.prg/.fun, DUT→.struct/…, GVL→.gvl, interface→.itf).
+	const pouUri = `file:///conformance/${t.pouName}.${KIND_EXT[t.kind]}`;
 	const plcPrgSource = buildPlcPrgForTest(t);
 
 	const ws = new Workspace();

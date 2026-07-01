@@ -79,45 +79,45 @@ suite("live: workspace → IDE (push)", () => {
 
 	it("create: new POU → push → exists in the IDE", async () => {
 		const n = `${PREFIX}_create`
-		writeWs(`${n}.st`, fb(n))
+		writeWs(`${n}.fb`, fb(n))
 		expect((await pushCommitted()).kind).toBe("ok")
-		expect(await refsHas(`${n}.st`)).toBe(true)
+		expect(await refsHas(`${n}.fb`)).toBe(true)
 	})
 	it("edit: change a POU → push → its version moves", async () => {
 		const n = `${PREFIX}_edit`
-		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok")
-		const v1 = (await refs()).items[`${n}.st`]
-		writeWs(`${n}.st`, fb(n, "n := n + 99;")); expect((await pushCommitted()).kind).toBe("ok")
-		expect((await refs()).items[`${n}.st`]).not.toBe(v1)
+		writeWs(`${n}.fb`, fb(n)); expect((await pushCommitted()).kind).toBe("ok")
+		const v1 = (await refs()).items[`${n}.fb`]
+		writeWs(`${n}.fb`, fb(n, "n := n + 99;")); expect((await pushCommitted()).kind).toBe("ok")
+		expect((await refs()).items[`${n}.fb`]).not.toBe(v1)
 	})
 	it("rename + edit: git mv + header change → push → renamed in the IDE", async () => {
 		const a = `${PREFIX}_ren_a`, b = `${PREFIX}_ren_b`
-		writeWs(`${a}.st`, fb(a)); expect((await pushCommitted()).kind).toBe("ok"); commit("create ren")
-		mvWs(`${a}.st`, `${b}.st`); writeWs(`${b}.st`, fb(b))
+		writeWs(`${a}.fb`, fb(a)); expect((await pushCommitted()).kind).toBe("ok"); commit("create ren")
+		mvWs(`${a}.fb`, `${b}.fb`); writeWs(`${b}.fb`, fb(b))
 		expect((await pushCommitted()).kind).toBe("ok")
-		expect(await refsHas(`${b}.st`)).toBe(true)
-		expect(await refsHas(`${a}.st`)).toBe(false)
+		expect(await refsHas(`${b}.fb`)).toBe(true)
+		expect(await refsHas(`${a}.fb`)).toBe(false)
 	})
 	it("move: into a folder → push → folder changes in the IDE", async () => {
 		const n = `${PREFIX}_move`
-		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create move")
-		mvWs(`${n}.st`, `RtFolder/${n}.st`)
+		writeWs(`${n}.fb`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create move")
+		mvWs(`${n}.fb`, `RtFolder/${n}.fb`)
 		expect((await pushCommitted()).kind).toBe("ok")
-		expect(await refsFolder(`${n}.st`)).toBe("RtFolder")
+		expect(await refsFolder(`${n}.fb`)).toBe("RtFolder")
 	})
 	it("delete: rm → push → gone from the IDE", async () => {
 		const n = `${PREFIX}_del`
-		writeWs(`${n}.st`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create del")
-		rmWs(`${n}.st`)
+		writeWs(`${n}.fb`, fb(n)); expect((await pushCommitted()).kind).toBe("ok"); commit("create del")
+		rmWs(`${n}.fb`)
 		expect((await pushCommitted()).kind).toBe("ok")
-		expect(await refsHas(`${n}.st`)).toBe(false)
+		expect(await refsHas(`${n}.fb`)).toBe(false)
 	})
 	it("outgoing diff: VOLTIDE = last pushed, WORKSPACE = my live (uncommitted) edit", async () => {
 		const n = `${PREFIX}_outdiff`
-		writeWs(`${n}.st`, fb(n, "n := 1;")); expect((await pushCommitted()).kind).toBe("ok") // pushed → volt/ide = HEAD
-		writeWs(`${n}.st`, fb(n, "n := 222;")) // edited, NOT committed — the real UX scenario
-		const base = await show(ws, bridge, "VOLTIDE", `${n}.st`)
-		const work = await show(ws, bridge, "WORKSPACE", `${n}.st`)
+		writeWs(`${n}.fb`, fb(n, "n := 1;")); expect((await pushCommitted()).kind).toBe("ok") // pushed → volt/ide = HEAD
+		writeWs(`${n}.fb`, fb(n, "n := 222;")) // edited, NOT committed — the real UX scenario
+		const base = await show(ws, bridge, "VOLTIDE", `${n}.fb`)
+		const work = await show(ws, bridge, "WORKSPACE", `${n}.fb`)
 		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // left = last pushed baseline
 		expect(Buffer.isBuffer(work) ? work.toString("utf8") : "").toContain("n := 222;") // right = my live edit (no commit)
 	})
@@ -137,34 +137,34 @@ suite("live: IDE → workspace + merge + git", () => {
 	// ── IDE → workspace (pull) ──
 	it("IDE create → pull surfaces it in src/", async () => {
 		const n = `${PREFIX}_ide_create`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(existsSync(wsPath(`${n}.st`))).toBe(true)
+		expect(existsSync(wsPath(`${n}.fb`))).toBe(true)
 	})
 	it("IDE edit → pull updates src/", async () => {
 		const n = `${PREFIX}_ide_edit`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
-		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 12345;") })
+		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 12345;") })
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(readWs(`${n}.st`)).toContain("12345")
+		expect(readWs(`${n}.fb`)).toContain("12345")
 	})
 	it("IDE delete → pull removes from src/", async () => {
 		const n = `${PREFIX}_ide_del`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
-		await ideDelete(`${n}.st`)
+		await ideDelete(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(existsSync(wsPath(`${n}.st`))).toBe(false)
+		expect(existsSync(wsPath(`${n}.fb`))).toBe(false)
 	})
 	it("diff baselines: VOLTIDE = last-synced, BRIDGE = live IDE (what the diff tab compares)", async () => {
 		const n = `${PREFIX}_diffbase`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n, "n := 1;") })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n, "n := 1;") })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
 		// the IDE changes it again → incoming. VOLTIDE (refs/remotes/volt/ide) is the synced baseline, NOT the live IDE.
-		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 999;") })
-		const base = await show(ws, bridge, "VOLTIDE", `${n}.st`)
-		const live = await show(ws, bridge, "BRIDGE", `${n}.st`)
+		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 999;") })
+		const base = await show(ws, bridge, "VOLTIDE", `${n}.fb`)
+		const live = await show(ws, bridge, "BRIDGE", `${n}.fb`)
 		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // baseline = last synced
 		expect(Buffer.isBuffer(live) ? live.toString("utf8") : "").toContain("n := 999;") // BRIDGE = live IDE
 	})
@@ -172,13 +172,13 @@ suite("live: IDE → workspace + merge + git", () => {
 	// ── dual-side / merge (the round-trip-fidelity tests) ──
 	it("non-overlapping edits auto-merge (workspace decl + IDE body)", async () => {
 		const n = `${PREFIX}_merge`
-		await ideSet(`${n}.st`, { folder: "", sourceText: `FUNCTION_BLOCK ${n}\nVAR\n\tcounter : INT := 0;\n\tlimit : INT := 99;\n\tpad : INT := 5;\nEND_VAR\n\ncounter := counter + 1;\nEND_FUNCTION_BLOCK\n` })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: `FUNCTION_BLOCK ${n}\nVAR\n\tcounter : INT := 0;\n\tlimit : INT := 99;\n\tpad : INT := 5;\nEND_VAR\n\ncounter := counter + 1;\nEND_FUNCTION_BLOCK\n` })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("merge base")
-		const base = readWs(`${n}.st`) // work from the ACTUAL materialized bytes — catches reassembly drift
-		writeWs(`${n}.st`, base.replace("limit : INT := 99", "limit : INT := 77")); commit("ws decl edit")
-		await ideSet(`${n}.st`, { sourceText: base.replace("counter := counter + 1", "counter := counter + 2") })
+		const base = readWs(`${n}.fb`) // work from the ACTUAL materialized bytes — catches reassembly drift
+		writeWs(`${n}.fb`, base.replace("limit : INT := 99", "limit : INT := 77")); commit("ws decl edit")
+		await ideSet(`${n}.fb`, { sourceText: base.replace("counter := counter + 1", "counter := counter + 2") })
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		const after = readWs(`${n}.st`)
+		const after = readWs(`${n}.fb`)
 		expect(after).toContain("limit : INT := 77")
 		expect(after).toContain("counter := counter + 2")
 		expect(after).not.toContain("<<<<<<<")
@@ -186,20 +186,20 @@ suite("live: IDE → workspace + merge + git", () => {
 	// ── git interplay ──
 	it("simple flow: pull auto-commits local edits, then merges the IDE", async () => {
 		const n = `${PREFIX}_dirty`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n) }) // incoming from the IDE
-		writeWs(`${PREFIX}_dirty_local.st`, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) }) // incoming from the IDE
+		writeWs(`${PREFIX}_dirty_local.fb`, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
 		expect((await pull(ws, bridge)).kind).toBe("ok") // auto-commits the local edit, then merges the incoming
-		expect(existsSync(wsPath(`${PREFIX}_dirty_local.st`))).toBe(true) // my local item preserved
-		expect(existsSync(wsPath(`${n}.st`))).toBe(true) // IDE item pulled in
+		expect(existsSync(wsPath(`${PREFIX}_dirty_local.fb`))).toBe(true) // my local item preserved
+		expect(existsSync(wsPath(`${n}.fb`))).toBe(true) // IDE item pulled in
 	})
 
 	// Runs LAST: an aborted merge leaves volt/ide diverged from the branch, so any later pull would re-hit it.
 	it("overlapping edits conflict (both edit the same line)", async () => {
 		const n = `${PREFIX}_conflict`
-		await ideSet(`${n}.st`, { folder: "", sourceText: fb(n, "n := 1;") })
+		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n, "n := 1;") })
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("conflict base")
-		writeWs(`${n}.st`, readWs(`${n}.st`).replace("n := 1;", "n := 111;")); commit("ws edit")
-		await ideSet(`${n}.st`, { sourceText: fb(n, "n := 222;") })
+		writeWs(`${n}.fb`, readWs(`${n}.fb`).replace("n := 1;", "n := 111;")); commit("ws edit")
+		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 222;") })
 		expect((await pull(ws, bridge)).kind).toBe("conflict")
 		git("merge", "--abort")
 	})

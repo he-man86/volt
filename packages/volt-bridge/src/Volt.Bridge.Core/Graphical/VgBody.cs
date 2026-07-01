@@ -15,8 +15,23 @@ public static class VgBody
     // NETWORK <index> <LANG> … — the editable marker (the digit after NETWORK rules out ST text).
     private static readonly Regex NetworkHeader = new(@"^NETWORK\s+\d+\s+([A-Za-z]\w*)", RegexOptions.Compiled);
 
+    // READONLY <LANG> — the read-only graphical marker (CFC/SFC): the body is authored graphically in the
+    // IDE and can't be edited as text, so it materializes as this self-describing marker instead of a body.
+    private static readonly Regex ReadOnlyHeader = new(@"^READONLY\s+([A-Za-z]\w*)", RegexOptions.Compiled);
+
     /// <summary>The text is an editable graphical VG body — it opens with a <c>NETWORK n …</c> block (FBD/LD).</summary>
     public static bool Is(string? impl) => impl != null && NetworkHeader.IsMatch(impl.TrimStart());
+
+    /// <summary>The text is a read-only graphical body marker — it opens with <c>READONLY &lt;LANG&gt;</c> (CFC/SFC).</summary>
+    public static bool IsReadOnly(string? impl) => impl != null && ReadOnlyHeader.IsMatch(impl.TrimStart());
+
+    /// <summary>The read-only body's language ("CFC"/"SFC" from the READONLY marker), or null if not one.</summary>
+    public static string? ReadOnlyLanguageOf(string? impl)
+    {
+        if (impl == null) return null;
+        var m = ReadOnlyHeader.Match(impl.TrimStart());
+        return m.Success ? m.Groups[1].Value : null;
+    }
 
     /// <summary>The body's language ("FBD"/"LD" from the NETWORK marker), or null if not a VG body.</summary>
     public static string? LanguageOf(string? impl)

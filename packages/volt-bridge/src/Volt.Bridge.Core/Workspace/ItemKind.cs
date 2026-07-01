@@ -129,13 +129,24 @@ public static class ItemKind
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef
              or PlcItfPropGet or PlcItfPropSet;
 
-    /// <summary>Workspace file extension for a NON-source kind string (lowercase) — the read-only
-    /// reference manifests. No silent fallback. Source kinds (POUs, interface, gvl, DUTs) do NOT come
-    /// here: their extension is decided by <c>Materializer.SourceExt</c> — writable ST and editable
-    /// graphical (FBD/LD) collapse to <c>st</c>; only read-only graphical (CFC/SFC) keeps its
-    /// body-language extension. Kind is recovered from file content on push, so <c>.st</c> carries none.</summary>
+    /// <summary>Workspace file extension for a kind string (lowercase). Source kinds are named by KIND
+    /// (function_block→fb, program→prg, function→fun, interface→itf, DUTs→struct/enum/union/alias,
+    /// gvl→gvl); read-only reference manifests keep their own name. No silent fallback. A POU's body
+    /// LANGUAGE is not in the extension: an editable FBD/LD body is the same <c>.fb</c>/<c>.prg</c>/<c>.fun</c>
+    /// as a textual one (graphical detected by the NETWORK marker), and a read-only CFC/SFC body is that
+    /// kind extension too, self-described by a <c>READONLY &lt;LANG&gt;</c> body marker. Kind is recovered
+    /// from file content on push, so the extension carries kind alone.</summary>
     public static string ExtFor(string kind) => kind switch
     {
+        "function_block" => "fb",
+        "program" => "prg",
+        "function" => "fun",
+        "interface" => "itf",
+        "structure" => "struct",
+        "enumeration" => "enum",
+        "union" => "union",
+        "alias" => "alias",
+        "gvl" => "gvl",
         "tmc_file" => "tmc",
         "library" => "library",
         "task" => "task",

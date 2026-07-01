@@ -46,66 +46,66 @@ async function setup(items: MockItem[]): Promise<MockBridge> {
 
 describe("volt-git sync", () => {
 	test("1. init bootstrap materializes the IDE under src/", async () => {
-		await setup([{ name: "FB_Motor.st", sourceText: "v1\n", folder: "POUs" }]);
-		expect(existsSync(srcFile(root, "POUs/FB_Motor.st"))).toBe(true);
-		expect(readSrc(root, "POUs/FB_Motor.st")).toBe("v1\n");
-		const s = await status(root, new MockBridge([{ name: "FB_Motor.st", sourceText: "v1\n", folder: "POUs" }]));
+		await setup([{ name: "FB_Motor.fb", sourceText: "v1\n", folder: "POUs" }]);
+		expect(existsSync(srcFile(root, "POUs/FB_Motor.fb"))).toBe(true);
+		expect(readSrc(root, "POUs/FB_Motor.fb")).toBe("v1\n");
+		const s = await status(root, new MockBridge([{ name: "FB_Motor.fb", sourceText: "v1\n", folder: "POUs" }]));
 		expect(s.merging).toBeNull();
 	});
 
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "v1\n" }]);
-		bridge.set("A.st", "v2\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "v1\n" }]);
+		bridge.set("A.fb", "v2\n");
 		const r = await pull(root, bridge);
 		expect(r.kind).toBe("ok");
-		expect(readSrc(root, "A.st")).toBe("v2\n");
+		expect(readSrc(root, "A.fb")).toBe("v2\n");
 		expect(headParents(root).length).toBe(1); // fast-forward, not a merge commit
 	});
 
 	test("3. independent edits → one clean merge commit", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }, { name: "B.st", sourceText: "b1\n" }]);
-		writeSrc(root, "A.st", "a1\nlocal\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }, { name: "B.fb", sourceText: "b1\n" }]);
+		writeSrc(root, "A.fb", "a1\nlocal\n");
 		commitAll(root, "edit A");
-		bridge.set("B.st", "b1\nide\n");
+		bridge.set("B.fb", "b1\nide\n");
 		const r = await pull(root, bridge);
 		expect(r.kind).toBe("ok");
-		expect(readSrc(root, "A.st")).toContain("local");
-		expect(readSrc(root, "B.st")).toContain("ide");
+		expect(readSrc(root, "A.fb")).toContain("local");
+		expect(readSrc(root, "B.fb")).toContain("ide");
 		expect(headParents(root).length).toBe(2); // merge commit
 	});
 
 	test("4. overlapping edits → conflict markers", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "line1\n" }]);
-		writeSrc(root, "A.st", "line1\nLOCAL\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "line1\n" }]);
+		writeSrc(root, "A.fb", "line1\nLOCAL\n");
 		commitAll(root, "edit A");
-		bridge.set("A.st", "line1\nIDE\n");
+		bridge.set("A.fb", "line1\nIDE\n");
 		const r = await pull(root, bridge);
 		expect(r.kind).toBe("conflict");
-		if (r.kind === "conflict") expect(r.paths).toContain("A.st");
-		expect(readSrc(root, "A.st")).toContain("<<<<<<<");
+		if (r.kind === "conflict") expect(r.paths).toContain("A.fb");
+		expect(readSrc(root, "A.fb")).toContain("<<<<<<<");
 		git(root, "merge", "--abort"); // recovers
 		const s = await status(root, bridge);
 		expect(s.merging).toBeNull();
 	});
 
 	test("5. pull auto-commits local edits, then merges (simple flow)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }, { name: "B.st", sourceText: "b1\n" }]);
-		writeSrc(root, "A.st", "a1\nmine\n"); // dirty local edit, NOT committed
-		bridge.set("B.st", "b1\nide\n"); // IDE changed a DIFFERENT item
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }, { name: "B.fb", sourceText: "b1\n" }]);
+		writeSrc(root, "A.fb", "a1\nmine\n"); // dirty local edit, NOT committed
+		bridge.set("B.fb", "b1\nide\n"); // IDE changed a DIFFERENT item
 		const r = await pull(root, bridge);
 		expect(r.kind).toBe("ok"); // no refusal — auto-commits A, then merges B in
-		expect(readSrc(root, "A.st")).toContain("mine"); // my edit preserved (auto-committed)
-		expect(readSrc(root, "B.st")).toContain("ide"); // IDE change merged in
+		expect(readSrc(root, "A.fb")).toContain("mine"); // my edit preserved (auto-committed)
+		expect(readSrc(root, "B.fb")).toContain("ide"); // IDE change merged in
 		expect(git(root, "status", "--porcelain", "--", "src").trim()).toBe(""); // clean tree after
 	});
 
 	test("6. push sends edits to the bridge + lands volt/ide on HEAD (like git push)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
-		writeSrc(root, "A.st", "a1\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		writeSrc(root, "A.fb", "a1\nmine\n");
 		commitAll(root, "edit A");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
-		if (r.kind === "ok") expect(r.items).toContain("A.st");
+		if (r.kind === "ok") expect(r.items).toContain("A.fb");
 		expect(bridge.pushCalls.length).toBe(1);
 		// volt/ide now points AT the pushed commit — origin/main == main after a git push
 		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(git(root, "rev-parse", "HEAD"));
@@ -125,10 +125,10 @@ describe("volt-git sync", () => {
 	});
 
 	test("8. push is rejected when the IDE drifted", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
-		writeSrc(root, "A.st", "a1\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		writeSrc(root, "A.fb", "a1\nmine\n");
 		commitAll(root, "edit A");
-		bridge.set("A.st", "a1\nide-moved\n"); // drift after the last sync
+		bridge.set("A.fb", "a1\nide-moved\n"); // drift after the last sync
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("pull");
@@ -138,92 +138,92 @@ describe("volt-git sync", () => {
 	});
 
 	test("9. status reports incoming and outgoing", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
 		// outgoing: local edit (committed so it's not just dirty)
-		writeSrc(root, "A.st", "a1\nlocal\n");
+		writeSrc(root, "A.fb", "a1\nlocal\n");
 		commitAll(root, "edit");
 		// incoming: a different IDE item changes
-		bridge.set("B.st", "b-new\n");
+		bridge.set("B.fb", "b-new\n");
 		const s = await status(root, bridge);
-		expect(s.outgoing.modified).toContain("A.st");
-		expect(s.incoming.added).toContain("B.st");
+		expect(s.outgoing.modified).toContain("A.fb");
+		expect(s.incoming.added).toContain("B.fb");
 	});
 
 	const keys = (items: Record<string, string>): string[] => Object.keys(items).sort();
 
 	test("10. pure rename → one `set` op carrying just the new name", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "x\n" }]);
-		git(root, "mv", "src/A.st", "src/B.st");
+		const bridge = await setup([{ name: "A.fb", sourceText: "x\n" }]);
+		git(root, "mv", "src/A.fb", "src/B.fb");
 		commitAll(root, "rename A→B");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
-		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st" });
+		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toName: "B.fb" });
 		expect((ops[0] as Record<string, unknown>).sourceText).toBeUndefined(); // refs preserved, content not resent
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.st"]); // A.st renamed to B.st
+		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.st renamed to B.st
 	});
 
 	test("11. pure move (folder change, name kept) → one `set` op with the new folder", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "x\n", folder: "F1" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "x\n", folder: "F1" }]);
 		mkdirSync(join(root, "src", "F2"), { recursive: true });
-		git(root, "mv", "src/F1/A.st", "src/F2/A.st");
+		git(root, "mv", "src/F1/A.fb", "src/F2/A.fb");
 		commitAll(root, "move A F1→F2");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
-		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toFolder: "F2" });
-		expect((await bridge.getRefs()).folders["A.st"]).toBe("F2");
+		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toFolder: "F2" });
+		expect((await bridge.getRefs()).folders["A.fb"]).toBe("F2");
 	});
 
 	test("12. rename + content edit → one atomic `set` (no refusal)", async () => {
 		const big = "PROGRAM P\nVAR\n" + Array.from({ length: 30 }, (_, i) => `  v${i} : INT;`).join("\n") + "\nEND_VAR\nEND_PROGRAM\n";
-		const bridge = await setup([{ name: "A.st", sourceText: big }]);
-		git(root, "mv", "src/A.st", "src/B.st");
+		const bridge = await setup([{ name: "A.fb", sourceText: big }]);
+		git(root, "mv", "src/A.fb", "src/B.fb");
 		const edited = big.replace("v0 : INT;", "v0 : DINT;");
-		writeSrc(root, "B.st", edited); // ~97% similar → git sees R<100 (rename + edit)
+		writeSrc(root, "B.fb", edited); // ~97% similar → git sees R<100 (rename + edit)
 		commitAll(root, "rename + edit");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
-		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st", sourceText: edited });
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.st"]); // A.st gone; B.st has the edit
+		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toName: "B.fb", sourceText: edited });
+		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.st gone; B.st has the edit
 	});
 
 	test("13. rename AND move in one step → one atomic `set` (no refusal)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "x\n", folder: "F1" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "x\n", folder: "F1" }]);
 		mkdirSync(join(root, "src", "F2"), { recursive: true });
-		git(root, "mv", "src/F1/A.st", "src/F2/B.st"); // name + folder both change (content identical)
+		git(root, "mv", "src/F1/A.fb", "src/F2/B.fb"); // name + folder both change (content identical)
 		commitAll(root, "rename + move");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
-		expect(ops[0]).toMatchObject({ op: "set", name: "A.st", toName: "B.st", toFolder: "F2" });
+		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toName: "B.fb", toFolder: "F2" });
 		const refs = await bridge.getRefs();
-		expect(keys(refs.items)).toEqual(["B.st"]);
-		expect(refs.folders["B.st"]).toBe("F2");
+		expect(keys(refs.items)).toEqual(["B.fb"]);
+		expect(refs.folders["B.fb"]).toBe("F2");
 	});
 
 	test("14. a brand-new file, once committed, is pushed as a create", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
-		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
+		writeSrc(root, "NEW.fb", "PROGRAM NEW\nEND_PROGRAM\n");
 		commitAll(root, "add NEW");
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok");
-		const setOp = bridge.pushCalls[0]!.ops.find((o) => o.op === "set" && o.name === "NEW.st");
-		expect(setOp).toMatchObject({ op: "set", name: "NEW.st", ifVersion: null }); // create
-		expect(keys((await bridge.getRefs()).items)).toContain("NEW.st");
+		const setOp = bridge.pushCalls[0]!.ops.find((o) => o.op === "set" && o.name === "NEW.fb");
+		expect(setOp).toMatchObject({ op: "set", name: "NEW.fb", ifVersion: null }); // create
+		expect(keys((await bridge.getRefs()).items)).toContain("NEW.fb");
 	});
 
 	test("15. push auto-commits working changes, then pushes (simple flow)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }]);
-		writeSrc(root, "A.st", "a1\nmine\n"); // dirty, NOT committed
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		writeSrc(root, "A.fb", "a1\nmine\n"); // dirty, NOT committed
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("ok"); // no rejection — auto-commits, then pushes
-		if (r.kind === "ok") expect(r.items).toContain("A.st");
+		if (r.kind === "ok") expect(r.items).toContain("A.fb");
 		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(git(root, "rev-parse", "HEAD")); // volt/ide on the auto-commit
 		expect(git(root, "status", "--porcelain", "--", "src").trim()).toBe(""); // clean tree after
 	});
@@ -232,39 +232,39 @@ describe("volt-git sync", () => {
 describe("collisions, conflict resolution, diff/show + the remaining commands", () => {
 	// Both sides change A from a common base, overlapping → a real merge conflict (MERGE_HEAD present).
 	async function reachConflict(): Promise<MockBridge> {
-		const bridge = await setup([{ name: "A.st", sourceText: "base\n" }]);
-		writeSrc(root, "A.st", "MINE\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "base\n" }]);
+		writeSrc(root, "A.fb", "MINE\n");
 		commitAll(root, "mine");
-		bridge.set("A.st", "IDE\n");
+		bridge.set("A.fb", "IDE\n");
 		expect((await pull(root, bridge)).kind).toBe("conflict");
 		return bridge;
 	}
 
 	// ── collisions (both sides moved before a sync) ──
 	test("collision: both sides change DIFFERENT items → push still blocked (any IDE drift ⇒ pull first)", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }, { name: "B.st", sourceText: "b\n" }]);
-		writeSrc(root, "A.st", "a\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }, { name: "B.fb", sourceText: "b\n" }]);
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit A");
-		bridge.set("B.st", "b\nide\n"); // IDE moved an UNRELATED item
+		bridge.set("B.fb", "b\nide\n"); // IDE moved an UNRELATED item
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason.toLowerCase()).toContain("pull");
 	});
 
 	test("collision: IDE deletes an item I edited → pull is a delete/modify conflict", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
-		writeSrc(root, "A.st", "a\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit A");
-		bridge.remove("A.st"); // IDE deleted exactly what I changed
+		bridge.remove("A.fb"); // IDE deleted exactly what I changed
 		expect((await pull(root, bridge)).kind).toBe("conflict");
 	});
 
 	// ── diff/show — the 3-way data the merge editor + diff tab read ──
 	test("diff/show: MERGE_OURS / MERGE_THEIRS / MERGE_BASE during a conflict", async () => {
 		const bridge = await reachConflict();
-		const ours = await show(root, bridge, "MERGE_OURS", "A.st");
-		const theirs = await show(root, bridge, "MERGE_THEIRS", "A.st");
-		const base = await show(root, bridge, "MERGE_BASE", "A.st");
+		const ours = await show(root, bridge, "MERGE_OURS", "A.fb");
+		const theirs = await show(root, bridge, "MERGE_THEIRS", "A.fb");
+		const base = await show(root, bridge, "MERGE_BASE", "A.fb");
 		expect(Buffer.isBuffer(ours) ? ours.toString("utf8") : "").toBe("MINE\n"); // my side (HEAD)
 		expect(Buffer.isBuffer(theirs) ? theirs.toString("utf8") : "").toBe("IDE\n"); // IDE side (MERGE_HEAD)
 		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toBe("base\n"); // common ancestor
@@ -276,22 +276,22 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 		expect(isMerging(root)).toBe(true);
 		expect(merge(root, { abort: true }).code).toBe(0);
 		expect(isMerging(root)).toBe(false);
-		expect(readSrc(root, "A.st")).toBe("MINE\n");
+		expect(readSrc(root, "A.fb")).toBe("MINE\n");
 	});
 
 	test("resolve: --resolve --use-theirs then --continue takes the IDE side", async () => {
 		await reachConflict();
-		expect(merge(root, { resolve: "A.st", useTheirs: true }).code).toBe(0);
+		expect(merge(root, { resolve: "A.fb", useTheirs: true }).code).toBe(0);
 		expect(merge(root, { continue: true }).code).toBe(0);
 		expect(isMerging(root)).toBe(false);
-		expect(readSrc(root, "A.st")).toBe("IDE\n");
+		expect(readSrc(root, "A.fb")).toBe("IDE\n");
 	});
 
 	test("resolve: --resolve --use-ours keeps my side", async () => {
 		await reachConflict();
-		merge(root, { resolve: "A.st", useOurs: true });
+		merge(root, { resolve: "A.fb", useOurs: true });
 		expect(merge(root, { continue: true }).code).toBe(0);
-		expect(readSrc(root, "A.st")).toBe("MINE\n");
+		expect(readSrc(root, "A.fb")).toBe("MINE\n");
 	});
 
 	test("resolve: --continue refuses while files are still unresolved", async () => {
@@ -304,32 +304,32 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 
 	// ── dry-run (no side effects) ──
 	test("push --dry-run reports items but sends nothing + leaves volt/ide put", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
 		const before = git(root, "rev-parse", "refs/remotes/volt/ide");
-		writeSrc(root, "A.st", "a\nmine\n");
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit");
 		const r = await push(root, bridge, { dryRun: true });
 		expect(r.kind).toBe("ok");
-		if (r.kind === "ok") expect(r.items).toContain("A.st");
+		if (r.kind === "ok") expect(r.items).toContain("A.fb");
 		expect(bridge.pushCalls.length).toBe(0);
 		expect(git(root, "rev-parse", "refs/remotes/volt/ide")).toBe(before);
 	});
 
 	test("pull --dry-run reports incoming but doesn't merge", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
-		bridge.set("A.st", "a\nide\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
+		bridge.set("A.fb", "a\nide\n");
 		const before = git(root, "rev-parse", "HEAD");
 		expect((await pull(root, bridge, { dryRun: true })).kind).toBe("ok");
 		expect(git(root, "rev-parse", "HEAD")).toBe(before); // no merge commit
-		expect(readSrc(root, "A.st")).toBe("a\n"); // worktree untouched
+		expect(readSrc(root, "A.fb")).toBe("a\n"); // worktree untouched
 	});
 
 	// ── force-with-lease ──
 	test("push --force-with-lease: stale lease rejected, current lease clobbers the drift", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
-		writeSrc(root, "A.st", "a\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit");
-		bridge.set("A.st", "a\nide\n"); // IDE drifted
+		bridge.set("A.fb", "a\nide\n"); // IDE drifted
 		const lease = (await bridge.getRefs()).projectVersion;
 		expect((await push(root, bridge, { forceWithLease: "deadbeefdeadbeef" })).kind).toBe("rejected");
 		expect((await push(root, bridge, { forceWithLease: lease })).kind).toBe("ok");
@@ -337,7 +337,7 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 
 	// ── build ──
 	test("build delegates to the bridge + returns normalized diagnostics", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]);
 		const r = await build(bridge, false);
 		expect(r.success).toBe(true);
 		expect(Array.isArray(r.diagnostics)).toBe(true);
@@ -345,8 +345,8 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 
 	// ── log (the IDE-sync history on volt/ide) ──
 	test("log returns the sync history, newest first, with summary + paths", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]); // init = first pull → a volt/ide commit
-		writeSrc(root, "A.st", "a\nmine\n");
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]); // init = first pull → a volt/ide commit
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit A");
 		await push(root, bridge); // push → volt/ide = HEAD (the edit commit)
 		const entries = log(root);
@@ -358,9 +358,9 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 
 	// ── binding guard (wrong project open in the IDE) ──
 	test("binding guard: a project mismatch blocks both push and pull", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a\n" }]); // binds to the mock's project
+		const bridge = await setup([{ name: "A.fb", sourceText: "a\n" }]); // binds to the mock's project
 		bridge.project = { ...bridge.project, projectName: "DifferentProject" }; // IDE now reports another project
-		writeSrc(root, "A.st", "a\nmine\n");
+		writeSrc(root, "A.fb", "a\nmine\n");
 		commitAll(root, "edit");
 		const p = await push(root, bridge);
 		expect(p.kind).toBe("rejected");
@@ -371,28 +371,28 @@ describe("collisions, conflict resolution, diff/show + the remaining commands", 
 
 	// ── outgoing detection reads the WORKING TREE (the UX fix: an edit shows before commit) ──
 	test("status detects outgoing from the working tree — uncommitted, untracked, AND committed-unpushed", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "a1\n" }, { name: "C.st", sourceText: "c1\n" }]);
-		writeSrc(root, "A.st", "a1\nmine\n"); // (1) uncommitted edit to a tracked file
-		writeSrc(root, "NEW.st", "PROGRAM NEW\nEND_PROGRAM\n"); // (2) untracked new file
-		writeSrc(root, "C.st", "c1\ndone\n"); // (3) committed but NOT pushed
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }, { name: "C.fb", sourceText: "c1\n" }]);
+		writeSrc(root, "A.fb", "a1\nmine\n"); // (1) uncommitted edit to a tracked file
+		writeSrc(root, "NEW.fb", "PROGRAM NEW\nEND_PROGRAM\n"); // (2) untracked new file
+		writeSrc(root, "C.fb", "c1\ndone\n"); // (3) committed but NOT pushed
 		commitAll(root, "edit C");
 		const s = await status(root, bridge);
-		expect(s.outgoing.modified).toContain("A.st"); // uncommitted edit shows immediately
-		expect(s.outgoing.added).toContain("NEW.st"); // untracked new file shows
-		expect(s.outgoing.modified).toContain("C.st"); // committed-but-unpushed shows
+		expect(s.outgoing.modified).toContain("A.fb"); // uncommitted edit shows immediately
+		expect(s.outgoing.added).toContain("NEW.fb"); // untracked new file shows
+		expect(s.outgoing.modified).toContain("C.fb"); // committed-but-unpushed shows
 	});
 
 	// ── the diff TABS' content (what each side of the diff actually renders) ──
 	test("diff content: outgoing = VOLTIDE↔WORKSPACE (shows a live edit); incoming = VOLTIDE↔BRIDGE", async () => {
-		const bridge = await setup([{ name: "A.st", sourceText: "base\n" }, { name: "B.st", sourceText: "b\n" }]);
+		const bridge = await setup([{ name: "A.fb", sourceText: "base\n" }, { name: "B.fb", sourceText: "b\n" }]);
 		// OUTGOING — edit A but do NOT commit. The diff is baseline ↔ working file.
-		writeSrc(root, "A.st", "base\nmine\n");
-		expect(buf(await show(root, bridge, "VOLTIDE", "A.st"))).toBe("base\n"); // left = last synced
-		expect(buf(await show(root, bridge, "WORKSPACE", "A.st"))).toBe("base\nmine\n"); // right = my LIVE uncommitted edit
-		expect(buf(await show(root, bridge, "HEAD", "A.st"))).toBe("base\n"); // HEAD = committed — why VOLTIDE↔HEAD was empty
+		writeSrc(root, "A.fb", "base\nmine\n");
+		expect(buf(await show(root, bridge, "VOLTIDE", "A.fb"))).toBe("base\n"); // left = last synced
+		expect(buf(await show(root, bridge, "WORKSPACE", "A.fb"))).toBe("base\nmine\n"); // right = my LIVE uncommitted edit
+		expect(buf(await show(root, bridge, "HEAD", "A.fb"))).toBe("base\n"); // HEAD = committed — why VOLTIDE↔HEAD was empty
 		// INCOMING — the IDE changes B. The diff is baseline ↔ live IDE.
-		bridge.set("B.st", "b\nide\n");
-		expect(buf(await show(root, bridge, "VOLTIDE", "B.st"))).toBe("b\n"); // left = last synced
-		expect(buf(await show(root, bridge, "BRIDGE", "B.st"))).toBe("b\nide\n"); // right = live IDE
+		bridge.set("B.fb", "b\nide\n");
+		expect(buf(await show(root, bridge, "VOLTIDE", "B.fb"))).toBe("b\n"); // left = last synced
+		expect(buf(await show(root, bridge, "BRIDGE", "B.fb"))).toBe("b\nide\n"); // right = live IDE
 	});
 });

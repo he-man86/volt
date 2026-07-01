@@ -22,7 +22,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
-    "workspaceContains:**/*.{st,cfc,sfc,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
+    "workspaceContains:**/*.{fb,prg,fun,itf,struct,enum,union,alias,gvl,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -67,9 +67,15 @@
           "IEC 61131-3"
         ],
         "extensions": [
-          ".st",
-          ".cfc",
-          ".sfc"
+          ".fb",
+          ".prg",
+          ".fun",
+          ".itf",
+          ".struct",
+          ".enum",
+          ".union",
+          ".alias",
+          ".gvl"
         ],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {

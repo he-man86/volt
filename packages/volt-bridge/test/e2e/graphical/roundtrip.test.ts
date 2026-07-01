@@ -130,7 +130,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
 			const name = id(`vg_${lang.toLowerCase()}`)
-			const fullName = fid(`vg_${lang.toLowerCase()}`)   // graphical POUs materialize as .st (kept graphical by content)
+			const fullName = fid(`vg_${lang.toLowerCase()}`, "prg")   // graphical PROGRAM POUs are .prg (kept graphical by content)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
 
@@ -140,7 +140,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
-			expect(after.name.endsWith(".st")).toBe(true)                         // one extension for every writable source kind
+			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
 			expect(after.sourceText).toMatch(new RegExp(`NETWORK\\s+\\d+\\s+${lang}\\b`))   // stayed ${lang}, not flattened to ST
 
 			// The program-scope DECLARATION must survive a push-create — GraphicalCode.Write writes the BODY
@@ -162,14 +162,14 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
 			const name = id(`vg_ld_${label}`)
-			const fullName = fid(`vg_ld_${label}`)
+			const fullName = fid(`vg_ld_${label}`, "prg")
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 			expect(v1).toBeDefined()
-			expect(v1.name.endsWith(".st")).toBe(true)                 // graphical POU is a .st file now
+			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
 			expect(v1.sourceText).toMatch(/NETWORK\s+\d+\s+LD\b/)      // stayed ladder (LD), not flattened to ST
 
 			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
@@ -199,7 +199,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// POU that already lives in the project. (CFC/SFC read-only behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
 		const name = id("vg_existing")
-		const fullName = fid("vg_existing")
+		const fullName = fid("vg_existing", "prg")
 		const refs0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
@@ -219,11 +219,11 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
 	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
 		const name = id("vg_guard_st")
-		const fullName = fid("vg_guard_st")
+		const fullName = fid("vg_guard_st", "prg")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
-		expect(before.name.endsWith(".st")).toBe(true)                 // .st file holding an FBD body
+		expect(before.name.endsWith(".prg")).toBe(true)                 // .prg file holding an FBD body
 		expect(before.sourceText).toMatch(/NETWORK\s+\d+\s+FBD\b/)
 
 		const r1 = await bridge.refs()
@@ -239,7 +239,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
 		const name = id("vg_guard_malformed")
-		const fullName = fid("vg_guard_malformed")
+		const fullName = fid("vg_guard_malformed", "prg")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))

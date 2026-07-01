@@ -18,7 +18,7 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<Langua
 	const config = vscode.workspace.getConfiguration("volt.lsp")
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: LANGUAGE_IDS.map((id) => ({ language: id })),
-		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{st,cfc,sfc}") },
+		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{fb,prg,fun,itf,struct,enum,union,alias,gvl}") },
 		initializationOptions: {
 			maxNumberOfProblems: config.get("maxNumberOfProblems"),
 			trace: config.get("trace"),

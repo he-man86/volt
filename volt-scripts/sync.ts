@@ -42,7 +42,7 @@ const FLOW: [string, string, string[]][] = [
 ]
 
 console.log("Volt ⇄ opencode sync — signal flow\n" + "─".repeat(60))
-// ponytail: root listing only — verifiers scratch at repoRoot (resolve(repoRoot, ".volt-*.st")).
+// ponytail: root listing only — verifiers scratch at repoRoot (resolve(repoRoot, ".volt-*.fb")).
 // Catches a step that leaves a file behind (e.g. a process.exit() that skipped its cleanup `finally`).
 const rootBefore = new Set(readdirSync(repoRoot))
 let ok = true

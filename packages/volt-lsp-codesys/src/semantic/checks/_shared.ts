@@ -11,7 +11,7 @@ import type { BodySpan, TopLevel } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
 import { ALL_KEYWORDS } from "../../lexer/tokens.js";
-import { isVgBody } from "../../vg/index.js";
+import { isVgBody, isReadOnlyBody } from "../../vg/index.js";
 
 export interface DiagnosticItem {
 	severity: "error" | "warning" | "information" | "hint";
@@ -39,9 +39,9 @@ export function getUnitName(unit: TopLevel): { text: string; span: Span } | unde
 	return undefined;
 }
 
-/** True when a body is ordinary ST (not a VG graphical body). */
+/** True when a body is ordinary ST — not a VG graphical body and not a read-only `READONLY <LANG>` marker. */
 export function isStBody(body: BodySpan): boolean {
-	return !isVgBody(body.tokens);
+	return !isVgBody(body.tokens) && !isReadOnlyBody(body.tokens);
 }
 
 /**

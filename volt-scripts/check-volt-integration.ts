@@ -185,7 +185,7 @@ if (process.platform === "win32") {
 console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
 console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
-console.log("  2. Open a .st file with a syntax error → expect red 'volt-lsp-codesys' diagnostics.");
+console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-codesys' diagnostics.");
 console.log("     ('volt-lsp-codesys' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
 console.log("  4. Ask: 'run volt status' → agent calls the `volt` tool (or bash); output appears inline.");
@@ -193,6 +193,6 @@ console.log("     For mutating verbs (volt pull/push/init/merge) opencode prompt
 console.log("  5. Ask: 'load the st-reference skill' → agent should call skill({ name: 'st-reference' }).");
 console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
 console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");
-console.log("  2. Open a .st file → expect 'Volt: Status' + 'Volt: Push' status bar buttons (right).");
+console.log("  2. Open a .fb (or other kind) file → expect 'Volt: Status' + 'Volt: Push' status bar buttons (right).");
 console.log("  3. Cmd/Ctrl+Shift+P → 'Volt: Build' → JSON appears in 'Volt' terminal, diagnostics in Problems panel.");
 console.log("  4. Cmd/Ctrl+Shift+P → 'Volt: Push' → quick-pick (normal vs force); force opens modal warning.");

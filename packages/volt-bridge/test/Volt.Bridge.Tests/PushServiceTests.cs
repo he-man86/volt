@@ -27,8 +27,8 @@ public class PushServiceTests
     public void Set_rename_uses_native_rename_no_recreate()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.st");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = v, ToName = "MOTOR.st" });
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // refs preserved, not recreated
@@ -38,8 +38,8 @@ public class PushServiceTests
     public void Set_move_recreates_in_new_folder()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.st");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = v, ToFolder = "Sub" });
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "Sub" });
         Assert.True(resp.Accepted);
         Assert.Contains("delete:PLC_PRG", ide.Recorded);
         Assert.Contains("create:PLC_PRG", ide.Recorded); // recreated (same name ⇒ name-based refs survive)
@@ -49,9 +49,9 @@ public class PushServiceTests
     public void Set_rename_plus_edit_renames_then_writes_content()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.st");
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
         var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 2;\n\nEND_PROGRAM\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = v, ToName = "MOTOR.st", SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("write:MOTOR", ide.Recorded); // content written onto the renamed identity
@@ -61,8 +61,8 @@ public class PushServiceTests
     public void Set_rename_plus_move_does_both_atomically()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.st");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = v, ToName = "MOTOR.st", ToFolder = "Sub" });
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", ToFolder = "Sub" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("delete:MOTOR", ide.Recorded);  // moved by its new name
@@ -73,8 +73,8 @@ public class PushServiceTests
     public void Set_with_stale_version_is_rejected_before_any_mutation()
     {
         var ide = OneProgram();
-        var (_, pv) = Ver(ide, "PLC_PRG.st");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = "stale", ToName = "X.st" });
+        var (_, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = "stale", ToName = "X.prg" });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);
     }
@@ -83,8 +83,8 @@ public class PushServiceTests
     public void Set_create_over_an_existing_item_is_rejected()
     {
         var ide = OneProgram();
-        var (_, pv) = Ver(ide, "PLC_PRG.st");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.st", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nEND_PROGRAM\n" });
+        var (_, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nEND_PROGRAM\n" });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
