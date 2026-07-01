@@ -18,12 +18,13 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 // + type-expr/var fixes (ARRAY[*] VLA, ARRAY-of-FB `[…]` element initializers): parse 319→347.
 // + %FOLDER scan-strip (the directive's FOLDER/path words no longer scan as unresolved): diags 9437→8069.
 // + typed inline enum `( … ) DINT` base type: parse 347→375 (also un-truncates those FBs' VAR sections).
-//   Remaining precision is EXTENDS inherited-member resolution, project GVLs, and genuine library symbols.
+// + EXTENDS inherited-member resolution (lookup walks the base-scope chain): diags 8069→6878.
+//   Remaining precision is project GVLs, library base classes, and genuine library symbols.
 const BASE = {
 	files: 424, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 375, // 88.4% — floor; raise as parser gaps close (goal 424)
 	ingestFiles: 424, // 100% — floor
-	totalDiags: 8069, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
+	totalDiags: 6878, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
 };
 
 describe("real-project coverage (pro2193)", () => {

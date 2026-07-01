@@ -98,6 +98,15 @@ export function buildSymbolTable(
 			if (unit.kind === "function") currentMemberHost = undefined;
 		}
 	}
+	// Post-pass: link each `EXTENDS` scope to its base scope now that every POU/interface is ingested
+	// (the base may live in a later file). Inherited members resolve through `baseScope` in the resolver.
+	const byName = new Map<string, Scope>();
+	for (const c of project.children) if (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface") byName.set(c.name.toLowerCase(), c);
+	for (const c of project.children) {
+		if (c.extendsName === undefined) continue;
+		const base = byName.get(c.extendsName);
+		if (base !== undefined && base !== c) c.baseScope = base;
+	}
 	return project;
 }
 
@@ -184,6 +193,7 @@ function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): Sc
 		symbols: new Map(),
 		children: [],
 		span: fb.span,
+		...(fb.extends !== undefined ? { extendsName: fb.extends.text.toLowerCase() } : {}),
 	};
 	project.children.push(fbScope);
 	defineSymbol(project, {

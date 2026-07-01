@@ -35,22 +35,32 @@ export interface LookupResult {
 export function lookup(start: Scope, name: string): LookupResult | undefined {
 	let cur: Scope | undefined = start;
 	while (cur !== undefined) {
-		const hits = lookupLocal(cur, name);
-		if (hits.length > 0) {
-			return { symbol: hits[0] as Symbol, foundIn: cur };
+		// Check this scope AND its EXTENDS base chain (inherited members) before moving outward.
+		const seen = new Set<Scope>();
+		let inh: Scope | undefined = cur;
+		while (inh !== undefined && !seen.has(inh)) {
+			seen.add(inh);
+			const hits = lookupLocal(inh, name);
+			if (hits.length > 0) return { symbol: hits[0] as Symbol, foundIn: inh };
+			inh = inh.baseScope;
 		}
 		cur = cur.parent;
 	}
 	return undefined;
 }
 
-/** Like `lookup` but returns ALL matches up the chain. Useful for inheritance lookups. */
+/** Like `lookup` but returns ALL matches up the chain (incl. EXTENDS bases). Useful for inheritance/overloads. */
 export function lookupAll(start: Scope, name: string): LookupResult[] {
 	const out: LookupResult[] = [];
 	let cur: Scope | undefined = start;
 	while (cur !== undefined) {
-		const hits = lookupLocal(cur, name);
-		for (const s of hits) out.push({ symbol: s, foundIn: cur });
+		const seen = new Set<Scope>();
+		let inh: Scope | undefined = cur;
+		while (inh !== undefined && !seen.has(inh)) {
+			seen.add(inh);
+			for (const s of lookupLocal(inh, name)) out.push({ symbol: s, foundIn: inh });
+			inh = inh.baseScope;
+		}
 		cur = cur.parent;
 	}
 	return out;

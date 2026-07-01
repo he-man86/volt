@@ -121,6 +121,11 @@ export interface Scope {
 	children: Scope[];
 	/** Optional span — the source range this scope covers. Project scope has no span. */
 	span?: Span;
+	/** The `EXTENDS` base name for a POU/interface scope (lowercased), pending resolution. */
+	extendsName?: string;
+	/** The resolved base scope (from `EXTENDS`) — inherited members resolve through it. Linked in a
+	 *  post-pass once all POUs are ingested (the base may live in a later file). */
+	baseScope?: Scope;
 }
 
 // ─── Accessors ───────────────────────────────────────────────────────
