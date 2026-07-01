@@ -59,7 +59,7 @@ export function scanReferencesInBody(
 ): IdentifierOccurrence[] {
 	const target = name.toLowerCase();
 	const out: IdentifierOccurrence[] = [];
-	const toks = body.tokens.filter((t) => !isTrivia(t.kind));
+	const toks = significantTokens(body);
 	for (let i = 0; i < toks.length; i++) {
 		const t = toks[i] as Token;
 		if (t.kind !== "identifier") continue;
@@ -80,7 +80,7 @@ export function scanReferencesInBody(
 /** Collect every identifier occurrence in a body, regardless of name. Useful for symbol-cross-reference building. */
 export function scanAllIdentifiersInBody(body: BodySpan): IdentifierOccurrence[] {
 	const out: IdentifierOccurrence[] = [];
-	const toks = body.tokens.filter((t) => !isTrivia(t.kind));
+	const toks = significantTokens(body);
 	for (let i = 0; i < toks.length; i++) {
 		const t = toks[i] as Token;
 		if (t.kind !== "identifier") continue;
@@ -126,6 +126,25 @@ export function identifierAtOffset(body: BodySpan, offset: number): Token | unde
 		if (offset >= t.span.start && offset < t.span.end) return t;
 	}
 	return undefined;
+}
+
+/**
+ * A body's meaningful tokens: trivia dropped, and any `%FOLDER <path>` directive line excluded. The
+ * bridge prepends `%FOLDER <folder>` to a child body (method/action/property) that lives in a sub-folder;
+ * its `%` lexes as punct and `FOLDER`/the path words lex as identifiers, which would otherwise scan as
+ * (unresolved) references. It's metadata, not code — strip the whole directive line.
+ */
+function significantTokens(body: BodySpan): Token[] {
+	const toks = body.tokens.filter((t) => !isTrivia(t.kind));
+	let folderLines: Set<number> | undefined;
+	for (let i = 0; i < toks.length - 1; i++) {
+		const a = toks[i] as Token;
+		const b = toks[i + 1] as Token;
+		if (a.kind === "punct" && a.text === "%" && b.kind === "identifier" && b.text.toUpperCase() === "FOLDER") {
+			(folderLines ??= new Set()).add(a.span.startLine);
+		}
+	}
+	return folderLines === undefined ? toks : toks.filter((t) => !folderLines.has(t.span.startLine));
 }
 
 function isTrivia(kind: Token["kind"]): boolean {
