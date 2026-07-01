@@ -56,7 +56,9 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 			c.expectPunct(")", "closing implicit enumeration");
 			break;
 		}
-		const lastSpan = values.length > 0 ? values[values.length - 1]!.name.span : openParen.span;
+		// Optional explicit base type after the value list: `( … ) DINT` / `( … ) BYTE` — a sized enum.
+		const baseTypeTok = c.peek().kind === "identifier" ? c.consume() : undefined;
+		const lastSpan = baseTypeTok?.span ?? (values.length > 0 ? values[values.length - 1]!.name.span : openParen.span);
 		return {
 			kind: "implicit_enum_type",
 			values,

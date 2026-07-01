@@ -17,10 +17,11 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 // + parser fixes (FB/interface access modifiers, %FOLDER skip): parse 239→319, ingest 418→424.
 // + type-expr/var fixes (ARRAY[*] VLA, ARRAY-of-FB `[…]` element initializers): parse 319→347.
 // + %FOLDER scan-strip (the directive's FOLDER/path words no longer scan as unresolved): diags 9437→8069.
-//   Remaining precision is FB-member/method-local resolution, project GVLs, and genuine library symbols.
+// + typed inline enum `( … ) DINT` base type: parse 347→375 (also un-truncates those FBs' VAR sections).
+//   Remaining precision is EXTENDS inherited-member resolution, project GVLs, and genuine library symbols.
 const BASE = {
 	files: 424, // corpus size — must not shrink (files went missing)
-	parseCleanFiles: 347, // 81.8% — floor; raise as parser gaps close (goal 424)
+	parseCleanFiles: 375, // 88.4% — floor; raise as parser gaps close (goal 424)
 	ingestFiles: 424, // 100% — floor
 	totalDiags: 8069, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
 };
