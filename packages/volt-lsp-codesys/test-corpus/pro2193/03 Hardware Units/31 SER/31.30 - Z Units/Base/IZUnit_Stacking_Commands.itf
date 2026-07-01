@@ -1,0 +1,49 @@
+// Commands specific for an Z Unit
+INTERFACE IZUnit_Stacking_Commands
+
+// Await stacking delay
+METHOD PUBLIC AwaitDelay : BOOL
+VAR_INPUT
+	firstStack	: BOOL;
+END_VAR
+END_METHOD
+
+// Move down to place products on the stack
+METHOD PUBLIC MoveDown : BOOL
+VAR_INPUT
+	stackIndex			: UINT;	// Actual number on the stack (stackingheight)
+END_VAR
+END_METHOD
+
+// Start to move down. Wait above the stack if the conveyor is not ready.
+METHOD PUBLIC MoveDown_Start : BOOL
+VAR_INPUT
+	highestStackIndex		: UINT;	// Stackingheight of a complete stack (to rotate above)
+END_VAR
+END_METHOD
+
+// Move up to final position
+METHOD PUBLIC MoveUp : BOOL
+END_METHOD
+
+// Start to move up from the stack
+METHOD PUBLIC MoveUp_Start : BOOL
+VAR_INPUT
+	stackIndex			: UINT;	// Stackingheight to rotate above. Can be either act stackheight, or max stackheight
+END_VAR
+END_METHOD
+
+// Returns the products that are currently stacked by the Z Unit
+METHOD PUBLIC ProductData_Get : ProductType
+VAR_INPUT
+	product			: UINT;
+	clearData		: BOOL := FALSE;	// Optional: Clear data of the product that is being transferred.
+END_VAR
+END_METHOD
+
+// Product transfer is complete, ready for stacking (or something else)
+{attribute 'monitoring':='call'}
+PROPERTY ReadyForStacking : BOOL;
+END_PROPERTY
+
+END_INTERFACE

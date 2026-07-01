@@ -1,0 +1,915 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ZUnit_ForChainWithServoRotateFB
+EXTENDS ZUnit_BaseFB
+IMPLEMENTS IZUnit_ForChainWithServoRotate_Transfer_Commands, IZUnit_ForChainWithServoRotate_Stacking_Commands, IModuleHasPayload, IModuleHasSafePosForChain
+VAR_INPUT
+	{attribute 'symbol' := 'read'}		extendSensorIn				: ARRAY[1..MaxSides] OF BOOL;
+	{attribute 'symbol' := 'readwrite'}	Extend						: ARRAY[1..MaxSides, 1..MaxVacuums] OF ActuatorWithManualControlFB;	// 1.1: IMM side / lowest (1); 2.1: robot side / lowest (7)
+	{attribute 'symbol' := 'readwrite'}	Vacuum						: ARRAY[1..MaxSides, 1..MaxVacuums] OF VacuumWithInputFB;	// 1.1: IMM side / lowest (1); 2.1: robot side / lowest (7)
+	{attribute 'symbol' := 'readwrite'}	Shift						: Cylinder_53ValveFB;		// In: first takeover pos (cav 7-12); Out: Stacking pos
+	{attribute 'symbol' := 'readwrite'}	BufferAir					: AirBufferFB;
+	{attribute 'symbol' := 'readwrite'}	IonizingBar					: ActuatorWithManualControlFB;
+	rotateMotor					: IZRUnit_Default_Commands;
+END_VAR
+VAR_IN_OUT
+	DataProject		: ZUnit_ForChainWithServoRotate_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	itfVacuums					: ARRAY[1..MaxSides, 1..MaxVacuums] OF IVacuum;
+	itfVacuumsFlat				: ARRAY[1..MaxSides * MaxVacuums] OF IVacuum;
+	itfExtendsFlat				: ARRAY[1..MaxSides * MaxVacuums] OF IActuator;
+	_hasProductForTransfer		: ARRAY[1..MaxSides] OF ARRAY[1..MaxVacuums] OF BOOL;
+	vacuumMissingAlarm			: ARRAY[1..MaxSides, 1..MaxVacuums] OF BOOL;
+	gripperPosition				: USINT(1..MaxSides);
+	ProductsInGripper			: ARRAY[1..MaxSides, 1..MaxVacuums] OF ProductType;
+	takeOverPositionToReturnTo	: INT := -1;
+	ExtendSensorInTimer			: ARRAY[1..MaxSides] OF BTOF;
+END_VAR
+VAR CONSTANT
+	MaxSides					: USINT	:= ZUnits.MaxSides;
+	MaxVacuums					: USINT	:= ZUnits.MaxVacuums;
+END_VAR
+
+SUPER^(
+	Data				:= Data,
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= ZUnit_Errors,
+	alarmCondition	:= FALSE,	//Drive.xIsHomed AND System.DrivesWereReferenced AND System.AllAxisInitialized AND ModuleStatus.rActPos < Data.Parking.Pos.value + 5 AND Drive.xHomingSensor,
+	alarmDelay		:= 2.0,
+	errorId			:= 5,		//1205 - Xu Axis: Ref. sensor. Check parking pos. of Xu Axis.
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.FastStop,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= ZUnit_Errors,
+	alarmCondition	:= FALSE,	//Main.I.QuickStop AND NOT PositionReached(Drive.rActPosition, Drive.rSetPosition) AND (Drive.eSetMode = Brink.DriveMode.AutomaticMode OR System.On),
+	alarmDelay		:= 0.0,
+	errorId			:= 1,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.FastStop,
+	active			=> );
+END_METHOD
+
+// Await stacking delay
+METHOD PUBLIC AwaitDelay : BOOL
+VAR_INPUT
+	firstStack	: BOOL;
+END_VAR
+VAR_INST
+	Timer			: BTON;
+END_VAR
+%FOLDER Commands/Stacking
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
+	ClearProducts.Array2D(ProductsInGripper);
+	Timer.Reset();
+END_IF
+
+
+IF Timer.Set(TRUE, SEL(	firstStack,
+						Data.rStackingDelay,
+						MAX(0.1, Data.rStackingDelay * 2))
+			)
+THEN
+	AwaitDelay := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Receive a product status
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	takeoverPos		: INT;
+	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForZUnit));
+	product			: ProductType;
+END_VAR
+%FOLDER Commands/Transfer
+takeoverPos	:= LIMIT(1, takeoverPos,	NumberOfTakeoverPositions);
+takeoverPos	:= LIMIT(1, takeoverPos,	MaxSides);
+
+productNo	:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForZUnit));
+
+//ProductsInGripper[takeoverPos, productNo] := product;
+
+
+// For this machine this solution is best. takeoverPos is not used now. I don't know the best way to make this generic for all machines
+
+ProductsInGripper[gripperPosition, productNo] := product;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	SetErrorExtendIn			: ARRAY[1..MaxSides] OF SetErrorFB;
+	SetErrorVacuumMissing		: ARRAY[1..MaxSides, 1..MaxVacuums] OF SetErrorFB;
+END_VAR
+VAR
+	i, j						: USINT;
+	extendsAreIn				: BOOL;
+END_VAR
+SUPER^.Cyclic();
+
+// Handle ionizing bar
+IonizingBar(
+	manualControlEnabled	:= FALSE);
+
+IF SER.InAutomaticOperation_Rising THEN
+	IonizingBar.Set();
+END_IF
+
+IF SER.InAutomaticOperation_Falling THEN
+	IonizingBar.Reset();
+END_IF
+
+// Handle I/Q
+FOR i := 1 TO MaxSides DO
+	FOR j := 1 TO MaxVacuums DO
+		Vacuum[i,j](
+			moduleHandler			:= ModuleHandler,
+			manualControlEnabled	:= SER.ManualControlEnabled,
+			textRefId				:= Vacuum_Errors,
+			errorId					:= (i-1) * MaxVacuums + j,
+			alarmEnable				:= SER.DigIn.xAirPressureOK AND SER.OperationMode <> SER_OperationModeType.SemiAuto,
+			alarmDelay				:= 10.0,
+			severity				:= enumErrorSeverity.Fault,
+			reaction				:= enumErrorReaction.No_reaction,
+			refVacuumHighTime		:= Data.rGettingProductsDelay,
+			refReleaseVacuumTime	:= ,
+			input1					:= );
+
+		SetErrorVacuumMissing[i,j](
+			moduleHandler				:= ModuleHandler,
+			textRefId					:= Vacuum_Errors,
+			errorId						:= (i-1) * MaxVacuums + j,
+			alarmCondition				:= vacuumMissingAlarm[i,j],
+			alarmDelay					:= 0,
+			severity					:= enumErrorSeverity.Fault,
+			reaction					:= enumErrorReaction.No_reaction,
+			active						=> );
+
+		vacuumMissingAlarm[i,j]		:= FALSE;
+
+		Extend[i,j](
+			manualControlEnabled	:= SER.ManualControlEnabled);
+	END_FOR
+
+	extendsAreIn					:= TRUE;
+	FOR j := 1 TO MaxVacuums DO
+		IF NOT Extend[i,j].Map() THEN
+			extendsAreIn			:= FALSE;
+			EXIT;
+		END_IF
+	END_FOR
+
+	ExtendSensorInTimer[i].Set(
+		In							:= extendSensorIn[i],
+		Pt							:= 0.1);
+
+	SetErrorExtendIn[i](
+		moduleHandler				:= ModuleHandler,
+		textRefId					:= ZUnit_Errors,
+		errorId						:= SEL(i = MaxSides, 5, 6),
+		alarmCondition				:= extendsAreIn AND NOT extendSensorIn[i],
+		alarmDelay					:= 5,
+		severity					:= enumErrorSeverity.Fault,
+		reaction					:= enumErrorReaction.No_reaction,
+		active						=> );
+END_FOR
+
+Shift(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled, // AND manualControlEnabled,
+	textRefId				:= ZUnit_Errors,
+	errorId_SensorOut		:= 3,
+	errorId_SensorIn		:= 4,
+	alarmEnable				:= SER.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= ,
+	inputIn					:= ,
+	rGiveAirToBothOutputs	:= 1,
+	xEnableOutputs			:= SER.MainAirValve.Map());
+
+BufferAir(
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	vacuums					:= itfVacuumsFlat);
+
+FOR i := 2 TO NumberOfTakeoverPositions DO
+	Data.Takeover[i].Pos.value		:= Data.Takeover[i-1].Pos.value + 80.0;
+	Data.Takeover[i].rAcc			:= Data.Takeover[1].rAcc;
+	Data.Takeover[i].rDec			:= Data.Takeover[1].rDec;
+	Data.Takeover[i].rVel			:= Data.Takeover[1].rVel;
+END_FOR
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
+
+Arrays.Actuator_ResetAll(itfExtendsFlat);
+
+Shift.Reset();
+
+IonizingBar.Reset();
+
+ClearProducts.Array2D(ProductsInGripper);
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received. Returns index of products that are actually transferred.
+METHOD PUBLIC GetProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: REFERENCE TO WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+VAR_INST
+	vacuumsHigh		: BOOL;
+	Timer			: BTON;
+	StartVacuumDelay: BTON;
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER Commands/Transfer
+IF NOT ReadyForTransfer THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	StartVacuumDelay.Reset();
+	vacuumsHigh	:= FALSE;
+END_IF
+
+Shift.SetOrReset(gripperPosition = 1);
+IF NOT Shift.OnTargetPos THEN
+	RETURN;
+END_IF
+
+FOR i := 1 TO MaxVacuums DO
+	IF BitLogic.ExtractFromWord(vacuumIndex, i) THEN
+		Extend[gripperPosition, i].Set();
+	END_IF
+END_FOR
+
+// TODO: dit weeer terugzetten als er nieuwe blikjes zijn voor sensor
+IF StartVacuumDelay.Set(In := TRUE, Pt := 0.1) THEN
+//IF StartVacuumDelay.Set(In := NOT extendSensorIn[gripperPosition], Pt := 0.1) THEN
+	vacuumsHigh				:= TRUE;
+	FOR i := 1 TO MaxVacuums DO
+		IF BitLogic.ExtractFromWord(vacuumIndex, i) THEN
+			vacuumsHigh		R= NOT Vacuum[gripperPosition, i].Set();
+		END_IF
+	END_FOR
+END_IF
+
+IF vacuumsHigh
+OR Timer.Set(In := TRUE, Pt := SEL(SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums, 3, 1))
+THEN
+	// Reset vacuums if no products were detected
+	FOR i := 1 TO MaxVacuums DO
+		IF BitLogic.ExtractFromWord(vacuumIndex, i) THEN
+			IF  NOT (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums)
+			AND NOT Vacuum[gripperPosition, i].IsHigh
+			THEN
+				Vacuum[gripperPosition, i].Reset();
+				BitLogic.LoadToWord(vacuumIndex, FALSE, i);	// Toggle bit off when vacuum is lost
+				vacuumMissingAlarm[gripperPosition, i] := TRUE;
+			END_IF
+		END_IF
+	END_FOR
+
+	GetProducts	:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Initialize
+VAR
+	i, j	: USINT;
+END_VAR
+SUPER^.Initialize();
+
+// Set interfaces to correct vacuum instances
+FOR i := 1 TO MaxSides DO
+	FOR j := 1 TO MaxVacuums DO
+		itfVacuums[i,j]								:= Vacuum[i,j];
+		itfVacuumsFlat[(i-1) * MaxVacuums + j]		:= Vacuum[i,j];
+		itfExtendsFlat[(i-1) * MaxVacuums + j]		:= Extend[i,j];
+	END_FOR
+END_FOR
+END_METHOD
+
+// Move down to place products on the stack
+METHOD PUBLIC MoveDown : BOOL
+VAR_INPUT
+	stackIndex			: UINT;	// Actual number on the stack (stackingheight)
+END_VAR
+VAR_INST
+	localState			: SINT;
+	rPosition			: REAL;
+END_VAR
+%FOLDER Commands/Stacking
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+
+	rPosition := Data.FirstPart.Pos.value;
+	rPosition := rPosition - (PersistentVars.RecipeVars.productPitch.value * stackIndex);
+	rPosition := rPosition - SEL(Data.SlowMoveToStack.xEnable, 0, Data.SlowMoveToStack.rDistance);
+	rPosition := LIMIT(DataBrink.rSWLimitNeg, rPosition, Data.FirstPart.Pos.value);
+
+	Drive.SetMovementProfileData(Data.FirstPart);
+END_IF
+
+CASE localState OF
+	0:
+		IF Drive.PosLargerOrEqual(rPosition, Data.EarlyProductReleaseDistance.value) THEN
+			Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
+		END_IF
+
+		IF Data.SlowMoveToStack.xEnable THEN
+			Drive.MoveAbsPos(rPosition);
+			IF  PositionReachedValue(Drive.actPos, rPosition, 10)
+			AND rotateMotor.RotateToStacking()
+			THEN
+				Drive.SetMovementProfileSeparate(
+					rVel	:= Data.SlowMoveToStack.rAcceleration,
+					rAcc	:= Data.FirstPart.rAcc,
+					rDec	:= Data.FirstPart.rDec);
+				Increment.AnyInt(localState);
+			END_IF
+
+		ELSIF Drive.MoveAbsPos(rPosition)
+		AND   rotateMotor.RotateToStacking()
+		THEN
+			MoveDown := CommandLock.Release(__POUNAME());
+		END_IF
+
+	1:
+		rPosition := Data.FirstPart.Pos.value;
+		rPosition := rPosition - (PersistentVars.RecipeVars.productPitch.value * stackIndex);
+		rPosition := LIMIT(DataBrink.rSWLimitNeg, rPosition, Data.FirstPart.Pos.value);
+
+		IF Drive.PosLargerOrEqual(rPosition, Data.EarlyProductReleaseDistance.value) THEN
+			Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
+		END_IF
+
+		IF  Drive.MoveAbsPos(rPosition)
+		AND rotateMotor.InStackingPosition
+		THEN
+			MoveDown := CommandLock.Release(__POUNAME());
+		END_IF
+
+END_CASE
+END_METHOD
+
+// Start to move down. Wait above the stack if the conveyor is not ready.
+METHOD PUBLIC MoveDown_Start : BOOL
+VAR_INPUT
+	highestStackIndex		: UINT;	// Stackingheight of a complete stack (to rotate above)
+END_VAR
+VAR_INST
+	rPosition				: REAL;
+	hasAllProducts			: BOOL;
+	result					: ARRAY[1..1] OF BOOL;
+END_VAR
+VAR
+	i, j					: USINT;
+END_VAR
+%FOLDER Commands/Stacking
+IF NOT ReadyForStacking THEN
+	RETURN;
+END_IF
+
+IF NOT InSafePosForChain THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Arrays.Bool_Reset(result);
+	Drive.SetMovementProfileData(Data.FirstPart);
+END_IF
+
+rPosition := Data.FirstPart.Pos.value;
+rPosition := rPosition - (PersistentVars.RecipeVars.productPitch.value * highestStackIndex);
+
+// Extra cyclus optimalisatie. Als rotatie > 45 graden is, kan de gripper al verder zakken
+IF rotateMotor.PosLargerOrEqual(45.0) THEN
+	rPosition := rPosition - MAX(Data.SlowMoveToStack.rDistance, 260.0);
+ELSE
+	rPosition := rPosition - MAX(Data.SlowMoveToStack.rDistance, Data.rSafeRotateDistance);
+END_IF
+
+rPosition := LIMIT(DataBrink.rSWLimitNeg, rPosition, Data.FirstPart.Pos.value);
+
+Drive.MoveAbsPos(rPosition);
+
+hasAllProducts := TRUE;
+FOR i := 1 TO MaxSides DO
+	FOR j := 1 TO MaxVacuums DO
+		IF Vacuum[i,j].IsTurnedOn AND NOT vacuum[i,j].IsHigh THEN
+			hasAllProducts := FALSE;
+			EXIT;
+		END_IF
+	END_FOR
+END_FOR
+
+IF Drive.PosSmallerOrEqual(rPosition, 10) THEN		// Line is needed because stack is too high. Remove this IF to rotate during movement
+	result[1]	:= result[1] OR_ELSE rotateMotor.RotateToStacking();
+END_IF
+
+IF  Arrays.Bool_All(result, TRUE)
+AND Shift.GoOut()
+AND (
+		hasAllProducts
+		OR SER.OperationMode = SER_OperationModeType.SemiAuto
+		OR SER.ActState = PACK_ML.State.Starting
+		OR LastProductOnGripper
+	)
+THEN
+	ReadyForStacking	:= FALSE;
+	MoveDown_Start		:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a certain Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+VAR_INST
+	result					: ARRAY[1..3] OF BOOL;
+END_VAR
+%FOLDER Commands/Transfer
+IF NOT ReadyForTransfer THEN
+	RETURN;
+END_IF
+
+IF NOT InSafePosForChain THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE takeoverPosition OF
+	1..NumberOfTakeoverPositions:
+		result[1]	:= result[1] OR_ELSE Drive.MoveAbs(Data.Takeover[takeoverPosition]);
+
+		IF result[1] THEN
+			result[2]	:= result[2] OR_ELSE rotateMotor.RotateToTakeover();
+		END_IF
+
+		IF result[2] THEN
+			Shift.SetOrReset(gripperPosition = 1);
+			result[3]	S= Shift.OnTargetPos;
+		END_IF
+
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ReadyForTransfer	:= TRUE;
+			MoveToTakeover		:= CommandLock.Release(__POUNAME());
+		END_IF
+
+	ELSE
+		;	// Invalid parameter
+END_CASE
+END_METHOD
+
+// Move up to final position
+METHOD PUBLIC MoveUp : BOOL
+VAR_INST
+	result					: ARRAY[1..2] OF BOOL;
+END_VAR
+%FOLDER Commands/Stacking
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Drive.SetMovementProfileData(Data.Takeover[1]);
+	Arrays.Bool_Reset(result);
+END_IF
+
+result[1]	:= result[1] OR_ELSE rotateMotor.RotateToTakeover();
+
+//result[2]	:= result[2] OR_ELSE Drive.MoveAbs(Data.Takeover[1]);
+
+IF result[1] THEN		// Line is needed because stack is too high. Remove this IF to rotate during movement
+	CASE takeOverPositionToReturnTo OF
+		1..NumberOfTakeoverPositions:	result[2]	:= result[2] OR_ELSE Drive.MoveAbs(Data.Takeover[takeOverPositionToReturnTo]);
+		ELSE							result[2]	:= result[2] OR_ELSE Drive.MoveAbs(Data.Takeover[1]);
+	END_CASE
+END_IF
+
+IF Arrays.Bool_All(result, TRUE)
+AND Shift.GoOut()
+AND HasPayload = enumPayload.None					// Make sure that all vacuum inputs are low; suction cups may get blocked
+THEN
+	gripperPosition		:= 1;						// Must match Shift.IsOut
+	ReadyForTransfer	:= TRUE;
+	MoveUp := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Start to move up from the stack
+METHOD PUBLIC MoveUp_Start : BOOL
+VAR_INPUT
+	stackIndex			: UINT;	// Stackingheight to rotate above. Can be either act stackheight, or max stackheight
+END_VAR
+VAR_INST
+	rPosition			: REAL;
+	rStartPosition		: REAL;
+END_VAR
+%FOLDER Commands/Stacking
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	rMaxTorqueMovingUp	:= 0;
+	rStartPosition		:= Drive.actPos;
+END_IF
+
+rMaxTorqueMovingUp	:= MAX(rMaxTorqueMovingUp, TorqueCorrected);
+rPosition			:= Data.FirstPart.Pos.value - (PersistentVars.RecipeVars.productPitch.value * stackIndex) - Data.rSafeRotateDistance;	// Safe position above stack
+rPosition			:= LIMIT(	DataBrink.rSwLimitNeg,
+								rPosition,
+								Data.Takeover[LIMIT(1, takeOverPositionToReturnTo, NumberOfTakeoverPositions)].Pos.value);			// Setpos may not be higher than Takeover pos
+
+// Extra cyclus optimalisatie. Als gripper 270 mm boven de stapel is, kan de gripper al 45 graden draaien
+IF Drive.PosSmallerOrEqual(Data.FirstPart.Pos.value - (PersistentVars.RecipeVars.productPitch.value * stackIndex) - 270.0) THEN
+	rotateMotor.RotateToPosition(45.0);
+END_IF
+
+IF NOT Data.SlowMoveFromStack.xEnable
+OR Drive.actPos <= rStartPosition - Data.SlowMoveFromStack.rDistance
+THEN
+	Drive.SetMovementProfileData(Data.Takeover[1]);
+ELSIF CommandLock.FirstCall THEN
+	Drive.SetMovementProfileSeparate(
+		rVel := Data.Takeover[1].rVel,
+		rAcc := Data.SlowMoveFromStack.rAcceleration,
+		rDec := Data.Takeover[1].rDec);
+END_IF
+
+Drive.EnableContinuousUpdate(Data.SlowMoveFromStack.xEnable);
+Drive.MoveAbsPos(rPosition);
+
+IF Drive.actPos <= Data.FirstPart.Pos.value - (PersistentVars.RecipeVars.productPitch.value * stackIndex) - Data.rSafeRotateDistance
+OR Drive.PosReached(rPosition)
+THEN
+	MoveUp_Start := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Returns the products that are currently stacked by the Z Unit
+METHOD PUBLIC ProductData_Get : ProductType;
+VAR_INPUT
+	product			: UINT;
+	clearData		: BOOL := FALSE;	// Optional: Clear data of the product that is being transferred.
+END_VAR
+VAR
+	product0		: UINT;
+	takeover		: UINT;
+	product1		: UINT;
+END_VAR
+%FOLDER Commands/Stacking
+product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
+
+takeover	:= (product0  /  GVL_Constants.ChainProductsForZUnit) + 1;
+product1	:= (product0 MOD GVL_Constants.ChainProductsForZUnit) + 1;
+
+takeover	:= LIMIT(1, takeover, NumberOfTakeoverPositions);
+takeover	:= LIMIT(1, takeover, MaxSides);
+
+ProductData_Get := ProductsInGripper[takeover, product1];
+
+IF clearData THEN
+	ClearProducts.Single(ProductsInGripper[takeover, product1]);
+END_IF
+
+// More info about method used: https://stackoverflow.com/questions/3803331/how-can-i-modulo-when-my-numbers-start-from-1-not-zero
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+VAR
+	i, j				: USINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Shift.Reset();
+
+		FOR i := 1 TO MaxSides DO
+			FOR j := 1 TO MaxVacuums DO
+				Extend[i,j].Reset();
+			END_FOR
+		END_FOR
+
+		IF InSafePosForChain AND extendSensorIn[1] AND extendSensorIn[2] THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+		IF Drive.MoveAbsPos(Data.Takeover[1].Pos.value) THEN
+			Drive.globalSpeedOverrideEnable := TRUE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:
+		Shift.SetOrReset(gripperPosition = 1);
+		IF Shift.OnTargetPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:
+		// Reset vacuums when products are no longer on the suction cups
+		IF Arrays.Vacuum_ResetIfNotHigh(itfVacuumsFlat) = 0 THEN
+			ClearProducts.Array2D(ProductsInGripper);
+		END_IF
+
+		FOR i := 1 TO MaxSides DO
+			FOR j := 1 TO MaxVacuums DO
+				_hasProductForTransfer[i][j]	:= Vacuum[i,j].IsHigh;
+			END_FOR
+		END_FOR
+
+		// Check if last product out of the mould is on the gripper. Reset this flag
+		FOR i := 1 TO MaxSides DO
+			FOR j := 1 TO MaxVacuums DO
+				 IF ProductsInGripper[i,j].LastProduct THEN
+					 ProductsInGripper[i,j].LastProduct := FALSE;
+				 END_IF
+			END_FOR
+		END_FOR
+
+		IF Arrays.Bool_All(_hasProductForTransfer[1], TRUE) AND Arrays.Bool_All(_hasProductForTransfer[2], TRUE) THEN	// Gripper is full
+			ReadyForTransfer	:= FALSE;
+			ReadyForStacking	:= TRUE;
+			FOR i := 1 TO MaxSides DO
+				Arrays.Bool_Reset(_hasProductForTransfer[i]);
+			END_FOR
+		ELSIF Arrays.Bool_All(_hasProductForTransfer[gripperPosition], TRUE) THEN	// Current side is full
+			ReadyForTransfer	:= TRUE;
+			ReadyForStacking	:= FALSE;
+			Increment.Subrange(gripperPosition, 1, MaxSides);						// Flip gripperPosition
+		ELSE
+			ReadyForTransfer	:= TRUE;
+			ReadyForStacking	:= FALSE;
+		END_IF
+
+		Increment.AnyInt(localState);
+
+	5:
+		Shift.SetOrReset(gripperPosition = 1);
+		IF Shift.OnTargetPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	6:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC RetractWithProducts : BOOL
+VAR_INST
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER Commands/Transfer
+IF NOT ReadyForTransfer THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+FOR i := 1 TO MaxVacuums DO
+	Extend[gripperPosition, i].Reset();
+END_FOR
+
+IF InSafePosForChain THEN
+	FOR i := 1 TO MaxVacuums DO
+		_hasProductForTransfer[gripperPosition][i] S= SEL(SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums,
+															Vacuum[gripperPosition, i].IsHigh,
+															Vacuum[gripperPosition, i].IsTurnedOn);
+	END_FOR
+
+	RetractWithProducts	:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+// Reset vacuums when products are no longer on the suction cups
+IF Arrays.Vacuum_ResetIfNotHigh(itfVacuumsFlat) = 0 THEN
+	ClearProducts.Array2D(ProductsInGripper);
+END_IF
+
+Stop	:= SUPER^.Stop();
+END_METHOD
+
+// Products were transferred, and the Z Unit is free to handle the products. Either start stacking, or move to next position.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+VAR
+	i			: USINT;
+END_VAR
+%FOLDER Commands/Transfer
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+CASE iParameter OF
+(*	0:	// Stack every cycle
+		IF itfVacuums[1,1].IsTurnedOn
+		OR LastProductOnGripper
+		// Running in semi-auto mode without setting vacuums.
+		OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums)
+		THEN
+			ReadyForTransfer	:= FALSE;
+			ReadyForStacking	:= TRUE;
+		END_IF
+
+	1:	// Got first product. Wait for the second.
+		IF SER.ActState = PACK_ML.State.Starting THEN
+			ReadyForTransfer	:= FALSE;
+			ReadyForStacking	:= TRUE;
+//		ELSIF PersistentVars.RecipeVars.ActiveExchangeSet = enumExchangeSets.FourCavDualTakeover THEN
+//			Drive.MoveAbs(Data.Takeover[2]);
+		END_IF
+
+	2:	// Second product. Gripper full
+		IF SER.ActState = PACK_ML.State.Starting
+		OR (itfVacuums[1,1].IsTurnedOn AND itfVacuums[1,2].IsTurnedOn)
+		OR LastProductOnGripper
+		// Running in semi-auto mode without setting vacuums.
+		OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums)
+		THEN
+			ReadyForTransfer	:= FALSE;
+			ReadyForStacking	:= TRUE;
+		END_IF
+*)
+	ELSE
+		IF LastProductOnGripper																						// Stack final products out of the mould
+		OR (Arrays.Bool_All(_hasProductForTransfer[1], TRUE) AND Arrays.Bool_All(_hasProductForTransfer[2], TRUE))	// Gripper is full
+		THEN
+			ReadyForTransfer	:= FALSE;
+			ReadyForStacking	:= TRUE;
+			FOR i := 1 TO MaxSides DO
+				Arrays.Bool_Reset(_hasProductForTransfer[i]);
+			END_FOR
+			takeOverPositionToReturnTo	:= iParameter;
+
+		ELSE
+			CASE iParameter OF
+				1..NumberOfTakeoverPositions:	Drive.MoveAbs(Data.Takeover[iParameter]);
+			END_CASE
+
+			IF Arrays.Bool_All(_hasProductForTransfer[gripperPosition], TRUE) THEN	// Current side is full
+				Increment.Subrange(gripperPosition, 1, MaxSides);					// Flip gripperPosition
+				Shift.SetOrReset(gripperPosition = 1);
+			END_IF
+		END_IF
+END_CASE
+
+TransferComplete := CommandLock.Release(__POUNAME());
+END_METHOD
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_All(
+							vacuumArray	:= itfVacuumsFlat,
+							condition	:= TRUE,
+							channel		:= SEL(	SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums,
+												enumSelectIQ.Input,
+												enumSelectIQ.Output))
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Any(
+							vacuumArray	:= itfVacuumsFlat,
+							condition	:= TRUE,
+							channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY
+
+// During transfer products on gripper
+PROPERTY HasProductForTransfer : ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+%FOLDER Properties
+GET
+HasProductForTransfer := _hasProductForTransfer[gripperPosition];
+END_GET
+END_PROPERTY
+
+// The Y Drive is somewhere outside of the mould, on the safety strip.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForChain : BOOL
+%FOLDER Properties
+GET
+VAR
+	i, j	: USINT;
+END_VAR
+InSafePosForChain := TRUE;
+
+FOR i := 1 TO MaxSides DO
+	IF NOT ExtendSensorInTimer[i].Q THEN
+		InSafePosForChain := FALSE;
+		EXIT;	// Exit the loop on the first match
+	END_IF
+END_FOR
+
+IF rotateMotor.InStackingPosition THEN
+	InSafePosForChain := TRUE;
+END_IF
+END_GET
+END_PROPERTY
+
+PROPERTY LastProductOnGripper : BOOL
+%FOLDER Properties
+GET
+VAR
+	i, j : UINT;
+END_VAR
+// Check if last product out of the mould is on the gripper.
+FOR i := 1 TO MaxSides DO
+	FOR j := 1 TO MaxVacuums DO
+		 IF ProductsInGripper[i,j].LastProduct THEN
+			 LastProductOnGripper := TRUE;
+			 EXIT;
+		 END_IF
+	END_FOR
+END_FOR
+END_GET
+END_PROPERTY

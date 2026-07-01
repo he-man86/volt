@@ -1,0 +1,109 @@
+FUNCTION_BLOCK StatsToJsonFB
+EXTENDS ToJsonBaseFB
+VAR_IN_OUT
+	stats					: ProductionStatsType;
+	JSON					: STRING(25000);
+END_VAR
+
+SUPER^();
+
+IF busy THEN
+	sw.Start();
+	IF CreateFinalJson() THEN
+		busy		:= FALSE;
+		done		:= TRUE;
+	END_IF
+	sw.End();
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE CreateFinalJson : BOOL
+VAR_INST
+	asProperties		: ARRAY[1..GVL_Constants.MaxProductsInMould + 2, 0..1] OF STRING(1000);
+END_VAR
+CASE chunk OF
+	0:
+		Increment.AnyInt(chunk);
+
+	1..GVL_Constants.MaxProductsInMould:
+		asProperties[chunk, 0]	:= CONCAT('C', TO_STRING(chunk));
+		CreateProductionStatsCavityJson(stat := stats.Cavity[chunk], pJson := ADR(asProperties[chunk, 1]), jsonSize := SIZEOF(asProperties[chunk, 1]));
+		Increment.AnyInt(chunk);
+
+	ELSE
+		IF chunk = GVL_Constants.MaxProductsInMould + 1 THEN
+			asProperties[chunk, 0]	:= 'T';
+			CreateProductionStatsCavityJson(stat := stats.Total, pJson := ADR(asProperties[chunk, 1]), jsonSize := SIZEOF(asProperties[chunk, 1]));
+			Increment.AnyInt(chunk);
+		ELSIF chunk = GVL_Constants.MaxProductsInMould + 2 THEN
+			asProperties[chunk, 0]	:= 'S';
+			CreateTimerJson(pJson := ADR(asProperties[chunk, 1]), jsonSize := SIZEOF(asProperties[chunk, 1]));
+			Increment.AnyInt(chunk);
+		ELSE
+			CreateJson(
+				psProperties				:= ADR(asProperties),
+				udiPropertiesArraySize		:= SIZEOF(asProperties),
+				udiPropertiesStringLength	:= SIZEOF(asProperties[1,0]),
+				psJSON						:= ADR(JSON),
+				udiJSONStringLength			:= SIZEOF(JSON));
+
+			CreateFinalJson					:= TRUE;
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PRIVATE CreateProductionStatsCavityJson
+VAR_INPUT
+	pJson : POINTER TO STRING(1);
+	jsonSize : UDINT;
+END_VAR
+VAR_IN_OUT
+	stat				: ProductionStatsCavityType;
+END_VAR
+VAR_INST
+	asProperties		: ARRAY[0..GVL_Constants.MaxRejectReasonsTotal + 3, 0..1] OF STRING(25);
+	i					: UINT;
+END_VAR
+// Fill data
+asProperties[0, 0]	:= 'P';		asProperties[0, 1] := TO_STRING(stat.Produced);
+asProperties[1, 0]	:= 'S';		asProperties[1, 1] := TO_STRING(stat.Stacked);
+asProperties[2, 0]	:= 'R';		asProperties[2, 1] := TO_STRING(stat.Rejected);
+asProperties[3, 0]	:= 'U';		asProperties[3, 1] := TO_STRING(stat.UncountedReject);
+
+FOR i := 4 TO GVL_Constants.MaxRejectReasonsTotal + 3 DO
+	asProperties[i, 0]	:= CONCAT('R', TO_STRING(i - 3));
+	asProperties[i, 1]	:= TO_STRING(stat.RejectReason[i - 3]);
+END_FOR
+
+CreateJson(
+	psProperties				:= ADR(asProperties),
+	udiPropertiesArraySize		:= SIZEOF(asProperties),
+	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
+	psJSON						:= pJson,
+	udiJSONStringLength			:= jsonSize);
+END_METHOD
+
+METHOD PRIVATE CreateTimerJson
+VAR_INPUT
+	pJson				: POINTER TO STRING(1);
+	jsonSize			: UDINT;
+END_VAR
+VAR_INST
+	asProperties		: ARRAY[0..5, 0..1] OF STRING(25);
+END_VAR
+// Fill data
+asProperties[0, 0]		:= 'N';		asProperties[0, 1]		:= TO_STRING(stats.StatId);
+asProperties[1, 0]		:= 'S';		asProperties[1, 1]		:= TO_STRING(stats.TimeStopped);
+asProperties[2, 0]		:= 'R';		asProperties[2, 1]		:= TO_STRING(stats.TimeResetting);
+asProperties[3, 0]		:= 'I';		asProperties[3, 1]		:= TO_STRING(stats.TimeIdle);
+asProperties[4, 0]		:= 'A';		asProperties[4, 1]		:= TO_STRING(stats.TimeAutomatic);
+asProperties[5, 0]		:= 'C';		asProperties[5, 1]		:= TO_STRING(stats.AutomaticCycleStarts);
+
+CreateJson(
+	psProperties				:= ADR(asProperties),
+	udiPropertiesArraySize		:= SIZEOF(asProperties),
+	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
+	psJSON						:= pJson,
+	udiJSONStringLength			:= jsonSize);
+END_METHOD

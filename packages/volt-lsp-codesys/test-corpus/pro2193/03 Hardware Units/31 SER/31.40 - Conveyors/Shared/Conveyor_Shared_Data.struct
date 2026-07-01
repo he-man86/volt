@@ -1,0 +1,12 @@
+TYPE Conveyor_Shared_Data :
+STRUCT
+	// Maximum height of the stack. Posibility to alter stacking heights for even / odd stacks.
+	maxStackingHeight			: ARRAY[1..Conveyors.iNumberOfAlternatingStacks] OF UINT;
+
+	// Use a different stacking height for the first products coming out of the mould. In case the first couple of shots are never filled completely. When 0 option is disabled.
+	firstCycleStackHeight		: UINT;
+
+	// Switch machine to 'completing' state when the belt is not emptied in time.
+	endCycleWhenBeltIsFull		: BOOL;
+END_STRUCT
+END_TYPE

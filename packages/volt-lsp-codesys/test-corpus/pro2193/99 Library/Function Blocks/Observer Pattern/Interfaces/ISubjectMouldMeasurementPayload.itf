@@ -1,0 +1,20 @@
+// The payload (data) of a hardware button subject that is sent to an observer.
+INTERFACE ISubjectMouldMeasurementPayload
+EXTENDS ISubjectBasePayload
+
+{attribute 'monitoring' := 'call'}
+PROPERTY Cavity : INT
+END_PROPERTY
+
+PROPERTY Classification : enumMouldMeasurementResult
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY PeakValue : REAL
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY ShortShotTreshold : REAL
+END_PROPERTY
+
+END_INTERFACE

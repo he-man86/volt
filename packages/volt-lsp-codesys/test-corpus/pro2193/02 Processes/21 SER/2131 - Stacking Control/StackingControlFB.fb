@@ -1,0 +1,315 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK StackingControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	zUnit						: IZUnit_Stacking_Commands;
+	conveyor					: IConveyor_Shared_Stacking_Commands;
+	statistics					: IAddProductionStats;
+END_VAR
+VAR
+	ActState :
+	(
+		StateNone							:= 0,
+		StateStartMovingDown				:= 100,
+		StateMovingDown						:= 200,
+		StateAwaitingStackingDelay			:= 300,
+		StateStartMovingUp					:= 400,
+		StateMovingUp						:= 500,
+		StateStackingDone					:= 600
+	) DINT;
+END_VAR
+VAR CONSTANT
+	// Where does the Z Unit rotates above the stack?
+	// TRUE: Finish rotation above the maximum stack height
+	// FALSE: Finish rotation above the actual stack height
+	OptionRotateAboveMaxStackHeight	: BOOL	:= FALSE;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	trigger		: TriggerFB;
+END_VAR
+State(actState	:= ActState);
+
+// Trigger when z unit has products ready to stack
+IF  trigger.Rising(zUnit.ReadyForStacking)
+AND SER.InAutomaticOperation
+THEN
+	ActState := StateStartMovingDown;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+//Execute_SequenceAll();
+
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	enumExchangeSets.SingleCavDualTakeover:
+//		Execute_Sequence2();
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence3();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR
+	products	: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+	ui			: UINT;
+END_VAR
+VAR_INST
+	result		: ARRAY[1..1] OF BOOL;
+	Timer		: BTON;
+END_VAR
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateStartMovingDown:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			Timer.Reset();
+		END_IF
+
+		IF (result[1] OR_ELSE (result[1] := zUnit.MoveDown_Start(
+													SEL(OptionRotateAboveMaxStackHeight,
+														conveyor.StackIndex,
+														conveyor.HighestStackIndex))))
+		AND Timer.Set(conveyor.StackingAllowed, 0.05)		// HACK! conveyor.StackIndex does not have correct value yet when StackingAllowed is TRUE
+		THEN
+			ActState := StateMovingDown;
+		END_IF
+
+	StateMovingDown:
+		IF zUnit.MoveDown(conveyor.StackIndex) THEN
+			ActState := StateAwaitingStackingDelay;
+		END_IF
+
+	StateAwaitingStackingDelay:
+		IF State.Changed THEN
+			FOR ui := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+				products[ui] := zUnit.ProductData_Get(ui);
+			END_FOR
+
+			conveyor.IncreaseStackIndex(products);
+
+			IF statistics <> 0 THEN
+				statistics.CountArray(products);
+			END_IF
+		END_IF
+
+		IF zUnit.AwaitDelay(conveyor.StackIndex = 1) THEN
+			ActState := StateStartMovingUp;
+		END_IF
+
+	StateStartMovingUp:
+		IF zUnit.MoveUp_Start(
+				SEL(OptionRotateAboveMaxStackHeight,
+					conveyor.StackIndex,
+					conveyor.HighestStackIndex)
+			)
+		THEN
+			ActState := StateMovingUp;
+		END_IF
+
+	StateMovingUp:
+		IF State.Changed THEN
+			conveyor.MovingStacksAllowed := TRUE;
+		END_IF
+
+		IF zUnit.MoveUp() THEN
+			ActState := StateStackingDone;
+		END_IF
+
+	StateStackingDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence2
+VAR
+	products	: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+	ui			: UINT;
+END_VAR
+CASE ActState OF
+	StateAwaitingStackingDelay:
+		IF State.Changed THEN
+		FOR ui := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+				products[ui] := zUnit.ProductData_Get(ui);
+			END_FOR
+
+			conveyor.IncreaseStackIndex(products);
+
+			IF statistics <> 0 THEN
+				statistics.CountArray(products);
+			END_IF
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence3
+VAR
+	products	: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+END_VAR
+CASE ActState OF
+	StateAwaitingStackingDelay:
+		IF State.Changed THEN
+			products[1] := zUnit.ProductData_Get(1);
+			products[2] := zUnit.ProductData_Get(2);
+			products[3] := zUnit.ProductData_Get(5);	// Product data is grouped by takeover number.
+			products[4] := zUnit.ProductData_Get(6);
+
+			conveyor.IncreaseStackIndex(products);
+
+			IF statistics <> 0 THEN
+				statistics.CountArray(products);
+			END_IF
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_SequenceAll
+VAR
+END_VAR
+VAR_INST
+	result		: ARRAY[1..1] OF BOOL;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateStartMovingDown:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		IF (result[1] OR_ELSE (result[1] := zUnit.MoveDown_Start(
+													SEL(OptionRotateAboveMaxStackHeight,
+														conveyor.StackIndex,
+														conveyor.HighestStackIndex))))
+		AND conveyor.StackingAllowed THEN
+			ActState := StateMovingDown;
+		END_IF
+
+	StateMovingDown:
+		IF zUnit.MoveDown(conveyor.StackIndex) THEN
+			ActState := StateAwaitingStackingDelay;
+		END_IF
+
+	StateAwaitingStackingDelay:
+		IF State.Changed THEN
+			;//See Execute_SequenceX programs
+		END_IF
+
+		IF zUnit.AwaitDelay() THEN
+			ActState := StateStartMovingUp;
+		END_IF
+
+	StateStartMovingUp:
+		IF zUnit.MoveUp_Start(
+				SEL(OptionRotateAboveMaxStackHeight,
+					conveyor.StackIndex,
+					conveyor.HighestStackIndex)
+			)
+		THEN
+			ActState := StateMovingUp;
+		END_IF
+
+	StateMovingUp:
+		IF State.Changed THEN
+			conveyor.MovingStacksAllowed := TRUE;
+		END_IF
+
+		IF zUnit.MoveUp() THEN
+			ActState := StateStackingDone;
+		END_IF
+
+	StateStackingDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := SEL(HMI.SemiAutoMode = enumSemiAutoModeType.LabelAdjustment, TRUE, FALSE);
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	// Only check for products the first time the method is called.
+	IF zUnit.ReadyForStacking THEN
+		// The Z unit has some products during cycle start. Start stacking.
+		ActState := StateStartMovingDown;
+	ELSE
+		StartCycle := CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+END_IF
+
+IF ActState = StateStackingDone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+StopCycle				:= ActState = StateNone;
+END_METHOD

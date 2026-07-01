@@ -1,0 +1,333 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferProducts_XuToChain_WithCarrierPlatesFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecuteWithPrepare
+VAR_INPUT
+	xuUnit					: IXuUnit_ForChain_Transfer_Commands;
+	chain					: IChain_WithCarrierPlates_TransferIntake_Commands;
+END_VAR
+VAR
+	ActState :
+	(
+		StateNone							:= 0,
+		StatePrepareTransfer				:= 50,
+		StateCheckPayload					:= 100,
+		StateXuUnitMovesToHalfwayTakeover	:= 200,
+		StateXuUnitMovesToTakeover			:= 300,
+		StateXuUnitReleasesProducts			:= 400,
+		StateXuUnitMovesToParking			:= 500,
+		StateFreeChain						:= 600,
+		StateFinal							:= 999
+	) DINT;
+
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Check if a transfer is needed
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+VAR_INST
+	xuUnitVacuum		: WORD;
+	product				: ProductType;
+END_VAR
+// Xu unit has vacuum high that is needed for this Takeover position
+xuUnitVacuum	:= 0;
+CASE iParameter OF
+	1:	xuUnitVacuum.Vacuum01	:= TRUE;
+	2:	xuUnitVacuum.Vacuum02	:= TRUE;
+	3:	xuUnitVacuum.Vacuum03	:= TRUE;
+END_CASE
+
+CheckIfTransferIsNeeded	S= xuUnit.HasVacuumHigh(xuUnitVacuum);
+
+// Xu unit has at least 1 product in the gripper. We need a transfer.
+//CheckIfTransferIsNeeded	S= xuUnit.HasPayload <> enumPayload.None;
+
+// Running in semi-auto mode without setting vacuums.
+CheckIfTransferIsNeeded	S= SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums;
+
+
+
+CASE iParameter OF
+	1:
+		product					:= xuUnit.ProductData_Get(product := 10);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 7);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 4);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 1);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+	2:
+		product					:= xuUnit.ProductData_Get(product := 11);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 8);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 5);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 2);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+	3:
+		product					:= xuUnit.ProductData_Get(product := 12);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 9);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 6);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+		product					:= xuUnit.ProductData_Get(product := 3);
+		CheckIfTransferIsNeeded	R= product.ToShute;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition	:= iParameter;	// Copy parameters
+
+IF ActState = StateNone OR ActState = StatePrepareTransfer THEN
+	ActState := StateCheckPayload;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	xuUnitVacuum		: WORD;
+	result				: ARRAY[1..2] OF BOOL;
+	almostSafe			: BOOL;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StatePrepareTransfer:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			xuUnitVacuum	:= 0;
+			CASE takeoverPosition OF
+				1:	xuUnitVacuum.Vacuum01	:= TRUE;
+				2:	xuUnitVacuum.Vacuum02	:= TRUE;
+				3:	xuUnitVacuum.Vacuum03	:= TRUE;
+			END_CASE
+			xuUnit.ForceReleaseLock();
+		END_IF
+
+		IF xuUnit.HasVacuumHigh(xuUnitVacuum)
+		OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums)
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			IF  chain.InPosition(10)
+			AND chain.ProductsNeeded
+			THEN
+				result[1]	:= result[1] OR_ELSE xuUnit.MoveToInFrontOfChain();
+			END_IF
+			IF  chain.InExactPosition()
+			AND chain.ProductsNeeded
+			THEN
+				result[2]	:= result[2] OR_ELSE chain.XuOpenProductCarriers();
+			END_IF
+		END_IF
+
+	StateCheckPayload:
+		// Check if all products are present on the Xu Unit gripper.
+		// Or the cycle has just started, the first cycle it is allowed to transfer an incomplete gripper.
+		IF State.Changed THEN
+			xuUnitVacuum	:= 0;
+			CASE takeoverPosition OF
+				1:	xuUnitVacuum.Vacuum01	:= TRUE;
+				2:	xuUnitVacuum.Vacuum02	:= TRUE;
+				3:	xuUnitVacuum.Vacuum03	:= TRUE;
+			END_CASE
+		END_IF
+
+		IF xuUnit.HasVacuumHigh(xuUnitVacuum)
+//		IF xuUnit.HasPayload = enumPayload._All
+		OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums)
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			ActState := StateXuUnitMovesToHalfwayTakeover;
+		END_IF
+
+	StateXuUnitMovesToHalfwayTakeover:
+		IF State.Changed THEN
+			;//xuUnit.MoveToHalfway();
+		END_IF
+
+		IF  chain.InPosition(10)
+		AND chain.ProductsNeeded
+		THEN
+			result[1]	:= result[1] OR_ELSE xuUnit.MoveToInFrontOfChain();
+		END_IF
+
+		IF  chain.InExactPosition()
+		AND chain.ProductsNeeded
+//		AND xuUnit.ShiftToTransfer()
+		THEN
+			IF chain.XuOpenProductCarriers() THEN
+				ActState := StateXuUnitMovesToTakeover;
+			END_IF
+		END_IF
+
+	StateXuUnitMovesToTakeover:
+		IF xuUnit.MoveToTakeover(1) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			xuUnitVacuum	:= 0;
+			CASE takeoverPosition OF
+				1:
+
+					chain.CopyProductStatus(productNo	:= 1,	product		:= xuUnit.ProductData_Get(product := 10,	clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 2,	product		:= xuUnit.ProductData_Get(product := 7,		clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 3,	product		:= xuUnit.ProductData_Get(product := 4,		clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 4,	product		:= xuUnit.ProductData_Get(product := 1,		clearLastProduct := TRUE, clearData := TRUE));
+					xuUnitVacuum.Vacuum01	:= TRUE;
+
+				2:
+					chain.CopyProductStatus(productNo	:= 1,	product		:= xuUnit.ProductData_Get(product := 11,	clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 2,	product		:= xuUnit.ProductData_Get(product := 8,		clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 3,	product		:= xuUnit.ProductData_Get(product := 5,		clearLastProduct := TRUE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 4,	product		:= xuUnit.ProductData_Get(product := 2,		clearLastProduct := TRUE, clearData := TRUE));
+					xuUnitVacuum.Vacuum02	:= TRUE;
+				3:
+					chain.CopyProductStatus(productNo	:= 1,	product		:= xuUnit.ProductData_Get(product := 12,	clearLastProduct := FALSE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 2,	product		:= xuUnit.ProductData_Get(product := 9,		clearLastProduct := FALSE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 3,	product		:= xuUnit.ProductData_Get(product := 6,		clearLastProduct := FALSE, clearData := TRUE));
+					chain.CopyProductStatus(productNo	:= 4,	product		:= xuUnit.ProductData_Get(product := 3,		clearLastProduct := FALSE, clearData := TRUE));
+					xuUnitVacuum.Vacuum03	:= TRUE;
+			END_CASE
+
+(*			// Not possible for a direct copy of the status because the shift cylincer on the Xu shifts the products around.
+			chain.CopyProductStatus(productNo	:= 1,	product		:= xuUnit.ProductData_Get(product := 1));
+			chain.CopyProductStatus(productNo	:= 2,	product		:= xuUnit.ProductData_Get(product := 4));
+			chain.CopyProductStatus(productNo	:= 3,	product		:= xuUnit.ProductData_Get(product := 2));
+			chain.CopyProductStatus(productNo	:= 4,	product		:= xuUnit.ProductData_Get(product := 5));
+			chain.CopyProductStatus(productNo	:= 5,	product		:= xuUnit.ProductData_Get(product := 3));
+			chain.CopyProductStatus(productNo	:= 6,	product		:= xuUnit.ProductData_Get(product := 6));
+*)
+(*
+			FOR i := 1 TO GVL_Constants.ChainProductsForXuUnit DO
+				chain.CopyProductStatus(
+					productNo	:= i,
+					product		:= xuUnit.ProductData_Get(product := i));
+			END_FOR
+*)
+
+		END_IF
+
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		result[1]	:= result[1] OR_ELSE xuUnit.ReleaseProducts(xuUnitVacuum);
+		result[2]	:= result[2] OR_ELSE chain.XuCloseProductCarriers();
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		IF takeoverPosition = 3
+		OR xuUnit.HasPayload = enumPayload.None
+		THEN
+			result[1]	:= result[1] OR_ELSE xuUnit.MoveToParking(almostSafe => almostSafe);
+		ELSE
+			result[1]	:= result[1] OR_ELSE xuUnit.MoveToHalfway();
+		END_IF
+
+		IF xuUnit.InSafePosForChain THEN
+			ActState := StateFreeChain;
+		END_IF
+
+	StateFreeChain:
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		IF takeoverPosition = 3
+		OR xuUnit.HasPayload = enumPayload.None
+		THEN
+			result[1]	:= result[1] OR_ELSE xuUnit.MoveToParking(almostSafe => almostSafe);
+		ELSE
+			result[1]	:= result[1] OR_ELSE xuUnit.MoveToHalfway();
+		END_IF
+
+		result[2]	:= result[2] OR_ELSE chain.TransferComplete(takeoverPosition);
+//		AND xuUnit.ShiftToTakeout()
+
+		IF (result[1] OR almostSafe) AND result[2] THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Prepare transfer of products while Y axis is still moving
+METHOD PUBLIC PrepareTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+takeoverPosition	:= iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StatePrepareTransfer;
+END_IF
+
+PrepareTransfer := CommandLock.Release(__POUNAME());
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

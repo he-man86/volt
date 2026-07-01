@@ -1,0 +1,354 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK BoxCenterUnit_WithPneumaticFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IBoxCenterUnit_WithPneumatic_Commands
+VAR_INPUT
+	fanucAboveBoxArea			: BOOL;
+
+	sensorBoxInFillPosition		: DigitalSensorWithTriggersFB(invert := TRUE);
+
+	OpenBoxLongSideIn			: ARRAY[1..2] OF BOOL;
+	OpenBoxLongSideOut			: ARRAY[1..2] OF BOOL;
+	OpenBoxShortSideIn			: ARRAY[1..2] OF BOOL;
+	OpenBoxShortSideOut			: ARRAY[1..2] OF BOOL;
+	{attribute 'symbol' := 'readwrite'}	OpenBoxLongSide				: Cylinder_53ValveFB;
+	{attribute 'symbol' := 'readwrite'}	OpenBoxShortSide			: Cylinder_53ValveFB;
+	{attribute 'symbol' := 'readwrite'}	Lift						: Cylinder_53ValveFB;
+END_VAR
+VAR_IN_OUT
+	Data						: BoxCenterUnit_WithPneumatic_DataType;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}	NumberOfLayersInBox		: UINT;
+END_VAR
+VAR
+	Box							: BoxFB;
+
+	// Internal property vars
+	{attribute 'hide'}	_LastSheetPosition		: REAL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Add products or sheets to box
+METHOD PUBLIC AddToBox : BOOL
+VAR_INPUT
+	item : enumBoxItem;
+END_VAR
+%FOLDER Commands
+AddToBox	:= Box.AddItem(item);
+END_METHOD
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..1] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxCenterUnit_Errors,
+	errorId			:= ,
+	alarmCondition	:= ,
+	alarmDelay		:= 2.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PUBLIC BoxRemoved
+%FOLDER Commands
+Box.BoxRemoved();
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+END_VAR
+NumberOfLayersInBox		:= LayerIndex;		// For visu
+
+Data.NumberOfLayers		:= LIMIT(1, Data.NumberOfLayers, GVL_Constants_BFU.MaxNumberOfStacksInBox);
+
+Box();
+
+sensorBoxInFillPosition();
+
+Lift(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
+	textRefId				:= BoxCenterUnit_Errors,
+	errorId_SensorOut		:= 1,
+	errorId_SensorIn		:= 2,
+	alarmEnable				:= BFU.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	rGiveAirToBothOutputs	:= 1,
+	xEnableOutputs			:= BFU.MainAirValve.Map());
+
+OpenBoxLongSide(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
+	textRefId				:= BoxCenterUnit_Errors,
+	errorId_SensorOut		:= 3,
+	errorId_SensorIn		:= 4,
+	alarmEnable				:= BFU.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= Arrays.Bool_All(OpenBoxLongSideOut, TRUE),
+	inputIn					:= Arrays.Bool_All(OpenBoxLongSideIn, TRUE),
+	rGiveAirToBothOutputs	:= 0.3,
+	xEnableOutputs			:= BFU.MainAirValve.Map());
+
+OpenBoxShortSide(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
+	textRefId				:= BoxCenterUnit_Errors,
+	errorId_SensorOut		:= 5,
+	errorId_SensorIn		:= 6,
+	alarmEnable				:= BFU.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= Arrays.Bool_All(OpenBoxShortSideOut, TRUE),
+	inputIn					:= Arrays.Bool_All(OpenBoxShortSideIn, TRUE),
+	rGiveAirToBothOutputs	:= 0.3,
+	xEnableOutputs			:= BFU.MainAirValve.Map());
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+OpenBoxReset();
+Lift.Reset();
+
+Box.BoxRemoved();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED OpenBoxGoIn : BOOL
+OpenBoxGoIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
+END_METHOD
+
+METHOD PROTECTED OpenBoxReset : BOOL
+OpenBoxLongSide.Reset();
+OpenBoxShortSide.Reset();
+OpenBoxReset := TRUE;
+END_METHOD
+
+METHOD PUBLIC PrepareBoxForFilling : BOOL
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		IF OpenBoxGoIn() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		IF Lift.GoOut() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		IF OpenBoxLongSide.GoOut() AND OpenBoxShortSide.GoOut() THEN
+			Box.InitNewBox(setNumberOfLayers := Data.NumberOfLayers);
+			PrepareBoxForFilling := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PUBLIC ReleaseBox : BOOL
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Release box clamp
+		IF OpenBoxReset() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:	// Move out of the box
+		IF fanucAboveBoxArea THEN
+			Lift.GoOut();
+		ELSIF  sensorBoxInFillPosition.Falling
+		AND NOT (OpenBoxLongSide.IsIn OR OpenBoxShortSide.IsIn OR OpenBoxLongSide.MapIn() OR OpenBoxShortSide.MapIn())
+		THEN	// Box is moved up with lift
+			Increment.AnyInt(localState);
+		ELSIF Lift.GoIn() THEN	// Move up
+			OpenBoxGoIn();
+			ReleaseBox := CommandLock.Release(__POUNAME());
+		END_IF
+
+	2:	// Box is moving up, move lift back down
+		IF Lift.GoOut() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:	// Move flaps in
+		IF OpenBoxGoIn()
+		OR Timer.Set(TRUE, 3)
+		THEN
+			Timer.Reset();
+			Increment.AnyInt(localState, -2);
+		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		IF BoxCanBeFilled THEN
+			OpenBoxLongSide.GoOut();
+			OpenBoxShortSide.GoOut();
+			Lift.GoOut();
+			Reset := CommandLock.Release(__POUNAME());
+		ELSE
+			Box.SetToChangeNeeded();
+			Timer.Reset();
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:	// Release box clamp
+		IF OpenBoxReset() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:	// Move out of the box
+		IF fanucAboveBoxArea THEN
+			Lift.GoOut();
+		ELSIF  sensorBoxInFillPosition.Falling
+		AND NOT (OpenBoxLongSide.IsIn OR OpenBoxShortSide.IsIn OR OpenBoxLongSide.MapIn() OR OpenBoxShortSide.MapIn())
+		THEN	// Box is moved up with lift
+			Increment.AnyInt(localState);
+		ELSIF Lift.GoIn() THEN	// Move up
+			OpenBoxGoIn();
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+
+	3:	// Box is moving up, move lift back down
+		IF Lift.GoOut() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Move flaps in
+		IF OpenBoxGoIn()
+		OR Timer.Set(TRUE, 3)
+		THEN
+			Timer.Reset();
+			Increment.AnyInt(localState, -2);
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD SetBoxStateToChangeNeeded : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR_INST
+	result		: BOOL;
+END_VAR
+%FOLDER Commands
+Stop := SUPER^.Stop();
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY BoxAreaFreeForFanuc : BOOL
+%FOLDER Properties
+GET
+BoxAreaFreeForFanuc := Lift.IsOut;	// down
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY BoxCanBeFilled : BOOL
+%FOLDER Properties
+GET
+BoxCanBeFilled := BoxAreaFreeForFanuc
+			AND	OpenBoxLongSide.IsOut
+			AND OpenBoxShortSide.IsOut
+			AND BoxInFillPosition.IsActive
+			AND (Box.State = enumBoxState.ProductsNeeded OR Box.State = enumBoxState.SheetNeeded)
+			AND NOT BoxIsFull;
+END_GET
+END_PROPERTY
+
+PROPERTY PUBLIC BoxInFillPosition : IDigitalSensor
+%FOLDER Properties
+GET
+BoxInFillPosition	:= sensorBoxInFillPosition;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY BoxIsFull : BOOL
+%FOLDER Properties
+GET
+BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
+END_GET
+END_PROPERTY
+
+// Indicates the next item which is needed in the box, or none when box is not ready.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
+%FOLDER Properties
+GET
+CASE Box.State OF
+	enumBoxState.ProductsNeeded:
+		BoxItemNeeded	:= enumBoxItem.ProductLayer;
+	enumBoxState.SheetNeeded:
+		BoxItemNeeded	:= enumBoxItem.Sheet;
+	ELSE
+		BoxItemNeeded	:= enumBoxItem.None;
+END_CASE
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY LayerIndex : UINT
+%FOLDER Properties
+GET
+LayerIndex := Box.ActualNumberOfLayers;
+END_GET
+END_PROPERTY

@@ -1,0 +1,15 @@
+// The payload (data) of a hardware button subject that is sent to an observer.
+INTERFACE ISubjectHWButtonsPayload
+EXTENDS ISubjectBasePayload
+
+// Binary state of the button: either pushed or not pushed
+{attribute 'monitoring' := 'call'}
+PROPERTY ButtonState : BOOL
+END_PROPERTY
+
+// Enumeration which button is pushed
+{attribute 'monitoring' := 'call'}
+PROPERTY ButtonType : enumHWButtons
+END_PROPERTY
+
+END_INTERFACE

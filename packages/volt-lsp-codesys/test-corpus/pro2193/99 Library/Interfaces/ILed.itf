@@ -1,0 +1,33 @@
+INTERFACE ILed
+
+// Start flashing the led
+METHOD PUBLIC Flash
+END_METHOD
+
+// Force turn the led off
+METHOD PUBLIC LedTestOff
+END_METHOD
+
+// Force turn the led on
+METHOD PUBLIC LedTestOn
+END_METHOD
+
+// Stop forcing the led state
+METHOD PUBLIC LedTestStop
+END_METHOD
+
+// Turn the led off
+METHOD PUBLIC Off
+END_METHOD
+
+METHOD PUBLIC SetFlashingFrequency
+VAR_INPUT
+	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
+END_VAR
+END_METHOD
+
+// Turn the led on
+METHOD PUBLIC Solid
+END_METHOD
+
+END_INTERFACE

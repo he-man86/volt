@@ -1,0 +1,10 @@
+// Select mode when machine runs in operation mode: SemiAuto
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumSemiAutoModeType :
+(
+	WithVacuums,		// Vacuum valves are set. Vacuum inputs are awaited. IML vacuums are always enabled.
+	WithoutVacuums,		// Vacuum valves are not set. IML vacuums are always enabled.
+	LabelAdjustment		// Only place labels in the mould to adjust label positioning.
+);
+END_TYPE

@@ -1,0 +1,166 @@
+// Control a standard vacuum pump configuration
+FUNCTION_BLOCK VacuumPumpFB
+EXTENDS ActuatorWithAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	xMachineRunning				: BOOL;		// Machine is running in automatic mode
+	xMainAirValve				: BOOL;		// Main air valve is switched on
+	xManualOnOffSwitch			: BOOL;
+	xThermalInput				: BOOL;		// Input: High when thermal contact switched
+	xPhaseCheck					: BOOL;		// Input: High when the fases are in correct order
+	xLowVacuumtankFull			: BOOL;		// Input: Low vacuum tank is full
+	xHighVacuumtankFull			: BOOL;		// Input: High vacuum tank is full
+	xOptionDisableWithAirButton	: BOOL;		// Map as persistent variable. Option to also disable pump together with main air valve.
+	xOptionDisableVacuumPump	: BOOL;		// Map as presistent variable. Option to disable vacuum pump 2 (Low) and run only High vacuum
+
+	errorId_PhaseCheck			: WORD;		// G_dwAlarms.05	0005 - Three-phase power in wrong order. Change phase connection.
+	errorId_Thermal				: WORD;		// G_dwAlarms.06	0006 - Thermal contact Vacuum pump switch off.
+	errorId_TooMuchRequested	: WORD;		// G_dwAlarms.07	0007 - Too much vacuum requested. Vacuum level dropped.
+	errorId_HighTankDoesNotFill	: WORD;		// G_dwAlarms.13	0013 - Takes too long before high vacuum tank is full.
+	errorId_Maintenance			: WORD;		// G_dwWarnings.28	0428 - Warnings: Vacuum Pump ≥  3000 hours of operation. Check manual for maintenance.
+END_VAR
+VAR_IN_OUT
+	TotalRunningTime			: UDINT;	// Map as persistent var (je mag geen retain vars gebruiken in FB's, daarom als IN_OUT var)
+	TotalNumberOfStarts			: UDINT;	// Map as persistent var
+END_VAR
+VAR_OUTPUT
+	xVacuumpumpRunning			: BOOL;		// High when vacuum pump output is high
+END_VAR
+VAR
+	VacuumPump					: ActuatorFB;
+	SwitchVacuumTanks			: ActuatorFB;
+	PhaseCheckAlarm				: SetErrorFB;
+	ThermalAlarm				: SetErrorFB;
+	TooMuchRequestedAlarm		: SetErrorFB;
+	HighTankDoesNotFillAlarm	: SetErrorFB;
+	MaintenanceAlarm			: SetErrorFB;
+
+	Trig_OnOffSwitch			: RisingTriggerFB;
+	Trig_MainAirValve			: TriggerFB;
+	Trig_StartVacuum			: RisingTriggerFB;
+	xVacuumReached				: BOOL;
+END_VAR
+VAR CONSTANT
+	udiVacuumPumpServiceInterval: UDINT := 3000;	// Service interval for vacuum pumps. Default is 3000 hours or 1 year, whichever comes first.
+END_VAR
+
+SUPER^();
+
+Trig_MainAirValve.Call(xMainAirValve);
+VacuumPump();
+SwitchVacuumTanks();
+xVacuumpumpRunning	:= VacuumPump.Map();
+
+IF PhaseCheckAlarm.active OR ThermalAlarm.active OR xOptionDisableVacuumPump THEN
+	VacuumPump.Reset();
+ELSE
+	IF xOptionDisableWithAirButton THEN
+		IF Trig_MainAirValve.Q_Rising THEN	// Vacuumpump goes on at the same time as the main air valve.
+			VacuumPump.Set();
+		END_IF
+		IF Trig_MainAirValve.Q_Falling THEN	// Reset op luchtknop als Functie actief is anders alleen op tijd of noodstop.
+			VacuumPump.Reset();
+		END_IF
+	END_IF
+	IF xMachineRunning THEN
+		VacuumPump.Set();
+	ELSE
+		IF Trig_OnOffSwitch.Rising(xManualOnOffSwitch) THEN
+			VacuumPump.SetOrReset(NOT xVacuumpumpRunning);
+		END_IF
+	END_IF
+END_IF
+
+// Alarm wordt pas gegenereerd als er minimaal 1 keer hoog vacuum is gezien.
+xVacuumReached		S= Trig_StartVacuum.Rising(xVacuumpumpRunning AND xHighVacuumtankFull);
+xVacuumReached		R= NOT xVacuumpumpRunning;
+
+// ---------- Measure total running time and number of starts of vacuum pump ------------
+VacuumPump.MeasureOnTime.SetExternalSecondsReference(TotalRunningTime);
+VacuumPump.MeasureOnTime.SetExternalCyclesReference(TotalNumberOfStarts);
+
+
+// ---------- Switch pump from low to high vacuum tank (optional) ------------
+SwitchVacuumTanks.SetOrReset(xLowVacuumtankFull AND xVacuumpumpRunning);		// When the Low vacuumtank has reached level, switch the pump to the High vacuumtank.
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+PhaseCheckAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= NOT xPhaseCheck,
+	alarmDelay		:= 0.5,
+	errorId			:= errorId_PhaseCheck,			// 002 - Change phase.
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.FastStop,
+	active			=> );
+
+ThermalAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= xThermalInput,
+	alarmDelay		:= 1.0,
+	errorId			:= errorId_Thermal,				// 007 - Thermal contact Vacuum pump switch off
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.EndCycle,
+	active			=> );
+
+MaintenanceAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= TotalRunningTime >= udiVacuumPumpServiceInterval * 60 * 60,
+	alarmDelay		:= 0.0,
+	errorId			:= errorId_Maintenance,			// Maintenance of vacuum pump is required.
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+TooMuchRequestedAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= xVacuumReached AND VacuumPump.Map() AND NOT xHighVacuumtankFull,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_TooMuchRequested,	// Too much vacuum requested. Vacuum level dropped.
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+HighTankDoesNotFillAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= NOT xVacuumReached AND VacuumPump.Map(),
+	alarmDelay		:= 60.0,
+	errorId			:= errorId_HighTankDoesNotFill,	// 0013 - Takes too long before high vacuum tank is full
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC Map : BOOL
+Map := VacuumPump.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapSwitchTanks : BOOL
+MapSwitchTanks := SwitchVacuumTanks.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD PUBLIC Reset
+VacuumPump.Reset();
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC Set : BOOL
+// no implementation
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+// no implementation
+END_METHOD

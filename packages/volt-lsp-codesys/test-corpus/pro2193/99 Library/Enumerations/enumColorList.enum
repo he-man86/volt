@@ -1,0 +1,26 @@
+// A list of defined colors that the control panel can show
+// Source: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumColorList :
+(							// HEX		R,G,B
+	Silver		:= 0,		// #C0C0C0	208,208,208
+	Lime		:= 1,		// #00FF00	0,255,0
+	Orange		:= 2,		// #FF6000	255,96,0		// Orange is not in standard web colors; see Brink house style guide
+	Red			:= 3,		// #FF0000	255,0,0
+	Yellow		:= 4,		// #FFFF00	255,255,0
+	Blue		:= 5,		// #00609E	0,96,158		// Blue is different from standard blue; see Brink house style guide
+	Purple		:= 6,		// #800080	128,0,128
+	White		:= 7,		// #FFFFFF	255,255,255
+	Gray		:= 8,		// #808080	128,128,128
+	Black		:= 9,		// #000000	0,0,0
+	Maroon		:= 10,		// #800000	128,0,0
+	Olive		:= 11,		// #808000	128,128,0
+	Green		:= 12,		// #008000	0,128,0
+	Aqua		:= 13,		// #00FFFF	0,255,255
+	Teal		:= 14,		// #008080	0,128,128
+	Navy		:= 15,		// #000080	0,0,128
+	Fuchsia		:= 16,		// #FF00FF	255,0,255
+	LightBlue	:= 17		// #0000FF	0,0,255			// Standard blue is renamed to LightBlue
+);
+END_TYPE

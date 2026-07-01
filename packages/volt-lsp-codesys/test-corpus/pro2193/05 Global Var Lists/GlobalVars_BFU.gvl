@@ -1,0 +1,10 @@
+{attribute 'symbol' := 'none'}
+{attribute 'qualified_only'}
+{attribute 'analysis' := '-33'}	// Unused Variable
+VAR_GLOBAL
+	Reset					: BOOL;					// Global reset active. From hardware button or input from visualisation
+	EnableMainvalve			: BOOL;
+	EnableServoDrives		: BOOL;
+
+	fbModuleManager			: ModuleManagerFB(name := 'BFU');	// Keep a record of different kinds of modules in the machine.
+END_VAR

@@ -1,0 +1,456 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK ChainControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	transferRejects				: IModuleTransferExecute;
+	transferProducts			: IModuleTransferExecute;
+	chain						: IChain_Base_Commands;
+	camera						: IVisionSystem_Base_Commands;
+	statistics					: IAddProductionStats;
+	xuUnit						: IModuleHasPayload;
+END_VAR
+VAR
+	automaticOperationStarted	: BOOL;
+	awaitingTrigger				: BOOL;
+
+	ActState :
+	(
+		StateNone						:= 0,
+		StateCameraTakingPicture		:= 100,
+		StateAwaitingCameraResult		:= 200,
+		StateAwaitingActivatedUnits		:= 300,
+		StateMovingChain				:= 400
+	) DINT;
+END_VAR
+VAR CONSTANT
+	OnTheFlyTriggerOffset		: UINT := 1;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED AwaitingActivatedUnits
+VAR_INST
+	result				: ARRAY[1..4] OF BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+result[1]	:= result[1] OR_ELSE HandleIntake();
+result[2]	:= result[2] OR_ELSE HandleOuttake();
+result[3]	:= result[3] OR_ELSE HandleRejects();
+result[4]	:= result[4] OR_ELSE CheckImageBuffer();
+
+IF Arrays.Bool_All(result, TRUE) AND SER.SemiAutoNextStep THEN
+
+	IF chain.HasPayload THEN		// If there is any product on the chain, always move another step
+		ActState := StateMovingChain;
+	ELSE
+		ActState := StateNone;
+	END_IF
+
+END_IF
+END_METHOD
+
+METHOD PROTECTED AwaitingCameraResult
+VAR_INST
+	product			: REFERENCE TO ProductType;
+	NoResultTimer	: BTON;
+	debugCounter	: UINT;
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	IF chain.ZUnitIsAfterReject THEN
+		product REF= chain.ReturnProduct(position := PersistentVars.RecipeVars.chainPos_Reject[1]);
+	ELSE
+		product REF= chain.ReturnProduct(position := PersistentVars.RecipeVars.chainPos_ZUnit[GVL_Constants.ChainProductsForZUnit]);
+	END_IF
+	NoResultTimer.Reset();
+END_IF
+
+// No product on this position
+IF NOT __ISVALIDREF(product) THEN
+	ActState := StateAwaitingActivatedUnits;
+	RETURN;
+END_IF
+
+IF NOT product.ResultPending THEN
+
+	IF statistics <> 0 THEN
+		statistics.Count(product);
+	END_IF
+
+	ActState := StateAwaitingActivatedUnits;
+	RETURN;
+END_IF
+
+// Reject product if no response from camera
+IF NoResultTimer.Set(In := TRUE, Pt := 2) THEN
+	FOR i := GVL_Constants.MaxRejectReasonsMisc + 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+		product.RejectReason[i]			:= TRUE;
+		product.RejectReasonIgnored[i]	:= VisionSystems.Data[1].overrideRejectStatus;		// Copy 'ignore camera result' bool to the product on the chain
+	END_FOR
+
+	product.ResultPending	:= FALSE;		// Will cause method to return at line 23
+	Increment.AnyInt(debugCounter);			// Todo: there is no alarm message yet when this happens !!
+END_IF
+END_METHOD
+
+METHOD PROTECTED CameraTakingPicture
+%FOLDER States
+ActState := StateAwaitingCameraResult;
+END_METHOD
+
+// Image buffer must be empty at least once every 30 seconds
+METHOD PROTECTED CheckImageBuffer : BOOL
+%FOLDER Methods
+IF State.Changed THEN
+	IF NOT chain.StopToCheckImageBuffer THEN
+		CheckImageBuffer	:= TRUE;
+		RETURN;
+	END_IF
+END_IF
+
+IF  chain.InExactPosition()				// Standstill
+AND NOT chain.StopToCheckImageBuffer	// all product on chain have a camera result
+AND NOT camera.Busy						// camera buffer is empty and no more results are coming
+THEN
+	CheckImageBuffer		:= TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+
+HandleCameraTrigger();
+
+HandleCameraResults();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+awaitingTrigger				:= FALSE;
+
+ActState					:= StateNone;
+EStop						:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR
+END_VAR
+CASE ActState OF
+	StateNone:							;
+	StateCameraTakingPicture:			CameraTakingPicture();
+	StateAwaitingCameraResult:			AwaitingCameraResult();
+	StateAwaitingActivatedUnits:		AwaitingActivatedUnits();
+	StateMovingChain:					MovingChain();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED HandleCameraResults : BOOL
+VAR_INST
+	oldestProduct			: REFERENCE TO ProductType;
+	cameraResults			: ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+	noValidProductForResult	: INT;
+END_VAR
+VAR
+	i						: USINT;
+END_VAR
+%FOLDER Methods
+// Wait for vision system to have a result ready
+IF NOT camera.CameraResultReady THEN
+	RETURN;
+END_IF
+
+// Copy results locally
+cameraResults	:= camera.Results;
+
+// Get oldest (furthest) product on the chain without a valid camera result
+oldestProduct	REF= chain.OldestProductWaitingForResult;
+
+// Stop and disregard any results if no product on the chain is found
+IF NOT __ISVALIDREF(oldestProduct) THEN
+	noValidProductForResult := noValidProductForResult + 1;	// debug counter
+	RETURN;
+END_IF
+
+// Copy camera results to the product on the chain
+FOR i := 1 TO GVL_Constants.MaxRejectReasonsCamera DO	// Start from 1!
+	oldestProduct.RejectReason[i + GVL_Constants.MaxRejectReasonsMisc] := cameraResults[i];
+END_FOR
+
+// Copy 'ignore camera result' bool to the product on the chain
+FOR i := GVL_Constants.MaxRejectReasonsMisc + 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+	oldestProduct.RejectReasonIgnored[i] := cameraResults[0];
+END_FOR
+
+oldestProduct.ResultPending := FALSE;
+END_METHOD
+
+METHOD PROTECTED HandleCameraTrigger : BOOL
+VAR_INST
+	sensorValidTrigger		: TriggerFB;
+	product					: REFERENCE TO ProductType;
+	result					: enumResultTakePicture;
+	debugNoTriggeredProduct	: USINT;
+END_VAR
+VAR
+END_VAR
+%FOLDER Methods
+sensorValidTrigger.Call(CLK:= Chain.TriggerSensorValid);
+
+awaitingTrigger	S= sensorValidTrigger.Q_Rising AND automaticOperationStarted;
+
+IF awaitingTrigger THEN
+
+	IF sensorValidTrigger.Q_Rising THEN
+		product					REF= chain.OldestProductWaitingForTrigger;
+		IF NOT __ISVALIDREF(product) THEN
+			awaitingTrigger		:= FALSE;
+			debugNoTriggeredProduct := debugNoTriggeredProduct + 1;
+			RETURN;
+		END_IF
+	END_IF
+
+	IF NOT PersistentVars.RecipeVars.EnableVision
+	OR NOT product.Present
+	THEN
+		product.TriggerPending	:= FALSE;
+		product					REF= 0;
+		awaitingTrigger			:= FALSE;
+		RETURN;
+	END_IF
+
+	IF sensorValidTrigger.Q_Falling THEN
+		product.TriggerPending	:= FALSE;
+		product.UncountedReject	:= TRUE;
+		product					REF= 0;
+		awaitingTrigger			:= FALSE;
+		camera.CancelTakePicture();
+		RETURN;
+	END_IF
+
+	CASE (result := camera.TakePicture()) OF
+		enumResultTakePicture.Busy:
+			;
+		enumResultTakePicture.Ok:
+			product.ResultPending	:= TRUE;
+		enumResultTakePicture.NoPicTaken:
+			;
+		enumResultTakePicture.Error:
+			product.UncountedReject	:= TRUE;
+	END_CASE
+
+	IF result <> enumResultTakePicture.Busy THEN
+		product.TriggerPending	:= FALSE;
+		product					REF= 0;
+		result					:= enumResultTakePicture.Busy;
+		awaitingTrigger			:= FALSE;
+	END_IF
+
+END_IF
+END_METHOD
+
+METHOD PROTECTED HandleIntake : BOOL
+VAR_INST
+	transferInfeedRequired		: BOOL;
+	setProductsNeededOnce		: BOOL;
+END_VAR
+%FOLDER Methods
+IF State.Changed THEN
+	setProductsNeededOnce		:= TRUE;
+
+	// Check if operation mode is 'Cleaning' and the Xu Unit gripper is empty
+	IF SER.OperationMode = SER_OperationModeType.CleaningMode
+	AND xuUnit.HasPayload = enumPayload.None
+	THEN
+		transferInfeedRequired	:= FALSE;
+	ELSE
+		transferInfeedRequired	:= chain.IntakeIsBlocked;
+	END_IF
+
+END_IF
+
+IF NOT transferInfeedRequired THEN
+	HandleIntake := TRUE;
+	RETURN;
+END_IF
+
+IF NOT chain.InPosition(10) THEN
+	RETURN;
+END_IF
+
+chain.ProductsNeeded		S= setProductsNeededOnce;
+setProductsNeededOnce		:= FALSE;
+
+IF  NOT chain.IntakeIsBlocked
+AND NOT chain.ProductsNeeded
+AND NOT __ISVALIDREF(chain.OldestProductWaitingForTrigger)	// For Mevisco camera system: check if we have all results every time the chain stops
+AND NOT __ISVALIDREF(chain.OldestProductWaitingForResult)	// For Mevisco camera system: check if we have all results every time the chain stops
+THEN
+	HandleIntake := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED HandleOuttake : BOOL
+VAR_INST
+	transferRequired	: BOOL;
+	result				: BOOL;
+END_VAR
+%FOLDER Methods
+IF State.Changed THEN
+	transferRequired	:= transferProducts.CheckIfTransferIsNeeded();
+	result				:= FALSE;
+END_IF
+
+IF NOT transferRequired THEN
+	HandleOuttake		:= TRUE;
+	RETURN;
+END_IF
+
+IF NOT chain.InPosition(10) THEN
+	RETURN;
+END_IF
+
+result := result OR_ELSE transferProducts.ExecuteTransfer();
+
+IF result
+AND NOT __ISVALIDREF(chain.OldestProductWaitingForTrigger)	// For Mevisco camera system: check if we have all results every time the chain stops
+AND NOT __ISVALIDREF(chain.OldestProductWaitingForResult)	// For Mevisco camera system: check if we have all results every time the chain stops
+THEN
+	HandleOuttake		:= TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED HandleRejects : BOOL
+VAR_INST
+	transferRequired	: BOOL;
+	result				: BOOL;
+END_VAR
+%FOLDER Methods
+IF State.Changed THEN
+	transferRequired	:= transferRejects.CheckIfTransferIsNeeded();
+END_IF
+
+IF NOT transferRequired THEN
+	HandleRejects		:= TRUE;
+	RETURN;
+END_IF
+
+IF NOT chain.InPosition(10.0) THEN
+	RETURN;
+END_IF
+
+IF result := transferRejects.ExecuteTransfer() THEN
+	HandleRejects		:= TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED MovingChain
+VAR_INST
+	product					: REFERENCE TO ProductType;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	product						REF= chain.ReturnProduct(position := MAX(PersistentVars.RecipeVars.chainPos_Camera, 1));
+	IF __ISVALIDREF(product) THEN
+		product.TriggerPending	:= TRUE;
+	END_IF
+END_IF
+
+IF chain.MoveStep() THEN
+	ActState := StateCameraTakingPicture;
+END_IF
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := SEL(HMI.SemiAutoMode = enumSemiAutoModeType.LabelAdjustment, TRUE, FALSE);
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+
+// Products will fall if they are still present on the Chain, and you start Semi-automatic mode
+IF  ShouldStart
+AND operationMode = SER_OperationModeType.SemiAuto
+THEN
+	chain.InvalidateProduct(0);	// Reject all products on the Chain
+END_IF
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	automaticOperationStarted	:= TRUE;
+	ActState := StateAwaitingCameraResult;
+END_IF
+
+//IF ActState = StateNone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+//END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+awaitingTrigger				:= FALSE;
+
+ActState					:= StateNone;
+Stop						:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+IF ActState = StateNone AND NOT chain.HasPayload THEN
+	automaticOperationStarted	:= FALSE;
+	StopCycle					:= TRUE;
+END_IF
+END_METHOD

@@ -1,0 +1,99 @@
+// Calculate delay before Y axis starts moving towards mould. If timed perfectly, the Y axis can enter the mould just before starting to decelerate.
+FUNCTION_BLOCK CalculateParkingPosDelayFB
+VAR_INPUT
+	xDriveMoving				: BOOL;		// Y Drive moving time is measured while high
+	xMouldIsOpening				: BOOL;		// Mould starts to open (Connect to a trigger output)
+	xMouldEntryAllowed			: BOOL;		// Y Drive is allowed entry into the mould
+END_VAR
+VAR_IN_OUT
+	rMoveToParkingDelay			: REAL;		// The setting is auto-adjusted.
+END_VAR
+VAR_OUTPUT
+	xDelayValid					: BOOL;
+END_VAR
+VAR
+	MeasureMove					: StopwatchFB;
+	udiMoveDuration				: UDINT;				// Time in ms
+
+	Trig_MouldEntry				: TriggerFB;
+	TickMouldOpenStart			: CAA.TICK;
+	audiMouldOpenDuration		: ARRAY[1..5] OF UDINT;	// Time in ms
+	udiLongestMouldOpenDuration	: UDINT;				// Time in ms
+	i							: INT;
+	diDifference				: DINT;
+	udiOffset2					: UDINT;				// Time in ms. Add this constant offset to the waiting time. (for debugging)
+END_VAR
+VAR CONSTANT
+	udiOffset					: UDINT := 20;			// Time in ms. Add this constant offset to the waiting time.
+END_VAR
+
+// Calculation duration between drive move start towards waiting position, and start of deceleration
+udiMoveDuration						:= MeasureMove.Monitor(in := xDriveMoving) / 1000;
+
+// Calculate duration of moment of mould opening until the Y unit is allowed inside the mould
+IF xMouldIsOpening THEN
+	TickMouldOpenStart				:= TICKS.GetTick(FALSE);
+END_IF
+
+IF Trig_MouldEntry.Rising(CLK := xMouldEntryAllowed) AND TickMouldOpenStart <> 0 THEN
+	udiLongestMouldOpenDuration		:= 0;
+	FOR i := 1 TO 5 DO
+		audiMouldOpenDuration[i]	:= SEL(i = 5, audiMouldOpenDuration[i+1], TICKU.GetElapsedTimeInUSec(TickMouldOpenStart) / 1000);
+		udiLongestMouldOpenDuration	:= MAX(udiLongestMouldOpenDuration, audiMouldOpenDuration[i]);
+	END_FOR
+	TickMouldOpenStart				:= 0;
+END_IF
+
+{IF defined (IsSimulationMode)}
+	udiLongestMouldOpenDuration		:= 2000;
+{END_IF}
+
+IF rMoveToParkingDelay > 0
+AND udiMoveDuration > 0
+AND udiLongestMouldOpenDuration > 0
+AND SER.OperationMode <> SER_OperationModeType.SemiAuto
+THEN
+	xDelayValid						:= TRUE;
+	diDifference					:= TO_DINT(udiLongestMouldOpenDuration - udiMoveDuration + udiOffset + udiOffset2);
+	rMoveToParkingDelay				:= MAX(0, TO_REAL(diDifference) / 1000);
+ELSE
+	xDelayValid						:= FALSE;
+END_IF
+
+(*
+
+Idea: calculate Y Axis movement:
+measure until lrSetAccOut < 0
+
+	pg		: L_MC1P.L_MC1P_ProfileGenerator;
+	pg_par	: L_MC1P.L_MC1P_ProfileParameter;
+
+pg_par.lrJerkAcc	:= 500000;
+pg_par.lrJerkDec	:= 500000;
+pg_par.lrMaxAcc		:= 50000;
+pg_par.lrMaxDec		:= 50000;
+pg_par.lrMaxVel		:= 5000;
+pg_par.lrTargetPos	:= 2000;
+pg_par.lrTargetVel	:= 0;
+
+
+pg(
+	scProfileParameter	:= pg_par,
+	xExecute			:= ,
+	xAuxExecute			:= ,
+	xAbort				:= ,
+	xVelMode			:= ,
+	lrStartPos			:= 0,
+	lrStartVel			:= 0,
+	lrStartAcc			:= 0,
+	xDone				=> ,
+	xBusy				=> ,
+	xAborted			=> ,
+	xError				=> ,
+	eErrorID			=> ,
+	lrSetPosOut			=> ,
+	lrSetVelOut			=> ,
+	lrSetAccOut			=> );
+*)
+
+END_FUNCTION_BLOCK

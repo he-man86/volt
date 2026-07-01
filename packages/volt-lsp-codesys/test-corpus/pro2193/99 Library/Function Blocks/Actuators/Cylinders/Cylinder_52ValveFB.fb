@@ -1,0 +1,74 @@
+// Control a single output (e.g. a cylinder). Two sensors check if the cylinder is in position.
+{attribute 'monitoring_display' := 'Output.output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC Cylinder_52ValveFB
+EXTENDS Cylinder_BaseFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+END_VAR
+
+// Execute base cylinder fb
+SUPER^();
+
+// Instantiate the output
+Output();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+// Set the alarm messages
+SetSensorOutAlarm(	inputOut XOR Output.Map());
+SetSensorInAlarm(	inputIn XOR NOT Output.Map());
+END_METHOD
+
+// The cylinder moves in. Returns true when cylinder is in.
+METHOD PUBLIC FINAL GoIn : BOOL
+Reset();
+
+GoIn := IsIn;
+END_METHOD
+
+// The cylinder moves out. Returns true when cylinder is out.
+METHOD PUBLIC FINAL GoOut : BOOL
+Set();
+
+GoOut := IsOut;
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF inAdjustMode THEN
+	SetOrReset(Blinker.OUT);
+ELSIF plusButtonPushed THEN
+	GoOut();
+ELSIF minButtonPushed THEN
+	GoIn();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+Output.Reset();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+Output.Set();
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+Output.SetOrReset(xValue);
+END_METHOD

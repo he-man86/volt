@@ -1,0 +1,17 @@
+INTERFACE IHomeable
+EXTENDS __SYSTEM.IQueryInterface
+
+// Start reference run with default parameters.
+METHOD PUBLIC Home : BOOL
+VAR_INPUT
+	forceHoming			: BOOL := FALSE;	// Optional: Always home the drive, even if xIsHomed is already true.
+	useCustomParameters	: BOOL := FALSE;	// When true the FB does NOT write homing parameters to the servodrive. Go to: Drive->Settings->Homing to use custom homing parameters.
+END_VAR
+END_METHOD
+
+// Homing (or reference) sensor of the servo drive
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC HomingSensor : BOOL
+END_PROPERTY
+
+END_INTERFACE

@@ -1,0 +1,8 @@
+(* This code is generated automatically *)
+(* Don't change the content! *)
+
+{attribute 'qualified_only'}
+{attribute 'linkalways'}
+VAR_GLOBAL
+	HcGroups : ARRAY [0..1] OF L_ETC_HC_GROUP;
+END_VAR

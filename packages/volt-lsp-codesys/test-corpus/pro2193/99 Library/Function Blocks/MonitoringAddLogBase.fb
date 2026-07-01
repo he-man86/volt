@@ -1,0 +1,45 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT MonitoringAddLogBase
+VAR
+	itfAddLog			: EdgePcLogging.IAddLog;	// Interface to AddLog method for monitoring system.
+	plcDataType			: PlcDataType;				// Datatype where to output the measurement to the monitoring system too.
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED CallAddLogLINT
+VAR_INPUT
+	value					: LINT;  // The value to log
+END_VAR
+// Output data to monitoring system (optional)
+IF plcDataType <> 0 AND_THEN itfAddLog <> 0 AND_THEN itfAddLog.Connected THEN
+	//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
+	{warning disable C0327}
+	itfAddLog.AddLogLINT(	plcDataType := plcDataType,
+							value		:= value);
+	{warning restore C0327}
+END_IF
+END_METHOD
+
+METHOD PROTECTED CallAddLogLREAL
+VAR_INPUT
+	value					: LREAL;  // The value to log
+END_VAR
+// Output data to monitoring system (optional)
+IF plcDataType <> 0 AND_THEN itfAddLog <> 0 AND_THEN itfAddLog.Connected THEN
+	//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
+	{warning disable C0327}
+	itfAddLog.AddLogLREAL(	plcDataType := plcDataType,
+							value		:= value);
+	{warning restore C0327}
+END_IF
+END_METHOD
+
+METHOD PUBLIC SetMonitoring
+VAR_INPUT
+	itfAddLog		: EdgePcLogging.IAddLog;	// Optional: Interface to AddLog method for monitoring system.
+	plcDataType		: PlcDataType;				// Optional: when in use, output the measurement to the monitoring system too.
+END_VAR
+THIS^.itfAddLog		:= itfAddLog;
+THIS^.plcDataType	:= plcDataType;
+END_METHOD

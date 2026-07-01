@@ -1,0 +1,185 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK BoxOutfeedControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	ButtonStartConveyor			: PushButtonLedWithHmiFB;
+	boxPusher				: IBoxPusher_Default_Commands;
+	boxOutfeed				: IBoxOutfeed_Default_Commands;
+END_VAR
+VAR
+	automaticOperationStarted	: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateCheckOutfeed					:= 100,
+		StateStartOutfeed					:= 200,
+		StateOutfeedDone					:= 300
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	movingConveyorByButton	: BOOL;
+	Timer					: BTON;
+END_VAR
+State(actState	:= ActState);
+
+IF  automaticOperationStarted
+AND ActState = StateNone
+AND boxPusher.BoxAtOutfeedPosition
+THEN
+	movingConveyorByButton	:= FALSE;
+	ActState := StateCheckOutfeed;
+END_IF
+
+// Box pushed back on outfeed conveyor, and is pushed in front of sensor again.
+IF  automaticOperationStarted
+AND ActState = StateNone
+AND Timer.Set(In := boxPusher.BoxAtOutfeedPositionSensor.IsActive, Pt := 5)
+THEN
+	movingConveyorByButton	:= FALSE;
+	ActState := StateCheckOutfeed;
+END_IF
+
+
+// Handle button
+ButtonStartConveyor();
+ButtonStartConveyor.SetColors(enumColorList.Purple);
+
+IF ButtonStartConveyor.ButtonPushed AND SER.EnableFreqInvertersRelay.Map() THEN
+	IF movingConveyorByButton THEN
+		boxOutfeed.Stop();
+	END_IF
+	movingConveyorByButton	:= NOT movingConveyorByButton;
+END_IF
+
+IF movingConveyorByButton AND_THEN boxOutfeed.EmptyBelt() THEN
+	movingConveyorByButton	:= FALSE;
+END_IF
+
+IF movingConveyorByButton THEN
+	ButtonStartConveyor.Flash();
+ELSE
+	ButtonStartConveyor.Off();
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover,
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+CASE ActState OF
+	StateNone:
+		;
+
+	StateCheckOutfeed:
+		IF SER.EnableFreqInvertersRelay.Map() THEN
+			ActState := StateStartOutfeed;
+		END_IF
+
+	StateStartOutfeed:
+		boxPusher.BoxAtOutfeedPosition R= boxPusher.BoxAtOutfeedPositionSensor.IsInactive;
+
+		IF boxOutfeed.TransportBox() THEN
+			ActState := StateOutfeedDone;
+		END_IF
+
+	StateOutfeedDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := TRUE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	automaticOperationStarted	:= TRUE;
+
+	IF boxPusher.BoxAtOutfeedPositionSensor.IsActive THEN		// Only check for box the first time the method is called
+		ActState := StateCheckOutfeed;
+	ELSE
+		StartCycle := CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+END_IF
+
+IF ActState = StateOutfeedDone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+IF ActState = StateNone THEN
+	automaticOperationStarted	:= FALSE;
+	StopCycle					:= TRUE;
+END_IF
+END_METHOD

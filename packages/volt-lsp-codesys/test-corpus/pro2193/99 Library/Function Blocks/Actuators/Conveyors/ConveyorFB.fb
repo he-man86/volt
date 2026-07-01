@@ -1,0 +1,101 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ConveyorFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	beltRunning				: BOOL;
+	errorId					: WORD;
+END_VAR
+VAR_IN_OUT
+	profile					: ProfileType;
+END_VAR
+VAR
+	NotRunningAlarm			: SetErrorFB;
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+	beltStarted				: BTON;
+	beltStopped				: BTOF;
+END_VAR
+
+SUPER^();
+
+// Instantiate the output
+Output();
+
+UpdateTimers();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+NotRunningAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND (beltRunning XOR Output.Map()),
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+Output.Reset();
+
+UpdateTimers();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+Output.Set();
+
+UpdateTimers();
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+Output.SetOrReset(xValue);
+
+UpdateTimers();
+END_METHOD
+
+METHOD PRIVATE UpdateTimers
+beltStarted.Set(Output.Map(), profile.rAcc);
+beltStopped.Set(Output.Map(), profile.rDec);
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ConveyorState : enumConveyorRunning_State
+GET
+IF NOT beltStopped.Q THEN
+	ConveyorState	:= enumConveyorRunning_State.Standstill;
+ELSIF beltStarted.Q THEN
+	ConveyorState	:= enumConveyorRunning_State.ConstantVelocity;
+ELSIF Output.Map() THEN
+	ConveyorState	:= enumConveyorRunning_State.Accelerating;
+ELSE
+	ConveyorState	:= enumConveyorRunning_State.Decelerating;
+END_IF
+END_GET
+END_PROPERTY

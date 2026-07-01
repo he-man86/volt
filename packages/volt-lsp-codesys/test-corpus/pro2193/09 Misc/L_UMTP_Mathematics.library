@@ -1,0 +1,5 @@
+LIBRARY L_UMTP_Mathematics
+NAMESPACE L_UMTP
+RESOLUTION L_UMTP_Mathematics, 3.32.0.11 (Lenze)
+PLACEHOLDER true
+SYSTEM false

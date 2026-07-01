@@ -1,0 +1,14 @@
+// Define a variable with upper and lower limits (Used on HMI input fields)
+{attribute 'monitoring_display' := 'value'}
+TYPE RealWithLimitsType :
+STRUCT
+	{attribute 'symbol' := 'read'}		lowerLimit		: REAL;			// Minimum possible value
+	{attribute 'symbol' := 'readwrite'}	value			: REAL;
+	{attribute 'symbol' := 'read'}		upperLimit		: REAL;			// Maximum possible value
+	{attribute 'symbol' := 'read'}		stepSize		: REAL	:= 1;	// Max allowed change during automatic operation (default = 1)
+	{attribute 'symbol' := 'read'}		limitActive		: BOOL;			// Is high when current position is outside limits
+END_STRUCT
+END_TYPE
+
+// TODO: Remove the RealWithLimitsType struct.
+// Create Metadata struct for lowerLimit, upperLimit, stepSize and limitActive vars

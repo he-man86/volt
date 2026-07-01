@@ -1,0 +1,24 @@
+// Extra variables for modules that have a servo drive
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ModuleWithBrakedServoBaseFB
+EXTENDS ModuleWithServoBaseFB
+VAR_INPUT
+	ButtonReleaseBrake			: PushButtonLedFB;
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	DriveBrakeLogic				: ServoDriveBrakeLogicFB;
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+ButtonReleaseBrake();
+
+DriveBrakeLogic(
+	AxisRef				:= AxisRef,
+	xBrakeReleaseIn		:= ButtonReleaseBrake.buttonInput);
+
+END_FUNCTION_BLOCK

@@ -1,0 +1,51 @@
+// Basic FB for a digital sensor, adds invert functionality
+{attribute 'no_explicit_call' := 'No need to call this FB. No code to execute!'}
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'IsActive'}
+FUNCTION_BLOCK DigitalSensorFB
+IMPLEMENTS IDigitalSensor
+VAR_INPUT
+	{attribute 'symbol' := 'read'}		sensorInput		: BOOL;
+END_VAR
+VAR
+	_isInverted		: BOOL;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// FB_Init is always available implicitly and it is used primarily for initialization.
+// The return value is not evaluated. For a specific influence, you can also declare the
+// methods explicitly and provide additional code there with the standard initialization
+// code. You can evaluate the return value.
+{attribute 'hide'}
+METHOD FB_Init: BOOL
+VAR_INPUT
+	bInitRetains: BOOL; // TRUE: the retain variables are initialized (reset warm / reset cold)
+	bInCopyCode: BOOL;  // TRUE: the instance will be copied to the copy code afterward (online change)
+
+	invert			: BOOL;	// Sensor or photocell signal should be inverted
+END_VAR
+_isInverted := invert;
+END_METHOD
+
+// Sensor is active (SensorInput is opposite of the Invert signal)
+{attribute 'monitoring':='call'}
+PROPERTY IsActive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsActive := SensorInput = NOT _isInverted;
+END_GET
+END_PROPERTY
+
+// Sensor is inactive (SensorInput is false (or true when inverted))
+{attribute 'monitoring':='call'}
+PROPERTY IsInactive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsInactive := NOT IsActive;
+END_GET
+END_PROPERTY

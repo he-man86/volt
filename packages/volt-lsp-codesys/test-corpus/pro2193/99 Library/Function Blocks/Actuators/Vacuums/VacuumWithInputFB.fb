@@ -1,0 +1,81 @@
+// Control a vacuum output and measure the vacuum level
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC VacuumWithInputFB
+EXTENDS VacuumFB
+IMPLEMENTS IVacuum
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	input1					: BOOL;				// Input 1 of Vacuum sensor (Vacuum level reached)
+	errorId					: WORD;
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	vacuumHighDuration		: REAL;				// The amount of time elapsed before vacuum level reached.
+	NoVacuumAlarm			: SetErrorFB;
+	MeasureMaxTime			: StopwatchFB;
+	vacuumState				: USINT;
+END_VAR
+
+SUPER^();
+
+// Onderstaand is een idee van Arnoud
+// Verschil detecteren tussen: No vacuum, en Vacuum lost
+// Hier 2 verschillende alarmmeldingen van maken...
+
+IF NOT Map() THEN
+	vacuumState					:= 0;
+ELSE
+	CASE vacuumState OF
+		0:	// vacuum off
+			IF Map() THEN
+				vacuumState		:= 1;
+			END_IF
+		1:	// vacuum on
+			IF input1 THEN
+				vacuumState		:= 2;
+			END_IF
+		2:	// vacuum detected
+			IF NOT input1 THEN
+				vacuumState		:= 3;
+			END_IF
+		3:	// vacuum lost
+			;
+	END_CASE
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+
+// Remember that this method may be replaced by another when deriving from this base FB.
+NoVacuumAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND (input1 XOR Output.Map()) AND errorId <> 0,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF alarmEnable AND Output.Map() AND NOT input1 AND errorId <> 0 THEN
+	vacuumHighDuration	:= NoVacuumAlarm.ElapsedTime;
+END_IF
+
+MeasureMaxTime.Monitor(
+	in				:= Output.Map() AND NOT input1);
+END_METHOD
+
+METHOD PUBLIC SetMonitoring
+VAR_INPUT
+	itfAddLog		: EdgePcLogging.IAddLog;
+	plcDataType		: PlcDataType;
+END_VAR
+MeasureMaxTime.SetMonitoring(itfAddLog, plcDataType);
+END_METHOD
+
+METHOD PROTECTED SetVacuumHighTimer
+VAR_INPUT
+END_VAR
+VacuumHighTimer.Set(
+			In := input1,
+			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
+END_METHOD

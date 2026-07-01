@@ -1,0 +1,362 @@
+FUNCTION_BLOCK CassetteFB
+VAR_IN_OUT
+	_TargetPosition		: CassettePosition;		// Internal var for property
+	_ActualPosition		: CassettePosition;		// Internal var for property
+	_SwitchCount		: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF UDINT; // Internal var for property
+END_VAR
+VAR
+	{attribute 'hide'}	_PositiveLimitReached	: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF BOOL; // Internal var for property
+	{attribute 'hide'}	_NegativeLimitReached	: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF BOOL; // Internal var for property
+	{attribute 'hide'}	_LastRotateMotor		: enumMotorsType := enumMotorsType.X1; // Internal var for property
+	{attribute 'hide'}	_AdjustmentNeeded		: BOOL; // Internal var for property
+	{attribute 'hide'}	_HomingState			: enumCassetteHomingState; // Internal var for property
+END_VAR
+VAR CONSTANT
+	PositiveLimit		: SINT := 40;
+	NegativeLimit		: SINT := -35;
+END_VAR
+
+Cyclic();
+
+END_FUNCTION_BLOCK
+
+METHOD AddToActualPosition
+VAR_INPUT
+	motor		: enumMotorsType;
+	addition	: SINT;
+END_VAR
+CASE motor OF
+	enumMotorsType.X1:	ActualPositionX1	:= ActualPositionX1	+ addition;
+	enumMotorsType.X2:	ActualPositionX2	:= ActualPositionX2	+ addition;
+	enumMotorsType.Y:	ActualPositionY		:= ActualPositionY	+ addition;
+END_CASE
+END_METHOD
+
+METHOD PUBLIC AddToTargetPositions
+VAR_INPUT
+	PositionChanges : CassettePosition;
+END_VAR
+TargetPositionX1	:= TargetPositionX1 + PositionChanges.X1;
+TargetPositionX2	:= TargetPositionX2 + PositionChanges.X2;
+TargetPositionY		:= TargetPositionY	+ PositionChanges.Y;
+END_METHOD
+
+METHOD PRIVATE CheckLimits
+%FOLDER Private
+IF HomingState = enumCassetteHomingState.Homed THEN
+	PositiveLimitReachedX1	:= ActualPositionX1 >= PositiveLimit;
+	PositiveLimitReachedX2	:= ActualPositionX2 >= PositiveLimit;
+	PositiveLimitReachedY	:= ActualPositionY	>= PositiveLimit;
+
+	NegativeLimitReachedX1	:= ActualPositionX1 <= NegativeLimit;
+	NegativeLimitReachedX2	:= ActualPositionX2 <= NegativeLimit;
+	NegativeLimitReachedY	:= ActualPositionY	<= NegativeLimit;
+END_IF
+END_METHOD
+
+METHOD PRIVATE Cyclic
+%FOLDER Private
+CheckLimits();
+END_METHOD
+
+// Compares all the actual and target positions and returns the optimal movement profile for the cassette.
+METHOD GetAdjustmentProfile : MovementProfile
+VAR_INPUT
+	Drawer		: enumDrawer;
+	Cassette	: USINT;
+END_VAR
+VAR
+	StepsForX1,			StepsForX2,			StepsForY			: SINT;
+	DirectionForX1,		DirectionForX2,		DirectionForY		: enumDirection;
+	AdjustNeededForX1,	AdjustNeededForX2,	AdjustNeededForY	: BOOL;
+END_VAR
+// Copy id info to the profile
+GetAdjustmentProfile.Drawer		:= Drawer;
+GetAdjustmentProfile.Cassette	:= Cassette;
+
+// Determine for each motor if adjustment is needed
+AdjustNeededForX1	:= ActualPositionX1 <> TargetPositionX1;
+AdjustNeededForX2	:= ActualPositionX2 <> TargetPositionX2;
+AdjustNeededForY	:= ActualPositionY	<> TargetPositionY;
+
+// Determine direction for each motor
+DirectionForX1		:= SEL(ActualPositionX1 > TargetPositionX1, enumDirection.Positive, enumDirection.Negative);
+DirectionForX2		:= SEL(ActualPositionX2 > TargetPositionX2, enumDirection.Positive, enumDirection.Negative);
+DirectionForY		:= SEL(ActualPositionY	> TargetPositionY,	enumDirection.Positive, enumDirection.Negative);
+
+// Check if X1, X2 and Y can be combined (all motors must be adjusted in the same direction)
+IF (AdjustNeededForX1 AND AdjustNeededForX2 AND AdjustNeededForY)
+	AND (DirectionForX1 = DirectionForX2) AND (DirectionForX1 = DirectionForY)
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.XY;
+	GetAdjustmentProfile.Direction		:= DirectionForX1;
+	RETURN;
+END_IF
+
+// Check if X1 and X2 can be combined (all motors must be adjusted in the same direction)
+IF (AdjustNeededForX1 AND AdjustNeededForX2)
+	AND (DirectionForX1 = DirectionForX2)
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.X;
+	GetAdjustmentProfile.Direction		:= DirectionForX1;
+	RETURN;
+END_IF
+
+// Check if X1 and Y can be combined (all motors must be adjusted in the same direction)
+IF (AdjustNeededForX1 AND AdjustNeededForY)
+	AND (DirectionForX1 = DirectionForY)
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.X1Y;
+	GetAdjustmentProfile.Direction		:= DirectionForX1;
+	RETURN;
+END_IF
+
+// Check if X2 and Y can be combined (all motors must be adjusted in the same direction)
+IF (AdjustNeededForX2 AND AdjustNeededForY)
+	AND (DirectionForX2 = DirectionForY)
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.X2Y;
+	GetAdjustmentProfile.Direction		:= DirectionForX2;
+	RETURN;
+END_IF
+
+// When combining is not possible, return the profile for a single motor
+IF AdjustNeededForX1
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.X1;
+	GetAdjustmentProfile.Direction		:= DirectionForX1;
+	RETURN;
+END_IF
+
+IF AdjustNeededForX2
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.X2;
+	GetAdjustmentProfile.Direction		:= DirectionForX2;
+	RETURN;
+END_IF
+
+IF AdjustNeededForY
+THEN
+	GetAdjustmentProfile.Motors			:= enumMotorsType.Y;
+	GetAdjustmentProfile.Direction		:= DirectionForY;
+	RETURN;
+END_IF
+END_METHOD
+
+METHOD PUBLIC NextHomingState
+CASE HomingState OF
+	enumCassetteHomingState.StopHoming:		HomingState := enumCassetteHomingState.NotHomed;
+	enumCassetteHomingState.StartHoming:	HomingState := enumCassetteHomingState.HomingStep1;
+	enumCassetteHomingState.HomingStep1:	HomingState := enumCassetteHomingState.HomingStep2;
+	enumCassetteHomingState.HomingStep2:	HomingState := enumCassetteHomingState.HomingStep3;
+	enumCassetteHomingState.HomingStep3:	HomingState := enumCassetteHomingState.HomingStep4;
+	enumCassetteHomingState.HomingStep4:	HomingState := enumCassetteHomingState.HomingStep5;
+	enumCassetteHomingState.HomingStep5:	HomingState := enumCassetteHomingState.Homed;
+END_CASE
+END_METHOD
+
+METHOD ResetLimits
+PositiveLimitReachedX1	:= FALSE;
+PositiveLimitReachedX2	:= FALSE;
+PositiveLimitReachedY	:= FALSE;
+NegativeLimitReachedX1	:= FALSE;
+NegativeLimitReachedX2	:= FALSE;
+NegativeLimitReachedY	:= FALSE;
+END_METHOD
+
+METHOD StartHoming
+ResetLimits();
+HomingState := enumCassetteHomingState.StartHoming;
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY ActualPositionX1 : SINT
+%FOLDER Properties
+GET
+ActualPositionX1 := _ActualPosition.X1;
+END_GET
+SET
+_ActualPosition.X1	:= ActualPositionX1;
+
+Increment.AnyInt(_SwitchCount[enumMotorsType.X1]);
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY ActualPositionX2 : SINT
+%FOLDER Properties
+GET
+ActualPositionX2 := _ActualPosition.X2;
+END_GET
+SET
+_ActualPosition.X2	:= ActualPositionX2;
+
+Increment.AnyInt(_SwitchCount[enumMotorsType.X2]);
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY ActualPositionY : SINT
+%FOLDER Properties
+GET
+ActualPositionY := _ActualPosition.Y;
+END_GET
+SET
+_ActualPosition.Y	:= ActualPositionY;
+
+Increment.AnyInt(_SwitchCount[enumMotorsType.Y]);
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AdjustmentNeeded : BOOL
+%FOLDER Properties
+GET
+AdjustmentNeeded := (		(ActualPositionX1	> TargetPositionX1	AND NOT NegativeLimitReachedX1)
+						OR	(ActualPositionX2	> TargetPositionX2	AND NOT NegativeLimitReachedX2)
+						OR	(ActualPositionY	> TargetPositionY	AND NOT NegativeLimitReachedY)
+						OR	(ActualPositionX1	< TargetPositionX1	AND NOT PositiveLimitReachedX1)
+						OR	(ActualPositionX2	< TargetPositionX2	AND NOT PositiveLimitReachedX2)
+						OR	(ActualPositionY	< TargetPositionY	AND NOT PositiveLimitReachedY)
+					); //	AND HomingState <> enumCassetteHomingState.NotHomed;		// No adjustment possible when not homed and not homing
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY HomingState : enumCassetteHomingState
+%FOLDER Properties
+GET
+HomingState := _HomingState;
+END_GET
+SET
+_HomingState := HomingState;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY LastRotateMotor : enumMotorsType
+%FOLDER Properties
+GET
+LastRotateMotor := _LastRotateMotor;
+END_GET
+SET
+_LastRotateMotor := LastRotateMotor;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY NegativeLimitReachedX1 : BOOL
+%FOLDER Properties
+GET
+NegativeLimitReachedX1 := _NegativeLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_NegativeLimitReached[enumMotorsType.X1] := NegativeLimitReachedX1;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY NegativeLimitReachedX2 : BOOL
+%FOLDER Properties
+GET
+NegativeLimitReachedX2 := _NegativeLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_NegativeLimitReached[enumMotorsType.X2] := NegativeLimitReachedX2;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY NegativeLimitReachedY : BOOL
+%FOLDER Properties
+GET
+NegativeLimitReachedY := _NegativeLimitReached[enumMotorsType.Y] AND HomingState = enumCassetteHomingState.Homed;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_NegativeLimitReached[enumMotorsType.Y] := NegativeLimitReachedY;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PositiveLimitReachedX1 : BOOL
+%FOLDER Properties
+GET
+PositiveLimitReachedX1 := _PositiveLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_PositiveLimitReached[enumMotorsType.X1] := PositiveLimitReachedX1;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PositiveLimitReachedX2 : BOOL
+%FOLDER Properties
+GET
+PositiveLimitReachedX2 := _PositiveLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_PositiveLimitReached[enumMotorsType.X2] := PositiveLimitReachedX2;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PositiveLimitReachedY : BOOL
+%FOLDER Properties
+GET
+PositiveLimitReachedY := _PositiveLimitReached[enumMotorsType.Y];
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_PositiveLimitReached[enumMotorsType.Y] := PositiveLimitReachedY;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY TargetPositionX1 : SINT
+%FOLDER Properties
+GET
+TargetPositionX1 := _TargetPosition.X1;
+END_GET
+SET
+_TargetPosition.X1 := TargetPositionX1;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY TargetPositionX2 : SINT
+%FOLDER Properties
+GET
+TargetPositionX2 := _TargetPosition.X2;
+END_GET
+SET
+_TargetPosition.X2 := TargetPositionX2;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY TargetPositionY : SINT
+%FOLDER Properties
+GET
+TargetPositionY := _TargetPosition.Y;
+END_GET
+SET
+_TargetPosition.Y := TargetPositionY;
+END_SET
+END_PROPERTY

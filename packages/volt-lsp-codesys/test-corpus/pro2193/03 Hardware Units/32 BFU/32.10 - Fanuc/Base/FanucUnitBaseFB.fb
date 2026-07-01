@@ -1,0 +1,1487 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FanucUnitBaseFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IFanucUnitBase_BoxFilling_Commands, IFanucUnitBase_Buffer_Commands, IFanucUnitBase_Pick_Commands, IFanucUnitBase_Reject_Commands
+VAR_INPUT
+	Fanuc						: FanucFB;
+
+	{attribute 'symbol' := 'readwrite'}	Clamp						: ARRAY[1..2] OF Cylinder_53ValveFB;
+	{attribute 'symbol' := 'readwrite'}	ReleaseClamp				: Cylinder_52Valve_TimedFB;
+
+	StackDetection				: DigitalSensorFB(invert := FALSE);
+	boxFillAreaIsClear			: BOOL;				// Indicates that the Fanuc can enter the box fill area
+	conveyorStandstill			: BOOL;				// Indicates that the Fanuc can pick a stack from the conveyor
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: FanucUnitBase_Data;
+	GripperStatus				: StackStatusType;
+END_VAR
+VAR
+	PickPosX					: UINT; // Pick position on infeed conveyor
+	PickPosY					: UINT; // Pick position on infeed conveyor
+	PickPosZ					: UINT; // Pick position on infeed conveyor
+	BufferPosX					: UINT; // Pick/place position on bufferstation
+	BufferPosY					: UINT; // Pick/place position on bufferstation
+	BufferPosZ					: UINT; // Pick/place position on bufferstation
+	BufferPickRotate			: UINT;	// Value 1 when gripper must be rotated
+
+	PlacePosition				: Fanuc_PositionXYZWPR_UINT_Type;
+	PlaceOffset					: Fanuc_PositionXYZ_UINT_Type;
+	PlaceToolOffset				: Fanuc_PositionXYZ_UINT_Type;
+	PlaceConfig					: Fanuc_HighLowUInt_Type;
+
+	{attribute 'symbol' := 'readwrite'}	StackPositionIndex			: UINT;					// Select stack position to edit
+	{attribute 'symbol' := 'readwrite'}	StackPositionInput			: Fanuc_StackPosition;	// Selected stack position
+
+	ClampOpenDelay				: BTON;
+	ClampCloseDelay				: BTON;
+
+	fanucInitNeeded				: BOOL := TRUE;
+	HomingError					: BOOL;
+	_manualControlEnabled		: BOOL;		// Manual control is enabled from outside this module
+
+	alarmCrashDetected			: BOOL;
+	alarmStackNotDetected		: BOOL;
+	alarmStackDetected			: BOOL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..3] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Fanuc_Errors,
+	errorId			:= 10,		// Crash detected in box
+	alarmCondition	:= alarmCrashDetected,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Fanuc_Errors,
+	errorId			:= 11,		// Stack detection sensor not detected. Stack rejected
+	alarmCondition	:= alarmStackNotDetected,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Fanuc_Errors,
+	errorId			:= 12,		// Stack detection sensor high in error. Stack rejected
+	alarmCondition	:= alarmStackDetected,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+alarmStackNotDetected	R= SetError[2].active;
+alarmStackDetected		R= SetError[3].active;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	JsonTimer					: BTON;
+	initStacks					: BOOL;
+END_VAR
+VAR
+	i							: USINT;
+END_VAR
+Mapping();
+
+Fanuc(
+	ModuleHandler	:= ModuleHandler,
+	xGateIsClosed	:= BFU.xGatesAreClosed,
+	xExternalReset	:= GlobalVars.Reset OR GlobalVars_BFU.Reset,
+	SystemState		:= ,
+);
+
+Clamp[1].errorId_SensorOut		:= 1;
+Clamp[1].errorId_SensorIn		:= 2;
+Clamp[2].errorId_SensorOut		:= 3;
+Clamp[2].errorId_SensorIn		:= 4;
+
+FOR i := 1 TO 2 DO
+	Clamp[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= BFU.ManualControlEnabled,
+		textRefId				:= Fanuc_Errors,
+		alarmEnable				:= BFU.DigIn.xAirPressureOK,
+		alarmDelay				:= 5,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		inputOut				:= ,
+		inputIn					:= ,
+		rGiveAirToBothOutputs	:= 0.0,
+		xEnableOutputs			:= BFU.MainAirValve.Map());
+END_FOR
+
+ClampCloseDelay.Set(	In := Clamp[1].IsOut AND Clamp[2].IsOut,	Data.rClampDelay);
+ClampOpenDelay.Set(		In := Clamp[1].IsIn AND Clamp[2].IsIn,		Data.rStackingDelay);
+
+ReleaseClamp(
+	manualControlEnabled		:= BFU.ManualControlEnabled,
+	rTimeToGoIn					:= ,
+	rTimeToGoOut				:= );
+
+IF fanucInitNeeded AND_THEN Fanuc.Init() THEN
+	fanucInitNeeded	:= FALSE;
+END_IF
+
+HandleStackSelection();
+
+// Always rebuild the json for the visu
+IF JsonTimer.Set(NOT JsonBuilder.executeBoxFillingJson, 2) THEN
+	JsonBuilder.executeBoxFillingJson := TRUE;
+	JsonTimer.Reset();
+END_IF
+
+IF initStacks THEN
+	InitStackPositions();
+	initStacks := FALSE;
+END_IF
+
+// Monitor stack detection sensor
+IF  Fanuc.I.xSPCFree[1]			// Infeed area
+AND Fanuc.I.xSPCFree[3]			// Reject area
+AND Fanuc.I.xSPCFree[4]			// Place area
+AND Fanuc.I.xSPCFree[5]			// Buffer area
+AND NOT GripperStatus.Rejected	// Stack in gripper is already rejected
+THEN
+	IF GripperStatus.Present THEN
+		IF StackDetection.IsInactive THEN
+			LogPlc.Error('Fanuc lost a stack');
+			alarmStackNotDetected	:= TRUE;
+			GripperStatus.Rejected	:= TRUE;
+		END_IF
+	ELSE
+		IF StackDetection.IsActive THEN
+			LogPlc.Error('Stack detected in error, reject just in case');
+			alarmStackDetected		:= TRUE;
+			GripperStatus.Rejected	:= TRUE;
+		END_IF
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Clamp[1].Reset();
+Clamp[2].Reset();
+ReleaseClamp.Reset();
+ClearProducts.Stack(GripperStatus);
+
+fanucInitNeeded		:= TRUE;
+alarmCrashDetected	:= FALSE;
+EStop				:= SUPER^.EStop();
+END_METHOD
+
+METHOD PUBLIC GetRotateSettingForStack : BOOL
+VAR_INPUT
+	stackNumber	: UINT;
+END_VAR
+%FOLDER Commands
+IF stackNumber >= 1 AND stackNumber <= GVL_Constants_BFU.MaxNumberOfStacksInBox THEN
+	GetRotateSettingForStack := Data.StackPosition[stackNumber].Config > 2; // 1 or 2: no rotate(0), 3 or 4 rotate(1);
+END_IF
+END_METHOD
+
+// Take the product
+METHOD PRIVATE GripperClose : BOOL
+%FOLDER Private
+Clamp[1].GoOut();
+Clamp[2].GoOut();
+ReleaseClamp.Reset();
+GripperClose	:= ClampCloseDelay.Q;
+END_METHOD
+
+// Prepare the gripper for receiving the products
+METHOD PRIVATE GripperOpen : BOOL
+%FOLDER Private
+Clamp[1].GoIn();
+Clamp[2].GoIn();
+ReleaseClamp.Set();
+GripperOpen		:= ClampOpenDelay.Q;
+END_METHOD
+
+// Release the product
+METHOD PRIVATE GripperOpenInBox : BOOL
+VAR_INPUT
+	rotateGripper	: BOOL;
+END_VAR
+%FOLDER Private
+ReleaseClamp.Set();
+IF rotateGripper THEN
+	Clamp[2].Reset();
+	GripperOpenInBox := Clamp[1].GoIn();
+ELSE
+	Clamp[1].Reset();
+	GripperOpenInBox := Clamp[2].GoIn();
+END_IF
+END_METHOD
+
+METHOD PRIVATE HandleStackSelection
+VAR_INST
+	lastSelected : UINT;
+END_VAR
+%FOLDER Private
+IF StackPositionIndex <= 0 THEN RETURN; END_IF;
+
+IF StackPositionIndex <> lastSelected THEN
+	lastSelected := StackPositionIndex;
+	StackPositionInput := Data.StackPosition[StackPositionIndex];
+ELSE
+	Data.StackPosition[StackPositionIndex] := StackPositionInput;
+END_IF
+
+IF ExternalManualControlEnabled THEN
+	SetPlacePosition(Data.StackPosition[StackPositionIndex]);
+	BufferPickRotate := TO_UINT(GetRotateSettingForStack(StackPositionIndex));
+END_IF
+END_METHOD
+
+METHOD PRIVATE InitStackPositions
+VAR_INPUT
+END_VAR
+%FOLDER Private
+// Box settings
+Data.BoxSettings.BoxSize.rPosX := 385;
+Data.BoxSettings.BoxSize.rPosY := 400;
+Data.BoxSettings.BoxSize.rPosZ := 380;
+Data.BoxSettings.StackSize.rPosX := 70;
+Data.BoxSettings.StackSize.rPosY := 70;
+Data.BoxSettings.StackSize.rPosZ := 70;
+Data.BoxSettings.StackOrientation := Fanuc_StackOrientation.Horizontal;
+Data.BoxSettings.StackShape	:= Fanuc_StackShape.Round;
+
+// Stack 1
+Data.StackPosition[1].StackNumber := 1;
+Data.StackPosition[1].PlacePosition.rPosX := 0;
+Data.StackPosition[1].PlacePosition.rPosY := 0;
+Data.StackPosition[1].PlacePosition.rPosZ := 0;
+Data.StackPosition[1].PlacePosition.rPosW := 0;
+Data.StackPosition[1].PlacePosition.rPosP := 0;
+Data.StackPosition[1].PlacePosition.rPosR := 0;
+Data.StackPosition[1].Offset.rPosX := 20;
+Data.StackPosition[1].Offset.rPosY := 0;
+Data.StackPosition[1].Offset.rPosZ := 25;
+Data.StackPosition[1].ToolOffset.rPosX := -25;
+Data.StackPosition[1].ToolOffset.rPosY := 0;
+Data.StackPosition[1].ToolOffset.rPosZ := -75;
+Data.StackPosition[1].Config := 2;
+
+// Stack 2
+Data.StackPosition[2].StackNumber := 2;
+Data.StackPosition[2].PlacePosition.rPosX := 70;
+Data.StackPosition[2].PlacePosition.rPosY := 0;
+Data.StackPosition[2].PlacePosition.rPosZ := 0;
+Data.StackPosition[2].PlacePosition.rPosW := 0;
+Data.StackPosition[2].PlacePosition.rPosP := 0;
+Data.StackPosition[2].PlacePosition.rPosR := 0;
+Data.StackPosition[2].Offset.rPosX := 20;
+Data.StackPosition[2].Offset.rPosY := 0;
+Data.StackPosition[2].Offset.rPosZ := 25;
+Data.StackPosition[2].ToolOffset.rPosX := 0;
+Data.StackPosition[2].ToolOffset.rPosY := 0;
+Data.StackPosition[2].ToolOffset.rPosZ := -40;
+Data.StackPosition[2].Config := 2;
+
+// Stack 3
+Data.StackPosition[3].StackNumber := 3;
+Data.StackPosition[3].PlacePosition.rPosX := 140;
+Data.StackPosition[3].PlacePosition.rPosY := 0;
+Data.StackPosition[3].PlacePosition.rPosZ := 35;
+Data.StackPosition[3].PlacePosition.rPosW := 0;
+Data.StackPosition[3].PlacePosition.rPosP := 0;
+Data.StackPosition[3].PlacePosition.rPosR := 0;
+Data.StackPosition[3].Offset.rPosX := 20;
+Data.StackPosition[3].Offset.rPosY := 0;
+Data.StackPosition[3].Offset.rPosZ := 25;
+Data.StackPosition[3].ToolOffset.rPosX := 0;
+Data.StackPosition[3].ToolOffset.rPosY := 0;
+Data.StackPosition[3].ToolOffset.rPosZ := -40;
+Data.StackPosition[3].Config := 2;
+
+// Stack 4
+Data.StackPosition[4].StackNumber := 4;
+Data.StackPosition[4].PlacePosition.rPosX := 210;
+Data.StackPosition[4].PlacePosition.rPosY := 0;
+Data.StackPosition[4].PlacePosition.rPosZ := 0;
+Data.StackPosition[4].PlacePosition.rPosW := 0;
+Data.StackPosition[4].PlacePosition.rPosP := 0;
+Data.StackPosition[4].PlacePosition.rPosR := 180;
+Data.StackPosition[4].Offset.rPosX := 20;
+Data.StackPosition[4].Offset.rPosY := 0;
+Data.StackPosition[4].Offset.rPosZ := 25;
+Data.StackPosition[4].ToolOffset.rPosX := 0;
+Data.StackPosition[4].ToolOffset.rPosY := 0;
+Data.StackPosition[4].ToolOffset.rPosZ := -40;
+Data.StackPosition[4].Config := 2;
+
+// Stack 5
+Data.StackPosition[5].StackNumber := 5;
+Data.StackPosition[5].PlacePosition.rPosX := 280;
+Data.StackPosition[5].PlacePosition.rPosY := 0;
+Data.StackPosition[5].PlacePosition.rPosZ := 0;
+Data.StackPosition[5].PlacePosition.rPosW := 0;
+Data.StackPosition[5].PlacePosition.rPosP := 0;
+Data.StackPosition[5].PlacePosition.rPosR := 180;
+Data.StackPosition[5].Offset.rPosX := 10;
+Data.StackPosition[5].Offset.rPosY := 0;
+Data.StackPosition[5].Offset.rPosZ := 25;
+Data.StackPosition[5].ToolOffset.rPosX := 0;
+Data.StackPosition[5].ToolOffset.rPosY := 0;
+Data.StackPosition[5].ToolOffset.rPosZ := -40;
+Data.StackPosition[5].Config := 2;
+
+// Stack 6
+Data.StackPosition[6].StackNumber := 6;
+Data.StackPosition[6].PlacePosition.rPosX := 35;
+Data.StackPosition[6].PlacePosition.rPosY := 0;
+Data.StackPosition[6].PlacePosition.rPosZ := 61;
+Data.StackPosition[6].PlacePosition.rPosW := 0;
+Data.StackPosition[6].PlacePosition.rPosP := 0;
+Data.StackPosition[6].PlacePosition.rPosR := 0;
+Data.StackPosition[6].Offset.rPosX := 20;
+Data.StackPosition[6].Offset.rPosY := 0;
+Data.StackPosition[6].Offset.rPosZ := 25;
+Data.StackPosition[6].ToolOffset.rPosX := 0;
+Data.StackPosition[6].ToolOffset.rPosY := 0;
+Data.StackPosition[6].ToolOffset.rPosZ := -40;
+Data.StackPosition[6].Config := 2;
+
+// Stack 7
+Data.StackPosition[7].StackNumber := 7;
+Data.StackPosition[7].PlacePosition.rPosX := 105;
+Data.StackPosition[7].PlacePosition.rPosY := 0;
+Data.StackPosition[7].PlacePosition.rPosZ := 61;
+Data.StackPosition[7].PlacePosition.rPosW := 0;
+Data.StackPosition[7].PlacePosition.rPosP := 0;
+Data.StackPosition[7].PlacePosition.rPosR := 0;
+Data.StackPosition[7].Offset.rPosX := 20;
+Data.StackPosition[7].Offset.rPosY := 0;
+Data.StackPosition[7].Offset.rPosZ := 25;
+Data.StackPosition[7].ToolOffset.rPosX := 0;
+Data.StackPosition[7].ToolOffset.rPosY := 0;
+Data.StackPosition[7].ToolOffset.rPosZ := -40;
+Data.StackPosition[7].Config := 2;
+
+// Stack 8
+Data.StackPosition[8].StackNumber := 8;
+Data.StackPosition[8].PlacePosition.rPosX := 175;
+Data.StackPosition[8].PlacePosition.rPosY := 0;
+Data.StackPosition[8].PlacePosition.rPosZ := 61;
+Data.StackPosition[8].PlacePosition.rPosW := 0;
+Data.StackPosition[8].PlacePosition.rPosP := 0;
+Data.StackPosition[8].PlacePosition.rPosR := 0;
+Data.StackPosition[8].Offset.rPosX := 20;
+Data.StackPosition[8].Offset.rPosY := 0;
+Data.StackPosition[8].Offset.rPosZ := 25;
+Data.StackPosition[8].ToolOffset.rPosX := 0;
+Data.StackPosition[8].ToolOffset.rPosY := 0;
+Data.StackPosition[8].ToolOffset.rPosZ := -40;
+Data.StackPosition[8].Config := 2;
+
+// Stack 9
+Data.StackPosition[9].StackNumber := 9;
+Data.StackPosition[9].PlacePosition.rPosX := 245;
+Data.StackPosition[9].PlacePosition.rPosY := 0;
+Data.StackPosition[9].PlacePosition.rPosZ := 61;
+Data.StackPosition[9].PlacePosition.rPosW := 0;
+Data.StackPosition[9].PlacePosition.rPosP := 0;
+Data.StackPosition[9].PlacePosition.rPosR := 180;
+Data.StackPosition[9].Offset.rPosX := 20;
+Data.StackPosition[9].Offset.rPosY := 0;
+Data.StackPosition[9].Offset.rPosZ := 25;
+Data.StackPosition[9].ToolOffset.rPosX := 0;
+Data.StackPosition[9].ToolOffset.rPosY := 0;
+Data.StackPosition[9].ToolOffset.rPosZ := -40;
+Data.StackPosition[9].Config := 2;
+
+// Stack 10
+Data.StackPosition[10].StackNumber := 10;
+Data.StackPosition[10].PlacePosition.rPosX := 310;
+Data.StackPosition[10].PlacePosition.rPosY := 0;
+Data.StackPosition[10].PlacePosition.rPosZ := 91;
+Data.StackPosition[10].PlacePosition.rPosW := 0;
+Data.StackPosition[10].PlacePosition.rPosP := 0;
+Data.StackPosition[10].PlacePosition.rPosR := 180;
+Data.StackPosition[10].Offset.rPosX := -20;
+Data.StackPosition[10].Offset.rPosY := 0;
+Data.StackPosition[10].Offset.rPosZ := 25;
+Data.StackPosition[10].ToolOffset.rPosX := -25;
+Data.StackPosition[10].ToolOffset.rPosY := 0;
+Data.StackPosition[10].ToolOffset.rPosZ := -75;
+Data.StackPosition[10].Config := 2;
+
+// Stack 11
+Data.StackPosition[11].StackNumber := 11;
+Data.StackPosition[11].PlacePosition.rPosX := 0;
+Data.StackPosition[11].PlacePosition.rPosY := 0;
+Data.StackPosition[11].PlacePosition.rPosZ := 122;
+Data.StackPosition[11].PlacePosition.rPosW := 0;
+Data.StackPosition[11].PlacePosition.rPosP := 0;
+Data.StackPosition[11].PlacePosition.rPosR := 0;
+Data.StackPosition[11].Offset.rPosX := 20;
+Data.StackPosition[11].Offset.rPosY := 0;
+Data.StackPosition[11].Offset.rPosZ := 25;
+Data.StackPosition[11].ToolOffset.rPosX := -25;
+Data.StackPosition[11].ToolOffset.rPosY := 0;
+Data.StackPosition[11].ToolOffset.rPosZ := -75;
+Data.StackPosition[11].Config := 2;
+
+// Stack 12
+Data.StackPosition[12].StackNumber := 12;
+Data.StackPosition[12].PlacePosition.rPosX := 70;
+Data.StackPosition[12].PlacePosition.rPosY := 0;
+Data.StackPosition[12].PlacePosition.rPosZ := 122;
+Data.StackPosition[12].PlacePosition.rPosW := 0;
+Data.StackPosition[12].PlacePosition.rPosP := 0;
+Data.StackPosition[12].PlacePosition.rPosR := 0;
+Data.StackPosition[12].Offset.rPosX := 20;
+Data.StackPosition[12].Offset.rPosY := 0;
+Data.StackPosition[12].Offset.rPosZ := 25;
+Data.StackPosition[12].ToolOffset.rPosX := 0;
+Data.StackPosition[12].ToolOffset.rPosY := 0;
+Data.StackPosition[12].ToolOffset.rPosZ := -40;
+Data.StackPosition[12].Config := 2;
+
+// Stack 13
+Data.StackPosition[13].StackNumber := 13;
+Data.StackPosition[13].PlacePosition.rPosX := 140;
+Data.StackPosition[13].PlacePosition.rPosY := 0;
+Data.StackPosition[13].PlacePosition.rPosZ := 122;
+Data.StackPosition[13].PlacePosition.rPosW := 0;
+Data.StackPosition[13].PlacePosition.rPosP := 0;
+Data.StackPosition[13].PlacePosition.rPosR := 0;
+Data.StackPosition[13].Offset.rPosX := 20;
+Data.StackPosition[13].Offset.rPosY := 0;
+Data.StackPosition[13].Offset.rPosZ := 25;
+Data.StackPosition[13].ToolOffset.rPosX := 0;
+Data.StackPosition[13].ToolOffset.rPosY := 0;
+Data.StackPosition[13].ToolOffset.rPosZ := -40;
+Data.StackPosition[13].Config := 2;
+
+// Stack 14
+Data.StackPosition[14].StackNumber := 14;
+Data.StackPosition[14].PlacePosition.rPosX := 210;
+Data.StackPosition[14].PlacePosition.rPosY := 0;
+Data.StackPosition[14].PlacePosition.rPosZ := 122;
+Data.StackPosition[14].PlacePosition.rPosW := 0;
+Data.StackPosition[14].PlacePosition.rPosP := 0;
+Data.StackPosition[14].PlacePosition.rPosR := 180;
+Data.StackPosition[14].Offset.rPosX := 20;
+Data.StackPosition[14].Offset.rPosY := 0;
+Data.StackPosition[14].Offset.rPosZ := 25;
+Data.StackPosition[14].ToolOffset.rPosX := 0;
+Data.StackPosition[14].ToolOffset.rPosY := 0;
+Data.StackPosition[14].ToolOffset.rPosZ := -40;
+Data.StackPosition[14].Config := 2;
+
+// Stack 15
+Data.StackPosition[15].StackNumber := 15;
+Data.StackPosition[15].PlacePosition.rPosX := 280;
+Data.StackPosition[15].PlacePosition.rPosY := 0;
+Data.StackPosition[15].PlacePosition.rPosZ := 122;
+Data.StackPosition[15].PlacePosition.rPosW := 0;
+Data.StackPosition[15].PlacePosition.rPosP := 0;
+Data.StackPosition[15].PlacePosition.rPosR := 180;
+Data.StackPosition[15].Offset.rPosX := 10;
+Data.StackPosition[15].Offset.rPosY := 0;
+Data.StackPosition[15].Offset.rPosZ := 25;
+Data.StackPosition[15].ToolOffset.rPosX := 0;
+Data.StackPosition[15].ToolOffset.rPosY := 0;
+Data.StackPosition[15].ToolOffset.rPosZ := -40;
+Data.StackPosition[15].Config := 2;
+
+// Stack 16
+Data.StackPosition[16].StackNumber := 16;
+Data.StackPosition[16].PlacePosition.rPosX := 35;
+Data.StackPosition[16].PlacePosition.rPosY := 0;
+Data.StackPosition[16].PlacePosition.rPosZ := 183;
+Data.StackPosition[16].PlacePosition.rPosW := 0;
+Data.StackPosition[16].PlacePosition.rPosP := 0;
+Data.StackPosition[16].PlacePosition.rPosR := 0;
+Data.StackPosition[16].Offset.rPosX := 20;
+Data.StackPosition[16].Offset.rPosY := 0;
+Data.StackPosition[16].Offset.rPosZ := 25;
+Data.StackPosition[16].ToolOffset.rPosX := 0;
+Data.StackPosition[16].ToolOffset.rPosY := 0;
+Data.StackPosition[16].ToolOffset.rPosZ := -40;
+Data.StackPosition[16].Config := 2;
+
+// Stack 17
+Data.StackPosition[17].StackNumber := 17;
+Data.StackPosition[17].PlacePosition.rPosX := 105;
+Data.StackPosition[17].PlacePosition.rPosY := 0;
+Data.StackPosition[17].PlacePosition.rPosZ := 183;
+Data.StackPosition[17].PlacePosition.rPosW := 0;
+Data.StackPosition[17].PlacePosition.rPosP := 0;
+Data.StackPosition[17].PlacePosition.rPosR := 0;
+Data.StackPosition[17].Offset.rPosX := 20;
+Data.StackPosition[17].Offset.rPosY := 0;
+Data.StackPosition[17].Offset.rPosZ := 25;
+Data.StackPosition[17].ToolOffset.rPosX := 0;
+Data.StackPosition[17].ToolOffset.rPosY := 0;
+Data.StackPosition[17].ToolOffset.rPosZ := -40;
+Data.StackPosition[17].Config := 2;
+
+// Stack 18
+Data.StackPosition[18].StackNumber := 18;
+Data.StackPosition[18].PlacePosition.rPosX := 175;
+Data.StackPosition[18].PlacePosition.rPosY := 0;
+Data.StackPosition[18].PlacePosition.rPosZ := 183;
+Data.StackPosition[18].PlacePosition.rPosW := 0;
+Data.StackPosition[18].PlacePosition.rPosP := 0;
+Data.StackPosition[18].PlacePosition.rPosR := 0;
+Data.StackPosition[18].Offset.rPosX := 20;
+Data.StackPosition[18].Offset.rPosY := 0;
+Data.StackPosition[18].Offset.rPosZ := 25;
+Data.StackPosition[18].ToolOffset.rPosX := 0;
+Data.StackPosition[18].ToolOffset.rPosY := 0;
+Data.StackPosition[18].ToolOffset.rPosZ := -40;
+Data.StackPosition[18].Config := 2;
+
+// Stack 19
+Data.StackPosition[19].StackNumber := 19;
+Data.StackPosition[19].PlacePosition.rPosX := 245;
+Data.StackPosition[19].PlacePosition.rPosY := 0;
+Data.StackPosition[19].PlacePosition.rPosZ := 183;
+Data.StackPosition[19].PlacePosition.rPosW := 0;
+Data.StackPosition[19].PlacePosition.rPosP := 0;
+Data.StackPosition[19].PlacePosition.rPosR := 180;
+Data.StackPosition[19].Offset.rPosX := 20;
+Data.StackPosition[19].Offset.rPosY := 0;
+Data.StackPosition[19].Offset.rPosZ := 25;
+Data.StackPosition[19].ToolOffset.rPosX := 0;
+Data.StackPosition[19].ToolOffset.rPosY := 0;
+Data.StackPosition[19].ToolOffset.rPosZ := -40;
+Data.StackPosition[19].Config := 2;
+
+// Stack 20
+Data.StackPosition[20].StackNumber := 20;
+Data.StackPosition[20].PlacePosition.rPosX := 310;
+Data.StackPosition[20].PlacePosition.rPosY := 0;
+Data.StackPosition[20].PlacePosition.rPosZ := 213;
+Data.StackPosition[20].PlacePosition.rPosW := 0;
+Data.StackPosition[20].PlacePosition.rPosP := 0;
+Data.StackPosition[20].PlacePosition.rPosR := 180;
+Data.StackPosition[20].Offset.rPosX := -20;
+Data.StackPosition[20].Offset.rPosY := 0;
+Data.StackPosition[20].Offset.rPosZ := 25;
+Data.StackPosition[20].ToolOffset.rPosX := -25;
+Data.StackPosition[20].ToolOffset.rPosY := 0;
+Data.StackPosition[20].ToolOffset.rPosZ := -75;
+Data.StackPosition[20].Config := 2;
+
+// Stack 21
+Data.StackPosition[21].StackNumber := 21;
+Data.StackPosition[21].PlacePosition.rPosX := 0;
+Data.StackPosition[21].PlacePosition.rPosY := 0;
+Data.StackPosition[21].PlacePosition.rPosZ := 244;
+Data.StackPosition[21].PlacePosition.rPosW := 0;
+Data.StackPosition[21].PlacePosition.rPosP := 0;
+Data.StackPosition[21].PlacePosition.rPosR := 0;
+Data.StackPosition[21].Offset.rPosX := 20;
+Data.StackPosition[21].Offset.rPosY := 0;
+Data.StackPosition[21].Offset.rPosZ := 25;
+Data.StackPosition[21].ToolOffset.rPosX := -25;
+Data.StackPosition[21].ToolOffset.rPosY := 0;
+Data.StackPosition[21].ToolOffset.rPosZ := -75;
+Data.StackPosition[21].Config := 2;
+
+// Stack 22
+Data.StackPosition[22].StackNumber := 22;
+Data.StackPosition[22].PlacePosition.rPosX := 70;
+Data.StackPosition[22].PlacePosition.rPosY := 0;
+Data.StackPosition[22].PlacePosition.rPosZ := 244;
+Data.StackPosition[22].PlacePosition.rPosW := 0;
+Data.StackPosition[22].PlacePosition.rPosP := 0;
+Data.StackPosition[22].PlacePosition.rPosR := 0;
+Data.StackPosition[22].Offset.rPosX := 20;
+Data.StackPosition[22].Offset.rPosY := 0;
+Data.StackPosition[22].Offset.rPosZ := 25;
+Data.StackPosition[22].ToolOffset.rPosX := 0;
+Data.StackPosition[22].ToolOffset.rPosY := 0;
+Data.StackPosition[22].ToolOffset.rPosZ := -40;
+Data.StackPosition[22].Config := 2;
+
+// Stack 23
+Data.StackPosition[23].StackNumber := 23;
+Data.StackPosition[23].PlacePosition.rPosX := 140;
+Data.StackPosition[23].PlacePosition.rPosY := 0;
+Data.StackPosition[23].PlacePosition.rPosZ := 244;
+Data.StackPosition[23].PlacePosition.rPosW := 0;
+Data.StackPosition[23].PlacePosition.rPosP := 0;
+Data.StackPosition[23].PlacePosition.rPosR := 0;
+Data.StackPosition[23].Offset.rPosX := 20;
+Data.StackPosition[23].Offset.rPosY := 0;
+Data.StackPosition[23].Offset.rPosZ := 25;
+Data.StackPosition[23].ToolOffset.rPosX := 0;
+Data.StackPosition[23].ToolOffset.rPosY := 0;
+Data.StackPosition[23].ToolOffset.rPosZ := -40;
+Data.StackPosition[23].Config := 2;
+
+// Stack 24
+Data.StackPosition[24].StackNumber := 24;
+Data.StackPosition[24].PlacePosition.rPosX := 210;
+Data.StackPosition[24].PlacePosition.rPosY := 0;
+Data.StackPosition[24].PlacePosition.rPosZ := 244;
+Data.StackPosition[24].PlacePosition.rPosW := 0;
+Data.StackPosition[24].PlacePosition.rPosP := 0;
+Data.StackPosition[24].PlacePosition.rPosR := 180;
+Data.StackPosition[24].Offset.rPosX := 20;
+Data.StackPosition[24].Offset.rPosY := 0;
+Data.StackPosition[24].Offset.rPosZ := 25;
+Data.StackPosition[24].ToolOffset.rPosX := 0;
+Data.StackPosition[24].ToolOffset.rPosY := 0;
+Data.StackPosition[24].ToolOffset.rPosZ := -40;
+Data.StackPosition[24].Config := 2;
+
+// Stack 25
+Data.StackPosition[25].StackNumber := 25;
+Data.StackPosition[25].PlacePosition.rPosX := 280;
+Data.StackPosition[25].PlacePosition.rPosY := 0;
+Data.StackPosition[25].PlacePosition.rPosZ := 244;
+Data.StackPosition[25].PlacePosition.rPosW := 0;
+Data.StackPosition[25].PlacePosition.rPosP := 0;
+Data.StackPosition[25].PlacePosition.rPosR := 180;
+Data.StackPosition[25].Offset.rPosX := 10;
+Data.StackPosition[25].Offset.rPosY := 0;
+Data.StackPosition[25].Offset.rPosZ := 25;
+Data.StackPosition[25].ToolOffset.rPosX := 0;
+Data.StackPosition[25].ToolOffset.rPosY := 0;
+Data.StackPosition[25].ToolOffset.rPosZ := -40;
+Data.StackPosition[25].Config := 2;
+
+// Stack 26
+Data.StackPosition[26].StackNumber := 26;
+Data.StackPosition[26].PlacePosition.rPosX := 35;
+Data.StackPosition[26].PlacePosition.rPosY := 0;
+Data.StackPosition[26].PlacePosition.rPosZ := 305;
+Data.StackPosition[26].PlacePosition.rPosW := 0;
+Data.StackPosition[26].PlacePosition.rPosP := 0;
+Data.StackPosition[26].PlacePosition.rPosR := 0;
+Data.StackPosition[26].Offset.rPosX := 20;
+Data.StackPosition[26].Offset.rPosY := 0;
+Data.StackPosition[26].Offset.rPosZ := 25;
+Data.StackPosition[26].ToolOffset.rPosX := 0;
+Data.StackPosition[26].ToolOffset.rPosY := 0;
+Data.StackPosition[26].ToolOffset.rPosZ := -40;
+Data.StackPosition[26].Config := 2;
+
+// Stack 27
+Data.StackPosition[27].StackNumber := 27;
+Data.StackPosition[27].PlacePosition.rPosX := 105;
+Data.StackPosition[27].PlacePosition.rPosY := 0;
+Data.StackPosition[27].PlacePosition.rPosZ := 305;
+Data.StackPosition[27].PlacePosition.rPosW := 0;
+Data.StackPosition[27].PlacePosition.rPosP := 0;
+Data.StackPosition[27].PlacePosition.rPosR := 0;
+Data.StackPosition[27].Offset.rPosX := 20;
+Data.StackPosition[27].Offset.rPosY := 0;
+Data.StackPosition[27].Offset.rPosZ := 25;
+Data.StackPosition[27].ToolOffset.rPosX := 0;
+Data.StackPosition[27].ToolOffset.rPosY := 0;
+Data.StackPosition[27].ToolOffset.rPosZ := -40;
+Data.StackPosition[27].Config := 2;
+
+// Stack 28
+Data.StackPosition[28].StackNumber := 28;
+Data.StackPosition[28].PlacePosition.rPosX := 175;
+Data.StackPosition[28].PlacePosition.rPosY := 0;
+Data.StackPosition[28].PlacePosition.rPosZ := 305;
+Data.StackPosition[28].PlacePosition.rPosW := 0;
+Data.StackPosition[28].PlacePosition.rPosP := 0;
+Data.StackPosition[28].PlacePosition.rPosR := 0;
+Data.StackPosition[28].Offset.rPosX := 20;
+Data.StackPosition[28].Offset.rPosY := 0;
+Data.StackPosition[28].Offset.rPosZ := 25;
+Data.StackPosition[28].ToolOffset.rPosX := 0;
+Data.StackPosition[28].ToolOffset.rPosY := 0;
+Data.StackPosition[28].ToolOffset.rPosZ := -40;
+Data.StackPosition[28].Config := 2;
+
+// Stack 29
+Data.StackPosition[29].StackNumber := 29;
+Data.StackPosition[29].PlacePosition.rPosX := 245;
+Data.StackPosition[29].PlacePosition.rPosY := 0;
+Data.StackPosition[29].PlacePosition.rPosZ := 305;
+Data.StackPosition[29].PlacePosition.rPosW := 0;
+Data.StackPosition[29].PlacePosition.rPosP := 0;
+Data.StackPosition[29].PlacePosition.rPosR := 180;
+Data.StackPosition[29].Offset.rPosX := 20;
+Data.StackPosition[29].Offset.rPosY := 0;
+Data.StackPosition[29].Offset.rPosZ := 25;
+Data.StackPosition[29].ToolOffset.rPosX := 0;
+Data.StackPosition[29].ToolOffset.rPosY := 0;
+Data.StackPosition[29].ToolOffset.rPosZ := -40;
+Data.StackPosition[29].Config := 2;
+
+// Stack 30
+Data.StackPosition[30].StackNumber := 30;
+Data.StackPosition[30].PlacePosition.rPosX := 310;
+Data.StackPosition[30].PlacePosition.rPosY := 0;
+Data.StackPosition[30].PlacePosition.rPosZ := 335;
+Data.StackPosition[30].PlacePosition.rPosW := 0;
+Data.StackPosition[30].PlacePosition.rPosP := 0;
+Data.StackPosition[30].PlacePosition.rPosR := 180;
+Data.StackPosition[30].Offset.rPosX := -20;
+Data.StackPosition[30].Offset.rPosY := 0;
+Data.StackPosition[30].Offset.rPosZ := 25;
+Data.StackPosition[30].ToolOffset.rPosX := -25;
+Data.StackPosition[30].ToolOffset.rPosY := 0;
+Data.StackPosition[30].ToolOffset.rPosZ := -75;
+Data.StackPosition[30].Config := 2;
+END_METHOD
+
+METHOD PRIVATE Mapping : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Private
+(*------------------------------------------------------------------------------------------------------------
+											- Registers -
+------------------------------------------------------------------------------------------------------------*)
+
+Fanuc.FanucRegisters[100].xEnabled	:= TRUE;	Fanuc.FanucRegisters[100].rValue	:= 0;	//Disable simulation
+Fanuc.FanucRegisters[101].xEnabled	:= TRUE;	Fanuc.FanucRegisters[101].rValue	:= 0;	//Main PNS Select
+Fanuc.FanucRegisters[102].xEnabled	:= TRUE;	Fanuc.FanucRegisters[102].rValue	:= 1;	// Exchange set selector
+Fanuc.FanucRegisters[103].xEnabled	:= TRUE;	Fanuc.FanucRegisters[103].rValue	:= 1;	//tool set select
+Fanuc.FanucRegisters[104].xEnabled	:= FALSE;	Fanuc.FanucRegisters[104].rValue	:= 0;
+Fanuc.FanucRegisters[105].xEnabled	:= TRUE;	Fanuc.FanucRegisters[105].rValue	:= SEL(Fanuc.ProgramSelector = Fanuc_Programs.ManualHoming, 10, 5);	//Homing speed
+Fanuc.FanucRegisters[106].xEnabled	:= TRUE;	Fanuc.FanucRegisters[106].rValue	:= MAX(1,Data.rReducedSpeed * PersistentVars.usiGlobalSERSpeed / 100);
+Fanuc.FanucRegisters[107].xEnabled	:= TRUE;	Fanuc.FanucRegisters[107].rValue	:= MAX(1,Data.rNormalSpeed * PersistentVars.usiGlobalSERSpeed / 100);
+Fanuc.FanucRegisters[108].xEnabled	:= TRUE;	Fanuc.FanucRegisters[108].rValue	:= MAX(1,Data.rCollisionGuardHigh);
+Fanuc.FanucRegisters[109].xEnabled	:= TRUE;	Fanuc.FanucRegisters[109].rValue	:= MAX(1,Data.rCollisionGuardLow);
+
+Fanuc.FanucRegisters[120].xEnabled	:= TRUE;	Fanuc.FanucRegisters[120].rValue	:= Data.Pick.Teach.rPosX;
+Fanuc.FanucRegisters[121].xEnabled	:= TRUE;	Fanuc.FanucRegisters[121].rValue	:= Data.Pick.Teach.rPosY;
+Fanuc.FanucRegisters[122].xEnabled	:= TRUE;	Fanuc.FanucRegisters[122].rValue	:= Data.Pick.Teach.rPosZ;
+Fanuc.FanucRegisters[123].xEnabled	:= TRUE;	Fanuc.FanucRegisters[123].rValue	:= Data.Pick.Teach.rPosW;// := 90;
+Fanuc.FanucRegisters[124].xEnabled	:= TRUE;	Fanuc.FanucRegisters[124].rValue	:= Data.Pick.Teach.rPosP;// := 0;
+Fanuc.FanucRegisters[125].xEnabled	:= TRUE;	Fanuc.FanucRegisters[125].rValue	:= Data.Pick.Teach.rPosR;// := 90;
+Fanuc.FanucRegisters[126].xEnabled	:= TRUE;	Fanuc.FanucRegisters[126].rValue	:= Data.Pick.PitchX;
+Fanuc.FanucRegisters[127].xEnabled	:= TRUE;	Fanuc.FanucRegisters[127].rValue	:= Data.Pick.PitchY;
+Fanuc.FanucRegisters[131].xEnabled	:= TRUE;	Fanuc.FanucRegisters[131].rValue	:= Data.Pick.ApproachZ;
+Fanuc.FanucRegisters[134].xEnabled	:= TRUE;	Fanuc.FanucRegisters[134].rValue	:= Data.Pick.ShiftZ;
+Fanuc.FanucRegisters[137].xEnabled	:= TRUE;	Fanuc.FanucRegisters[137].rValue	:= Data.Pick.ApproachX;
+Fanuc.FanucRegisters[139].xEnabled	:= TRUE;	Fanuc.FanucRegisters[139].rValue	:= Data.Pick.ShiftY;
+
+
+Fanuc.FanucRegisters[150].xEnabled	:= TRUE;	Fanuc.FanucRegisters[150].rValue	:= Data.Place.Teach.rPosX;
+Fanuc.FanucRegisters[151].xEnabled	:= TRUE;	Fanuc.FanucRegisters[151].rValue	:= Data.Place.Teach.rPosY;
+Fanuc.FanucRegisters[152].xEnabled	:= TRUE;	Fanuc.FanucRegisters[152].rValue	:= Data.Place.Teach.rPosZ;
+Fanuc.FanucRegisters[153].xEnabled	:= TRUE;	Fanuc.FanucRegisters[153].rValue	:= Data.Place.Teach.rPosW;
+Fanuc.FanucRegisters[154].xEnabled	:= TRUE;	Fanuc.FanucRegisters[154].rValue	:= Data.Place.Teach.rPosP;
+Fanuc.FanucRegisters[155].xEnabled	:= TRUE;	Fanuc.FanucRegisters[155].rValue	:= Data.Place.Teach.rPosR;
+Fanuc.FanucRegisters[183].xEnabled	:= TRUE;	Fanuc.FanucRegisters[183].rValue	:= Data.Place.AboveBoxZ;
+
+
+Fanuc.FanucRegisters[190].xEnabled	:= TRUE;	Fanuc.FanucRegisters[190].rValue	:= Data.Reject.Teach.rPosX;
+Fanuc.FanucRegisters[191].xEnabled	:= TRUE;	Fanuc.FanucRegisters[191].rValue	:= Data.Reject.Teach.rPosY;
+Fanuc.FanucRegisters[192].xEnabled	:= TRUE;	Fanuc.FanucRegisters[192].rValue	:= Data.Reject.Teach.rPosZ;
+Fanuc.FanucRegisters[193].xEnabled	:= TRUE;	Fanuc.FanucRegisters[193].rValue	:= Data.Reject.Teach.rPosW;// := 90;
+Fanuc.FanucRegisters[194].xEnabled	:= TRUE;	Fanuc.FanucRegisters[194].rValue	:= Data.Reject.Teach.rPosP;// := 0;
+Fanuc.FanucRegisters[195].xEnabled	:= TRUE;	Fanuc.FanucRegisters[195].rValue	:= Data.Reject.Teach.rPosR;// := -90;
+
+Fanuc.FanucRegisters[196].xEnabled	:= TRUE;	Fanuc.FanucRegisters[196].rValue	:= Data.Reject.ApproachDistanceX;
+Fanuc.FanucRegisters[198].xEnabled	:= TRUE;	Fanuc.FanucRegisters[198].rValue	:= Data.Reject.ApproachDistanceZ;
+Fanuc.FanucRegisters[201].xEnabled	:= TRUE;	Fanuc.FanucRegisters[201].rValue	:= Data.Reject.RetractDistanceAfterRelease;
+
+Fanuc.FanucRegisters[240].xEnabled	:= TRUE;	Fanuc.FanucRegisters[240].rValue	:= Data.Buffer.Teach.rPosX;
+Fanuc.FanucRegisters[241].xEnabled	:= TRUE;	Fanuc.FanucRegisters[241].rValue	:= Data.Buffer.Teach.rPosY;
+Fanuc.FanucRegisters[242].xEnabled	:= TRUE;	Fanuc.FanucRegisters[242].rValue	:= Data.Buffer.Teach.rPosZ;
+Fanuc.FanucRegisters[243].xEnabled	:= TRUE;	Fanuc.FanucRegisters[243].rValue	:= Data.Buffer.Teach.rPosW;// := 90;
+Fanuc.FanucRegisters[244].xEnabled	:= TRUE;	Fanuc.FanucRegisters[244].rValue	:= Data.Buffer.Teach.rPosP;// := 0;
+Fanuc.FanucRegisters[245].xEnabled	:= TRUE;	Fanuc.FanucRegisters[245].rValue	:= Data.Buffer.Teach.rPosR;// := -90;
+Fanuc.FanucRegisters[248].xEnabled	:= TRUE;	Fanuc.FanucRegisters[248].rValue	:= Data.Buffer.PitchZ;
+Fanuc.FanucRegisters[251].xEnabled	:= TRUE;	Fanuc.FanucRegisters[251].rValue	:= Data.Buffer.DistUpAfterPick;
+Fanuc.FanucRegisters[254].xEnabled	:= TRUE;	Fanuc.FanucRegisters[254].rValue	:= Data.Buffer.StackingApproachZ;
+Fanuc.FanucRegisters[257].xEnabled	:= TRUE;	Fanuc.FanucRegisters[257].rValue	:= Data.Buffer.ApproachX;
+
+Fanuc.FanucRegisters[258].xEnabled	:= TRUE;	Fanuc.FanucRegisters[258].rValue	:= Data.Buffer.PickStackOffsetZ;
+//
+Fanuc.FanucRegisters[300].xEnabled	:= TRUE;	Fanuc.FanucRegisters[300].rValue	:= Data.Home.rJ[1];
+Fanuc.FanucRegisters[301].xEnabled	:= TRUE;	Fanuc.FanucRegisters[301].rValue	:= Data.Home.rJ[2];
+Fanuc.FanucRegisters[302].xEnabled	:= TRUE;	Fanuc.FanucRegisters[302].rValue	:= Data.Home.rJ[3];
+Fanuc.FanucRegisters[303].xEnabled	:= TRUE;	Fanuc.FanucRegisters[303].rValue	:= Data.Home.rJ[4];
+Fanuc.FanucRegisters[304].xEnabled	:= TRUE;	Fanuc.FanucRegisters[304].rValue	:= Data.Home.rJ[5];
+Fanuc.FanucRegisters[305].xEnabled	:= TRUE;	Fanuc.FanucRegisters[305].rValue	:= Data.Home.rJ[6];
+
+Fanuc.FanucRegisters[306].xEnabled	:= TRUE;	Fanuc.FanucRegisters[306].rValue	:= Data.Service.rJ[1];
+Fanuc.FanucRegisters[307].xEnabled	:= TRUE;	Fanuc.FanucRegisters[307].rValue	:= Data.Service.rJ[2];
+Fanuc.FanucRegisters[308].xEnabled	:= TRUE;	Fanuc.FanucRegisters[308].rValue	:= Data.Service.rJ[3];
+Fanuc.FanucRegisters[309].xEnabled	:= TRUE;	Fanuc.FanucRegisters[309].rValue	:= Data.Service.rJ[4];
+Fanuc.FanucRegisters[310].xEnabled	:= TRUE;	Fanuc.FanucRegisters[310].rValue	:= Data.Service.rJ[5];
+Fanuc.FanucRegisters[311].xEnabled	:= TRUE;	Fanuc.FanucRegisters[311].rValue	:= Data.Service.rJ[6];
+
+(*------------------------------------------------------------------------------------------------------------
+											- Digital I/O -
+------------------------------------------------------------------------------------------------------------*)
+	Fanuc.Q.xEnableSPC[1]				:= conveyorStandstill;	// Pick area
+	Fanuc.Q.xEnableSPC[2]				:= boxFillAreaIsClear;
+	Fanuc.Q.xEnableSPC[3]				:= TRUE;
+	Fanuc.Q.xEnableSPC[4]				:= boxFillAreaIsClear;
+	Fanuc.Q.xEnableSPC[5]				:= TRUE;
+	Fanuc.Q.xEnableSPC[6]				:= TRUE;
+	Fanuc.Q.xEnableSPC[7]				:= TRUE;
+	Fanuc.Q.xEnableSPC[8]				:= TRUE;
+	Fanuc.Q.xEnableSPC[9]				:= TRUE;
+	Fanuc.Q.xEnableSPC[10]				:= TRUE;
+
+	Clamp[1].inputIn					:= Fanuc.I.byRobotInputs.0; // RI1
+	Clamp[1].inputOut					:= Fanuc.I.byRobotInputs.1; // RI2
+	Clamp[2].inputIn					:= Fanuc.I.byRobotInputs.2; // RI3
+	Clamp[2].inputOut					:= Fanuc.I.byRobotInputs.3; // RI4
+//										:= Fanuc.I.byRobotInputs.4; // RI5
+//										:= Fanuc.I.byRobotInputs.5; // RI6
+	StackDetection.sensorInput			:= Fanuc.I.byRobotInputs.6; // RI7
+//										:= Fanuc.I.byRobotInputs.7; // RI8
+
+	Fanuc.Q.byRobotOutputs.0			:= Clamp[1].MapIn();
+	Fanuc.Q.byRobotOutputs.1			:= Clamp[1].MapOut();
+	Fanuc.Q.byRobotOutputs.2			:= Clamp[2].MapIn();
+	Fanuc.Q.byRobotOutputs.3			:= Clamp[2].MapOut();
+	Fanuc.Q.byRobotOutputs.4			:= ReleaseClamp.Map();
+//	Fanuc.Q.byRobotOutputs.5			:= ;
+//	Fanuc.Q.byRobotOutputs.6			:= ;
+//	Fanuc.Q.byRobotOutputs.7			:= ;
+
+(*------------------------------------------------------------------------------------------------------------
+											- Group I/O -
+------------------------------------------------------------------------------------------------------------*)
+//								:= Fanuc.I.arGroupInputs[7];
+//								:= Fanuc.I.arGroupInputs[8];
+//								:= Fanuc.I.arGroupInputs[9];
+//								:= Fanuc.I.arGroupInputs[10];
+//								:= Fanuc.I.arGroupInputs[11];
+//								:= Fanuc.I.arGroupInputs[12];
+//								:= Fanuc.I.arGroupInputs[13];
+//								:= Fanuc.I.arGroupInputs[14];
+//								:= Fanuc.I.arGroupInputs[15];
+//								:= Fanuc.I.arGroupInputs[16];
+//								:= Fanuc.I.arGroupInputs[17];
+//								:= Fanuc.I.arGroupInputs[18];
+//								:= Fanuc.I.arGroupInputs[19];
+//								:= Fanuc.I.arGroupInputs[20];
+//								:= Fanuc.I.arGroupInputs[21];
+//								:= Fanuc.I.arGroupInputs[22];
+//								:= Fanuc.I.arGroupInputs[23];
+//								:= Fanuc.I.arGroupInputs[24];
+//								:= Fanuc.I.arGroupInputs[25];
+//								:= Fanuc.I.arGroupInputs[26];
+//								:= Fanuc.I.arGroupInputs[27];
+
+// Pick position
+	Fanuc.Q.arGroupOutputs[7]	:= PickPosX;
+	Fanuc.Q.arGroupOutputs[8]	:= PickPosY;
+	Fanuc.Q.arGroupOutputs[9]	:= PickPosZ;
+
+// Place position
+	Fanuc.Q.arGroupOutputs[10]	:= PlacePosition._X.Low;
+	Fanuc.Q.arGroupOutputs[11]	:= PlacePosition._X.High;
+	Fanuc.Q.arGroupOutputs[12]	:= PlacePosition._Y.Low;
+	Fanuc.Q.arGroupOutputs[13]	:= PlacePosition._Y.High;
+	Fanuc.Q.arGroupOutputs[14]	:= PlacePosition._Z.Low;
+	Fanuc.Q.arGroupOutputs[15]	:= PlacePosition._Z.High;
+	Fanuc.Q.arGroupOutputs[16]	:= PlacePosition._W.Low;
+	Fanuc.Q.arGroupOutputs[17]	:= PlacePosition._W.High;
+	Fanuc.Q.arGroupOutputs[18]	:= PlacePosition._P.Low;
+	Fanuc.Q.arGroupOutputs[19]	:= PlacePosition._P.High;
+	Fanuc.Q.arGroupOutputs[20]	:= PlacePosition._R.Low;
+	Fanuc.Q.arGroupOutputs[21]	:= PlacePosition._R.High;
+	Fanuc.Q.arGroupOutputs[22]	:= PlaceOffset._X.Low;
+	Fanuc.Q.arGroupOutputs[23]	:= PlaceOffset._X.High;
+	Fanuc.Q.arGroupOutputs[24]	:= PlaceOffset._Y.Low;
+	Fanuc.Q.arGroupOutputs[25]	:= PlaceOffset._Y.High;
+	Fanuc.Q.arGroupOutputs[26]	:= PlaceOffset._Z.Low;
+	Fanuc.Q.arGroupOutputs[27]	:= PlaceOffset._Z.High;
+	Fanuc.Q.arGroupOutputs[28]	:= PlaceToolOffset._X.Low;
+	Fanuc.Q.arGroupOutputs[29]	:= PlaceToolOffset._X.High;
+	Fanuc.Q.arGroupOutputs[30]	:= PlaceToolOffset._Y.Low;
+	Fanuc.Q.arGroupOutputs[31]	:= PlaceToolOffset._Y.High;
+	Fanuc.Q.arGroupOutputs[32]	:= PlaceToolOffset._Z.Low;
+	Fanuc.Q.arGroupOutputs[33]	:= PlaceToolOffset._Z.High;
+	Fanuc.Q.arGroupOutputs[34]	:= PlaceConfig.Low;
+	Fanuc.Q.arGroupOutputs[35]	:= PlaceConfig.High;
+
+// Buffer position
+	Fanuc.Q.arGroupOutputs[36]	:= BufferPosX;
+	Fanuc.Q.arGroupOutputs[37]	:= BufferPosY;
+	Fanuc.Q.arGroupOutputs[38]	:= BufferPosZ;
+	Fanuc.Q.arGroupOutputs[39]	:= BufferPickRotate;
+END_METHOD
+
+METHOD PUBLIC PickStackFromBuffer : BOOL
+VAR_INPUT
+	rotateGripper				: BOOL;								// True when stack must be picked upside down.
+	StackStatus					: REFERENCE TO StackStatusType;		// Stack status of the stack to pick
+END_VAR
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState					:= 0;
+	Fanuc.ComBrinkFanuc			:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		Increment.AnyInt(localState);
+
+	1:
+		// Write position and rotation to Fanuc
+		BufferPickRotate		:= SEL(rotateGripper, 0, 1);
+		BufferPosX				:= 0;
+		BufferPosY				:= 0;
+		BufferPosZ				:= 0; // Always pick from position 0
+
+		// Open gripper, just to be sure
+		IF GripperOpen() AND Fanuc.ProgramRunning <> Fanuc_Programs.Buffer THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2: // Start buffer program
+		Fanuc.ProgramSelector	:= Fanuc_Programs.Buffer;
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Buffer AND Fanuc.ComFanucBrink <> Fanuc_Buffer_IN.AtPickPlacePos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:	// Wait until Fanuc is at buffer position
+		Fanuc.ProgramSelector	:= Fanuc_Programs.MainProgram;
+		Fanuc.ComBrinkFanuc		:= Fanuc_Buffer_OUT.GoToPick;
+
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtPickPlacePos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Clamp stack
+		IF GripperClose() THEN
+			GripperStatus			:= StackStatus;		// Copy the status from the conveyor
+			GripperStatus.Rotated	:= rotateGripper;	// Save rotateGripper state for later check
+			ClearProducts.Stack(StackStatus);			// Clear stack in bufferrack
+			Increment.AnyInt(localState);
+		END_IF
+
+	5: // Wait until Fanuc is retracted
+		Fanuc.ComBrinkFanuc		:= Fanuc_Buffer_OUT.RetractFromPick;
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtRetractPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	6: // Wait until Fanuc is finished
+		Fanuc.ComBrinkFanuc		:= SEL(GripperStatus.Rejected, Fanuc_Buffer_OUT.StopAtRetract, Fanuc_Buffer_OUT.GoToHomePos);	// Always go home after picking, next is reject or place
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtHomePos
+		OR Fanuc.ComFanucBrink = Fanuc_Buffer_IN.WaitingAtRetractPos
+		THEN
+			Fanuc.ComBrinkFanuc := 0;
+			PickStackFromBuffer := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PUBLIC PickStackFromConveyor : BOOL
+VAR_INPUT
+	StackToPickX				: UINT;					// X-position of the stack to pick
+	StackToPickY				: UINT;					// Y-position of the stack to pick
+	StackStatus					: REFERENCE TO StackStatusType;		// Stack status of the stack to pick
+	EndPosition					: Fanuc_Pick_OUT;		// Define where the pick program has to end (retract for buffer or home for reject)
+END_VAR
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState					:= 0;
+	Fanuc.ComBrinkFanuc			:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		Increment.AnyInt(localState);
+
+	1:
+		// Write pick position to Fanuc
+		PickPosX				:= StackToPickX;
+		PickPosY				:= StackToPickY;
+		PickPosZ				:= 0;
+
+		// Open gripper
+		IF GripperOpen() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2: // Start pick program
+		Fanuc.ProgramSelector	:= Fanuc_Programs.Pick;
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Pick THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:	// Wait until Fanuc is at pick position
+		Fanuc.ProgramSelector	:= Fanuc_Programs.MainProgram;
+		IF Fanuc.ComFanucBrink = Fanuc_Pick_IN.AtPickPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Clamp stack
+		IF GripperClose() THEN
+			GripperStatus		:= StackStatus;		// Copy the status from the conveyor
+			ClearProducts.Stack(StackStatus);		// Clear stack on conveyor
+			IF NOT GripperStatus.Complete THEN
+				LogPlc.Error('Stack must be complete');
+				GripperStatus.Rejected	:= TRUE;
+			END_IF
+			Increment.AnyInt(localState);
+		END_IF
+
+	5: // Wait until Fanuc is finished
+		Fanuc.ComBrinkFanuc		:= EndPosition;
+		IF Fanuc.ComFanucBrink = Fanuc_Pick_IN.AtRetractPos
+		OR Fanuc.ComFanucBrink = Fanuc_Pick_IN.AtHomePos
+		THEN
+			Fanuc.ComBrinkFanuc		:= 0;
+			PickStackFromConveyor	:= CommandLock.Release(__POUNAME());
+		END_IF
+
+
+
+
+(*
+	5: // Wait until Fanuc is at shift position
+		Fanuc.ComBrinkFanuc		:= Fanuc_Pick_OUT.GoToShift;
+		IF Fanuc.ComFanucBrink = Fanuc_Pick_IN.AtShiftPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	6:	// Release stack
+		IF GripperOpen(Delay := Data.rStackingDelay) THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	7:	// Wait until Fanuc is at shift Pick position
+		Fanuc.ComBrinkFanuc		:= Fanuc_Pick_OUT.GoToShiftPick;
+		IF Fanuc.ComFanucBrink = Fanuc_Pick_IN.AtShiftPickPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	8:	// Clamp stack again
+		IF GripperClose(Delay := Data.rClampDelay) THEN
+			Increment.AnyInt(localState);
+		END_IF
+*)
+END_CASE
+END_METHOD
+
+METHOD PUBLIC PlaceStackInBox : enumResultGeneric		// Returns error when crashed in box
+VAR_INPUT
+	stackNumber					: UINT;					// Sorting number of the stack in the box
+END_VAR
+VAR_OUTPUT
+	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
+END_VAR
+VAR_INST
+	localState					: SINT;
+	i							: UINT;
+	StackPosition				: REFERENCE TO Fanuc_StackPosition;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState				:= 0;
+	Fanuc.ComBrinkFanuc		:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		Increment.AnyInt(localState);
+
+	1:
+		FOR i := 1 TO GVL_Constants_BFU.MaxNumberOfStacksInBox DO
+			IF Data.StackPosition[i].StackNumber = stackNumber THEN
+				StackPosition REF= Data.StackPosition[i];
+				SetPlacePosition(StackPosition);	// Write place position to Fanuc
+				Increment.AnyInt(localState);
+				EXIT;
+			END_IF
+		END_FOR
+
+	2:	// Close gripper, just to be sure
+		IF GripperClose() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3: // Start place program
+		Fanuc.ProgramSelector	:= Fanuc_Programs.Place;
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Place THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Wait until Fanuc is at place position
+		Fanuc.ProgramSelector	:= Fanuc_Programs.MainProgram;
+		IF Fanuc.ComFanucBrink = Fanuc_Place_IN.AtPlacePos
+		OR (NOT Fanuc.I.xSPCFree[4] AND Fanuc.I.xFault)
+		THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	5:	// Release stack
+		IF Fanuc.I.xFault THEN
+			alarmCrashDetected		:= TRUE;
+			Fanuc.xExternalReset	:= TRUE;
+			Fanuc.Q.xStart			:= TRUE;
+		END_IF
+
+		IF GripperOpenInBox(StackPosition.Config = 0) THEN
+			stackReleased		:= TRUE;
+			StackStatus			:= GripperStatus;
+			ClearProducts.Stack(GripperStatus);
+			Increment.AnyInt(localState);
+		END_IF
+
+	6:
+		IF NOT Fanuc.I.xFault THEN
+			Fanuc.xExternalReset		:= FALSE;
+			Fanuc.Q.xStart				:= FALSE;		// Fanuc starts again on falling edge of start
+			Increment.AnyInt(localState);
+		END_IF
+
+	7: // Wait until Fanuc is retracted
+		IF NOT FanucAboveBoxArea THEN	GripperOpen();	END_IF
+
+		Fanuc.ComBrinkFanuc		:= Fanuc_Place_OUT.GoToPlaceCheckPos;
+		IF Fanuc.ComFanucBrink = Fanuc_Place_IN.AtPlaceCheckPos THEN
+			Increment.AnyInt(localState);
+		ELSIF Fanuc.I.xFault THEN
+			Increment.AnyInt(localState, -2);
+		END_IF
+
+	8: // Wait until Fanuc is finished
+		IF NOT FanucAboveBoxArea THEN	GripperOpen();	END_IF
+
+		Fanuc.ComBrinkFanuc		:= Fanuc_Place_OUT.GoToHomePos;
+		IF Fanuc.ComFanucBrink = Fanuc_Place_IN.AtHomePos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	9:
+		Fanuc.ComBrinkFanuc	:= 0;
+		PlaceStackInBox		:= SEL(alarmCrashDetected, enumResultGeneric.Success, enumResultGeneric.Error);
+		alarmCrashDetected	:= FALSE;
+		CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+METHOD PUBLIC PlaceStackUponBuffer : BOOL
+VAR_INPUT
+	bufferPosZindex				: USINT;				// Index (0, or 1, or 2) of how many stacks are on the bufferrack. Fanuc uses it for Z-position
+	EndPosition					: Fanuc_Buffer_OUT;		// Define where the buffer program has to end (retract for pick or home for place/reject)
+END_VAR
+VAR_OUTPUT
+	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
+END_VAR
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState					:= 0;
+	Fanuc.ComBrinkFanuc			:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		Increment.AnyInt(localState);
+
+	1:
+		// Write place position to Fanuc
+		BufferPickRotate		:= 0;	// Never rotate while placing
+		BufferPosX				:= 0;
+		BufferPosY				:= 0;
+		BufferPosZ				:= bufferPosZindex;
+
+		// Close gripper, just to be sure
+		IF GripperClose() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2: // Start buffer program
+		Fanuc.ProgramSelector	:= Fanuc_Programs.Buffer;
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Buffer THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:	// Wait until Fanuc is at buffer position
+		Fanuc.ProgramSelector	:= Fanuc_Programs.MainProgram;
+		Fanuc.ComBrinkFanuc		:= Fanuc_Buffer_OUT.GoToPlace;
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtPickPlacePos
+		THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Release stack
+		IF GripperOpen() THEN
+			stackReleased		:= TRUE;
+			StackStatus			:= GripperStatus;
+			ClearProducts.Stack(GripperStatus);
+			Increment.AnyInt(localState);
+		END_IF
+
+	5: // Wait until Fanuc is retracted
+		Fanuc.ComBrinkFanuc		:= Fanuc_Buffer_OUT.RetractFromPlace;
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtRetractPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	6: // Wait until Fanuc is finished
+		Fanuc.ComBrinkFanuc		:= EndPosition;
+		IF Fanuc.ComFanucBrink = Fanuc_Buffer_IN.WaitingAtRetractPos
+		OR Fanuc.ComFanucBrink = Fanuc_Buffer_IN.AtHomePos
+		THEN
+			Fanuc.ComBrinkFanuc	:= 0;
+			PlaceStackUponBuffer:= CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Converts a given LREAL value to two UINT values which can be sent to the Fanuc
+METHOD PRIVATE RealToFanucUInt : Fanuc_HighLowUInt_Type
+VAR_INPUT
+	Value	: LREAL;
+END_VAR
+VAR
+	lrTempValue			: LREAL;
+END_VAR
+%FOLDER Private
+lrTempValue				:= Value * 1000;
+
+RealToFanucUInt.High	:= TO_UINT(TRUNC(ABS(lrTempValue) / 65536));					// High integer with sign bit
+RealToFanucUInt.High.15	:= lrTempValue > 0;												// Highest bit of the high integer indicates a positive (true) or negative (false) value
+RealToFanucUInt.Low		:= TO_UINT(TO_UDINT(ABS(lrTempValue)) MOD 65536);				// Low integer
+END_METHOD
+
+METHOD PUBLIC RejectStack : BOOL
+VAR_INPUT
+	EndPosition					: Fanuc_Reject_OUT;		// Define where the buffer program has to end (retract or home)
+END_VAR
+VAR_OUTPUT
+	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
+END_VAR
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState					:= 0;
+	Fanuc.ComBrinkFanuc			:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		Increment.AnyInt(localState);
+
+	1:
+		// Close gripper, just to be sure
+		IF GripperClose() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2: // Start reject program
+		Fanuc.ProgramSelector	:= Fanuc_Programs.Reject;
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Reject THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:	// Wait until Fanuc is at reject position
+		Fanuc.ProgramSelector	:= Fanuc_Programs.MainProgram;
+		IF Fanuc.ComFanucBrink = Fanuc_Reject_IN.AtRejectPos THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Release stack
+		IF GripperOpen() THEN
+			stackReleased		:= TRUE;
+			StackStatus			:= GripperStatus;
+			ClearProducts.Stack(GripperStatus);
+			Increment.AnyInt(localState);
+		END_IF
+
+	5: // Wait until Fanuc is finished
+		Fanuc.ComBrinkFanuc		:= EndPosition;
+		IF Fanuc.ComFanucBrink = Fanuc_Reject_IN.AtRetractPos
+		OR Fanuc.ComFanucBrink = Fanuc_Reject_IN.AtHomePosition
+		THEN
+			Fanuc.ComBrinkFanuc := 0;
+			RejectStack := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Fanuc.ComBrinkFanuc := 0;
+		Fanuc.xCheckWriteReg := TRUE;
+		IF Fanuc.Init() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		IF NOT Fanuc.xCheckWriteReg THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		Fanuc.ProgramSelector := Fanuc_Programs.Homing;
+		IF Fanuc.StartMainProgram(Fanuc_Programs.MainProgram) THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:
+		IF Fanuc.ProgramRunning = Fanuc_Programs.Homing THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:
+		Fanuc.ProgramSelector := Fanuc_Programs.Standby;
+		IF Fanuc.ComFanucBrink = Fanuc_Homing_IN.Finished THEN
+			Increment.AnyInt(localState);
+		ELSIF Fanuc.ComFanucBrink = Fanuc_Homing_IN.Error THEN
+			HomingError := TRUE;
+		END_IF
+
+	5:
+		Fanuc.ComBrinkFanuc := Fanuc_Homing_OUT.Done;
+		IF Fanuc.ComFanucBrink = 0 THEN
+			Fanuc.ComBrinkFanuc		:= 0;
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Returns status of stack in the Fanuc
+METHOD ReturnStack : REFERENCE TO StackStatusType
+%FOLDER Commands
+ReturnStack		REF= GripperStatus;
+END_METHOD
+
+// Write a given stack position to the position structs readable for Fanuc
+METHOD PRIVATE SetPlacePosition : BOOL
+VAR_INPUT
+	StackPosition				: REFERENCE TO Fanuc_StackPosition;				// Stacking position with offsets
+END_VAR
+VAR
+	GripperRotate				: REAL;
+END_VAR
+%FOLDER Private
+PlacePosition._X	:= RealToFanucUInt(StackPosition.PlacePosition.rPosX + Data.Place.Teach.rPosX);
+PlacePosition._Y	:= RealToFanucUInt(StackPosition.PlacePosition.rPosY + Data.Place.Teach.rPosY);
+PlacePosition._Z	:= RealToFanucUInt(StackPosition.PlacePosition.rPosZ + Data.Place.Teach.rPosZ);
+PlacePosition._W	:= RealToFanucUInt(StackPosition.PlacePosition.rPosW + Data.Place.Teach.rPosW);
+PlacePosition._P	:= RealToFanucUInt(StackPosition.PlacePosition.rPosP + Data.Place.Teach.rPosP);
+PlacePosition._R	:= RealToFanucUInt(StackPosition.PlacePosition.rPosR + Data.Place.Teach.rPosR);
+
+PlaceOffset._X		:= RealToFanucUInt(StackPosition.Offset.rPosX);
+PlaceOffset._Y		:= RealToFanucUInt(StackPosition.Offset.rPosY);
+PlaceOffset._Z		:= RealToFanucUInt(StackPosition.Offset.rPosZ);
+
+PlaceToolOffset._X	:= RealToFanucUInt(StackPosition.ToolOffset.rPosX);
+PlaceToolOffset._Y	:= RealToFanucUInt(StackPosition.ToolOffset.rPosY);
+PlaceToolOffset._Z	:= RealToFanucUInt(StackPosition.ToolOffset.rPosZ);
+
+PlaceConfig			:= RealToFanucUInt((StackPosition.Config MOD 2) + 1);	// 1 or 3: FUT, 2 or 4: NUT
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+fanucInitNeeded		:= TRUE;
+alarmCrashDetected	:= FALSE;
+Stop				:= SUPER^.Stop();
+END_METHOD
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+%FOLDER Properties
+GET
+PROTECTED
+VAR
+END_VAR
+ExternalManualControlEnabled := _manualControlEnabled;
+END_GET
+SET
+_manualControlEnabled := ExternalManualControlEnabled;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+// True when Fanuc is blocking the lift
+PROPERTY FanucAboveBoxArea : BOOL
+%FOLDER Properties
+GET
+FanucAboveBoxArea	:= NOT Fanuc.I.xSPCFree[6];
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+// True when Fanuc is in buffer area
+PROPERTY FanucInBufferArea : BOOL
+%FOLDER Properties
+GET
+FanucInBufferArea	:= NOT Fanuc.I.xSPCFree[5];
+END_GET
+END_PROPERTY
+
+PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+%FOLDER Properties
+GET
+StackStatus		REF= GripperStatus;
+END_GET
+END_PROPERTY

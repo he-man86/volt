@@ -1,0 +1,12 @@
+{attribute 'qualified_only'}
+{attribute 'analysis' := '-33'}	// Unused Variable
+VAR_GLOBAL CONSTANT
+	MaxNumberOfStacksInBox		: UINT	:= 30;		// Maximum allowed number of stacks in the box
+	
+	// Constants for Module Manager
+	MaxNumberOfModules			: UINT	:= 40;		// Maximum amount of modules that the machine may have.
+	MaxNumberOfStartableModules	: UINT	:= 20;		// Maximum amount of startable modules
+	MaxNumberOfResettableModules: UINT	:= 20;		// Maximum amount of resettable modules
+	MaxNumberOfServoDrives		: UINT	:= 20;		// Maximum amount of servo drives
+	MaxNumberOfGates			: UINT	:= 10;		// Maximum amount of safety gates
+END_VAR

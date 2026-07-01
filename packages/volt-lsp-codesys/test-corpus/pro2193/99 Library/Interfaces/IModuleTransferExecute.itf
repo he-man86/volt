@@ -1,0 +1,29 @@
+// Commands specific for a Transfer module
+INTERFACE IModuleTransferExecute
+EXTENDS __SYSTEM.IQueryInterface
+
+// Check if a transfer is needed
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+END_METHOD
+
+// Provide some number to do alternate cycles. Is zero when not in use.
+{attribute 'monitoring':='call'}
+PROPERTY AlternateCycleCounter : INT
+END_PROPERTY
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+END_PROPERTY
+
+END_INTERFACE

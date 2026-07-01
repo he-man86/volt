@@ -1,0 +1,19 @@
+// Control a vacuum output and measure the vacuum level. Use the second input to measure the pressure (check if a label is present)
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FINAL VacuumWithPressureFB
+EXTENDS VacuumWithInputFB
+IMPLEMENTS IVacuum
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Input 2 of Vacuum sensor (Pressure level reached)
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+{attribute 'monitoring':='call'}
+PROPERTY HasPressure : BOOL
+GET
+HasPressure := input2;
+END_GET
+END_PROPERTY

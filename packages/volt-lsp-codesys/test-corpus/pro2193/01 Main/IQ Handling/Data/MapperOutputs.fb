@@ -1,0 +1,46 @@
+// Mapping digital outputs. Use to map 8 individual bits into a byte
+FUNCTION_BLOCK INTERNAL MapperOutputs
+EXTENDS MapperBase
+VAR_INPUT
+	slice			: REFERENCE TO BYTE;
+	bit1			: BIT;
+	bit2			: BIT;
+	bit3			: BIT;
+	bit4			: BIT;
+	bit5			: BIT;
+	bit6			: BIT;
+	bit7			: BIT;
+	bit8			: BIT;
+END_VAR
+
+SUPER^();
+
+IF __ISVALIDREF(sliceForced) AND_THEN sliceForced THEN
+	slice.0	:= sliceInfo.component[1].forceValue;
+	slice.1	:= sliceInfo.component[2].forceValue;
+	slice.2	:= sliceInfo.component[3].forceValue;
+	slice.3	:= sliceInfo.component[4].forceValue;
+	slice.4	:= sliceInfo.component[5].forceValue;
+	slice.5	:= sliceInfo.component[6].forceValue;
+	slice.6	:= sliceInfo.component[7].forceValue;
+	slice.7	:= sliceInfo.component[8].forceValue;
+ELSE
+	slice.0	:= bit1;
+	slice.1	:= bit2;
+	slice.2	:= bit3;
+	slice.3	:= bit4;
+	slice.4	:= bit5;
+	slice.5	:= bit6;
+	slice.6	:= bit7;
+	slice.7	:= bit8;
+END_IF
+
+IF __ISVALIDREF(sliceInfo) THEN
+	sliceInfo.isOutput					:= TRUE;
+	FOR i := 1 TO 8 DO
+		sliceInfo.component[i].name		:= GVL_IQ.outputs[sliceNumber][i];
+		sliceInfo.component[i].actValue	:= BitLogic.ExtractFromByte(slice, TO_BYTE(i-1));
+	END_FOR
+END_IF
+
+END_FUNCTION_BLOCK

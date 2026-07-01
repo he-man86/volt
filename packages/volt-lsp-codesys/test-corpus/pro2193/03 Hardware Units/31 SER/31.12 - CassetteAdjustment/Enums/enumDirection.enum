@@ -1,0 +1,8 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumDirection :
+(
+	Positive := 1,
+	Negative := 2
+);
+END_TYPE

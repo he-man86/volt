@@ -1,0 +1,10 @@
+// Define a variable with upper and lower limits (Used on HMI input fields)
+{attribute 'monitoring_display' := 'value'}
+TYPE IntWithLimitsType :
+STRUCT
+	{attribute 'symbol' := 'read'}		lowerLimit		: INT;			// Minimum possible value
+	{attribute 'symbol' := 'readwrite'}	value			: INT;
+	{attribute 'symbol' := 'read'}		upperLimit		: INT;			// Maximum possible value
+	{attribute 'symbol' := 'read'}		stepSize		: INT	:= 1;	// Max allowed change during automatic operation (default = 1)
+END_STRUCT
+END_TYPE

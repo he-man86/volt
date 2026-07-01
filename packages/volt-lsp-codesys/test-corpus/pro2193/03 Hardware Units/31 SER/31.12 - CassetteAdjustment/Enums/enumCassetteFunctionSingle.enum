@@ -1,0 +1,17 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumCassetteFunctionSingle :
+(
+	None		:= 0,
+	Left		:= 1,
+	Up			:= 2,
+	Down		:= 3,
+	Right		:= 4,
+	RotateCw	:= 5,
+	RotateCcw	:= 6,
+	InitCenter	:= 7,
+	InitData	:= 8,
+	Data		:= 9,
+	Stop		:= 10
+);
+END_TYPE

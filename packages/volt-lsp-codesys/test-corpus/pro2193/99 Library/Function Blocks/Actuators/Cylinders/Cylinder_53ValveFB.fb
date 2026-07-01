@@ -1,0 +1,245 @@
+// Control a dual output cylinder. Two sensors check if the cylinder is in position.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC Cylinder_53ValveFB
+EXTENDS Cylinder_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	rGiveAirToBothOutputs	: REAL := 0.2;	// When a 5/3 valve is set while both outputs are low, give air to both outputs for this time. To avoid fast moving cylinder. Default is 200MS.
+	xEnableOutputs			: BOOL;			// Use like this: 'G_xEnableMainvalve OR System.On'. Resets outputs when air pressure is killed. Alarms are disables when low. Set to TRUE to disable this feature.
+END_VAR
+VAR
+	{attribute 'symbol' := 'readwrite'}	middleButton			: BOOL;			// Enable adjust mode for cylinder
+	{attribute 'symbol' := 'read'}		OutputIn				: ActuatorFB;	// Output when cylinder moves in
+	{attribute 'symbol' := 'read'}		OutputOut				: ActuatorFB;	// Output when cylinder moves out
+
+	middleTrigger			: TriggerFB;
+
+	switchBothOutputs		: BTON;
+	EnableOutputs			: BTOF;
+	xStartGoInDelay			: BOOL;
+	xStartGoOutDelay		: BOOL;
+END_VAR
+
+// Execute base cylinder fb
+SUPER^();
+
+// Instantiate the outputs
+OutputIn();
+OutputOut();
+
+// Keep xEnableOutputs high for half a second. So if air pressure drops for 0,5 sec. the outputs are reset.
+IF NOT EnableOutputs.Set(In := xEnableOutputs, Pt := 0.5) THEN
+	Reset();
+END_IF
+
+switchBothOutputs.Set(
+	In := xStartGoInDelay OR xStartGoOutDelay,
+	Pt := rGiveAirToBothOutputs);
+
+IF switchBothOutputs.Q THEN
+	SetOrReset(xStartGoOutDelay);
+	xStartGoInDelay		:= FALSE;
+	xStartGoOutDelay	:= FALSE;
+END_IF
+
+IF middleButton THEN
+	GlobalVars.manualControlRequested := TRUE;
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+// Set the alarm messages
+SetSensorOutAlarm(
+	SetAlarm(
+		xOutput	:= OutputOut.Map(),
+		xOutInv	:= OutputIn.Map(),
+		xSensor	:= inputOut));
+
+SetSensorInAlarm(
+	SetAlarm(
+		xOutput	:= OutputIn.Map(),
+		xOutInv	:= OutputOut.Map(),
+		xSensor	:= inputIn));
+END_METHOD
+
+// Set both outputs (=True)
+METHOD PUBLIC FINAL GoForceMiddle : BOOL
+OutputIn.Set();
+OutputOut.Set();
+END_METHOD
+
+// The cylinder moves in. Returns true when cylinder is in.
+METHOD PUBLIC GoIn : BOOL
+// Do not move cylinder if outputs are not enabled.
+IF NOT EnableOutputs.Q THEN
+	RETURN;
+END_IF
+
+// Both outputs are switched off, and the cylinder is not already in position
+IF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputIn THEN
+	IF inputOut THEN		// Cylinder is on the opposite side
+		OutputOut.Set();		// Send cylinder to opposite direction
+		OutputIn.Reset();
+		xStartGoInDelay	:= TRUE;
+	ELSE					// Cylinder is in between sensors
+		GoForceMiddle();	// Give air to both sides of the cylinder
+		xStartGoInDelay	:= TRUE;
+	END_IF
+ELSIF NOT xStartGoInDelay THEN
+	OutputOut.Reset();
+	OutputIn.Set();
+
+	GoIn := IsIn;
+END_IF
+END_METHOD
+
+// Reset both outputs. The 5/3 valve goes to middle position.
+METHOD PUBLIC GoMiddle
+Reset();
+END_METHOD
+
+// The cylinder moves out. Returns true when cylinder is out.
+METHOD PUBLIC GoOut : BOOL
+// Do not move cylinder if outputs are not enabled.
+IF NOT EnableOutputs.Q THEN
+	RETURN;
+END_IF
+
+// Both outputs are switched off, and the cylinder is not already in position
+IF NOT OutputIn.Map() AND NOT OutputOut.Map() AND NOT inputOut THEN
+	IF inputIn THEN		// Cylinder is on the opposite side
+		OutputOut.Reset();
+		OutputIn.Set();		// Send cylinder to opposite direction
+		xStartGoOutDelay	:= TRUE;
+	ELSE					// Cylinder is in between sensors
+		GoForceMiddle();	// Give air to both sides of the cylinder
+		xStartGoOutDelay	:= TRUE;
+	END_IF
+ELSIF NOT xStartGoOutDelay THEN
+	OutputOut.Set();
+	OutputIn.Reset();
+
+	GoOut := IsOut;
+END_IF
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF inAdjustMode THEN
+	SetOrReset(Blinker.OUT);
+ELSIF plusButtonPushed THEN
+	IF OutputOut.Map() THEN
+		GoMiddle();
+	ELSE
+		GoOut();
+	END_IF
+ELSIF minButtonPushed THEN
+	IF OutputIn.Map() THEN
+		GoMiddle();
+	ELSE
+		GoIn();
+	END_IF
+ELSIF middleTrigger.Rising(CLK := middleButton) THEN
+	GoMiddle();
+END_IF
+END_METHOD
+
+{attribute 'hide'}
+METHOD Map : BOOL
+ThrowException('Use other mapping methods instead');
+END_METHOD
+
+// Maps the output when cylinder moves Out to the physical output
+METHOD MapIn : BOOL
+MapIn := OutputIn.Map();
+END_METHOD
+
+// Maps the output when cylinder moves Out to the physical output
+METHOD MapOut : BOOL
+MapOut := OutputOut.Map();
+END_METHOD
+
+// Reset the outputs (=False)
+METHOD Reset
+OutputIn.Reset();
+OutputOut.Reset();
+END_METHOD
+
+// Set the outputs (=True)
+METHOD Set : BOOL
+GoOut();
+END_METHOD
+
+// Control a dual output cylinder. Two sensors check if the cylinder is in position.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC Cylinder_53ValveFB
+EXTENDS Cylinder_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	rGiveAirToBothOutputs	: REAL := 0.2;	// When a 5/3 valve is set while both outputs are low, give air to both outputs for this time. To avoid fast moving cylinder. Default is 200MS.
+	xEnableOutputs			: BOOL;			// Use like this: 'G_xEnableMainvalve OR System.On'. Resets outputs when air pressure is killed. Alarms are disables when low. Set to TRUE to disable this feature.
+END_VAR
+VAR
+	{attribute 'symbol' := 'readwrite'}	middleButton			: BOOL;			// Enable adjust mode for cylinder
+	{attribute 'symbol' := 'read'}		OutputIn				: ActuatorFB;	// Output when cylinder moves in
+	{attribute 'symbol' := 'read'}		OutputOut				: ActuatorFB;	// Output when cylinder moves out
+
+	middleTrigger			: TriggerFB;
+
+	switchBothOutputs		: BTON;
+	EnableOutputs			: BTOF;
+	xStartGoInDelay			: BOOL;
+	xStartGoOutDelay		: BOOL;
+END_VAR
+NETWORK 1 FBD
+  SetAlarm := (((xOutput AND NOT xOutInv AND NOT xSensor) OR (xOutInv AND NOT xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);
+END_NETWORK
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+// Do not move cylinder if outputs are not enabled.
+IF NOT EnableOutputs.Q THEN
+	RETURN;
+END_IF
+
+// Timer expired, so both outputs are high. Just switch to desired output.
+IF switchBothOutputs.Q THEN
+	OutputOut.SetOrReset(xValue);
+	OutputIn.SetOrReset(NOT xValue);
+// Both outputs are switched off. Give air to both sides of the valve. Start timer.
+ELSIF NOT OutputIn.Map() AND NOT OutputOut.Map() THEN
+	GoForceMiddle();
+	xStartGoInDelay		:= NOT xValue;	// Choose direction to move to when timer expires.
+	xStartGoOutDelay	:= xValue;
+// Normal operation
+ELSIF NOT xStartGoInDelay AND NOT xStartGoOutDelay THEN
+	OutputOut.SetOrReset(xValue);
+	OutputIn.SetOrReset(NOT xValue);
+END_IF
+END_METHOD
+
+// Set both the outputs of the valve immediately
+METHOD SetOrResetBothOutputs : BOOL
+VAR_INPUT
+	xOutput2	: BOOL;		// Output when cylinder moves out
+	xOutput1	: BOOL;		// Output when cylinder moves in
+END_VAR
+OutputOut.SetOrReset(xOutput2);
+OutputIn.SetOrReset(xOutput1);
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY OnTargetPos : BOOL
+GET
+OnTargetPos	:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND
+			(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);
+END_GET
+END_PROPERTY

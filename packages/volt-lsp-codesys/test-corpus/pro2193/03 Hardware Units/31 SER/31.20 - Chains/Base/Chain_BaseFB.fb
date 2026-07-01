@@ -1,0 +1,1044 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Chain_BaseFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IChain_Base_Commands, IChain_Base_TransferIntake_Commands, IChain_Base_TransferOuttake_Commands
+VAR_INPUT
+	ChainFree					: DigitalSensorFB(invert := FALSE);
+	safetyModules				: ARRAY[1..5] OF IModuleHasSafePosForChain;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: ChainBase_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	ReadMachineData				: L_MC1P.L_MC1P_ReadMachineData;
+	SensorCheck					: ModuloCheckSensorOnPosition;
+
+	// List of all chain links. Ordered by chain link position.
+	Link						: ARRAY[1..MaxLinks] OF ChainBase_LinkType;
+	// List of product carriers. Not ordered, list is static!
+	ProductCarrier				: ARRAY[1..MaxLinks] OF ChainBase_ProductCarrierType;
+	// List of only the links that have a product carrier attached.
+	LinkInUse					: ARRAY[1..MaxLinks] OF ChainBase_LinkInUseType;
+
+	{attribute 'hide'}	_productsNeeded				: BOOL;				// Private backing field for property
+
+	disableSensorCheckAlarm		: BOOL;
+
+	ResetAllProductCarriers		: BOOL;
+	debugOldestProductWaitingForResult:UINT;
+	debugOldestProductWaitingForTrigger:UINT;
+	i2:UINT;
+	debugNotSafeToMoveHalted	: USINT;
+	debugNotSafeToMove			: ARRAY[1..5] OF USINT;
+	ImageBufferTimer			: BTON;
+
+	activeOrder					: ARRAY[1..2] OF USINT(1..ZUnits.NumberOfTakeoverPositions);
+	activeOrderSelect			: USINT(1..2);
+	traceActiveOrder			: USINT;		// for viewing in trace
+END_VAR
+VAR CONSTANT
+	MaxLinks					: UINT	:= 32;
+//	MaxLinks					: UINT	:= 56;
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+debugOldestProductWaitingForResult :=0;
+FOR i2 := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
+	IF Link[i2].productCarrierPresent
+	AND_THEN Link[i2].ProductCarrier.product.Present
+	AND_THEN Link[i2].ProductCarrier.Product.ResultPending
+	THEN
+		debugOldestProductWaitingForResult :=i2;
+		EXIT;
+	END_IF
+END_FOR
+debugOldestProductWaitingForTrigger :=0;
+FOR i2 := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
+	IF Link[i2].productCarrierPresent
+	AND_THEN Link[i2].ProductCarrier.Product.TriggerPending
+	THEN
+		debugOldestProductWaitingForTrigger :=i2;
+		EXIT;
+	END_IF
+END_FOR
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+VAR
+	i							: UINT;
+	j							: USINT;
+	product						: REFERENCE TO ProductType;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Chain_Errors,
+	errorId			:= 1,
+	alarmCondition	:= SensorCheck.productDetected AND NOT disableSensorCheckAlarm AND SER.OperationMode <> SER_OperationModeType.CleaningMode,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Chain_Errors,
+	errorId			:= 2,
+	alarmCondition	:= StopToCheckImageBuffer,
+	alarmDelay		:= 5.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+// Reject all products that have a result pending when we have the alarm message
+IF SetError[2].active THEN
+	REPEAT
+		product	REF= OldestProductWaitingForResult;
+		IF __ISVALIDREF(product) THEN
+			FOR j := GVL_Constants.MaxRejectReasonsMisc + 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+				product.RejectReason[j]			:= TRUE;
+				product.RejectReasonIgnored[j]	:= VisionSystems.Data[1].overrideRejectStatus;		// Copy 'ignore camera result' bool to the product on the chain
+			END_FOR
+
+			product.ResultPending	:= FALSE;
+		END_IF
+	UNTIL NOT __ISVALIDREF(product)
+	END_REPEAT
+END_IF
+END_METHOD
+
+// Check if there is any product present on the intake side
+// If true, check if there are gaps (empty places)
+// All empty places will be marked so no products will be placed there
+// To make sure that Chain is always in sync at start of cycle
+METHOD PROTECTED CheckForGaps
+VAR
+	i							: UINT;
+	result						: BOOL;
+END_VAR
+FOR i := PersistentVars.RecipeVars.chainPos_XuUnit[1] TO PersistentVars.RecipeVars.chainPos_XuUnit[GVL_Constants.ChainProductsForXuUnit] DO
+	IF Link[i].productCarrier.Product.Present THEN
+		result := TRUE;
+		EXIT;
+	END_IF
+END_FOR
+
+IF NOT result THEN
+	RETURN;
+END_IF
+
+FOR i := PersistentVars.RecipeVars.chainPos_XuUnit[1] TO PersistentVars.RecipeVars.chainPos_XuUnit[GVL_Constants.ChainProductsForXuUnit] DO
+	 Link[i].productCarrier.Product.UncountedReject	S= NOT Link[i].productCarrier.product.Present;
+END_FOR
+END_METHOD
+
+METHOD PUBLIC ClearProductCarrier
+VAR_INPUT
+	position	: UINT(1..MaxLinks);
+END_VAR
+%FOLDER Commands
+IF Link[position].productCarrierPresent THEN
+	Link[position].ProductCarrier.productPosition	:= 0;
+	ClearProducts.Single(Link[position].ProductCarrier.Product);
+END_IF
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	productNo		: USINT(1..GVL_Constants.ChainProductsForXuUnit);
+	product			: ProductType;
+END_VAR
+VAR_INST
+	encoderPosition	: REAL;
+END_VAR
+%FOLDER Commands
+IF NOT Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].productCarrierPresent THEN
+	RETURN;
+END_IF
+
+// Correct the position of the chain where the product is received.
+encoderPosition := ModuloTools.SetPosition(
+								position	:= Drive.actPos - ((productNo-1) * Data.Step.Pos.value),
+								rollover	:= CycleLength);
+
+// Only keep the LastProduct flag for the very last product on the chain.
+IF productNo <> 1 THEN
+	product.LastProduct := FALSE;
+END_IF
+
+product.Present := TRUE;	// During semi-auto (without vacuums) sometimes there is no product data in the Xu. At least set the present bit.
+
+Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].ProductCarrier.Product			:= product;
+Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].ProductCarrier.productPosition	:= encoderPosition;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..1] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..1] OF AttachPosToButtonFB(							drive			:= Drive);
+	numberOfResultsPending		: INT;
+END_VAR
+VAR
+	linkCounter, counter		: UINT;
+	i							: UINT;
+END_VAR
+ReadMachineData(
+	Axis					:= AxisRef,
+	xEnable					:= TRUE,
+	xValid					=> ,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	lrFeedconstant			=> ,
+	dwGearDenominator		=> ,
+	dwGearNumerator			=> ,
+	dwAddGearDenominator	=> ,
+	dwAddGearNumerator		=> ,
+	dwPosResolution			=> ,
+	xOrientation			=> ,
+	eTraversingRange		=> ,
+	lrCycleLength			=> ,
+	xVirtual				=> );
+
+
+// Generate a list of links that have a product carrier attached
+counter	:= 1;
+
+LinkInUse[17].positionText		:= '';
+LinkInUse[18].positionText		:= '';
+LinkInUse[23].positionText		:= '';
+LinkInUse[24].positionText		:= '';
+
+FOR linkCounter := 1 TO MaxLinks DO
+	IF Link[linkCounter].productCarrierPresent THEN
+		LinkInUse[counter].linkNumber				:= linkCounter;
+		LinkInUse[counter].productCarrierPresent	:= TRUE;
+		LinkInUse[counter].ProductCarrier			REF= Link[linkCounter].ProductCarrier;
+		// Generate an array of all product distances
+		IF Link[linkCounter].ProductCarrier.product.Present THEN
+			LinkInUse[counter].position				:= ModuloTools.GetDistance(
+														productPos	:= Link[linkCounter].ProductCarrier.productPosition,
+														rollover	:= CycleLength,
+														actPos		:= Drive.actPos);
+		ELSE
+			LinkInUse[counter].position				:= 0;
+		END_IF
+
+		FOR i := 1 TO GVL_Constants.ChainProductsForXuUnit DO
+			IF LinkInUse[counter].linkNumber = PersistentVars.RecipeVars.chainPos_XuUnit[i] THEN
+				LinkInUse[counter].positionText		:= CONCAT('Xu ', TO_STRING(i)); EXIT;
+			END_IF
+		END_FOR
+		FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
+			IF LinkInUse[counter].linkNumber = PersistentVars.RecipeVars.chainPos_ZUnit[i] THEN
+				LinkInUse[counter].positionText		:= CONCAT('Z ', TO_STRING(i)); EXIT;
+			END_IF
+		END_FOR
+		FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+			IF LinkInUse[counter].linkNumber = PersistentVars.RecipeVars.chainPos_Reject[i] THEN
+				LinkInUse[counter].positionText		:= CONCAT('Rej ', TO_STRING(i)); EXIT;
+			END_IF
+		END_FOR
+		IF LinkInUse[counter].linkNumber = PersistentVars.RecipeVars.chainPos_Camera THEN
+			LinkInUse[counter].positionText			:= 'CAM';
+		END_IF
+		IF LinkInUse[counter].linkNumber = PersistentVars.RecipeVars.chainPos_Sensor THEN
+			LinkInUse[counter].positionText			:= 'Sensor';
+		END_IF
+
+		counter := counter + 1;
+	END_IF
+END_FOR
+
+SensorCheck(
+	enable					:= TRUE,
+	position				:= Drive.actPos,
+	stepDistance			:= Data.Step.Pos.value,
+	sensorPosition			:= Data.sensorPosition,
+	hysteresis				:= Data.detectRange,
+	sensor					:= ChainFree.IsActive,
+	leftWindow				=> ,
+	productDetected			=> );
+
+// Set limits for the positions, and guard the limits
+Data.NumberOfProductCarriers.lowerLimit	:= 1;
+Data.NumberOfProductCarriers.upperLimit	:= TO_INT(MaxLinks);
+Data.NumberOfProductCarriers.stepSize	:= 0;
+Data.NumberOfProductCarriers.value		:= LIMIT(Data.NumberOfProductCarriers.lowerLimit, Data.NumberOfProductCarriers.value, Data.NumberOfProductCarriers.upperLimit);
+
+// Force the Step position to be exactly the correct value.
+Data.Step.Pos.value						:= SEL(Data.NumberOfProductCarriers.value > 0, -1, TO_REAL(CycleLength) / Data.NumberOfProductCarriers.value);
+Data.Step.Pos.lowerLimit				:= Data.Step.Pos.value - 1;
+Data.Step.Pos.upperLimit				:= Data.Step.Pos.value + 1;
+Data.Step.Pos.stepSize					:= 0;
+
+Data.adjustTriggerPosition				:= LIMIT(0, Data.adjustTriggerPosition, Data.Step.Pos.value);
+
+guardPosition[1](value := Data.Step.Pos);
+attachPosition[1](value := Data.Step.Pos);
+
+// Check if there are images in camera buffer. If so wait moving chain until buffer is empty
+numberOfResultsPending					:= 0;
+FOR i := 1 TO MaxLinks DO
+	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.ResultPending THEN
+		Increment.AnyInt(numberOfResultsPending);
+	END_IF
+END_FOR
+
+ImageBufferTimer.Set(In := numberOfResultsPending > 0, Pt := Data.rTimeForCheckingImageBuffer);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+disableSensorCheckAlarm		:= FALSE;
+
+IF NOT Drive.config.virtualMode THEN
+	Drive.Quickstop(TRUE);
+END_IF
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+METHOD PRIVATE GoodProduct : BOOL
+VAR_INPUT
+	number		: USINT;
+END_VAR
+VAR
+	i			: USINT;
+END_VAR
+IF number = 0
+OR_ELSE number > MaxLinks
+OR_ELSE NOT Link[number].productCarrierPresent
+OR_ELSE NOT Link[number].ProductCarrier.Product.Present
+OR_ELSE Link[number].ProductCarrier.Product.UncountedReject
+OR_ELSE Link[number].ProductCarrier.Product.SampleShot
+THEN
+	RETURN;
+END_IF
+
+FOR i := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+	IF Link[number].ProductCarrier.Product.RejectReason[i] AND NOT Link[number].ProductCarrier.Product.RejectReasonIgnored[i] THEN
+		RETURN;
+	END_IF
+END_FOR
+
+GoodProduct		:= TRUE;
+END_METHOD
+
+METHOD PUBLIC InExactPosition : BOOL
+%FOLDER Commands
+InExactPosition := InPosition(1) AND_THEN Drive.Standstill AND Drive.InPosition;
+END_METHOD
+
+METHOD PUBLIC InPosition : BOOL
+VAR_INPUT
+	hysteresis		: REAL;	// Max allowed difference
+END_VAR
+%FOLDER Commands
+IF ModuloTools.PositionReached(
+		actPos		:= Drive.actPos,
+		setPos		:= TO_REAL(Drive.AxisBasicControl.lrPos_Dist),
+		rollover	:= CycleLength,
+		hysteresis	:= hysteresis)
+
+AND ModuloTools.PositionOnStep(
+		position	:= Drive.actPos,
+		stepDistance:= Data.Step.Pos.value,
+		hysteresis	:= hysteresis)
+
+THEN
+	InPosition := TRUE;
+END_IF
+END_METHOD
+
+// Increment an int that determens where the Z Unit takes products the next cycle
+METHOD PUBLIC IncrementActiveOrderSelect : USINT
+%FOLDER Commands
+Increment.Subrange(
+	input			:= activeOrderSelect,
+	lower_limit		:= 1,
+	upper_limit		:= 2);
+
+IncrementActiveOrderSelect	:= activeOrderSelect;
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+Drive.config.homingDoExtraSensorCheck	:= FALSE;
+Drive.config.homingMoveNegativeDistance	:= 0;
+Drive.config.homingMovePositiveDistance	:= 0;
+
+ResetAllProductCarriers					:= TRUE;
+END_METHOD
+
+// Set UncountedReject flag for all products on chain (or a specific product)
+METHOD PUBLIC InvalidateProduct
+VAR_INPUT
+	position	: UINT(0..MaxLinks);
+END_VAR
+VAR
+	i			: UINT;
+END_VAR
+%FOLDER Commands
+IF position = 0 THEN	// Invalidate all products on chain
+
+	FOR i := 1 TO MaxLinks DO
+		IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
+			Link[i].ProductCarrier.product.UncountedReject	:= TRUE;
+		END_IF
+	END_FOR
+
+ELSE
+
+	IF Link[position].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
+		Link[i].ProductCarrier.product.UncountedReject		:= TRUE;
+	END_IF
+
+END_IF
+END_METHOD
+
+METHOD PROTECTED IsSafeToMove : BOOL
+VAR
+	i	: USINT;
+END_VAR
+// Check if all surrounding units are safe, before moving chain.
+FOR i := 1 TO 5 DO
+	IF safetyModules[i] <> 0 AND_THEN NOT safetyModules[i].InSafePosForChain THEN
+		IsSafeToMove	:= FALSE;
+		Increment.AnyInt(debugNotSafeToMove[i]);
+		RETURN;
+	END_IF
+END_FOR
+
+IsSafeToMove := TRUE;
+END_METHOD
+
+// Move chain a fixed step
+METHOD PUBLIC MoveStep : BOOL
+VAR_INPUT
+	steps		: USINT := 1;		// Number of steps to move. Default is 1 step.
+END_VAR
+VAR_INST
+	targetPos	: REAL;
+	positionWhereInWindowTurnedOn:REAL;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	SetZUnitPosition();
+	ShiftLinks(steps);
+
+	targetPos := ModuloTools.SetPosition(
+					position	:= TO_REAL(Drive.AxisBasicControl.lrPos_Dist) + (Data.Step.Pos.value * steps),
+					rollover	:= CycleLength);
+
+	Drive.SetMovementProfileData(Data.Step);
+END_IF
+
+IF  NOT IsSafeToMove()
+AND NOT InPosition(10)
+THEN
+	Drive.Halt();
+	LogPlc.Error('Drive movement halted because it is not safe!');
+	Increment.AnyInt(debugNotSafeToMoveHalted);
+	RETURN;
+END_IF
+
+
+Drive.MoveAbsPos(targetPos);
+
+// Wait for position to be bigger than previous position
+
+IF ModuloTools.PositionInWindow(
+		position	:= Drive.actPos,
+		rollover	:= CycleLength,
+		windowMin	:= ModuloTools.SetPosition(
+							position	:= targetPos - (Data.Step.Pos.value - Data.adjustTriggerPosition),
+							rollover	:= CycleLength),
+		windowMax	:= targetPos)
+THEN
+	positionWhereInWindowTurnedOn := Drive.actPos;
+	MoveStep		:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+	oldActiveExchangeSet		: enumExchangeSets;
+	targetPos					: REAL;
+	result						: ARRAY[1..3] OF BOOL;
+	productCarrierCounter		: INT;
+	productCarrierRef			: REFERENCE TO ChainBase_ProductCarrierType;
+END_VAR
+VAR
+	counter						: UINT := 1;
+	distribution				: UINT;
+	i							: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		// Set up links and product carriers
+
+
+		// When changing recipes, it is needed to reset all productcarriers on the chain.
+		IF PersistentVars.RecipeVars.ActiveExchangeSet <> oldActiveExchangeSet THEN
+			oldActiveExchangeSet		:= PersistentVars.RecipeVars.ActiveExchangeSet;
+			resetAllProductCarriers		:= TRUE;
+		END_IF
+
+		activeOrder[1]			:= 1;
+		activeOrder[2]			:= 1;
+		traceActiveOrder		:= 0;
+		activeOrderSelect		:= 1;
+
+		Arrays.Bool_Reset(result);
+
+		IF resetAllProductCarriers THEN
+			Increment.AnyInt(localState);
+		ELSE
+			Increment.AnyInt(localState, 2);
+		END_IF
+
+	1:
+		// For this machine, there is no need to change product carriers on the links. Just make them fixed.
+		Data.NumberOfProductCarriers.value			:= TO_INT(MaxLinks);
+
+
+		// Set the correct positions
+		CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+		//	ExchangeSets.Default:
+		//	ExchangeSets.Product2, ExchangeSets.Product3:
+			ELSE
+				PersistentVars.RecipeVars.chainPos_XuUnit[1]		:=  1;
+				PersistentVars.RecipeVars.chainPos_XuUnit[2]		:=  4;
+				PersistentVars.RecipeVars.chainPos_XuUnit[3]		:=  7;
+				PersistentVars.RecipeVars.chainPos_XuUnit[4]		:= 10;
+				PersistentVars.RecipeVars.chainPos_Camera			:= 13;
+				PersistentVars.RecipeVars.chainPos_ZUnit[6]			:= 17;
+				PersistentVars.RecipeVars.chainPos_ZUnit[5]			:= 18;
+				PersistentVars.RecipeVars.chainPos_ZUnit[4]			:= 19;
+				PersistentVars.RecipeVars.chainPos_ZUnit[3]			:= 20;
+				PersistentVars.RecipeVars.chainPos_ZUnit[2]			:= 21;
+				PersistentVars.RecipeVars.chainPos_ZUnit[1]			:= 22;
+				// Positions 23 and 24 and 25 are also valid positions where Z axis can take products. Check what best position of Z axis is!
+				PersistentVars.RecipeVars.chainPos_Reject[1]		:= 29;
+				PersistentVars.RecipeVars.chainPos_Sensor			:= 30;
+
+(*				PersistentVars.RecipeVars.chainPos_XuUnit[1]		:= ( 1 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_XuUnit[2]		:= ( 2 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_XuUnit[3]		:= ( 3 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_XuUnit[4]		:= ( 4 * 2) - 1;
+			//	PersistentVars.RecipeVars.chainPos_XuUnit[5]		:= ( 5 * 2) - 1;
+			//	PersistentVars.RecipeVars.chainPos_XuUnit[6]		:= ( 6 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_Camera			:= (12 * 2) - 1;
+			//	PersistentVars.RecipeVars.chainPos_Reject[2]		:= (14 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_Reject[1]		:= (15 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_ZUnit[4]			:= (20 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_ZUnit[3]			:= (21 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_ZUnit[2]			:= (22 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_ZUnit[1]			:= (23 * 2) - 1;
+				PersistentVars.RecipeVars.chainPos_Sensor			:= (26 * 2) - 1;
+*)		END_CASE
+
+		// Clear all links
+		FOR i := 1 TO MaxLinks DO
+			Link[i].productCarrierPresent		:= FALSE;
+			Link[i].ProductCarrier				REF= 0;
+		END_FOR
+
+		// Clear all product carriers
+		FOR i := 1 TO MaxLinks DO
+			ProductCarrier[i].productPosition	:= 0;
+			ClearProducts.Single(ProductCarrier[i].Product);
+		END_FOR
+
+		// Product carriers can be divided onto chain links evenly
+		IF MaxLinks MOD TO_UINT(Data.NumberOfProductCarriers.value) = 0	// No remainder; Product carriers fit evenly onto chain links.
+		AND Data.NumberOfProductCarriers.value > 0	// Do not divide by zero.
+		THEN
+			distribution	:= MaxLinks / TO_UINT(Data.NumberOfProductCarriers.value);
+			FOR i := 1 TO MaxLinks BY distribution DO
+				Link[i].ProductCarrier				REF= ProductCarrier[counter];
+				Link[i].productCarrierPresent		:= __ISVALIDREF(Link[i].ProductCarrier);
+				counter								:= counter + 1;
+			END_FOR
+
+			// Clear all product carriers that are currently not in use on the chain
+			FOR i := counter TO MaxLinks DO
+				ClearProducts.Single(ProductCarrier[i].Product);
+			END_FOR
+
+			resetAllProductCarriers					:= FALSE;
+
+			Increment.AnyInt(localState);
+		END_IF
+
+		// Program will halt here if number of product carries does not match number of chain links.
+		// Write your own logic to correctly map carriers to links
+
+	2:
+		// Reset the LastProduct flag for all products on the chain. otherwise all product on the chain are stacked when you start automatic cycle. This can happen if you stop the SER while ending the cycle.
+		FOR i := 1 TO MaxLinks DO
+			IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
+				Link[i].ProductCarrier.Product.LastProduct := FALSE;
+			END_IF
+		END_FOR
+		Increment.AnyInt(localState);
+
+	3:
+		disableSensorCheckAlarm		:= TRUE;
+		IF NOT IsSafeToMove() THEN
+			Drive.Halt();
+			RETURN;
+		END_IF
+
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:
+		Drive.config.eDirection	:= L_MC1P.MC_DIRECTION.mcShortestWay;
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+		// Send the drive to the nearest multitude of the step distance.
+		// TO_INT will round the real value to the nearest integer.
+		targetPos				:= TO_INT(Drive.actPos / Data.Step.Pos.value) * Data.Step.Pos.value;
+		Increment.AnyInt(localState);
+
+	5:
+		IF NOT IsSafeToMove() THEN
+			Drive.Halt();
+			RETURN;
+		END_IF
+
+		result[1] := result[1] OR_ELSE Drive.MoveAbsPos(targetPos);
+		result[2] := result[2] OR_ELSE ModuloTools.PositionReached(
+											actPos		:= Drive.actPos,
+											setPos		:= targetPos,
+											rollover	:= CycleLength,
+											hysteresis	:= 0.1);
+		result[3] := result[3] OR_ELSE ModuloTools.PositionOnStep(
+											position	:= Drive.actPos,
+											stepDistance:= Data.Step.Pos.value);
+
+		// TODO: result[1] will sometimes remain false because of the modulo axis. Act pos will be CycleLength, and not 0.
+		IF result[2] AND result[3] THEN
+			Drive.config.eDirection	:= L_MC1P.MC_DIRECTION.mcPositiveDirection;
+			Arrays.Bool_Reset(result);
+			productCarrierCounter := 0;
+			Increment.AnyInt(localState);
+		END_IF
+
+	6:
+		IF NOT IsSafeToMove() THEN
+			Drive.Halt();
+			RETURN;
+		END_IF
+
+		IF SensorCheck.leftWindow THEN
+			productCarrierCounter	:= productCarrierCounter + 1;
+			productCarrierRef		REF= Link[PersistentVars.RecipeVars.chainPos_Sensor].productCarrier;
+
+			IF NOT __ISVALIDREF(productCarrierRef) THEN
+				LogPlc.Error('chainPos_Sensor is not correct. No product carrier on this position.');
+			ELSIF SensorCheck.productDetected THEN		// Sensor detected a product on this position.
+				IF NOT productCarrierRef.product.Present THEN
+					LogPlc.Info('added a product');
+					productCarrierRef.product.Present			:= TRUE;
+					productCarrierRef.Product.UncountedReject	:= TRUE;
+				END_IF
+			ELSE										// Sensor did not detected a product on this position.
+				IF productCarrierRef.product.Present THEN
+					LogPlc.Info('removed a product');
+					productCarrierRef.productPosition			:= 0;
+					ClearProducts.Single(productCarrierRef.Product);
+				END_IF
+			END_IF
+
+			ShiftLinks(1);
+		END_IF
+
+		result[1] := result[1] OR_ELSE Drive.MoveRelPos(TO_REAL(CycleLength));
+		result[2] := result[2] OR_ELSE ModuloTools.PositionOnStep(
+											position	:= Drive.actPos,
+											stepDistance:= Data.Step.Pos.value);
+		result[3] := TRUE;
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			Arrays.Bool_Reset(result);
+			IF productCarrierCounter <> Data.NumberOfProductCarriers.value THEN
+				LogPlc.Error('Miscounted number of product carriers!');
+			END_IF
+			disableSensorCheckAlarm		:= FALSE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	7:
+		Drive.config.eDirection	:= L_MC1P.MC_DIRECTION.mcShortestWay;
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+		// Send the drive to the nearest multitude of the step distance.
+		// TO_INT will round the real value to the nearest integer.
+		targetPos := TO_INT(Drive.actPos / Data.Step.Pos.value) * Data.Step.Pos.value;
+		Drive.globalSpeedOverrideEnable := TRUE;
+		Increment.AnyInt(localState);
+
+	8:
+		IF NOT IsSafeToMove() THEN
+			Drive.Halt();
+			RETURN;
+		END_IF
+
+		result[1] := result[1] OR_ELSE Drive.MoveAbsPos(targetPos);
+		result[2] := result[2] OR_ELSE ModuloTools.PositionReached(
+											actPos		:= Drive.actPos,
+											setPos		:= targetPos,
+											rollover	:= CycleLength);
+		result[3] := result[3] OR_ELSE ModuloTools.PositionOnStep(
+											position	:= Drive.actPos,
+											stepDistance:= Data.Step.Pos.value);
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			Drive.config.eDirection	:= L_MC1P.MC_DIRECTION.mcPositiveDirection;
+			CheckForGaps();
+			Arrays.Bool_Reset(result);
+			Increment.AnyInt(localState);
+		END_IF
+
+	9:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+{warning disable C0222} // Disables Precompiler error C0222: Outputs can't be of type REFERENCE TO
+METHOD PUBLIC ReturnProduct : REFERENCE TO ProductType
+VAR_INPUT
+	position	: UINT(1..Chain_BaseFB.MaxLinks);
+END_VAR
+%FOLDER Commands
+IF Link[position].productCarrierPresent
+AND_THEN Link[position].ProductCarrier.product.Present
+THEN
+	ReturnProduct REF= Link[position].ProductCarrier.Product;
+ELSE
+	ReturnProduct REF= 0;
+END_IF
+END_METHOD
+
+// Set position where Z Unit gets products for next 2 cycles
+METHOD PRIVATE SetZUnitPosition : BOOL
+VAR
+	i			: USINT;
+	productOk	: ARRAY[16..21] OF BOOL;
+	productsOk	: USINT;
+END_VAR
+// Check all 10 first positions have a product. Then Xu has just placed the last products on the chain.
+FOR i := 1 TO 10 DO
+	IF NOT Link[i].productCarrierPresent
+	OR_ELSE NOT Link[i].ProductCarrier.Product.Present
+	THEN
+		RETURN;
+	END_IF
+END_FOR
+
+productsOk			:= 0;
+
+FOR i := 16 TO 21 DO
+	productOk[i]	:= GoodProduct(i);
+	IF productOk[i] THEN
+		Increment.AnyInt(productsOk);
+	END_IF
+END_FOR
+
+CASE productsOk OF
+	6:		activeOrder[1] := 1;	activeOrder[2] := 4;		traceActiveOrder	:= 6;
+	5:		activeOrder[1] := 1;	activeOrder[2] := 3;		traceActiveOrder	:= 5;
+	4:		activeOrder[1] := 1;	activeOrder[2] := 2;		traceActiveOrder	:= 4;
+	3:		activeOrder[1] := 1;	activeOrder[2] := 1;		traceActiveOrder	:= 3;
+	2:		activeOrder[1] := 1;	activeOrder[2] := 1;		traceActiveOrder	:= 2;
+	1:		activeOrder[1] := 1;	activeOrder[2] := 1;		traceActiveOrder	:= 1;
+	ELSE	activeOrder[1] := 1;	activeOrder[2] := 1;		traceActiveOrder	:= 0;
+END_CASE
+
+activeOrderSelect	 := 1;
+END_METHOD
+
+METHOD PROTECTED ShiftLinks
+VAR_INPUT
+	places						: UINT := 1;	// Number of places to shift
+END_VAR
+VAR
+	LinkTemp					: ChainBase_LinkType;
+	distribution				: UINT;
+	count						: UINT;
+	i							: UINT;
+END_VAR
+// How much links are moved when the chain moves 1 step.
+distribution	:= MaxLinks / TO_UINT(Data.NumberOfProductCarriers.value);
+
+// Clear product carriers that were marked during homing
+IF Link[MaxLinks].productCarrierPresent
+AND_THEN NOT Link[MaxLinks].ProductCarrier.Product.Present
+AND_THEN Link[MaxLinks].ProductCarrier.Product.UncountedReject
+THEN
+	Link[MaxLinks].ProductCarrier.Product.UncountedReject := FALSE;
+END_IF
+
+FOR count := 1 TO places * distribution DO
+	LinkTemp := Link[MaxLinks];
+	FOR i := MaxLinks TO 2 BY -1 DO
+		Link[i] := Link[i-1];
+	END_FOR
+	Link[1]	:= LinkTemp;	// Shift the last link back to the front. This way the product carrier reference is not lost.
+END_FOR
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+disableSensorCheckAlarm		:= FALSE;
+
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// Transfer of labels / products is completed. Magazine or Z Unit may start actions to get new labels / move to next position / stack products.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+%FOLDER Commands
+// Reset the ProductsNeeded flag. This way the Chain control knows that the Xu unit is done placing new products onto the chain.
+ProductsNeeded		:= FALSE;
+
+// Third takeover from Xu, all places on the chain must be filled.
+// This happens when you start up the machine with 2 vacuums still high on Xu
+// Then 2 sets of products are transferred, and the chain runs out of sync
+IF iParameter = 3 THEN
+	CheckForGaps();
+END_IF
+
+TransferComplete	:= TRUE;
+END_METHOD
+
+// Cycle length
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC CycleLength : LREAL
+%FOLDER Properties
+GET
+CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
+END_GET
+END_PROPERTY
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC HasPayload : BOOL
+%FOLDER Properties
+GET
+VAR
+	i			: UINT;
+END_VAR
+FOR i := 1 TO MaxLinks DO
+	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
+		HasPayload := TRUE;
+		RETURN;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// Intake is blocked. That means the chains needs new products at the intake.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IntakeIsBlocked : BOOL
+%FOLDER Properties
+GET
+VAR
+	i			: UINT;
+END_VAR
+// Check if last products out of the mould are on the chain. In that case no not request more products.
+FOR i := 1 TO MaxLinks DO
+	IF Link[i].productCarrierPresent
+	AND_THEN Link[i].ProductCarrier.product.Present
+	AND_THEN Link[i].ProductCarrier.Product.LastProduct
+	THEN
+		IntakeIsBlocked := FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+// No productcarrier at one of the intake positions. Intake is not blocked.
+FOR i := 1 TO GVL_Constants.ChainProductsForXuUnit DO
+	IF NOT Link[PersistentVars.RecipeVars.chainPos_XuUnit[i]].productCarrierPresent THEN
+		IntakeIsBlocked := FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+// Product detected at one of the intake positions. Intake is not blocked.
+FOR i := 1 TO GVL_Constants.ChainProductsForXuUnit DO
+	IF Link[PersistentVars.RecipeVars.chainPos_XuUnit[i]].ProductCarrier.product.Present THEN
+		IntakeIsBlocked := FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+// Product carrier is empty, but it is marked as 'do not use'. May happen during first cycle. Intake is not blocked.
+FOR i := 1 TO GVL_Constants.ChainProductsForXuUnit DO
+	IF Link[PersistentVars.RecipeVars.chainPos_XuUnit[i]].ProductCarrier.product.UncountedReject THEN
+		IntakeIsBlocked := FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+// No products at all of the intake positions. Intake is blocked.
+IntakeIsBlocked := TRUE;
+END_GET
+END_PROPERTY
+
+// Oldest product on the chain that is still waiting for a camera result
+{warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC OldestProductWaitingForResult : REFERENCE TO ProductType
+%FOLDER Properties
+GET
+PUBLIC
+VAR
+	i			: UINT;
+END_VAR
+FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
+	IF Link[i].productCarrierPresent
+	AND_THEN Link[i].ProductCarrier.product.Present
+	AND_THEN Link[i].ProductCarrier.Product.ResultPending
+	THEN
+		OldestProductWaitingForResult REF= Link[i].ProductCarrier.Product;
+		RETURN;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// Oldest product on the chain that is still waiting for a camera result
+{warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC OldestProductWaitingForTrigger : REFERENCE TO ProductType
+%FOLDER Properties
+GET
+PUBLIC
+VAR
+	i			: UINT;
+END_VAR
+FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
+	IF Link[i].productCarrierPresent
+	AND_THEN Link[i].ProductCarrier.Product.TriggerPending
+	THEN
+		OldestProductWaitingForTrigger REF= Link[i].ProductCarrier.Product;
+		RETURN;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// Products are needed at intake side of chain
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ProductsNeeded : BOOL
+%FOLDER Properties
+GET
+ProductsNeeded := _productsNeeded;
+END_GET
+SET
+_productsNeeded := ProductsNeeded;
+END_SET
+END_PROPERTY
+
+//
+{attribute 'monitoring':='call'}
+PROPERTY PROTECTED RejectedProductOnChain : BOOL
+%FOLDER Properties
+GET
+VAR
+	i			: UINT;
+	j			: USINT;
+END_VAR
+FOR i := 1 TO MaxLinks DO
+	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
+		FOR j := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+			IF Link[i].ProductCarrier.Product.RejectReason[j] THEN
+				RejectedProductOnChain := TRUE;
+				RETURN;
+			END_IF
+		END_FOR
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// Position where the Z Unit gets products from Chain. 1 is Top positon (17-22). 4 is Bottom position (20-25).
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC SelectedZUnitPosition : USINT(1..ZUnits.NumberOfTakeoverPositions)
+%FOLDER Properties
+GET
+SelectedZUnitPosition	:= activeOrder[activeOrderSelect];
+END_GET
+END_PROPERTY
+
+// Image buffer is full for too long. Stop the chain and await all results
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC StopToCheckImageBuffer : BOOL
+%FOLDER Properties
+GET
+StopToCheckImageBuffer := ImageBufferTimer.Q;
+END_GET
+END_PROPERTY
+
+// Trigger sensor is within a window
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC TriggerSensorValid : BOOL
+%FOLDER Properties
+GET
+TriggerSensorValid	:= ModuloTools.PositionOnStepWithOffset(
+									position		:= Drive.actPos,
+									stepDistance	:= Data.Step.Pos.value,
+									hysteresisStart	:= 10.0,
+									hysteresisEnd	:= 50.0);
+END_GET
+END_PROPERTY
+
+// TRUE: Z Unit is after Reject unit. FALSE: Reject unit is after Z Unit.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
+%FOLDER Properties
+GET
+ZUnitIsAfterReject	:= PersistentVars.RecipeVars.chainPos_ZUnit[1] > PersistentVars.RecipeVars.chainPos_Reject[1];
+END_GET
+END_PROPERTY

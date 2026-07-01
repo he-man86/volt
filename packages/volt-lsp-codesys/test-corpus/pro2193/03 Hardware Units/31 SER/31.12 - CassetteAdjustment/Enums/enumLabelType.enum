@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumLabelType :
+(
+	Wrap		:= 1,
+	Bottom		:= 2,
+	Lid			:= 3,
+	ThreeSide	:= 4,
+	FiveSide	:= 5
+);
+END_TYPE

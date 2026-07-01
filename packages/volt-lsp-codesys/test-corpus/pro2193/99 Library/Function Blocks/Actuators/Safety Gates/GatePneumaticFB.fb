@@ -1,0 +1,65 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'eState'}
+FUNCTION_BLOCK GatePneumaticFB
+EXTENDS GateBaseFB
+VAR
+	AssistOpenGate			: ActuatorFB;
+	AssistCloseGate			: ActuatorFB;
+	AssistUnlock			: ActuatorFB;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	T_DoorCloseAssist		: BTON;
+	T_DoorOpenAssist		: BTON;
+END_VAR
+SUPER^.Cyclic();
+
+AssistOpenGate();
+AssistCloseGate();
+
+AssistUnlock();
+AssistUnlock.SetOrReset(AssistOpenGate.Map() OR AssistCloseGate.Map());
+
+AssistOpenGate.Reset();
+AssistCloseGate.Reset();
+
+IF moduleThatBlocks <> 0 AND_THEN NOT moduleThatBlocks.InSafePosForGate THEN
+	RETURN;
+END_IF
+
+IF T_DoorOpenAssist.Set(In := ButtonUnLock.buttonInput AND xGateAllowedOpen AND xGateAllowedOpenIMM, 0.5) THEN
+	IF xSafetyGateClosed THEN
+		AssistOpenGate.Set();
+	ELSE
+		AssistOpenGate.SetOrReset(GlobalVars.BlinkerNormal);
+	END_IF
+	AssistCloseGate.Reset();
+ELSIF T_DoorCloseAssist.Set(In := ButtonLock.buttonInput AND xGateAllowedClosed, 0.5) THEN
+	AssistOpenGate.Reset();
+	IF xSafetyGateClosed THEN
+		AssistCloseGate.Set();
+	ELSE
+		AssistCloseGate.SetOrReset(GlobalVars.BlinkerNormal);
+	END_IF
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapAssistCloseGate : BOOL
+MapAssistCloseGate := AssistCloseGate.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapAssistOpenGate : BOOL
+MapAssistOpenGate := AssistOpenGate.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapAssistUnlock : BOOL
+MapAssistUnlock := AssistUnlock.Map();
+END_METHOD

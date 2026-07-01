@@ -1,0 +1,250 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Chain_WithCarrierPlatesFB
+EXTENDS Chain_BaseFB
+IMPLEMENTS IChain_WithCarrierPlates_Commands, IChain_WithCarrierPlates_TransferIntake_Commands, IChain_WithCarrierPlates_TransferOuttake_Commands
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	OpenProductCarrierXu		: ARRAY[1..MaxOpenProductCarriersXu]		OF Cylinder_52ValveFB;	// Normally clamped
+	{attribute 'symbol' := 'readwrite'}	OpenProductCarrierZ			: ARRAY[1..MaxOpenProductCarriersZ]			OF Cylinder_52ValveFB;	// Normally clamped
+	{attribute 'symbol' := 'readwrite'}	OpenProductCarrierReject	: ARRAY[1..MaxOpenProductCarriersReject]	OF Cylinder_52ValveFB;	// Normally clamped
+END_VAR
+VAR_IN_OUT
+	DataProject		: Chain_WithCarrierPlates_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	MaxOpenProductCarriersXu		: USINT		:= 6;
+	MaxOpenProductCarriersZ			: USINT		:= 9;
+	MaxOpenProductCarriersReject	: USINT		:= 1;
+END_VAR
+
+SUPER^(
+	Data				:= Data,
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	T_OpenProductCarrier_Z_IsOut		: ARRAY[1..MaxOpenProductCarriersZ] OF BTON;
+	T_OpenProductCarrier_Reject_IsOut	: ARRAY[1..MaxOpenProductCarriersReject] OF BTON;
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+SUPER^.Cyclic();
+
+FOR i := 1 TO MaxOpenProductCarriersXu DO
+	OpenProductCarrierXu[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Chain_WithCarrierPlates_Errors,
+		errorId_SensorOut		:= i,
+		errorId_SensorIn		:= i + MaxOpenProductCarriersXu,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 5,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		inputOut				:= ,
+		inputIn					:= );
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersZ DO
+	OpenProductCarrierZ[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Chain_WithCarrierPlates_Errors,
+		errorId_SensorOut		:= 0,
+		errorId_SensorIn		:= MaxOpenProductCarriersXu + MaxOpenProductCarriersXu + i,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 5,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		inputOut				:= T_OpenProductCarrier_Z_IsOut[i].Set(NOT OpenProductCarrierZ[i].inputIn, DataProject.rOpenProductCarrierOutDelay),
+		inputIn					:= );
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	OpenProductCarrierReject[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Chain_WithCarrierPlates_Errors,
+		errorId_SensorOut		:= 0,
+		errorId_SensorIn		:= MaxOpenProductCarriersXu + MaxOpenProductCarriersXu + MaxOpenProductCarriersZ + i,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 5,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		inputOut				:= T_OpenProductCarrier_Reject_IsOut[i].Set(NOT OpenProductCarrierReject[i].inputIn, DataProject.rOpenProductCarrierOutDelay),
+		inputIn					:= );
+END_FOR
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+XuCloseProductCarriers();
+ZCloseProductCarriers();
+RejectCloseProductCarriers();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED IsSafeToMove : BOOL
+VAR
+	i	: USINT;
+END_VAR
+IsSafeToMove	:= SUPER^.IsSafeToMove();
+
+FOR i := 1 TO MaxOpenProductCarriersXu DO
+	IF NOT OpenProductCarrierXu[i].IsIn THEN
+		IsSafeToMove	:= FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersZ DO
+	IF NOT OpenProductCarrierZ[i].IsIn THEN
+		IsSafeToMove	:= FALSE;
+		RETURN;
+	END_IF
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	IF NOT OpenProductCarrierReject[i].IsIn THEN
+		IsSafeToMove	:= FALSE;
+		RETURN;
+	END_IF
+END_FOR
+END_METHOD
+
+// Closes all Reject product carrier plates
+METHOD PUBLIC RejectCloseProductCarriers : BOOL
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	OpenProductCarrierReject[i].GoIn();
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	IF NOT OpenProductCarrierReject[i].IsIn THEN
+		RETURN;
+	END_IF
+END_FOR
+
+RejectCloseProductCarriers	:= TRUE;
+END_METHOD
+
+// Opens all Reject product carrier plates
+METHOD PUBLIC RejectOpenProductCarriers : BOOL
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	OpenProductCarrierReject[i].GoOut();
+END_FOR
+
+FOR i := 1 TO MaxOpenProductCarriersReject DO
+	IF NOT OpenProductCarrierReject[i].IsOut THEN
+		RETURN;
+	END_IF
+END_FOR
+
+RejectOpenProductCarriers	:= TRUE;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER Commands
+Reset	:=   XuCloseProductCarriers()
+	AND_THEN ZCloseProductCarriers()
+	AND_THEN RejectCloseProductCarriers()
+	AND_THEN SUPER^.Reset();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR_INST
+	result		: BOOL;
+END_VAR
+%FOLDER Commands
+XuCloseProductCarriers();
+ZCloseProductCarriers();
+RejectCloseProductCarriers();
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Closes all Xu product carrier plates
+METHOD PUBLIC XuCloseProductCarriers : BOOL
+%FOLDER Commands
+XuCloseProductCarriers	:=  OpenProductCarrierXu[1].GoIn()
+						AND OpenProductCarrierXu[2].GoIn()
+						AND OpenProductCarrierXu[4].GoIn()
+						AND OpenProductCarrierXu[6].GoIn();
+
+// Current 12 cavity mould for Spies only uses outputs 1, 2, 4, 6
+
+(*
+XuCloseProductCarriers		:= TRUE;
+FOR i := 1 TO MaxOpenProductCarriersXu DO
+	XuCloseProductCarriers	R= NOT OpenProductCarrierXu[i].GoIn();
+END_FOR
+*)
+END_METHOD
+
+// Opens all Xu product carrier plates
+METHOD PUBLIC XuOpenProductCarriers : BOOL
+%FOLDER Commands
+XuOpenProductCarriers	:=  OpenProductCarrierXu[1].GoOut()
+						AND OpenProductCarrierXu[2].GoOut()
+						AND OpenProductCarrierXu[4].GoOut()
+						AND OpenProductCarrierXu[6].GoOut();
+
+// Current 12 cavity mould for Spies only uses outputs 1, 2, 4, 6
+
+(*
+XuOpenProductCarriers		:= TRUE;
+FOR i := 1 TO MaxOpenProductCarriersXu DO
+	XuOpenProductCarriers	R= NOT OpenProductCarrierXu[i].GoOut();
+END_FOR
+*)
+END_METHOD
+
+// Closes all Z product carrier plates
+METHOD PUBLIC ZCloseProductCarriers : BOOL
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+ZCloseProductCarriers		:= TRUE;
+
+FOR i := 1 TO MaxOpenProductCarriersZ DO
+	ZCloseProductCarriers	R= NOT OpenProductCarrierZ[i].GoIn();
+END_FOR
+END_METHOD
+
+// Opens selected Z product carrier plates
+METHOD PUBLIC ZOpenProductCarriers : BOOL
+VAR_INPUT
+	productCarrierIndex		: WORD;
+END_VAR
+VAR
+	i						: USINT;
+END_VAR
+%FOLDER Commands
+ZOpenProductCarriers			:= TRUE;
+FOR i := 1 TO MaxOpenProductCarriersZ DO
+	IF productCarrierIndex = AllVacuums OR_ELSE BitLogic.Extract(productCarrierIndex, i) THEN
+		ZOpenProductCarriers	R= NOT OpenProductCarrierZ[i].GoOut();
+	END_IF
+END_FOR
+END_METHOD

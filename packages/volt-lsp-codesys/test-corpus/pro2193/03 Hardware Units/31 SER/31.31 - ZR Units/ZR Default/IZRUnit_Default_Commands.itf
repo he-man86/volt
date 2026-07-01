@@ -1,0 +1,46 @@
+// Commands specific for an ZR Unit
+INTERFACE IZRUnit_Default_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+// Returns true when a value is larger or equal than current act pos
+METHOD PUBLIC PosLargerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+END_METHOD
+
+// Returns true when a value is smaller or equal than current act pos
+METHOD PUBLIC PosSmallerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+END_METHOD
+
+// Rotate to any position. No lock and no return. Just fire and forget.
+METHOD PUBLIC RotateToPosition
+VAR_INPUT
+	position	: REAL;
+END_VAR
+END_METHOD
+
+// Rotate to Stacking position to get place products on conveyor
+METHOD PUBLIC RotateToStacking : BOOL
+END_METHOD
+
+// Rotate to Takeover position to get products from chain
+METHOD PUBLIC RotateToTakeover : BOOL
+END_METHOD
+
+// In Stacking position to get place products on conveyor
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InStackingPosition : BOOL
+END_PROPERTY
+
+// In Takeover position to get products from chain
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InTakeoverPosition : BOOL
+END_PROPERTY
+
+END_INTERFACE

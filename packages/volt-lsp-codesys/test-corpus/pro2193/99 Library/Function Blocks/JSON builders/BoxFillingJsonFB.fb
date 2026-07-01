@@ -1,0 +1,126 @@
+FUNCTION_BLOCK BoxFillingJsonFB
+EXTENDS ToJsonBaseFB
+VAR_IN_OUT
+	stacks					: ARRAY[1..GVL_Constants_BFU.MaxNumberOfStacksInBox] OF Fanuc_StackPosition;
+	boxSettings				: Fanuc_BoxSettings;
+	teachPosition			: Fanuc_PositionXYZWPR_Type;
+	JSON					: STRING(14000);
+END_VAR
+
+SUPER^();
+
+IF busy THEN
+	IF CreateFinalJson() THEN
+		busy		:= FALSE;
+		done		:= TRUE;
+	END_IF
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE CreateBoxSettingsJson
+VAR_INPUT
+	pJson				: POINTER TO STRING(1);
+	jsonSize			: UDINT;
+END_VAR
+VAR_INST
+	asProperties		: ARRAY[0..10, 0..1] OF STRING(10);
+END_VAR
+// Fill data
+asProperties[0, 0]			:= 'bx';	asProperties[0, 1]			:= TO_STRING(boxSettings.BoxSize.rPosX);
+asProperties[1, 0]			:= 'by';	asProperties[1, 1]			:= TO_STRING(boxSettings.BoxSize.rPosY);
+asProperties[2, 0]			:= 'bz';	asProperties[2, 1]			:= TO_STRING(boxSettings.BoxSize.rPosZ);
+asProperties[3, 0]			:= 'sx';	asProperties[3, 1]			:= TO_STRING(boxSettings.StackSize.rPosX);
+asProperties[4, 0]			:= 'sy';	asProperties[4, 1]			:= TO_STRING(boxSettings.StackSize.rPosY);
+asProperties[5, 0]			:= 'sz';	asProperties[5, 1]			:= TO_STRING(boxSettings.StackSize.rPosZ);
+asProperties[6, 0]			:= 'or';	asProperties[6, 1]			:= TO_STRING(boxSettings.StackOrientation);
+asProperties[7, 0]			:= 'sh';	asProperties[7, 1]			:= TO_STRING(boxSettings.StackShape);
+asProperties[8, 0]			:= 'tx';	asProperties[8, 1]			:= TO_STRING(teachPosition.rPosX);
+asProperties[9, 0]			:= 'ty';	asProperties[9, 1]			:= TO_STRING(teachPosition.rPosY);
+asProperties[10, 0]			:= 'tz';	asProperties[10, 1]			:= TO_STRING(teachPosition.rPosZ);
+
+CreateJson(
+	psProperties				:= ADR(asProperties),
+	udiPropertiesArraySize		:= SIZEOF(asProperties),
+	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
+	psJSON						:= pJson,
+	udiJSONStringLength			:= jsonSize);
+END_METHOD
+
+METHOD PRIVATE CreateFinalJson : BOOL
+VAR_INST
+	asProperties		: ARRAY[0..GVL_Constants_BFU.MaxNumberOfStacksInBox, 0..1] OF STRING(280);
+	localJSON			: STRING(14000);
+END_VAR
+sw.Reset();
+
+CASE chunk OF
+	0:
+		// Create box settings json
+		sw.Start();
+		asProperties[chunk, 0]	:= 'box';
+		CreateBoxSettingsJson(ADR(asProperties[chunk, 1]), SIZEOF(asProperties[chunk, 1]));
+		Increment.AnyInt(chunk);
+		sw.End();
+
+	1..GVL_Constants_BFU.MaxNumberOfStacksInBox:
+		sw.Start();
+		asProperties[chunk, 0]	:= CONCAT('S', TO_STRING(chunk));
+		CreateStackJson(chunk, ADR(asProperties[chunk, 1]), SIZEOF(asProperties[chunk, 1]));
+		Increment.AnyInt(chunk);
+		sw.End();
+
+	31:
+		Increment.AnyInt(chunk);
+	32:
+		Increment.AnyInt(chunk);
+	33:
+		sw.Start();
+		CreateJson(
+			psProperties				:= ADR(asProperties),
+			udiPropertiesArraySize		:= SIZEOF(asProperties),
+			udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
+			psJSON						:= ADR(localJSON),
+			udiJSONStringLength			:= SIZEOF(localJSON));
+		sw.End();
+		Increment.AnyInt(chunk);
+	34:
+		sw.Start();
+		JSON := localJSON;
+		sw.End();
+		CreateFinalJson					:= TRUE;
+END_CASE
+END_METHOD
+
+METHOD PRIVATE CreateStackJson
+VAR_INPUT
+	stack				: UINT;
+	pJson				: POINTER TO STRING(1);
+	jsonSize			: UDINT;
+END_VAR
+VAR_INST
+	asProperties		: ARRAY[0..13, 0..1] OF STRING(10);
+END_VAR
+// Fill data
+asProperties[0, 0]			:= 's';		asProperties[0, 1]			:= TO_STRING(stacks[stack].StackNumber);
+asProperties[1, 0]			:= 'x';		asProperties[1, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosX);
+asProperties[2, 0]			:= 'y';		asProperties[2, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosY);
+asProperties[3, 0]			:= 'z';		asProperties[3, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosZ);
+asProperties[4, 0]			:= 'w';		asProperties[4, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosW);
+asProperties[5, 0]			:= 'p';		asProperties[5, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosP);
+asProperties[6, 0]			:= 'r';		asProperties[6, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosR);
+asProperties[7, 0]			:= 'ox';	asProperties[7, 1]			:= TO_STRING(stacks[stack].Offset.rPosX);
+asProperties[8, 0]			:= 'oy';	asProperties[8, 1]			:= TO_STRING(stacks[stack].Offset.rPosY);
+asProperties[9, 0]			:= 'oz';	asProperties[9, 1]			:= TO_STRING(stacks[stack].Offset.rPosZ);
+asProperties[10, 0]			:= 'tx';	asProperties[10, 1]			:= TO_STRING(stacks[stack].ToolOffset.rPosX);
+asProperties[11, 0]			:= 'ty';	asProperties[11, 1]			:= TO_STRING(stacks[stack].ToolOffset.rPosY);
+asProperties[12, 0]			:= 'tz';	asProperties[12, 1]			:= TO_STRING(stacks[stack].ToolOffset.rPosZ);
+asProperties[13, 0]			:= 'c';		asProperties[13, 1]			:= TO_STRING(stacks[stack].Config);
+
+CreateJson(
+	psProperties				:= ADR(asProperties),
+	udiPropertiesArraySize		:= SIZEOF(asProperties),
+	udiPropertiesStringLength	:= SIZEOF(asProperties[0,0]),
+	psJSON						:= pJson,
+	udiJSONStringLength			:= jsonSize);
+END_METHOD

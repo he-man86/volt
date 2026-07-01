@@ -1,0 +1,15 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumCassetteHomingState :
+(
+	NotHomed		:= 0,
+	Homed			:= 1,
+	StopHoming		:= 2,
+	StartHoming		:= 5,
+	HomingStep1		:= 10,
+	HomingStep2		:= 20,
+	HomingStep3		:= 30,
+	HomingStep4		:= 40,
+	HomingStep5		:= 50
+);
+END_TYPE

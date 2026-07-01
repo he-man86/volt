@@ -1,0 +1,150 @@
+// Separate FB to handle some logic when the servo drive has a motor-brake.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ServoDriveBrakeLogicFB
+VAR_INPUT
+	xBrakeReleaseIn				: BOOL;
+	config						: ServoDriveBrakeLogicConfigType;
+END_VAR
+VAR_IN_OUT
+	AxisRef						: L_MC1P.AXIS_REF;
+END_VAR
+VAR
+	xServiceModeReleaseBrake	: BOOL;		// Used in codesys visu to manually release the brake
+	BrakeInterface				: L_MC1P.L_MC1P_BrakeInterface;
+	TriggerHomingStarted		: RisingTriggerFB;
+END_VAR
+
+IF NOT __ISVALIDREF(AxisRef) THEN
+	ThrowException('The ServoDriveBrakeLogicFB is not connected to an axis!');
+END_IF
+
+ReadWriteParameters();
+
+// Voor drives met motorrem. Rem wordt geschakeld met knop.
+BrakeInterface(
+	Axis						:= AxisRef,
+	xEnable						:= AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.i500
+								OR AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.i700
+								OR AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.i750,
+	xReleaseBrake				:= xBrakeReleaseIn OR xServiceModeReleaseBrake,
+	lrTorqueAdd					:= ,
+	xBrakeModeActivate			:= ,
+	eBrakeMode					:= ,
+	xValid						=> ,
+	xBusy						=> ,
+	xError						=> ,
+	eErrorID					=> ,
+	xBrakeReleaseOut			=> ,
+	xBrakeReleased				=> ,
+	lrActTorque					=> ,
+	lrStartingTorqueSaved		=> ,
+	lrStartingTorqueEffective	=> ,
+	eBrakeModeActive			=> );
+
+// Set global variable when brake is manually controlled
+GlobalVars.manualControlRequested S= BrakeInterface.xReleaseBrake;
+
+// Measure holding torque of servo drive when homing starts. This is the torque needed to stay in position.
+IF TriggerHomingStarted.Rising(CLK := AxisRef.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.Homing) THEN
+	config.holdingTorque	:= TO_REAL(AxisRef.lrActTorque);
+END_IF
+
+END_FUNCTION_BLOCK
+
+// Writes a specific drive parameter
+METHOD PRIVATE ParameterWrite : BOOL	// Return True when successfull
+VAR_INPUT
+	parameterNumber	: DINT;
+	value			: LREAL;
+END_VAR
+VAR_INST
+	WriteParameter	: L_MC1P.MC_WriteParameter;
+END_VAR
+WriteParameter(
+	Axis						:= AxisRef,
+	Execute						:= TRUE,
+	ParameterNumber				:= parameterNumber,
+	Value						:= value,
+	ExecutionMode				:= L_MC1P.MC_EXECUTION_MODE.mcQueued,
+	Done						=> ,
+	Busy						=> ,
+	Error						=> ,
+	ErrorID						=> );
+
+IF WriteParameter.Done THEN
+	WriteParameter(
+		Axis					:= AxisRef,
+		Execute					:= FALSE,
+		ParameterNumber			:= 0,
+		Value					:= 0.0);
+	ParameterWrite := TRUE;
+END_IF
+END_METHOD
+
+// Writes a specific boolean drive parameter
+METHOD PRIVATE ParameterWriteBool : BOOL	// Return True when successfull
+VAR_INPUT
+	parameterNumber	: DINT;
+	value			: BOOL;
+END_VAR
+VAR_INST
+	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
+END_VAR
+WriteParameter(
+	Axis						:= AxisRef,
+	Execute						:= TRUE,
+	ParameterNumber				:= parameterNumber,
+	Value						:= value,
+	ExecutionMode				:= L_MC1P.MC_EXECUTION_MODE.mcQueued,
+	Done						=> ,
+	Busy						=> ,
+	Error						=> ,
+	ErrorID						=> );
+
+IF WriteParameter.Done THEN
+	WriteParameter(
+		Axis					:= AxisRef,
+		Execute					:= FALSE,
+		ParameterNumber			:= 0,
+		Value					:= FALSE);
+	ParameterWriteBool := TRUE;
+END_IF
+END_METHOD
+
+// Reads drive parameters
+METHOD PRIVATE ReadWriteParameters
+VAR
+	readResult		: LREAL;
+END_VAR
+VAR_INST
+	state			: INT;
+	T_Interval		: BTON;
+	lrStopDec: LREAL;
+	lrStopJerk: LREAL;
+END_VAR
+CASE state OF
+0:	// Read / write parameters from drive every 10 seconds..
+	Increment.AnyInt(state, 1, T_Interval.Set(AxisRef.xAxisAvailable, 10));
+
+1:	// Brake operating mode (subindex 110) [UNSIGNED_32]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual	// Brake not for virtual axes
+	OR_ELSE AxisRef.xDriveEnabled					// Can only be changed in Disabled state
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.Brake_Mode, config.brakeMode) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+2:	// [sec] Brake opening time (subindex 111) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual	// Brake not for virtual axes
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.Brake_ReleaseTime, config.brakeOpeningTime) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+3:	// [sec] Brake closing time (subindex 112) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual	// Brake not for virtual axes
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.Brake_ActivationTime, config.brakeClosingTime) THEN
+		T_Interval.Reset();
+		state := 0;
+	END_IF
+
+END_CASE
+END_METHOD

@@ -1,0 +1,95 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK PlaceLabelsInMouldFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartCommand
+VAR_INPUT
+	xiUnit						: IXiUnit_Default_PlaceInMould_Commands;
+END_VAR
+VAR
+	ActState :
+	(
+		StateNone							:= 0,
+		StatePlacingLabels					:= 100,
+		StatePlacingLabelsDone				:= 200
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+CASE ActState OF
+	StateNone:
+		;
+
+	StatePlacingLabels:
+		IF xiUnit.PlaceInMould() THEN
+			ActState := StatePlacingLabelsDone;
+		END_IF
+
+	StatePlacingLabelsDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Start some action on the module
+METHOD StartCommand : BOOL
+VAR_INPUT
+	iParameter : INT;
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+
+
+IF ActState = StateNone THEN
+	ActState := StatePlacingLabels;
+END_IF
+
+IF ActState = StatePlacingLabelsDone THEN
+	StartCommand := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD

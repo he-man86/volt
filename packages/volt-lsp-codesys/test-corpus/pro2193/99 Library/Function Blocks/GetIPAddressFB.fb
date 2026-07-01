@@ -1,0 +1,49 @@
+FUNCTION_BLOCK GetIPAddressFB
+VAR_OUTPUT
+	resultValid	: BOOL;
+	currentIp	: STRING(20);
+END_VAR
+VAR
+	execute					: BOOL := TRUE;
+	ParameterRead			: L_IPAP.L_IPAP_ParameterRead;		// The L_IPAP_ParameterRead function block serves to read the device and PLC parameters of the Lenze Controller by the PLC application
+	abReadBuffer			: ARRAY[1..4] OF BYTE;
+END_VAR
+
+// 0x2452:001 Active eng. port settings: IP address
+// 0x2452:002 Active eng. port settings: Subnet
+// 0x2452:003 Active eng. port settings: Gateway
+
+ParameterRead(
+	xExecute		:= execute,
+	xAbort			:= ,
+	wIndex			:= 16#2452,
+	bySubIndex		:= 16#1,
+	udiTimeOut		:= UDINT#5000,
+	pDataBuffer		:= ADR(abReadBuffer),
+	udiBufferSize	:= SIZEOF(abReadBuffer),
+	xDone			=> ,
+	xBusy			=> ,
+	xAborted		=> ,
+	xError			=> ,
+	eErrorId		=> ,
+	udiDataRead		=> ,
+	eDataType		=> );
+
+IF  ParameterRead.xDone
+AND ParameterRead.eErrorId = L_IPAP.L_IPAP_ERRORID.ERR_NoError
+AND ParameterRead.eDataType = L_IPAP.L_IPAP_DATATYPE.DT_UNSIGNED_32
+AND ParameterRead.udiDataRead = 4
+THEN
+	resultValid	:= TRUE;
+
+	currentIp	:= CONCAT7(	TO_STRING(abReadBuffer[1]), '.',
+							TO_STRING(abReadBuffer[2]), '.',
+							TO_STRING(abReadBuffer[3]), '.',
+							TO_STRING(abReadBuffer[4]));
+
+ELSIF ParameterRead.xError OR ParameterRead.xAborted THEN
+	resultValid	:= FALSE;
+	currentIp	:= 'ERROR';
+END_IF
+
+END_FUNCTION_BLOCK

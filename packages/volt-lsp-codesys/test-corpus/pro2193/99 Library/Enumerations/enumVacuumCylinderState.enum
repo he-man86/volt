@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumVacuumCylinderState :
+(
+	Off,
+	SwitchOn,
+	Moving,
+	InWithProduct
+);
+END_TYPE

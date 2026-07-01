@@ -1,0 +1,70 @@
+// Attach/detach hardware buttons when a position is activated on the HMI.
+FUNCTION_BLOCK AttachPosToButtonFB
+VAR_IN_OUT
+	value						: PositionWithLimitsType;
+END_VAR
+VAR
+	manualControlTrigger		: TriggerFB;
+	{attribute 'no_copy'}
+	Drive						: REFERENCE TO ServoDriveFB;
+	attaching	: BOOL;
+	counter		: INT;
+	AttachTimer	: BTON;
+END_VAR
+
+// Only attach hardware buttons when manual control is enabled.
+manualControlTrigger.Call(CLK := value.manualActive AND SER.ManualControlEnabled);
+
+IF manualControlTrigger.Q_Rising THEN
+	attaching:=TRUE;
+	counter := 0;
+END_IF
+
+IF AttachTimer.Set(attaching, 1) THEN	// Always wait a second before attaching to allow UUIDActiveScreen to have correct value
+	IF hmi.UUIDActiveScreen = '' THEN
+		counter := counter + 1;
+	ELSE
+		Drive.SetManualRefPos(value);
+		HardwareButtons.F1.Attach(Drive);
+		HardwareButtons.F2.Attach(Drive);
+		HMI.FooterName	:= enumFooterNames.ServoDrive;	// Show correct footer
+		attaching := FALSE;
+	END_IF
+
+	IF counter > 250 THEN
+		attaching := FALSE;
+		LogPlc.Fatal('Trying to attach an observer without a UUID');
+	END_IF
+END_IF
+
+
+IF manualControlTrigger.Q_Falling THEN
+	HardwareButtons.F1.Detach(Drive);
+	HardwareButtons.F2.Detach(Drive);
+
+	IF  HardwareButtons.F1.ObserverCount = 0
+	AND HardwareButtons.F2.ObserverCount = 0
+	THEN
+		HMI.FooterName	:= enumFooterNames.None;
+	END_IF
+
+	Drive.Halt();
+	Drive.SetManualRefPos(0);
+END_IF
+
+END_FUNCTION_BLOCK
+
+//FB_Init is always available implicitly and it is used primarily for initialization.
+//The return value is not evaluated. For a specific influence, you can also declare the
+//methods explicitly and provide additional code there with the standard initialization
+//code. You can evaluate the return value.
+{attribute 'analysis' := '-33'}
+METHOD FB_Init: BOOL
+VAR_INPUT
+	bInitRetains	: BOOL;							// TRUE: the retain variables are initialized (reset warm / reset cold)
+	bInCopyCode		: BOOL;							// TRUE: the instance will be copied to the copy code afterward (online change)
+
+	drive			: REFERENCE TO ServoDriveFB;
+END_VAR
+THIS^.Drive REF= drive;
+END_METHOD

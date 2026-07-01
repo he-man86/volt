@@ -1,0 +1,53 @@
+// A mould measurement subject.
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK PUBLIC SubjectMouldMeasurementFB
+EXTENDS SubjectBaseFB
+IMPLEMENTS ISubject, ISubjectMouldMeasurementPayload
+VAR
+	_cavity			: INT;							// Private backing field for property
+	_classification	: enumMouldMeasurementResult;
+	_peakValue		: REAL;
+	_shortShotTreshold	: REAL;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+{attribute 'monitoring' := 'call'}
+PROPERTY Cavity : INT
+GET
+Cavity := _cavity;
+END_GET
+SET
+_cavity := Cavity;
+END_SET
+END_PROPERTY
+
+PROPERTY Classification : enumMouldMeasurementResult
+GET
+Classification := _classification;
+END_GET
+SET
+_classification := Classification;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY PeakValue : REAL
+GET
+PeakValue := _peakValue;
+END_GET
+SET
+_peakValue := PeakValue;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY ShortShotTreshold : REAL
+GET
+ShortShotTreshold := _shortShotTreshold;
+END_GET
+SET
+_shortShotTreshold := ShortShotTreshold;
+END_SET
+END_PROPERTY

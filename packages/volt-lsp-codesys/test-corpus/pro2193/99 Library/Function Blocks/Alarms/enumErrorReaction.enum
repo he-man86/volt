@@ -1,0 +1,14 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumErrorReaction :
+(
+	No_reaction		:= TO_WORD(L_IE1P.L_IE1P_Reaction.No_Reaction),	// No reaction, cycle continues
+	EndCycle		:= TO_WORD(L_IE1P.L_IE1P_Reaction.CycleStop),	// Switch to 'Completing' state
+	Stop			:= TO_WORD(L_IE1P.L_IE1P_Reaction.NormalStop),	// Switch to 'Stopping' state
+	FastStop		:= TO_WORD(L_IE1P.L_IE1P_Reaction.FastStop)		// Switch to 'Aborting' state
+) WORD;
+END_TYPE
+
+// Subset of Lenze enum: L_IE1P.L_IE1P_Reaction
+
+// If needed we can use L_IE1P_Reaction.UserReaction1 & 2 & 6, I don't think we need this.

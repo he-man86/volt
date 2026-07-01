@@ -1,0 +1,152 @@
+// FB to control both Ejectors and Core pullers over Euromap.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC FINAL EjectorCorePullerFB
+EXTENDS ActuatorWithAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	inputIsBack				: BOOL;
+	{attribute 'symbol' := 'read'}	inputIsForward			: BOOL;
+	xInvertOutput			: BOOL	:= FALSE;	// Inverts the inputs / outputs of this FB.
+	errorId_NotBack			: WORD;
+	errorId_NotForward		: WORD;
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	EnableBackOutput		: ActuatorFB;
+	{attribute 'symbol' := 'read'}	EnableForwardOutput		: ActuatorFB;
+	NotBackAlarm			: SetErrorFB;
+	NotForwardAlarm			: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+NotBackAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND EnableBackOutput.Map() AND NOT EnableForwardOutput.Map() AND NOT IsBack,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_NotBack,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+NotForwardAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND EnableForwardOutput.Map() AND NOT EnableBackOutput.Map() AND NOT IsForward,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_NotForward,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+END_METHOD
+
+// Enable the 'Back' output, so the IMM has permission to move the ejector / core puller back
+// HIGH signal when the handling device / robot enables the movement for ejector back.
+// The signal must remain HIGH at least until "Ejector back" signal is given by injection moulding machine.
+METHOD PUBLIC EnableBack : BOOL
+IF NOT xInvertOutput THEN
+	EnableBackOutput.Set();
+	EnableForwardOutput.Reset();
+ELSE
+	EnableBackOutput.Reset();
+	EnableForwardOutput.Set();
+END_IF
+
+EnableBack		:= IsBack;
+END_METHOD
+
+// Enable the 'Forward' output, so the IMM has permission to move the ejector / core puller forward
+// HIGH signal when the handling device / robot enables the movement for ejector forward.
+// The signal must remain HIGH at least until "Ejector forward" signal is given by the injection moulding machine.
+METHOD PUBLIC EnableForward : BOOL
+IF NOT xInvertOutput THEN
+	EnableBackOutput.Reset();
+	EnableForwardOutput.Set();
+ELSE
+	EnableBackOutput.Set();
+	EnableForwardOutput.Reset();
+END_IF
+
+EnableForward	:= IsForward;
+END_METHOD
+
+// Disable both outputs. No movement is allowed by the IMM.
+METHOD PUBLIC Inhibit
+EnableBackOutput.Reset();
+EnableForwardOutput.Reset();
+END_METHOD
+
+{attribute 'analysis' := '-33'}
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+// No manual control for IMM enable signals
+END_METHOD
+
+{attribute 'hide'}
+METHOD Map : BOOL
+ThrowException('Use other mapping methods instead');
+END_METHOD
+
+METHOD PUBLIC MapEnableBack : BOOL
+MapEnableBack	:= EnableBackOutput.Map();
+END_METHOD
+
+METHOD PUBLIC MapEnableForward : BOOL
+MapEnableForward	:= EnableForwardOutput.Map();
+END_METHOD
+
+// Release both outputs, so the IMM is in full control of the ejectors / core pullers.
+METHOD PUBLIC Release
+EnableBackOutput.Set();
+EnableForwardOutput.Set();
+END_METHOD
+
+// Reset the output (=False)
+{attribute 'hide'}
+METHOD Reset
+EnableBack();
+END_METHOD
+
+// Set the output (=True)
+{attribute 'hide'}
+METHOD PUBLIC Set : BOOL
+EnableForward();
+END_METHOD
+
+// Set the output True or False
+{attribute 'hide'}
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+IF xValue THEN
+	Set();
+ELSE
+	Reset();
+END_IF
+END_METHOD
+
+// HIGH signal when the ejector has been finally (e.g. after the number OF its set cycles) retracted regardless OF the moving platen position.
+// The signal is the acknowledgement for the "Enable ejector retraction" signal (see table 2: handling device / robot signals contact No B3),
+// when the ejector sequence is selected. It is recommended to have HIGH signal when the ejector sequence is not in use.
+{attribute 'monitoring':='call'}
+PROPERTY IsBack : BOOL
+GET
+IsBack := SEL(xInvertOutput, inputIsBack, NOT inputIsBack);
+END_GET
+END_PROPERTY
+
+// HIGH signal when the ejector has been advanced. The signal is the acknowledgement signal for the "Enable ejector advance".
+// It is recommended to have HIGH signal when the ejector sequence is not in use.
+{attribute 'monitoring':='call'}
+PROPERTY IsForward : BOOL
+GET
+IsForward := SEL(xInvertOutput, inputIsForward, NOT inputIsForward);
+END_GET
+END_PROPERTY

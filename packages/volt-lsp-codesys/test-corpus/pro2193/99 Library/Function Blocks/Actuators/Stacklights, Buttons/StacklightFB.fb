@@ -1,0 +1,45 @@
+// Control a stacklight with several colored lamps, and a buzzer
+FUNCTION_BLOCK PUBLIC StacklightFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	Green			: LedFB;
+	Amber			: LedFB;
+	Red				: LedFB;
+END_VAR
+VAR
+END_VAR
+
+// Instantiate the outputs
+Green();
+Amber();
+Red();
+
+END_FUNCTION_BLOCK
+
+// Maps the actuator to the physical output
+{attribute 'hide'}
+METHOD PUBLIC Map : BOOL
+// no implementation
+END_METHOD
+
+// Reset all outputs on the stacklight
+METHOD Reset
+Green.Off();
+Amber.Off();
+Red.Off();
+END_METHOD
+
+// Set the output (=True)
+{attribute 'hide'}
+METHOD Set : BOOL
+// no implementation
+END_METHOD
+
+// Set the output True or False
+{attribute 'hide'}
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+// no implementation
+END_METHOD

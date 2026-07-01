@@ -1,0 +1,43 @@
+{attribute 'symbol' := 'none'}
+{attribute 'qualified_only'}
+{attribute 'analysis' := '-33'}	// Unused Variable
+VAR_GLOBAL
+	Reset					: BOOL;					// Global reset active. From hardware button or input from visualisation
+	EnableServoDrives		: BOOL;
+	EnableMainvalve			: BOOL;
+	manualControlRequested	: BOOL;					// Is high when a manual control button was pushed on the HMI
+
+	BlinkerNormal			: BOOL;					// Global blinking bool. Default: high for 0,5 sec.
+	BlinkerFast				: BOOL;					// Global fast blinker. Default: high for 0.2 sec.
+	BlinkerPulseFast		: BOOL;					// Used by gates. Fast 0.1 sec. pulses
+	BlinkerPulseSlow		: BOOL;					// Used by gates. Slow 0.1 sec. pulses
+
+	EmergencyStopActive		: BOOL;					// Emergency-stop is active.
+
+	debugTestBool1			: BOOL;
+	debugTestBool2			: BOOL;
+	debugTestInt1			: INT;
+	debugTestInt2			: INT;
+	debugTestInt3			: INT;
+	debugTestInt4			: INT;
+	debugTestInt5			: INT;
+	debugSW					: ARRAY[0..9] OF StopwatchFB;
+
+	// SUBRANGE not supported by VisiWinNet :(
+	{attribute 'symbol' := 'readwrite'}	ActMouldLevels			: UINT(*(1..GVL_Constants.MaxMouldLevels)*)	:= GVL_Constants.MaxMouldLevels;
+	{attribute 'symbol' := 'readwrite'}	ActProductsInX			: UINT(*(1..GVL_Constants.MaxProductsInX)*)	:= GVL_Constants.MaxProductsInX;
+	{attribute 'symbol' := 'readwrite'}	ActProductsInY			: UINT(*(1..GVL_Constants.MaxProductsInY)*)	:= GVL_Constants.MaxProductsInY;
+	ActProductsInMould		: UINT	:= ActMouldLevels * ActProductsInX * ActProductsInY;
+
+	fbModuleManager			: ModuleManagerFB(name := 'SER');	// Keep a record of different kinds of modules in the machine.
+
+	immediatelyGetNewLabels	: BOOL;					// In semi-auto mode, new labels are taken from magazine only AFTER the labels are inserted in the mould. This can overide that behaviouw.
+
+	RuntimeConstants		: RuntimeConstantsType;	// For debugging: some constants about the PLC.
+
+	// Options for debugging
+	CheckBoundFunctionsThrowExceptions	: BOOL := FALSE;	// When the CheckBounds function has an error, the PLC is stopped. This makes troubleshooting easier.
+	EnableDebugLogging					: BOOL := FALSE;	// Debug log messages are disabled and NOT logged to the PLC.
+	EnableLoggingAllStateChanges		: BOOL := FALSE;	// Create a log message for every state change
+	activeAlarmInstance					: STRING(80);		// For debugging: show id of module that has an alarm active
+END_VAR

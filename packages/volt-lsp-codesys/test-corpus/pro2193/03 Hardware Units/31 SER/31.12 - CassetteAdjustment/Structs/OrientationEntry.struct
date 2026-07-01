@@ -1,0 +1,9 @@
+TYPE OrientationEntry :
+STRUCT
+	CassetteOrientation		: enumOrientationType;
+	LabelOrientation		: enumOrientationType;
+	Movement				: enumMovementType;
+	Motor					: enumMotorsType;
+	Direction				: enumDirection;
+END_STRUCT
+END_TYPE

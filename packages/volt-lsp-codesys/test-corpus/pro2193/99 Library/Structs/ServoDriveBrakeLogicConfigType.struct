@@ -1,0 +1,10 @@
+TYPE ServoDriveBrakeLogicConfigType :
+STRUCT
+	holdingTorque		: REAL := -5.5;		// Torque needed to stay in position (for vertical axes)
+
+	brakeMode			: REAL	:= 2;		// Brake operating mode (subindex 110) [UNSIGNED_32]
+	brakeOpeningTime	: REAL	:= 0.1;		// [sec] Brake opening time (subindex 111) [FLOAT_64]
+	brakeClosingTime	: REAL	:= 0.05;	// [sec] Brake closing time (subindex 112) [FLOAT_64]
+
+END_STRUCT
+END_TYPE

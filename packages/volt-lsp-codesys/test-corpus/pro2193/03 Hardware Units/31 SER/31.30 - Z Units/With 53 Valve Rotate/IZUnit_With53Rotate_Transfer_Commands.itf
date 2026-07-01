@@ -1,0 +1,5 @@
+// Commands specific for an Z Unit
+INTERFACE IZUnit_With53Rotate_Transfer_Commands
+EXTENDS IZUnit_Transfer_Commands
+
+END_INTERFACE

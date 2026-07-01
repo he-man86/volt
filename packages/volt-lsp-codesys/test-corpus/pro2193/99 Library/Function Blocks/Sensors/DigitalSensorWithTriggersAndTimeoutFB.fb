@@ -1,0 +1,45 @@
+// Add timeout alarm to a digital input (remember to call IsInactive method when signal should be FALSE!)
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'IsActive'}
+FUNCTION_BLOCK DigitalSensorWithTriggersAndTimeoutFB
+EXTENDS DigitalSensorWithTriggersFB
+VAR_INPUT
+	Pt					: REAL	:= 5;	// Time to pass (in sec.), after which the alarm trips.
+END_VAR
+VAR_OUTPUT
+	alarmActive			: BOOL;			// High when input is not TRUE or FALSE within the given timeout
+END_VAR
+VAR
+	SignalTimeout		: SignalTimeoutFB;
+END_VAR
+
+SUPER^();
+
+SignalTimeout(
+	timeOut		:= Pt,
+	input		:= SensorInput = NOT _isInverted,
+	alarmActive	=> alarmActive);
+
+END_FUNCTION_BLOCK
+
+// Sensor is active (Enable is high and SensorInput is opposite of the Invert signal)
+{attribute 'monitoring':='variable'}
+PROPERTY IsActive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsActive := SignalTimeout.GetValue(TRUE);
+END_GET
+END_PROPERTY
+
+// Sensor is active (Enable is high and SensorInput is opposite of the Invert signal)
+{attribute 'monitoring':='variable'}
+PROPERTY IsInactive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsInactive := SignalTimeout.GetValue(FALSE);
+END_GET
+END_PROPERTY

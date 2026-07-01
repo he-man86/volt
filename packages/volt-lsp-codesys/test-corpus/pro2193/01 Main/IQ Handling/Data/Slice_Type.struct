@@ -1,0 +1,7 @@
+TYPE Slice_Type :
+STRUCT
+	sliceName	: STRING(40);
+	isOutput	: BOOL;
+	component	: ARRAY[1..8] OF SliceComponent_Type;
+END_STRUCT
+END_TYPE

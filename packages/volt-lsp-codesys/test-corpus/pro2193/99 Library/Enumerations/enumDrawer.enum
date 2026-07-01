@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumDrawer :
+(
+	NoDrawer	:= 0,
+	Upper		:= 1,
+	Lower		:= 2,
+	LastDrawer	:= 99	// Use to send the magazine arm to the last known active drawer
+) USINT;
+END_TYPE

@@ -1,0 +1,11 @@
+// Used by methods to return more than only True or False
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumEnableFunction :
+(
+	Undefined	:= 0,
+	Enabled		:= 1,
+	Disabled	:= 2
+) SINT;
+END_TYPE

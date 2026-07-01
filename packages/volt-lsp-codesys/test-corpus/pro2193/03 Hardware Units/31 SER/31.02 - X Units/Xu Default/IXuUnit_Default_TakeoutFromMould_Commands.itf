@@ -1,0 +1,20 @@
+// Commands specific for an Xu Unit
+INTERFACE IXuUnit_Default_TakeoutFromMould_Commands
+EXTENDS  __SYSTEM.IQueryInterface
+
+// Releases all locks
+METHOD ForceReleaseLock
+END_METHOD
+
+// Takeout the shot of products from the mould
+METHOD PUBLIC MoveBackFromMould : BOOL
+END_METHOD
+
+// Takeout the shot of products from the mould. Parameter indicates phase (optional)
+METHOD PUBLIC MoveTowardsMould : BOOL
+VAR_INPUT
+	moveToFinalPosition		: BOOL	:= TRUE;	// false: Move to halfway inside mould. true: Full takeout
+END_VAR
+END_METHOD
+
+END_INTERFACE

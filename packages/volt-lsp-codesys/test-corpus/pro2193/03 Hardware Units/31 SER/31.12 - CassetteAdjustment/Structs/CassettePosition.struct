@@ -1,0 +1,7 @@
+TYPE CassettePosition :
+STRUCT
+	X1	: SINT;
+	X2	: SINT;
+	Y	: SINT;
+END_STRUCT
+END_TYPE

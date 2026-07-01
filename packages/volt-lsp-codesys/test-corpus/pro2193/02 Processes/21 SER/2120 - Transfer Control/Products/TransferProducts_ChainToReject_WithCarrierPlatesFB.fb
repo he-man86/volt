@@ -1,0 +1,201 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferProducts_ChainToReject_WithCarrierPlatesFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecute
+VAR_INPUT
+	chain					: IChain_WithCarrierPlates_TransferOuttake_Commands;
+	reject					: IRejectStation_Base_Commands;
+END_VAR
+VAR
+	gettingProduct			: ARRAY[1..GVL_Constants.ChainProductsForReject] OF BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateRejectMovesInPosition			:= 100,
+		StateRejectGetsProducts				:= 200,
+		StateOpenProductCarriers			:= 250,
+		StateCopyProductData				:= 300,
+		StateFreeReject						:= 400,
+		StateFinal							:= 999
+	) DINT;
+
+END_VAR
+
+SUPER^();
+
+// Enable manual control of Reject cylinders when chain is in safe position.
+reject.ExternalManualControlEnabled := chain.InExactPosition();
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+VAR_INST
+	product				: REFERENCE TO ProductType;
+	i, j				: USINT;
+END_VAR
+// Go from first Reject vacuum, to the last.
+FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+
+	gettingProduct[i]		:= FALSE;
+
+	// Copy reference to products from the chain
+	product REF= chain.ReturnProduct(PersistentVars.RecipeVars.chainPos_Reject[i]);
+
+	IF NOT __ISVALIDREF(product) THEN
+		CONTINUE;
+	END_IF
+
+	FOR j := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+		gettingProduct[i]	S= product.RejectReason[j] AND NOT product.RejectReasonIgnored[j];
+	END_FOR
+
+	gettingProduct[i]		S= product.UncountedReject;
+	gettingProduct[i]		S= product.SampleShot;
+
+	// When reject is after z unit, always reject all products
+	IF NOT gettingProduct[i] AND NOT chain.ZUnitIsAfterReject THEN
+		product.UncountedReject	:= TRUE;
+		gettingProduct[i]	:= TRUE;
+	END_IF
+
+	CheckIfTransferIsNeeded	S= gettingProduct[i];
+END_FOR
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition := iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateRejectMovesInPosition;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	data				: WORD;
+	product				: REFERENCE TO ProductType;
+	result				: ARRAY[1..2] OF BOOL;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateRejectMovesInPosition:
+		IF chain.InPosition(10.0) THEN
+			ActState := StateRejectGetsProducts;
+		END_IF
+
+	StateRejectGetsProducts:
+
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			data := 0;
+			FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+				BitLogic.Load(data, gettingProduct[i], i);	// set a bit number when we transfer a product.
+			END_FOR
+		END_IF
+
+		result[1]	:= result[1] OR_ELSE reject.GetProducts(data);
+
+		IF chain.InExactPosition() THEN
+			ActState := StateOpenProductCarriers;
+		END_IF
+
+	StateOpenProductCarriers:
+		result[1]	:= result[1] OR_ELSE reject.GetProducts(data);
+		result[2]	:= result[2] OR_ELSE chain.RejectOpenProductCarriers();
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ActState := StateCopyProductData;
+		END_IF
+
+	StateCopyProductData:
+		FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+
+			IF NOT gettingProduct[i] THEN
+				CONTINUE;
+			END_IF
+
+			// Copy reference to products from the chain
+			product REF= chain.ReturnProduct(PersistentVars.RecipeVars.chainPos_Reject[i]);
+
+			// Reject is not able to fail to transfer the product (like the Z Unit)
+			reject.CopyProductStatus(i, product);
+			chain.ClearProductCarrier(PersistentVars.RecipeVars.chainPos_Reject[i]);
+			gettingProduct[i] := FALSE;
+
+		END_FOR
+
+		ActState := StateFreeReject;
+
+	StateFreeReject:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		result[1]	:= result[1] OR_ELSE reject.TransferComplete();
+		result[2]	:= result[2] OR_ELSE chain.RejectCloseProductCarriers();
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

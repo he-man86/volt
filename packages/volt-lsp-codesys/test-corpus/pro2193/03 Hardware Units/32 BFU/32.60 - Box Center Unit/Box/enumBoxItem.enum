@@ -1,0 +1,9 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumBoxItem :
+(
+	None			:= 0,
+	Sheet			:= 1,
+	ProductLayer	:= 2
+) UINT;
+END_TYPE

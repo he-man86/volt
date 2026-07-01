@@ -1,0 +1,315 @@
+//V2024-06-13 SVE
+//
+//2024-06-06
+// Initial version, derived from previously created JSON builders in L_ITCA.
+//2024-06-11
+// Added xExecute/xBusy/xDone
+//2024-06-13
+// Optimized _CheckType_Number
+//**************************************************//
+//Compliant with JSON formatting.
+//Keys will always be quoted.
+//STRING values containing square brackets will NOT be quoted (as this indicates a JSON array).
+//NUMBERS or BOOLEAN values will NOT be quoted.
+//STRING values will be quoted if no exception is found.
+{attribute 'conditionalshow_all_locals'}
+FUNCTION_BLOCK L_ITCA_JSON_Builder_Variable
+VAR_INPUT
+	xExecute					: BOOL;
+	psProperties				: POINTER TO STRING(1);	//Double array: key/value [0..*,0..1]
+	udiPropertiesArraySize		: UDINT;				//Total size of array
+	udiPropertiesStringLength	: UDINT;				//Length of string (key/value)
+	psJSON						: POINTER TO STRING(1);	//Output for content
+	udiJSONStringLength			: UDINT;				//Length of string
+	xCreateArray				: BOOL := FALSE;		//Create array instead of single element
+END_VAR
+VAR_OUTPUT
+	xBusy,
+	xDone,
+	xError						: BOOL;
+END_VAR
+VAR
+	//Pointers
+	psKey						: POINTER TO STRING(4);		//Pointer to key in object array		//Max length (used) is 4 (null)
+	psKey_Next					: POINTER TO STRING(1);		//Pointer to next key in object array
+	psValue						: POINTER TO STRING(5);		//Pointer to value in object array		//Max length (used) is 5 (FALSE/false)
+	psValue_Next				: POINTER TO STRING(1);		//Pointer to next value in object array
+
+	//Indexes
+	uiPropertiesTotal,
+	uiDepthIndex				: UINT;		//Used to check depth of JSON at end
+
+	//Internal
+	xExecute_old				: BOOL;
+
+	//Skip adding data
+	xKeyContainsArray,
+	xValueContainsArray			: BOOL;
+	xSkipData_Brackets			: BOOL;
+	xSkipData_Enum				: BOOL;
+END_VAR
+VAR_TEMP
+	uiPropertyIndex				: UINT;
+END_VAR
+
+IF xExecute AND NOT xExecute_old THEN
+
+	//Set outputs
+	xBusy := TRUE;
+	xDone := FALSE;
+	xError := FALSE;
+
+	//Check invalid input data
+	IF psProperties = 0
+	OR udiPropertiesArraySize = 0
+	OR udiPropertiesStringLength = 0
+	OR psJSON = 0
+	OR udiJSONStringLength = 0
+	THEN
+		xError := TRUE;
+		RETURN;
+	END_IF
+
+	//Calculate amount of array indexes
+	//Double array, divide by 2
+	uiPropertiesTotal := TO_UINT(udiPropertiesArraySize / udiPropertiesStringLength) / 2;
+
+	//Reset output
+	psJSON^ := '';	//Start of JSON
+
+	//Add starting bracket
+	_mStrConcatA(sConcat:=SEL(xCreateArray, '{', '['));		//Select between '{' or '['
+	uiDepthIndex := 1;
+
+	//Loop all properties
+	FOR uiPropertyIndex := 0 TO (uiPropertiesTotal-1) DO
+
+		//Get pointer to key/value
+		//Double array, multiply with 2
+		psKey	:= psProperties + (2*uiPropertyIndex*udiPropertiesStringLength);	//Current element
+		psValue	:= psKey + udiPropertiesStringLength;								//Current element
+
+		IF psKey^ = '' AND psValue^ = '' THEN
+			EXIT;
+		END_IF
+
+		//Get pointer to next Key/Value
+		IF uiPropertyIndex < (uiPropertiesTotal-1) THEN
+			psKey_Next		:= psProperties + (2*(uiPropertyIndex+1)*udiPropertiesStringLength);	//Next element
+			psValue_Next	:= psKey_Next + udiPropertiesStringLength;								//Next element
+		ELSE
+			psKey_Next		:= 0;
+			psValue_Next	:= 0;
+		END_IF
+
+		//Check if any brackets are present
+		xKeyContainsArray	:= _mCheckForBrackets(psContent:=psKey);
+		xValueContainsArray	:= _mCheckForBrackets(psContent:=psValue);
+
+		//Decrease tab amount
+		//This applies only if user is building own array
+		//Increase JSON depth if applicable
+		IF (psKey^ = ']' OR psKey^ = '}')
+		AND uiDepthIndex > 1
+		THEN
+			uiDepthIndex := uiDepthIndex - 1;
+		END_IF
+
+		//Check if bracket is present and other data should be skipped
+		//This applies only if user is building own array
+		xSkipData_Brackets := xCreateArray
+							OR psKey^ = '['
+							OR psKey^ = ']'
+							OR psKey^ = '{'
+							OR psKey^ = '}';
+
+		//Skip data because of ENUM
+		//This applies only if user is building own array
+		IF uiPropertyIndex < (uiPropertiesTotal-1)
+		AND psKey_Next <> 0
+		THEN
+			xSkipData_Enum := psKey_Next^ = '['
+						   OR psKey_Next^ = ']';
+		ELSE
+			xSkipData_Enum := FALSE;
+		END_IF
+
+		//Add first ' " '
+		IF  NOT xSkipData_Brackets		//Input does not contain only brackets
+		AND NOT xKeyContainsArray		//Key doesn't contain array
+		THEN
+			_mStrConcatA(sConcat:='"');
+		END_IF
+
+		//Add key
+		StrConcatA(pstFrom:=psKey, pstTo:=psJSON, iBufferSize:=TO_INT(udiJSONStringLength));	//Dont use method due to size of input
+
+		IF NOT xSkipData_Brackets THEN
+			//Add closing signs
+			//Key doesn't contain array
+			IF NOT xKeyContainsArray THEN
+				_mStrConcatA(sConcat:='"');
+			END_IF
+
+			//Add seperator
+			//Note that there are no spaces to reduce memory usage
+			_mStrConcatA(sConcat:=':');
+		END_IF
+
+		IF NOT xSkipData_Enum THEN
+			//Add closing signs
+
+			IF NOT xValueContainsArray								//Value doesn't contain array
+			AND_THEN NOT _mCheckType_Number(psContent:= psValue)	//Value is not a number
+			AND_THEN NOT _mCheckType_Boolean(psContent:= psValue)	//Value is not a boolean
+			AND_THEN psValue^ <> 'null'								//Value is not null
+			AND_THEN psValue^ <> ''									//Value is not empty
+			THEN
+				_mStrConcatA(sConcat:='"');
+			END_IF
+
+			//Replace content to be JSON-compliant
+			IF psValue^ = '' THEN
+				psValue^ := 'null';
+			ELSIF psValue^ = 'TRUE' THEN
+				psValue^ := 'true';
+			ELSIF psValue^ = 'FALSE' THEN
+				psValue^ := 'false';
+			END_IF
+
+			//Add value
+			StrConcatA(pstFrom:=psValue, pstTo:=psJSON, iBufferSize:=TO_INT(udiJSONStringLength));	//Dont use method due to size of input
+
+			//Add closing signs
+			IF NOT xValueContainsArray								//Value doesn't contain array
+			AND_THEN NOT _mCheckType_Number(psContent:= psValue)	//Value is not a number
+			AND_THEN NOT _mCheckType_Boolean(psContent:= psValue)	//Value is not a boolean
+			AND_THEN psValue^ <> 'null'								//Value is not null
+			AND_THEN psValue^ <> ''									//Value is not empty
+			THEN
+				_mStrConcatA(sConcat:='"');
+			END_IF
+		END_IF
+
+		//Add comma if needed
+		IF uiPropertyIndex < (uiPropertiesTotal-1) THEN
+			IF psKey_Next^ <> ''	//Next key is not empty
+			OR psValue_Next^ <> ''	//Next value is not empty
+			THEN
+				_mStrConcatA(sConcat:=',');
+			END_IF
+		END_IF
+
+		//Increase JSON depth if applicable
+		IF psKey^ = '['
+		OR psKey^ = '{'
+		THEN
+			uiDepthIndex := uiDepthIndex + 1;
+		END_IF
+	END_FOR
+
+	//Add closing bracket
+	_mStrConcatA(sConcat:=SEL(xCreateArray, '}', ']'));		//Select between '}' or ']'
+	uiDepthIndex := uiDepthIndex - 1;	///Should be zero at this point
+
+	//Set error
+	IF uiDepthIndex <> 0 THEN
+		xError := TRUE;
+		psJSON^ := '';
+	END_IF
+
+	//Set outputs
+	xBusy := FALSE;
+	xDone := NOT xError;
+
+//Not active
+ELSIF NOT xExecute AND xExecute_old THEN
+	//Set outputs
+	xBusy := FALSE;
+	xDone := FALSE;
+	xError := FALSE;
+	//Don't reset content as presumably pointer is still valid
+END_IF
+
+//Save execute
+xExecute_old := xExecute;
+
+END_FUNCTION_BLOCK
+
+{attribute 'conditionalshow'}
+//Check for brackets within psContent
+METHOD INTERNAL _mCheckForBrackets : BOOL
+VAR_INPUT
+	psContent			: POINTER TO STRING(1);		// string of any size
+END_VAR
+VAR
+	pByte				: POINTER TO BYTE;
+END_VAR
+%FOLDER Internal
+pByte := psContent;		// Set pointer to start of string
+
+WHILE pByte^ <> enumASCII.NULL DO		// Loop string until terminator
+	IF pByte^ = enumASCII.OPEN_BRACE
+	OR pByte^ = enumASCII.CLOSE_BRACE
+	OR pByte^ = enumASCII.OPEN_BRACKET
+	OR pByte^ = enumASCII.CLOSE_BRACKET
+	THEN
+		_mCheckForBrackets := TRUE;
+		RETURN;
+	END_IF
+	pByte := pByte + 1;
+END_WHILE
+END_METHOD
+
+{attribute 'conditionalshow'}
+METHOD INTERNAL _mCheckType_Boolean : BOOL
+VAR_INPUT
+	psContent	: POINTER TO STRING(5);	//Max length is 5 (FALSE/false)
+END_VAR
+%FOLDER Internal
+//Check for BOOLEAN value (Text or Number)
+IF psContent^ = 'TRUE'
+OR psContent^ = 'true'
+OR psContent^ = '1'
+OR psContent^ = 'FALSE'
+OR psContent^ = 'false'
+OR psContent^ = '0'
+THEN
+	_mCheckType_Boolean := TRUE;
+END_IF
+END_METHOD
+
+{attribute 'conditionalshow'}
+METHOD INTERNAL _mCheckType_Number : BOOL
+VAR_INPUT
+	psContent			: POINTER TO STRING(1);		// string of any size
+END_VAR
+VAR
+	pByte				: POINTER TO BYTE;
+END_VAR
+%FOLDER Internal
+_mCheckType_Number := TRUE;
+
+pByte := psContent;		// Set pointer to start of string
+
+WHILE pByte^ <> enumASCII.NULL DO		// Loop string until terminator
+	IF (pByte^ < enumASCII.NUMBER_0 OR pByte^ > enumASCII.NUMBER_9)
+	AND pByte^ <> enumASCII.MINUS
+	AND pByte^ <> enumASCII.DOT
+	THEN
+		_mCheckType_Number := FALSE;
+		RETURN;
+	END_IF
+	pByte := pByte + 1;
+END_WHILE
+END_METHOD
+
+{attribute 'conditionalshow'}
+METHOD INTERNAL _mStrConcatA //Concats string to sContent
+VAR_INPUT
+	sConcat		: STRING(1);
+END_VAR
+%FOLDER Internal
+//Concat content
+StrConcatA(pstFrom := ADR(sConcat), pstTo := psJSON, iBufferSize := TO_INT(udiJSONStringLength));
+END_METHOD

@@ -1,0 +1,57 @@
+// Control an illuminated push-button
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC PushButtonLedFB
+EXTENDS LedFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	buttonInput				: BOOL;			// Connect to hardware
+END_VAR
+VAR
+	{attribute 'hide'}
+	Trig_Pushed				: TriggerFB;
+END_VAR
+
+CallTrigger();
+
+IF ButtonPushed THEN
+	HandlePushed();
+END_IF
+
+IF buttonInput THEN	// Illuminate button while pressed down
+	Override();
+END_IF
+
+IF ButtonReleased THEN
+	HandleReleased();
+END_IF
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED CallTrigger
+Trig_Pushed.Call(CLK := buttonInput);
+END_METHOD
+
+METHOD PROTECTED HandlePushed
+//savedState := State;
+//Solid();
+END_METHOD
+
+METHOD PROTECTED HandleReleased
+//State := savedState;
+END_METHOD
+
+// Give a signal on rising edge when the button is pushed.
+PROPERTY PUBLIC ButtonPushed : BOOL
+GET
+ButtonPushed := Trig_Pushed.Q_Rising;
+END_GET
+END_PROPERTY
+
+// Give a signal on faling edge when the button is released.
+PROPERTY PUBLIC ButtonReleased : BOOL
+GET
+ButtonReleased := Trig_Pushed.Q_Falling;
+END_GET
+END_PROPERTY

@@ -1,0 +1,111 @@
+// Control a vacuum output; vacuum high level is not measured!
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC VacuumFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+IMPLEMENTS IVacuum
+VAR_INPUT
+	refVacuumHighTime		: REFERENCE TO REAL;	// Optional: vacuum is high after this timeout
+	refReleaseVacuumTime	: REFERENCE TO REAL;	// Optional: vacuum is released after this timeout
+	enableDuringSemiAuto	: BOOL := FALSE;
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+	VacuumHighTimer			: BTON;
+	ReleaseVacuumTimer		: BTON;
+END_VAR
+
+SUPER^();
+
+// Instantiate the output
+Output();
+
+SetVacuumHighTimer();
+
+ReleaseVacuumTimer.Set(
+			In := NOT IsTurnedOn,
+			Pt := SEL(__ISVALIDREF(refReleaseVacuumTime), 0, refReleaseVacuumTime));
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+// Disabe mapping when machine is running without vacuums
+IF SER.OperationMode = SER_OperationModeType.SemiAuto
+AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums
+AND NOT enableDuringSemiAuto
+THEN
+	Map := FALSE;
+ELSE
+	Map := Output.Map();
+END_IF
+END_METHOD
+
+// Release (resets) the vacuum output. Returns true after a timer.
+METHOD Release : BOOL
+VAR_INPUT
+END_VAR
+Reset();
+
+Release	:= ReleaseVacuumTimer.Q;
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+Output.Reset();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+Output.Set();
+
+Set := IsHigh;
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+Output.SetOrReset(xValue);
+END_METHOD
+
+METHOD PROTECTED SetVacuumHighTimer
+VAR_INPUT
+END_VAR
+VacuumHighTimer.Set(
+			In := IsTurnedOn,
+			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
+END_METHOD
+
+// Vacuum input is high (after optional timer)
+{attribute 'monitoring':='call'}
+PROPERTY IsHigh : BOOL
+GET
+IsHigh	:= VacuumHighTimer.Q;
+END_GET
+END_PROPERTY
+
+// Get state of the output (Normally you could call Map(), but with vacuums the Map() method may return false if machine runs without vacuums.
+{attribute 'monitoring':='call'}
+PROPERTY IsTurnedOn : BOOL
+GET
+IsTurnedOn	:= Output.Map();
+END_GET
+END_PROPERTY

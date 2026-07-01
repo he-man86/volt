@@ -1,0 +1,53 @@
+// FB to pulse an output (BDE)
+{attribute 'monitoring_display' := 'output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC PulseActuatorFB
+EXTENDS ActuatorFB
+VAR_INPUT
+	pulseTimeLow		: TIME	:= T#50MS;
+	pulseTimeHigh		: TIME	:= T#50MS;
+END_VAR
+VAR
+	dwBuffer			: DWORD;
+	Blinker				: BLINK;
+	Trigger				: RisingTriggerFB;
+END_VAR
+
+SUPER^();
+
+Blinker(
+	ENABLE		:= TRUE,
+	TIMELOW		:= pulseTimeLow,
+	TIMEHIGH	:= pulseTimeHigh,
+	OUT			=> );
+
+Trigger.Call(
+	CLK			:= Blinker.OUT);
+
+IF NOT Blinker.OUT THEN
+	Reset();
+ELSIF Trigger.Q THEN
+	SetOrReset(dwBuffer.0);
+	dwBuffer	:= SHR(dwBuffer, 1);
+END_IF
+
+END_FUNCTION_BLOCK
+
+// Call once to add a pulse to the buffer
+METHOD PUBLIC AddPulse
+dwBuffer			:= SHL(dwBuffer, 1);
+dwBuffer.0			:= TRUE;
+END_METHOD
+
+// Call once to add pulses to the buffer
+METHOD PUBLIC AddPulses
+VAR_INPUT
+	number				: USINT;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+FOR i := 1 TO number DO
+	AddPulse();
+END_FOR
+END_METHOD

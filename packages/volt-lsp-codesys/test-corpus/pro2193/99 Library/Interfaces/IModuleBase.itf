@@ -1,0 +1,35 @@
+// Modules that react to EStop and Stop events from the machine
+INTERFACE IModuleBase
+EXTENDS IAbleToRegister, __SYSTEM.IQueryInterface
+
+(* Command to reset the module (Statemachine to zero state) in case of E-Stop
+
+Add code here to handle emergency stops. For example:
+
+// Reset the state of the unit.
+State := MyUnit_State.None;
+
+// Stop the servo drive
+Drive.Stop(TRUE);
+
+// Reset all cylinders and outputs
+SomeCylinder.Reset();
+SomeOtherOutput.Reset();
+
+// Reset all vacuums with a helper function
+VacuumResetAll(Vacuum);
+
+// Does this module have a servo drive? Then you can return true when the drive has braked to standstill
+EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+// Else, just return true.
+EStop := TRUE;
+
+ *)
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+END_METHOD
+
+END_INTERFACE

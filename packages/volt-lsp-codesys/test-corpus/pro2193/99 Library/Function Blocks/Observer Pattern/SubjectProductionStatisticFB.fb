@@ -1,0 +1,68 @@
+//
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'hide_all_locals'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC SubjectProductionStatisticFB
+EXTENDS SubjectBaseFB
+IMPLEMENTS ISubject, ISubjectProductionStatistic
+VAR
+	_cavity			: UINT;								// Private backing field for property
+	_statType		: enumProductionStatsCavityType;	// Private backing field for property
+	_rejectReason	: USINT;							// Private backing field for property
+	_data			: UDINT;							// Private backing field for property
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Use like a constructor (kind of) to supply all data to the properties
+METHOD PROTECTED NotifyData
+VAR_INPUT
+	cavity			: UINT;
+	statType		: enumProductionStatsCavityType;
+	rejectReason	: USINT;
+	data			: UDINT;
+END_VAR
+THIS^.Cavity		:= cavity;
+THIS^.StatType		:= statType;
+THIS^.RejectReason	:= rejectReason;
+THIS^.Data			:= data;
+
+Notify();
+END_METHOD
+
+{attribute 'monitoring' := 'call'}
+PROPERTY PUBLIC Cavity : UINT
+GET
+Cavity := _cavity;
+END_GET
+SET
+_cavity := Cavity;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC Data : UDINT
+GET
+Data := _data;
+END_GET
+SET
+_data := Data;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC RejectReason : USINT
+GET
+RejectReason := _rejectReason;
+END_GET
+SET
+_rejectReason := RejectReason;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC StatType : enumProductionStatsCavityType
+GET
+StatType := _statType;
+END_GET
+SET
+_statType := StatType;
+END_SET
+END_PROPERTY

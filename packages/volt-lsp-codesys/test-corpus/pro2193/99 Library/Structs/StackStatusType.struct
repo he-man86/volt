@@ -1,0 +1,15 @@
+// All information about a stack of products
+TYPE StackStatusType :
+STRUCT
+	Initialized						: BOOL;		// Data in status is valid
+	encoderPosition					: REAL;		// Position on conveyor where the stack was placed.
+	Present							: BOOL;		// Stack is present
+	Complete						: BOOL;		// Stack is complete, ready to box
+	numberOfProducts				: UINT;		// Number of products in this stack
+	measuredStackHeight				: REAL;
+	VirtualStack					: BOOL;		// PresentWrittenDuringStepByStep
+	Rejected						: BOOL;		// Stack cannot be boxed
+	Rotated							: BOOL;		// Stack is picked from buffer rack with rotated gripper position
+	Combined						: BOOL;		// Stack is complete, multiple stacks are combined at a buffer rack
+END_STRUCT
+END_TYPE

@@ -1,0 +1,33 @@
+// Commands specific for an Z Unit
+INTERFACE IZUnit_Transfer_Commands
+EXTENDS IModuleTransferComplete, IModuleManualControlEnabled
+
+// Receive a product status
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	takeoverPos		: INT;
+	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForZUnit));
+	product			: ProductType;
+END_VAR
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received. Returns index of products that are actually transferred.
+METHOD PUBLIC GetProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: REFERENCE TO WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+// Move to a certain Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+END_METHOD
+
+// Z unit is ready to receive products
+{attribute 'monitoring':='call'}
+PROPERTY ReadyForTransfer : BOOL;
+END_PROPERTY
+
+END_INTERFACE

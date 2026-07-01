@@ -1,0 +1,95 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT VisionSystem_BaseFB
+EXTENDS ModuleResettableFB
+implements IVisionSystem_Base_Commands
+VAR_INPUT
+END_VAR
+VAR_IN_OUT
+	Data						: VisionSystem_Base_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	{attribute 'hide'}	_cameraResultReady			: BOOL;				// Private backing field for property
+	_results					: ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..3] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 1,		//1205 - Xu Axis: Ref. sensor. Check parking pos. of Xu Axis.
+	alarmCondition	:= Data.overrideRejectStatus,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 2,
+	alarmCondition	:= Data.overrideRunmodeReject,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 8,
+	alarmCondition	:= SER.InAutomaticOperation AND NOT PersistentVars.RecipeVars.EnableVision,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD CancelTakePicture
+%FOLDER Commands
+CommandLock.ForceRelease();
+END_METHOD
+
+METHOD ABSTRACT TakePicture : enumResultTakePicture
+%FOLDER Commands
+END_METHOD
+
+PROPERTY PUBLIC ABSTRACT Busy : BOOL
+%FOLDER Properties
+GET
+END_GET
+END_PROPERTY
+
+// Camera has a result ready. The data is in the Results property
+{attribute 'monitoring':='call'}
+PROPERTY CameraResultReady : BOOL
+%FOLDER Properties
+GET
+CameraResultReady := _cameraResultReady;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_cameraResultReady := CameraResultReady;
+END_SET
+END_PROPERTY
+
+// Results[0] holds overrideRejectStatus. Results[1..x] holds the data.
+PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+%FOLDER Properties
+GET
+Results := _results;
+
+// After reading the results, clear the CameraResultReady bool
+CameraResultReady := FALSE;
+END_GET
+END_PROPERTY

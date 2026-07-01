@@ -1,0 +1,41 @@
+// Alternative for L_MC1P_MeasureDistance FB from Lenze, because we need to persist totalDistance variable
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'totalDistance'}
+FUNCTION_BLOCK TravelDistanceFB
+VAR_INPUT
+	enable			: BOOL;		// Set FALSE during homing/referencing to ignore position jumps
+	actPos			: REAL;		// Current position of drive [mm]
+END_VAR
+VAR_IN_OUT
+	totalDistance	: UDINT;	// Total accumulated distance traveled (persistent) [m]
+END_VAR
+VAR
+	oldPos			: REAL;		// Previous position for delta calculation
+	travelDistance	: REAL;
+	init			: BOOL	:= TRUE;	// Flag for first execution
+END_VAR
+
+IF init OR NOT enable THEN		// make sure the first cycle works correctly
+	oldPos				:= actPos;
+	init				:= FALSE;
+	RETURN;
+END_IF
+
+// Accumulate absolute distance (bi-directional travel)
+travelDistance			:= travelDistance + ABS(actPos - oldPos);
+
+IF travelDistance >= 1000 THEN
+	totalDistance		:= totalDistance + 1;
+	travelDistance		:= travelDistance - 1000;
+END_IF
+
+oldPos					:= actPos;				// Store current position for next cycle
+
+END_FUNCTION_BLOCK
+
+// Reset total distance counter
+METHOD PUBLIC Reset
+totalDistance		:= 0;
+travelDistance		:= 0.0;
+oldPos				:= actPos;
+END_METHOD

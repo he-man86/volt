@@ -1,0 +1,9 @@
+INTERFACE ISubjectFunctionKeyPayload
+EXTENDS ISubjectHWButtonsPayload
+
+// Extended state of the button: tapped, or held, or double-tap-held
+{attribute 'monitoring' := 'call'}
+PROPERTY ExtState : enumFunctionKeyPayload
+END_PROPERTY
+
+END_INTERFACE

@@ -1,0 +1,310 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ProductionStatsFB
+EXTENDS SubjectProductionStatisticFB
+IMPLEMENTS IAddProductionStats
+VAR_INPUT
+	serState					: PACK_ML.State;
+END_VAR
+VAR_OUTPUT
+	SelectedStat				: ProductionStatsType;						// Outputs the currently selected statistic dataset to the HMI
+END_VAR
+VAR_IN_OUT
+	StatisticsData				: ARRAY[1..NumberOfStatisticSets] OF ProductionStatsType;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'readwrite'}	xResetSelectedStatistics	: BOOL;										// Reset button to reset the selected statistics
+	{attribute 'symbol' := 'readwrite'}	usiStatisticsSelection		: USINT(*(1..NumberOfStatisticSets)*);		// Statistic dataset selector
+	{attribute 'symbol' := 'readwrite'}	axResetStatistics			: ARRAY[1..NumberOfStatisticSets] OF BOOL;	// Reset each individual dataset
+	{attribute 'symbol' := 'readwrite'}	newCavityAlias				: STRING(20);								// New alias for selected cavity
+	{attribute 'symbol' := 'readwrite'}	newRejectReasonAlias		: STRING(40);								// New alias for selected reject reason
+	{attribute 'symbol' := 'readwrite'}	selectedCavity				: USINT;									// Cavity selection for changing alias
+	{attribute 'symbol' := 'readwrite'}	selectedRejectReason		: USINT;									// Reject reason selection for changing alias
+	{attribute 'symbol' := 'readwrite'}	saveSelectedCavityAlias		: BOOL;										// Save the new alias for the selected cavity
+	{attribute 'symbol' := 'readwrite'}	saveSelectedRejectReasonAlias	: BOOL;									// Save the new alias for the selected reject reason
+	{attribute 'symbol' := 'read'}		strRuntime					: STRING(20);
+END_VAR
+VAR
+	Trig_ResetSelected			: TriggerFB;
+	Trig_Reset					: ARRAY[1..NumberOfStatisticSets] OF TriggerFB;
+	Trig_ResetCycleStart		: TriggerFB;
+	i, j						: UINT;
+	k							: USINT;
+
+	MeasureTimeStopped			: ARRAY[1..NumberOfStatisticSets] OF ONTIME;
+	MeasureTimeResetting		: ARRAY[1..NumberOfStatisticSets] OF ONTIME;
+	MeasureTimeIdle				: ARRAY[1..NumberOfStatisticSets] OF ONTIME;
+	MeasureTimeAutomatic		: ARRAY[1..NumberOfStatisticSets] OF ONTIME;
+
+	T_CopyToVisu				: BTON;
+
+	debugStat					: BOOL;
+	MockProduct					: ProductType;
+END_VAR
+VAR CONSTANT
+	NumberOfStatisticSets		: USINT := 3;
+END_VAR
+
+Initialize();
+
+// Limit the selection from 1 to 3 (because VisiWinNet does not support subrange types)
+usiStatisticsSelection := LIMIT(1, usiStatisticsSelection, NumberOfStatisticSets);
+
+// Reset statistic dataset when reset button is pushed on HMI
+IF Trig_ResetSelected.Falling(xResetSelectedStatistics) THEN
+	Reset(usiStatisticsSelection);
+END_IF
+
+// Reset statistic dataset when reset button is pushed on HMI
+FOR i := 1 TO NumberOfStatisticSets DO
+	IF Trig_Reset[i].Falling(axResetStatistics[i]) THEN
+		Reset(TO_USINT(i));
+	END_IF
+END_FOR
+
+// Reset statistic dataset #2 when automatic cycle starts
+IF Trig_ResetCycleStart.Rising(serState = PACK_ML.State.Starting) THEN
+	Reset(LIMIT(1, 2, NumberOfStatisticSets));
+END_IF
+
+// Measure the On-time of the machine
+FOR i := 1 TO NumberOfStatisticSets DO
+	MeasureTimeStopped[i](		In := serState = PACK_ML.State.Stopped);
+	MeasureTimeResetting[i](	In := serState = PACK_ML.State.Resetting);
+	MeasureTimeIdle[i](			In := serState = PACK_ML.State.Idle);
+	MeasureTimeAutomatic[i](	In := serState = PACK_ML.State.Execute);
+END_FOR
+
+// Copy the currently selected dataset to the HMI every second.
+IF T_CopyToVisu.Set(TRUE, 1) THEN
+	SelectedStat	:= StatisticsData[usiStatisticsSelection];
+	T_CopyToVisu.Reset();
+	FormatString();
+	JsonBuilder.executeStatJson := TRUE;
+END_IF
+
+IF debugStat THEN
+	Count(MockProduct);
+	debugStat := FALSE;
+END_IF
+
+// Handle alias changes from visu
+HandleCavityAliasChange();
+HandleRejectReasonAliasChange();
+
+END_FUNCTION_BLOCK
+
+// Add a product to the statistics
+METHOD PUBLIC Count
+VAR_IN_OUT
+	Product				: ProductType;
+END_VAR
+VAR
+	xProductIsRejected	: BOOL;
+	productCavityNo		: UINT;
+	refStat				: REFERENCE TO ProductionStatsCavityType;
+END_VAR
+// Check if cavity number is valid
+IF Product.CavNo < GVL_Constants.CavityStartIndex
+OR Product.CavNo > GVL_Constants.CavityEndIndex
+OR NOT Product.Present
+THEN
+	RETURN;
+END_IF
+
+// Check if current product is rejected.
+xProductIsRejected	:= Arrays.Bool_Any(Product.RejectReason, TRUE);
+
+FOR i := 1 TO NumberOfStatisticSets DO
+
+	FOR j := 1 TO 2 DO	// Do 2 loops; 1 for Totals, 1 for the current cavity number
+
+		IF j = 1 THEN
+			productCavityNo			:= 0;
+			refStat					REF= StatisticsData[i].Total;					// Point reference to total production counter
+		ELSE
+			productCavityNo			:= Product.CavNo;
+			refStat					REF= StatisticsData[i].Cavity[Product.CavNo];	// Point reference to correct cavity counter
+		END_IF
+
+		refStat.History				:= SHL(refStat.History, 1);			// Shift het history DWORD 1 plek naar links.
+
+		Increment.AnyInt(refStat.Produced);
+		IF i = 3 THEN
+			NotifyData(productCavityNo, enumProductionStatsCavityType.Produced, 0, refStat.Produced);
+		END_IF
+
+		IF Product.SampleShot OR Product.UncountedReject THEN
+			refStat.History.0 := FALSE;
+			Increment.AnyInt(refStat.UncountedReject);
+			IF i = 3 THEN
+				NotifyData(productCavityNo, enumProductionStatsCavityType.UncountedReject, 0, refStat.UncountedReject);
+			END_IF
+
+		ELSIF xProductIsRejected THEN
+			refStat.History.0 := TRUE;
+			Increment.AnyInt(refStat.Rejected);
+			IF i = 3 THEN
+				NotifyData(productCavityNo, enumProductionStatsCavityType.Rejected, 0, refStat.Rejected);
+			END_IF
+
+			FOR k := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+				IF Product.RejectReason[k] THEN
+					Increment.AnyInt(refStat.RejectReason[k]);
+					IF i = 3 THEN
+						NotifyData(productCavityNo, enumProductionStatsCavityType.RejectReason, k, refStat.RejectReason[k]);
+					END_IF
+				END_IF
+			END_FOR
+		ELSE
+			refStat.History.0 := FALSE;
+			Increment.AnyInt(refStat.Stacked);
+			IF i = 3 THEN
+				NotifyData(productCavityNo, enumProductionStatsCavityType.Stacked, 0, refStat.Stacked);
+			END_IF
+		END_IF
+	END_FOR
+END_FOR
+END_METHOD
+
+// Add a product array to the statistics
+METHOD PUBLIC CountArray
+VAR_IN_OUT
+	aProductArray		: ARRAY[*] OF ProductType;
+END_VAR
+VAR
+	di					: DINT;
+END_VAR
+FOR di := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
+	Count(aProductArray[di]);
+END_FOR
+END_METHOD
+
+// Add a 2 dimensional product array to the statistics
+METHOD PUBLIC CountArray2D
+VAR_IN_OUT
+	aProductArray		: ARRAY[*,*] OF ProductType;
+END_VAR
+VAR
+	di1, di2			: DINT;
+END_VAR
+FOR di1 := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
+	FOR di2 := LOWER_BOUND(aProductArray, 2) TO UPPER_BOUND(aProductArray, 2) DO
+		Count(aProductArray[di1, di2]);
+	END_FOR
+END_FOR
+END_METHOD
+
+METHOD PRIVATE FormatString : BOOL
+VAR
+	_d		: UINT;
+	_h		: Util.HOUR;
+	_m		: Util.MINUTE;
+	_s		: Util.SECOND;
+END_VAR
+strRuntime		:= '';
+
+_d			:= TO_UINT(SelectedStat.TimeAutomatic / UDINT#86400);
+_h			:= TO_UINT(SelectedStat.TimeAutomatic / 3600 MOD 24);
+_m			:= TO_UINT(SelectedStat.TimeAutomatic / 60 MOD 60);
+_s			:= TO_UINT(SelectedStat.TimeAutomatic MOD 60);
+
+IF _d > 0 THEN
+	strRuntime		:= CONCAT3(strRuntime, TO_STRING(_d), 'd ');
+END_IF
+
+IF _h > 0 OR _d > 0 THEN
+	strRuntime		:= CONCAT3(strRuntime, TO_STRING(_h), ':');
+END_IF
+
+IF _m > 0 OR _h > 0 OR _d > 0 THEN
+	IF _m < 10 THEN
+		strRuntime	:= CONCAT(strRuntime, '0');
+	END_IF
+	strRuntime		:= CONCAT3(strRuntime, TO_STRING(_m), ':');
+END_IF
+
+IF _s < 10 THEN
+	strRuntime		:= CONCAT(strRuntime, '0');
+END_IF
+strRuntime			:= CONCAT(strRuntime, TO_STRING(_s));
+END_METHOD
+
+METHOD PRIVATE HandleCavityAliasChange : BOOL
+VAR_INPUT
+END_VAR
+IF saveSelectedCavityAlias THEN
+	PersistentVars.cavityAliases[GVL_Constants.CavityStartIndex + selectedCavity] := newCavityAlias;
+	JsonBuilder.executeCavityAliasJson := TRUE;
+	saveSelectedCavityAlias := FALSE;
+END_IF
+END_METHOD
+
+METHOD PRIVATE HandleRejectReasonAliasChange : BOOL
+VAR_INPUT
+END_VAR
+IF saveSelectedRejectReasonAlias THEN
+	PersistentVars.rejectReasonDescriptions[selectedRejectReason + 1] := newRejectReasonAlias;
+	JsonBuilder.executeRejectReasonAliasJson := TRUE;
+	saveSelectedRejectReasonAlias := FALSE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Initialize
+VAR_INST
+	{attribute 'init_on_onlchange' }
+	initialized	: BOOL;
+END_VAR
+IF initialized THEN
+	RETURN;
+END_IF
+
+FOR i := 1 TO NumberOfStatisticSets DO
+	StatisticsData[i].StatId := TO_USINT(i);		// Store the counter number in the dataset
+
+	MeasureTimeStopped[i].SetExternalSecondsReference(		StatisticsData[i].TimeStopped);
+	MeasureTimeResetting[i].SetExternalSecondsReference(	StatisticsData[i].TimeResetting);
+	MeasureTimeIdle[i].SetExternalSecondsReference(			StatisticsData[i].TimeIdle);
+	MeasureTimeAutomatic[i].SetExternalSecondsReference(	StatisticsData[i].TimeAutomatic);
+
+	MeasureTimeAutomatic[i].SetExternalCyclesReference(		StatisticsData[i].AutomaticCycleStarts);
+END_FOR
+
+JsonBuilder.executeCavityAliasJson			:= TRUE;
+JsonBuilder.executeRejectReasonAliasJson	:= TRUE;
+
+initialized := TRUE;
+
+// Warning: do not place this code in a FB_Init method!
+// We are settings references here, the references are pointing to a StatisticsData[i] struct.
+// This struct is an var_in_out, and this variable is not yet defined during FB_Init.
+END_METHOD
+
+METHOD PRIVATE Reset
+VAR_INPUT
+	usiStatIndex		: USINT(1..NumberOfStatisticSets);
+END_VAR
+VAR
+	refStat				: REFERENCE TO ProductionStatsCavityType;
+END_VAR
+FOR j := GVL_Constants.CavityStartIndex TO GVL_Constants.CavityEndIndex + 1 DO	// Go over all cavities, and do 1 extra loop for the totals.
+	IF j > GVL_Constants.CavityEndIndex THEN
+		refStat					REF= StatisticsData[usiStatIndex].Total;		// Point reference to total production counter
+	ELSE
+		refStat					REF= StatisticsData[usiStatIndex].Cavity[j];	// Point reference to correct cavity counter
+	END_IF
+
+	refStat.Produced			:= 0;
+	refStat.Rejected			:= 0;
+	refStat.UncountedReject		:= 0;
+	refStat.Stacked				:= 0;
+	refStat.History				:= 0;
+	FOR k := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+		refStat.RejectReason[k]	:= 0;
+	END_FOR
+END_FOR
+
+MeasureTimeStopped[usiStatIndex].Reset();
+MeasureTimeResetting[usiStatIndex].Reset();
+MeasureTimeIdle[usiStatIndex].Reset();
+MeasureTimeAutomatic[usiStatIndex].Reset();
+END_METHOD

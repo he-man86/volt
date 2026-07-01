@@ -1,0 +1,126 @@
+FUNCTION_BLOCK BoxFB
+VAR
+	{attribute 'hide'}	_state					: enumBoxState;
+	{attribute 'hide'}	_ActualNumberOfLayers	: UINT;
+	{attribute 'hide'}	_maxNumberOfLayers		: UINT;
+END_VAR
+
+Cyclic();
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC AddItem : BOOL
+VAR_INPUT
+	item		: enumBoxItem;
+END_VAR
+CASE item OF
+	enumBoxItem.None:
+		AddItem						:= FALSE;
+
+	enumBoxItem.ProductLayer:
+		IF State <> enumBoxState.ProductsNeeded THEN
+			AddItem					:= FALSE;
+		ELSE
+			ActualNumberOfLayers	:= ActualNumberOfLayers + 1;	// Add stack to box
+
+			IF ActualNumberOfLayers >= MaxNumberOfLayers THEN		// Check if box is full
+				State				:= enumBoxState.ChangeNeeded;
+//			ELSIF HardwareUnits.Data.BoxCenterUnit.EnableSheets THEN
+//				State				:= BoxState.SheetNeeded;
+			ELSE
+				State				:= enumBoxState.ProductsNeeded;
+			END_IF
+			AddItem					:= TRUE;
+		END_IF
+
+	enumBoxItem.Sheet:
+		IF State <> enumBoxState.SheetNeeded THEN
+			AddItem					:= FALSE;
+		ELSE
+			State					:= enumBoxState.ProductsNeeded;
+			AddItem					:= TRUE;
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PUBLIC BoxRemoved
+ActualNumberOfLayers	:= 0;
+MaxNumberOfLayers		:= 0;
+
+State					:= enumBoxState.None;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+CASE State OF
+	enumBoxState.None:
+			;
+
+	enumBoxState.ChangeNeeded:
+			;
+
+	enumBoxState.SheetNeeded:
+			;
+
+	enumBoxState.ProductsNeeded:
+			;
+END_CASE
+END_METHOD
+
+METHOD PUBLIC InitNewBox
+VAR_INPUT
+	setNumberOfLayers	: UINT;
+END_VAR
+ActualNumberOfLayers	:= 0;
+MaxNumberOfLayers		:= setNumberOfLayers;
+
+State					:= enumBoxState.ProductsNeeded;	// Always start empty box with products
+END_METHOD
+
+METHOD PUBLIC SetToChangeNeeded : BOOL
+CASE State OF
+	enumBoxState.ProductsNeeded, enumBoxState.SheetNeeded:
+		State						:= enumBoxState.ChangeNeeded;
+		SetToChangeNeeded			:= TRUE;
+	ELSE
+		SetToChangeNeeded			:= FALSE;
+END_CASE
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY ActualNumberOfLayers : UINT
+GET
+ActualNumberOfLayers := _ActualNumberOfLayers;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_ActualNumberOfLayers := ActualNumberOfLayers;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY MaxNumberOfLayers : UINT
+GET
+MaxNumberOfLayers := _maxNumberOfLayers;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_maxNumberOfLayers := MaxNumberOfLayers;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY State : enumBoxState
+GET
+State := _state;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_state := State;
+END_SET
+END_PROPERTY

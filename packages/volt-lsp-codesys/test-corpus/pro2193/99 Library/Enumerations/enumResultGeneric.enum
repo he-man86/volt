@@ -1,0 +1,11 @@
+// Used by methods to return more than only True or False
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumResultGeneric :
+(
+	NoResult	:= 0,
+	Success		:= 1,
+	Error		:= 2
+) SINT;
+END_TYPE

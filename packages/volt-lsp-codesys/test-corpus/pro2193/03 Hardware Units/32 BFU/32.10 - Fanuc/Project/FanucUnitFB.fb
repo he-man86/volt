@@ -1,0 +1,19 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FanucUnitFB
+EXTENDS FanucUnitBaseFB
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	DataProject					: FanucUnit_Data;
+END_VAR
+VAR
+END_VAR
+
+SUPER^(
+	Data			:= Data,
+	GripperStatus	:= GripperStatus
+);
+
+END_FUNCTION_BLOCK

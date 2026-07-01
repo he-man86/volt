@@ -1,0 +1,230 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferProducts_ChainToZFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecute
+VAR_INPUT
+	chain					: IChain_Base_TransferOuttake_Commands;
+	zUnit					: IZUnit_ForChainWithServoRotate_Transfer_Commands;
+END_VAR
+VAR
+	result					: ARRAY[1..2] OF BOOL;
+	gettingProduct			: ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateZUnitMovesInPosition			:= 100,
+		StateZUnitGetsProducts				:= 200,
+		StateCopyProductData				:= 300,
+		StateFreeZUnit						:= 400,
+		StateFinal							:= 999
+	) DINT;
+
+END_VAR
+
+SUPER^();
+
+// Enable manual control of Z Unit motor when chain is in safe position.
+zUnit.ExternalManualControlEnabled := TRUE; //chain.InExactPosition();
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+VAR_INST
+	product				: REFERENCE TO ProductType;
+	zUnitGripperFilled	: BOOL;
+END_VAR
+VAR
+	zUnithasProducts	: ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+	i, j				: USINT;
+END_VAR
+zUnithasProducts	:= zUnit.HasProductForTransfer;
+
+// Go from first Z Unit vacuum, to the last. First Z Unit vacuum is the last product on the chain.
+FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
+
+	// Copy reference to products from the chain
+	product REF= chain.ReturnProduct(PersistentVars.RecipeVars.chainPos_ZUnit[i]);
+
+	IF NOT __ISVALIDREF(product) THEN
+		CONTINUE;
+	END_IF
+
+	// Check state of Z Unit gripper. Must be filled with products, up until this current one.
+	zUnitGripperFilled	:= TRUE;
+	IF i > 1 THEN
+		FOR j := 1 TO i - 1 DO
+			IF  NOT zUnithasProducts[j]
+			AND NOT gettingProduct[j]
+			THEN
+				zUnitGripperFilled := FALSE;
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+
+	IF NOT zUnitGripperFilled THEN
+		EXIT;
+	END_IF
+
+	IF (NOT product.UncountedReject OR chain.ZUnitIsAfterReject)	// Also get uncounted rejected products when the Z Unit is after the reject station.
+	AND NOT product.SampleShot
+	AND NOT zUnithasProducts[i]
+	THEN
+		gettingProduct[i]		:= TRUE;
+		FOR j := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
+			gettingProduct[i]	R= product.RejectReason[j] AND NOT product.RejectReasonIgnored[j];
+		END_FOR
+	ELSE
+		gettingProduct[i]		:= FALSE;
+	END_IF
+
+	CheckIfTransferIsNeeded		S= gettingProduct[i];
+
+	IF NOT gettingProduct[i] THEN
+		EXIT;
+	END_IF
+
+END_FOR
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition := iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateZUnitMovesInPosition;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	data				: WORD;
+	product				: REFERENCE TO ProductType;
+	zUnithasProducts	: ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateZUnitMovesInPosition:
+		IF  zUnit.MoveToTakeover(1)
+		AND zUnit.ReadyForTransfer
+		AND chain.InExactPosition()
+		THEN
+			ActState := StateZUnitGetsProducts;
+		END_IF
+
+	StateZUnitGetsProducts:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			data := 0;
+			FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
+				BitLogic.Load(data, gettingProduct[i], i);	// set a bit number for every product we transfer.
+			END_FOR
+		END_IF
+
+		IF result[1] := zUnit.GetProducts(data) THEN
+			ActState := StateCopyProductData;
+		END_IF
+
+	StateCopyProductData:
+		zUnithasProducts := zUnit.HasProductForTransfer;
+
+		FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
+
+			IF NOT gettingProduct[i] THEN
+				CONTINUE;
+			END_IF
+
+			// Copy reference to products from the chain
+			product REF= chain.ReturnProduct(PersistentVars.RecipeVars.chainPos_ZUnit[i]);
+
+			IF NOT __ISVALIDREF(product) THEN
+				LogPlc.Error('Product was lost on the chain. This should not happen ???!?');
+			ELSIF NOT zUnithasProducts[i] THEN		// Failed to transfer product?
+
+				IF chain.ZUnitIsAfterReject THEN
+					product.Present			:= FALSE;	// Assume product is missing. Cycle will stop when sensor detects a product after Z unit.
+				ELSE
+					product.UncountedReject	:= TRUE;	// The reject station can remove the product from the chain.
+				END_IF
+
+			ELSE
+				zUnit.CopyProductStatus(1, i, product);
+				chain.ClearProductCarrier(PersistentVars.RecipeVars.chainPos_ZUnit[i]);
+			END_IF
+			gettingProduct[i] := FALSE;
+		END_FOR
+
+		ActState := StateFreeZUnit;
+
+	StateFreeZUnit:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		result[1]	:= result[1] OR_ELSE zUnit.TransferComplete();
+		result[2]	:= TRUE;
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

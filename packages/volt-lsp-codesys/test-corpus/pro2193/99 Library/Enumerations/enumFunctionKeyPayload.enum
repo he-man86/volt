@@ -1,0 +1,11 @@
+// Payload for function key button press event
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumFunctionKeyPayload :
+(
+	Tapped,				// Button is tapped shortly
+	Held,				// Button is held down
+	DoubleTapHeld,		// Button is held down after double tap
+	Released			// Button is released after being held down
+);
+END_TYPE

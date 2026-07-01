@@ -1,0 +1,132 @@
+// Extra variables for modules that have a servo drive
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ModuleWithServoBaseFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IModuleManualControlEnabled
+VAR_INPUT
+	xEnableServoDrive			: BOOL;
+	xQuickStop					: BOOL;
+END_VAR
+VAR_IN_OUT
+	AxisRef						: L_MC1P.AXIS_REF;
+	DataBrink					: DataBrinkType;
+	coveredDistance				: UDINT;
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	Drive						: ServoDriveFB
+	(
+		instanceNo		:= 1,
+		moduleManager	:= ModuleManager,
+		moduleParent	:= ModuleHandler,
+	);
+
+
+	// Forward alarms of children (ServoDriveFB) to parent
+	ForwardSeverity				: L_IE1P.L_IE1P_ForwardSeverity;
+
+	// Manual control of servo drive is enabled from outside this module
+	externalManualServoControlEnabled		: BOOL;
+	// Manual control of servo drive is enabled from inside the module
+	internalManualServoControlEnabled		: BOOL := TRUE;
+
+	ManualControlIsBlockedWarning			: ARRAY[1..6] OF SetErrorFB;
+
+END_VAR
+
+SUPER^();
+
+Drive(
+	globalSpeedOverride			:= PersistentVars.usiGlobalSERSpeed,
+	globalSpeedOverrideEnable	:= ,
+	rSetManualSpeed				:= 5,
+	xGlobalReset				:= GlobalVars.Reset,
+	xEnableDrive				:= xEnableServoDrive,
+	xQuickStop					:= xQuickStop,
+	manualControlEnabled		:= SER.ManualControlEnabled
+								AND Drive.AxisEnabled
+								AND externalManualServoControlEnabled
+								AND internalManualServoControlEnabled
+								AND PNOZMulti2.xHoldToRunButton,
+	servoJogMode				:= HMI.servoJogMode,
+	AxisRef						:= AxisRef,
+	DataBrink					:= DataBrink,
+	coveredDistance				:= coveredDistance);
+
+ForwardSeverity(
+	xEnable						:= TRUE,
+	ModuleHandler				:= ModuleHandler,
+	xForwardFromChildModules	:= TRUE,
+	xDisableForwardToParent		:= ,
+	xBusy						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+ManualControlIsBlockedWarning[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 6,
+	alarmCondition	:= Drive.manualControlIsBlocked AND NOT SER.ManualControlEnabled,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+ManualControlIsBlockedWarning[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 7,
+	alarmCondition	:= Drive.manualControlIsBlocked AND NOT Drive.AxisEnabled,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+ManualControlIsBlockedWarning[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 8,
+	alarmCondition	:= Drive.manualControlIsBlocked AND NOT externalManualServoControlEnabled,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+ManualControlIsBlockedWarning[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 9,
+	alarmCondition	:= Drive.manualControlIsBlocked AND NOT internalManualServoControlEnabled,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+ManualControlIsBlockedWarning[5](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 10,
+	alarmCondition	:= Drive.manualControlIsBlocked AND NOT PNOZMulti2.xHoldToRunButton,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+ManualControlIsBlockedWarning[6](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 11,
+	alarmCondition	:= Drive.manualControlIsBlocked AND Drive.AxisBasicControl.xInternalControlActive,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
+END_METHOD
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+SET
+externalManualServoControlEnabled := ExternalManualControlEnabled;
+END_SET
+END_PROPERTY

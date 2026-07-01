@@ -1,0 +1,63 @@
+// Control a dual output cylinder. Three sensors check if the cylinder is in position. Middle sensor is high when both outputs are turned off.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FINAL Cylinder_53Valve_MiddleSensorFB
+EXTENDS Cylinder_53ValveFB
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	xSensorMiddle			: BOOL;
+	errorId_SensorMiddle	: WORD;
+END_VAR
+VAR
+	SensorMiddleAlarm		: SetErrorFB;
+	{attribute 'symbol' := 'read'}		moveMiddleDuration		: REAL;		// The amount of time elapsed when cylinder moves
+END_VAR
+
+// Execute base cylinder fb
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+// Set the extra alarm message
+SUPER^.Alarms();
+SetSensorMiddleAlarm(	(OutputIn.Map() = OutputOut.Map()) XOR xSensorMiddle);
+END_METHOD
+
+METHOD PROTECTED SetSensorMiddleAlarm
+VAR_INPUT
+	xSet	: BOOL;
+END_VAR
+SensorMiddleAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND xSet AND errorId_SensorMiddle <> 0,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_SensorMiddle,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF alarmEnable AND xSet AND errorId_SensorIn <> 0 THEN
+	moveMiddleDuration	:= SensorMiddleAlarm.ElapsedTime;
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY IsIn : BOOL
+GET
+IsIn := inputIn AND NOT inputOut AND NOT xSensorMiddle;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsMiddle : BOOL
+GET
+IsMiddle := NOT inputOut AND NOT inputIn AND xSensorMiddle;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsOut : BOOL
+GET
+IsOut := inputOut AND NOT inputIn AND NOT xSensorMiddle;
+END_GET
+END_PROPERTY

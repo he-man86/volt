@@ -1,0 +1,20 @@
+INTERFACE IServoDrive
+EXTENDS __SYSTEM.IQueryInterface
+
+// Stop all drive movements in case of E.stop. Error Stop Deceleration and Error Stop Jerk are used.
+METHOD PUBLIC Quickstop
+VAR_INPUT
+	requireRehomingDrive	: BOOL;
+END_VAR
+END_METHOD
+
+// Set current position of drive to zero
+METHOD PUBLIC SetPositionDirect : BOOL
+END_METHOD
+
+// Axis is available, ready for operation, and enabled / powered on.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AxisEnabled : BOOL
+END_PROPERTY
+
+END_INTERFACE

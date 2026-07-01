@@ -1,0 +1,89 @@
+// Guard that positions are within the limits
+{attribute 'monitoring_display' := 'value.limitActive'}
+FUNCTION_BLOCK GuardRealFB
+VAR_IN_OUT
+	value						: RealWithLimitsType;
+END_VAR
+VAR
+	prevValue					: REAL := GVL_Constants.RealSmallest;
+	PosChangeTooLargeAlarm		: SetErrorFB;
+	{attribute 'no_copy'}
+	moduleHandler				: L_IMHP.L_IMHP_IModuleHandler;
+
+	manuallyUpdatePosInAutoMode	: REAL;	// Use by Brink programmers; to force change position during automatic operation of robot.
+END_VAR
+
+Alarms();
+
+// Set new position manually (also when SER is in automatic operation)
+IF manuallyUpdatePosInAutoMode <> 0 THEN
+	value.value					:= manuallyUpdatePosInAutoMode;
+	prevValue					:= manuallyUpdatePosInAutoMode;
+	manuallyUpdatePosInAutoMode	:= 0;
+END_IF
+
+// Check if new position is near the old position, prevent large changes during automatic operation
+IF SER.InAutomaticOperation AND_THEN
+(  prevValue > value.value + value.stepSize + 0.001
+OR prevValue < value.value - value.stepSize - 0.001 )	// (add small value to account for rounding errors when comparing reals)
+THEN
+	PosChangeTooLargeAlarm.alarmCondition := TRUE;
+	value.value := prevValue;
+ELSE
+	prevValue := value.value;
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE Alarms
+VAR_INST
+	PosTooSmallAlarm			: SetErrorFB;
+	PosTooBigAlarm				: SetErrorFB;
+END_VAR
+PosTooSmallAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 1,		// New position value was smaller than minimum.
+	alarmCondition	:= value.value < value.lowerLimit,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+PosTooBigAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 2,		// New position value was bigger than maximum.
+	alarmCondition	:= value.value > value.upperLimit,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+PosChangeTooLargeAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 3,		// New position value was bigger than max allowed stepsize. Position is corrected to previous value.
+	alarmCondition	:= ,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+PosChangeTooLargeAlarm.alarmCondition	:= FALSE;
+value.limitActive						:= PosTooSmallAlarm.active OR PosTooBigAlarm.active;
+END_METHOD
+
+//FB_Init is always available implicitly and it is used primarily for initialization.
+//The return value is not evaluated. For a specific influence, you can also declare the
+//methods explicitly and provide additional code there with the standard initialization
+//code. You can evaluate the return value.
+METHOD FB_Init: BOOL
+VAR_INPUT
+	bInitRetains	: BOOL;							// TRUE: the retain variables are initialized (reset warm / reset cold)
+	bInCopyCode		: BOOL;							// TRUE: the instance will be copied to the copy code afterward (online change)
+
+	moduleHandler	: L_IMHP.L_IMHP_IModuleHandler;
+END_VAR
+THIS^.moduleHandler := moduleHandler;
+END_METHOD

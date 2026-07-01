@@ -1,0 +1,90 @@
+// Control a dual output cylinder. Two sensors check if the cylinder is in position. The outputs can be inverted
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FINAL Cylinder_53Valve_InvertibleFB
+EXTENDS Cylinder_53ValveFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	xInvertOutput			: BOOL;
+END_VAR
+
+// Execute base cylinder fb
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+// Set the alarm messages (inverted)
+IF xInvertOutput THEN
+	SetSensorOutAlarm(	SetAlarm(OutputOut.Map(), OutputIn.Map(), inputIn));
+	SetSensorInAlarm(	SetAlarm(OutputIn.Map(), OutputOut.Map(), inputOut));
+ELSE
+	SUPER^.Alarms();
+END_IF
+END_METHOD
+
+// The cylinder moves in. Returns true when cylinder is in. (Optionally inverted!)
+METHOD PUBLIC GoIn : BOOL
+IF xInvertOutput THEN
+	SUPER^.GoOut();
+ELSE
+	SUPER^.GoIn();
+END_IF
+
+GoIn := IsIn;
+END_METHOD
+
+// The cylinder moves out. Returns true when cylinder is out. (Optionally inverted!)
+METHOD PUBLIC GoOut : BOOL
+IF xInvertOutput THEN
+	SUPER^.GoIn();
+ELSE
+	SUPER^.GoOut();
+END_IF
+
+GoOut := IsOut;
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+IF xInvertOutput THEN
+	SUPER^.SetOrReset(NOT xValue);
+ELSE
+	SUPER^.SetOrReset(xValue);
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY IsIn : BOOL
+GET
+IF xInvertOutput THEN
+	IsIn := SUPER^.IsOut;
+ELSE
+	IsIn := SUPER^.IsIn;
+END_IF
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsOut : BOOL
+GET
+IF xInvertOutput THEN
+	IsOut := SUPER^.IsIn;
+ELSE
+	IsOut := SUPER^.IsOut;
+END_IF
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY OnTargetPos : BOOL
+GET
+IF xInvertOutput THEN
+	OnTargetPos := NOT SUPER^.OnTargetPos;
+ELSE
+	OnTargetPos := SUPER^.OnTargetPos;
+END_IF
+END_GET
+END_PROPERTY

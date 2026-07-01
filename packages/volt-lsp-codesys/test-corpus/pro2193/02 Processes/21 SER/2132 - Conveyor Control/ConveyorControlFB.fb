@@ -1,0 +1,295 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK ConveyorControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	ButtonStartNewStack			: PushButtonLedWithHmiFB;
+	conveyor					: IConveyor_Shared_Move_Commands;
+	rejectConveyor				: IConveyor_Reject_Move_Commands;
+END_VAR
+VAR
+	firstStackAfterCycleStart	: BOOL;		// Automatic cycle is started, start stacking the first stack.
+	lastProductsPlacedOnStack	: BOOL;		// The last product out of the mould was just stacked, automatic cycle is completed.
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateAwaitConveyorLock				:= 100,
+		StateMovingStack					:= 200,
+		StateMovingReject					:= 300,
+		StateMovingStackDone				:= 400
+	) DINT;
+END_VAR
+VAR CONSTANT
+	// Option: move the stack on the conveyor when automatic cycle starts.
+	OptionMoveStackOnCycleStart			: BOOL	:= FALSE;
+	// Option: move the stack on the conveyor when automatic cycle ends.
+	OptionMoveStackOnCycleStop			: BOOL	:= FALSE;
+	// Option: move the stack on the conveyor when products are stacked with or without labels.
+	OptionMoveStackWhenIMLChanged		: BOOL	:= FALSE;
+	// Option: move the stack on the conveyor when IMM reject signal is high.
+	OptionMoveStackOnMouldReject		: BOOL	:= FALSE;
+	// When Z Unit leaves the stack, allow the stack to be moved for this time. (time depends on expected total cycle time)
+	MovingStacksAllowedTime				: REAL	:= 2;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Method is called every time the Z Units leaves the stack. Return true when conveyor needs to move.
+METHOD PROTECTED CheckStackingHeight : BOOL
+VAR_INPUT
+	products		: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+END_VAR
+VAR
+	maxHeight		: UINT;
+	i				: USINT;
+END_VAR
+// Check status of the top layer of products on the stack
+// Are the last products out of the mould on the stack?
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+	IF products[i].LastProduct THEN
+		lastProductsPlacedOnStack := TRUE;
+		EXIT;
+	END_IF
+END_FOR
+
+// Last products out of the mould were just stacked. Move the last stack before automatic operation ends?
+IF OptionMoveStackOnCycleStop
+AND lastProductsPlacedOnStack
+THEN
+	CheckStackingHeight := TRUE;
+	RETURN;
+END_IF
+
+// Get the actual maximum stacking height from the conveyor
+maxHeight := conveyor.GetCurrentMaxStackingHeight(firstStackAfterCycleStart);
+
+// Stacking height reached?
+IF conveyor.StackIndex >= maxHeight THEN
+	CheckStackingHeight := TRUE;
+	RETURN;
+END_IF
+
+
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+
+	// Product stacked is the first product with or without IML?
+	IF OptionMoveStackWhenIMLChanged
+	AND products[i].StartNewStack
+	THEN
+		CheckStackingHeight := TRUE;
+		RETURN;
+	END_IF
+
+	// Product stacked is rejected by the IMM?
+	IF OptionMoveStackOnMouldReject
+	AND products[i].RejectReason[1]
+	AND NOT products[i].RejectReasonIgnored[1]
+	THEN
+		CheckStackingHeight := TRUE;
+		RETURN;
+	END_IF
+
+END_FOR
+
+
+// No moving needed.
+CheckStackingHeight := FALSE;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	trigger						: RisingTriggerFB;
+	MoveStacksAllowedTime		: BTON;
+	stackHeightResetRequested	: BOOL;
+END_VAR
+ButtonStartNewStack();
+
+// Handle Stacking height reset request
+IF SER.InAutomaticOperation THEN
+	stackHeightResetRequested		S= ButtonStartNewStack.ButtonPushed;
+ELSE
+	stackHeightResetRequested		:= FALSE;
+END_IF
+
+ButtonStartNewStack.SetColors(enumColorList.Purple);
+
+IF stackHeightResetRequested THEN
+	ButtonStartNewStack.Solid();
+ELSE
+	ButtonStartNewStack.Off();
+END_IF
+
+
+// Trigger when z unit leaves the stacking area
+IF trigger.Rising(conveyor.MovingStacksAllowed)
+AND_THEN CheckStackingHeight(conveyor.ProductsOnTopOfStack)
+THEN
+	stackHeightResetRequested	:= FALSE;
+	conveyor.CurrentStackFull := TRUE;
+	ActState := StateAwaitConveyorLock;
+END_IF
+
+// Only allow the conveyor to move for a short time, after this time another product may arrive.
+IF MoveStacksAllowedTime.Set(conveyor.MovingStacksAllowed, MovingStacksAllowedTime) THEN
+	conveyor.MovingStacksAllowed := FALSE;
+	MoveStacksAllowedTime.Reset();
+END_IF
+
+// Reset stacking height button was pushed?
+IF  stackHeightResetRequested
+AND conveyor.MovingStacksAllowed
+THEN
+	stackHeightResetRequested	:= FALSE;
+	ActState := StateAwaitConveyorLock;
+END_IF
+
+// Reset stacking height button was pushed when machine is turned off?
+IF NOT SER.InAutomaticOperation
+// always move conveyor when pressing button
+//AND (NOT __ISVALIDREF(conveyor.ReturnNextStack()) OR NOT BFU.InAutomaticOperation)
+AND ButtonStartNewStack.ButtonPushed
+THEN
+	stackHeightResetRequested	:= FALSE;
+	ActState := StateAwaitConveyorLock;
+// This conveyor is a servo conveyor. So make it move a step.
+//	conveyor.MoveContinuouslyToggle();
+END_IF
+
+// BFU is in cleaning mode, start conveyor until empty
+IF  BFU.OperationMode = SER_OperationModeType.CleaningMode
+AND NOT SER.InAutomaticOperation
+AND NOT __ISVALIDREF(conveyor.ReturnNextStack())
+AND conveyor.HasStacks
+AND ActState = StateNone
+THEN
+	stackHeightResetRequested	:= FALSE;
+	ActState := StateAwaitConveyorLock;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+firstStackAfterCycleStart	:= FALSE;
+lastProductsPlacedOnStack	:= FALSE;
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover,
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	result						: ARRAY[1..1] OF BOOL;
+END_VAR
+State(actState	:= ActState);
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateAwaitConveyorLock:
+		IF conveyor.LockRequest(__POUNAME()) THEN
+			ActState := StateMovingStack;
+		END_IF
+
+	StateMovingStack:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+			firstStackAfterCycleStart	:= FALSE;
+//			IF __ISVALIDREF(conveyor.ReturnNextStack()) THEN	// if there is any stack on the conveyor, move the reject
+				rejectConveyor.MoveStep();
+//			END_IF
+		END_IF
+
+		IF conveyor.MoveStep() THEN
+			ActState := StateMovingStackDone;
+		END_IF
+
+	StateMovingStackDone:
+		conveyor.LockRelease(__POUNAME());
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := SEL(HMI.SemiAutoMode = enumSemiAutoModeType.LabelAdjustment, TRUE, FALSE);
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+firstStackAfterCycleStart	:= TRUE;	// Set a flag when automatic cycle starts. Stacking unit starts stacking the first stack.
+lastProductsPlacedOnStack	:= FALSE;
+
+IF NOT OptionMoveStackOnCycleStart THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+	RETURN;
+END_IF
+
+IF ActState = StateNone THEN
+	ActState := StateAwaitConveyorLock;
+END_IF
+
+IF ActState = StateMovingStackDone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+firstStackAfterCycleStart	:= FALSE;
+lastProductsPlacedOnStack	:= FALSE;
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+StopCycle				:= lastProductsPlacedOnStack AND ActState = StateNone;
+END_METHOD

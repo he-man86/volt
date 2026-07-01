@@ -1,0 +1,251 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK VisionSystem_KeyenceFB
+EXTENDS VisionSystem_BaseFB
+IMPLEMENTS IVisionSystem_Base_Commands
+VAR_INPUT
+	xError				: BOOL;
+	xRunMode			: BOOL;
+	xORTotalStatus		: BOOL;
+	xReady				: ARRAY[1..4] OF BOOL;
+	resultReady			: BOOL;
+	xBusy				: BOOL;
+	xJudgement			: ARRAY[1..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+	errorCode			: UINT;
+	totalCount			: UDINT;
+
+	{attribute 'symbol' := 'readwrite'}	DisableTrigger		: ActuatorWithManualControlFB;
+	{attribute 'symbol' := 'readwrite'}	Trigger				: ActuatorWithManualControlFB;
+	{attribute 'symbol' := 'readwrite'}	ResultAck			: ActuatorWithManualControlFB;
+
+END_VAR
+VAR_IN_OUT
+	DataKeyence						: VisionSystem_Keyence_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	TOF_CameraBusySignal			: BTOF;
+END_VAR
+
+SUPER^(Data := Data);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..4] OF SetErrorFB;
+END_VAR
+SUPER^.Alarms();
+
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 3,
+	alarmCondition	:= SER.InAutomaticOperation AND PersistentVars.RecipeVars.EnableVision AND NOT Data.overrideRunmodeReject AND NOT xRunMode,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 4,
+	alarmCondition	:= xRunMode AND CommandLock.IsLocked,
+	alarmDelay		:= 1.5,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 5,
+	alarmCondition	:= PersistentVars.RecipeVars.EnableVision AND xError,
+	alarmDelay		:= 0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 9,
+	alarmCondition	:= PersistentVars.RecipeVars.EnableVision AND Busy,
+	alarmDelay		:= 5,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	ResultReadyTrigger	: TriggerFB;
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+DisableTrigger(
+	manualControlEnabled	:= );
+
+Trigger(
+	manualControlEnabled	:= );
+
+ResultAck(
+	manualControlEnabled	:= );
+
+
+// -------------- Handle the Result Ready (STO) signal from Keyence cameras -------------
+ResultReadyTrigger.Call(CLK := resultReady);
+
+IF ResultReadyTrigger.Q_Rising THEN
+
+	// Set all reject reasons when there is no reason specified for a rejected product.
+	IF xORTotalStatus AND_THEN arrays.Bool_All(xJudgement, FALSE) THEN
+		FOR i := 1 TO GVL_Constants.MaxRejectReasonsCamera DO
+			_results[i] := TRUE;
+		END_FOR
+	ELSE
+		FOR i := 1 TO GVL_Constants.MaxRejectReasonsCamera DO
+			_results[i] := xJudgement[i];
+		END_FOR
+	END_IF
+
+	_results[0] := Data.overrideRejectStatus;
+
+	ResultAck.Set();
+
+	THIS^.CameraResultReady := TRUE;
+
+END_IF
+
+IF ResultReadyTrigger.Q_Falling THEN
+	ResultAck.Reset();
+END_IF
+
+// Manual: \\ad.brinkbv.com\dfsroot\Automation\General\Documentation\Leveranciersinformatie\Keyence\CV-X series\CV-X Manuals\CV-X Series - User's Manual (C81GB).pdf
+// Page: 6-220
+
+// Output of measurement data using EtherCAT
+// When handshake is OFF, output data is overwritten and updated without checking whether the Result ack flag is OFF. To take the rise
+// of Result ready flag as a data reference synchronization signal, turn the Result ack flag ON at each output, which will turn the Result
+// ready flag OFF.
+
+
+TOF_CameraBusySignal.Set(In := xBusy, Pt := 0.02);	// use a TOF: Busy signal switches to low for a very short duration
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+DisableTrigger.Reset();
+Trigger.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		DisableTrigger.Set();
+		Trigger.Reset();
+
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+DisableTrigger.Reset();
+Trigger.Reset();
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+METHOD TakePicture : enumResultTakePicture
+VAR_INST
+	localState					: SINT;
+	Timeout						: BTON;
+	debugCounter				: ARRAY[1..2] OF INT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timeout.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Check Keyence runmode
+		IF NOT xRunMode THEN
+			TakePicture		:= SEL(Data.overrideRunmodeReject,
+										enumResultTakePicture.Error,
+										enumResultTakePicture.NoPicTaken);
+			CommandLock.Release(__POUNAME());
+		ELSE
+			TakePicture		:= enumResultTakePicture.Busy;
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:	// Enable trigger, wait for camera ready signal
+		DisableTrigger.Reset();
+
+		IF xReady[1] THEN
+			Timeout.Reset();
+			Increment.AnyInt(localState);
+		ELSIF Timeout.Set(TRUE, 1) THEN
+			DisableTrigger.Set();
+			Increment.AnyInt(debugCounter[1]);
+			TakePicture		:= enumResultTakePicture.Error;
+			CommandLock.Release(__POUNAME());
+		END_IF
+
+	2:	// Wait for pictures taken
+		IF NOT xReady[1] THEN
+			Timeout.Reset();
+			DisableTrigger.Set();
+			Increment.AnyInt(localState);
+		ELSIF Timeout.Set(TRUE, 1.5) THEN
+			DisableTrigger.Set();
+			Increment.AnyInt(debugCounter[2]);
+			TakePicture		:= enumResultTakePicture.Error;
+			CommandLock.Release(__POUNAME());
+		END_IF
+
+	3:	// Await image transfer time
+
+		// 2 megapixel mode transfer speed setting: Standard (7×):	28.4 ms
+		// 2 megapixel mode transfer speed setting: Fast (16×):		11.5 ms
+		// 5 megapixel mode:										29.2 ms
+
+		IF Timeout.Set(TRUE, 0.03) THEN
+			Timeout.Reset();
+			TakePicture		:= enumResultTakePicture.Ok;
+			CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+PROPERTY PUBLIC Busy : BOOL
+%FOLDER Properties
+GET
+Busy	:= TOF_CameraBusySignal.Q;
+END_GET
+END_PROPERTY

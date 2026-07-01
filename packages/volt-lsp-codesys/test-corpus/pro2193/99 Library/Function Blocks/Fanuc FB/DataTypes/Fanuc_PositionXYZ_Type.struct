@@ -1,0 +1,7 @@
+TYPE Fanuc_PositionXYZ_Type :
+STRUCT
+	rPosX	: REAL;
+	rPosY	: REAL;
+	rPosZ	: REAL;
+END_STRUCT
+END_TYPE

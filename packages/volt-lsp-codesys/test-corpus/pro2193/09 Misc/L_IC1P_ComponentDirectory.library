@@ -1,0 +1,5 @@
+LIBRARY L_IC1P_ComponentDirectory
+NAMESPACE L_IC1P
+RESOLUTION L_IC1P_ComponentDirectory, 3.32.0.3 (Lenze)
+PLACEHOLDER true
+SYSTEM false

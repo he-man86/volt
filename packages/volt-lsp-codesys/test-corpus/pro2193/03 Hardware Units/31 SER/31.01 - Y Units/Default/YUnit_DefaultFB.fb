@@ -1,0 +1,394 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK YUnit_DefaultFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IYUnit_Default_Commands
+VAR_INPUT
+	xClearMould					: BOOL;
+	xFuseCoolingMotorOut		: BOOL;
+END_VAR
+VAR_OUTPUT
+	{attribute 'symbol' := 'readwrite'}	MotorCooling				: ActuatorWithManualControlFB;
+END_VAR
+VAR_IN_OUT
+	Data						: YUnit_Default_Data;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}	rSafetyStripEndPosition		: REAL;
+	rSafetyStripStartPosition	: REAL;		// May be nice to know this value.
+END_VAR
+VAR
+	CalcParkPosDelay			: CalculateParkingPosDelayFB;
+	CalcParkPosTimer			: BTON;
+	decelerateWarning			: BOOL;
+END_VAR
+VAR CONSTANT
+	NumberOfTakeoverPositions	: USINT	:= YUnits.NumberOfTakeoverPositions;
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= YUnit_Errors,
+	errorId			:= 5,		// Waiting position must be near the end of the safety strip
+	alarmCondition	:= rSafetyStripEndPosition > 0
+					AND Drive.IsHomed
+					AND (Data.Waiting.Pos.value > rSafetyStripEndPosition
+					OR   Data.Waiting.Pos.value < rSafetyStripEndPosition - 100),
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= YUnit_Errors,
+	errorId			:= 6,		// Deceleration of Y Unit starts too early. Increase deceleration when exiting mould.
+	alarmCondition	:= decelerateWarning,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+decelerateWarning	:= FALSE;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..3] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..3] OF AttachPosToButtonFB(							drive			:= Drive);
+	guardTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF GuardRealFB(			moduleHandler	:= ModuleHandler);
+	attachTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF AttachPosToButtonFB(	drive			:= Drive);
+
+	Trig_ClearMouldSensor		: TriggerFB;
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+// Start the fan on the Y Drive when axis is enabled.
+MotorCooling(
+	manualControlEnabled	:= FALSE);
+MotorCooling.SetOrReset(Drive.AxisEnabled);
+
+// Store position of drive where the safety strip ends
+Trig_ClearMouldSensor.Call(CLK := xClearMould);
+IF Trig_ClearMouldSensor.Q_Falling THEN
+	rSafetyStripEndPosition := Drive.actPos;
+END_IF
+IF Trig_ClearMouldSensor.Q_Rising THEN
+	rSafetyStripStartPosition := Drive.actPos;
+END_IF
+
+// Only move Y drive when mould is opened.
+internalManualServoControlEnabled	:= (InjectionMouldingMachine.Unit.xMouldOpen AND NOT InjectionMouldingMachine.Unit.xMouldClosed AND InjectionMouldingMachine.Unit.sensorMouldOpen AND InjectionMouldingMachine.Unit.sensorIntermediateOpen);
+								//	OR InSafePos;	Manual moving outside the mould is disabled when mould is not open! On request by Erik. Technically this is possible, I think.
+
+// Calculate delay before moving towards mould
+CalcParkPosDelay(
+	xDriveMoving		:= ,
+	xMouldIsOpening		:= InjectionMouldingMachine.Unit.MouldIsOpening,
+	xMouldEntryAllowed	:= InjectionMouldingMachine.Unit.RequestMouldEntry,
+	rMoveToParkingDelay	:= Data.rMoveToParkingDelay,
+	xDelayValid			=> );
+
+CalcParkPosDelay.xDriveMoving R= IsDecelerating;
+
+CalcParkPosTimer.Set(NOT InjectionMouldingMachine.Unit.xMouldClosed, Data.rMoveToParkingDelay);
+
+// Set limits for the positions, and guard the limits
+Data.Waiting.Pos.lowerLimit				:= Data.Takeover[1].Pos.value;
+Data.Waiting.Pos.upperLimit				:= Data.Takeout.Pos.value;
+
+Data.Takeout.Pos.lowerLimit				:= Data.Waiting.Pos.value;
+Data.Takeout.Pos.upperLimit				:= DataBrink.rSWLimitPos;
+
+Data.LabelTakeover.Pos.lowerLimit		:= DataBrink.rSWLimitNeg;
+Data.LabelTakeover.Pos.upperLimit		:= Data.Waiting.Pos.value;
+
+FOR i := 1 TO NumberOfTakeoverPositions DO
+	Data.Takeover[i].Pos.lowerLimit		:= DataBrink.rSWLimitNeg;
+	Data.Takeover[i].Pos.upperLimit		:= Data.Waiting.Pos.value;
+	guardTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+	attachTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+END_FOR
+
+guardPosition[1](value := Data.Waiting.Pos);
+guardPosition[2](value := Data.Takeout.Pos);
+guardPosition[3](value := Data.LabelTakeover.Pos);
+
+attachPosition[1](value := Data.Waiting.Pos);
+attachPosition[2](value := Data.Takeout.Pos);
+attachPosition[3](value := Data.LabelTakeover.Pos);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT Drive.config.virtualMode THEN
+	Drive.Quickstop(TRUE);
+END_IF
+
+CalcParkPosDelay.xDriveMoving := FALSE;
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+Drive.config.maxVelocity				:= 10;
+Drive.config.maxAcceleration			:= 100;
+Drive.config.maxJerk					:= 1000;
+
+Drive.config.maxFollowingErrorWarning	:= 8;
+Drive.config.maxFollowingErrorError		:= 12;
+END_METHOD
+
+// Make the Y drive go to the takeout position inside the mould area
+METHOD PUBLIC MoveInMould : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	CalcParkPosDelay.xDriveMoving := FALSE;
+END_IF
+
+IF Drive.MoveAbs(Data.Takeout) AND NOT xClearMould THEN
+	MoveInMould := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a Label Takeover position. Parameter indicates number of Label Takeover position
+METHOD PUBLIC MoveToLabelTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: USINT	:= 0;	// 0: Parameter not in use, 1: Label Takeover pos 1, etc.
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+IF Drive.MoveAbs(Data.LabelTakeover) AND xClearMould THEN
+	MoveToLabelTakeover := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: USINT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+VAR_INST
+	monitorDeceleration		: BOOL;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	// When movement starts from inside the mould area, monitor the deceleration
+	monitorDeceleration	:= NOT xClearMould;
+END_IF
+
+CASE takeoverPosition OF
+	1..NumberOfTakeoverPositions:
+		IF SER.ActState = PACK_ML.State.Starting	// Move with extra slow speed during start up (when getting new labels)
+		OR SER.ActState = PACK_ML.State.Resetting	// Move with slow speed during Homing
+		THEN
+			Drive.SetMovementProfileSeparate(
+				rVel := 10,
+				rAcc := Data.Takeover[takeoverPosition].rAcc,
+				rDec := 10);
+			monitorDeceleration	:= FALSE;
+		ELSE
+			Drive.SetMovementProfileData(Data.Takeover[takeoverPosition]);
+		END_IF
+
+		IF Drive.MoveAbsPos(Data.Takeover[takeoverPosition].Pos.value) AND xClearMould THEN
+			MoveToTakeover := CommandLock.Release(__POUNAME());
+		END_IF
+
+	ELSE
+		;	// Invalid parameter
+END_CASE
+
+// Give warning when:
+decelerateWarning	S= monitorDeceleration							// Movement started inside mould area
+					AND Drive.AxisBasicControl.xDecelerating		// And drive is decelerating
+					AND NOT xClearMould								// And is still in the mould area
+					AND PersistentVars.usiGlobalSERSpeed = 100		// And running at full speed
+					AND Data.Takeover[takeoverPosition].rDec < 100;	// And not already braking at max dec.
+END_METHOD
+
+// Make the Y drive go to the parking position on start of program
+METHOD PUBLIC MoveToWaiting : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+// Immediately do a quickstop if the Y unit moves off the safety strip.
+IF NOT xClearMould THEN
+	Drive.Quickstop(FALSE);
+	RETURN;
+END_IF
+
+// Move with extra slow speed during first cycle.
+IF SER.ActState = PACK_ML.State.Starting
+OR SER.ActState = PACK_ML.State.Suspending
+OR SER.ActState = PACK_ML.State.Suspended
+THEN
+	Drive.SetMovementProfileSeparate(
+		rVel := 10,
+		rAcc := Data.Waiting.rAcc,
+		rDec := 10);
+
+
+	IF Drive.MoveAbsPos(Data.Waiting.Pos.value) THEN		// Return true when arrived on position
+		MoveToWaiting := CommandLock.Release(__POUNAME());
+	END_IF
+
+ELSIF NOT CalcParkPosDelay.xDelayValid THEN					// Check if parking pos delay option is activated,
+	Increment.AnyInt(GlobalVars.debugTestInt1);
+	CalcParkPosDelay.xDriveMoving S= NOT IsDecelerating;	// Only measure if delay is valid. Otherwise, the Y axis restarts into the mould before decelerating.
+	IF Drive.MoveAbs(Data.Waiting) THEN						// Return true when arrived on position
+	Increment.AnyInt(GlobalVars.debugTestInt2);
+		CalcParkPosDelay.xDriveMoving := FALSE;
+		MoveToWaiting := CommandLock.Release(__POUNAME());
+	END_IF
+
+ELSIF CalcParkPosTimer.Q OR InjectionMouldingMachine.Unit.xMouldOpen THEN			// Await timer
+	Increment.AnyInt(GlobalVars.debugTestInt3);
+	Drive.MoveAbs(Data.Waiting);
+	IF Drive.PosReached(Data.Waiting.Pos.value)
+	OR (Drive.AxisBasicControl.xAccelerating AND Drive.AxisBasicControl.xFunBusy)
+	THEN	// Await xAccelerating here, because otherwise you get 2 MoveAbs commands in consecutive PLC cycles
+	Increment.AnyInt(GlobalVars.debugTestInt4);
+		MoveToWaiting := CommandLock.Release(__POUNAME());		// Return true when starting move
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+
+		IF  Drive.MoveAbsPos(Data.Takeover[1].Pos.value)
+		AND xClearMould
+		THEN
+			Increment.AnyInt(localState);
+			Drive.globalSpeedOverrideEnable := TRUE;
+		END_IF
+
+	2:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+CalcParkPosDelay.xDriveMoving := FALSE;
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// The Y Drive is somewhere outside of the mould, on the safety strip.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos := xClearMould AND Drive.PosSmallerOrEqual(Data.Waiting.Pos.value);
+END_GET
+END_PROPERTY
+
+// The Y Drive is in a position where the X units are allowed to move (in manual mode)
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForXUnits : BOOL
+%FOLDER Properties
+GET
+VAR
+	i	: INT;
+END_VAR
+InSafePosForXUnits		:= PositionReachedValue(Drive.actPos, Data.Takeout.Pos.value, 10);
+FOR i := 1 TO NumberOfTakeoverPositions DO
+	InSafePosForXUnits	S= PositionReachedValue(Drive.actPos, Data.Takeover[i].Pos.value, 10);
+END_FOR
+END_GET
+END_PROPERTY
+
+PROPERTY PUBLIC IsDecelerating : BOOL
+%FOLDER Properties
+GET
+IsDecelerating	:= Drive.AxisBasicControl.xDecelerating;
+END_GET
+END_PROPERTY
+
+// Returns 0 when Label Takeover not equal to any Takeover position.
+// Otherwise returns number of first Takeover position that Label Takeover is equal to.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsLabelTakeoutEqual : USINT
+%FOLDER Properties
+GET
+VAR
+	i	: USINT;
+END_VAR
+IsLabelTakeoutEqual				:= 0;
+FOR i := 1 TO NumberOfTakeoverPositions DO
+	IF ABS(Data.Takeover[i].Pos.value - Data.LabelTakeover.Pos.value) <= 0.001 THEN
+		IsLabelTakeoutEqual		:= i;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// The Xu unit is in standstill on the Takeout position inside the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+%FOLDER Properties
+GET
+IsOnTakeoutPos := NOT xClearMould AND Drive.PosReached(Data.Takeout.Pos.value);
+END_GET
+END_PROPERTY

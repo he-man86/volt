@@ -1,0 +1,558 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK DrawerMagazineFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IDrawerMagazine_Supply_Commands, IDrawerMagazine_Change_Commands, IModuleBlocksSafetyGate
+VAR_INPUT
+	// Sensors
+	DrawerInSafePosition		: DigitalSensorFB(invert := FALSE);
+
+	// Actuators
+	{attribute 'symbol' := 'readwrite'}	BlowBetweenLabels			: ARRAY[1..MaxBlowBetweenLabels] OF ActuatorWithManualControlFB;
+	{attribute 'symbol' := 'readwrite'}	BrakeLabel					: ARRAY[1..MaxBrakeLabel] OF Cylinder_52Valve_TimedFB;
+	{attribute 'symbol' := 'readwrite'}	LockPins					: Cylinder_53ValveFB;
+	{attribute 'symbol' := 'readwrite'}	DrawerChangeCylinder		: Cylinder_53ValveFB;
+	{attribute 'symbol' := 'read'}		DrawerHoodSafetyMagnet		: GateMagnetFB
+	(
+		instanceNo		:= 5,
+		moduleManager	:= 0,		// Use zero, so this gate is not registerred.
+		moduleParent	:= ModuleHandler,
+	);
+	UnlockChangeDrawer			: ActuatorFB;
+
+	Drawers						: ARRAY[enumDrawer.Upper..enumDrawer.Lower] OF DrawerFB;
+END_VAR
+VAR//VISU
+END_VAR
+VAR_OUTPUT
+	activeDrawerForMonitoring	: enumDrawer;
+END_VAR
+VAR_IN_OUT
+	Data						: DrawerMagazine_Data;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	_tempDrawerActive			: IDrawer;
+	_tempDrawerInactive			: IDrawer;
+	enableCloseHoodWarning		: BOOL;
+END_VAR
+VAR CONSTANT
+	MaxBlowBetweenLabels		: USINT	:= 2;
+	MaxBrakeLabel				: USINT	:= 2;
+END_VAR
+
+SUPER^();
+
+_tempDrawerActive	:= ActiveDrawerItf;
+_tempDrawerInactive	:= InactiveDrawerItf;
+
+IF ActiveDrawerItf <> 0 THEN
+	CASE ActiveDrawerItf.Name OF
+		enumDrawer.Upper:	activeDrawerForMonitoring	:= enumDrawer.Upper;
+		enumDrawer.Lower:	activeDrawerForMonitoring	:= enumDrawer.Lower;
+		ELSE				activeDrawerForMonitoring	:= enumDrawer.NoDrawer;
+	END_CASE
+ELSE
+	activeDrawerForMonitoring	:= enumDrawer.NoDrawer;
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..4] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= LabelSupplyDrawer_Errors,
+	errorId			:= 11,		// Upper drawer is empty
+	alarmCondition	:= Drawers[enumDrawer.Upper].IsEmpty AND PersistentVars.RecipeVars.EnableIML,
+	alarmDelay		:= 10.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= LabelSupplyDrawer_Errors,
+	errorId			:= 12,		// Lower drawer is empty
+	alarmCondition	:= Drawers[enumDrawer.Lower].IsEmpty AND PersistentVars.RecipeVars.EnableIML,
+	alarmDelay		:= 10.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= LabelSupplyDrawer_Errors,
+	errorId			:= 6,		// missing safety sensor
+	alarmCondition	:= (DrawerChangeCylinder.IsIn OR DrawerChangeCylinder.IsOut) AND DrawerInSafePosition.IsInactive,
+	alarmDelay		:= 10.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= LabelSupplyDrawer_Errors,
+	errorId			:= 7,		// Close hood warning
+	alarmCondition	:=	NOT HoodIsAcknowledged
+						AND (SER.ActState = PACK_ML.State.Resetting OR SER.ActState = PACK_ML.State.Execute)
+						AND (DrawerHoodSafetyMagnet.ButtonUnLock.ButtonPushed OR DrawerHoodSafetyMagnet.ButtonLock.ButtonPushed OR enableCloseHoodWarning),
+	alarmDelay		:= 10.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+END_VAR
+VAR
+	i			: USINT;
+	drawerId	: enumDrawer;
+END_VAR
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i](
+		manualControlEnabled	:= SER.ManualControlEnabled);
+END_FOR
+
+FOR i := 1 TO MaxBrakeLabel DO
+	BrakeLabel[i](
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		rTimeToGoOut			:= Data.BrakeTime);
+END_FOR
+
+FOR drawerId := enumDrawer.Upper TO enumDrawer.Lower DO
+	Drawers[drawerId](
+		DrawerName			:= drawerId);
+END_FOR
+
+LockPins(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled ,//AND InSafePos,
+	textRefId				:= LabelSupplyDrawer_Errors,
+	errorId_SensorOut		:= 2,
+	errorId_SensorIn		:= 3,
+	alarmEnable				:= SER.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= ActiveDrawerItf <> 0 AND_THEN ActiveDrawerItf.IsLocked,
+	inputIn					:= ,
+	rGiveAirToBothOutputs	:= ,
+	xEnableOutputs			:= TRUE);
+
+DrawerChangeCylinder(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled AND LockPins.IsIn,
+	textRefId				:= LabelSupplyDrawer_Errors,
+	errorId_SensorOut		:= 4,
+	errorId_SensorIn		:= 5,
+	alarmEnable				:= SER.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= ,
+	inputIn					:= ,
+	rGiveAirToBothOutputs	:= ,	// Note: Is set in program!
+	xEnableOutputs			:= TRUE);
+
+UnlockChangeDrawer();
+UnlockChangeDrawer.SetOrReset(DrawerChangeCylinder.MapIn() OR DrawerChangeCylinder.MapOut());
+
+DrawerHoodSafetyMagnet(
+	xAcknowledge		:= DrawerHoodSafetyMagnet.MapGate(),
+	xGateAllowedOpen	:= (ActiveDrawerItf <> 0 AND DrawerInSafePosition.IsActive AND DrawerChangeCylinder.OnTargetPos)
+						OR SER.ActState = PACK_ML.State.Stopped,
+	xRequestForOpening	:= ,
+	xAcknowledgement	:= );
+
+IF DrawerHoodSafetyMagnet.GateState = enumGateStates.Opened
+AND_THEN InactiveDrawerItf <> 0
+AND_THEN NOT InactiveDrawerItf.IsEmpty
+THEN
+//	LogPlc.Warn('Inactive drawer was set to empty because hood opened.');
+	InactiveDrawerItf.IsEmpty := TRUE;
+END_IF
+
+IF DrawerHoodSafetyMagnet.GateState = enumGateStates.Acknowledged
+AND_THEN InactiveDrawerItf <> 0
+AND_THEN InactiveDrawerItf.IsEmpty
+AND DrawerHoodSafetyMagnet.ButtonLock.ButtonReleased	// On release trigger
+THEN
+	InactiveDrawerItf.IsEmpty := FALSE;
+END_IF
+END_METHOD
+
+METHOD DrawerChange : BOOL
+VAR_INPUT
+END_VAR
+VAR_INST
+	Blinker			: BlinkHammerFB;
+	Timer			: BTON;
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER Commands/Change
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	enableCloseHoodWarning	:= TRUE;
+	IF DrawerChangeCylinder.IsOut THEN
+		DrawerChangeCylinder.GoIn();
+	ELSE
+		DrawerChangeCylinder.GoOut();
+	END_IF
+END_IF
+
+Blinker(		// Blow labels from connection block during drawer change
+	ENABLE		:= DrawerInSafePosition.IsInactive,
+	TIMELOW		:= T#450MS,
+	TIMEHIGH	:= T#50MS,
+	OUT			=> ,
+	xEdge		=> );
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].SetOrReset(Blinker.OUT);
+END_FOR
+
+IF  DrawerInSafePosition.IsActive
+AND Timer.Set(DrawerChangeCylinder.OnTargetPos, 0.5)
+THEN
+	enableCloseHoodWarning	:= FALSE;
+	DrawerChange := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD DrawerLock : BOOL
+VAR_INPUT
+END_VAR
+VAR_INST
+	Timer			: BTON;
+END_VAR
+%FOLDER Commands/Change
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	enableCloseHoodWarning	:= TRUE;
+END_IF
+
+LockPins.GoOut();
+IF Timer.Set(LockPins.IsOut, 0.5) THEN
+	enableCloseHoodWarning	:= FALSE;
+	DrawerLock := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD DrawerUnlock : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands/Change
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	enableCloseHoodWarning	:= TRUE;
+END_IF
+
+LockPins.GoIn();
+IF LockPins.IsIn THEN
+	enableCloseHoodWarning	:= FALSE;
+	DrawerUnlock := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxBrakeLabel DO
+	BrakeLabel[i].Reset();
+END_FOR
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Reset();
+END_FOR
+
+enableCloseHoodWarning	:= FALSE;
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateCloseCancelled
+%FOLDER Commands/Gate Requests
+DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
+DrawerChangeCylinder.Reset();
+END_METHOD
+
+// Drawer helps to close the gate
+METHOD PUBLIC GateCloseRequested
+%FOLDER Commands/Gate Requests
+IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
+	RETURN;
+END_IF
+
+IF NOT Drawers[enumDrawer.Upper].IsLocked AND NOT Drawers[enumDrawer.Lower].IsLocked THEN
+	RETURN;
+END_IF
+
+DrawerChangeCylinder.rGiveAirToBothOutputs := 0;
+
+IF Drawers[enumDrawer.Upper].IsLocked THEN
+	DrawerChangeCylinder.GoIn();
+ELSIF Drawers[enumDrawer.Lower].IsLocked THEN
+	DrawerChangeCylinder.GoOut();
+END_IF
+END_METHOD
+
+// Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateOpenCancelled
+%FOLDER Commands/Gate Requests
+DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
+DrawerChangeCylinder.Reset();
+END_METHOD
+
+// Drawer helps to open the gate
+METHOD PUBLIC GateOpenRequested
+%FOLDER Commands/Gate Requests
+IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
+	RETURN;
+END_IF
+
+IF NOT Drawers[enumDrawer.Upper].IsLocked AND NOT Drawers[enumDrawer.Lower].IsLocked THEN
+	RETURN;
+END_IF
+
+DrawerChangeCylinder.rGiveAirToBothOutputs := 0;
+
+IF Drawers[enumDrawer.Upper].IsLocked THEN
+	DrawerChangeCylinder.GoOut();
+ELSIF Drawers[enumDrawer.Lower].IsLocked THEN
+	DrawerChangeCylinder.GoIn();
+END_IF
+END_METHOD
+
+METHOD HoldBrakes : BOOL
+%FOLDER Commands/Supply
+HoldBrakes			:= MoveAllBrakesIn();
+END_METHOD
+
+METHOD PROTECTED MoveAllBrakesIn : BOOL
+VAR
+	i	: USINT;
+END_VAR
+MoveAllBrakesIn			:= TRUE;
+FOR i := 1 TO MaxBrakeLabel DO
+	BrakeLabel[i].Reset();
+	MoveAllBrakesIn		R= NOT BrakeLabel[i].IsIn;
+END_FOR
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		FOR i := 1 TO MaxBlowBetweenLabels DO
+			BlowBetweenLabels[i].Reset();
+		END_FOR
+		Timer.Reset();
+		Increment.AnyInt(localState);
+
+	1:
+		// Safety sensor must be active
+		IF DrawerInSafePosition.IsActive THEN
+			IF DrawerChangeCylinder.IsIn THEN
+				DrawerChangeCylinder.GoIn();
+				LockPins.GoOut();
+			ELSIF DrawerChangeCylinder.IsOut THEN
+				DrawerChangeCylinder.GoOut();
+				LockPins.GoOut();
+			END_IF
+		END_IF
+
+		IF LockPins.IsOut AND DrawerChangeCylinder.OnTargetPos THEN
+			Increment.AnyInt(localState);
+		ELSIF Timer.Set(TRUE, 5) THEN
+			LockPins.GoIn();
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxBrakeLabel DO
+	BrakeLabel[i].Reset();
+END_FOR
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Reset();
+END_FOR
+
+enableCloseHoodWarning	:= FALSE;
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+METHOD StopBlowBetweenLabels : BOOL
+VAR_INPUT
+END_VAR
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands/Supply
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Reset();
+END_FOR
+StopBlowBetweenLabels := TRUE;
+END_METHOD
+
+METHOD PUBLIC TransferLabels : BOOL
+VAR_INPUT
+	labelTransferComplete	: BOOL;
+END_VAR
+VAR_INST
+	Timer					: BTON;
+END_VAR
+VAR
+	i						: USINT;
+END_VAR
+%FOLDER Commands/Supply
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	ActiveDrawerItf.LabelsTaken();
+END_IF
+
+FOR i := 1 TO MaxBlowBetweenLabels DO
+	BlowBetweenLabels[i].Set();
+END_FOR
+
+IF ActiveDrawerItf.ReleaseBrakeNeeded
+OR Timer.Set(TRUE, Data.ReleaseBrakeTime)
+OR labelTransferComplete
+THEN
+
+	IF NOT labelTransferComplete THEN
+		FOR i := 1 TO MaxBrakeLabel DO
+			BrakeLabel[i].Set();
+		END_FOR
+		ActiveDrawerItf.BrakeReleased();	// Reset brake needed signal and brake counter
+	END_IF
+
+	TransferLabels			:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Returns the active drawer which is ready for label pickup, or 0 when no drawer is ready
+{attribute 'monitoring':='call'}
+PROPERTY ActiveDrawerItf : IDrawer
+%FOLDER Properties
+GET
+VAR
+END_VAR
+
+// Determine the active and inactive drawer
+// Get interface to the currently active drawer
+// Safety sensor must be active and lockpins must be activated
+IF DrawerInSafePosition.IsInactive OR NOT LockPins.MapOut() THEN
+	ActiveDrawerItf := 0;
+
+//ELSIF DrawerChangeCylinder.MapIn()
+//AND NOT DrawerChangeCylinder.MapOut()
+ELSIF DrawerChangeCylinder.IsIn
+AND Drawers[enumDrawer.Upper].IsLocked
+THEN
+	ActiveDrawerItf := Drawers[enumDrawer.Upper];
+
+//ELSIF NOT DrawerChangeCylinder.MapIn()
+//AND DrawerChangeCylinder.MapOut()
+ELSIF DrawerChangeCylinder.IsOut
+AND Drawers[enumDrawer.Lower].IsLocked
+THEN
+	ActiveDrawerItf := Drawers[enumDrawer.Lower];
+
+ELSE
+	ActiveDrawerItf := 0;
+END_IF
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY HoodIsAcknowledged : BOOL
+%FOLDER Properties
+GET
+HoodIsAcknowledged := DrawerHoodSafetyMagnet.GateState = enumGateStates.Acknowledged;
+END_GET
+END_PROPERTY
+
+// Used by modules like: Z and M units, true when module is in a position where gate is free to open.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForGate : BOOL
+%FOLDER Commands/Gate Requests
+GET
+InSafePosForGate := DrawerInSafePosition.IsActive AND (DrawerChangeCylinder.IsIn OR DrawerChangeCylinder.IsOut);
+END_GET
+END_PROPERTY
+
+// Returns the active drawer which is ready for label pickup, or 0 when no drawer is ready
+{attribute 'monitoring':='call'}
+PROPERTY InactiveDrawerItf : IDrawer
+%FOLDER Properties
+GET
+// Get interface to the currently inactive drawer
+
+IF ActiveDrawerItf = 0 THEN
+	InactiveDrawerItf := 0;
+	RETURN;
+END_IF
+
+IF ActiveDrawerItf.Name = enumDrawer.Upper THEN
+	InactiveDrawerItf := Drawers[enumDrawer.Lower];
+
+ELSIF ActiveDrawerItf.Name = enumDrawer.Lower THEN
+	InactiveDrawerItf := Drawers[enumDrawer.Upper];
+
+ELSE
+	InactiveDrawerItf := 0;
+END_IF
+END_GET
+END_PROPERTY

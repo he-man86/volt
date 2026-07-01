@@ -1,0 +1,7 @@
+{attribute 'monitoring_display' := 'name'}
+TYPE RecipeInfoType :
+STRUCT
+	definitionId	: INT;			// Id of recipe definition
+	name			: STRING(80);	// Name of recipe
+END_STRUCT
+END_TYPE

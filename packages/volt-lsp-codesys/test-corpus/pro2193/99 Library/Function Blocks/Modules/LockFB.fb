@@ -1,0 +1,112 @@
+// Use the TEST_AND_SET operator to ensure exclusive access.
+{attribute 'no_explicit_call' := 'No need to call this FB. Only the methods are used'}
+{attribute 'monitoring_display' := 'currentLockHolder'}
+FUNCTION_BLOCK LockFB
+VAR
+	dwSynch							: DWORD;		// Lock object
+	currentLockHolder				: STRING(80);	// Name of the module that is currently locking this FB
+	currentLockHolderIsWithoutLock	: BOOL;
+END_VAR
+VAR_OUTPUT
+	callCounter						: UDINT;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Force releasing the lock
+METHOD ForceRelease
+Release(currentLockHolder);
+END_METHOD
+
+// Release the lock by the current lock holder
+METHOD Release : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is releasing the lock
+END_VAR
+IF locker <> currentLockHolder THEN
+	RETURN;
+END_IF
+
+IF locker <> '' OR dwSynch <> 0 THEN
+	LogPlc.Debug(CONCAT5('Lock released by: ', locker, ', lock duration: ', TO_STRING(callCounter), ' PLC cycles'));
+END_IF
+
+dwSynch							:= 0;		// The DWORD must be reset to release the lock
+currentLockHolder				:= '';		// Clear name of locker
+currentLockHolderIsWithoutLock	:= FALSE;
+callCounter						:= 0;
+
+Release							:= TRUE;
+END_METHOD
+
+// Request a lock. Returns false if the lock is already taken by someone else.
+METHOD Request : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is requesting the lock
+END_VAR
+IF currentLockHolder = locker THEN		// Check if already locked by locker
+	Request := TRUE;					// Locking succeeded
+ELSIF TEST_AND_SET(dwSynch) = 0 THEN	// Write the 1 and read the old value at the same time; Result of 0 means no other task is currently locking this FB
+	currentLockHolder := locker;		// Save name of locker
+	LogPlc.Debug(CONCAT('Lock granted to: ', locker));
+	Request := TRUE;					// Locking succeeded
+ELSIF currentLockHolderIsWithoutLock THEN
+	currentLockHolder := locker;		// Save name of locker
+	LogPlc.Debug(CONCAT('Lock stolen by: ', locker));
+	Request := TRUE;					// Locking succeeded
+ELSE
+	Request := FALSE;					// Locking failed. Allready locked by someone else.
+END_IF
+
+IF Request THEN
+	callCounter := callCounter + 1;
+END_IF
+END_METHOD
+
+// Request a lock without actually locking. Use if a command should be overruled by a second command.
+{attribute 'obsolete' := 'Do not use! Method makes no sense. See below for discussion'}
+METHOD RequestWithoutLock : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is requesting the lock
+END_VAR
+
+// locking without actually locking makes no sense to me!
+// Just NOT lock a command if you don't need a lock.
+// If we really need it we could add optional bool parameter to Request method: WeakLock or something
+// Stefan 3-7-25
+IF currentLockHolder = locker THEN		// Check if already locked by locker
+	RequestWithoutLock := TRUE;			// Locking succeeded
+ELSIF TEST_AND_SET(dwSynch) = 0 THEN	// Write the 1 and read the old value at the same time; Result of 0 means no other task is currently locking this FB
+	currentLockHolder := locker;		// Save name of locker
+	LogPlc.Debug(CONCAT('Lock granted to: ', locker));
+	currentLockHolderIsWithoutLock := TRUE;
+	RequestWithoutLock := TRUE;			// Locking succeeded
+ELSIF currentLockHolderIsWithoutLock THEN
+	currentLockHolder := locker;		// Save name of locker
+	LogPlc.Debug(CONCAT('Lock stolen by: ', locker));
+	RequestWithoutLock := TRUE;			// Locking succeeded
+ELSE
+	RequestWithoutLock := FALSE;		// Locking failed. Allready locked by someone else.
+END_IF
+
+IF RequestWithoutLock THEN
+	callCounter := callCounter + 1;
+END_IF
+END_METHOD
+
+// Return true the first cycle that the lock is granted.
+PROPERTY PUBLIC FirstCall : BOOL
+
+// No monitoring attribute because property is only high for 1 cycle.
+GET
+FirstCall := callCounter = 1;
+END_GET
+END_PROPERTY
+
+// Return true when a lock is active
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsLocked : BOOL
+GET
+IsLocked := currentLockHolder <> '';
+END_GET
+END_PROPERTY

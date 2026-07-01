@@ -1,0 +1,5 @@
+// Commands specific for an Xu Unit
+INTERFACE IXuUnit_ForZUR_Config
+EXTENDS IXuUnit_Default_Config
+
+END_INTERFACE

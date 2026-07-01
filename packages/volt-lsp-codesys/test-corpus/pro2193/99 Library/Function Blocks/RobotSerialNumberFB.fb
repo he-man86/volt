@@ -1,0 +1,269 @@
+//	This FB tries to read the serialnumber of the robot from the 'RobotSerial.txt' in the root of the SD-card.
+//	Content of file is validated. The serial number should be in the format: ABC1234.
+//	Where the first 3 characters are uppercase letters (A-Z) and the next 4 characters are numbers.
+//	This function block uses the CAA.File library.
+//	If the textfile does not exist, the FB will create the text file with the default serial number.
+{attribute 'monitoring_display' := 'robotSerial'}
+FUNCTION_BLOCK RobotSerialNumberFB
+VAR_INPUT
+	execute				: BOOL;					// Rising edge starts action; Falling edge resets outputs
+	controller			: enumControllerType;	// Select type of controller (PLC)
+END_VAR
+VAR_OUTPUT
+	busy				: BOOL;
+	done				: BOOL;
+	errorActive			: BOOL;
+	errorDescription	: STRING(80);
+	robotSerial			: STRING(7);			// The Serial number of the robot.
+END_VAR
+VAR
+	state				: INT;
+	hFile				: CAA.HANDLE;
+	filePath			: STRING(80);
+	readBuffer			: STRING(80);
+	openFile			: FILE.Open;
+	readFile			: FILE.Read;
+	writeFile			: FILE.Write;
+	closeFile			: FILE.Close;
+	projectInfo			: ProjectInfoType;
+END_VAR
+VAR CONSTANT
+	textFileName		: STRING(20)	:= 'RobotSerial.txt';
+END_VAR
+
+CASE state OF
+	// Await execute rising edge to start
+	0:
+		openFile(	xExecute := FALSE);
+		readFile(	xExecute := FALSE);
+		writeFile(	xExecute := FALSE);
+		closeFile(	xExecute := FALSE);
+		busy						:= FALSE;
+		done						:= FALSE;
+		errorActive					:= FALSE;
+		errorDescription			:= '';
+		hFile						:= 0;
+		readBuffer					:= '';
+		state						:= 10;
+
+	10:
+		IF execute THEN
+			busy					:= TRUE;
+			state := 100;
+		END_IF
+
+
+	// Check for correct controllerType setting
+	100:
+		CASE controller OF
+			enumControllerType.Legacy32xxSeries:
+				filePath			:= CONCAT('/USBStorage/', textFileName);
+				Increment.AnyInt(state, 10);
+			enumControllerType.C5xxSeries:
+				filePath			:= CONCAT('/sdcard/', textFileName);
+				Increment.AnyInt(state, 10);
+			ELSE
+				filePath			:= '';
+				errorDescription	:= 'ControllerType is not implemented!';
+				state := 400;
+		END_CASE
+
+	// Open the text file for reading
+	110:
+		openFile.sFileName		:= filePath;
+		openFile.eFileMode		:= FILE.MODE.MREAD;
+		openFile(	xExecute := TRUE);
+
+		IF openFile.xError AND openFile.eError = FILE.ERROR.NOT_EXIST THEN	// The RobotSerial.txt file could not be found, create it.
+			openFile(	xExecute := FALSE);
+			state := 200;
+		ELSIF openFile.xError THEN
+			errorDescription	:= 'Error while opening file! See openFile.eError for details.';
+			hFile				:= openFile.hFile;
+			openFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF openFile.xDone THEN
+			hFile				:= openFile.hFile;
+			openFile(	xExecute := FALSE);
+			Increment.AnyInt(state, 10);
+		END_IF
+
+	// Read the text file contents
+	120:
+		readFile.hFile			:= hFile;
+		readFile.udiTimeOut		:= 100000;		// 100ms Timeout
+		readFile.pBuffer		:= ADR(readBuffer);
+		readFile.szBuffer		:= SIZEOF(readBuffer);
+		readFile(	xExecute := TRUE);
+
+		IF readFile.xError OR readFile.xAborted THEN
+			errorDescription	:= 'Error while reading the file! See readFile.eError for details.';
+			readFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF readFile.xDone THEN
+			readFile(	xExecute := FALSE);
+			Increment.AnyInt(state, 10);
+		END_IF
+
+	// Close the text file
+	130:
+		closeFile.hFile			:= hFile;
+		closeFile(	xExecute := TRUE);
+		IF closeFile.xError THEN
+			errorDescription	:= 'Error while closing the file! See closeFile.eError for details';
+			hFile				:= 0;
+			closeFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF closeFile.xDone THEN
+			hFile				:= 0;
+			closeFile(	xExecute := FALSE);
+			Increment.AnyInt(state, 10);
+		END_IF
+
+	// Validate text file contents
+	140:
+		IF CheckSerialFormat(ADR(readBuffer)) THEN
+			robotSerial			:= readBuffer;
+			busy				:= FALSE;
+			done				:= TRUE;
+			state := 500;
+		ELSE
+			errorDescription	:= 'Serial number wrong format! Should be: SER0000 (3 letters then 4 numbers)';
+			state := 400;
+		END_IF
+
+
+	// File is missing, try to write the file. First validate the default serial in the description field in project info
+	200:
+		projectInfo		:= GetProjectInfo();
+		IF CheckSerialFormat(ADR(projectInfo.description)) THEN
+			robotSerial			:= projectInfo.description;
+			Increment.AnyInt(state, 10);
+		ELSE
+			errorDescription	:= 'File is missing, and not created. Project info description is invalid serial';
+			state := 400;
+		END_IF
+
+	// Open the text file for writing
+	210:
+		openFile.sFileName		:= filePath;
+		openFile.eFileMode		:= FILE.MODE.MWRITE;
+		openFile(	xExecute := TRUE);
+		IF openFile.xError THEN
+			errorDescription	:= 'Error while opening file for writing! See openFile.eError for details.';
+			hFile				:= openFile.hFile;
+			openFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF openFile.xDone THEN
+			hFile				:= openFile.hFile;
+			openFile(	xExecute := FALSE);
+			Increment.AnyInt(state, 10);
+		END_IF
+
+	// Write the serial number
+	220:
+		writeFile.hFile			:= hFile;
+		writeFile.udiTimeOut	:= 100000;		// 100ms Timeout
+		writeFile.pBuffer		:= ADR(robotSerial);
+		writeFile.szSize		:= TO_UDINT(Stu.StrLenA(pstData := ADR(robotSerial)));
+		writeFile(	xExecute := TRUE);
+
+		IF writeFile.xError OR writeFile.xAborted THEN
+			errorDescription	:= 'Error while writing the file! See writeFile.eError for details.';
+			writeFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF writeFile.xDone THEN
+			writeFile(	xExecute := FALSE);
+			Increment.AnyInt(state, 10);
+		END_IF
+
+	// Close the text file
+	230:
+		closeFile.hFile			:= hFile;
+		closeFile(	xExecute := TRUE);
+		IF closeFile.xError THEN
+			errorDescription	:= 'Error while closing the file for writing! See closeFile.eError for details';
+			hFile				:= 0;
+			closeFile(	xExecute := FALSE);
+			state := 400;
+		ELSIF closeFile.xDone THEN
+			errorDescription	:= CONCAT(textFileName, ' did not exist, but was created on the SD card');
+			hFile				:= 0;
+			busy				:= FALSE;
+			done				:= TRUE;
+			closeFile(	xExecute := FALSE);
+			state := 500;
+		END_IF
+
+
+	// Error occured - Try to close the file
+	400:
+		IF hFile > 0 THEN
+			closeFile.hFile	:= hFile;
+			closeFile(	xExecute := TRUE);
+			IF closeFile.xError OR closeFile.xDone THEN
+				closeFile(	xExecute := FALSE);
+				hFile := 0;
+			END_IF
+		ELSE
+			LogPlc.Error(errorDescription);
+			busy				:= FALSE;
+			errorActive			:= TRUE;
+			state := 500;
+		END_IF
+
+	// Wait for falling edge of execute input, to reset the FB
+	500:
+		IF NOT execute THEN
+			state := 0;
+		END_IF
+END_CASE
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE CharIsNumber : BOOL
+VAR_INPUT
+	character	: BYTE;
+END_VAR
+CharIsNumber := character >= enumASCII.NUMBER_0 AND character <= enumASCII.NUMBER_9;
+END_METHOD
+
+METHOD PRIVATE CharIsUpperCaseLetter : BOOL
+VAR_INPUT
+	character	: BYTE;
+END_VAR
+CharIsUpperCaseLetter := character >= enumASCII.UPPERCASE_A AND character <= enumASCII.UPPERCASE_Z;
+END_METHOD
+
+// Validate correct robot serial number
+METHOD PRIVATE CheckSerialFormat : BOOL
+VAR_INPUT
+	serial		: POINTER TO STRING(80);	// Input string (serial) will be changed by this method
+END_VAR
+VAR
+	i			: SINT;
+END_VAR
+CheckSerialFormat := FALSE;
+
+Stu.StrTrimA(pString := serial);
+
+IF Stu.StrLenA(pstData := serial) <> 7 THEN
+	RETURN;
+END_IF
+
+Stu.StrToUpperA(pString := serial);
+
+FOR i := 0 TO 2 DO
+	IF NOT CharIsUpperCaseLetter(serial^[i]) THEN
+		RETURN;
+	END_IF
+END_FOR
+
+FOR i := 3 TO 6 DO
+	IF NOT CharIsNumber(serial^[i]) THEN
+		RETURN;
+	END_IF
+END_FOR
+
+CheckSerialFormat := TRUE;
+END_METHOD

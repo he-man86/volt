@@ -1,0 +1,189 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferProducts_XuToShuteFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecute
+VAR_INPUT
+	xuUnit					: IXuUnit_Default_Transfer_Commands;
+	conveyor				: IConveyor_Reject_Move_Commands;
+	statistics				: IAddProductionStats;
+	PulseOutput				: PulseActuatorFB;
+END_VAR
+VAR
+	ActState :
+	(
+		StateNone							:= 0,
+		StateXuUnitMovesToTakeover			:= 100,
+		StateXuUnitReleasesProducts			:= 200,
+		StateXuUnitMovesToParking			:= 300,
+		StateFinal							:= 999
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Check if a transfer is needed
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+VAR_INST
+	xuUnitVacuum	: WORD;
+END_VAR
+// Xu unit has vacuum high that is needed for this Takeover position
+xuUnitVacuum	:= 0;
+CASE iParameter OF
+	1:	xuUnitVacuum.Vacuum01	:= TRUE;
+	2:	xuUnitVacuum.Vacuum02	:= TRUE;
+	3:	xuUnitVacuum.Vacuum03	:= TRUE;
+END_CASE
+
+CheckIfTransferIsNeeded	S= xuUnit.HasVacuumHigh(xuUnitVacuum);
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+
+PulseOutput(
+	pulseTimeLow	:= ,
+	pulseTimeHigh	:= );
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition := iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateXuUnitMovesToTakeover;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	xuUnitVacuum		: WORD;
+	result				: ARRAY[1..1] OF BOOL;
+	almostSafe			: BOOL;
+	product				: ProductType;
+	Timer				: BTON;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateXuUnitMovesToTakeover:
+		IF xuUnit.MoveToTakeover(2) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		IF statistics = 0 THEN
+			RETURN;
+		END_IF
+
+		IF State.Changed THEN
+			conveyor.MoveStep();
+			Timer.Reset();
+			Arrays.Bool_Reset(result);
+			xuUnitVacuum	:= 0;
+			CASE takeoverPosition OF
+				1:
+					product		:= xuUnit.ProductData_Get(product := 10,	clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 7,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 4,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 1,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					PulseOutput.AddPulses(4);
+					xuUnitVacuum.Vacuum01	:= TRUE;
+
+				2:
+					product		:= xuUnit.ProductData_Get(product := 11,	clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 8,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 5,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 2,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					PulseOutput.AddPulses(4);
+					xuUnitVacuum.Vacuum02	:= TRUE;
+
+				3:
+					product		:= xuUnit.ProductData_Get(product := 12,	clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 9,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 6,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					product		:= xuUnit.ProductData_Get(product := 3,		clearLastProduct := FALSE, clearData := TRUE);
+					statistics.Count(product);
+					PulseOutput.AddPulses(4);
+					xuUnitVacuum.Vacuum03	:= TRUE;
+			END_CASE
+		END_IF
+
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		result[1]	:= result[1] OR_ELSE xuUnit.ReleaseProducts(xuUnitVacuum);
+
+		IF Timer.Set(In := Arrays.Bool_All(result, TRUE), Pt := 0.4) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		result[1]	:= result[1] OR_ELSE xuUnit.MoveToParking(almostSafe => almostSafe);
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

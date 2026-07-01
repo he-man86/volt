@@ -1,0 +1,161 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT ZUnit_BaseFB
+EXTENDS ModuleWithBrakedServoBaseFB
+VAR_IN_OUT
+	Data						: ZUnit_Base_Data;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}	rMaxTorqueMovingUp			: REAL;			// Max torque while moving up (in Nm)
+END_VAR
+VAR
+	ReadMachineData				: L_MC1P.L_MC1P_ReadMachineData;
+
+	// Private backing fields for properties
+	{attribute 'hide'}	_readyForStacking			: BOOL;
+	{attribute 'hide'}	_readyForTransfer			: BOOL;
+END_VAR
+VAR CONSTANT
+	NumberOfTakeoverPositions	: USINT	:= ZUnits.NumberOfTakeoverPositions;
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..4] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..1] OF AttachPosToButtonFB(							drive			:= Drive);
+	guardTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF GuardRealFB(			moduleHandler	:= ModuleHandler);
+	attachTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF AttachPosToButtonFB(	drive			:= Drive);
+END_VAR
+VAR
+	i							: USINT;
+END_VAR
+ReadMachineData(
+	Axis					:= AxisRef,
+	xEnable					:= TRUE,
+	xValid					=> ,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	lrFeedconstant			=> ,
+	dwGearDenominator		=> ,
+	dwGearNumerator			=> ,
+	dwAddGearDenominator	=> ,
+	dwAddGearNumerator		=> ,
+	dwPosResolution			=> ,
+	xOrientation			=> ,
+	eTraversingRange		=> ,
+	lrCycleLength			=> ,
+	xVirtual				=> );
+
+
+// Set limits for the positions, and guard the limits
+Data.FirstPart.Pos.lowerLimit						:= Arrays.Position_Largest(Data.Takeover);
+Data.FirstPart.Pos.upperLimit						:= DataBrink.rSWLimitPos;
+
+PersistentVars.RecipeVars.productPitch.lowerLimit	:= 0.1;
+PersistentVars.RecipeVars.productPitch.upperLimit	:= 100;
+PersistentVars.RecipeVars.productPitch.stepSize		:= 0.1;
+
+PersistentVars.RecipeVars.productHeight.lowerLimit	:= 1;
+PersistentVars.RecipeVars.productHeight.upperLimit	:= 500;
+PersistentVars.RecipeVars.productHeight.stepSize	:= 2;
+
+Data.EarlyProductReleaseDistance.lowerLimit			:= 0;
+Data.EarlyProductReleaseDistance.upperLimit			:= Data.FirstPart.Pos.value - Arrays.Position_Largest(Data.Takeover);
+Data.EarlyProductReleaseDistance.stepSize			:= 10;
+
+FOR i := 1 TO NumberOfTakeoverPositions DO
+	Data.Takeover[i].Pos.lowerLimit		:= DataBrink.rSWLimitNeg;
+	Data.Takeover[i].Pos.upperLimit		:= Data.FirstPart.Pos.value;
+	guardTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+	attachTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+END_FOR
+
+guardPosition[1](value := Data.FirstPart.Pos);
+guardPosition[2](value := PersistentVars.RecipeVars.productPitch);
+guardPosition[3](value := PersistentVars.RecipeVars.productHeight);
+guardPosition[4](value := Data.EarlyProductReleaseDistance);
+
+attachPosition[1](value := Data.FirstPart.Pos);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ReadyForTransfer	:= FALSE;
+ReadyForStacking	:= FALSE;
+
+Drive.Quickstop(TRUE);
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+DriveBrakeLogic.config.holdingTorque		:= -6;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// Product transfer is complete, ready for stacking (or something else)
+{attribute 'monitoring':='call'}
+PROPERTY ReadyForStacking : BOOL;
+%FOLDER Properties
+GET
+ReadyForStacking	:= _readyForStacking;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_readyForStacking	:= ReadyForStacking;
+END_SET
+END_PROPERTY
+
+// Z unit is ready to receive products
+{attribute 'monitoring':='call'}
+PROPERTY ReadyForTransfer : BOOL;
+%FOLDER Properties
+GET
+ReadyForTransfer	:= _readyForTransfer;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_readyForTransfer	:= ReadyForTransfer;
+END_SET
+END_PROPERTY
+
+// Torque is mirrored when drive is mounted CW or CCW. Correct for this. Use torque for crash detection of Z Unit
+{attribute 'monitoring':='call'}
+PROPERTY TorqueCorrected : REAL;
+%FOLDER Properties
+GET
+IF ReadMachineData.xValid AND_THEN ReadMachineData.xOrientation THEN
+	TorqueCorrected	:= Drive.actTorque * -1;
+ELSE
+	TorqueCorrected	:= Drive.actTorque;
+END_IF
+
+
+// In memory of Henrie Meijer
+// He always pushed to get this function in the software
+END_GET
+END_PROPERTY

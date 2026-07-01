@@ -1,0 +1,40 @@
+// Retained variables that are saved in the Brink recipe. These are not changed when the customer picks a new recipe.
+{attribute 'symbol' := 'readwrite'}
+TYPE RetainedVarsInBrinkRecipeType :
+STRUCT
+	maximumAllowedCycleTime	: IntWithLimitsType	:=		// Time (sec) after which 'maximum allowed cycle time exceeded' alarm trips.
+	(
+		lowerLimit	:= 10,
+		value		:= 30,
+		upperLimit	:= 300,
+		stepSize	:= 10
+	);
+
+	machineIdleShutoffTime	: IntWithLimitsType :=		// Time (min) when machine is inactive, shut off main air valve and vacuumpumps.
+	(
+		lowerLimit	:= 5,
+		value		:= 30,
+		upperLimit	:= 60 * 24 * 7,
+		stepSize	:= 10
+	);
+
+	workingLightsTime		: IntWithLimitsType :=		// Time (min) that working lights will illuminate the inside of the machine.
+	(
+		lowerLimit	:= 5,
+		value		:= 30,
+		upperLimit	:= 60 * 24 * 7,
+		stepSize	:= 5
+	);
+
+	// When the Xi Unit needs a label, and the magazine has no label ready: Wait for the label to be ready? Or check again the next cycle.
+	// The process will wait for new labels for this time. After time-out the cycle continues without a label.
+	cycleContinuesWithoutLabelsAfterTimeout		: RealWithLimitsType :=
+	(
+		lowerLimit	:= 0,						// Set to 0 to never wait for the magazine
+		value		:= 10,
+		upperLimit	:= 60.0 * 60.0 * 24,		// Set to 60*60*24 to wait the whole day
+		stepSize	:= 1
+	);
+
+END_STRUCT
+END_TYPE

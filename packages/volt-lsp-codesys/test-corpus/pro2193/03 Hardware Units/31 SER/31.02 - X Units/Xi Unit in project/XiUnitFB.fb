@@ -1,0 +1,20 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK XiUnitFB
+EXTENDS XiUnit_DefaultFB
+IMPLEMENTS IXiUnit_Commands
+VAR_INPUT
+END_VAR
+VAR_IN_OUT
+	DataProject					: XiUnit_Data;
+END_VAR
+VAR
+END_VAR
+
+SUPER^(
+	Data				:= Data,
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK

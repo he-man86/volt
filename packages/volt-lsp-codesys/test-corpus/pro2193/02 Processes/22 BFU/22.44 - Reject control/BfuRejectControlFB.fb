@@ -1,0 +1,165 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+// Fanuc throws a stack on the reject conveyor
+FUNCTION_BLOCK BfuRejectControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	fanuc					: IFanucUnitBase_Reject_Commands;
+	conveyor				: IConveyor_Reject_Move_Commands;
+END_VAR
+VAR
+	automaticOperationStarted	: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateAwaitLocks						:= 100,
+		StatePlaceOnConveyor				:= 200,
+		StateMoveConveyor					:= 300,
+		StatePlacingDone					:= 400
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+END_VAR
+State(actState	:= ActState);
+
+IF  automaticOperationStarted
+AND ActState = StateNone
+THEN
+
+	IF fanuc.StackStatus.Rejected THEN
+		ActState	:= StateAwaitLocks;
+
+	// THis happens when operator removes stack from bufferrack, and Fanuc already has a stack in the gripper
+	ELSIF fanuc.StackStatus.Present
+	AND BufferRacks.BufferStackStatus[1].Rejected
+//	AND bufferRack.StackStatus.Rejected				// todo! inject interface to bufferrack
+	THEN
+		ActState	:= StateAwaitLocks;
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover,
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	stack				: StackStatusType;		// Stack status of the stack that is placed
+	stackReleased		: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateAwaitLocks:
+		IF  fanuc.LockRequest(__POUNAME())
+		THEN
+			stackReleased	:= FALSE;
+			ActState := StatePlaceOnConveyor;
+		END_IF
+
+	StatePlaceOnConveyor:
+		IF stackReleased THEN
+			;	// stack status is discarded here. No use for it
+		END_IF
+
+		IF fanuc.RejectStack(
+			EndPosition		:= Fanuc_Reject_OUT.GoToHomePos,
+			stackReleased	=> stackReleased,
+			StackStatus		=> stack)
+		THEN
+			fanuc.LockRelease(__POUNAME());
+			ActState := StateMoveConveyor;
+		END_IF
+
+	StateMoveConveyor:
+		conveyor.MoveStep();
+		ActState := StatePlacingDone;
+
+	StatePlacingDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := TRUE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := FALSE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := FALSE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+automaticOperationStarted	:= TRUE;
+
+StartCycle := CommandLock.Release(__POUNAME());
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+automaticOperationStarted	:= FALSE;
+StopCycle					:= ActState = StateNone;
+END_METHOD

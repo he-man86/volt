@@ -1,0 +1,5 @@
+TYPE XYControl_Data :
+STRUCT
+	Enable					: BOOL	:= TRUE;			// Option to disable the complete Y/X Units. (can be used in case of stack moulds)
+END_STRUCT
+END_TYPE

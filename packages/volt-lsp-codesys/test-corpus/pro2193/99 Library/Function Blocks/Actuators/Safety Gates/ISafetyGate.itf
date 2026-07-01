@@ -1,0 +1,12 @@
+INTERFACE ISafetyGate
+EXTENDS __SYSTEM.IQueryInterface
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC GateState : enumGateStates
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC LockButtonPushed : BOOL
+END_PROPERTY
+
+END_INTERFACE

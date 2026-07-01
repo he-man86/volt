@@ -1,0 +1,11 @@
+// Commands specific for an Xu Unit
+INTERFACE IXuUnit_ForChain_Transfer_Commands
+EXTENDS IXuUnit_Default_Transfer_Commands, IModuleHasSafePosForChain
+
+// Move to a position just before the chain
+METHOD MoveToInFrontOfChain : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+END_INTERFACE

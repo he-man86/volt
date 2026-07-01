@@ -1,0 +1,303 @@
+//**************************************************//
+//V2024-06-13 SVE
+//
+//2024-06-10
+// Initial version, build from scratch (based on JSON_Builder)
+//2024-06-11
+// Added xExecute/xBusy/xDone
+//2024-06-13
+// Bugfixes for parsing arrays
+//**************************************************//
+//Compliant with JSON formatting.
+//Keys must always be quoted.
+//Values don't have to be quoted - use whatever applies according to JSON formatting.
+//Compatible with arrays, can be both as input and within content (preceeded by key).
+//Use mGetValue to search for a value.
+{attribute 'conditionalshow_all_locals'}
+FUNCTION_BLOCK L_ITCA_JSON_Parser_Fixed
+VAR CONSTANT
+	c_uiMaxProperties		: UINT := 64;	//Array length
+	c_uiMaxArrayDepth		: UINT := 128;	//Maximal number of array objects within a single object
+	c_uiPropertyStringSize	: UINT := 30_000;	//Chars
+	c_uiJSONStringSize		: UINT := 30_000;	//Chars
+END_VAR
+VAR_INPUT
+	xExecute				: BOOL;
+	sJSON					: STRING(c_uiJSONStringSize);
+END_VAR
+VAR_OUTPUT
+	xBusy,
+	xDone,
+	xError					: BOOL;
+	//Double array: property/value
+	asProperties			: ARRAY[0..c_uiMaxProperties,0..1] OF STRING(c_uiPropertyStringSize);
+	uiPropertyCount			: UINT;
+	xEnumerationPresent		: BOOL;	//Data contains one or more enumerations of multiple elements
+END_VAR
+VAR
+	//Pointers
+	psJSON					: POINTER TO STRING(c_uiJSONStringSize);
+	psProperty				: POINTER TO STRING(c_uiPropertyStringSize);
+
+	//Internal
+	xExecute_old			: BOOL;
+
+	//Positions / internal
+	aiPosBrackets			: ARRAY[0..(c_uiMaxArrayDepth-1),0..1] OF INT;	//Max depth of 128 arrays/enums
+	aiPosExtraction			: ARRAY[0..1] OF INT;
+	iPosInContent,
+	iPosColon,
+	iPosComma,
+	iPosAccolade			: INT;
+	diContentLength			: DINT;
+	xContentIsArray,
+	xSwitchBrackets,
+	xSkipTrimming			: BOOL;
+END_VAR
+VAR_TEMP
+	uiPropertyIndex			: UINT;
+	diForLoop				: DINT;
+END_VAR
+
+IF xExecute
+AND NOT xExecute_old THEN
+
+	//Set outputs
+	xBusy := TRUE;
+	xDone := FALSE;
+	xError := FALSE;
+
+	//Get address and length
+	psJSON := ADR(sJSON);
+	psProperty := ADR(asProperties[0,0]);		//Initial, overwritten below
+
+	//Get total length
+	diContentLength := StrLenA(pstData:=psJSON);
+
+	//Detect bracket on first position
+	IF _mStrFindA(sFind:='{') = 1 THEN
+		xContentIsArray := FALSE;
+		iPosInContent := 2;
+	ELSIF _mStrFindA(sFind:='[') = 1 THEN
+		xContentIsArray := TRUE;
+		iPosInContent := 2;
+	ELSE
+		xContentIsArray := FALSE;
+		iPosInContent := 1;
+	END_IF
+
+	//Fill output array
+	FOR uiPropertyIndex := 0 TO c_uiMaxProperties DO
+
+		//Content does not start with an array
+		IF NOT xContentIsArray THEN
+
+			//Find pos of colon
+			iPosColon := _mStrFindA(sFind:=':', iOffset:=iPosInContent);
+
+			//Colon found
+			IF iPosColon > 0 THEN
+
+				//**************************************************** KEY
+				//Get position of quotation marks around key
+				//Keys must always have quotation marks!
+				aiPosExtraction[0] := _mStrFindA(sFind:='"', iOffset:=iPosInContent);
+				//Closing mark, only if opening mark has been found
+				IF aiPosExtraction[0] > 0 THEN
+					aiPosExtraction[1] := _mStrFindA(sFind:='"', iOffset:=aiPosExtraction[0]+1);
+				ELSE
+					aiPosExtraction[1] := 0;
+				END_IF
+
+				//Extract key
+				psProperty := ADR(asProperties[uiPropertyIndex,0]);
+				IF (aiPosExtraction[1]-aiPosExtraction[0]-1) <= TO_INT(c_uiPropertyStringSize) THEN
+					StrMidA(pst:=psJSON, uiInputBufferSize:=c_uiJSONStringSize, iLength:=(aiPosExtraction[1]-aiPosExtraction[0]-1), iPosition:=(aiPosExtraction[0]+1), pstResult:=psProperty, uiResultBufferSize:=c_uiPropertyStringSize);
+					StrTrimA(pString:=psProperty);	//Remove spaces
+				ELSE
+					xError := TRUE;	//Property size is too small
+					EXIT;
+				END_IF
+
+				//Key extracted, shift position in content
+				iPosInContent := aiPosExtraction[1]+1;
+
+			//Colon not found
+			ELSE
+				xError := TRUE; //No colon found in content
+				EXIT;
+			END_IF
+		END_IF
+
+		//**************************************************** VALUE
+		//Find comma
+		iPosComma := _mStrFindA(sFind:=',', iOffset:=iPosInContent);
+		//Find array [
+		aiPosBrackets[0,0] := _mStrFindA(sFind:='[', iOffset:=iPosInContent);
+		iPosAccolade := _mStrFindA(sFind:='{', iOffset:=iPosInContent);
+		//Check if array found
+		IF iPosAccolade > aiPosBrackets[0,0]
+		AND aiPosBrackets[0,0] > 0 THEN
+			xSwitchBrackets := FALSE; //Use [ and ]
+		//Find element
+		ELSIF (iPosAccolade < aiPosBrackets[0,0] OR aiPosBrackets[0,0] = 0)
+		AND iPosAccolade > 0 THEN
+			aiPosBrackets[0,0] := iPosAccolade;
+			xSwitchBrackets := TRUE; //Use { and }
+		END_IF
+		aiPosBrackets[0,1] := iPosInContent; //Used below
+
+
+		//**************************************************** ARRAY
+		//Check if square bracket exists before comma, indicating an array
+		IF aiPosBrackets[0,0] < iPosComma
+		AND aiPosBrackets[0,0] > 0 THEN
+			//Output
+			xEnumerationPresent := TRUE;
+			//Don't trim content after extracting
+			xSkipTrimming := TRUE;
+			//Search for closing bracket while also searching for opening brackets
+			FOR diForLoop := (LOWER_BOUND(aiPosBrackets,1)+1) TO UPPER_BOUND(aiPosBrackets,1) DO
+				//Search for brackets using previous location as offset
+				aiPosBrackets[diForLoop,0] := _mStrFindA(sFind:= SEL(xSwitchBrackets,'[','{'), iOffset:= (aiPosBrackets[(diForLoop-1),0]+1));
+				aiPosBrackets[diForLoop,1] := _mStrFindA(sFind:= SEL(xSwitchBrackets,']','}'), iOffset:= (aiPosBrackets[(diForLoop-1),1]+1));
+				//Check if closing bracket comes before opening and thus belongs to index [0]
+				IF aiPosBrackets[diForLoop,1] < aiPosBrackets[diForLoop,0]
+				OR aiPosBrackets[diForLoop,0] = 0 THEN
+					//Extract brackets as well to pass on array
+					aiPosExtraction[0] := aiPosBrackets[0,0]-1;
+					aiPosExtraction[1] := aiPosBrackets[diForLoop,1]+1;
+					EXIT;
+				END_IF
+			END_FOR
+
+		//**************************************************** NORMAL VALUE
+		//Array not present, find quotation marks
+		ELSE
+			//Trim content after extracting
+			xSkipTrimming := FALSE;
+
+			//Use location of quotation marks, (if present)
+			aiPosExtraction[0] := _mStrFindA(sFind:='"', iOffset:=iPosInContent);
+			//No quotation mark positions, use pos in content
+			IF aiPosExtraction[0] = 0
+			OR (aiPosExtraction[0] > iPosComma AND iPosComma > 0) THEN
+				IF NOT xContentIsArray THEN
+					aiPosExtraction[0] := iPosInContent;		//Use previously set position
+				ELSIF xContentIsArray THEN
+					aiPosExtraction[0] := iPosInContent - 1;	//Substract 1 position as there are no quotation marks present
+				END_IF
+			END_IF
+
+			//Closing mark, only if opening mark has been found
+			IF aiPosExtraction[0] > 0 THEN
+				aiPosExtraction[1] := _mStrFindA(sFind:='"', iOffset:=aiPosExtraction[0]+1);
+			END_IF
+			//No quotation mark positions, use pos comma
+			IF (aiPosExtraction[1] = 0 OR aiPosExtraction[1] > iPosComma)
+			AND iPosComma > 0 THEN
+				aiPosExtraction[1] := iPosComma;
+			END_IF
+			//No quotation mark or comma found, look for end of content
+			IF aiPosExtraction[1] = 0 THEN
+				aiPosExtraction[1] := _mStrFindA(sFind:='}', iOffset:=iPosInContent);
+			END_IF
+			//No end of content found, look for end of array
+			IF aiPosExtraction[1] = 0 THEN
+				aiPosExtraction[1] := _mStrFindA(sFind:=']', iOffset:=iPosInContent);
+			END_IF
+
+		END_IF
+
+		//Extract value
+		psProperty := ADR(asProperties[uiPropertyIndex,1]);
+		IF (aiPosExtraction[1]-aiPosExtraction[0]-1) <= TO_INT(c_uiPropertyStringSize) THEN
+			StrMidA(pst:= psJSON, uiInputBufferSize:=c_uiJSONStringSize, iLength:=(aiPosExtraction[1]-aiPosExtraction[0]-1), iPosition:=(aiPosExtraction[0]+1), pstResult:=psProperty, uiResultBufferSize:=c_uiPropertyStringSize);
+			IF NOT xSkipTrimming THEN
+				StrTrimA(pString:=psProperty);	//Remove spaces
+			END_IF
+		ELSE
+			xError := TRUE;	//Property size is too small
+			EXIT;
+		END_IF
+
+		//Value extracted, shift position in content for next loop
+		//Comma right after extracted value
+		IF iPosComma = (aiPosExtraction[1] + 1) THEN
+			iPosInContent := iPosComma + 1;
+		//Other
+		ELSE
+			iPosInContent := aiPosExtraction[1] + 1;
+		END_IF
+
+		//Count extracted properties
+		uiPropertyCount := uiPropertyCount + 1;
+
+		//End of content
+		IF (iPosComma = 0 AND NOT xContentIsArray)
+		OR iPosInContent >= diContentLength THEN
+			EXIT;
+		END_IF
+
+	END_FOR
+
+	//Set outputs
+	xBusy := FALSE;
+	xDone := NOT xError;
+
+//Not active
+ELSIF NOT xExecute THEN
+	//Reset outputs
+	xBusy := FALSE;
+	xDone := FALSE;
+	xError := FALSE;
+	FOR uiPropertyIndex := 0 TO c_uiMaxProperties DO
+		asProperties[uiPropertyIndex,0] := '';
+		asProperties[uiPropertyIndex,1] := '';
+	END_FOR
+	uiPropertyCount := 0;
+	xEnumerationPresent := FALSE;
+END_IF
+
+//Save execute
+xExecute_old := xExecute;
+
+END_FUNCTION_BLOCK
+
+{attribute 'conditionalshow'}
+METHOD INTERNAL _mStrFindA : INT	//Search in psContent for sFind with iOffset
+VAR_INPUT
+	sFind				: STRING(1);
+	iOffset				: INT := 0;
+END_VAR
+VAR
+	psFind				: POINTER TO STRING(1);
+END_VAR
+%FOLDER Internal
+//Load pointer
+psFind := ADR(sFind);
+
+//Check for content
+_mStrFindA := StrFindA(pst1:=psJSON, pst2:=psFind, uiSearchStart:=TO_UINT(iOffset));
+END_METHOD
+
+{attribute 'analysis' = '-23'} //Complex return value
+METHOD mGetValue : STRING(c_uiPropertyStringSize)
+VAR_INPUT
+	sSymbol : STRING(255);
+END_VAR
+VAR
+	diForLoop : DINT;
+END_VAR
+IF sSymbol <> '' THEN
+	//Loop properties of parser
+	FOR diForLoop := LOWER_BOUND(asProperties,1) TO MIN(uiPropertyCount, UPPER_BOUND(asProperties,1)) DO
+		//Check if name is equal
+		IF asProperties[diForLoop,0] = sSymbol THEN
+			//Output value
+			mGetValue := asProperties[diForLoop,1];
+			EXIT;
+		END_IF
+	END_FOR
+END_IF
+END_METHOD

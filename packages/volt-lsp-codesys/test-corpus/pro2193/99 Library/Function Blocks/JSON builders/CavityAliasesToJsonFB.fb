@@ -1,0 +1,39 @@
+FUNCTION_BLOCK CavityAliasesToJsonFB
+EXTENDS ToJsonBaseFB
+VAR_IN_OUT
+	aliases					: ARRAY[GVL_Constants.CavityStartIndex..GVL_Constants.CavityEndIndex] OF STRING(20);
+	JSON					: STRING(2000);
+END_VAR
+
+SUPER^();
+
+IF busy THEN
+	sw.Start();
+	IF CreateCavityAliasJson() THEN
+		busy		:= FALSE;
+		done		:= TRUE;
+	END_IF
+	sw.End();
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE CreateCavityAliasJson  : BOOL
+VAR_INST
+	asProperties		: ARRAY[GVL_Constants.CavityStartIndex..GVL_Constants.CavityEndIndex, 0..1] OF STRING(20);
+END_VAR
+// Fill data
+FOR chunk := GVL_Constants.CavityStartIndex TO GVL_Constants.CavityEndIndex DO
+	asProperties[chunk, 0]			:= TO_STRING(chunk);
+	asProperties[chunk, 1]			:= aliases[chunk];
+END_FOR
+
+CreateJson(
+	psProperties				:= ADR(asProperties),
+	udiPropertiesArraySize		:= SIZEOF(asProperties),
+	udiPropertiesStringLength	:= SIZEOF(asProperties[GVL_Constants.CavityStartIndex, 0]),
+	psJSON						:= ADR(JSON),
+	udiJSONStringLength			:= SIZEOF(JSON));
+
+CreateCavityAliasJson			:= TRUE;
+END_METHOD

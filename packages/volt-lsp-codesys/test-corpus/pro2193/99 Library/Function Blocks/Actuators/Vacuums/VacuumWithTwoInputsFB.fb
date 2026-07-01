@@ -1,0 +1,41 @@
+// Control a vacuum output and measure the vacuum level. Vacuum high is determent by 2 separate inputs
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FINAL VacuumWithTwoInputsFB
+EXTENDS VacuumWithInputFB
+IMPLEMENTS IVacuum
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Second vacuum sensor
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+
+// This method wil override the original method in the base FB
+NoVacuumAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND ((input1 AND input2) XOR Output.Map()) AND errorId <> 0,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF alarmEnable AND Output.Map() AND (NOT input1 OR NOT input2) AND errorId <> 0 THEN
+	vacuumHighDuration	:= NoVacuumAlarm.ElapsedTime;
+END_IF
+
+MeasureMaxTime.Monitor(
+	in				:= Output.Map() AND (NOT input1 OR NOT input2));
+END_METHOD
+
+METHOD PROTECTED SetVacuumHighTimer
+VAR_INPUT
+END_VAR
+VacuumHighTimer.Set(
+			In := input1 AND input2,
+			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
+END_METHOD

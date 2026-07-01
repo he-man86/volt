@@ -1,0 +1,33 @@
+// A hardware button subject. Send state of HW button to servo drive.
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK PUBLIC SubjectHWButtonFB
+EXTENDS SubjectUUIDFB
+IMPLEMENTS ISubject, ISubjectHWButtonsPayload
+VAR
+	_buttonType		: enumHWButtons;		// Private backing field for property
+	_state			: BOOL;					// Private backing field for property
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Binary state of the button: either pushed or not pushed
+{attribute 'monitoring' := 'call'}
+PROPERTY ButtonState : BOOL
+GET
+ButtonState := _state;
+END_GET
+SET
+_state := ButtonState;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY ButtonType : enumHWButtons
+GET
+ButtonType := _buttonType;
+END_GET
+SET
+_buttonType := ButtonType;
+END_SET
+END_PROPERTY

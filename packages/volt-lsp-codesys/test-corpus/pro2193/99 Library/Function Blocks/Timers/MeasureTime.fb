@@ -1,0 +1,46 @@
+// Count time (in sec) how long an input is high/active. Counter resets when input is low.
+{attribute 'no_explicit_call' := 'Do not call the body of MeasureModuleTime directly! Use methods to interact with this FB'}
+{attribute 'hide_all_locals'}
+{attribute 'monitoring_display' := 'rStoredTime'}
+FUNCTION_BLOCK MeasureTime
+VAR_OUTPUT
+	rStoredTimeMax	: REAL;
+END_VAR
+VAR
+	TON1			: Standard.TON;
+	rStoredTime		: REAL;		// Dynamic - The currently elapsed time while measuring. Resets when a new measurement starts.
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Measure the time how long a condition is true.
+METHOD PUBLIC Measure : REAL
+VAR_INPUT
+	In	: BOOL;	// Measure the time the input remains high
+END_VAR
+IF (In XOR TON1.IN)				// Triggers the first cycle In is true, and the first cycle In is false. Give output.
+OR (In AND TON1.ET > T#1S)		// Output will start running when timer has been running for more than 1 sec.
+THEN
+	rStoredTime		:= TO_REAL(TON1.ET) / 1000;
+END_IF
+
+IF NOT In AND TON1.IN THEN
+	rStoredTimeMax	:= TO_REAL(TON1.ET) / 1000;
+END_IF
+
+TON1(
+	IN := In,
+	PT := GVL_Constants.TimeLongest,
+	Q  => ,
+	ET => );
+
+Measure := rStoredTime;			// Give the output
+END_METHOD
+
+// Get elapsed time value
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ElapsedTime : REAL
+GET
+ElapsedTime := rStoredTime;
+END_GET
+END_PROPERTY

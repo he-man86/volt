@@ -1,0 +1,19 @@
+// Control a stacklight with several colored lamps, and a buzzer
+FUNCTION_BLOCK PUBLIC StacklightWithBlueFB
+EXTENDS StacklightFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	Blue			: LedFB;
+END_VAR
+
+// Instantiate the outputs
+SUPER^();
+Blue();
+
+END_FUNCTION_BLOCK
+
+// Reset all outputs on the stacklight
+METHOD Reset
+SUPER^.Reset();
+Blue.Off();
+END_METHOD

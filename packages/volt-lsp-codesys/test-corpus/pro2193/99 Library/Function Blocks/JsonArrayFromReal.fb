@@ -1,0 +1,76 @@
+// Generate a Json array string from a series of REAL measurements.
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+FUNCTION_BLOCK FINAL JsonArrayFromReal
+EXTENDS MonitoringAddLogBase
+VAR_INPUT
+	jsonString			: POINTER TO STRING;
+	stringSize			: UINT;
+END_VAR
+VAR_OUTPUT
+	latestMeasurement	: REAL;
+END_VAR
+VAR
+	// Initialize all elements in the array to some string
+	measurements		: ARRAY[0..maxMeasurements] OF STRING(10) := [(maxMeasurements + 1)(arrayDefault)];
+	latestIndex			: SINT(0..maxMeasurements);
+END_VAR
+VAR CONSTANT
+	maxMeasurements		: SINT := 17;
+	arrayDefault		: STRING(10) := 'y*os2# bK(';	// Random string to seed the array with
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC AddMeasurement
+VAR_INPUT
+	measurement		: REAL;
+	roundingDigits	: USINT := 3;
+END_VAR
+
+// Bug in CODESYS!! :(
+// Use this var_input:
+//		roundingDigits	: USINT(0..4) := 3;
+// CODESYS will throw exception on 'Generate code'
+// Both of these work just fine, just not together:
+//		roundingDigits	: USINT := 3;	// Ok
+//		roundingDigits	: USINT(0..4);	// Ok
+//		roundingDigits	: USINT(0..4) := 3;	// Exception!
+// Round new measurement and add to array
+latestMeasurement			:= Round(measurement, roundingDigits);
+measurements[latestIndex]	:= TO_STRING(latestMeasurement);
+
+// Generate Json output string
+UpdateOutputString();
+
+// Increase index pointer for next measurement
+Increment.Subrange(latestIndex, 0, maxMeasurements);
+
+// Output data to monitoring system (optional)
+CallAddLogLREAL(measurement);
+END_METHOD
+
+METHOD PRIVATE UpdateOutputString
+VAR
+	i				: SINT;
+	length			: DINT;
+END_VAR
+jsonString^ := '[';
+
+FOR i := latestIndex TO 0 BY -1 DO
+	// SIZEOF will return 81 for a string(80) var. Therefore stringSize - 1
+	SAFECONCAT3(jsonString, measurements[i], ',', bufferSize := TO_INT(stringSize - 1));
+END_FOR
+
+IF latestIndex < maxMeasurements THEN
+	FOR i := maxMeasurements TO latestIndex + 1 BY -1 DO
+		IF measurements[i] = arrayDefault THEN	// Check if array element has a value already
+			EXIT;
+		END_IF
+		SAFECONCAT3(jsonString, measurements[i], ',', TO_INT(stringSize - 1));
+	END_FOR
+END_IF
+
+length	:= Stu.StrLenA(jsonString);
+jsonString^[length - 1]	:= enumASCII.CLOSE_BRACKET;
+jsonString^[length]		:= enumASCII.NULL;
+END_METHOD

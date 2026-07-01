@@ -1,0 +1,32 @@
+TYPE Fanuc_Input_Type :
+STRUCT
+	// User inputs (outputs at Fanuc side)
+	xCmdEnabled			: BOOL;
+	xSystemReady		: BOOL;
+	xPrgRunning			: BOOL;
+	xPrgPaused			: BOOL;
+	xMotionHeld			: BOOL;
+	xFault				: BOOL;
+	xAtPerch			: BOOL;
+	xTpEnabled			: BOOL;
+	xBattAlarm			: BOOL;
+	xBusy				: BOOL;
+	uiAck_sno			: UINT;
+	xSnack				: BOOL;
+	xReserved			: BOOL;
+
+	// Digital inputs
+	xCPCFree			: ARRAY[1..16] OF BOOL;
+	xSPCFree			: ARRAY[1..10] OF BOOL;
+	xAxisDisturbance	: BOOL;
+	xFenceOpen			: BOOL;
+	xStepFunctionOn		: BOOL;
+	xInAutoMode			: BOOL;
+	xAtHomingPos		: BOOL;
+	xAtServicePos		: BOOL;
+	byRobotInputs		: BYTE;
+	xWriteRegDone		: BOOL;
+	xIOSimulated		: BOOL;
+	arGroupInputs		: ARRAY[7..22] OF UINT;
+END_STRUCT
+END_TYPE

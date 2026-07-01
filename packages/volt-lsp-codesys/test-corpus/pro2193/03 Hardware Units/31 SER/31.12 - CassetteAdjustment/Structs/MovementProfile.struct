@@ -1,0 +1,8 @@
+TYPE MovementProfile :
+STRUCT
+	Drawer				: enumDrawer;		// Drawer id for this cassette
+	Cassette			: USINT;			// Cassette id in the drawer
+	Motors				: enumMotorsType;	// Motor(s) to be adjusted
+	Direction			: enumDirection;	// Direction of the movement of the cassette
+END_STRUCT
+END_TYPE

@@ -1,0 +1,328 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK StickerUnit_KreuwelFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IStickerUnit_Shared_Commands
+VAR_INPUT
+	stickerUnitEmpty			: DigitalSensorFB(invert := FALSE);
+	{attribute 'symbol' := 'readwrite'}		WindingDrive				: ActuatorWithManualControlFB;
+	{attribute 'symbol' := 'readwrite'}		RollUpDown					: Cylinder_52ValveFB;
+END_VAR
+VAR_IN_OUT
+	Data						: StickerUnit_Kreuwel_Data;
+	stickerPresentRegister		: WORD;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}			triggerSensor				: BOOL;
+END_VAR
+VAR
+	TouchProbe					: L_MC1P.MC_TouchProbe;
+	AbortTrigger				: L_MC1P.MC_AbortTrigger;
+	TriggerRef					: L_MC1P.MC_TRIGGER_REF;
+	ReadMachineData				: L_MC1P.L_MC1P_ReadMachineData;
+	distanceOnSticker			: REAL;
+	maxStickersAfterSensor		: BYTE;
+	moveRollDownAfterTimer		: BOOL;
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= StickerUnit_Errors,
+	errorId			:= 3,
+	alarmCondition	:= stickerUnitEmpty.IsActive
+					AND PersistentVars.RecipeVars.EnableSticker
+					AND SER.InAutomaticOperation,
+	alarmDelay		:= 1.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= StickerUnit_Errors,
+	errorId			:= 4,
+	alarmCondition	:= ,
+	alarmDelay		:= 1.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PUBLIC ApplySticker : BOOL
+VAR_INST
+	targetPos					: REAL;
+	localState					: SINT;
+	result						: ARRAY[1..2] OF BOOL;
+	tryAgainCounter				: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	tryAgainCounter	:= 0;
+	localState		:= 0;
+END_IF
+
+CASE localState OF
+	0:
+		WindingDrive.Set();
+		IF RollUpDown.GoOut() THEN		// Roll move up to apply sticker
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		result[1]				:= FALSE;
+		result[2]				:= FALSE;
+		Drive.SetMovementProfileData(Data.movementProfile);
+		TouchProbe.Execute		:= TRUE;							// Search negative edge sticker
+		stickerPresentRegister	:= SHR(stickerPresentRegister, 1);	// Shift register to the right. Rightmost bit is where sticker is placed on product.
+		Increment.AnyInt(localState);
+
+	2:
+		IF Drive.MoveRelPos(Data.pitch + Data.sticker) THEN
+			TouchProbe.Execute		:= FALSE;
+			stickerPresentRegister	:= BitLogic.LoadToWord(stickerPresentRegister, FALSE, maxStickersAfterSensor - 1);
+			localState				:= 10;
+		ELSIF TouchProbe.ValueStored_NegEdge THEN
+			targetPos				:= TO_REAL(TouchProbe.RecPosition_NegEdge) + ABS(distanceOnSticker);
+			targetPos				:= ModuloTools.SetPosition(targetPos, CycleLength);
+			TouchProbe.Execute		:= FALSE;	// TouchProbe.RecPosition_NegEdge is reset when Execute is false!
+			stickerPresentRegister	:= BitLogic.LoadToWord(stickerPresentRegister, TRUE, maxStickersAfterSensor - 1);
+			Increment.AnyInt(localState);
+		END_IF
+
+	3:
+		IF  (result[1] := Drive.MoveAbsPos(targetPos))
+		AND (result[2] := ModuloTools.PositionReached(
+				actPos		:= Drive.actPos,
+				setPos		:= targetPos,
+				rollover	:= CycleLength))
+		THEN
+			localState := 20;
+		END_IF
+
+	10:
+		AbortTrigger.Execute		:= TRUE;	// No touchprobe event found, reset touchprobe
+		IF AbortTrigger.Done OR AbortTrigger.Error THEN
+			AbortTrigger.Execute	:= FALSE;
+			localState := 20;
+		END_IF
+
+	20:
+		IF stickerPresentRegister.0 THEN
+			Increment.AnyInt(localState);
+		ELSIF tryAgainCounter < 3 THEN		// Try to find a sticker again until 3 stickers are missing in a row
+			Increment.AnyInt(tryAgainCounter);
+			localState := 0;
+		END_IF
+
+	21:
+		moveRollDownAfterTimer	:= TRUE;
+		Increment.AnyInt(localState);
+
+	22:
+		ApplySticker := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	MoveRollDown		: BTON;
+END_VAR
+Drive.config.virtualMode	:= NOT PersistentVars.RecipeVars.EnableSticker;
+
+TouchProbe(
+	Axis					:= Drive.AxisRef,
+	TriggerInput			:= TriggerRef,
+	Execute					:= ,		// Start touch probe detection.
+	WindowOnly				:= FALSE,	// Activate window evaluation: All measured values outside the defined window are hidden.
+	FirstPosition			:= ,
+	LastPosition			:= ,
+	Done					=> ,		// Touch probe event has been detected and the respective axis position has been recorded successfully.
+	Busy					=> ,		// Processing is running.
+	CommandAborted			=> ,
+	Error					=> ,
+	ErrorID					=> ,
+	ActivationLevel			=> ,		// Level of the TP input at the time of TP function activation in the drive
+	ActivationLevelValid	=> ,
+	ValueStored_PosEdge		=> ,		// Measured value saved (after triggering on positive edge).
+	RecPosition_PosEdge		=> ,		// Stored measured value (after triggering on positive edge) in [unit].
+	ValueStored_NegEdge		=> ,		// Measured value stored (after triggering to negative edge).
+	RecPosition_NegEdge		=> ,		// Stored measured value (after triggering to negative edge) in [unit]
+	NewValueStored_PosEdge	=> ,		// New positive measured value stored. If a new measured value is detected, this signal is set for the duration of one call cycle at the FB.
+	NewValueStored_NegEdge	=> ,		// New negative measured value stored. If a new measured value is detected, this signal is set for the duration of one call cycle at the FB.
+	RecData					=> );
+
+triggerSensor	:= Drive.HomingSensor;
+
+AbortTrigger(
+	Axis					:= Drive.AxisRef,
+	TriggerInput			:= TriggerRef,
+	Execute					:= ,
+	Done					=> ,
+	Busy					=> ,
+	Error					=> ,
+	ErrorID					=> );
+
+RollUpDown(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	textRefId				:= StickerUnit_Errors,
+	errorId_SensorOut		:= 1,
+	errorId_SensorIn		:= 2,
+	alarmEnable				:= SER.DigIn.xAirPressureOK AND PersistentVars.RecipeVars.EnableSticker,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= ,
+	inputIn					:= NOT RollUpDown.inputOut);
+
+WindingDrive(
+	manualControlEnabled	:= SER.ManualControlEnabled);
+
+IF SER.InAutomaticOperation_Rising AND PersistentVars.RecipeVars.EnableSticker THEN
+	WindingDrive.Set();
+END_IF
+IF SER.InAutomaticOperation_Falling THEN
+	WindingDrive.Reset();
+END_IF
+
+IF MoveRollDown.Set(moveRollDownAfterTimer, 0.5) THEN
+	moveRollDownAfterTimer	:= FALSE;
+	RollUpDown.GoIn();
+	WindingDrive.Reset();
+END_IF
+
+// Position of sensor on sticker where the first sticker is exactly on the edge of the applicator
+distanceOnSticker		:= Data.sticker - (TO_INT(Data.distanceToApp) MOD TO_INT(Data.pitch + Data.sticker));
+
+// Number of stickers in between the sensor and the applicator edge
+maxStickersAfterSensor	:= TO_BYTE(TRUNC((Data.distanceToApp - Data.pitch) / (Data.pitch + Data.sticker)));
+
+ReadMachineData(
+	Axis					:= Drive.AxisRef,
+	xEnable					:= TRUE,
+	xValid					=> ,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	lrFeedconstant			=> ,
+	dwGearDenominator		=> ,
+	dwGearNumerator			=> ,
+	dwAddGearDenominator	=> ,
+	dwAddGearNumerator		=> ,
+	dwPosResolution			=> ,
+	xOrientation			=> ,
+	eTraversingRange		=> ,
+	lrCycleLength			=> ,
+	xVirtual				=> );
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT Drive.config.virtualMode THEN
+	Drive.Quickstop(TRUE);
+END_IF
+
+TouchProbe.Execute	:= FALSE;
+
+WindingDrive.Reset();
+RollUpDown.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+METHOD PUBLIC Initialize
+SUPER^.Initialize();
+
+Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
+
+Drive.config.enableSWLimit			:= FALSE;
+
+Drive.config.maxVelocity			:= 1;
+Drive.config.maxAcceleration		:= 15;
+Drive.config.maxJerk				:= 500;
+
+TriggerRef.TouchProbeSource			:= 1;		// TP of connected drive
+TriggerRef.TouchProbeChannel		:= 1;		// TP Channel 1: DigIn 1
+TriggerRef.TouchProbeSignal			:= 1;		// Digital input
+TriggerRef.TouchProbeEdge			:= 2;		// Trigger with falling (negative) edge
+TriggerRef.TouchProbeMode			:= 1;		// Single measurement
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	result				: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+	IF PersistentVars.RecipeVars.EnableSticker THEN
+		Increment.AnyInt(localState);
+	ELSE
+		localState := 10;
+	END_IF
+
+	1:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		Increment.AnyInt(localState, 1, Drive.SetPositionDirect());
+
+	2:
+		WindingDrive.Reset();
+		IF RollUpDown.GoIn() THEN
+			localState := 10;
+		END_IF
+
+	10:
+		Drive.globalSpeedOverrideEnable := TRUE;
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+TouchProbe.Execute	:= FALSE;
+
+WindingDrive.Reset();
+RollUpDown.Reset();
+
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// Cycle length
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC CycleLength : DINT
+%FOLDER Properties
+GET
+CycleLength := SEL(ReadMachineData.xValid, -1, TO_DINT(ReadMachineData.lrCycleLength));
+END_GET
+END_PROPERTY

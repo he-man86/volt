@@ -1,0 +1,176 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'CommandLock.currentLockHolder'}
+FUNCTION_BLOCK BoxPusher_DefaultFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IBoxPusher_Default_Commands
+VAR_INPUT
+	BoxInFillPosition			: IDigitalSensor;						// sensor at start of pusher stroke
+	sensorBoxAtOutfeedPosition	: DigitalSensorFB(invert := TRUE);		// sensor at end of pusher stroke
+	UnlockPusher				: ActuatorFB;
+	{attribute 'symbol' := 'readwrite'}	Pusher			: Cylinder_53ValveFB;
+END_VAR
+VAR_IN_OUT
+	Data						: BoxPusher_Default_DataType;
+END_VAR
+VAR
+	_boxAtOutfeedPosition		: BOOL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxPusher_Errors,
+	errorId			:= ,
+	alarmCondition	:= ,
+	alarmDelay		:= 1.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxPusher_Errors,
+	errorId			:= ,
+	alarmCondition	:= ,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+END_VAR
+Pusher(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
+	textRefId				:= BoxPusher_Errors,
+	errorId_SensorOut		:= 1,
+	errorId_SensorIn		:= 2,
+	alarmEnable				:= BFU.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= ,
+	inputIn					:= ,
+	rGiveAirToBothOutputs	:= 1,
+	xEnableOutputs			:= BFU.MainAirValve.Map());
+
+UnlockPusher();
+UnlockPusher.SetOrReset(Pusher.MapIn() OR Pusher.MapOut());
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+Pusher.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Move pusher with full box
+METHOD PUBLIC Push : BOOL
+VAR_INST
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+END_IF
+
+IF  Timer.Set(In := Pusher.GoOut(), Pt := Data.pusherInFrontDelay)
+AND BoxInFillPosition.IsInactive
+AND sensorBoxAtOutfeedPosition.IsActive
+THEN
+	Push := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		IF Pusher.GoIn() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Retract pusher back to fill position
+METHOD PUBLIC Retract : BOOL
+VAR_INST
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+END_IF
+
+IF  Timer.Set(In := Pusher.GoIn(), Pt := Data.pusherInBackDelay)
+THEN
+	Retract := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Pusher.Reset();
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+PROPERTY PUBLIC BoxAtOutfeedPosition : BOOL
+%FOLDER Properties
+GET
+PUBLIC
+VAR
+END_VAR
+BoxAtOutfeedPosition		:= _boxAtOutfeedPosition;
+END_GET
+SET
+PUBLIC
+VAR
+END_VAR
+_boxAtOutfeedPosition		:= BoxAtOutfeedPosition;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC BoxAtOutfeedPositionSensor : IDigitalSensor
+%FOLDER Properties
+GET
+BoxAtOutfeedPositionSensor	:= sensorBoxAtOutfeedPosition;
+END_GET
+END_PROPERTY

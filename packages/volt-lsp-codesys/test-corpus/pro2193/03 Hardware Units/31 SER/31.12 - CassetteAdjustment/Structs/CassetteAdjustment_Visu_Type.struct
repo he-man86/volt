@@ -1,0 +1,13 @@
+TYPE CassetteAdjustment_Visu_Type :
+STRUCT
+	LimitNumber				: ARRAY[1..2] OF STRING;
+	SelectedCassette		: USINT;
+	SingleSelectedFunction	: enumCassetteFunctionSingle;
+	AllCassetteFunction		: enumCassetteFunctionAll;
+	TargetToData			: BOOL;
+	EnableButtons			: BOOL;
+	ExecuteFunction			: BOOL;
+	CurrentDrawer			: enumDrawer;
+	SelectedDrawer			: enumDrawer;
+END_STRUCT
+END_TYPE

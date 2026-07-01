@@ -1,0 +1,21 @@
+TYPE SER_InputsType :
+STRUCT
+	emergencyStopOk				: BOOL;		// High when emergency stop is resetted.
+	quickStopOk					: BOOL;		// TRUE when machine is safe (gates closed). Turns FALSE 300ms before the STO signals are removed from the drives.
+	quickStopOk_MUnit			: BOOL;		// Wordt gebruikt zonder eSM4 Module (Laten staan!!)
+	fuseOk						: ARRAY[1..SER.maxNumberOfFuses] OF BOOL;
+	xAirPressureOK				: BOOL;
+	xSafetyGateRelay			: BOOL;
+	workingLightsButton			: PushButtonLedFB;	// Button to enable machine working lights
+
+	airconditioningOk			: BOOL;
+
+	//I700 power supply
+//	i700_BrakeResistor			: BOOL;
+//	i700_BrakeChopperStatus		: BOOL;		// LOW:  Brake chopper not active or 24V supply voltage off	// HIGH: Brake chopper active
+//	i700_StatusMessage			: BOOL;		// LOW:  Fault or 24V supplyvoltage off						// HIGH: 24V supply voltage ok. Module ready for operation.
+
+	vacuumPumpThermistor		: BOOL;		// Extra thermal input at motor end. Switches faster than vacuumPumpThermalInput
+
+END_STRUCT
+END_TYPE

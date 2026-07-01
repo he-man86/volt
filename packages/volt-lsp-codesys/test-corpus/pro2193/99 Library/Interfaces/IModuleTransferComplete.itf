@@ -1,0 +1,11 @@
+// Module that can be notified that a transfer has completed. The module may further handle the transferred payload.
+INTERFACE IModuleTransferComplete
+
+// Transfer of labels / products is completed. Magazine or Z Unit may start actions to get new labels / move to next position / stack products.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+END_METHOD
+
+END_INTERFACE

@@ -1,0 +1,204 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ZRUnit_DefaultFB
+EXTENDS ModuleWithBrakedServoBaseFB
+IMPLEMENTS IZRUnit_Default_Commands
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: ZRUnit_Default_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+//	SetError					: ARRAY[1..1] OF SetErrorFB;
+END_VAR
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..2] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
+END_VAR
+// Set limits for the positions, and guard the limits
+Data.Takeover.Pos.lowerLimit				:= DataBrink.rSWLimitNeg;
+Data.Takeover.Pos.upperLimit				:= DataBrink.rSWLimitPos;
+
+Data.Stacking.Pos.lowerLimit				:= DataBrink.rSWLimitNeg;
+Data.Stacking.Pos.upperLimit				:= DataBrink.rSWLimitPos;
+
+
+guardPosition[1](	value := Data.Takeover.Pos);
+guardPosition[2](	value := Data.Stacking.Pos);
+
+attachPosition[1](	value := Data.Takeover.Pos);
+attachPosition[2](	value := Data.Stacking.Pos);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Drive.Quickstop(TRUE);
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+DriveBrakeLogic.config.holdingTorque		:= -6;
+
+Drive.config.unitConvertFactor				:= 1;
+
+Drive.config.maxVelocity					:= 1000;
+Drive.config.maxAcceleration				:= 100000;
+Drive.config.maxJerk						:= 1000000;
+
+ExternalManualControlEnabled				:= TRUE;
+END_METHOD
+
+// Returns true when a value is larger or equal than current act pos
+METHOD PUBLIC PosLargerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+%FOLDER Commands
+PosLargerOrEqual	:= Drive.actPos >= setPos - tolerance
+					AND Drive.IsHomed;
+END_METHOD
+
+// Returns true when a value is smaller or equal than current act pos
+METHOD PUBLIC PosSmallerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+%FOLDER Commands
+PosSmallerOrEqual	:= Drive.actPos <= setPos + tolerance
+					AND Drive.IsHomed;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	result				: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+
+		IF Drive.MoveAbsPos(Data.Takeover.Pos.value) THEN
+			Drive.globalSpeedOverrideEnable := TRUE;
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Rotate to any position. No lock and no return. Just fire and forget.
+METHOD PUBLIC RotateToPosition
+VAR_INPUT
+	position	: REAL;
+END_VAR
+%FOLDER Commands
+Drive.SetMovementProfileData(Data.Stacking);
+
+Drive.MoveAbsPos(LIMIT(DataBrink.rSWLimitNeg, position, DataBrink.rSWLimitPos));
+END_METHOD
+
+// Rotate to Stacking position to get place products on conveyor
+METHOD PUBLIC RotateToStacking : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+IF Drive.MoveAbs(Data.Stacking) THEN
+	RotateToStacking := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Rotate to Takeover position to get products from chain
+METHOD PUBLIC RotateToTakeover : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+IF Drive.MoveAbs(Data.Takeover) THEN
+	RotateToTakeover := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// In Stacking position to get place products on conveyor
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InStackingPosition : BOOL
+%FOLDER Properties
+GET
+InStackingPosition :=	Drive.AxisEnabled
+					AND Drive.Standstill
+					AND Drive.InPosition
+					AND Drive.PosReached(Data.Stacking.Pos.value);
+END_GET
+END_PROPERTY
+
+// In Takeover position to get products from chain
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InTakeoverPosition : BOOL
+%FOLDER Properties
+GET
+InTakeoverPosition :=	Drive.AxisEnabled
+					AND Drive.Standstill
+					AND Drive.InPosition
+					AND Drive.PosReached(Data.Takeover.Pos.value);
+END_GET
+END_PROPERTY

@@ -1,0 +1,46 @@
+// Throw error messages when a emergency stop is pressed
+FUNCTION_BLOCK PnozSafetyMatAlarmsFB
+EXTENDS PnozAlarmsBaseFB
+VAR_INPUT
+	activated				: BOOL;		// Safety mat was activated (bit 1)
+	readyForReset			: BOOL;		// Safety mat is ready for reset (bit 2)
+	error					: BOOL;		// Error caused by safety mat (bit 5)
+END_VAR
+VAR
+	activatedAlarm			: SetErrorFB;
+	readyForResetAlarm		: SetErrorFB;
+	errorAlarm				: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+activatedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 6,		// Safety mat was activated
+	alarmCondition	:= activated,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop);
+
+readyForResetAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 7,		// Safety mat is ready for reset
+	alarmCondition	:= readyForReset,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Information,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+errorAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 8,		// Error caused by safety mat
+	alarmCondition	:= error,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+END_FUNCTION_BLOCK

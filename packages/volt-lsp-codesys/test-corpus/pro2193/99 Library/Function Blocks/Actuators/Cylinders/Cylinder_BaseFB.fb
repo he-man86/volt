@@ -1,0 +1,118 @@
+// Abstract Base fb for cylinders. Has general stuff for all cylinder types.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT Cylinder_BaseFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+VAR_INPUT
+	{attribute 'symbol' := 'read'}		inputOut				: BOOL;
+	{attribute 'symbol' := 'read'}		inputIn					: BOOL;
+	errorId_SensorOut		: WORD;		// Set to ZERO if OUT sensor is not on the cylinder, this will prevent incorrect alarm messages.
+	errorId_SensorIn		: WORD;		// Set to ZERO if IN sensor is not on the cylinder, this will prevent incorrect alarm messages.
+END_VAR
+VAR
+	SensorOutAlarm			: SetErrorFB;
+	SensorInAlarm			: SetErrorFB;
+	{attribute 'symbol' := 'read'}		moveInDuration			: REAL;		// The amount of time elapsed when cylinder moves out
+	{attribute 'symbol' := 'read'}		moveOutDuration			: REAL;		// The amount of time elapsed when cylinder moves in
+
+	MeasureMaxTimeIn		: StopwatchFB;
+	MeasureMaxTimeOut		: StopwatchFB;
+
+	{attribute 'symbol' := 'readwrite'}	adjustButton			: BOOL;		// Enable adjust mode for cylinder
+	adjustTrigger			: TriggerFB;
+	{attribute 'hide'}
+	Blinker					: BLINK;	// Blinker for adjust mode
+	inAdjustMode			: BOOL;		// When high the cylinder moves automatically
+	SetAdjustModeTimer		: BTON;
+END_VAR
+VAR CONSTANT
+	tAdjustFrequency		: TIME	:= T#2S;
+END_VAR
+
+SUPER^();
+
+IF adjustTrigger.Rising(CLK := adjustButton) THEN
+	inAdjustMode := NOT inAdjustMode;
+END_IF
+
+inAdjustMode	S= SetAdjustModeTimer.Set(In := hardwareF1Pushed AND hardwareF2Pushed, Pt := 5);
+inAdjustMode	R= plusTrigger.Q_Rising;
+inAdjustMode	R= minTrigger.Q_Rising;
+
+GlobalVars.manualControlRequested S= inAdjustMode;
+
+Blinker(ENABLE := inAdjustMode, TIMELOW := tAdjustFrequency, TIMEHIGH := tAdjustFrequency);
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC SetMonitoring
+VAR_INPUT
+	itfAddLog		: EdgePcLogging.IAddLog;
+	plcDataTypeIn	: PlcDataType;
+	plcDataTypeOut	: PlcDataType;
+END_VAR
+IF errorId_SensorOut <> 0 THEN
+	MeasureMaxTimeIn.SetMonitoring(		itfAddLog, plcDataTypeIn);
+END_IF
+
+IF errorId_SensorIn <> 0 THEN
+	MeasureMaxTimeOut.SetMonitoring(	itfAddLog, plcDataTypeOut);
+END_IF
+END_METHOD
+
+METHOD PROTECTED SetSensorInAlarm
+VAR_INPUT
+	xSet	: BOOL;
+END_VAR
+SensorInAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND xSet AND errorId_SensorIn <> 0,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_SensorIn,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF alarmEnable AND xSet AND NOT inputIn AND errorId_SensorIn <> 0 THEN
+	moveInDuration	:= SensorInAlarm.ElapsedTime;
+END_IF
+
+MeasureMaxTimeIn.Monitor(
+	in				:= xSet AND NOT inputIn AND errorId_SensorIn <> 0);
+END_METHOD
+
+METHOD PROTECTED SetSensorOutAlarm
+VAR_INPUT
+	xSet	: BOOL;
+END_VAR
+SensorOutAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND xSet AND errorId_SensorOut <> 0,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_SensorOut,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF alarmEnable AND xSet AND NOT inputOut AND errorId_SensorIn <> 0 THEN
+	moveOutDuration	:= SensorOutAlarm.ElapsedTime;
+END_IF
+
+MeasureMaxTimeOut.Monitor(
+	in				:= xSet AND NOT inputOut AND errorId_SensorOut <> 0);
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY IsIn : BOOL
+GET
+IsIn := inputIn AND NOT inputOut;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsOut : BOOL
+GET
+IsOut := inputOut AND NOT inputIn;
+END_GET
+END_PROPERTY

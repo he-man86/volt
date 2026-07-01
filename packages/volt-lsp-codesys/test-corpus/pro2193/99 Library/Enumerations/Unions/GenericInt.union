@@ -1,0 +1,7 @@
+// Access an integer var as either signed (INT) or unsigned (UINT)
+TYPE GenericInt :
+UNION
+	signedInt		: CAA.SIGNED;
+	unsignedInt		: CAA.UNSIGNED;
+END_UNION
+END_TYPE

@@ -1,0 +1,571 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK FanucFB
+VAR_INPUT
+	ModuleHandler		: L_IMHP.L_IMHP_IModuleHandler;
+	arInputs1			: ARRAY[0..7] OF UINT;
+	arInputs2			: ARRAY[0..7] OF UINT;
+	arInputs3			: ARRAY[0..7] OF UINT;
+	arInputs4			: ARRAY[0..7] OF UINT;
+	FanucRegisters		: ARRAY[iMinNoRegisters..iMaxNoRegisters] OF Fanuc_Register_Type;
+	I					: Fanuc_Input_Type;
+	Q					: Fanuc_Output_Type;
+	xCheckWriteReg		: BOOL;
+	xGateIsClosed		: BOOL;
+	xExternalReset		: BOOL;
+	SystemState			: Pack_ML.State;	// Information about the current state of the system
+	xDisableFanuc		: BOOL;
+END_VAR
+VAR_OUTPUT
+	arOutputs1			: ARRAY[0..7] OF UINT;
+	arOutputs2			: ARRAY[0..7] OF UINT;
+	arOutputs3			: ARRAY[0..7] OF UINT;
+	arOutputs4			: ARRAY[0..7] OF UINT;
+	arOutputs5			: ARRAY[0..7] OF UINT;
+	arOutputs6			: ARRAY[0..7] OF UINT;
+	arOutputs7			: ARRAY[0..7] OF UINT;
+	arOutputs8			: ARRAY[0..7] OF UINT;
+END_VAR
+VAR
+	iProgChangeState	: INT;
+	xCycleStop			: BOOL;
+	uiComFanucBrink		: UINT;
+	uiComBrinkFanuc		: UINT;
+	uiProgramRunning	: UINT;
+	uiProgramSelector	: UINT;
+	uiManualFunction	: UINT;
+END_VAR
+VAR CONSTANT
+	iMinNoRegisters		: INT := 100;
+	iMaxNoRegisters		: INT := 500;
+	iFactor				: INT := 1000;
+END_VAR
+
+Cyclic();
+Alarms();
+IoMapping();
+WriteRegisters();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..7] OF SetErrorFB;
+	Blinker						: BLINK;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= I.xFault AND (NOT I.xFenceOpen OR xGateIsClosed) AND NOT xDisableFanuc,
+	alarmDelay		:= 2.0,
+	errorId			:= 1,		// Fanuc error signal
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= I.xBattAlarm,
+	alarmDelay		:= 2.0,
+	errorId			:= 2,		// Fanuc battery alarm
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= I.xTpEnabled AND NOT xDisableFanuc,
+	alarmDelay		:= 2.0,
+	errorId			:= 3,		// Fanuc TP enabled
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.EndCycle,
+	active			=> );
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= NOT I.xInAutoMode AND NOT xDisableFanuc,
+	alarmDelay		:= 2.0,
+	errorId			:= 4,		// Fanuc not in auto mode
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[5](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= I.xStepFunctionOn AND NOT I.xTpEnabled,
+	alarmDelay		:= 2.0,
+	errorId			:= 5,		// Fanuc step function is on
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[6](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= NOT I.xWriteRegDone AND Q.xWriteReg AND NOT xDisableFanuc,
+	alarmDelay		:= 10.0,
+	errorId			:= 6,		// Fanuc write register error
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[7](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= FanucFB_Errors,
+	alarmCondition	:= I.xIOSimulated AND NOT xDisableFanuc,
+	alarmDelay		:= 2.0,
+	errorId			:= 7,		// Fanuc IO is simulated
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+Blinker(		ENABLE := TRUE,	TIMELOW := T#200MS,		TIMEHIGH := T#200MS);
+
+// I.xFault is reset on falling trigger of Q.xFaultReset
+Q.xFaultReset	:= Blinker.OUT AND (xExternalReset OR (I.xFenceOpen AND xGateIsClosed));
+
+xCycleStop		R= NOT I.xPrgRunning AND NOT I.xPrgPaused;
+Q.xCycleStop	:= Blinker.OUT AND xCycleStop;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+IF SystemState = PACK_ML.State.Idle THEN
+	Q.xStart := NOT (I.xPrgPaused AND NOT I.xFault AND NOT I.xTpEnabled); // Restart paused Fanuc program
+END_IF
+END_METHOD
+
+METHOD Init : BOOL
+xCycleStop		S= I.xPrgRunning OR I.xPrgPaused;
+Q.xIMSTP		:= TRUE;
+Q.xSFSPD		:= TRUE;
+Q.xHold			:= TRUE;
+Q.xEnable		:= TRUE;
+Q.xFaultReset	:= TRUE;
+Init			S= (I.xCmdEnabled AND NOT xCycleStop) OR I.xTpEnabled;
+END_METHOD
+
+METHOD PRIVATE IoMapping
+VAR_INPUT
+END_VAR
+(*--------------------------------------------------------------------------------------------
+									- INPUTS -
+--------------------------------------------------------------------------------------------*)
+
+// User inputs (Fanuc -> Brink)
+I.xCmdEnabled			:= arInputs1[0].0;
+I.xSystemReady			:= arInputs1[0].1;
+I.xPrgRunning			:= arInputs1[0].2;
+I.xPrgPaused			:= arInputs1[0].3;
+I.xMotionHeld			:= arInputs1[0].4;
+I.xFault				:= arInputs1[0].5;
+I.xAtPerch				:= arInputs1[0].6;
+I.xTpEnabled			:= arInputs1[0].7;
+I.xBattAlarm			:= arInputs1[0].8;
+I.xBusy					:= arInputs1[0].9;
+I.uiAck_sno.0			:= arInputs1[0].10;
+I.uiAck_sno.1			:= arInputs1[0].11;
+I.uiAck_sno.2			:= arInputs1[0].12;
+I.uiAck_sno.3			:= arInputs1[0].13;
+I.uiAck_sno.4			:= arInputs1[0].14;
+I.uiAck_sno.5			:= arInputs1[0].15;
+
+I.uiAck_sno.6			:= arInputs1[1].0;
+I.uiAck_sno.7			:= arInputs1[1].1;
+I.xSnack				:= arInputs1[1].2;
+I.xReserved				:= arInputs1[1].3;
+//						:= arInputs1[1].4;
+//						:= arInputs1[1].5;
+//						:= arInputs1[1].6;
+//						:= arInputs1[1].7;
+//						:= arInputs1[1].8;
+//						:= arInputs1[1].9;
+//						:= arInputs1[1].10;
+//						:= arInputs1[1].11;
+//						:= arInputs1[1].12;
+//						:= arInputs1[1].13;
+//						:= arInputs1[1].14;
+//						:= arInputs1[1].15;
+
+// Digital inputs
+I.xSPCFree[1]			:= arInputs1[2].0 OR xDisableFanuc;		// Infeed area
+I.xSPCFree[2]			:= arInputs1[2].1 OR xDisableFanuc;		// Above box
+I.xSPCFree[3]			:= arInputs1[2].2 OR xDisableFanuc;		// Reject area
+I.xSPCFree[4]			:= arInputs1[2].3 OR xDisableFanuc;		// Place area
+I.xSPCFree[5]			:= arInputs1[2].4 OR xDisableFanuc;		// Buffer area
+I.xSPCFree[6]			:= arInputs1[2].5 OR xDisableFanuc;		// Box lift area. Must be high before moving lift up
+I.xSPCFree[7]			:= arInputs1[2].6 OR xDisableFanuc;		// Homing area 1
+I.xSPCFree[8]			:= arInputs1[2].7 OR xDisableFanuc;		// n/a
+I.xSPCFree[9]			:= arInputs1[2].8 OR xDisableFanuc;		// n/a
+I.xSPCFree[10]			:= arInputs1[2].9 OR xDisableFanuc;		// Service area
+
+I.xIOSimulated			:= arInputs1[2].10;
+I.xFenceOpen			:= arInputs1[2].11;
+I.xStepFunctionOn		:= arInputs1[2].12;
+I.xInAutoMode			:= arInputs1[2].13;
+I.xAtServicePos			:= arInputs1[2].14;
+I.xAtHomingPos			:= arInputs1[2].15;
+
+I.xCPCFree[1]			:= arInputs1[3].0;
+I.xCPCFree[2]			:= arInputs1[3].1;
+I.xCPCFree[3]			:= arInputs1[3].2;
+I.xCPCFree[4]			:= arInputs1[3].3;
+I.xCPCFree[5]			:= arInputs1[3].4;
+I.xCPCFree[6]			:= arInputs1[3].5;
+I.xCPCFree[7]			:= arInputs1[3].6;
+I.xCPCFree[8]			:= arInputs1[3].7;
+I.xCPCFree[9]			:= arInputs1[3].8;
+I.xCPCFree[10]			:= arInputs1[3].9;
+I.xCPCFree[11]			:= arInputs1[3].10;
+I.xCPCFree[12]			:= arInputs1[3].11;
+I.xCPCFree[13]			:= arInputs1[3].12;
+I.xCPCFree[14]			:= arInputs1[3].13;
+I.xCPCFree[15]			:= arInputs1[3].14;
+I.xCPCFree[16]			:= arInputs1[3].15;
+
+I.byRobotInputs.0		:= arInputs1[4].0;
+I.byRobotInputs.1		:= arInputs1[4].1;
+I.byRobotInputs.2		:= arInputs1[4].2;
+I.byRobotInputs.3		:= arInputs1[4].3;
+I.byRobotInputs.4		:= arInputs1[4].4;
+I.byRobotInputs.5		:= arInputs1[4].5;
+I.byRobotInputs.6		:= arInputs1[4].6;
+I.byRobotInputs.7		:= arInputs1[4].7;
+//						:= arInputs1[4].8;
+//						:= arInputs1[4].9;
+//						:= arInputs1[4].10;
+//						:= arInputs1[4].11;
+//						:= arInputs1[4].12;
+//						:= arInputs1[4].13;
+//						:= arInputs1[4].14;
+I.xWriteRegDone			:= arInputs1[4].15;
+
+// Fanuc internal use
+//						:= arInputs1[5];
+//						:= arInputs1[6];
+//						:= arInputs1[7];
+//						:= arInputs2[0];
+//						:= arInputs2[1];
+
+// Group inputs
+uiComFanucBrink			:= arInputs2[2];
+uiProgramRunning		:= arInputs2[3];
+//						:= arInputs2[4];
+uiManualFunction		:= arInputs2[5];
+//						:= arInputs2[6];
+//						:= arInputs2[7];
+I.arGroupInputs[7]		:= arInputs3[0];
+I.arGroupInputs[8]		:= arInputs3[1];
+I.arGroupInputs[9]		:= arInputs3[2];
+I.arGroupInputs[10]		:= arInputs3[3];
+I.arGroupInputs[11]		:= arInputs3[4];
+I.arGroupInputs[12]		:= arInputs3[5];
+I.arGroupInputs[13]		:= arInputs3[6];
+I.arGroupInputs[14]		:= arInputs3[7];
+I.arGroupInputs[15]		:= arInputs4[0];
+I.arGroupInputs[16]		:= arInputs4[1];
+I.arGroupInputs[17]		:= arInputs4[2];
+I.arGroupInputs[18]		:= arInputs4[3];
+I.arGroupInputs[19]		:= arInputs4[4];
+I.arGroupInputs[20]		:= arInputs4[5];
+I.arGroupInputs[21]		:= arInputs4[6];
+I.arGroupInputs[22]		:= arInputs4[7];
+
+(*--------------------------------------------------------------------------------------------
+									- OUTPUTS -
+--------------------------------------------------------------------------------------------*)
+
+// User outputs (Brink -> Fanuc)
+arOutputs1[0].0			:= Q.xIMSTP;
+arOutputs1[0].1			:= Q.xHold;
+arOutputs1[0].2			:= Q.xSFSPD;
+arOutputs1[0].3			:= Q.xCycleStop;
+arOutputs1[0].4			:= Q.xFaultReset;
+arOutputs1[0].5			:= Q.xStart;
+arOutputs1[0].6			:= Q.xHome;
+arOutputs1[0].7			:= Q.xEnable;
+arOutputs1[0].8			:= Q.uiRsr_pns.0;
+arOutputs1[0].9			:= Q.uiRsr_pns.1;
+arOutputs1[0].10		:= Q.uiRsr_pns.2;
+arOutputs1[0].11		:= Q.uiRsr_pns.3;
+arOutputs1[0].12		:= Q.uiRsr_pns.4;
+arOutputs1[0].13		:= Q.uiRsr_pns.5;
+arOutputs1[0].14		:= Q.uiRsr_pns.6;
+arOutputs1[0].15		:= Q.uiRsr_pns.7;
+
+arOutputs1[1].0			:= Q.xPnsStrobe;
+arOutputs1[1].1			:= Q.xProdStart;
+//arOutputs1[1].2		:= ;
+//arOutputs1[1].3		:= ;
+//arOutputs1[1].4		:= ;
+//arOutputs1[1].5		:= ;
+//arOutputs1[1].6		:= ;
+//arOutputs1[1].7		:= ;
+//arOutputs1[1].8		:= ;
+//arOutputs1[1].9		:= ;
+//arOutputs1[1].10		:= ;
+//arOutputs1[1].11		:= ;
+//arOutputs1[1].12		:= ;
+//arOutputs1[1].13		:= ;
+//arOutputs1[1].14		:= ;
+//arOutputs1[1].15		:= ;
+
+//Digital outputs
+arOutputs1[2].0			:= Q.xEnableSPC[1] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].1			:= Q.xEnableSPC[2] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].2			:= Q.xEnableSPC[3] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].3			:= Q.xEnableSPC[4] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].4			:= Q.xEnableSPC[5] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].5			:= Q.xEnableSPC[6] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].6			:= Q.xEnableSPC[7] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].7			:= Q.xEnableSPC[8] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].8			:= Q.xEnableSPC[9] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+arOutputs1[2].9			:= Q.xEnableSPC[10] OR (I.xTpEnabled AND NOT I.xInAutoMode);
+
+arOutputs1[3].0			:= Q.xEnableCPC[1];
+arOutputs1[3].1			:= Q.xEnableCPC[2];
+arOutputs1[3].2			:= Q.xEnableCPC[3];
+arOutputs1[3].3			:= Q.xEnableCPC[4];
+arOutputs1[3].4			:= Q.xEnableCPC[5];
+arOutputs1[3].5			:= Q.xEnableCPC[6];
+arOutputs1[3].6			:= Q.xEnableCPC[7];
+arOutputs1[3].7			:= Q.xEnableCPC[8];
+arOutputs1[3].8			:= Q.xEnableCPC[9];
+arOutputs1[3].9			:= Q.xEnableCPC[10];
+arOutputs1[3].10		:= Q.xEnableCPC[11];
+arOutputs1[3].11		:= Q.xEnableCPC[12];
+arOutputs1[3].12		:= Q.xEnableCPC[13];
+arOutputs1[3].13		:= Q.xEnableCPC[14];
+arOutputs1[3].14		:= Q.xEnableCPC[15];
+arOutputs1[3].15		:= Q.xEnableCPC[16];
+
+arOutputs1[4].0			:= Q.byRobotOutputs.0;
+arOutputs1[4].1			:= Q.byRobotOutputs.1;
+arOutputs1[4].2			:= Q.byRobotOutputs.2;
+arOutputs1[4].3			:= Q.byRobotOutputs.3;
+arOutputs1[4].4			:= Q.byRobotOutputs.4;
+arOutputs1[4].5			:= Q.byRobotOutputs.5;
+arOutputs1[4].6			:= Q.byRobotOutputs.6;
+arOutputs1[4].7			:= Q.byRobotOutputs.7;
+//arOutputs1[4].8		:= ;
+//arOutputs1[4].9		:= ;
+//arOutputs1[4].10		:= ;
+//arOutputs1[4].11		:= ;
+//arOutputs1[4].12		:= ;
+//arOutputs1[4].13		:= ;
+//arOutputs1[4].14		:= ;
+arOutputs1[4].15		:= Q.xWriteReg;
+
+// Fanuc internal use
+//arOutputs1[5]			:=
+//arOutputs1[6]			:=
+//arOutputs1[7]			:=
+//arOutputs2[0]			:=
+//arOutputs2[1]			:=
+
+// Group outputs
+arOutputs2[2]			:= uiComBrinkFanuc;				//1
+arOutputs2[3]			:= Q.uiRegChangeHigh;			//2
+arOutputs2[4]			:= Q.uiRegChangeLow;			//3
+arOutputs2[5]			:= Q.uiRegChangeFactor;			//4
+arOutputs2[6]			:= Q.uiRegChangeNumber;			//5
+arOutputs2[7]			:= ProgramSelector;
+arOutputs3[0]			:= Q.arGroupOutputs[7];
+arOutputs3[1]			:= Q.arGroupOutputs[8];
+arOutputs3[2]			:= Q.arGroupOutputs[9];
+arOutputs3[3]			:= Q.arGroupOutputs[10];
+arOutputs3[4]			:= Q.arGroupOutputs[11];
+arOutputs3[5]			:= Q.arGroupOutputs[12];
+arOutputs3[6]			:= Q.arGroupOutputs[13];
+arOutputs3[7]			:= Q.arGroupOutputs[14];
+arOutputs4[0]			:= Q.arGroupOutputs[15];
+arOutputs4[1]			:= Q.arGroupOutputs[16];
+arOutputs4[2]			:= Q.arGroupOutputs[17];
+arOutputs4[3]			:= Q.arGroupOutputs[18];
+arOutputs4[4]			:= Q.arGroupOutputs[19];
+arOutputs4[5]			:= Q.arGroupOutputs[20];
+arOutputs4[6]			:= Q.arGroupOutputs[21];
+arOutputs4[7]			:= Q.arGroupOutputs[22];
+arOutputs5[0]			:= Q.arGroupOutputs[23];
+arOutputs5[1]			:= Q.arGroupOutputs[24];
+arOutputs5[2]			:= Q.arGroupOutputs[25];
+arOutputs5[3]			:= Q.arGroupOutputs[26];
+arOutputs5[4]			:= Q.arGroupOutputs[27];
+arOutputs5[5]			:= Q.arGroupOutputs[28];
+arOutputs5[6]			:= Q.arGroupOutputs[29];
+arOutputs5[7]			:= Q.arGroupOutputs[30];
+arOutputs6[0]			:= Q.arGroupOutputs[31];
+arOutputs6[1]			:= Q.arGroupOutputs[32];
+arOutputs6[2]			:= Q.arGroupOutputs[33];
+arOutputs6[3]			:= Q.arGroupOutputs[34];
+arOutputs6[4]			:= Q.arGroupOutputs[35];
+arOutputs6[5]			:= Q.arGroupOutputs[36];
+arOutputs6[6]			:= Q.arGroupOutputs[37];
+arOutputs6[7]			:= Q.arGroupOutputs[38];
+arOutputs7[0]			:= Q.arGroupOutputs[39];
+arOutputs7[1]			:= Q.arGroupOutputs[40];
+END_METHOD
+
+METHOD ProgramReset
+iProgChangeState	:= 0;
+Q.uiRsr_pns			:= 0;
+Q.xProdStart		:= FALSE;
+Q.xPnsStrobe		:= FALSE;
+xCycleStop			:= TRUE;
+ProgramSelector		:= 0;
+ComBrinkFanuc		:= 0;
+END_METHOD
+
+METHOD StartMainProgram : BOOL
+VAR_INPUT
+	iProgNumber	: UINT;
+END_VAR
+VAR_INST
+	T_TimeOut	: BTON;
+END_VAR
+// Timeout while starting the Main program
+IF T_TimeOut.Set(NOT I.xPrgRunning, 3) THEN
+	T_TimeOut.Reset();
+	ProgramReset();
+END_IF
+
+CASE iProgChangeState OF
+0:
+	IF I.xCmdEnabled AND NOT I.xSnack THEN									// Check if external commands are allowed
+		ProgramSelector		:= 0;
+		Q.uiRsr_pns		:= iProgNumber;	// Write the new program number to Fanuc
+		Q.xProdStart		:= TRUE;
+		xCycleStop			:= TRUE;
+		iProgChangeState	:= iProgChangeState + 10;
+	END_IF
+
+10: // Stop all active programs first
+	IF NOT xCycleStop THEN
+		iProgChangeState	:= iProgChangeState + 10;
+	END_IF
+
+20:
+	Q.xPnsStrobe			:= TRUE;						// Tell Fanuc that the program number should be changed
+	IF I.uiAck_sno = Q.uiRsr_pns AND I.xSnack THEN						// Check if the new program number matches the requested number
+		iProgChangeState	:= iProgChangeState + 10;
+	END_IF
+
+30:
+	Q.xProdStart			:= FALSE;						// Start the new program (on falling edge)
+	IF I.xPrgRunning THEN
+		T_TimeOut.Reset();
+		Q.xPnsStrobe		:= FALSE;
+		StartMainProgram	:= TRUE;
+		iProgChangeState	:= 0;
+	END_IF
+END_CASE
+END_METHOD
+
+METHOD WriteRegisters : BOOL
+VAR
+END_VAR
+VAR_INST
+	iWriteRegisterState	: INT;
+	iCheckReg			: INT;
+	iCurrentReg			: INT;
+	rVal				: REAL;
+END_VAR
+CASE iWriteRegisterState OF
+0:
+	REPEAT
+		iCurrentReg := iCurrentReg + 1;
+		iCurrentReg := SEL(iCurrentReg<iMinNoRegisters, SEL(iCurrentReg>iMaxNoRegisters, iCurrentReg, iMinNoRegisters), iMinNoRegisters);
+		IF xCheckWriteReg THEN
+			xCheckWriteReg R= iCheckReg = iCurrentReg;
+		ELSE
+			iCheckReg := iCurrentReg;
+		END_IF
+	UNTIL
+		FanucRegisters[iCurrentReg].xEnabled OR iCurrentReg = iMaxNoRegisters			//If no register is used jump out of loop
+	END_REPEAT
+
+	IF	FanucRegisters[iCurrentReg].rValue < 2000000
+	AND FanucRegisters[iCurrentReg].xEnabled
+	THEN
+		iWriteRegisterState := iWriteRegisterState + 10;
+	END_IF
+
+10:
+	IF NOT I.xWriteRegDone THEN
+		rVal					:= ABS(FanucRegisters[iCurrentReg].rValue * iFactor);	// Scale absolute value
+		Q.uiRegChangeHigh		:= TO_UINT(TRUNC(rVal / 65536));						// High integer with sign bit
+		Q.uiRegChangeHigh.15	:= FanucRegisters[iCurrentReg].rValue >= 0;				// Highest bit of the high integer indicates a positive (true) or negative (false) value
+		Q.uiRegChangeLow		:= TO_UINT(TO_UDINT(rVal) MOD 65536);					// Low integer
+		Q.uiRegChangeFactor		:= TO_UINT(iFactor);
+		Q.uiRegChangeNumber		:= TO_UINT(iCurrentReg);
+		Q.xWriteReg				:= TRUE;
+
+		iWriteRegisterState	:= iWriteRegisterState + 10;
+	END_IF
+
+20:
+	IF I.xWriteRegDone THEN
+		Q.xWriteReg			:= FALSE;
+		iWriteRegisterState	:= 0;
+	END_IF
+END_CASE
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ComBrinkFanuc : UINT
+SET
+uiComBrinkFanuc := ComBrinkFanuc;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ComFanucBrink : UINT
+GET
+PUBLIC
+VAR
+END_VAR
+ComFanucBrink := uiComFanucBrink;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC GateAllowedToOpen : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+GateAllowedToOpen	:= I.xAtServicePos		// Fanuc is at service position
+					OR NOT I.xInAutoMode	// Fanuc cannot move to service position when not in auto
+					OR I.xTpEnabled;		// Fanuc cannot move to service position when TP is enabled
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY ManualFunction : UINT
+GET
+VAR_INST
+	Tr_ManualFunction : R_TRIG;
+END_VAR
+Tr_ManualFunction(CLK := uiManualFunction > 0);
+ManualFunction := SEL(I.xTpEnabled AND Tr_ManualFunction.Q, 0, uiManualFunction);
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ProgramRunning : UINT
+GET
+ProgramRunning := uiProgramRunning;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ProgramSelector : UINT
+GET
+ProgramSelector := uiProgramSelector := SEL(ProgramRunning = uiProgramSelector, uiProgramSelector, 0);
+END_GET
+SET
+uiProgramSelector := ProgramSelector;
+END_SET
+END_PROPERTY

@@ -1,0 +1,14 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumHWButtons :
+(
+	NotSpecified := 0,
+	Start,
+	Stop,
+	EndCycle,
+	Reset,
+	Homing,
+	F1,
+	F2
+);
+END_TYPE

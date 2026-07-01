@@ -1,0 +1,255 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK XuUnit_ForZURFB
+EXTENDS XuUnit_DefaultFB
+IMPLEMENTS IXuUnit_ForZUR_Commands, IXuUnit_ForZUR_Config
+VAR_INPUT
+	OnParkingPosSensor			: DigitalSensorFB(invert := FALSE);
+	ProductSensors				: ARRAY[1..4] OF DigitalSensorWithEnableFB(invert := FALSE);
+	{attribute 'symbol' := 'readwrite'}	ReleaseProductsAir		: ARRAY[1..2] OF ActuatorWithManualControlFB;
+	YUnit						: IModuleHasSafePos;
+END_VAR
+VAR_IN_OUT
+	DataProject					: XuUnit_ForZUR_Data;
+END_VAR
+VAR
+	resettingNotPermittedAlarm	: BOOL;
+END_VAR
+
+SUPER^(
+	Data				:= Data,
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SUPER^.Alarms();
+
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= XuUnit_Errors,
+	errorId			:= 6,		// No parking pos sensor signal on parking position detected
+	alarmCondition	:= OnParkingPosSensor.IsInactive AND Drive.PosReached(Data.ParkingPos.value),
+	alarmDelay		:= 2.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= SEL(SER.InAutomaticOperation, enumErrorReaction.No_reaction, enumErrorReaction.Stop),
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= XuUnit_Errors,
+	errorId			:= 7,
+	alarmCondition	:= resettingNotPermittedAlarm,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+resettingNotPermittedAlarm := FALSE;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+SUPER^.Cyclic();
+
+ReleaseProductsAir[1](	// Upper row
+	manualControlEnabled	:= SER.ManualControlEnabled);
+ReleaseProductsAir[2](	// Lower row
+	manualControlEnabled	:= SER.ManualControlEnabled);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+ReleaseProductsAir[1].Reset();
+ReleaseProductsAir[2].Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+METHOD PUBLIC Initialize
+SUPER^.Initialize();
+
+Drive.config.maxVelocity		:= 2;
+Drive.config.maxAcceleration	:= 40;
+Drive.config.maxJerk			:= 400;
+END_METHOD
+
+// Make the X drives go to the parking position on start of program
+METHOD PUBLIC MoveToParking : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	almostSafe		: BOOL;		// Drive almost arrived in position
+END_VAR
+%FOLDER Commands
+IF SUPER^.MoveToParking(almostSafe => almostSafe) THEN
+	ReleaseProductsAir[1].Reset();
+	ReleaseProductsAir[2].Reset();
+
+	MoveToParking := TRUE;
+END_IF
+END_METHOD
+
+// Takeout the shot of products from the mould. Parameter indicates phase (optional)
+METHOD PUBLIC MoveTowardsMould : BOOL
+VAR_INPUT
+	moveToFinalPosition		: BOOL	:= TRUE;	// false: Move to halfway inside mould. true: Full takeout
+END_VAR
+VAR_INST
+	Timer					: BTON;
+END_VAR
+%FOLDER Commands/Takeout from mould
+(*
+IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
+	MoveTowardsMould := SUPER^.MoveTowardsMould(moveToFinalPosition);
+	RETURN;
+END_IF
+*)
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	movementInsideMouldActive	:= TRUE;
+	Drive.SetMovementProfileData(Data.Takeout);
+	Timer.Reset();
+END_IF
+
+IF NOT moveToFinalPosition THEN
+	Drive.MoveAbsPos(Data.HalfwayTakeoutPos.value);
+	RETURN;
+END_IF
+
+IF  Drive.MoveAbs(Data.Takeout)
+//AND Drive.HomingSensor
+AND Timer.Set(HasPayload = enumPayload._All OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums), Data.rDelayAfterVacuum)
+THEN
+	MoveTowardsMould := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Release a certain amount of products. Parameter indicates which products are released.
+METHOD PUBLIC ReleaseProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+VAR_INST
+	Timer			: BTON;
+END_VAR
+%FOLDER Commands/Transfer
+(*
+IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
+	ReleaseProducts := SUPER^.ReleaseProducts(vacuumIndex);
+	RETURN;
+END_IF
+*)
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	IF vacuumIndex = AllVacuums THEN
+		ReleaseProductsAir[1].Set();
+		ReleaseProductsAir[2].Set();
+		ClearProducts.Array2D(ProductsInGripper);
+	ELSIF vacuumIndex.Vacuum01 THEN
+		ReleaseProductsAir[1].Set();
+		ClearProducts.Single(ProductsInGripper[1,1]);
+		ClearProducts.Single(ProductsInGripper[2,1]);
+	ELSIF vacuumIndex.Vacuum02 THEN
+		ReleaseProductsAir[2].Set();
+		ClearProducts.Single(ProductsInGripper[1,2]);
+		ClearProducts.Single(ProductsInGripper[2,2]);
+	END_IF
+END_IF
+
+IF Timer.Set(In := TRUE, Pt := Data.rReleaseProductsDelay) THEN
+	ReleaseProducts := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+IF NOT YUnit.InSafePos AND NOT Drive.IsHomed THEN
+	resettingNotPermittedAlarm	:= TRUE;
+	RETURN;
+END_IF
+
+ReleaseProductsAir[1].Reset();
+ReleaseProductsAir[2].Reset();
+
+Reset := SUPER^.Reset();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+ReleaseProductsAir[1].Reset();
+ReleaseProductsAir[2].Reset();
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+//IF PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.FourCavDualTakeover AND PersistentVars.RecipeVars.ActiveExchangeSet <> enumExchangeSets.TwoCavSingleTakeover THEN
+	HasPayload := SUPER^.HasPayload;
+(*
+ELSIF Arrays.DigitalSensor_Enabled_All(
+							sensorArray	:= ProductSensors,
+							bitMask		:= InjectionMouldingMachine.Data.dwDisableCavities,
+							condition	:= TRUE)
+
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.DigitalSensor_Enabled_Any(
+							sensorArray	:= ProductSensors,
+							bitMask		:= InjectionMouldingMachine.Data.dwDisableCavities,
+							condition	:= TRUE)
+
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+*)
+END_GET
+END_PROPERTY
+
+// The X axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos := OnParkingPosSensor.IsActive AND Drive.PosReached(Data.ParkingPos.value);
+END_GET
+END_PROPERTY
+
+// The X axis is in a safe position to enter the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+%FOLDER Properties
+GET
+InSafePosForMouldEntry := SUPER^.InSafePosForMouldEntry AND HasPayload = enumPayload.None;
+END_GET
+END_PROPERTY
+
+// The Xu unit is in standstill on the Takeout position inside the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+%FOLDER Properties
+GET
+IsOnTakeoutPos := (*OnParkingPosSensor.IsInactive AND*) Drive.PosReached(Data.Takeout.Pos.value);
+END_GET
+END_PROPERTY

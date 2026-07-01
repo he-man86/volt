@@ -1,0 +1,8 @@
+TYPE StickerUnit_Kreuwel_Data :
+STRUCT
+	movementProfile	: ProfileType;
+	distanceToApp	: REAL := 136;		// distance from trigger sensor to applicator edge
+	sticker			: REAL := 40;		// length of a single sticker
+	pitch			: REAL := 4;		// length of the pitch between stickers
+END_STRUCT
+END_TYPE

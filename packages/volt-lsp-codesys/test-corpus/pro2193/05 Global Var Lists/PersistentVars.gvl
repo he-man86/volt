@@ -1,0 +1,147 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL PERSISTENT RETAIN
+	RecipeVars						: RetainedVarsInRecipeType;
+	BrinkRecipeVars					: RetainedVarsInBrinkRecipeType;
+
+	disableBuzzer					: BOOL;					// Permanently disable the buzzer output
+
+
+	// SUBRANGE not supported by VisiWinNet :(
+	usiGlobalSERSpeed				: USINT(*(1..100)*) := 50;	// Limit speed of all drives in the SER robot (0 to 100%)
+	usiGlobalBFUSpeed				: USINT(*(1..100)*) := 50;	// Limit speed of all drives in the BFU robot (0 to 100%)
+
+
+	DisableVacuumWithAirButton		: BOOL := FALSE;
+	DisableVacuumPump2				: BOOL;
+
+	{attribute 'symbol' := 'none'}	vacuumPumpRunningTime		: UDINT;				// Total time the vacuumpump has been running.
+	{attribute 'symbol' := 'none'}	vacuumPumpNumberOfStarts	: UDINT;				// Total number of times the vacuumpump has been started.
+	{attribute 'symbol' := 'none'}	Statistics					: ARRAY[1..ProductionStatsFB.NumberOfStatisticSets] OF ProductionStatsType;
+
+	rejectReasonDescriptions		: ARRAY[1..GVL_Constants.MaxRejectReasonsTotal] OF STRING(40) :=
+	[
+		'IMM Euromap Reject',		// 1
+		'Cam 1 Reject',				// 2
+		'Cam 2 Reject',				// 3
+		'Cam 3 Reject',				// 4
+		'Cam 4 Reject',				// 5
+		'Cam 5 Reject',				// 6
+		'Cam 6 Reject',				// 7
+		'Cam 7 Reject'				// 8
+	];
+
+	{attribute 'symbol' := 'none'}	cavityAliases				: ARRAY[GVL_Constants.CavityStartIndex..GVL_Constants.CavityEndIndex] OF STRING(20);
+
+
+	// Generated instance path of persistent variable
+	CassetteAdjustments.Data: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes] OF CassettePosition;
+	// Generated instance path of persistent variable
+	CassetteAdjustments.SwitchCountEnable: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxEnableValves] OF UDINT;
+	// Generated instance path of persistent variable
+	CassetteAdjustments.SwitchCountAdjust: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxAdjustValves] OF UDINT;
+	// Generated instance path of persistent variable
+	CassetteAdjustments.SwitchCountCassette: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes] OF ARRAY [enumMotorsType.X1..enumMotorsType.Y] OF UDINT;
+	// Generated instance path of persistent variable
+	CassetteAdjustments.ActualCassettePosition: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes] OF CassettePosition;
+	// Generated instance path of persistent variable
+	CassetteAdjustments.TargetCassettePosition: ARRAY [1..CassetteAdjustments.usiNumberOfUnits] OF ARRAY [enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes] OF CassettePosition;
+	// Generated instance path of persistent variable
+	RecipeControl.activeRecipe: ARRAY [1..GVL_Constants.RecipeDefinitionsCount] OF STRING(80);
+	// Generated instance path of persistent variable
+	RecipeControl.MetaData: ARRAY [1..GVL_Constants.RecipeDefinitionsCount] OF RecipeMetaDataType;
+	// Generated instance path of persistent variable
+	Fanucs.Data: ARRAY [1..Fanucs.usiNumberOfUnits] OF FanucUnitBase_Data;
+	// Generated instance path of persistent variable
+	Fanucs.DataProject: ARRAY [1..Fanucs.usiNumberOfUnits] OF FanucUnit_Data;
+	// Generated instance path of persistent variable
+	Fanucs.GripperStatus: ARRAY [1..Fanucs.usiNumberOfUnits] OF StackStatusType;
+	// Generated instance path of persistent variable
+	YUnits.Data: ARRAY [1..YUnits.usiNumberOfUnits] OF YUnit_Default_Data;
+	// Generated instance path of persistent variable
+	YUnits.DataBrink: ARRAY [1..YUnits.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	YUnits.coveredDistance: ARRAY [1..YUnits.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	XuUnits.Data: ARRAY [1..XuUnits.usiNumberOfUnits] OF XuUnit_Default_Data;
+	// Generated instance path of persistent variable
+	XuUnits.DataProject: ARRAY [1..XuUnits.usiNumberOfUnits] OF XuUnit_ForChain_Data;
+	// Generated instance path of persistent variable
+	XuUnits.DataBrink: ARRAY [1..XuUnits.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	XuUnits.coveredDistance: ARRAY [1..XuUnits.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	ZUnits.Data: ARRAY [1..ZUnits.usiNumberOfUnits] OF ZUnit_Base_Data;
+	// Generated instance path of persistent variable
+	ZUnits.DataProject: ARRAY [1..ZUnits.usiNumberOfUnits] OF ZUnit_ForChainWithServoRotate_Data;
+	// Generated instance path of persistent variable
+	ZUnits.DataBrink: ARRAY [1..ZUnits.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	ZUnits.coveredDistance: ARRAY [1..ZUnits.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	XiUnits.Data: ARRAY [1..XiUnits.usiNumberOfUnits] OF XiUnit_Default_Data;
+	// Generated instance path of persistent variable
+	XiUnits.DataProject: ARRAY [1..XiUnits.usiNumberOfUnits] OF XiUnit_Data;
+	// Generated instance path of persistent variable
+	XiUnits.DataBrink: ARRAY [1..XiUnits.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	XiUnits.coveredDistance: ARRAY [1..XiUnits.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	ZRUnits.Data: ARRAY [1..ZRUnits.usiNumberOfUnits] OF ZRUnit_Default_Data;
+	// Generated instance path of persistent variable
+	ZRUnits.DataBrink: ARRAY [1..ZRUnits.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	ZRUnits.coveredDistance: ARRAY [1..ZRUnits.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	Conveyors.Data: ARRAY [1..Conveyors.usiNumberOfUnits] OF Conveyor_Servo_Data;
+	// Generated instance path of persistent variable
+	Conveyors.DataBrink: ARRAY [1..Conveyors.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	Conveyors.DataReject: ARRAY [1..Conveyors.usiNumberOfUnits] OF Conveyor_Reject_Data;
+	// Generated instance path of persistent variable
+	Conveyors.coveredDistance: ARRAY [1..Conveyors.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	Chains.Data: ARRAY [1..Chains.usiNumberOfUnits] OF ChainBase_Data;
+	// Generated instance path of persistent variable
+	Chains.DataProject: ARRAY [1..Chains.usiNumberOfUnits] OF Chain_WithCarrierPlates_Data;
+	// Generated instance path of persistent variable
+	Chains.DataBrink: ARRAY [1..Chains.usiNumberOfUnits] OF DataBrinkType;
+	// Generated instance path of persistent variable
+	Chains.coveredDistance: ARRAY [1..Chains.usiNumberOfUnits] OF UDINT;
+	// Generated instance path of persistent variable
+	Magazines.Data: ARRAY [1..Magazines.usiNumberOfUnits] OF Magazine_Data;
+	// Generated instance path of persistent variable
+	Magazines.DataMotors: ARRAY [1..Magazines.usiNumberOfUnits] OF MagazineMotors_Drawer_Data;
+	// Generated instance path of persistent variable
+	Magazines.DataBrink: ARRAY [1..Magazines.usiNumberOfUnits] OF MagazineMotors_Drawer_BrinkData;
+	// Generated instance path of persistent variable
+	Magazines.coveredDistance: ARRAY [1..Magazines.usiNumberOfUnits] OF ARRAY [PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF UDINT;
+	// Generated instance path of persistent variable
+	InjectionMouldingMachine.Data: IMM_Data;
+	// Generated instance path of persistent variable
+	ProcessModules.XYControlData: ARRAY [1..ProcessModules.numberOfXYControls] OF XYControl_Data;
+	// Generated instance path of persistent variable
+	LabelSuppliers.Data: ARRAY [1..LabelSuppliers.usiNumberOfUnits] OF DrawerMagazine_Data;
+	// Generated instance path of persistent variable
+	VisionSystems.Data: ARRAY [1..VisionSystems.usiNumberOfUnits] OF VisionSystem_Base_Data;
+	// Generated instance path of persistent variable
+	VisionSystems.DataProject: ARRAY [1..VisionSystems.usiNumberOfUnits] OF VisionSystem_Mevisco_Data;
+	// Generated instance path of persistent variable
+	RejectStations.Data: ARRAY [1..RejectStations.usiNumberOfUnits] OF RejectStation_Base_Data;
+	// Generated instance path of persistent variable
+	RejectStations.DataProject: ARRAY [1..RejectStations.usiNumberOfUnits] OF RejectStation_WithBlowOff_Data;
+	// Generated instance path of persistent variable
+	BufferRacks.Data: ARRAY [1..BufferRacks.usiNumberOfUnits] OF BufferRack_Data;
+	// Generated instance path of persistent variable
+	BufferRacks.BufferStackStatus: ARRAY [1..BufferRacks.usiNumberOfUnits] OF StackStatusType;
+	// Generated instance path of persistent variable
+	BufferRacks.BufferStackIndex: USINT;
+	// Generated instance path of persistent variable
+	BoxInfeeds.Data: ARRAY [1..BoxInfeeds.usiNumberOfUnits] OF BoxInfeed_Default_DataType;
+	// Generated instance path of persistent variable
+	BoxCenterUnits.Data: ARRAY [1..BoxCenterUnits.usiNumberOfUnits] OF BoxCenterUnit_WithPneumatic_DataType;
+	// Generated instance path of persistent variable
+	BoxPushers.Data: ARRAY [1..BoxPushers.usiNumberOfUnits] OF BoxPusher_Default_DataType;
+	// Generated instance path of persistent variable
+	BoxOutfeeds.Data: ARRAY [1..BoxOutfeeds.usiNumberOfUnits] OF BoxOutfeed_Default_DataType;
+END_VAR

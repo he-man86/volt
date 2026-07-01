@@ -1,0 +1,9 @@
+// This module has manual control that can be enabled from external context.
+INTERFACE IModuleManualControlEnabled
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+END_PROPERTY
+
+END_INTERFACE

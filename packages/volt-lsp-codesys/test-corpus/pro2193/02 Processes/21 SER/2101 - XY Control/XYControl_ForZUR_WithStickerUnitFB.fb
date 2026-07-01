@@ -1,0 +1,210 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK PUBLIC FINAL XYControl_ForZUR_WithStickerUnitFB
+EXTENDS XYControl_ForZURFB
+VAR_INPUT
+	stickerUnit					: IStickerUnit_Shared_Commands;
+END_VAR
+VAR
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateFirstCycle_XUnitsToParking		:= 10,
+
+		StateTakeover1PosCheck				:= 100,
+		StateTakeover1PosMove				:= 110,
+		StateTakeover1PosActions			:= 120,
+
+		StateTakeover2PosCheck				:= 200,
+		StateTakeover2PosMove				:= 210,
+		StateTakeover2PosActions			:= 220,
+
+		StateWaitForMouldClosed				:= 500,
+		StateWaitForMouldOpen				:= 510,
+		StateYUnitEnterMouldArea			:= 520,
+		StateYUnitInPositionInMouldArea		:= 530,
+
+		StateXUnitsDoInMouldActions			:= 600,
+		StateYUnitLeaveMouldArea			:= 610,
+		StateYUnitOnSafetyStrip				:= 620,
+
+		StateUnitsOnStickerPosStart			:= 700,
+		StateUnitsOnStickerPosEnd			:= 710
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Execute_Sequence1
+// Is sticker unit enabled?
+IF NOT PersistentVars.RecipeVars.EnableSticker THEN
+	SUPER^.Execute_Sequence1();
+	RETURN;
+END_IF
+
+// SingleCavSingleTakeover
+CASE ActState OF
+	StateNone:	;
+	StateFirstCycle_XUnitsToParking:	Increment.State(ActState,		FirstCycle_XUnitsToParking(),	StateTakeover1PosCheck);
+
+	StateTakeover1PosCheck:				Increment.StateEnum(ActState,	Takeover1PosCheck_Sequence1(),	StateTakeover1PosMove,		StateWaitForMouldClosed);
+	StateTakeover1PosMove:				Increment.State(ActState,		Takeover1PosMove(),				StateTakeover1PosActions);
+	StateTakeover1PosActions:			Increment.State(ActState,		Takeover1PosActions(),			StateWaitForMouldClosed);
+
+
+
+
+
+	StateWaitForMouldClosed:			Increment.StateEnum(ActState,	WaitForMouldClosed(),			StateWaitForMouldOpen,		StateNone);
+	StateWaitForMouldOpen:				Increment.State(ActState,		WaitForMouldOpen(),				StateYUnitEnterMouldArea);
+	StateYUnitEnterMouldArea:			Increment.State(ActState,		YUnitEnterMouldArea(),			StateYUnitInPositionInMouldArea);
+	StateYUnitInPositionInMouldArea:	Increment.State(ActState,		YUnitInPositionInMouldArea(),	StateXUnitsDoInMouldActions);
+	StateXUnitsDoInMouldActions:		Increment.State(ActState,		XUnitsDoInMouldActions(),		StateYUnitLeaveMouldArea);
+	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
+	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateUnitsOnStickerPosStart);
+
+	StateUnitsOnStickerPosStart:		Increment.State(ActState,		UnitsOnStickerPosStart(),		StateUnitsOnStickerPosEnd);
+	StateUnitsOnStickerPosEnd:			Increment.State(ActState,		UnitsOnStickerPosEnd(),			StateTakeover1PosCheck);
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence2
+// Is sticker unit enabled?
+IF NOT PersistentVars.RecipeVars.EnableSticker THEN
+	SUPER^.Execute_Sequence2();
+	RETURN;
+END_IF
+
+// FourCavDualTakeover
+CASE ActState OF
+	StateNone:	;
+	StateFirstCycle_XUnitsToParking:	Increment.State(ActState,		FirstCycle_XUnitsToParking(),	StateTakeover1PosCheck);
+
+	StateTakeover1PosCheck:				Increment.StateEnum(ActState,	Takeover1PosCheck_Sequence2(),	StateTakeover1PosMove,		StateTakeover2PosCheck);
+	StateTakeover1PosMove:				Increment.State(ActState,		Takeover1PosMove(),				StateTakeover1PosActions);
+	StateTakeover1PosActions:			Increment.State(ActState,		Takeover1PosActions(),			StateTakeover2PosCheck);
+
+	StateTakeover2PosCheck:				Increment.StateEnum(ActState,	Takeover2PosCheck(),			StateTakeover2PosMove,		StateWaitForMouldClosed);
+	StateTakeover2PosMove:				Increment.State(ActState,		Takeover2PosMove(),				StateTakeover2PosActions);
+	StateTakeover2PosActions:			Increment.State(ActState,		Takeover2PosActions(),			StateWaitForMouldClosed);
+
+	StateWaitForMouldClosed:			Increment.StateEnum(ActState,	WaitForMouldClosed(),			StateWaitForMouldOpen,		StateNone);
+	StateWaitForMouldOpen:				Increment.State(ActState,		WaitForMouldOpen(),				StateYUnitEnterMouldArea);
+	StateYUnitEnterMouldArea:			Increment.State(ActState,		YUnitEnterMouldArea(),			StateYUnitInPositionInMouldArea);
+	StateYUnitInPositionInMouldArea:	Increment.State(ActState,		YUnitInPositionInMouldArea(),	StateXUnitsDoInMouldActions);
+	StateXUnitsDoInMouldActions:		Increment.State(ActState,		XUnitsDoInMouldActions(),		StateYUnitLeaveMouldArea);
+	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
+	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateUnitsOnStickerPosStart);
+
+	StateUnitsOnStickerPosStart:		Increment.State(ActState,		UnitsOnStickerPosStart(),		StateUnitsOnStickerPosEnd);
+	StateUnitsOnStickerPosEnd:			Increment.State(ActState,		UnitsOnStickerPosEnd(),			StateTakeover1PosCheck);
+END_CASE
+END_METHOD
+
+METHOD PROTECTED UnitsOnStickerPosEnd : BOOL
+VAR_INST
+	monitorForTakeover5Pos	: BOOL;
+	applyStickerFromHere	: BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	monitorForTakeover5Pos	:= FALSE;
+	applyStickerFromHere	:= FALSE;
+END_IF
+
+IF NOT yUnit.InSafePosForXUnits THEN	// Y drive started moving towards Takeover 6
+	monitorForTakeover5Pos	:= TRUE;
+END_IF
+
+IF yUnit.InSafePosForXUnits				// Y drive arrived at Takeover 5
+AND	monitorForTakeover5Pos
+THEN
+	applyStickerFromHere	:= TRUE;
+END_IF
+
+IF applyStickerFromHere AND NOT result[2] THEN
+	result[2] := stickerUnit.ApplySticker();
+END_IF
+
+IF  (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(6)))	// Command to move to Takeover 6
+AND result[2]
+AND SER.SemiAutoNextStep
+THEN
+	UnitsOnStickerPosEnd := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED UnitsOnStickerPosStart : BOOL
+%FOLDER States
+IF  (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(4)))
+AND (result[2] OR_ELSE (result[2] := xuUnit.MoveToTakeover(2)))
+AND SER.SemiAutoNextStep
+THEN
+	UnitsOnStickerPosStart := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitLeaveMouldArea : BOOL
+%FOLDER States
+// Is sticker unit enabled?
+IF NOT PersistentVars.RecipeVars.EnableSticker THEN
+	YUnitLeaveMouldArea := SUPER^.YUnitLeaveMouldArea();
+	RETURN;
+END_IF
+
+// Do not start moving if any X axes is not in position
+IF NOT xuUnit.InSafePos THEN
+	yUnit.Stop();
+	RETURN;
+END_IF
+
+// Y Unit starts moving out of the mould area
+IF NOT result[1] THEN
+	result[1] := yUnit.MoveToTakeover(4);
+END_IF
+
+
+// When transferProducts.AlternateCycleCounter = 1 then another shot is needed from the IMM to complete the gripper.
+
+IF IMM.ReleaseMouldClosing(
+			mouldClosingIsRequired	:= transferProducts.AlternateCycleCounter = 1,
+			xMouldClosed			=> MouldClosed)
+THEN
+	YUnitLeaveMouldArea := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitOnSafetyStrip : BOOL
+VAR
+	xuUnitExtended				: IXuUnit_Default_Commands;
+END_VAR
+%FOLDER States
+// Is sticker unit enabled?
+IF NOT PersistentVars.RecipeVars.EnableSticker THEN
+	YUnitOnSafetyStrip := SUPER^.YUnitOnSafetyStrip();
+	RETURN;
+END_IF
+
+IF State.Changed THEN
+	// Copy the product status to the Xu axis now. This is the moment we know that this was the last shot.
+	IF __QUERYINTERFACE(xuUnit, xuUnitExtended) THEN
+		xuUnitExtended.ProductData_Set(IMM.GetProductData(InstanceNo));
+	END_IF
+END_IF
+
+IF NOT xuUnit.InSafePos THEN
+	yUnit.Stop();
+	RETURN;
+END_IF
+
+// Y Unit arrived on safety strip
+IF  yUnit.InSafePos
+AND (xuUnit.HasPayload = enumPayload._All OR (SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums))
+THEN
+	//xuUnit.MoveToHalfway(); Niet naar halverwege pos wanneer sticker unit actief is
+	YUnitOnSafetyStrip := TRUE;
+END_IF
+END_METHOD

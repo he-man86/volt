@@ -1,0 +1,22 @@
+// A hardware button subject. Send state of HW button to servo drive.
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK PUBLIC SubjectFunctionKeyFB
+EXTENDS SubjectHWButtonFB
+IMPLEMENTS ISubject, ISubjectFunctionKeyPayload
+VAR
+	_extState		: enumFunctionKeyPayload;	// Private backing field for property
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Extended state of the button: tapped, or held, or double-tap-held
+{attribute 'monitoring' := 'call'}
+PROPERTY ExtState : enumFunctionKeyPayload
+GET
+ExtState := _extState;
+END_GET
+SET
+_extState := ExtState;
+END_SET
+END_PROPERTY

@@ -1,0 +1,421 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferProducts_XuToZFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecute
+VAR_INPUT
+	xuUnit					: IXuUnit_Default_Transfer_Commands;
+	zUnit					: IZUnit_Transfer_Commands;
+END_VAR
+VAR
+	result					: ARRAY[1..2] OF BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateZUnitMovesInPosition			:= 100,
+		StateCheckIfTransferNeeded			:= 200,
+		StateXuUnitMovesToTakeover			:= 300,
+		StateZUnitGetsProducts				:= 400,
+		StateXuUnitReleasesProducts			:= 500,
+		StateXuUnitMovesToParking			:= 600,
+		StateFreeZUnit						:= 700,
+		StateFinal							:= 999
+	) DINT;
+
+END_VAR
+
+SUPER^();
+
+// Enable manual control of Z Unit motor when Xu Unit is in safe position.
+zUnit.ExternalManualControlEnabled := xuUnit.InSafePos;
+
+END_FUNCTION_BLOCK
+
+// Check if a transfer is needed
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+// Xu unit has at least 1 product in the gripper. We need a transfer.
+CheckIfTransferIsNeeded	S= xuUnit.HasPayload <> enumPayload.None;
+
+// Running in semi-auto mode without setting vacuums.
+CheckIfTransferIsNeeded	S= SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums;
+
+//CheckIfTransferIsNeeded	S= SER.OperationMode = SER_OperationModeType.SemiAuto AND PersistentVars.RecipeVars.ActiveExchangeSet = enumExchangeSets.FourCavDualTakeover;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+//	enumExchangeSets.SingleCavSingleTakeover:
+//		Execute_Sequence1();
+//	enumExchangeSets.SingleCavDualTakeover:
+//		Execute_Sequence2();
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence3();
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence4();
+	ELSE
+		ShowNoProgramWarning();
+		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition := iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateZUnitMovesInPosition;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateZUnitMovesInPosition:
+		// Check if the z unit does not have any products on the gripper.
+		IF NOT zUnit.ReadyForTransfer THEN
+			RETURN;
+		END_IF
+
+		// Check if all products are present on the Xu Unit gripper.
+		// Or the cycle has just started, the first cycle it is allowed to transfer an incomplete gripper.
+		IF xuUnit.HasPayload = enumPayload._All
+		OR SER.OperationMode = SER_OperationModeType.SemiAuto
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			IF (result[1] OR_ELSE (result[1] := zUnit.MoveToTakeover(1)))
+			THEN
+				ActState := StateXuUnitMovesToTakeover;
+			END_IF
+		END_IF
+
+	StateXuUnitMovesToTakeover:
+		IF  (result[1] OR_ELSE (result[1] := xuUnit.MoveToTakeover(1)))
+		THEN
+			ActState := StateZUnitGetsProducts;
+		END_IF
+
+	StateZUnitGetsProducts:
+		IF State.Changed THEN
+			zUnit.CopyProductStatus(
+				takeoverPos	:= 1,
+				productNo	:= 1,
+				product		:= xuUnit.ProductData_Get(product := 1));
+		END_IF
+
+		xuUnit.ReleaseProducts(AllVacuums);
+
+		// Z Unit gets products; returns true when all vacuums are high
+		IF zUnit.GetProducts(vacuumIndex := 2#0010) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		IF xuUnit.ReleaseProducts(AllVacuums) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF xuUnit.MoveToParking() THEN
+			ActState := StateFreeZUnit;
+		END_IF
+
+	StateFreeZUnit:
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		IF zUnit.TransferComplete(0) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence2
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateZUnitMovesInPosition:
+		// Check if the z unit does not have any products on the gripper.
+		IF NOT zUnit.ReadyForTransfer THEN
+			RETURN;
+		END_IF
+
+		// Check if all products are present on the Xu Unit gripper.
+		// Or the cycle has just started, the first cycle it is allowed to transfer an incomplete gripper.
+		IF xuUnit.HasPayload = enumPayload._All
+		OR SER.OperationMode = SER_OperationModeType.SemiAuto
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			IF (result[1] OR_ELSE (result[1] := zUnit.MoveToTakeover(1)))
+			THEN
+				ActState := StateXuUnitMovesToTakeover;
+			END_IF
+		END_IF
+
+	StateXuUnitMovesToTakeover:
+		IF  (result[1] OR_ELSE (result[1] := xuUnit.MoveToTakeover(1)))
+		THEN
+			ActState := StateZUnitGetsProducts;
+		END_IF
+
+	StateZUnitGetsProducts:
+		IF State.Changed THEN
+			zUnit.CopyProductStatus(
+				takeoverPos	:= 1,
+				productNo	:= SEL(takeoverPosition = 1, 2, 1),
+				product		:= xuUnit.ProductData_Get(product := 1));
+		END_IF
+
+		xuUnit.ReleaseProducts(AllVacuums);
+
+		// Z Unit gets products; returns true when all vacuums are high
+		IF zUnit.GetProducts(vacuumIndex := SEL(takeoverPosition = 1, 2#0100, 2#0010)) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		IF xuUnit.ReleaseProducts(AllVacuums) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF xuUnit.MoveToParking() THEN
+			ActState := StateFreeZUnit;
+		END_IF
+
+	StateFreeZUnit:
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		IF zUnit.TransferComplete(takeoverPosition) THEN
+
+			// If all products are transferred to the gripper, reset the counter to 1.
+			IF NOT zUnit.ReadyForTransfer THEN
+				AlternateCycleCounter := 1;
+			ELSE
+				AlternateCycleCounter := AlternateCycleCounter + 1;
+			END_IF
+
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence3
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateZUnitMovesInPosition:
+		// Check if the z unit does not have any products on the gripper.
+		IF NOT zUnit.ReadyForTransfer THEN
+			RETURN;
+		END_IF
+
+		// Check if all products are present on the Xu Unit gripper.
+		// Or the cycle has just started, the first cycle it is allowed to transfer an incomplete gripper.
+		IF xuUnit.HasPayload = enumPayload._All
+		OR (xuUnit.HasPayload = enumPayload._Any AND takeoverPosition = 2)
+		OR SER.OperationMode = SER_OperationModeType.SemiAuto
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			IF (result[1] OR_ELSE (result[1] := zUnit.MoveToTakeover(takeoverPosition)))
+			THEN
+				ActState := StateXuUnitMovesToTakeover;
+			END_IF
+		END_IF
+
+	StateXuUnitMovesToTakeover:
+		IF  (result[1] OR_ELSE (result[1] := xuUnit.MoveToTakeover(1)))
+		THEN
+			ActState := StateZUnitGetsProducts;
+		END_IF
+
+	StateZUnitGetsProducts:
+		IF State.Changed THEN
+			zUnit.CopyProductStatus(
+				takeoverPos	:= takeoverPosition,
+				productNo	:= 1,
+				product		:= xuUnit.ProductData_Get(product := SEL(takeoverPosition = 1, 3, 1), clearData := TRUE));
+			zUnit.CopyProductStatus(
+				takeoverPos	:= takeoverPosition,
+				productNo	:= 2,
+				product		:= xuUnit.ProductData_Get(product := SEL(takeoverPosition = 1, 4, 2), clearData := TRUE));
+		END_IF
+
+		xuUnit.ReleaseProducts(SEL(takeoverPosition = 1, 2#0100, 2#0010));
+
+		// Z Unit gets products; returns true when all vacuums are high
+		IF zUnit.GetProducts(vacuumIndex := SEL(takeoverPosition = 1, 2#0100, 2#0010)) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		IF xuUnit.ReleaseProducts(SEL(takeoverPosition = 1, 2#0100, 2#0010)) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF takeoverPosition = 1 THEN
+			xuUnit.MoveToHalfway();
+			ActState := StateFreeZUnit;
+		ELSIF xuUnit.MoveToParking() THEN
+			ActState := StateFreeZUnit;
+		END_IF
+
+	StateFreeZUnit:
+		IF zUnit.TransferComplete(takeoverPosition) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence4
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateZUnitMovesInPosition:
+		// Check if the z unit does not have any products on the gripper.
+		IF NOT zUnit.ReadyForTransfer THEN
+			RETURN;
+		END_IF
+
+		// Check if all products are present on the Xu Unit gripper.
+		// Or the cycle has just started, the first cycle it is allowed to transfer an incomplete gripper.
+		IF xuUnit.HasPayload = enumPayload._All
+		OR SER.OperationMode = SER_OperationModeType.SemiAuto
+		OR SER.ActState = PACK_ML.State.Starting
+		THEN
+			IF (result[1] OR_ELSE (result[1] := zUnit.MoveToTakeover(1)))
+			THEN
+				ActState := StateXuUnitMovesToTakeover;
+			END_IF
+		END_IF
+
+	StateXuUnitMovesToTakeover:
+		IF  (result[1] OR_ELSE (result[1] := xuUnit.MoveToTakeover(1)))
+		THEN
+			ActState := StateZUnitGetsProducts;
+		END_IF
+
+	StateZUnitGetsProducts:
+		IF State.Changed THEN
+			zUnit.CopyProductStatus(
+				takeoverPos	:= 1,
+				productNo	:= 1,
+				product		:= xuUnit.ProductData_Get(product := 1));
+			zUnit.CopyProductStatus(
+				takeoverPos	:= 1,
+				productNo	:= 2,
+				product		:= xuUnit.ProductData_Get(product := 2));
+		END_IF
+
+		xuUnit.ReleaseProducts(AllVacuums);
+
+		// Z Unit gets products; returns true when all vacuums are high
+		IF zUnit.GetProducts(vacuumIndex := 2#0110) THEN
+			ActState := StateXuUnitReleasesProducts;
+		END_IF
+
+	StateXuUnitReleasesProducts:
+		// Xu Unit releases all vacuums; returns true after a timeout.
+		IF xuUnit.ReleaseProducts(AllVacuums) THEN
+			ActState := StateXuUnitMovesToParking;
+		END_IF
+
+	StateXuUnitMovesToParking:
+		IF xuUnit.MoveToParking() THEN
+			ActState := StateFreeZUnit;
+		END_IF
+
+	StateFreeZUnit:
+		// The last step of the product transfer must always be: TransferComplete()
+		// This lets the Z Unit know that the transfer is done.
+		// The Z Unit decides if it moves to the next Takeover position, or stack the products.
+		IF zUnit.TransferComplete(0) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

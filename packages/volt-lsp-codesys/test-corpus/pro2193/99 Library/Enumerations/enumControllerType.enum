@@ -1,0 +1,10 @@
+// Specify the type of Lenze controller
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumControllerType :
+(
+	Unknown				:= 0,
+	Legacy32xxSeries	:= 1,
+	C5xxSeries			:= 2
+) SINT;
+END_TYPE

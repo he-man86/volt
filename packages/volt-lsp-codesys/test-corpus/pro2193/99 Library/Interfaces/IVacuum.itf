@@ -1,0 +1,20 @@
+INTERFACE IVacuum
+EXTENDS IActuator
+
+// Release (resets) the vacuum output. Returns true after a timer.
+METHOD Release : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Vacuum input is high (after optional timer)
+{attribute 'monitoring':='call'}
+PROPERTY IsHigh : BOOL
+END_PROPERTY
+
+// Get state of the output (Normally you could call Map(), but with vacuums the Map() method may return false if machine runs without vacuums.
+{attribute 'monitoring':='call'}
+PROPERTY IsTurnedOn : BOOL
+END_PROPERTY
+
+END_INTERFACE

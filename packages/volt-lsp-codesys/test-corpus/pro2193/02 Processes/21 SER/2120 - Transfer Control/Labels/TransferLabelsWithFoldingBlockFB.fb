@@ -1,0 +1,221 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TransferLabelsWithFoldingBlockFB
+EXTENDS Transfer_BaseFB
+IMPLEMENTS IModuleTransferExecute
+VAR_INPUT
+	magazine				: IMagazine_Transfer_Commands;
+	xiUnit					: IXiUnit_WithFoldingBlock_Transfer_Commands;
+END_VAR
+VAR
+	ActState :
+	(
+		StateNone									:= 0,
+		StateGetNewLabelsInSemiAutoMode				:= 100,
+		StateMagazineMovesIntoPosition				:= 200,
+		StateMagazineMovesToTakeover				:= 210,
+		StateXiUnitMovesToAgainstFoldingBlock		:= 250,
+		StateMagazineReleaseSideLabels				:= 260,
+		StateXiUnitMovesToTakeover					:= 300,
+		StateMagazineDelayBeforeLabelRelease		:= 500,
+		StateXiUnitGettingLabels					:= 600,
+		StateXiUnitMovesBackToAgainstFoldingBlock	:= 700,
+		StateXiUnitMovesToParking					:= 900,
+		StateFinal									:= 999
+	) DINT;
+
+END_VAR
+VAR CONSTANT
+	// Wait for labels to be ready for the first cycle of the robot, or allow the first shot without IML.
+	// Note: The IMM also has a option usiFirstShotsWithoutIML. This is used to allow the inlay core inside the mould with a label.
+	// Not yet in use
+//	OptionFirstCycleWithoutLabelsAllowed			: BOOL	:= TRUE;
+END_VAR
+
+SUPER^();
+
+// Enable manual control of magazine when Xi Unit is in safe position.
+magazine.ExternalManualControlEnabled := xiUnit.InSafePos;
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF xiUnit.HasPayload = enumPayload._All THEN
+	CheckIfTransferIsNeeded					:= FALSE;	// No need for transfer, there are still labels on the inlay-core
+	RETURN;
+END_IF
+
+CASE magazine.ActState OF
+	enumMagazineState.Busy_GetNew:						// Magazine is busy getting new labels
+		IF PersistentVars.BrinkRecipeVars.cycleContinuesWithoutLabelsAfterTimeout.value = 0 THEN
+			CheckIfTransferIsNeeded			:= FALSE;	// Magazine is busy or stuck getting labels, continue cycle without IML
+		ELSE
+			CheckIfTransferIsNeeded			:= TRUE;	// Wait for magazine to be done, then transfer the labels.
+		END_IF
+
+	enumMagazineState.ReadyWithLabels:					// Magazine is ready with labels, transfer may be needed.
+		CheckIfTransferIsNeeded				:= TRUE;
+
+	enumMagazineState.ReadyWithoutLabels:				// Magazine is ready without labels, so IML must be disabled.
+		IF SER.OperationMode <> SER_OperationModeType.SemiAuto THEN
+			CheckIfTransferIsNeeded			:= FALSE;	// No need for transfer, SER is not in semi-auto mode, so IML must be disabled
+		ELSIF NOT PersistentVars.RecipeVars.EnableIML THEN
+			CheckIfTransferIsNeeded			:= FALSE;	// No need for transfer, IML is disabled
+		ELSE
+			CheckIfTransferIsNeeded			:= TRUE;	// Start transfer when in Semi-auto mode. Magazine will get new labels on start of transfer.
+		END_IF
+
+	ELSE
+		LogPlc.Error(CONCAT('Unexpected state for magazine: ', TO_STRING(magazine.ActState)));
+		CheckIfTransferIsNeeded				:= FALSE;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// Start transfer of products or labels between 2 units
+METHOD PUBLIC ExecuteTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	;
+END_IF
+
+takeoverPosition := iParameter;	// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateGetNewLabelsInSemiAutoMode;
+END_IF
+
+IF ActState = StateFinal THEN
+	ExecuteTransfer := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	Timer				: BTON;
+	result				: ARRAY[1..2] OF BOOL;
+END_VAR
+
+// Magazine type: ***
+// Magazine hardware version: 1.1
+CASE ActState OF
+	StateNone:
+		;
+
+	StateGetNewLabelsInSemiAutoMode:
+		// Get new labels now when SER is running in semi-auto mode
+		IF  (magazine.ActState = enumMagazineState.ReadyWithoutLabels OR magazine.ActState = enumMagazineState.None)
+		AND SER.OperationMode = SER_OperationModeType.SemiAuto
+		AND NOT GlobalVars.immediatelyGetNewLabels
+		AND xiUnit.HasPayload <> enumPayload._All
+		AND PersistentVars.RecipeVars.EnableIML
+		THEN
+			magazine.NewLabelsNeededDuringSemiAutoOperation();
+		END_IF
+		Timer.Reset();
+		ActState := StateMagazineMovesIntoPosition;
+
+	StateMagazineMovesIntoPosition:
+		IF magazine.ActState = enumMagazineState.ReadyWithLabels THEN
+			ActState := StateMagazineMovesToTakeover;
+		ELSIF Timer.Set(TRUE, PersistentVars.BrinkRecipeVars.cycleContinuesWithoutLabelsAfterTimeout.value) THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateMagazineMovesToTakeover:
+		IF magazine.MoveToTakeOverPos(1) THEN
+			ActState := StateXiUnitMovesToAgainstFoldingBlock;
+		END_IF
+
+	StateXiUnitMovesToAgainstFoldingBlock:
+		IF xiUnit.MoveToAgainstFoldingBlock(0) THEN
+			ActState := StateMagazineReleaseSideLabels;
+		END_IF
+
+	StateMagazineReleaseSideLabels:
+		IF magazine.ReleaseAdditionalVacuums(vacuumIndex := AllVacuums) AND SER.SemiAutoNextStep THEN
+			ActState := StateXiUnitMovesToTakeover;
+		END_IF
+
+	StateXiUnitMovesToTakeover:
+		IF xiUnit.MoveToTakeover(1) THEN
+			ActState := StateMagazineDelayBeforeLabelRelease;
+		END_IF
+
+	StateMagazineDelayBeforeLabelRelease:
+		xiUnit.GetLabels(0);
+
+		IF magazine.DelayBeforeReleaseLabels() THEN
+			ActState := StateXiUnitGettingLabels;
+		END_IF
+
+	StateXiUnitGettingLabels:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+
+		IF  (result[1] OR_ELSE (result[1] := magazine.ReleaseLabels(vacuumIndex := AllVacuums)))
+		AND (result[2] OR_ELSE (result[2] := xiUnit.GetLabels(0)))
+		THEN
+			ActState := StateXiUnitMovesBackToAgainstFoldingBlock;
+		END_IF
+
+	StateXiUnitMovesBackToAgainstFoldingBlock:
+		IF xiUnit.MoveToAgainstFoldingBlock(1) THEN
+			ActState := StateXiUnitMovesToParking;
+		END_IF
+
+
+	StateXiUnitMovesToParking:
+		IF State.Changed THEN
+			Arrays.Bool_Reset(result);
+		END_IF
+		// The last step for the magazine must always be: TransferComplete()
+		// This lets the magazine know that the transfer is done, and it can get new labels.
+
+		IF  (result[1] OR_ELSE (result[1] := xiUnit.MoveToParking()))
+		AND (result[2] OR_ELSE (result[2] := magazine.TransferComplete(AlternateCycleCounter)))
+		THEN
+			ActState := StateFinal;
+		END_IF
+
+	StateFinal:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Transfer has started and is doing something
+{attribute 'monitoring':='call'}
+PROPERTY TransferBusy : BOOL
+GET
+TransferBusy	:= ActState <> StateNone;
+END_GET
+END_PROPERTY

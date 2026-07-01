@@ -1,0 +1,1587 @@
+// Custom Brink wrapper around L_MC1P_AxisBasicControl. Enables drive commands via method calls.
+{attribute 'symbol' := 'none'}
+{attribute 'reflection'}
+{attribute 'monitoring_display' := 'actPos'}
+FUNCTION_BLOCK ServoDriveFB
+EXTENDS ModuleRegisterableFB
+IMPLEMENTS IServoDrive, IPositionable, IConstantVelocity, IHomeable, IObserverExclusive
+VAR_INPUT
+	globalSpeedOverride			: USINT;		// Limit speed of all drives in the SER robot (0 to 100%)
+	globalSpeedOverrideEnable	: BOOL := TRUE;	// Enable the use of the global speed limit
+	rSetManualSpeed				: REAL;
+	xGlobalReset				: BOOL;
+	xEnableDrive				: BOOL;
+	xQuickStop					: BOOL;
+	{attribute 'symbol' := 'read'}	manualControlEnabled		: BOOL;		// Enable manual control when it is safe to move the motor
+	servoJogMode				: BOOL;		// False: Move to position; True: Servo jogging to sw limit.
+
+	{attribute 'symbol' := 'read'}	config						: ServoDriveConfigType;
+END_VAR
+VAR_IN_OUT
+	AxisRef						: L_MC1P.AXIS_REF;
+	DataBrink					: DataBrinkType;
+	coveredDistance				: UDINT;
+END_VAR
+VAR_OUTPUT
+	{attribute 'symbol' := 'read'}	actPos						: REAL;		// Read the actual position of the drive in mm.
+	actTorque					: REAL;		// Current torque (at the gearbox output end) in [Nm]
+	manualControlIsBlocked		: BOOL;
+END_VAR
+VAR
+	AxisBasicControl			: L_MC1P.L_MC1P_AxisBasicControlV2;
+	TF_EnableDrive				: BTOF;
+	TP_QuickStopActive			: TP;
+	ResetManualControlIsBlocked	: BTON;
+
+	// Homing servodrive variables
+	HomeCommandLock				: LockFB;
+	homingParameters			: L_MC1P.L_MC1P_HomeParameter;
+	writeHomingParameters		: BOOL;
+	writeParametersBusy			: BOOL;
+
+	// Drive info
+	rRatedVelocity				: REAL;	// Rated speed of the drive converted into application units [unit/s]
+	rRatedTorque				: REAL;	// Rated torque of the drive on the gearbox side in [Nm]
+	rActVelUtilisation			: REAL;	// Show velocity in percentage of maximum rated velocity
+	rActTorqueUtilisation		: REAL;	// Show torque in percentage of maximum rated torque
+
+	{attribute 'symbol' := 'read'}	powerSectionUtilisation		: REAL;
+	{attribute 'symbol' := 'read'}	motorUtilisation			: REAL;
+	rBrakeResistorUtilisation	: REAL;
+
+	refManualMovePos			: REFERENCE TO PositionWithLimitsType;	// Drive moves towards this position during manual control
+	oldPosAbs					: REAL := GVL_Constants.RealSmallest;	// Previous setpos for abs movement. Used to generate trigger
+
+	serviceModeStop				: BOOL;			// Interrupt any active movements
+	serviceModeHome				: BOOL;
+	serviceModeSetPosDirect		: BOOL;
+	serviceModeAutoPos			: ARRAY[1..ServiceMode.maxNumberOfServicePos] OF ServiceModePosType := [(xEnable := TRUE), (xEnable := TRUE)];
+	serviceModeAutoEnable		: BOOL;			// When high, start moving to first position
+	serviceModeManualEnable		: BOOL;			// When high, attach buttons to drive
+	serviceModeManualF1			: PushButtonFunctionKeyFromCodesysVisuFB;
+	serviceModeManualF2			: PushButtonFunctionKeyFromCodesysVisuFB;
+	serviceModeManualPosition	: PositionWithLimitsType;
+
+	itfAddLog					: EdgePcLogging.IAddLog;	// Optional: Interface to AddLog method for monitoring system.
+	MonitorPowerSectionUtil		: MonitorAnyReal;
+	MonitorMotorUtil			: MonitorAnyReal;
+	MonitorCoveredDistance		: MonitorAnyReal;
+	plcDataTypeErrorId			: PlcDataType;				// Datatypes where to output the measurement to the monitoring system too.
+	plcDataTypeAxisErrorId		: PlcDataType;
+	plcDataTypeDriveErrorId		: PlcDataType;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE Alarms
+VAR_INST
+	Alarm_xError			: SetErrorFB;
+	Alarm_xAxisWarning		: SetErrorFB;
+	Alarm_xAxisError		: SetErrorFB;
+	Alarm_xDriveWarning		: SetErrorFB;
+	Alarm_xDriveError		: SetErrorFB;
+	Alarm_InternalControl	: SetErrorFB;
+END_VAR
+%FOLDER Methods
+Alarm_xError(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= 16#2C00,
+	errorId			:= AxisBasicControl.eErrorID,
+	alarmCondition	:= AxisBasicControl.xError AND AxisBasicControl.eErrorID <> AxisBasicControl.eAxisErrorID,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+Alarm_xAxisWarning(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= 16#2C00,
+	errorId			:= AxisBasicControl.eAxisErrorID,
+//	alarmCondition	:= AxisBasicControl.xAxisWarning,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+Alarm_xAxisError(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= 16#2C00,
+	errorId			:= AxisBasicControl.eAxisErrorID,
+	alarmCondition	:= AxisBasicControl.xAxisError,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+Alarm_xDriveWarning(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Servo_i950_Errors,
+	errorId			:= TO_WORD(AxisBasicControl.dwDriveErrorID),
+//	alarmCondition	:= AxisBasicControl.xDriveWarning,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+Alarm_xDriveError(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Servo_i950_Errors,
+	errorId			:= TO_WORD(AxisBasicControl.dwDriveErrorID),
+	alarmCondition	:= AxisBasicControl.xDriveError AND AxisBasicControl.dwDriveErrorID > 16#6000,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+// todo: eigen meldingen weggooien
+
+Alarm_InternalControl(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= ServoDrive_Errors,
+	errorId			:= 7,
+	alarmCondition	:= AxisBasicControl.xInternalControlActive,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PRIVATE CallABC
+VAR_INST
+	resetRelExecuteCount		: USINT;
+	SetPosHistory				: ARRAY[1..10] OF LREAL;
+
+END_VAR
+VAR
+	i							: USINT;
+END_VAR
+%FOLDER Methods
+AxisBasicControl(
+	Axis					:= AxisRef,								// AXIS_REF
+	xEnableInternalControl	:= TRUE,								// The internal control of the axis can be selected via the "Internal Control" button (button is visible in the visualisation)
+
+	// Enable drive stays on for 200MS after quickstop. To decelerate the axis. After 300MS the STO is removed by the safety controller.
+	// Remember that for drives with a motorbrake this 200MS + the brake closing time (50MS) must be less than 300MS.
+	xEnableOperation		:= TF_EnableDrive.Set(In := xEnableDrive AND NOT xQuickStop, Pt := 0.2),		// Controller enable of the axis (via FB MC_Power)
+	xResetError				:= xGlobalReset,						// Reset axis error or software error
+	xEnablePositive			:= TRUE,								// Enable traversing to positive direction
+	xEnableNegative			:= TRUE,								// Enable traversing to negative direction
+	xDisableSWLimit			:= ,									// Deactivate software limit positions
+
+	lrOverride				:= SEL(globalSpeedOverrideEnable, 1.0, TO_REAL(globalSpeedOverride) * 0.0095 + 0.05),	// Factor for global override of velocity (Value range: 0.1 ... 1.0)	min. value=5%
+	lrOverrideAcc			:= SEL(globalSpeedOverrideEnable, 1.0, TO_REAL(globalSpeedOverride) * 0.0075 + 0.25),	// Factor for global override of acceleration							min. value=25%
+	lrOverrideJerk			:= SEL(globalSpeedOverrideEnable, 1.0, TO_REAL(globalSpeedOverride) * 0.0050 + 0.50),	// Factor for global override of the jerk								min. value=50%
+
+	xQspApplication			:= ,									// Abort active motion and lead axis to standstill
+	xHalt					:= ,									// Abort active motion and lead axis to standstill
+	xAbort					:= ,									// Abort active motion and lead axis to standstill
+	xJogPos					:= ,									// The axis can be traversed in positive direction with the profile parameters set in subindex 181... 184 (inching mode).
+	xJogNeg					:= ,									// The axis can be traversed in negative direction with the profile parameters set in subindex 181... 184 (inching mode).
+	xContinuousUpdate		:= ,									// Inputs lrPos_Dist, lrVel, lrAcc, lrDec and lrJerk are checked cyclically with regard to changes and are accepted
+	xFinishPositioning		:= ,									// Activate relative positioning - This status enables the continuation of an aborted positioning process (MoveAbsolut or MoveRelative) to the target position preselected
+	xMoveVelExecute			:= ,									// Start continuous travel with the speed defined.
+	xMoveAbsExecute			:= ,									// Activate absolute positioning (MoveAbsolute)
+	xMoveRelExecute			:= ,									// Activate relative positioning
+
+	lrPos_Dist				:= ,									// Absolute target position in [unit]
+	lrVel					:= ,									// Velocity in [unit/s]
+	lrAcc					:= ,									// Acceleration in [unit/s²]
+	lrDec					:= ,									// Deceleration in [unit/s²]
+	lrJerk					:= DataBrink.lrJerk * config.unitConvertFactor,	// Jerk in [unit/s³]
+	eDirection				:= config.eDirection,					// MC_DIRECTION - The selection of the traversing direction is only reasonable in the "Modulo" traversing range
+	xHomeExecute			:= ,									// Start homing
+	scHomeExtTP				:= ,									// MC_TRIGGER_REF - Transfer of an external touch probe event
+	xHomeAbsSwitch			:= NOT HomingSensor,					// Reference switch connection -  For the homing modes with a reference switch, this control input is to be connected to the digital input to which the reference switch is connected.
+	xResetHomePosition		:= ,
+
+	xInternalControlActive	=> ,			// The control is activated via the visualisation.
+	xError					=> ,			// During the processing of the FB, an error has occurred. For details see eErrorID
+	eErrorID				=> ,			// L_IE1P_Error - Error number for the error that has occurred within the FB
+	xFunBusy				=> ,			// Processing of the activated function running
+	xFunDone				=> ,			// Execution of the activated function completed successfully
+	xFunCommandAborted		=> ,			// The activated function has been aborted by another FB
+	eFunStateAct			=> ,			// L_MC1P_ABC_State - Current state of the FB
+	eControlMode			=> ,			// L_MC1P_ControlModeSet - Current control mode of the axis
+	xIsHomed				=> ,			// The axis has been referenced ("Reference known")
+	xHwLimitSwitchNeg		=> ,			// Negative travel range limit switch is active
+	xHwLimitSwitchPos		=> ,			// Positive travel range limit switch is active
+	xSwLimitEnabled			=> ,			// Monitoring of the software limit positions is activated
+	xSwLimitSwitchNeg		=> ,			// Negative software limit position exceeded
+	xSwLimitSwitchPos		=> ,			// Positive software limit position exceeded
+	eAxisType				=> ,			// L_MC1P_DriveType - Connected type of axis
+	eAxisState				=> ,			// L_MC1P_AXIS_STATE - Current PLCopen state of the axis
+	xSTOActive				=> ,			// The inverter connected reports "safe Torque OFF"
+	xReadyForOperation		=> ,			// Axis can be enabled (no inverter error, no STO active, DC bus available)
+	xOperationEnabled		=> ,			// The axis is enabled
+	xReadyForMotion			=> ,			// A motion task can be started, i.e. the axis is enabled and fault-free
+	xAxisWarning			=> ,			// There is a warning in the axis data or in a connected function block
+	xAxisError				=> ,			// TRUE in case of error in the axis data or error of a connected FB or error messages of the FB at the eErrorID output.
+	eAxisErrorID			=> ,			// L_IE1P_Error - If xAxisError = TRUE or xAxisWarning = TRUE: Error number for the occurring error in the axis data or other connected FBs.
+	xDriveWarning			=> ,			// There is a warning in the inverter
+	xDriveError				=> ,			// There is an error in the inverter
+	dwDriveErrorID			=> ,			// If xDriveError = TRUE or xDriveWarning = TRUE: Error number for the occurring error in the inverter
+	lrActPos				=> ,			// Current position in [unit]
+	lrActVel				=> ,			// Current velocity in [unit/s]
+	lrSetPosOut				=> ,			// Setpoint position in [unit]
+	lrSetVelOut				=> ,			// Setpoint velocity in [unit/s]
+	lrActFollowingError		=> ,			// Current following error in [unit]
+	xInPosition				=> ,			// Target position reached
+	xStandstillSetVelocity	=> ,			// Setpoint speed = 0
+	xStandstillActVelocity	=> ,			// Actual speed within the window parameterised in subindex 132
+	xConstantVelocity		=> ,			// The speed specified lrVel has been reached for the first time
+	xAccelerating			=> ,			// Axis is accelerated. (Increase in the speed value)
+	xDecelerating			=> ,			// Axis is decelerated/braked (Decrease in the speed value)
+	xDirectionPositive		=> ,			// Axis traverses in positive direction
+	xDirectionNegative		=> ,			// Axis traverses in negative direction
+	xAxisAvailable			=> );			// The axis can be used in the application, i.e. the initialisation has been completed correctly: Valid actual values and the communication with the lower-level drive are available.
+
+AxisBasicControl.xQspApplication		:= FALSE;
+AxisBasicControl.xHalt					:= FALSE;
+AxisBasicControl.xAbort					:= FALSE;
+AxisBasicControl.xJogPos				:= FALSE;
+AxisBasicControl.xJogNeg				:= FALSE;
+AxisBasicControl.xFinishPositioning		:= FALSE;
+AxisBasicControl.xContinuousUpdate		:= FALSE;
+AxisBasicControl.xMoveVelExecute		:= FALSE;
+AxisBasicControl.xMoveAbsExecute		:= FALSE;
+AxisBasicControl.xHomeExecute			:= FALSE;
+AxisBasicControl.xResetHomePosition		:= FALSE;
+
+
+IF  AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.MoveRel
+AND AxisBasicControl.xFunDone
+THEN
+	resetRelExecuteCount := resetRelExecuteCount + 1;
+END_IF
+IF resetRelExecuteCount > 2 OR AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Standby THEN	// Delay resetting the execute bit by 1 PLC cycle
+	AxisBasicControl.xMoveRelExecute	:= FALSE;
+	resetRelExecuteCount := 0;
+END_IF
+
+// Keep a history of setpositions for debugging
+IF AxisBasicControl.lrPos_Dist <> SetPosHistory[1] THEN
+	FOR i := 10 TO 2 BY -1 DO
+		SetPosHistory[i]	:= SetPosHistory[i-1];
+	END_FOR
+	SetPosHistory[1]		:= AxisBasicControl.lrPos_Dist;
+END_IF
+END_METHOD
+
+METHOD PRIVATE CallAdditionalFBs
+VAR_INST
+	SetBasicParameter			: L_MC1P.L_MC1P_SetBasicParameter;
+	SetTorqueLimits				: L_MC1P.L_MC1P_SetTorqueLimit;
+	WriteSWLimits				: L_MC1P.L_MC1P_WriteSWLimit;
+	MeasureDistance				: TravelDistanceFB;
+END_VAR
+%FOLDER Methods
+// Force re-homing the servo drive after changing the reference position.
+AxisBasicControl.xResetHomePosition S= SetBasicParameter.lrHomePosition <> DataBrink.rRefPos;
+
+// This FB is used for changing basic parameters of the Axis_Ref from the application, which the L_MC1P_AxisBasicControlV2 accesses.
+SetBasicParameter(
+	Axis					:= AxisRef,
+
+	// Start execution of the function block on rising edge
+	xEnable					:= SetBasicParameter.lrJogVel		<> 10
+							OR SetBasicParameter.lrJogAcc		<> 100
+							OR SetBasicParameter.lrJogDec		<> 200
+							OR SetBasicParameter.lrHaltDec		<> DataBrink.rDec	* config.unitConvertFactor
+							OR SetBasicParameter.lrHaltJerk		<> DataBrink.lrJerk	* config.unitConvertFactor
+							OR SetBasicParameter.lrQSPApplDec	<> DataBrink.rDec	* config.unitConvertFactor
+							OR SetBasicParameter.lrQSPApplJerk	<> DataBrink.lrJerk	* config.unitConvertFactor
+							OR SetBasicParameter.lrHomePosition	<> DataBrink.rRefPos
+							OR writeHomingParameters,
+
+	// The Jogging parameters are accepted to the Axis_Ref parameters in subindexes 181 ... 184
+	xSetJogParameter		:= SetBasicParameter.lrJogVel		 <> 10
+							OR SetBasicParameter.lrJogAcc		 <> 100
+							OR SetBasicParameter.lrJogDec		 <> 200,
+	lrJogVel				:= 10,													// Manual jog speed in [unit/s]
+	lrJogAcc				:= 100,													// Manual jog acceleration in [unit/s²]
+	lrJogDec				:= 200,													// Manual jog deceleration in [unit/s²]
+	lrJogJerk				:= DataBrink.lrJerk * config.unitConvertFactor,				// Halt jerk [unit/s³]
+
+	// The Halt parameters are accepted to the Axis_Ref parameters in subindexes 186 and 187.
+	xSetHaltParameter		:= SetBasicParameter.lrHaltDec		<> DataBrink.rDec * config.unitConvertFactor
+							OR SetBasicParameter.lrHaltJerk		<> DataBrink.lrJerk * config.unitConvertFactor,
+	lrHaltDec				:= DataBrink.rDec * config.unitConvertFactor,				// Halt deceleration [unit/s²]
+	lrHaltJerk				:= DataBrink.lrJerk * config.unitConvertFactor,				// Halt jerk [unit/s³]
+
+	// The quick stop application parameters are accepted to the Axis_Ref parameters in subindexes 48 and 49
+	xSetQSPApplParameter	:= SetBasicParameter.lrQSPApplDec	<> DataBrink.rDec * config.unitConvertFactor
+							OR SetBasicParameter.lrQSPApplJerk	<> DataBrink.lrJerk * config.unitConvertFactor,
+	lrQSPApplDec			:= DataBrink.rDec * config.unitConvertFactor,				// Quick stop application deceleration [unit/s²]
+	lrQSPApplJerk			:= DataBrink.lrJerk * config.unitConvertFactor,				// Quick stop application jerk [unit/s³]
+
+	// The home position is accepted to the Axis_Ref parameters in subindex 84.
+	xSetHomePosition		:= SetBasicParameter.lrHomePosition	<> DataBrink.rRefPos OR writeHomingParameters,
+	lrHomePosition			:= DataBrink.rRefPos,									// Home position [unit]
+
+	xSetHomeParameter		:= writeHomingParameters,		// The homing parameters are accepted to the Axis_Ref parameters in subindexes 70 ... 80.
+	scHomeParameter			:= homingParameters,			// Parameters for the homing process
+	xBusy					=> writeParametersBusy,
+	xError					=> ,
+	eErrorID				=> );
+
+// Set torque limits vanuit programma. Waarden in Signal Flow worden genegeerd.
+SetTorqueLimits(
+	Axis						:= AxisRef,
+	xEnable						:= AxisBasicControl.eAxisType = L_MC1P.L_MC1P_DriveType.i700
+								OR AxisBasicControl.eAxisType = L_MC1P.L_MC1P_DriveType.i750
+								OR AxisBasicControl.eAxisType = L_MC1P.L_MC1P_DriveType.i900,	// xEnable must stay high, Enable high every 10 seconds does not work.
+	xSetTorqueLimitPos			:= TRUE,					// Set the positive torque limit
+	lrTorqueLimitPos			:= rRatedTorque * 3,		// Value: Nominaal koppel * 3  = 300 %
+	xSetTorqueLimitNeg			:= TRUE,					// Set the negative torque limit
+	lrTorqueLimitNeg			:= rRatedTorque * 3,		// Value: Nominaal koppel * 3  = 300 %
+	xTorqueInputAsPercent		:= ,						// Values given as percent, 1.0 = 100 %
+	xBusy						=> ,						// Limits set
+	xError						=> ,
+	eErrorID					=> );
+
+// Write new SW limits to Axis_ref upon change.
+WriteSWLimits(
+	Axis						:= AxisRef,
+	xExecute					:= DataBrink.rSWLimitPos <> WriteSWLimits.lrSWLimitPos OR DataBrink.rSWLimitNeg <> WriteSWLimits.lrSWLimitNeg,
+	xSetSWLimitPos				:= DataBrink.rSWLimitPos <> WriteSWLimits.lrSWLimitPos,
+	lrSWLimitPos				:= DataBrink.rSWLimitPos,
+	xSetSWLimitNeg				:= DataBrink.rSWLimitNeg <> WriteSWLimits.lrSWLimitNeg,
+	lrSWLimitNeg				:= DataBrink.rSWLimitNeg,
+	xDone						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+MeasureDistance(
+	enable						:= AxisBasicControl.xIsHomed,
+	actPos						:= actPos,
+	totalDistance				:= coveredDistance);
+END_METHOD
+
+// Check if all references are valid.
+METHOD PRIVATE CheckValidRefs : BOOL;
+%FOLDER Methods
+IF NOT __ISVALIDREF(AxisRef) THEN
+	ThrowException('The ServoDriveFB is not connected to an axis!');
+END_IF
+
+IF NOT __ISVALIDREF(DataBrink) THEN
+	ThrowException('The ServoDriveFB is not connected to data!');
+END_IF
+
+CheckValidRefs := TRUE;
+END_METHOD
+
+// Convert acc percentage to units/s
+METHOD PRIVATE ConvertAccPercentToUnits : LREAL
+VAR_INPUT
+	rValue	: REAL;		// Acc percentage
+END_VAR
+
+// DataBrink.rAcc usually has acceleration in m/s²
+// lrSetAcc needs acceleration in units/s² (usually mm/s²)
+// Thats why we do DataBrink.rAcc * config.unitConvertFactor (default is 1000)
+// For labelmagazines, this is 1 because no factor is needed.
+// Labelmagazine position is in ° , acceleration is in °/s²
+%FOLDER Methods
+ConvertAccPercentToUnits := TO_LREAL(DataBrink.rAcc * config.unitConvertFactor * (rValue / 100));
+END_METHOD
+
+// Convert dec percentage to units/s
+METHOD PRIVATE ConvertDecPercentToUnits : LREAL
+VAR_INPUT
+	rValue	: REAL;		// Dec percentage
+END_VAR
+
+// DataBrink.rDec usually has deceleration in m/s²
+// lrSetAcc needs deceleration in units/s² (usually mm/s²)
+// Thats why we do DataBrink.rDec * config.unitConvertFactor (default is 1000)
+// For labelmagazines, this is 1 because no factor is needed.
+// Labelmagazine position is in ° , deceleration is in °/s²
+%FOLDER Methods
+ConvertDecPercentToUnits := TO_LREAL(DataBrink.rDec * config.unitConvertFactor * (rValue / 100));
+END_METHOD
+
+// Convert velocity percentage to units/s
+METHOD PRIVATE ConvertVelPercentToUnits : LREAL
+VAR_INPUT
+	rValue	: REAL;		// Velocity percentage
+END_VAR
+
+// DataBrink.rVel usually has velocity in m/s
+// lrSetVel needs velocity in units/s (usually mm/s)
+// Thats why we do DataBrink.rVel * config.unitConvertFactor (default is 1000)
+// For labelmagazines, this is 1 because no factor is needed.
+// Labelmagazine position is in ° , velocity is in °/s
+%FOLDER Methods
+ConvertVelPercentToUnits := TO_LREAL(DataBrink.rVel * config.unitConvertFactor * (rValue / 100));
+END_METHOD
+
+METHOD PROTECTED Cyclic
+%FOLDER Methods
+// Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
+// After this time the power is cut from the drive and it cannnot slow down anymore.
+TP_QuickStopActive(	IN := xQuickStop, PT := T#100MS);
+IF TP_QuickStopActive.Q THEN
+	Quickstop(FALSE);
+END_IF
+
+
+CallABC();				// Call the L_MC1P_AxisBasicControl FB
+CallAdditionalFBs();	// Call more FB's that are needed
+Alarms();				// Handle output of alarm messages
+ReadWriteParameters();	// Read parameters of the drive
+ServiceMode();
+Monitoring();
+
+actPos					:= TO_REAL(AxisBasicControl.lrActPos);
+actTorque				:= TO_REAL(AxisRef.lrActTorque);
+
+rActVelUtilisation		:= SEL(rRatedVelocity > 0,	0, (ActVel		/ rRatedVelocity)	* 100); // in %
+rActTorqueUtilisation	:= SEL(rRatedTorque > 0,	0, (actTorque	/ rRatedTorque)		* 100); // in %
+
+// Reset ManualControlIsBlocked warnings after 5 seconds.
+manualControlIsBlocked	R= ResetManualControlIsBlocked.Set(In := manualControlIsBlocked, Pt := 5);
+END_METHOD
+
+// Profile parameters are accepted continuously. So during execution, the motion profile can be changed.
+// You need to call this method BEFORE starting the movement!
+// Keep calling this method during the execution, for as long as you need to change the motion profile.
+METHOD PUBLIC EnableContinuousUpdate
+VAR_INPUT
+	enable				: BOOL := TRUE;
+END_VAR
+%FOLDER Commands/Move
+AxisBasicControl.xContinuousUpdate	:= enable;
+END_METHOD
+
+// Stop all drive movements. Use to stop movement in velocity mode
+METHOD PUBLIC Halt : BOOL
+VAR_INST
+	notReadyForHalt			: UINT;
+END_VAR
+%FOLDER Commands/Stop
+IF NOT AxisEnabled
+OR NOT AxisBasicControl.xReadyForMotion
+THEN
+	Increment.AnyInt(notReadyForHalt);
+	IF notReadyForHalt = 1 THEN
+		LogPlc.Warn(CONCAT(InstanceName, ': Halt Command ignored, drive not ready'));
+	END_IF
+	RETURN;
+END_IF
+
+AxisBasicControl.xHalt				:= TRUE;	// Halt is executed with previously set deceleration.
+
+HomeCommandLock.ForceRelease();
+
+oldPosAbs							:= GVL_Constants.RealSmallest;	// Reset this variable, so the next MoveAbs command will always have a trigger
+
+Halt	:=  AxisBasicControl.xFunDone
+		AND AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Stop
+		AND StandStill;
+END_METHOD
+
+// Start reference run with default parameters.
+METHOD PUBLIC Home : BOOL
+VAR_INPUT
+	forceHoming			: BOOL := FALSE;	// Optional: Always home the drive, even if xIsHomed is already true.
+	useCustomParameters	: BOOL := FALSE;	// When true the FB does NOT write homing parameters to the servodrive. Go to: Drive->Settings->Homing to use custom homing parameters.
+END_VAR
+VAR_INST
+	localState			: SINT;
+	position			: REAL;
+END_VAR
+%FOLDER Commands/Homing
+IF NOT AxisEnabled
+OR NOT AxisBasicControl.xReadyForMotion
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Home Command ignored, drive not ready'));
+	RETURN;
+END_IF
+
+IF NOT HomeCommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF HomeCommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Skip writing homing parameters to the drive if they are configured with the UI
+		Increment.AnyInt(localState, SEL(useCustomParameters, 1, 2));
+
+	1:	// Starting reference run with default parameters
+		homingParameters.eHomeMode				:= L_MC1P.L_MC1P_HomeMode.CcwRpCwRn;				// Homing Mode 21
+		homingParameters.eHomeStopMode			:= L_MC1P.L_MC1P_HomeStopMode.StopPositioning;		// Stop positioning when homing is done.
+		homingParameters.eStopModeDirection		:= MC_DIRECTION.mcCurrentDirection;					// Direction specification for approaching an absolute target position in the modulo measurement system.
+		homingParameters.lrTargetPosition		:= 0;
+		homingParameters.lrVelocity1			:= ConvertVelPercentToUnits(3);						// 3% of max. speed
+		homingParameters.lrVelocity2			:= 10;
+		homingParameters.lrAcceleration1		:= ConvertAccPercentToUnits(50);					// 50% of max. acc
+		homingParameters.lrAcceleration2		:= 100;
+		homingParameters.lrJerk					:= DataBrink.lrJerk * config.unitConvertFactor;
+		homingParameters.rTorqueLimit			:= 0;												// Torque limit relating to the drive
+		homingParameters.rTorqueTime			:= 0;												// Torque blocking time
+		homingParameters.dwTPConfig				:= L_MC1P.L_MC1P_HomeTPMode.TP1_PosEdge;			// Not used; We use ref. sensor, and not TP
+		homingParameters.wDriveHomeMode			:= 0;												// Homing mode of the drive (only for 9400 HighLine CiA402). Only effective with eHomeMode = 100.
+		homingParameters.lrOffsetPosition		:= 0;												// When using the HomeMode (subindex 70 = "98: SetOffsetInAnyState") the actual position is shifted by this value.
+
+		writeHomingParameters					:= TRUE;
+		IF writeParametersBusy THEN
+			writeHomingParameters				:= FALSE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:	// Starting reference run with custom parameters
+		CheckValidRefs();
+		IF AxisBasicControl.xIsHomed AND NOT forceHoming THEN	// Drive is already homed
+			Home := HomeCommandLock.Release(__POUNAME());
+			RETURN;
+		END_IF
+
+		Increment.AnyInt(localState);
+
+	3:
+		AxisBasicControl.xHomeExecute			:= TRUE;
+		IF  AxisBasicControl.xFunDone
+		AND HomingSensor
+		AND PosReached(TO_REAL(AxisBasicControl.lrSetPosOut))
+		AND IsHomed
+		AND InPosition
+		AND Standstill
+		THEN
+			IF NOT config.homingDoExtraSensorCheck THEN
+				Home := HomeCommandLock.Release(__POUNAME());
+				RETURN;
+			END_IF
+			Increment.AnyInt(localState);
+		END_IF
+
+	4:	// Move in negative direction back onto the homing sensor
+		SetMovementProfileSeparate(4, 10, 10);
+		position := LIMIT(DataBrink.rSWLimitNeg, DataBrink.rRefPos - config.homingMoveNegativeDistance, DataBrink.rSWLimitPos);
+		IF MoveAbsPos(position) AND Standstill THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	5:	// Check state of sensor
+		IF NOT HomingSensor THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	6:	// Move in positive direction off the sensor again
+		position := LIMIT(DataBrink.rSWLimitNeg, DataBrink.rRefPos + config.homingMovePositiveDistance, DataBrink.rSWLimitPos);
+		IF MoveAbsPos(position) AND Standstill THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	7:	// Check state of sensor
+		IF HomingSensor THEN
+			Home := HomeCommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Initialize
+%FOLDER Methods
+SUPER^.Initialize();
+
+CheckValidRefs();
+
+// Set parent for the attached axis_ref structure
+IF AxisRef.ModuleHandler <> 0 THEN
+	AxisRef.ModuleHandler.SetParent(
+						ModuleHandlerParent	:= ModuleHandler,
+						RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
+END_IF
+END_METHOD
+
+METHOD PRIVATE ManualControlBasic
+VAR_INPUT
+	payload : ISubjectHWButtonsPayload;
+END_VAR
+%FOLDER Commands/ManualControl
+CASE payload.ButtonType OF
+	enumHWButtons.F1:
+		IF payload.ButtonState THEN
+			SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+			IF __ISVALIDREF(refManualMovePos) THEN
+				MoveAbsPos(refManualMovePos.value);
+			ELSE
+				MoveAbsPos(DataBrink.rSWLimitNeg);
+			END_IF
+		ELSE
+			Halt();
+		END_IF
+	enumHWButtons.F2:
+		IF payload.ButtonState THEN
+			SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+			IF __ISVALIDREF(refManualMovePos) THEN
+				MoveAbsPos(refManualMovePos.value);
+			ELSE
+				MoveAbsPos(DataBrink.rSWLimitPos);
+			END_IF
+		ELSE
+			Halt();
+		END_IF
+	ELSE
+		LogPlc.Warn(CONCAT(InstanceName, ': This type of button is not supported'));
+END_CASE
+END_METHOD
+
+METHOD PRIVATE ManualControlExtended
+VAR_INPUT
+	payload : ISubjectFunctionKeyPayload;
+END_VAR
+%FOLDER Commands/ManualControl
+CASE payload.ButtonType OF
+	enumHWButtons.F1:
+		IF __ISVALIDREF(refManualMovePos) AND NOT servoJogMode THEN
+			CASE payload.ExtState OF
+				enumFunctionKeyPayload.Tapped:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					IF ABS(actPos - refManualMovePos.value) < 1 THEN	// Nearly at position
+						MoveAbsPos(refManualMovePos.value);	// Move exactly to position
+					ELSIF actPos > refManualMovePos.value THEN
+						MoveRelPos(-1.0);	// Tip in negative direction towords target
+					ELSE
+						MoveRelPos(1.0);	// Tip in positive direction towords target
+					END_IF
+				enumFunctionKeyPayload.Held, enumFunctionKeyPayload.DoubleTapHeld:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					MoveAbsPos(refManualMovePos.value);
+				enumFunctionKeyPayload.Released:
+					Halt();
+			END_CASE
+		ELSE
+			CASE payload.ExtState OF
+				enumFunctionKeyPayload.Tapped:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					IF actPos - 1 > DataBrink.rSWLimitNeg THEN
+						MoveRelPos(-1.0);
+					ELSE
+						MoveAbsPos(DataBrink.rSWLimitNeg);
+					END_IF
+				enumFunctionKeyPayload.Held:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					MoveAbsPos(DataBrink.rSWLimitNeg);
+				enumFunctionKeyPayload.DoubleTapHeld:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+					MoveAbsPos(DataBrink.rSWLimitNeg);
+				enumFunctionKeyPayload.Released:
+					Halt();
+			END_CASE
+		END_IF
+
+	enumHWButtons.F2:
+		IF __ISVALIDREF(refManualMovePos) AND NOT servoJogMode THEN
+			CASE payload.ExtState OF
+				enumFunctionKeyPayload.Tapped:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+					IF ABS(actPos - refManualMovePos.value) < 1 THEN
+						MoveAbsPos(refManualMovePos.value);	// Move exactly to position
+					ELSIF actPos > refManualMovePos.value THEN
+						MoveRelPos(-1.0);
+					ELSE
+						MoveRelPos(1.0);
+					END_IF
+				enumFunctionKeyPayload.Held, enumFunctionKeyPayload.DoubleTapHeld:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+					MoveAbsPos(refManualMovePos.value);
+				enumFunctionKeyPayload.Released:
+					Halt();
+			END_CASE
+		ELSE
+			CASE payload.ExtState OF
+				enumFunctionKeyPayload.Tapped:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					IF actPos + 1 < DataBrink.rSWLimitPos THEN
+						MoveRelPos(1.0);
+					ELSE
+						MoveAbsPos(DataBrink.rSWLimitPos);
+					END_IF
+				enumFunctionKeyPayload.Held:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed / 5, rAcc := 50, rDec := 50);
+					MoveAbsPos(DataBrink.rSWLimitPos);
+				enumFunctionKeyPayload.DoubleTapHeld:
+					SetMovementProfileSeparate(rVel := rSetManualSpeed, rAcc := 50, rDec := 50);
+					MoveAbsPos(DataBrink.rSWLimitPos);
+				enumFunctionKeyPayload.Released:
+					Halt();
+			END_CASE
+		END_IF
+
+	ELSE
+		LogPlc.Warn(CONCAT(InstanceName, ': This type of button is not supported'));
+END_CASE
+END_METHOD
+
+METHOD PRIVATE Monitoring
+VAR_INST
+	eErrorID_old					: L_IE1P_Error;
+	eAxisErrorID_old				: L_IE1P_Error;
+	dwDriveErrorID_old				: DWORD;
+END_VAR
+%FOLDER Methods
+IF itfAddLog = 0 THEN
+	RETURN;
+END_IF
+
+MonitorPowerSectionUtil();
+MonitorMotorUtil();
+MonitorCoveredDistance();
+
+//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
+{warning disable C0327}
+IF AxisBasicControl.eErrorID <> eErrorID_old THEN
+	eErrorID_old			:= AxisBasicControl.eErrorID;
+	itfAddLog.AddLogLINT(
+		plcDataType	:= plcDataTypeErrorId,
+		value		:= AxisBasicControl.eErrorID);
+END_IF
+
+IF AxisBasicControl.eAxisErrorID <> eAxisErrorID_old THEN
+	eAxisErrorID_old		:= AxisBasicControl.eAxisErrorID;
+	itfAddLog.AddLogLINT(
+		plcDataType	:= plcDataTypeAxisErrorId,
+		value		:= AxisBasicControl.eAxisErrorID);
+END_IF
+
+IF AxisBasicControl.dwDriveErrorID <> dwDriveErrorID_old THEN
+	dwDriveErrorID_old		:= AxisBasicControl.dwDriveErrorID;
+	itfAddLog.AddLogLINT(
+		plcDataType	:= plcDataTypeDriveErrorId,
+		value		:= AxisBasicControl.dwDriveErrorID);
+END_IF
+{warning restore C0327}
+END_METHOD
+
+// Move to absolute position with profile data
+METHOD PUBLIC MoveAbs : BOOL
+VAR_INPUT
+	Data : PositionWithProfileType;
+END_VAR
+%FOLDER Commands/Move
+SetMovementProfileData(Data);
+
+MoveAbs		:= MoveAbsPos(Data.Pos.value);
+END_METHOD
+
+// Move to absolute position while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
+METHOD PUBLIC MoveAbsContinuousUpdate : BOOL
+VAR_INPUT
+	position				: REAL;
+END_VAR
+%FOLDER Commands/Move
+EnableContinuousUpdate();
+MoveAbsContinuousUpdate		:= MoveAbsPos(position);
+END_METHOD
+
+// Move to absolute position
+METHOD PUBLIC MoveAbsPos : BOOL
+VAR_INPUT
+	position				: REAL;
+END_VAR
+
+// Warning! 2 MoveAbsPos() commands in consecutive PLC cycles will not work!!
+// Second command will be ignored because xMoveAbsExecute does not trigger
+%FOLDER Commands/Move
+IF NOT AxisEnabled
+OR NOT AxisBasicControl.xReadyForMotion
+OR NOT AxisBasicControl.xIsHomed
+OR AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Stop
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Abs Command ignored, drive not ready'));
+	RETURN;
+END_IF
+
+IF AxisBasicControl.lrVel = 0		// Unable to move drive with velocity of 0
+OR AxisBasicControl.lrAcc = 0
+OR AxisBasicControl.lrDec = 0
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Abs Command ignored, invalid parameters'));
+	RETURN;
+END_IF
+
+AxisBasicControl.lrPos_Dist			:= position;
+AxisBasicControl.xMoveAbsExecute	S= oldPosAbs <> position;
+oldPosAbs							:= position;
+
+IF  InPosition
+AND PosReached(position)
+AND NOT AxisBasicControl.xMoveAbsExecute	// TEST: do not return true when a Execute command is active!
+//AND AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.MoveAbs	// State will already be Standby by the time InPosition is high (because execute is already low)
+//AND AxisBasicControl.xFunDone											// FunDone will already be false by the time InPosition is high (because execute is already low)
+THEN
+	MoveAbsPos	:=  TRUE;
+END_IF
+END_METHOD
+
+// Move to relative position with profile data
+METHOD PUBLIC MoveRel : BOOL
+VAR_INPUT
+	Data : PositionWithProfileType;
+END_VAR
+%FOLDER Commands/Move
+SetMovementProfileData(Data);
+
+MoveRel		:= MoveRelPos(Data.Pos.value);
+END_METHOD
+
+// Move to relative position while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
+METHOD PUBLIC MoveRelContinuousUpdate : BOOL
+VAR_INPUT
+	distance	: REAL;
+END_VAR
+%FOLDER Commands/Move
+EnableContinuousUpdate();
+MoveRelContinuousUpdate		:= MoveRelPos(distance);
+END_METHOD
+
+// Move to relative position
+// Note: It is recommended to keep calling this method until it returns true and the movement is finished.
+// When it returns true, the xMoveRelExecute bit is resetted and the drive is ready for the next MoveRel command
+// Also when you start a new absolute movement the xMoveRelExecute bit is resetted
+METHOD PUBLIC MoveRelPos : BOOL
+VAR_INPUT
+	distance	: REAL;
+END_VAR
+%FOLDER Commands/Move
+IF NOT AxisEnabled
+OR NOT AxisBasicControl.xReadyForMotion
+OR AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Stop
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Rel Command ignored, drive not ready'));
+	RETURN;
+END_IF
+
+IF AxisBasicControl.lrVel = 0		// Unable to move drive with velocity of 0
+OR AxisBasicControl.lrAcc = 0
+OR AxisBasicControl.lrDec = 0
+OR distance = 0						// A relative movement of 0 makes no sense
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Rel Command ignored, invalid parameters'));
+	RETURN;
+END_IF
+
+// State must be either Standby or MoveRel.
+IF  AxisBasicControl.eFunStateAct <> L_MC1P.L_MC1P_ABC_State.Standby
+AND AxisBasicControl.eFunStateAct <> L_MC1P.L_MC1P_ABC_State.MoveRel
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Only start relative command when drive is in standby'));
+	RETURN;
+END_IF
+
+AxisBasicControl.lrPos_Dist			:= distance;
+AxisBasicControl.xMoveRelExecute	:= TRUE;
+
+oldPosAbs							:= GVL_Constants.RealSmallest;	// Reset this variable, so the next MoveAbs command will always have a trigger
+
+IF  InPosition
+AND AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.MoveRel
+AND AxisBasicControl.xFunDone
+THEN
+	AxisBasicControl.xMoveRelExecute	:= FALSE;
+	MoveRelPos	:=  TRUE;
+END_IF
+END_METHOD
+
+// Move in velocity mode. Stop movements with method: Halt()
+METHOD PUBLIC MoveVel : BOOL
+VAR_INPUT
+	Data : ProfileType;
+END_VAR
+%FOLDER Commands/Move
+IF NOT AxisEnabled
+OR NOT AxisBasicControl.xReadyForMotion
+OR AxisBasicControl.eFunStateAct = L_MC1P.L_MC1P_ABC_State.Stop
+THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': Vel Command ignored, drive not ready'));
+	RETURN;
+END_IF
+
+SetMovementProfileData(Data);
+
+AxisBasicControl.xMoveVelExecute	:= TRUE;
+
+oldPosAbs							:= GVL_Constants.RealSmallest;	// Reset this variable, so the next MoveAbs command will always have a trigger
+
+IF  AxisBasicControl.xFunDone
+AND AxisBasicControl.xConstantVelocity
+THEN
+	MoveVel	:=  TRUE;
+END_IF
+END_METHOD
+
+// Move in velocity mode while new profile parameters are accepted continuously, i.e. during the execution, the motion profile can be changed.
+METHOD PUBLIC MoveVelContinuousUpdate : BOOL
+VAR_INPUT
+	Data : ProfileType;
+END_VAR
+%FOLDER Commands/Move
+EnableContinuousUpdate();
+MoveVelContinuousUpdate		:= MoveVel(Data);
+END_METHOD
+
+// Reads a specific drive parameter
+METHOD PRIVATE ParameterRead : BOOL	// Return True when successfull
+VAR_INPUT
+	parameterNumber	: DINT;
+END_VAR
+VAR_OUTPUT
+	result			: LREAL;
+END_VAR
+VAR_INST
+	ReadParameter	: L_MC1P.MC_ReadParameter;
+END_VAR
+%FOLDER Methods
+// The "ReadCycle" property of the FB serves to set a higher cycle time for repeating a read request.
+ReadParameter.ReadCycle	:= T#1S;
+
+ReadParameter(
+	Axis						:= AxisRef,
+	Enable						:= TRUE,
+	ParameterNumber				:= parameterNumber,
+	Valid						=> ,
+	Busy						=> ,
+	Error						=> ,
+	ErrorID						=> ,
+	Value						=> );
+
+IF ReadParameter.Valid THEN
+	result := ReadParameter.Value;
+	ReadParameter(Axis := AxisRef, Enable := FALSE);
+	ParameterRead := TRUE;
+END_IF
+END_METHOD
+
+// Writes a specific drive parameter
+METHOD PRIVATE ParameterWrite : BOOL	// Return True when successfull
+VAR_INPUT
+	parameterNumber	: DINT;
+	value			: LREAL;
+END_VAR
+VAR_INST
+	WriteParameter	: L_MC1P.MC_WriteParameter;
+END_VAR
+%FOLDER Methods
+WriteParameter(
+	Axis						:= AxisRef,
+	Execute						:= TRUE,
+	ParameterNumber				:= parameterNumber,
+	Value						:= value,
+	ExecutionMode				:= L_MC1P.MC_EXECUTION_MODE.mcQueued,
+	Done						=> ,
+	Busy						=> ,
+	Error						=> ,
+	ErrorID						=> );
+
+IF WriteParameter.Done THEN
+	WriteParameter(
+		Axis					:= AxisRef,
+		Execute					:= FALSE,
+		ParameterNumber			:= 0,
+		Value					:= 0.0);
+	ParameterWrite := TRUE;
+END_IF
+END_METHOD
+
+// Writes a specific boolean drive parameter
+METHOD PRIVATE ParameterWriteBool : BOOL	// Return True when successfull
+VAR_INPUT
+	parameterNumber	: DINT;
+	value			: BOOL;
+END_VAR
+VAR_INST
+	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
+END_VAR
+%FOLDER Methods
+WriteParameter(
+	Axis						:= AxisRef,
+	Execute						:= TRUE,
+	ParameterNumber				:= parameterNumber,
+	Value						:= value,
+	ExecutionMode				:= L_MC1P.MC_EXECUTION_MODE.mcQueued,
+	Done						=> ,
+	Busy						=> ,
+	Error						=> ,
+	ErrorID						=> );
+
+IF WriteParameter.Done THEN
+	WriteParameter(
+		Axis					:= AxisRef,
+		Execute					:= FALSE,
+		ParameterNumber			:= 0,
+		Value					:= FALSE);
+	ParameterWriteBool := TRUE;
+END_IF
+END_METHOD
+
+// Returns true when a value is larger or equal than current act pos
+METHOD PUBLIC PosLargerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+%FOLDER Commands/Misc
+PosLargerOrEqual	:= actPos >= setPos - tolerance
+					AND IsHomed;
+END_METHOD
+
+METHOD PUBLIC PosReached : BOOL
+VAR_INPUT
+	rSetPos		: REAL;
+	tolerance	: REAL := 1.0;	// Max allowed difference
+END_VAR
+%FOLDER Commands/Misc
+PosReached	:= PositionReachedValue(actPos, rSetPos, tolerance)
+			AND IsHomed;
+END_METHOD
+
+// Returns true when a value is smaller or equal than current act pos
+METHOD PUBLIC PosSmallerOrEqual : BOOL
+VAR_INPUT
+	setPos		: REAL;
+	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
+END_VAR
+%FOLDER Commands/Misc
+PosSmallerOrEqual	:= actPos <= setPos + tolerance
+					AND IsHomed;
+END_METHOD
+
+// Stop all drive movements in case of E.stop. Error Stop Deceleration and Error Stop Jerk are used.
+METHOD PUBLIC Quickstop
+VAR_INPUT
+	requireRehomingDrive	: BOOL;
+END_VAR
+VAR_INST
+	notReadyForQS			: UINT;
+END_VAR
+%FOLDER Commands/Stop
+AxisBasicControl.lrVel				:= 0;
+AxisBasicControl.lrAcc				:= 0;
+AxisBasicControl.lrDec				:= 0;
+
+oldPosAbs							:= GVL_Constants.RealSmallest;	// Reset this variable, so the next MoveAbs command will always have a trigger
+
+AxisBasicControl.xResetHomePosition	S= requireRehomingDrive;		// Homing (referencing) needed after emergency stop.
+
+HomeCommandLock.ForceRelease();
+
+IF NOT AxisEnabled THEN
+	Increment.AnyInt(notReadyForQS);
+	IF notReadyForQS = 1 THEN
+		LogPlc.Warn(CONCAT(InstanceName, ': QSTOP Command ignored, drive not ready'));
+	END_IF
+	RETURN;
+END_IF
+
+AxisBasicControl.xQspApplication	:= TRUE;		// Stop is executed with Error Stop Deceleration and Error Stop Jerk.
+END_METHOD
+
+// Read / write parameters from drive every 10 seconds
+METHOD PRIVATE ReadWriteParameters
+VAR
+	readResult		: LREAL;
+END_VAR
+VAR_INST
+	state			: INT;
+	T_Interval		: BTON;
+END_VAR
+%FOLDER Methods
+CASE state OF
+0:	// Read / write parameters from drive every 10 seconds..
+	Increment.AnyInt(state, 1, T_Interval.Set(AxisBasicControl.xAxisAvailable, 10));
+
+1:	// This function provides the rated speed of the drive converted into application units [unit/s]
+	rRatedVelocity	:= TO_REAL(L_MC1P.L_MC1P_GetRatedVelocityAxis(AxisRef) / config.unitConvertFactor);
+	T_Interval.Reset();
+	Increment.AnyInt(state);
+
+2:	// This function provides the rated torque of the drive on the gearbox side in [Nm].
+	rRatedTorque	:= TO_REAL(L_MC1P.L_MC1P_GetRatedTorqueAxis(AxisRef));
+	Increment.AnyInt(state);
+
+3:	// [mm/s] Maximum speed (subindex 45) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.MaxVelocity, config.maxVelocity * config.unitConvertFactor));
+
+4:	// [mm/s²] Maximum acceleration (subindex 46) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.MaxAcceleration, config.maxAcceleration * config.unitConvertFactor));
+
+5:	// [mm/s³] Maximum jerk (subindex 47) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.MaxJerk, config.maxJerk * config.unitConvertFactor));
+
+6:	// Virtual mode (subindex 29) [UNSIGNED_8]
+	IF AxisBasicControl.xOperationEnabled
+	OR_ELSE ParameterWriteBool(L_MC1P.L_MC1P_Params.UseAsVirtual, config.virtualMode) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+7:	// Software limit position monitoring (subindex 50) [UNSIGNED_8]
+	Increment.AnyInt(state, 1, ParameterWriteBool(L_MC1P.L_MC1P_Params.EnableSWLimit, config.enableSWLimit));
+
+8:	// Following error: Monitoring effective (subindex 54) [UNSIGNED_8]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual
+	OR_ELSE ParameterWriteBool(L_MC1P.L_MC1P_Params.EnableFollowingError, config.enableFollowingError) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+9:	// [mm] Following error: Warning threshold (subindex 55) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.MaxFollowingErrorWarning, config.maxFollowingErrorWarning) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+10:	// [mm] Following error: Error threshold (subindex 56) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.MaxFollowingErrorError, config.maxFollowingErrorError) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+11:	// [mm] Window - target position reached (subindex 130) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.WindowTargetReached, config.windowTargetReached));
+
+12:	// [sec] Time - target position reached (subindex 131) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.WindowTargetReachedTime, config.timeTargetReached));
+
+13:	// [mm/s] Window - standstill detection (subindex 132) [FLOAT_64]
+	Increment.AnyInt(state, 1, ParameterWrite(L_MC1P.L_MC1P_Params.WindowStandStill, config.windowStandstill));
+
+14:	// [mm] Pos. tol. window SetPos=ActPos (subindex 136) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.RecoveryWindowPos, config.posTolWindow) THEN
+		Increment.AnyInt(state);
+	END_IF
+
+15:	// [mm] Neg. tol. window SetPos=ActPos (subindex 137) [FLOAT_64]
+	IF AxisRef.eDevice = L_MC1P.L_MC1P_DriveType.Virtual
+	OR_ELSE ParameterWrite(L_MC1P.L_MC1P_Params.RecoveryWindowNeg, config.negTolWindow) THEN
+		state := 20;
+	END_IF
+
+20:
+	CASE AxisRef.eDevice OF
+		L_MC1P.L_MC1P_DriveType.HL9400:	state := 50;
+		L_MC1P.L_MC1P_DriveType.i700:	state := 60;
+		L_MC1P.L_MC1P_DriveType.i750:	state := 70;
+		L_MC1P.L_MC1P_DriveType.i900:	state := 80;
+		ELSE							state := 0;
+	END_CASE
+
+50:	// Read parameter 5FBF:0 - Device utilisation (Ixt) - C00064
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_CodenumberToParameter2(DWORD#64, USINT#0, UINT#4, TRUE),
+						result			=> readResult)
+	THEN
+		powerSectionUtilisation := TO_REAL(readResult);
+		Increment.AnyInt(state);
+	END_IF
+
+51:	// Read parameter 5FBD:0 - Thermal motor load (I²xt) - C00066
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_CodenumberToParameter2(DWORD#66, USINT#0, UINT#4, TRUE),
+						result			=> readResult)
+	THEN
+		motorUtilisation := TO_REAL(readResult);
+		Increment.AnyInt(state);
+	END_IF
+
+52:	// Read parameter 5F75:0 - Brake resistor utilisation - C00138
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_CodenumberToParameter2(DWORD#138, USINT#0, UINT#4, FALSE),
+						result			=> readResult)
+	THEN
+		rBrakeResistorUtilisation := TO_REAL(readResult);
+		state := 0;
+	END_IF
+
+60:	// Read parameter 2D40:1 (or parameter 3540:1 for i700 Slot B) - Power section utilisation (Ixt)
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D40 + AxisRef.AxisSlot, USINT#1, 2, TRUE),
+						result			=> readResult)
+	THEN
+		powerSectionUtilisation := TO_REAL(readResult);
+		Increment.AnyInt(state);
+	END_IF
+
+61:	// Read parameter 2D4F:0 (or parameter 354F:0 for i700 Slot B) - Motor utilisation (I2xt)
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D4F + AxisRef.AxisSlot, USINT#0, 2, TRUE),
+						result			=> readResult)
+	THEN
+		motorUtilisation := TO_REAL(readResult);
+		state := 0;
+	END_IF
+
+70:	// Read parameter 2D40:1 - Power section utilisation (Ixt)
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D40, USINT#1, 2, TRUE),
+						result			=> readResult)
+	THEN
+		powerSectionUtilisation := TO_REAL(readResult);
+		Increment.AnyInt(state);
+	END_IF
+
+71:	// Read parameter 2D4F:0 - Motor utilisation (I2xt)
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D4F, USINT#0, 2, TRUE),
+						result			=> readResult)
+	THEN
+		motorUtilisation := TO_REAL(readResult);
+		state := 0;
+	END_IF
+
+80:	// Read parameter 2D40:1 - Device utilisation ixt: Power unit actual utilisation
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D40, USINT#1, 2, TRUE),
+						result			=> readResult)
+	THEN
+		powerSectionUtilisation := TO_REAL(readResult);
+		Increment.AnyInt(state);
+	END_IF
+
+81:	// Read parameter 2D4F:0 - Motor utilisation (i²xt)
+	IF ParameterRead(	parameterNumber	:= L_MC1P.L_MC1P_IndexToParameter2(16#2D4F, USINT#0, 2, TRUE),
+						result			=> readResult)
+	THEN
+		motorUtilisation := TO_REAL(readResult);
+		state := 0;
+	END_IF
+
+END_CASE
+END_METHOD
+
+// Manual operation of drive from CODESYS visu
+// Drive can move automatically to 1 or more positions. For drive testing.
+METHOD PRIVATE ServiceMode
+VAR_INST
+	Timer						: BTON;			// Timer to wait on position
+	manualEnableTrigger			: TriggerFB;	// When high, attach buttons to drive
+	i							: USINT(1..ServiceMode.maxNumberOfServicePos);	// Access the ServicePositions array through this int
+	StartTrigger				: RisingTriggerFB;
+END_VAR
+VAR CONSTANT
+	maxNumberOfServicePos		: USINT := 5;
+END_VAR
+%FOLDER Methods
+serviceModeManualF1(buttonType := enumHWButtons.F1);
+serviceModeManualF2(buttonType := enumHWButtons.F2);
+
+manualEnableTrigger.Call(CLK := serviceModeManualEnable);
+IF manualEnableTrigger.Q_Rising THEN
+	serviceModeManualF1.Attach(THIS^);
+	serviceModeManualF2.Attach(THIS^);
+	SetManualRefPos(serviceModeManualPosition);
+END_IF
+IF manualEnableTrigger.Q_Falling THEN
+	serviceModeManualF1.Detach(THIS^);
+	serviceModeManualF2.Detach(THIS^);
+	SetManualRefPos(0);
+END_IF
+
+IF serviceModeStop THEN
+	serviceModeAutoEnable		:= FALSE;
+	serviceModeHome				:= FALSE;
+	serviceModeSetPosDirect		:= FALSE;
+	i							:= 1;
+	Halt();	// Stop active movement when Stop button on visu is pressed.
+
+ELSIF serviceModeAutoEnable THEN
+	IF StartTrigger.Rising(CLK := Timer.TON1.IN) THEN		// Start stopwatch on start of movement
+		serviceModeAutoPos[i].sw.Start();
+	END_IF
+
+	serviceModeAutoPos[i].Position.Pos.value	:= LIMIT(DataBrink.rSWLimitNeg, serviceModeAutoPos[i].Position.Pos.value, DataBrink.rSWLimitPos);
+
+	IF NOT serviceModeAutoPos[i].xEnable					// Service position is disabled
+	OR_ELSE Timer.Set(
+					MoveAbs(
+						serviceModeAutoPos[i].Position),
+						serviceModeAutoPos[i].rDelay)
+	THEN
+		Timer.Reset();
+		serviceModeAutoPos[i].sw.End();
+		Increment.Subrange(i, 1, maxNumberOfServicePos);	// Increase int and move to next position
+	END_IF
+ELSIF NOT AxisBasicControl.xInternalControlActive THEN
+	IF serviceModeHome THEN
+		serviceModeHome			R= Home(TRUE);				// Reset the button on the visu when homing is done.
+	END_IF
+	IF serviceModeSetPosDirect THEN
+		serviceModeSetPosDirect	R= SetPositionDirect();		// Reset the button on the visu when homing is done.
+	END_IF
+	i := 1;													// When stopping Service mode, always start with the first Service position again.
+ELSE
+	serviceModeHome				:= FALSE;
+	serviceModeSetPosDirect		:= FALSE;
+	i := 1;
+END_IF
+END_METHOD
+
+// Set a position where the drive needs to move towards during manual operation
+METHOD PUBLIC SetManualRefPos
+VAR_INPUT
+	position		: REFERENCE TO PositionWithLimitsType;
+END_VAR
+%FOLDER Commands/ManualControl
+IF __ISVALIDREF(position) THEN
+	refManualMovePos REF= position;
+ELSE
+	refManualMovePos REF= 0;
+END_IF
+END_METHOD
+
+METHOD PUBLIC SetMonitoring
+VAR_INPUT
+	itfAddLog			: EdgePcLogging.IAddLog;
+	powerSectionUtil	: PlcDataType;
+	motorUtil			: PlcDataType;
+	coveredDistance		: PlcDataType;
+	errorId				: PlcDataType;
+	axisErrorId			: PlcDataType;
+	driveErrorId		: PlcDataType;
+END_VAR
+%FOLDER Commands/Misc
+THIS^.itfAddLog						:= itfAddLog;
+THIS^.plcDataTypeErrorId			:= errorId;
+THIS^.plcDataTypeAxisErrorId		:= axisErrorId;
+THIS^.plcDataTypeDriveErrorId		:= driveErrorId;
+
+MonitorPowerSectionUtil.SetClient(
+	loggingFb				:= itfAddLog);
+MonitorMotorUtil.SetClient(
+	loggingFb				:= itfAddLog);
+MonitorCoveredDistance.SetClient(
+	loggingFb				:= itfAddLog);
+
+//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
+{warning disable C0327}
+{warning disable SA0034}
+MonitorPowerSectionUtil.Initialize(
+	plcDataType				:= powerSectionUtil,
+	value					:= THIS^.powerSectionUtilisation,
+	diff					:= 1,
+);
+MonitorMotorUtil.Initialize(
+	plcDataType				:= motorUtil,
+	value					:= THIS^.powerSectionUtilisation,
+	diff					:= 1,
+);
+MonitorCoveredDistance.Initialize(
+	plcDataType				:= coveredDistance,
+	value					:= THIS^.powerSectionUtilisation,
+	diff					:= 10,
+	sendOnEdgePcConnect		:= FALSE,
+	sendOnInterval			:= T#1H,
+);
+{warning restore C0327}
+{warning restore SA0034}
+END_METHOD
+
+// Prepare vel, acc and dec values for later movements
+METHOD PUBLIC SetMovementProfileData
+VAR_INPUT
+	Data		: ProfileType;
+END_VAR
+%FOLDER Commands/Misc
+SetMovementProfileSeparate(
+	rVel := Data.rVel,
+	rAcc := Data.rAcc,
+	rDec := Data.rDec);
+END_METHOD
+
+// Prepare vel, acc and dec values for later movements
+METHOD PUBLIC SetMovementProfileSeparate
+VAR_INPUT
+	rVel		: REAL;		// Velocity in %
+	rAcc		: REAL;		// Acc in %
+	rDec		: REAL;		// Dec in %
+END_VAR
+%FOLDER Commands/Misc
+CheckValidRefs();
+
+AxisBasicControl.lrVel				:= ConvertVelPercentToUnits(rVel);
+AxisBasicControl.lrAcc				:= ConvertAccPercentToUnits(rAcc);
+AxisBasicControl.lrDec				:= ConvertDecPercentToUnits(rDec);
+END_METHOD
+
+// Set current position of drive to zero
+METHOD PUBLIC SetPositionDirect : BOOL
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands/Homing
+IF NOT AxisEnabled THEN
+	LogPlc.Warn(CONCAT(InstanceName, ': SetPosDirect Command ignored, drive not ready'));
+	RETURN;
+END_IF
+
+IF NOT HomeCommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF HomeCommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Starting reference run with direct position set
+		CheckValidRefs();
+		homingParameters.eHomeMode				:= L_MC1P.L_MC1P_HomeMode.SetPositionDirect;
+		writeHomingParameters					:= TRUE;
+		IF writeParametersBusy THEN
+			writeHomingParameters				:= FALSE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		AxisBasicControl.xHomeExecute			:= TRUE;
+		IF  AxisBasicControl.xFunDone
+		AND PositionReachedValue(TO_REAL(AxisBasicControl.lrSetPosOut), DataBrink.rRefPos, 0.1)
+		AND IsHomed
+		AND Standstill
+		THEN
+			SetPositionDirect := HomeCommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// The Update method is called when subjects have a new state
+METHOD PUBLIC Update
+VAR_INPUT
+	payload	: ISubjectBasePayload;
+END_VAR
+VAR
+	hwButtonPayload : ISubjectHWButtonsPayload;
+	functionKeyPayload : ISubjectFunctionKeyPayload;
+END_VAR
+%FOLDER Commands/ManualControl
+// Do nothing when manual control is not enabled
+IF NOT manualControlEnabled OR AxisBasicControl.xInternalControlActive THEN
+	Halt();
+	manualControlIsBlocked := TRUE;
+	RETURN;
+END_IF
+
+// Set global bool to indicate that a drive moved in manual mode
+GlobalVars.manualControlRequested := TRUE;
+
+rSetManualSpeed := LIMIT(1, rSetManualSpeed, 100);
+
+IF __QUERYINTERFACE(payload, functionKeyPayload) THEN
+	ManualControlExtended(functionKeyPayload);
+ELSIF __QUERYINTERFACE(payload, hwButtonPayload) THEN
+	ManualControlBasic(hwButtonPayload);
+ELSE
+	LogPlc.Warn(CONCAT(InstanceName, ': This type of manual control is not supported'));
+END_IF
+END_METHOD
+
+// Read the actual velocity of the drive in %
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ActVel : REAL
+%FOLDER Properties
+GET
+VAR
+	rVelInMpS	: REAL;
+END_VAR
+// Get actual velocity in m/s
+rVelInMpS	:= TO_REAL(AxisBasicControl.lrActVel / config.unitConvertFactor);
+
+// Get actual velocity as a percentage of the maximum velocity
+ActVel		:= SEL(	DataBrink.rVel > 0,
+					0.0,
+					(rVelInMpS / DataBrink.rVel) * 100.0);
+END_GET
+END_PROPERTY
+
+// Axis is available, ready for operation, and enabled / powered on.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AxisEnabled : BOOL
+%FOLDER Properties
+GET
+AxisEnabled	:=	AxisBasicControl.xAxisAvailable
+			AND AxisBasicControl.xReadyForOperation
+			AND AxisBasicControl.xOperationEnabled;
+END_GET
+END_PROPERTY
+
+// Axis is available, ready for operation, and enabled / powered on.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC HomingSensor : BOOL
+%FOLDER Properties
+GET
+IF NOT __ISVALIDREF(AxisRef) THEN
+	HomingSensor := FALSE;
+	RETURN;
+END_IF
+
+// Get a specific digital input of the drive where the homing sensor is connected
+CASE AxisBasicControl.eAxisType OF
+	L_MC1P.L_MC1P_DriveType.HL9400:
+		HomingSensor := L_MC1P.L_MC1P_GetDigInputsFromDrive(AxisRef) = 2#0000_0000_0000_0000_0100;		// bit 2 = digital input 2 (reference switch)
+	L_MC1P.L_MC1P_DriveType.i500:
+		HomingSensor := L_MC1P.L_MC1P_GetDigInputsFromDrive(AxisRef) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+	L_MC1P.L_MC1P_DriveType.i700:
+		HomingSensor := L_MC1P.L_MC1P_GetDigInputsFromDrive(AxisRef) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+	L_MC1P.L_MC1P_DriveType.i750:
+		HomingSensor := L_MC1P.L_MC1P_GetDigInputsFromDrive(AxisRef) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+	L_MC1P.L_MC1P_DriveType.i900:
+		HomingSensor := L_MC1P.L_MC1P_GetDigInputsFromDrive(AxisRef) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+	ELSE
+		HomingSensor := FALSE;
+END_CASE
+END_GET
+END_PROPERTY
+
+// Drive is in position. See target reached window parameters.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InPosition : BOOL
+%FOLDER Properties
+GET
+InPosition	:= AxisBasicControl.xInPosition;
+
+// Target position monitoring (status "axis in target")
+// Target position monitoring detects whether the axis is in the symmetrical target position window (subindex 131) once the settling time (subindex 130) has elapsed.
+
+// The xInPosition output is reset if
+//   * the actual position leaves the target position window,
+//   * a new motion task is started,
+//   * an MC_Stop or MC_Halt is triggered,
+//   * enable is revoked from the axis, or
+//   * the home position is reset.
+
+// !!! xInPosition is reset when Enable is removed from the drive. So it is a bit useless for us :-(
+END_GET
+END_PROPERTY
+
+// Axis is available, ready for operation, and enabled / powered on.
+{attribute 'monitoring':='call'}
+PROPERTY IsHomed : BOOL
+%FOLDER Properties
+GET
+IsHomed := AxisBasicControl.xIsHomed;
+END_GET
+END_PROPERTY
+
+// Axis is in standstill (velocity zero)
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC Standstill : BOOL
+%FOLDER Properties
+GET
+Standstill	:= AxisBasicControl.xAxisAvailable
+			AND (AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.StandStill
+			  OR AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.Disabled
+			  OR AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.Stopping)
+			AND AxisBasicControl.xStandstillSetVelocity
+			AND AxisBasicControl.xStandstillActVelocity;
+
+// Standstill detection
+// The standstill detection identifies whether the axis is at standstill.
+// For this purpose, the following two signals are provided:
+
+// * xStandstillSetVelocity:	This signal is is solely based on setpoints. It will be set when the setpoint velocity has the value 0.
+// * xStandstillActVelocity:	This signal is set to TRUE if the current velocity is within the window parameterised in subindex 132.
+
+
+
+// xStandstillActVelocity needs parameters to function!
+// Parameter: Window - standstill detection (subindex 132) is set to 10 units/sec.
+// Set parameter in config struct
+END_GET
+END_PROPERTY

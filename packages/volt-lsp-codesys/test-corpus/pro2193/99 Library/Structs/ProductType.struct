@@ -1,0 +1,19 @@
+// All information about a single product
+{attribute 'monitoring_display' := 'Present'}	// CavNo does not work here, because it is a SubType var
+TYPE ProductType :
+STRUCT
+	Present				: BOOL;
+	CavNo				: UINT(0..GVL_Constants.MaxProductsInMould);	// Cavity number of product
+	WithIML				: BOOL;					// Product has a label
+	LastProduct			: BOOL;					// Automatic cycle was stopped; these are the last products on the chain
+	SampleShot			: BOOL;					// Product is a sample shot. Usually not stacked.
+	UncountedReject		: BOOL;					// Product is not stacked normally for various reasons; e.g. cycle start.
+	RejectReason		: ARRAY[1..GVL_Constants.MaxRejectReasonsTotal] OF BOOL;
+	RejectReasonIgnored	: ARRAY[1..GVL_Constants.MaxRejectReasonsTotal] OF BOOL;	// When high, this reject reason is ignored
+	TriggerPending		: BOOL;					// Product is moving on the chain, awaiting trigger sensor
+	ResultPending		: BOOL;					// Picture is taken of this product, awaiting result from camera
+	StartNewStack		: BOOL;					// After this product, a new stack is started. (So this product is the last on the stack)
+	Drawer				: enumDrawer;			//
+	ToShute				: BOOL;					// Shots during startup of cycle are rejected in a shute
+END_STRUCT
+END_TYPE

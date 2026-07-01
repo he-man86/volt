@@ -1,0 +1,74 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ReadActualErrorFB
+VAR_INPUT
+	moduleHandler			: L_IMHP.L_IMHP_IModuleHandler;
+END_VAR
+VAR_OUTPUT
+	warningActive			: BOOL;
+	errorActive				: BOOL;
+	requestedReaction		: enumErrorReaction;
+END_VAR
+VAR
+	ReadActualSeverity		: L_IE1P.L_IE1P_ReadActualSeverity;
+	ReadActualErrorCode		: L_IE1P.L_IE1P_ReadActualErrorCode;	// For debug
+END_VAR
+
+ReadActualSeverity(
+	xEnable					:= TRUE,
+	ModuleHandler			:= moduleHandler,
+	xDisableSubmodules		:= FALSE,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	eSeverity				=> ,
+	eReaction				=> ,
+	sAffectedModuleName		=> ,
+	AffectedModuleHandler	=> ,
+	xErrorActive			=> errorActive,
+	xWarningActive			=> warningActive,
+	SeverityStatus			=> ,
+	ReactionStatus			=> );
+
+
+CASE ReadActualSeverity.eSeverity OF
+	// Drives throw errors with severity 'Fault_Qsp'.
+	// Stop the automatic cycle on these kind of errors.
+	L_IE1P.L_IE1P_SeverityLevel.Fault_Log,
+	L_IE1P.L_IE1P_SeverityLevel.Fault_QspAppl,
+	L_IE1P.L_IE1P_SeverityLevel.Fault_Qsp,
+	L_IE1P.L_IE1P_SeverityLevel.Fault_Qsp_Cinh,
+	L_IE1P.L_IE1P_SeverityLevel.Fault_Cinh:
+		CASE ReadActualSeverity.eReaction OF
+			L_IE1P.L_IE1P_Reaction.FastStop:
+				requestedReaction := enumErrorReaction.FastStop;
+			ELSE
+				requestedReaction := enumErrorReaction.Stop;
+		END_CASE
+	ELSE
+		CASE ReadActualSeverity.eReaction OF
+			L_IE1P.L_IE1P_Reaction.No_Reaction:
+				requestedReaction := enumErrorReaction.No_reaction;
+			L_IE1P.L_IE1P_Reaction.NormalStop:
+				requestedReaction := enumErrorReaction.Stop;
+			L_IE1P.L_IE1P_Reaction.CycleStop:
+				requestedReaction := enumErrorReaction.EndCycle;
+			L_IE1P.L_IE1P_Reaction.FastStop:
+				requestedReaction := enumErrorReaction.FastStop;
+			ELSE
+				ThrowException('This error reaction is not supported');
+		END_CASE
+END_CASE
+
+ReadActualErrorCode(
+	xEnable					:= TRUE,
+	ModuleHandler			:= ReadActualSeverity.AffectedModuleHandler,
+	ErrorHandler			:= ,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	xErrorActive			=> ,
+	xWarningActive			=> ,
+	dwErrorCode				=> ,
+	eSeverity				=> );
+
+END_FUNCTION_BLOCK

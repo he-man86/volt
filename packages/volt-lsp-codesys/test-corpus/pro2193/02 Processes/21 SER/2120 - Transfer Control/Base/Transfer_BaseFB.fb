@@ -1,0 +1,38 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT Transfer_BaseFB
+EXTENDS ModuleWithStateFB
+VAR
+	takeoverPosition		: INT;
+	{attribute 'hide'}	_alternateCycleCounter	: INT := 1;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+// Provide some number to do alternate cycles. Is zero when not in use.
+{attribute 'monitoring':='call'}
+PROPERTY AlternateCycleCounter : INT
+GET
+AlternateCycleCounter := _alternateCycleCounter;
+END_GET
+SET
+_alternateCycleCounter := AlternateCycleCounter;
+END_SET
+END_PROPERTY

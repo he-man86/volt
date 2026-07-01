@@ -1,0 +1,50 @@
+// Control an air buffer output. This is used in combination with vacuums. Output stays enabled for a time after the last vacuum has turned off.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC FINAL AirBufferFB
+EXTENDS ActuatorWithManualControlFB
+IMPLEMENTS IActuator
+VAR_IN_OUT
+	vacuums					: ARRAY[*] OF IVacuum;
+END_VAR
+VAR
+	xAnyVacuumOn			: BOOL;
+
+	Buffer					: BTOF;			// Buffer output will stay on some time after last vacuum switches off
+	Trig_SetBuffer			: TriggerFB;
+	Trig_ResetBuffer		: TriggerFB;
+	xOutputWasSet			: BOOL;			// Output was set
+END_VAR
+VAR CONSTANT
+	rKeepBufferOn			: REAL	:= 10.0;
+END_VAR
+
+SUPER^();
+
+xAnyVacuumOn := Arrays.Vacuum_Any(
+							vacuumArray	:= vacuums,
+							condition	:= TRUE,
+							channel		:= enumSelectIQ.Output);
+
+// Set buffer when first vacuum switches on
+IF Trig_SetBuffer.Rising(xAnyVacuumOn) THEN
+	Set();
+END_IF
+
+// Hold buffer for 10 seconds after last vacuum switches off
+Buffer.Set(
+	In := xAnyVacuumOn OR xOutputWasSet,
+	Pt := rKeepBufferOn);
+
+// Reset buffer when timer is ended
+IF Trig_ResetBuffer.Falling(Buffer.Q) THEN
+	Reset();
+END_IF
+
+xOutputWasSet := FALSE;
+
+END_FUNCTION_BLOCK
+
+METHOD Set : BOOL
+xOutputWasSet	:= TRUE;
+SUPER^.Set();
+END_METHOD

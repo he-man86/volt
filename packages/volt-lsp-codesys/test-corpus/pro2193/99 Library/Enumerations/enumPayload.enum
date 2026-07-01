@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumPayload :
+(
+	None,	// Gripper has no products/labels on any suction cup
+	_Any,	// Gripper has at least 1 product/label on any suction cup, but not all.
+	_All	// Gripper has all products/labels
+);
+END_TYPE
+
+// Underscores (_Any) because ANY is a reserved keyword... Better ideas?

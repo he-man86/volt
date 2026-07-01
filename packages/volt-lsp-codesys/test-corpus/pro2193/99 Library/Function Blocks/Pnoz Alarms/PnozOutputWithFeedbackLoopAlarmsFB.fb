@@ -1,0 +1,23 @@
+// Throw error messages when a general output has a problem
+FUNCTION_BLOCK PnozOutputWithFeedbackLoopAlarmsFB
+EXTENDS PnozAlarmsBaseFB
+VAR_INPUT
+	feedbackLoopError		: BOOL;		// Feedback loop monitoring is registering an error (bit 8)
+END_VAR
+VAR
+	feedbackLoopErrorAlarm	: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+feedbackLoopErrorAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 4,		// Feedback loop monitoring is registering an error
+	alarmCondition	:= feedbackLoopError,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+END_FUNCTION_BLOCK

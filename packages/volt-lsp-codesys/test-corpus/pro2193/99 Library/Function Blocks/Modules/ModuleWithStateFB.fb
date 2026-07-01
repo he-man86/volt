@@ -1,0 +1,80 @@
+// Modules that have a state (Processes). Keep a history with StateMachineHistoryFB
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ModuleWithStateFB
+EXTENDS ModuleRegisterableFB
+IMPLEMENTS IModuleBase
+VAR
+	CommandLock					: LockFB;		// Internal lock. Lock hardware unit when a command is active (check if we can remove this!! Processes do not need locks ?? SR)
+
+	{attribute 'symbol' := 'read'}	State	: StateMachineHistoryFB(instanceName:= InstanceName);		// Call this FB in Cyclic() in your Process module!
+
+
+	{attribute 'hide'}	noProgramWarningBusy		: BIT;
+	{attribute 'hide'}	noProgramWarningDone		: BIT;
+END_VAR
+
+SUPER^();
+
+noProgramWarningDone R= NOT noProgramWarningBusy;
+noProgramWarningBusy := FALSE;
+
+// Execute state machine of module
+Execute();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED ABSTRACT Cyclic
+
+// Modules with a State must have a Cyclic method: to call State FB
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC ABSTRACT EStop : BOOL	// Returns true when drives are in standstill
+
+(* Command to reset the module (Statemachine to zero state) in case of E-Stop
+
+Add code here to handle emergency stops. For example:
+
+// Reset the state of the unit.
+State := MyUnit_State.None;
+
+// Stop the servo drive
+Drive.Stop(TRUE);
+
+// Reset all cylinders and outputs
+SomeCylinder.Reset();
+SomeOtherOutput.Reset();
+
+// Reset all vacuums with a helper function
+VacuumResetAll(Vacuum);
+
+// Does this module have a servo drive? Then you can return true when the drive has braked to standstill
+EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+// Else, just return true.
+EStop := TRUE;
+
+ *)
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED ABSTRACT Execute
+END_METHOD
+
+// Here is the State Machine for the default exchangeset
+METHOD PROTECTED ABSTRACT Execute_Sequence1
+END_METHOD
+
+// Logs a warning in the PLC log when there is a module that has not defined a program for an exchange set.
+METHOD PROTECTED ShowNoProgramWarning
+// Only write the log message once, the first time the method is executed.
+IF NOT noProgramWarningDone THEN
+	LogPlc.Warn(CONCAT3(InstanceName, ': No program for: ', TO_STRING(PersistentVars.RecipeVars.ActiveExchangeSet)));
+END_IF
+
+noProgramWarningBusy := TRUE;
+noProgramWarningDone := TRUE;
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC ABSTRACT Stop : BOOL	// Returns true when drives are in standstill
+END_METHOD

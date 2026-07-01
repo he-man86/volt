@@ -1,0 +1,10 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'eState'}
+FUNCTION_BLOCK GateMagnetFB
+EXTENDS GateBaseFB
+VAR
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK

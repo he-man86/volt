@@ -1,0 +1,15 @@
+// Set to a value to show a specific footer (to show meaning of F1 & F2 keys). Set zero to hide footer.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumFooterNames :
+(
+	None				:= 0,
+	OnOff				:= 1,
+	ServoDrive			:= 2,
+	GlobalSpeed			:= 3,
+	SemiAutomatic		:= 4,
+	StopCycle			:= 5,
+	ServoDriveMagazine	:= 6
+) SINT;
+END_TYPE

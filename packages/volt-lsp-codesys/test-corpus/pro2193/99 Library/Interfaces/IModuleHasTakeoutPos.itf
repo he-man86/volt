@@ -1,0 +1,9 @@
+// Used by modules like: Y Units, Xi Units, Xu Units.
+INTERFACE IModuleHasTakeoutPos
+
+// The axis is on Takeout position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+END_PROPERTY
+
+END_INTERFACE

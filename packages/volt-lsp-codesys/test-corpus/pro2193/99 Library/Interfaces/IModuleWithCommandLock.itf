@@ -1,0 +1,23 @@
+// Modules that can be locked from the outside
+INTERFACE IModuleWithCommandLock
+EXTENDS __SYSTEM.IQueryInterface
+
+// Force releasing the lock
+METHOD LockForceRelease
+END_METHOD
+
+// Release the lock by the current lock holder
+METHOD PUBLIC LockRelease : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is releasing the lock
+END_VAR
+END_METHOD
+
+// Request a lock. Returns false if the lock is already taken by someone else.
+METHOD PUBLIC LockRequest : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is requesting the lock
+END_VAR
+END_METHOD
+
+END_INTERFACE

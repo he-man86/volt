@@ -1,0 +1,13 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumMotorsType :
+(
+	X1	:= 1,	// Only X1
+	X2	:= 2,	// Only X2
+	Y	:= 3,	// Only Y
+	X	:= 4,	// X1 and X2
+	X1Y	:= 5,	// X1 and Y
+	X2Y	:= 6,	// X2 and Y
+	XY	:= 7	// X1, X2 and Y
+);
+END_TYPE

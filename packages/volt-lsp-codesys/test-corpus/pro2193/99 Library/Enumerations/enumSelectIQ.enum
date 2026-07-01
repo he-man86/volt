@@ -1,0 +1,10 @@
+// Used in Vacuum_Any and Vacuum_all functions to select to detect inputs only, outputs only, or both.
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumSelectIQ :
+(
+	Input	:= 0,
+	Output	:= 1,
+	Both	:= 2
+);
+END_TYPE

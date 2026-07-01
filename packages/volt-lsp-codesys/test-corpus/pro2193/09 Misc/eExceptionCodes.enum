@@ -1,0 +1,43 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE eExceptionCodes :
+(
+	DashboardTask := 0,
+	EdgePcTask,
+	Ethernet,
+	JsonTask,
+	MainTask,
+	RecipeTask,
+	InjectionMouldingMachine,
+	LabelSuppliers,
+	CassetteAdjustment,
+	Magazines,
+	XiUnits,
+	XuUnits,
+	YUnits,
+	RejectStations,
+	Chains,
+	ZUnits,
+	ZRUnits,
+	VisionSystems,
+	Conveyors,
+	Fanucs,
+	BufferRacks,
+	BoxInfeeds,
+	BoxCenterUnits,
+	BoxPushers,
+	BoxOutfeeds,
+	TimeSettings,
+	EtherCAT_Diag,
+	ErrorHandling,
+	HardwareButtons,
+	BfuButtons,
+	HMI,
+	HMI_BFU,
+	HardwareUnits,
+	ProcessModules,
+	SER,
+	BFU,
+	IQ_Handling
+);
+END_TYPE

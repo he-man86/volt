@@ -1,0 +1,24 @@
+// A subject is a sensor or button that sends data to attached observers.
+// A subject manages a list of observers. Using the methods Attach() and Detach(), the individual Observers can log on and off.
+INTERFACE ISubject
+
+// Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
+METHOD PUBLIC Attach : BOOL
+VAR_INPUT
+	observer : IObserver;
+END_VAR
+END_METHOD
+
+// Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
+METHOD PUBLIC Detach : BOOL
+VAR_INPUT
+	observer : IObserver;
+END_VAR
+END_METHOD
+
+// The actual number of observers that are receiving events
+{attribute 'monitoring':='call'}
+PROPERTY ObserverCount : UINT
+END_PROPERTY
+
+END_INTERFACE

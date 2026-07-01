@@ -1,0 +1,123 @@
+// ONTIME measures the total time that a signal is active
+{attribute 'monitoring_display' := 'udiSeconds'}
+FUNCTION_BLOCK ONTIME
+VAR_INPUT
+	In			: BOOL;
+END_VAR
+VAR
+	Last		: CAA.TICK;
+	edge		: BOOL;
+	udiMs		: UDINT;
+
+	udiSeconds	: UDINT;	// Non-resetting ever-increasing time In is high
+	udiCycles	: UDINT;	// Number of times the input switched on
+	refSeconds	: REFERENCE TO UDINT REF= udiSeconds;
+	refCycles	: REFERENCE TO UDINT REF= udiCycles;
+END_VAR
+
+Initialize();
+
+IF In THEN
+	udiMs			:= udiMs + (TICKU.GetElapsedTimeInUSec(Last) / 1000);	// Add the elapsed milliseconds since last cycle
+
+	IF udiMs >= 1000 THEN		// Check if a second has elapsed
+		refSeconds	:= refSeconds + 1;
+		udiMs		:= udiMs - 1000;
+	END_IF
+
+	refCycles		:= refCycles + TO_UDINT(NOT edge);
+END_IF
+
+Last				:= TICKS.GetTick(FALSE);
+edge				:= In;
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE Initialize
+VAR_INST
+	{attribute 'init_on_onlchange' }
+	xInitialized	: BOOL;
+END_VAR
+IF xInitialized THEN
+	RETURN;
+END_IF
+
+Last			:= TICKS.GetTick(FALSE);
+udiMs			:= 0;
+
+xInitialized	:= TRUE;
+END_METHOD
+
+METHOD PUBLIC Reset
+VAR_INPUT
+END_VAR
+refSeconds		:= 0;
+refCycles		:= 0;
+
+Last			:= TICKS.GetTick(FALSE);
+udiMs			:= 0;
+END_METHOD
+
+METHOD PUBLIC SetExternalCyclesReference
+VAR_INPUT
+	Cycles	: REFERENCE TO UDINT;
+END_VAR
+
+// We often need to persist the ONTIME data, so the data retains their value after reboots.
+// For example if we count how long a vacuumpump has been running.
+// In that case we need to declare the data in the PersistentVars list
+// Use this method to set a reference to that variable
+
+// If this method is never used (or reference is set to NULL), data is counted internally in the FB.
+IF __ISVALIDREF(Cycles) THEN
+	THIS^.refCycles		REF= Cycles;
+ELSE
+	THIS^.refCycles		REF= udiCycles;
+END_IF
+END_METHOD
+
+METHOD PUBLIC SetExternalSecondsReference
+VAR_INPUT
+	Seconds	: REFERENCE TO UDINT;
+END_VAR
+
+// We often need to persist the ONTIME data, so the data retains their value after reboots.
+// For example if we count how long a vacuumpump has been running.
+// In that case we need to declare the data in the PersistentVars list
+// Use this method to set a reference to that variable
+
+// If this method is never used (or reference is set to NULL), data is counted internally in the FB.
+IF __ISVALIDREF(Seconds) THEN
+	THIS^.refSeconds	REF= Seconds;
+ELSE
+	THIS^.refSeconds	REF= udiSeconds;
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AsReal : REAL
+GET
+AsReal := TO_REAL(refSeconds) + TO_REAL(udiMs) / 1000;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AsTime : TIME
+GET
+AsTime := TO_TIME(refSeconds * 1000 + udiMs);
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC Cycles : ULINT
+GET
+Cycles := refCycles;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSeconds : ULINT
+GET
+InSeconds := refSeconds;
+END_GET
+END_PROPERTY

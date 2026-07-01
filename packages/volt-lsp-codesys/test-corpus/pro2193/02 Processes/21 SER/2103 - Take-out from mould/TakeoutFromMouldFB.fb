@@ -1,0 +1,117 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK TakeoutFromMouldFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartCommand
+VAR_INPUT
+	xuUnit						: IXuUnit_Default_TakeoutFromMould_Commands;
+END_VAR
+VAR
+	moveToFinalPosition			: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateMovingTowardsMouldHalfway		:= 100,
+		StateMovingTowardsMould				:= 200,
+		StateMovingBackFromMould			:= 300,
+		StateTakeoutDone					:= 400
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+CASE ActState OF
+	StateNone:
+		;
+
+	StateMovingTowardsMouldHalfway:
+		IF State.Changed THEN
+			xuUnit.ForceReleaseLock();
+		END_IF
+
+		xuUnit.MoveTowardsMould(moveToFinalPosition := moveToFinalPosition);
+		IF moveToFinalPosition THEN
+			ActState := StateMovingTowardsMould;
+		END_IF
+
+	StateMovingTowardsMould:
+		IF xuUnit.MoveTowardsMould(moveToFinalPosition := moveToFinalPosition) THEN
+			ActState := StateMovingBackFromMould;
+		END_IF
+
+	StateMovingBackFromMould:
+		IF xuUnit.MoveBackFromMould() THEN
+			ActState := StateTakeoutDone;
+		END_IF
+
+	StateTakeoutDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Start some action on the module
+METHOD StartCommand : BOOL
+VAR_INPUT
+	iParameter : INT;
+END_VAR
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	IF SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.LabelAdjustment THEN
+		StartCommand := CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+END_IF
+
+moveToFinalPosition := iParameter <> 0;		// Copy parameters
+
+IF ActState = StateNone THEN
+	ActState := StateMovingTowardsMouldHalfway;
+END_IF
+
+IF ActState = StateTakeoutDone THEN
+	StartCommand := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD

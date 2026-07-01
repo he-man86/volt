@@ -1,0 +1,117 @@
+// ---------- Lubrication pump control ------------
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK LubricationPumpFB
+EXTENDS ActuatorWithAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	xEnable					: BOOL;		// Enable the lubrication pump (Machine is running in automatic mode)
+	{attribute 'symbol' := 'read'}	xPulseInput				: BOOL;		// Input: When the pump is running, count the number of pulses on this input
+	errorId					: WORD;
+END_VAR
+VAR_IN_OUT
+	RunningTime				: UDINT;	// Map as persistent var (je mag geen retain vars gebruiken in FB's, daarom als IN_OUT var)
+	NumberOfStarts			: UDINT;	// Map as persistent var
+	iHoursCounter			: INT;		// Count hours until next lubrication
+	iInterval				: INT;		// Start lubricating after this many hours
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'readwrite'}	xTestLubrication		: BOOL;		// Manually test the lubrication from the Keba panel
+	{attribute 'symbol' := 'read'}		iPulseCounter			: INT;		// Show the number of counted pulses on the panel
+	{attribute 'symbol' := 'read'}		xPumpRunning			: BOOL;		// High when vacuum pump output is high
+END_VAR
+VAR
+	Pump					: ActuatorFB;
+	NoPulseAlarm			: SetErrorFB;
+
+	T_1Hour					: BTON;
+	T_Lubricate				: BTON;
+	Trig_StartPump			: TriggerFB;
+	Trig_TestLubrication	: TriggerFB;
+	Trig_Input				: TriggerFB;
+END_VAR
+VAR CONSTANT
+	rLubricationPumpLength	: REAL := 2 * 60;		// Lubrication pump will run for this time after each interval. Default is 2 minutes.
+END_VAR
+
+SUPER^();
+
+xPumpRunning			:= Pump.Map();
+iInterval				:= MAX(iInterval, 1);	// Interval must be at least 1 hour.
+NoPulseAlarm.alarmCondition	:= FALSE;
+
+IF T_1Hour.Set(xEnable, 60 * 60) THEN	// Gives a trigger output once every hour.
+	iHoursCounter		:= iHoursCounter + 1;
+	T_1Hour.Reset();
+END_IF
+
+IF Trig_StartPump.Rising(iHoursCounter >= iInterval) THEN
+	Pump.Set();
+	iPulseCounter		:= 0;
+END_IF
+
+IF xPumpRunning AND Trig_Input.AnyEdge(xPulseInput) THEN
+	Increment.AnyInt(iPulseCounter);
+END_IF
+
+IF T_Lubricate.Set(In := xPumpRunning, Pt := rLubricationPumpLength) THEN
+	iHoursCounter		:= 0;
+	Pump.Reset();
+	NoPulseAlarm.alarmCondition := iPulseCounter = 0;
+END_IF
+
+IF Trig_TestLubrication.Rising(xTestLubrication) THEN
+	IF xPumpRunning THEN
+		iHoursCounter	:= 0;
+		NoPulseAlarm.alarmCondition := iPulseCounter = 0;
+	ELSE
+		iPulseCounter	:= 0;
+	END_IF
+	Pump.SetOrReset(NOT xPumpRunning);
+END_IF
+
+NoPulseAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= ,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+Pump();
+
+// ---------- Measure total running time and number of starts of lubrication pump ------------
+//CalcOnTime(
+//	xIn			:= xPumpRunning,
+//	xReset		:= ,
+//	uliSeconds	:= RunningTime,
+//	uliCycles	:= NumberOfStarts);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC Map : BOOL
+Map := Pump.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD PUBLIC Reset
+Pump.Reset();
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC Set : BOOL
+// no implementation
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+// no implementation
+END_METHOD

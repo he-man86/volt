@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumBoxState :
+(
+	None			:= 0,
+	SheetNeeded		:= 1,
+	ProductsNeeded	:= 2,
+	ChangeNeeded	:= 3
+);
+END_TYPE

@@ -1,0 +1,9 @@
+{attribute 'monitoring_display' := 'stateNumber'}
+TYPE StateHistoryItemType :
+STRUCT
+	stateNumber			: DINT;		// Number of the current state
+	durationInState		: REAL;		// Duration how long this state was active.
+	timeEnterState		: TOD;		// Time of transition from this state to the next
+	timeExitState		: TOD;		// Time of transition from this state to the next
+END_STRUCT
+END_TYPE

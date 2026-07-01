@@ -1,0 +1,24 @@
+FUNCTION_BLOCK INTERNAL ABSTRACT MapperBase
+VAR_INPUT
+	sliceNumber		: IQSlices;
+END_VAR
+VAR
+	sliceInfo		: REFERENCE TO Slice_Type;
+	sliceForced		: REFERENCE TO BOOL;
+	i				: INT;
+END_VAR
+
+IF __ISVALIDREF(sliceInfo) THEN
+	sliceInfo.sliceName		:= TO_STRING(sliceNumber);
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLIC SetSliceRef
+VAR_INPUT
+	sliceInfo	: REFERENCE TO Slice_Type;
+	sliceForced	: REFERENCE TO BOOL;
+END_VAR
+THIS^.sliceInfo		REF= sliceInfo;
+THIS^.sliceForced	REF= sliceForced;
+END_METHOD

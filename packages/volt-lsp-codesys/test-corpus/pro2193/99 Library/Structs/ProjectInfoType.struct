@@ -1,0 +1,12 @@
+// Contains all the information about the current project in the PLC.
+{attribute 'monitoring_display' := 'projectName'}
+TYPE ProjectInfoType :
+STRUCT
+	projectName	: STRING(80);
+	author		: STRING(80);
+	version		: STRING(80);
+	description	: STRING(80);
+	profile		: STRING(80);
+	lastChanges	: STRING(80);
+END_STRUCT
+END_TYPE

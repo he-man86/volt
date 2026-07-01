@@ -1,0 +1,5 @@
+//The participants, which depend on state data from a subject, are called Observers
+INTERFACE IObserverExclusive
+EXTENDS IObserver
+
+END_INTERFACE

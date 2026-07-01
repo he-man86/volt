@@ -1,0 +1,7 @@
+TYPE SliceComponent_Type :
+STRUCT
+	name		: STRING(80);
+	actValue	: BOOL;
+	forceValue	: BOOL;
+END_STRUCT
+END_TYPE

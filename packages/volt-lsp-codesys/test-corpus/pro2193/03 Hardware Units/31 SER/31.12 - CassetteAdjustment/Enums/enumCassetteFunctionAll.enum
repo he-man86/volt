@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumCassetteFunctionAll :
+(
+	None			:= 0,
+	InitCenter		:= 1,
+	InitData		:= 2,
+	Data			:= 3,
+	Stop			:= 4
+);
+END_TYPE

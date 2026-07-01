@@ -1,0 +1,179 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'eState'}
+FUNCTION_BLOCK PUBLIC ABSTRACT GateBaseFB
+EXTENDS ModuleRegisterableFB
+IMPLEMENTS ISafetyGate
+VAR_INPUT
+	xSafetyGateClosed			: BOOL;				// Input from safety sensor
+	ButtonLock					: PushButtonLedFB;	// Button Request gate lock
+	ButtonUnLock				: PushButtonLedFB;	// Button Request gate unlock
+	xAcknowledge				: BOOL;				// Input from safety relay
+	xGateAllowedOpen			: BOOL;				// High when it is allowed to open the gate (Stopped or Idle state)
+	xGateAllowedClosed			: BOOL	:= TRUE;	// High when it is allowed to close the gate (System.Off)
+
+	xIMMGateClose				: BOOL	:= TRUE;	// Input from IMM gate closed	(TRUE when in use without IMM)
+	xGateAllowedOpenIMM			: BOOL	:= TRUE;	// In case of Euromap 78		(TRUE when in use without IMM)
+
+	xRequestForOpening			: REFERENCE TO BOOL;	// Request for opening
+	xAcknowledgement			: REFERENCE TO BOOL;	// Request for acknowledgement
+
+	moduleThatBlocks			: IModuleBlocksSafetyGate;
+END_VAR
+VAR
+	GateOutput					: ActuatorFB;		// Magnet or Pneumatic
+
+	{attribute 'symbol' := 'read'}	eState						: enumGateStates;
+
+	GateOpenedAlarm				: SetErrorFB;
+END_VAR
+VAR_STAT
+	// ONLY USE DURING TESTING AT BRINK!
+	// ONLY USE WHEN YOU ARE NEXT TO THE MACHINE AND CAN VISUALLY CHECK IF MACHINE IS EMPTY!
+	acknowledgeAllGates			: BOOL;		// Acknowledge all gates for the machine
+END_VAR
+
+SUPER^();
+
+CASE eState OF
+	enumGateStates.Opened:
+		ButtonUnLock.Flash();
+		ButtonLock.Off();
+
+	enumGateStates.Closed:
+		IF GateOutput.Map() THEN		// Gate is locked, but some other gate is still open
+			ButtonUnLock.Solid();
+			ButtonLock.SetOrReset(GlobalVars.BlinkerPulseSlow);
+		ELSIF xGateAllowedClosed THEN	// Gate is open and able to close
+			ButtonUnLock.Solid();
+			ButtonLock.Flash();
+		ELSE							// Gate is not allowed to close
+			ButtonUnLock.SetOrReset(GlobalVars.BlinkerPulseFast);
+			ButtonLock.SetOrReset(GlobalVars.BlinkerPulseFast);
+		END_IF
+
+	enumGateStates.Acknowledged:
+		ButtonUnLock.Solid();
+		ButtonLock.Off();
+
+	enumGateStates.Locked:
+		ButtonUnLock.Off();
+		ButtonLock.Off();
+END_CASE
+
+GateOutput();
+ButtonLock();
+ButtonUnLock();
+
+IF __ISVALIDREF(xRequestForOpening) THEN
+	xRequestForOpening	S= ButtonUnLock.buttonInput AND xGateAllowedOpen;
+END_IF
+IF __ISVALIDREF(xAcknowledgement) THEN
+	xAcknowledgement	S= (ButtonLock.buttonInput OR acknowledgeAllGates) AND xSafetyGateClosed;
+END_IF
+
+GateOpenedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= General_Unit_Errors,
+	errorId			:= 5,
+	alarmCondition	:= GateState = enumGateStates.Opened,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Information,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+
+// Give command to some module to move into a safe position.
+IF  moduleThatBlocks <> 0
+AND eState <> enumGateStates.Locked
+AND_THEN NOT moduleThatBlocks.InSafePosForGate
+THEN
+	IF ButtonUnLock.ButtonPushed THEN
+		moduleThatBlocks.GateOpenRequested();
+	END_IF
+	IF ButtonUnLock.ButtonReleased THEN
+		moduleThatBlocks.GateOpenCancelled();
+	END_IF
+END_IF
+
+//acknowledgeAllGates	:= FALSE;
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	T_SafetyGateClosed		: BTON;
+END_VAR
+
+//{warning 'todo: xGateAllowedOpen is 1 cycle laag wanneer ser state = Stopping ... ']}
+CASE eState OF
+	enumGateStates.Opened:		// Machine OFF and gate open
+		IF T_SafetyGateClosed.Set(In := xSafetyGateClosed, Pt := 0.5) THEN
+			T_SafetyGateClosed.Reset();
+			eState	:= enumGateStates.Closed;
+		END_IF
+
+	enumGateStates.Closed:		// Machine OFF, gate is closed, not acknowledged and still able to open
+		IF (ButtonLock.ButtonPushed OR acknowledgeAllGates)
+		AND xGateAllowedClosed
+		THEN
+			GateOutput.Set();
+		END_IF
+
+		IF ButtonUnLock.buttonInput	// Do not look at ButtonPushed trigger here. Open the gate when button is being pushed when entering state
+		AND xGateAllowedOpen
+		AND xGateAllowedOpenIMM
+		AND (moduleThatBlocks = 0 OR_ELSE moduleThatBlocks.InSafePosForGate)	// Gate is not safe to open. First a module must move to a safe spot.
+		THEN
+			GateOutput.Reset();
+		END_IF
+
+		IF NOT xSafetyGateClosed THEN
+			GateOutput.Reset();
+			eState	:= enumGateStates.Opened;
+		ELSIF xIMMGateClose AND xAcknowledge AND GateOutput.Map() THEN
+			eState	:= enumGateStates.Acknowledged;
+		END_IF
+
+	enumGateStates.Acknowledged:	// Machine OFF, gate is closed, acknowledged but still able to open
+		IF NOT xSafetyGateClosed THEN
+			GateOutput.Reset();
+			eState	:= enumGateStates.Opened;
+		ELSIF (ButtonUnLock.ButtonPushed AND xGateAllowedOpen AND xGateAllowedOpenIMM)
+		OR NOT xIMMGateClose
+		OR NOT xAcknowledge
+		OR NOT GateOutput.Map()
+		THEN
+			eState	:= enumGateStates.Closed;
+		ELSIF NOT xGateAllowedOpen THEN
+			eState	:= enumGateStates.Locked;
+		END_IF
+
+	enumGateStates.Locked:		// Locked and not able to open
+		IF NOT xSafetyGateClosed THEN
+			eState	:= enumGateStates.Opened;
+		ELSIF NOT GateOutput.Map() THEN
+			eState	:= enumGateStates.Closed;
+		ELSIF xGateAllowedOpen THEN
+			eState	:= enumGateStates.Acknowledged;
+		END_IF
+END_CASE
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapGate : BOOL
+MapGate := GateOutput.Map();
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC GateState : enumGateStates
+GET
+GateState := eState;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring' := 'call'}
+PROPERTY LockButtonPushed : BOOL
+GET
+LockButtonPushed := ButtonLock.ButtonPushed OR acknowledgeAllGates;
+END_GET
+END_PROPERTY

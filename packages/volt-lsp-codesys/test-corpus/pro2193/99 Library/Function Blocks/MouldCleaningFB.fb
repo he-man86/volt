@@ -1,0 +1,53 @@
+// Allows the IMM to produce a couple of shots without labels, to keep the mould clean.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK MouldCleaningFB
+VAR_IN_OUT
+	Data				: MouldCleaning_Data;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}	xActive				: BOOL;		// Mould cleaning (Shots without IML) is currently active
+	{attribute 'symbol' := 'read'}	iCountDown			: INT;		// Number of shots to produce before starting mould cleaning
+END_VAR
+VAR
+	iCleanShots			: INT;
+END_VAR
+
+IF NOT Data.xEnable OR NOT PersistentVars.RecipeVars.EnableIML THEN
+	iCountDown	:= Data.iInterval;
+	iCleanShots	:= 0;
+	xActive		:= FALSE;
+END_IF
+
+END_FUNCTION_BLOCK
+
+// Returns true when labels should be placed in the mould
+METHOD CycleWithIML : BOOL
+IF NOT Data.xEnable THEN
+	CycleWithIML	:= TRUE;
+	RETURN;
+END_IF
+
+IF NOT xActive THEN								// Mould cleaning is not activ
+	iCountDown		:= iCountDown - 1;			// Count down cycles
+	IF iCountDown <= 0 THEN
+		iCleanShots	:= 0;
+		xActive		:= TRUE;
+	END_IF
+ELSE
+	iCleanShots		:= iCleanShots + 1;
+	IF iCleanShots >= Data.iDuration THEN
+		iCountDown	:= Data.iInterval;
+		xActive		:= FALSE;
+	END_IF
+END_IF
+
+CycleWithIML	:= NOT xActive;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+iCountDown	:= Data.iInterval;
+iCleanShots	:= 0;
+xActive		:= FALSE;
+EStop		:= TRUE;
+END_METHOD

@@ -1,0 +1,12 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumMovementType :
+(
+	Up			:= 1,
+	Right		:= 2,
+	Down		:= 3,
+	Left		:= 4,
+	RotateCw	:= 5,
+	RotateCcw	:= 6
+);
+END_TYPE

@@ -1,0 +1,23 @@
+// This function block is essentially the same as a BLINK function block, with the difference that OUT will stay high when Enable is switched off while OUT is high.
+{attribute 'hide'}
+FUNCTION_BLOCK INTERNAL BlinkHammerFB
+EXTENDS BLINK
+VAR_OUTPUT
+	xEdge	: BOOL;		// Provide a rising edge trigger when the output switches on
+END_VAR
+
+xEdge := FALSE;					// Reset the trigger output
+CLOCK();						// call TP Timer
+IF Enable THEN
+	IF NOT CLOCK.Q THEN			// time passed or init
+		CLOCK(IN := FALSE);		// reset Timer
+		CLOCK(IN := TRUE, PT := SEL(OUT, TIMEHIGH, TIMELOW));		// restart Timer
+		OUT := NOT OUT;			// invert output signal
+		xEdge := OUT;			// Give a trigger when the output switches to true
+	END_IF
+ELSIF NOT CLOCK.Q THEN			// Wait until timer is expired before resetting output
+	CLOCK(IN := FALSE);
+	OUT := FALSE;				// Reset output
+END_IF
+
+END_FUNCTION_BLOCK

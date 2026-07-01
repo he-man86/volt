@@ -1,0 +1,26 @@
+// Here are the available constants with system information from the runtime
+TYPE RuntimeConstantsType :
+STRUCT
+	bLittleEndian				: BOOL	:= __SYSTEM.Constants.bLittleEndian;				// type BOOL, TRUE for Intel, ARM etc. FALSE for PPC etc.
+	bSimulationMode				: BOOL	:= __SYSTEM.Constants.bSimulationMode;				// Simulation mode: TRUE in simulation mode
+	nRegisterSize				: WORD	:= __SYSTEM.Constants.nRegisterSize;				// 16 for 186 AND C16x, 64 for X86-64 Bit, 32 for all other controllers
+	nPackMode					: UINT	:= __SYSTEM.Constants.nPackMode;
+	bFPUSupport					: BOOL	:= __SYSTEM.Constants.bFPUSupport;					// true if FPU support is available on the target
+
+	RuntimeVersionMajor			: UINT	:= __SYSTEM.Constants.RuntimeVersion.uiMajor;		// type VERSION the version as described in the runtime system
+	RuntimeVersionMinor			: UINT	:= __SYSTEM.Constants.RuntimeVersion.uiMinor;		// type VERSION the version as described in the runtime system
+	RuntimeVersionPatch			: UINT	:= __SYSTEM.Constants.RuntimeVersion.uiPatch;		// type VERSION the version as described in the runtime system
+	RuntimeVersionServiceP		: UINT	:= __SYSTEM.Constants.RuntimeVersion.uiServicePack;	// type VERSION the version as described in the runtime system
+	RuntimeVersionNumeric		: DWORD	:= __SYSTEM.Constants.RuntimeVersionNumeric;		// type DWORD the version as described in the runtime system
+	CompilerVersionMajor		: UINT	:= __SYSTEM.Constants.CompilerVersion.uiMajor;		// type VERSION the version as described in the runtime system
+	CompilerVersionMinor		: UINT	:= __SYSTEM.Constants.CompilerVersion.uiMinor;		// type VERSION the version as described in the runtime system
+	CompilerVersionPatch		: UINT	:= __SYSTEM.Constants.CompilerVersion.uiPatch;		// type VERSION the version as described in the runtime system
+	CompilerVersionServiceP		: UINT	:= __SYSTEM.Constants.CompilerVersion.uiServicePack;// type VERSION the version as described in the runtime system
+	CompilerVersionNumeric		: DWORD	:= __SYSTEM.Constants.CompilerVersionNumeric;		// type DWORD: the version as defined in the compile options
+
+	bMulticoreSupport			: BOOL	:= __SYSTEM.Constants.bMulticoreSupport;			// true if MultiCore support is available on the target
+	nRuntimeDeviceType			: UINT	:= __SYSTEM.Constants.nRuntimeDeviceType;
+	vcOptimalLREAL				: INT	:= __SYSTEM.Constants.vcOptimalLREAL;
+	vcOptimalREAL				: INT	:= __SYSTEM.Constants.vcOptimalREAL;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,8 @@
+TYPE DrawerPlateType :
+STRUCT
+	NumberOfCassettes			: USINT;			// Define the number of cassettes that are used for this product
+	InvertDirectionsForXRaxis	: BOOL := FALSE;	// Set to TRUE to invert the label directions in case of a XR-axis.
+	CassetteData				: ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF CassetteFB();
+	CassetteDefinition			: ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF CassetteDefinition;
+END_STRUCT
+END_TYPE

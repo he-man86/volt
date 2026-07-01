@@ -1,0 +1,90 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC IMM_KreuwelSensors
+EXTENDS IMM_Default
+VAR_INPUT
+	// Bij deze sensor hoog mag de Y as matrijs gebied in (verst van de kern)
+	// Als deze sensor laag is, is het product gepakt
+	S1_MouldAlmostOpen			: BOOL;
+	// Na deze sensor niet kijken als de Y as het matrijs gebied ingaat (dichtst bij de kern)
+	// als deze sensor hoog is is, het product gepakt
+	S2_ProductReleased			: BOOL;
+END_VAR
+VAR
+END_VAR
+
+// Both regular safety sensors for mould open detection are not in use for Kreuwel machines.
+sensorMouldOpen			:= xMouldOpen;
+sensorIntermediateOpen	:= xMouldOpen OR xIntermediateOpen;
+
+SUPER^(Data := Data);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError		: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SUPER^.Alarms();
+
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 12,
+	alarmCondition	:= SER.xGatesAreClosed			// Sensor reflector is mounted on door, so no signal when door is open
+					AND XuUnits.Unit[1].InSafePos	// Xu gripper will be in front of the sensor when not on Parking position
+					AND ((xMouldOpen AND NOT S1_MouldAlmostOpen) OR (xMouldClosed AND S1_MouldAlmostOpen)),
+	alarmDelay		:= 3.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+// Start the Ejector/Core pullers program.
+METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Front position.
+VAR_INPUT
+END_VAR
+IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
+	EjectShot := TRUE;
+	RETURN;
+END_IF
+
+EjectShot := SUPER^.EjectShot() AND NOT S1_MouldAlmostOpen AND S2_ProductReleased;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+Reset := SUPER^.Reset()
+		AND (S1_MouldAlmostOpen OR Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe));
+END_METHOD
+
+// Check if the mould closes every cycle
+METHOD PROTECTED SetMouldWasClosed
+IF NOT SER.InAutomaticOperation THEN
+	mouldWasClosed			:= FALSE;
+	ShotCounter				:= 0;
+ELSIF NOT sensorIntermediateOpen
+AND NOT sensorMouldOpen
+AND NOT xMouldOpen
+AND	xMouldClosed
+AND NOT S1_MouldAlmostOpen
+AND NOT S2_ProductReleased
+THEN
+	mouldWasClosed			:= TRUE;
+END_IF
+END_METHOD
+
+// Returns true when the mould is completely opened
+{attribute 'monitoring':='variable'}
+PROPERTY PUBLIC RequestFullMouldOpen : BOOL
+GET
+RequestFullMouldOpen := SUPER^.RequestFullMouldOpen;
+END_GET
+END_PROPERTY
+
+// Returns true when the Y unit has permission to move into the mould area
+{attribute 'monitoring':='variable'}
+PROPERTY PUBLIC RequestMouldEntry : BOOL
+GET
+RequestMouldEntry := SUPER^.RequestMouldEntry AND S1_MouldAlmostOpen;
+END_GET
+END_PROPERTY

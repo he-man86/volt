@@ -1,0 +1,52 @@
+// Throw error messages for safety gates
+FUNCTION_BLOCK PnozSafetyGateAlarmsFB
+EXTENDS PnozAlarmsBaseFB
+VAR_INPUT
+	gateOpened				: BOOL;		// Safety gate was opened (bit 1)
+	functionTest			: BOOL;		// Function test must be performed (bit 3)
+	contactFailed			: BOOL;		// N/C contact 1 or 2 failed to switch or switched too late (bit 5)
+	errorTestPulse			: BOOL;		// Error in the test pulse wiring (bit 8)
+END_VAR
+VAR_OUTPUT
+	gateOpenedOut			: BOOL;
+END_VAR
+VAR
+	functionTestAlarm		: SetErrorFB;
+	contactFailedAlarm		: SetErrorFB;
+	errorTestPulseAlarm		: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+gateOpenedOut := gateOpened;
+
+functionTestAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 5,		// Function test must be performed
+	alarmCondition	:= functionTest,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction);
+
+contactFailedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 2,		// N/C contact 1 or 2 failed to switch or switched too late
+	alarmCondition	:= contactFailed,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+errorTestPulseAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 3,		// Error in the test pulse wiring
+	alarmCondition	:= errorTestPulse,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+END_FUNCTION_BLOCK

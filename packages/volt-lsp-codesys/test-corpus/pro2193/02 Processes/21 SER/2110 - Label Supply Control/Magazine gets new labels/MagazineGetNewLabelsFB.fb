@@ -1,0 +1,170 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK MagazineGetNewLabelsFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	magazine					: IMagazine_Supply_Commands;
+END_VAR
+VAR
+
+	automaticOperationStarted	: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateMagazineGettingNewLabels		:= 100,
+		StateAutoLabelTakeout_AwaitStart	:= 200,
+		StateAutoLabelTakeout_Busy			:= 300
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	triggerIML			: RisingTriggerFB;
+	triggerState		: RisingTriggerFB;
+END_VAR
+State(actState	:= ActState);
+
+// Trigger when IML is turned on during automatic operation
+IF  triggerIML.Rising(PersistentVars.RecipeVars.EnableIML)
+AND SER.OperationMode <> SER_OperationModeType.SemiAuto		// Do NOT get new labels when in Semi-auto mode.
+AND magazine.ActState = enumMagazineState.ReadyWithoutLabels
+AND automaticOperationStarted
+THEN
+	ActState := StateMagazineGettingNewLabels;
+	RETURN;
+END_IF
+
+// Trigger when magazine ready state changes to ReadyWithoutLabels
+IF  triggerState.Rising(magazine.ActState = enumMagazineState.ReadyWithoutLabels)
+AND SER.OperationMode <> SER_OperationModeType.SemiAuto		// Do NOT get new labels when in Semi-auto mode.
+AND PersistentVars.RecipeVars.EnableIML
+THEN
+
+	IF automaticOperationStarted		// Do not get new labels if the cycle is shutting down (in Completing state)
+	OR magazine.AnotherLabelNeeded		// Magazine indicates that another new label is needed.
+	THEN
+		ActState := StateMagazineGettingNewLabels;
+		RETURN;
+	END_IF
+
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+ActState					:= StateNone;
+EStop						:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+CASE ActState OF
+	StateNone:
+		;
+
+	StateMagazineGettingNewLabels:
+		IF magazine.GetNewLabels(enumDrawer.NoDrawer) THEN
+			ActState := StateNone;
+		END_IF
+
+	StateAutoLabelTakeout_AwaitStart:
+		IF SER.SemiAutoNextStep
+		AND ((PNOZMulti2.xHoldToRunButton AND PNOZMulti2.xServiceSwitch) OR SER.xGatesAreClosed)
+		THEN
+			ActState := StateAutoLabelTakeout_Busy;
+		END_IF
+
+	StateAutoLabelTakeout_Busy:
+		IF magazine.GetNewLabels(enumDrawer.NoDrawer) THEN
+			ActState := StateAutoLabelTakeout_AwaitStart;
+		END_IF
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := FALSE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := FALSE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := TRUE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	automaticOperationStarted	:= TRUE;
+
+	IF SER.OperationMode = SER_OperationModeType.AutoTakeoutLabels THEN
+		ActState := StateAutoLabelTakeout_AwaitStart;
+	ELSIF PersistentVars.RecipeVars.EnableIML						// Only if IML is enabled
+	AND magazine.ActState <> enumMagazineState.ReadyWithLabels		// Magazine does not have labels ready
+	THEN
+		ActState := StateMagazineGettingNewLabels;
+	END_IF
+END_IF
+
+IF ActState = StateNone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+ActState					:= StateNone;
+Stop						:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+automaticOperationStarted	:= FALSE;
+StopCycle					:= ActState = StateNone;
+END_METHOD

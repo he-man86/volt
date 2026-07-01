@@ -1,0 +1,18 @@
+// The payload (data) of a hardware button subject that is sent to an observer.
+INTERFACE ISubjectProductionStatistic
+EXTENDS ISubjectBasePayload
+
+{attribute 'monitoring' := 'call'}
+PROPERTY PUBLIC Cavity : UINT
+END_PROPERTY
+
+PROPERTY PUBLIC Data : UDINT
+END_PROPERTY
+
+PROPERTY PUBLIC RejectReason : USINT
+END_PROPERTY
+
+PROPERTY PUBLIC StatType : enumProductionStatsCavityType
+END_PROPERTY
+
+END_INTERFACE

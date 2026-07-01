@@ -1,0 +1,214 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK DrawerControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	ButtonAutoChangeDrawer		: PushButtonLedFB;
+	ButtonChangeDrawer			: PushButtonLedFB;
+	drawerMagazine				: IDrawerMagazine_Change_Commands;
+END_VAR
+VAR
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateCheckingForDrawerChange		:= 10,
+
+		StateChangingDrawer					:= 100,
+		StateUnlockDrawer					:= 110,
+		StateMoveDrawers					:= 120,
+		StateLockDrawer						:= 130
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	triggerEmpty				: RisingTriggerFB;
+	triggerIml					: RisingTriggerFB;
+	buttonChangeDrawerPushed	: BOOL;
+END_VAR
+State(actState	:= ActState);
+
+ButtonAutoChangeDrawer();
+ButtonChangeDrawer();
+
+// Trigger when manual change drawer button is pressed
+buttonChangeDrawerPushed	S= ButtonChangeDrawer.ButtonPushed AND ActState = StateNone AND SER.DigIn.xAirPressureOK AND drawerMagazine.HoodIsAcknowledged;
+
+IF buttonChangeDrawerPushed AND_THEN drawerMagazine.LockRequest(InstanceName) THEN
+	buttonChangeDrawerPushed	:= FALSE;
+	IF drawerMagazine.InactiveDrawerItf <> 0 THEN
+		drawerMagazine.InactiveDrawerItf.IsEmpty := FALSE;	// Reset the empty bit of the drawer at refill position
+	END_IF
+	ActState := StateChangingDrawer;
+END_IF
+
+IF ActState >= 100 AND ActState < 200 THEN
+	ButtonChangeDrawer.SetFlashingFrequency(TRUE);
+	ButtonChangeDrawer.Flash();
+ELSE
+	ButtonChangeDrawer.Off();
+END_IF
+
+IF  SER.InAutomaticOperation
+AND ActState = StateNone
+THEN
+	IF triggerIml.Rising(PersistentVars.RecipeVars.EnableIML) THEN		// Trigger when IML is switched on
+		ActState := StateCheckingForDrawerChange;
+	END_IF
+
+	IF triggerEmpty.Rising(drawerMagazine.ActiveDrawerItf <> 0 AND_THEN drawerMagazine.ActiveDrawerItf.IsEmpty) THEN	// Trigger when active drawer is becoming empty
+		ActState := StateCheckingForDrawerChange;
+	END_IF
+END_IF
+
+// Trigger when auto change drawer button is pressed
+IF  ButtonAutoChangeDrawer.ButtonPushed
+AND drawerMagazine.InactiveDrawerItf <> 0
+AND drawerMagazine.HoodIsAcknowledged
+AND (ActState = StateNone OR ActState = StateCheckingForDrawerChange)
+THEN
+	drawerMagazine.InactiveDrawerItf.IsEmpty := NOT drawerMagazine.InactiveDrawerItf.IsEmpty;	// Reset the empty bit of the drawer at refill position
+END_IF
+
+// Button LEDs
+IF NOT drawerMagazine.HoodIsAcknowledged OR drawerMagazine.InactiveDrawerItf = 0 THEN
+	ButtonAutoChangeDrawer.Off();	// LED is off when hood is opened
+ELSIF drawerMagazine.InactiveDrawerItf.IsEmpty THEN
+	ButtonAutoChangeDrawer.Flash();	// LED is flashing when drawer is empty. Not changing automatically
+ELSE
+	ButtonAutoChangeDrawer.Solid();	// LED is solid when the drawer will be changed automatically next time
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.FourCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	result				: ARRAY[1..1] OF BOOL;
+END_VAR
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE ActState OF
+	StateNone:
+		;
+
+	StateCheckingForDrawerChange:
+		IF NOT PersistentVars.RecipeVars.EnableIML THEN			// Don't do anything when IML is off
+			ActState := StateNone;
+			RETURN;
+		END_IF
+
+		IF drawerMagazine.ActiveDrawerItf <> 0 AND_THEN NOT drawerMagazine.ActiveDrawerItf.IsEmpty THEN
+			ActState := StateNone;
+			RETURN;
+		END_IF
+
+		IF drawerMagazine.InactiveDrawerItf = 0 OR_ELSE NOT drawerMagazine.InactiveDrawerItf.IsEmpty THEN
+			ActState := StateChangingDrawer;
+		END_IF
+
+	StateChangingDrawer:
+		IF drawerMagazine.LockRequest(InstanceName) THEN	// Prevent the drawer from doing other stuff while we are busy
+			ActState := StateUnlockDrawer;
+		END_IF
+
+	StateUnlockDrawer:
+		IF result[1] OR_ELSE (result[1] := drawerMagazine.DrawerUnlock()) THEN
+			ActState := StateMoveDrawers;
+		END_IF
+
+	StateMoveDrawers:
+		IF result[1] OR_ELSE (result[1] := drawerMagazine.DrawerChange()) THEN
+			ActState := StateLockDrawer;
+		END_IF
+
+	StateLockDrawer:
+		IF result[1] OR_ELSE (result[1] := drawerMagazine.DrawerLock()) THEN
+			drawerMagazine.LockRelease(InstanceName);	// Release the drawer for doing other stuff
+			ActState := StateNone;
+		END_IF
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := FALSE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := FALSE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := TRUE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	ActState := StateCheckingForDrawerChange;
+END_IF
+
+IF ActState = StateNone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+StopCycle				:= ActState = StateNone;
+END_METHOD

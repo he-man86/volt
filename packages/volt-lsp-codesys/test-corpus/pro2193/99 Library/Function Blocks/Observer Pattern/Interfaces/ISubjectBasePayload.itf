@@ -1,0 +1,5 @@
+// The payload (data) of a base subject that is sent to an observer. Payload is empty!
+INTERFACE ISubjectBasePayload
+EXTENDS __SYSTEM.IQueryInterface
+
+END_INTERFACE

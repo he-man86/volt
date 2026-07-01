@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumOrientationType :
+(
+	Upright		:= 0,
+	Right		:= 90,
+	UpsideDown	:= 180,
+	Left		:= 270
+);
+END_TYPE

@@ -1,0 +1,35 @@
+{attribute 'symbol' := 'none'}
+TYPE ServoDriveConfigType :
+STRUCT
+	axisBlockedAlarmMaxTorque	: REAL	:= 0.5;		// [Nm] Give Axis Blocked alarm when torque is higher.
+//	axisBlockedAlarmTimeout		: REAL	:= 3;		// [sec] Give Axis Blocked alarm after this timeout.
+	homingDoExtraSensorCheck	: BOOL	:= TRUE;	// Extra check for valid reference sensor signal
+	homingMoveNegativeDistance	: REAL	:= 2;		// [mm] Move negative distance from ref. pos. and check sensor low
+	homingMovePositiveDistance	: REAL	:= 1;		// [mm] Move positive distance from ref. pos. and check sensor high
+
+	unitConvertFactor			: UINT(1..1000)	:= 1000;	// Factor to convert units from m/s to mm/s.
+
+	{attribute 'symbol' := 'read'}	unitForDistanceName			: STRING(20)	:= 'mm';	// Unit that is shown in HMI in Brink settings
+	{attribute 'symbol' := 'read'}	maxVelocity					: REAL			:= 5;		// [m/s] Maximum speed (subindex 45) [FLOAT_64]
+	{attribute 'symbol' := 'read'}	maxAcceleration				: REAL			:= 50;		// [m/s²] Maximum acceleration (subindex 46) [FLOAT_64]
+	{attribute 'symbol' := 'read'}	maxJerk						: REAL			:= 500;		// [m/s³] Maximum jerk (subindex 47) [FLOAT_64]
+
+	virtualMode					: BOOL	:= FALSE;	// Virtual mode (subindex 29) [UNSIGNED_8]
+	enableSWLimit				: BOOL	:= TRUE;	// Software limit position monitoring (subindex 50) [UNSIGNED_8]
+
+	enableFollowingError		: BOOL	:= TRUE;	// Following error: Monitoring effective (subindex 54) [UNSIGNED_8]
+	maxFollowingErrorWarning	: REAL	:= 1.0;		// [mm] Following error: Warning threshold (subindex 55) [FLOAT_64]
+	maxFollowingErrorError		: REAL	:= 3.0;		// [mm] Following error: Error threshold (subindex 56) [FLOAT_64]
+
+	windowTargetReached			: REAL	:= 1.0;		// [mm] Window - target position reached (subindex 130) [FLOAT_64]
+	timeTargetReached			: REAL	:= 0.0;		// [sec] Time - target position reached (subindex 131) [FLOAT_64]
+	windowStandstill			: REAL	:= 10.0;	// [mm/s] Window - standstill detection (subindex 132) [FLOAT_64]
+	posTolWindow				: REAL	:= 0.5;		// [mm] Pos. tol. window SetPos=ActPos (subindex 136) [FLOAT_64]
+	negTolWindow				: REAL	:= 0.5;		// [mm] Neg. tol. window SetPos=ActPos (subindex 137) [FLOAT_64]
+
+	// MC_DIRECTION - The selection of the traversing direction is only reasonable in the "Modulo" traversing range
+	// Use mcPositiveDirection for endless movements like conveyors, otherwise mcShortestWay
+	eDirection					: L_MC1P.MC_DIRECTION	:= L_MC1P.MC_DIRECTION.mcPositiveDirection;
+
+END_STRUCT
+END_TYPE

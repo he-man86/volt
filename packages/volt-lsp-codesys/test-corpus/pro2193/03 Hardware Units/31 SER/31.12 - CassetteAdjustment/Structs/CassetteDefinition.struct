@@ -1,0 +1,17 @@
+TYPE CassetteDefinition :
+STRUCT
+	// To fill in in the config
+	CassetteId				: USINT;
+	CavityId				: USINT;
+	LabelId					: USINT;
+	LabelType				: enumLabelType;
+	LabelOrientation		: enumOrientationType;
+	CassetteOrientation		: enumOrientationType;
+	AdjustmentValve			: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF USINT;
+	EnableValve				: USINT;
+
+	// Calculated
+	MotorsForMovements		: ARRAY[enumMovementType.Up...enumMovementType.Left] OF enumMotorsType;
+	DirectionsForMovements	: ARRAY[enumMovementType.Up...enumMovementType.Left] OF enumDirection;
+END_STRUCT
+END_TYPE

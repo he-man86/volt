@@ -1,0 +1,8 @@
+TYPE ServiceModePosType :
+STRUCT
+	xEnable	: BOOL;
+	Position: PositionWithProfileType;
+	rDelay	: REAL;
+	sw		: StopwatchFB;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,12 @@
+// Commands specific for a Takeover module
+INTERFACE IModuleTransferExecuteWithPrepare
+EXTENDS IModuleTransferExecute
+
+// Prepare a transfer. Do some actions before the Y axis is in position
+METHOD PUBLIC PrepareTransfer : BOOL
+VAR_INPUT
+	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+END_METHOD
+
+END_INTERFACE

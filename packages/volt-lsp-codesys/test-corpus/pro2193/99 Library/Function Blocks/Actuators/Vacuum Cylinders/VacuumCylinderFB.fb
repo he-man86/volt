@@ -1,0 +1,136 @@
+// Control a vacuum cylinder
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC VacuumCylinderFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	xInputBack				: BOOL;				// Sensor: Vacuum cylinder is back
+	errorId_SensorMissing	: WORD;				// Sensor 'Cylinder is back' is missing
+	errorId_CylinderStuck	: WORD;				// The cylinder is stuck and does not go out
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+	{attribute 'symbol' := 'read'}	eState					: enumVacuumCylinderState;
+	SensorMissingAlarm		: SetErrorFB;
+	CylinderStuckAlarm		: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+CASE eState OF
+	enumVacuumCylinderState.Off:		// Vacuum cylinder is not switched on
+		Output.Reset();
+
+	enumVacuumCylinderState.SwitchOn:	// Switch the vacuum cylinder on
+		Output.Set();
+		IF NOT xInputBack THEN
+			eState := enumVacuumCylinderState.Moving;
+		END_IF
+
+	enumVacuumCylinderState.Moving:		// Vacuum cylinder is moving out to get a product
+		IF xInputBack THEN
+			eState := enumVacuumCylinderState.InWithProduct;
+		END_IF
+
+	enumVacuumCylinderState.InWithProduct:	// Vacuum cylinder is back in with a product
+		IF NOT xInputBack THEN
+			eState := enumVacuumCylinderState.Moving;
+		END_IF
+END_CASE
+
+IF NOT Output.Map() THEN
+	eState := enumVacuumCylinderState.Off;
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+SensorMissingAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND eState <> enumVacuumCylinderState.SwitchOn AND NOT xInputBack,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_SensorMissing,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+CylinderStuckAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND eState = enumVacuumCylinderState.SwitchOn,
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId_CylinderStuck,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+END_METHOD
+
+METHOD PUBLIC GetCylinderStuckTime : REAL
+VAR_INPUT
+END_VAR
+GetCylinderStuckTime := CylinderStuckAlarm.elapsedTime;
+END_METHOD
+
+METHOD PUBLIC GetSensorMissingTime : REAL
+VAR_INPUT
+END_VAR
+GetSensorMissingTime := SensorMissingAlarm.elapsedTime;
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+eState := enumVacuumCylinderState.Off;
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+IF eState = enumVacuumCylinderState.Off THEN
+	eState := enumVacuumCylinderState.SwitchOn;
+END_IF
+Set := HasProduct;
+END_METHOD
+
+METHOD SetOrReset : BOOL
+VAR_INPUT
+	xSetOrReset	: BOOL;
+END_VAR
+IF xSetOrReset THEN
+	Set();
+ELSE
+	Reset();
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY HasProduct : BOOL
+GET
+HasProduct := eState = enumVacuumCylinderState.InWithProduct;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsBack : BOOL
+GET
+IsBack := xInputBack;
+END_GET
+END_PROPERTY

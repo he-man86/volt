@@ -1,0 +1,15 @@
+// All counters and statistics about the machine
+{attribute 'symbol' := 'read'}
+TYPE ProductionStatsType :
+STRUCT
+	StatId					: USINT;				// Statistic set number
+	TimeStopped				: UDINT;				// Time spent in Stopped mode
+	TimeResetting			: UDINT;				// Time spent resetting the machine
+	TimeIdle				: UDINT;				// Time spent in Idle mode
+	TimeAutomatic			: UDINT;				// Time the machine is running in Automatic mode
+	AutomaticCycleStarts	: UDINT;				// Number of times the machine switched to Automatic mode
+
+	Total			: ProductionStatsCavityType;	// total production statistics
+	Cavity			: ARRAY[1..GVL_Constants.MaxProductsInMould] OF ProductionStatsCavityType;		// Production counters per mould cavity
+END_STRUCT
+END_TYPE

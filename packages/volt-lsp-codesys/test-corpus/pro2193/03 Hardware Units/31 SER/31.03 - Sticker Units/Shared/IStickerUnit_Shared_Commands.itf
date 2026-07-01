@@ -1,0 +1,8 @@
+INTERFACE IStickerUnit_Shared_Commands
+
+METHOD PUBLIC ApplySticker : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+END_INTERFACE

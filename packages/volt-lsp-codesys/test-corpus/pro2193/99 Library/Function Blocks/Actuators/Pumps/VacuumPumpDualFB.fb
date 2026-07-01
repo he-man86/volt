@@ -1,0 +1,135 @@
+// Control a vacuum pump configuration with individual pumps for high and low vacuum
+FUNCTION_BLOCK VacuumPumpDualFB
+EXTENDS ActuatorWithAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	xMachineRunning				: BOOL;		// Machine is running in automatic mode
+	xMainAirValve				: BOOL;		// Main air valve is switched on
+	xManualOnOffSwitch			: BOOL;
+	xThermalInputHighVacuum		: BOOL;		// Input: High when thermal contact switched
+	xThermalInputLowVacuum		: BOOL;		// Input: High when thermal contact switched
+	xPhaseCheck					: BOOL;		// Input: High when the fases are in order
+	xLowVacuumtankFull			: BOOL;		// Input: Low vacuum tank is full
+	xHighVacuumtankFull			: BOOL;		// Input: High vacuum tank is full
+	xOptionDisableWithAirButton	: BOOL;		// Map as persistent variable. Option to also disable pump together with main air valve.
+	xOptionDisableVacuumPumps	: BOOL;		// Map as presistent variable. Option to disable vacuum pump 2 (Low) and run only High vacuum
+	xOptionDisableVacuumPump2	: BOOL;		// Map as presistent variable. Option to disable vacuum pump 2 (Low) and run only High vacuum
+
+	errorId_PhaseCheck			: WORD;		// G_dwAlarms.05	0005 - Three-phase power in wrong order. Change phase connection.
+	errorId_Thermal				: WORD;		// G_dwAlarms.06	0006 - Thermal contact Vacuum pump switch off.
+	errorId_TooMuchRequested	: WORD;		// G_dwAlarms.07	0007 - Too much vacuum requested. Vacuum level dropped.
+	errorId_HighTankDoesNotFill	: WORD;		// G_dwAlarms.13	0013 - Takes too long before high vacuum tank is full.
+	errorId_Maintenance			: WORD;		// G_dwWarnings.28	0428 - Warnings: Vacuum Pump ≥  3000 hours of operation. Check manual for maintenance.
+END_VAR
+VAR_IN_OUT
+	TotalRunningTime			: UDINT;	// Map as persistent var (je mag geen retain vars gebruiken in FB's, daarom als IN_OUT var)
+	TotalNumberOfStarts			: UDINT;	// Map as persistent var
+END_VAR
+VAR_OUTPUT
+	xVacuumpumpRunning			: BOOL;		// High when vacuum pump output is high
+END_VAR
+VAR
+	HighVacuumPump				: VacuumPumpFB;
+	LowVacuumPump				: VacuumPumpFB;
+	TotalRunningTime2			: UDINT;	// Not used
+	TotalNumberOfStarts2		: UDINT;	// Not used
+END_VAR
+
+HighVacuumPump(
+	moduleHandler				:= moduleHandler,
+	textRefId					:= textRefId,
+	alarmEnable					:= alarmEnable,
+	alarmDelay					:= alarmDelay,
+	severity					:= severity,
+	reaction					:= reaction,
+	xMachineRunning				:= xMachineRunning,
+	xMainAirValve				:= xMainAirValve,
+	xManualOnOffSwitch			:= xManualOnOffSwitch,
+	xThermalInput				:= xThermalInputHighVacuum,
+	xPhaseCheck					:= xPhaseCheck,
+	xLowVacuumtankFull			:= xLowVacuumtankFull,
+	xHighVacuumtankFull			:= xHighVacuumtankFull,
+	xOptionDisableWithAirButton	:= xOptionDisableWithAirButton,
+	xOptionDisableVacuumPump	:= xOptionDisableVacuumPumps,
+	errorId_PhaseCheck			:= errorId_PhaseCheck,
+	errorId_Thermal				:= errorId_Thermal,
+	errorId_TooMuchRequested	:= errorId_TooMuchRequested,
+	errorId_HighTankDoesNotFill	:= errorId_HighTankDoesNotFill,
+	errorId_Maintenance			:= errorId_Maintenance,
+	TotalRunningTime			:= TotalRunningTime,
+	TotalNumberOfStarts			:= TotalNumberOfStarts,
+	xVacuumpumpRunning			=> );
+
+LowVacuumPump(
+	moduleHandler				:= moduleHandler,
+	textRefId					:= textRefId,
+	alarmEnable					:= alarmEnable,
+	alarmDelay					:= alarmDelay,
+	severity					:= severity,
+	reaction					:= reaction,
+	xMachineRunning				:= xMachineRunning,
+	xMainAirValve				:= xMainAirValve,
+	xManualOnOffSwitch			:= xManualOnOffSwitch,
+	xThermalInput				:= xThermalInputLowVacuum,
+	xPhaseCheck					:= xPhaseCheck,
+	xLowVacuumtankFull			:= xLowVacuumtankFull,
+	xHighVacuumtankFull			:= xHighVacuumtankFull,
+	xOptionDisableWithAirButton	:= xOptionDisableWithAirButton,
+	xOptionDisableVacuumPump	:= xOptionDisableVacuumPumps OR xOptionDisableVacuumPump2,
+	errorId_PhaseCheck			:= errorId_PhaseCheck,
+	errorId_Thermal				:= errorId_Thermal,
+	errorId_TooMuchRequested	:= errorId_TooMuchRequested,
+	errorId_HighTankDoesNotFill	:= errorId_HighTankDoesNotFill,
+	errorId_Maintenance			:= errorId_Maintenance,
+	TotalRunningTime			:= TotalRunningTime2,
+	TotalNumberOfStarts			:= TotalNumberOfStarts2,
+	xVacuumpumpRunning			=> );
+
+xVacuumpumpRunning	:= HighVacuumPump.xVacuumpumpRunning
+					OR LowVacuumPump.xVacuumpumpRunning
+					OR xOptionDisableVacuumPumps;
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+END_METHOD
+
+// Maps the actuator to the physical output
+{attribute 'hide'}
+METHOD PUBLIC Map : BOOL
+// no implementation
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapHigh : BOOL
+MapHigh := HighVacuumPump.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapLow : BOOL
+MapLow := LowVacuumPump.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC MapSwitchTanks : BOOL
+MapSwitchTanks := LowVacuumPump.MapSwitchTanks();
+END_METHOD
+
+// Reset the output (=False)
+METHOD PUBLIC Reset
+HighVacuumPump.Reset();
+LowVacuumPump.Reset();
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC Set : BOOL
+// no implementation
+END_METHOD
+
+{attribute 'hide'}
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+// no implementation
+END_METHOD

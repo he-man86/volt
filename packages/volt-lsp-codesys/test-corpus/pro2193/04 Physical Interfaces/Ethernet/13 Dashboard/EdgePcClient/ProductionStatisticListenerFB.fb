@@ -1,0 +1,61 @@
+{attribute 'call_after_init'}
+FUNCTION_BLOCK PUBLIC ProductionStatisticListenerFB
+IMPLEMENTS IObserver
+VAR_INPUT
+	subject						: ISubject;
+	edgePcClient				: IAddLog;
+END_VAR
+VAR
+	ProductionCountersConfig	: EdgePcLogging.ProductionCountersPlcDataTypesConfig;
+END_VAR
+
+Initialize();
+
+END_FUNCTION_BLOCK
+
+METHOD PRIVATE Initialize
+VAR_INST
+	{attribute 'init_on_onlchange' }
+	initialized	: BOOL;
+END_VAR
+IF initialized THEN
+	RETURN;
+END_IF
+
+subject.Attach(THIS^);
+
+EdgePcLogging.GenerateProductionCountersPlcDataTypesConfig(countersConfig := ProductionCountersConfig);
+
+initialized := TRUE;
+END_METHOD
+
+// The Update method is called when subjects have a new state
+METHOD Update
+VAR_INPUT
+	payload			: ISubjectBasePayload;
+END_VAR
+VAR
+	stat			: ISubjectProductionStatistic;
+	plcDataType1	: PlcDataType;
+END_VAR
+// Check if we receive the right kind of data
+IF NOT __QUERYINTERFACE(payload, stat) THEN
+	RETURN;
+END_IF
+
+//Disable warning C0327: Implicit conversion from one enumeration type (PLCDATATYPE) to another (PLCDATATYPE (edgepclogging, x.x (brink automation)))
+{warning disable C0327}
+
+CASE stat.StatType OF
+	enumProductionStatsCavityType.Produced:				plcDataType1 := productionCountersConfig[stat.Cavity].Produced;
+	enumProductionStatsCavityType.Stacked:				plcDataType1 := productionCountersConfig[stat.Cavity].Stacked;
+	enumProductionStatsCavityType.Rejected:				plcDataType1 := productionCountersConfig[stat.Cavity].Rejected;
+	enumProductionStatsCavityType.UncountedReject:		plcDataType1 := productionCountersConfig[stat.Cavity].UncountedReject;
+	enumProductionStatsCavityType.RejectReason:			plcDataType1 := productionCountersConfig[stat.Cavity].RejectReasons[stat.RejectReason - 1]; // Lelijk, in library oplossen!!
+END_CASE
+
+edgePcClient.AddLogLINT(	plcDataType	:= plcDataType1,
+							value		:= stat.Data);
+
+{warning restore C0327}
+END_METHOD

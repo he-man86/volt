@@ -1,0 +1,8 @@
+// Commands specific for a XY control module
+INTERFACE IXYControl_Commands
+EXTENDS IModuleStartable
+
+METHOD PUBLIC GetSampleShotRequest : BOOL
+END_METHOD
+
+END_INTERFACE

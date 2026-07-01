@@ -1,0 +1,27 @@
+// monitors a REAL for change
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK TriggerRealFB
+VAR_INPUT
+	IN		: REAL;
+	RES		: REAL;
+END_VAR
+VAR_OUTPUT
+	Q		: BOOL;
+	D		: REAL;
+END_VAR
+VAR
+	LAST_IN	: REAL;
+END_VAR
+
+// this block is similar to the IEC Standard R_trig and F_trig but it monitors a REAL for change.
+// if the valiue on IN changes more then D from the last value it will generate trigger and display the difference in output D.
+// the trigger will only be active for one cycle.
+
+D := IN - LAST_IN;
+Q := ABS(D) > RES;
+IF Q THEN
+	LAST_IN := IN;
+END_IF
+D := IN - LAST_IN;
+
+END_FUNCTION_BLOCK

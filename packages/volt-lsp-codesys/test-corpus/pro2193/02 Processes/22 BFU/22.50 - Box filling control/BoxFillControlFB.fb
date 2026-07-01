@@ -1,0 +1,231 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+// This FB handles the communication between the infeed conveyor and the BCU.
+// It will always try to have a box ready to fill in the BCU.
+// When the box is not ready, it will be fed out and a new box will be taken.
+FUNCTION_BLOCK BoxFillControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IModuleStartable
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	ButtonStartNewBox			: PushButtonLedWithHmiFB;
+	boxInfeed				: IBoxInfeed_Default_Commands;
+	boxCenterUnit			: IBoxCenterUnit_WithPneumatic_Commands;
+	boxPusher				: IBoxPusher_Default_Commands;
+END_VAR
+VAR
+	automaticOperationStarted	: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateCheckBeforeStart				:= 100,
+		StateReleaseBox						:= 200,
+		StateCheckOutfeedFree				:= 300,
+		StatePushBoxToOutfeed				:= 400,
+		StateRetractPusher					:= 500,
+		StateInfeedGetNewBox				:= 600,
+		StatePrepareBox						:= 700,
+		StateBoxChangeDone					:= 800,
+		StateAwaitInfeed					:= 900
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	trigger					: FallingTriggerFB;
+END_VAR
+State(actState	:= ActState);
+
+ButtonStartNewBox();
+
+// Handle new box request
+IF  automaticOperationStarted
+AND ActState = StateNone
+AND ButtonStartNewBox.ButtonPushed
+THEN
+	ActState := StateReleaseBox;
+END_IF
+
+// Check if last stack was placed in box during Cleaning mode
+IF BFU.OperationMode = SER_OperationModeType.CleaningMode
+AND NOT Conveyors.Unit[1].HasStacks			// mag niet!
+AND boxCenterUnit.BoxCanBeFilled
+AND boxCenterUnit.LayerIndex > 0
+AND ActState = StateNone
+THEN
+	boxCenterUnit.SetBoxStateToChangeNeeded();
+END_IF
+
+// Trigger when box becomes invalid
+IF automaticOperationStarted AND trigger.Falling(boxCenterUnit.BoxCanBeFilled) THEN
+	ActState := StateReleaseBox;
+END_IF
+
+ButtonStartNewBox.SetColors(enumColorList.Purple);
+
+IF ActState > 0 THEN
+	ButtonStartNewBox.Flash();
+ELSE
+	ButtonStartNewBox.Off();
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.Default:
+		Execute_Sequence1();
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.SingleCavDualTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover,
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence1();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+VAR_INST
+	reverseDone			: BOOL;
+END_VAR
+CASE ActState OF
+	StateNone:
+		;
+
+	StateCheckBeforeStart:
+		IF SER.EnableFreqInvertersRelay.Map() THEN
+			ActState := StateReleaseBox;
+		END_IF
+
+	StateReleaseBox:
+		IF boxCenterUnit.LockRequest(__POUNAME())
+		AND_THEN boxCenterUnit.ReleaseBox()
+		THEN
+			ActState := SEL(	boxCenterUnit.BoxInFillPosition.IsActive,
+								StateRetractPusher,
+								StateCheckOutfeedFree);
+		END_IF
+
+	StateCheckOutfeedFree:
+		IF boxPusher.BoxAtOutfeedPositionSensor.IsInactive THEN
+			ActState := StatePushBoxToOutfeed;
+		END_IF
+
+	StatePushBoxToOutfeed:
+		IF boxPusher.Push() THEN
+			boxPusher.BoxAtOutfeedPosition	:= TRUE;
+			ActState := StateRetractPusher;
+		END_IF
+
+	StateRetractPusher:
+		IF boxPusher.Retract() THEN
+			boxCenterUnit.BoxRemoved();
+			ActState := StateInfeedGetNewBox;
+		END_IF
+
+	StateInfeedGetNewBox:
+		IF boxInfeed.FeedInBox() THEN
+			reverseDone	:= FALSE;
+			ActState := StatePrepareBox;
+		ELSIF NOT automaticOperationStarted THEN
+			boxInfeed.Stop();
+			ActState := StateAwaitInfeed;
+		END_IF
+
+	StatePrepareBox:
+		reverseDone		:= reverseDone OR_ELSE boxInfeed.ReverseBox();
+
+		IF boxCenterUnit.PrepareBoxForFilling() THEN
+			boxCenterUnit.LockRelease(__POUNAME());
+			ActState := StateAwaitInfeed;
+		END_IF
+
+	StateAwaitInfeed:
+		reverseDone		:= reverseDone OR_ELSE boxInfeed.ReverseBox();
+		IF reverseDone THEN
+			ActState := StateBoxChangeDone;
+		END_IF
+
+	StateBoxChangeDone:
+		ActState := StateNone;
+END_CASE
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := TRUE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// This module will start some operations when the automatic cycle is started on the SER
+METHOD StartCycle : BOOL
+VAR
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	automaticOperationStarted	:= TRUE;
+
+	IF NOT boxCenterUnit.BoxCanBeFilled THEN	// Only check for box the first time the method is called
+		ActState := StateCheckBeforeStart;
+	ELSE
+		StartCycle := CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+END_IF
+
+IF ActState = StateBoxChangeDone THEN
+	StartCycle := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+automaticOperationStarted	:= FALSE;
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+automaticOperationStarted	:= FALSE;
+StopCycle					:= ActState = StateNone;
+END_METHOD

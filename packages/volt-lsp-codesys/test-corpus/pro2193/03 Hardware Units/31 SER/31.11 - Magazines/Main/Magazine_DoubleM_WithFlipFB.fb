@@ -1,0 +1,148 @@
+// Drawer magazine with double M axes and Flip Label cylinder (for wrap labels)
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Magazine_DoubleM_WithFlipFB
+EXTENDS Magazine_DoubleMFB
+IMPLEMENTS IMagazine_Transfer_Commands, IMagazine_Supply_Commands
+VAR_INPUT
+	flipLabelSensorIn			: ARRAY[1..2] OF BOOL;
+	flipLabelSensorOut			: ARRAY[1..2] OF BOOL;
+	{attribute 'symbol' := 'readwrite'}	FlipLabel		: Cylinder_53ValveFB;
+END_VAR
+
+SUPER^(Data	:= Data);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR
+END_VAR
+SUPER^.Cyclic();
+
+FlipLabel(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	textRefId				:= MagazineBase_Errors,
+	errorId_SensorOut		:= 2,
+	errorId_SensorIn		:= 3,
+	alarmEnable				:= SER.DigIn.xAirPressureOK,
+	alarmDelay				:= 10.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	inputOut				:= Arrays.Bool_All(flipLabelSensorOut, TRUE),
+	inputIn					:= Arrays.Bool_All(flipLabelSensorIn, TRUE),
+	rGiveAirToBothOutputs	:= 1.0,
+	xEnableOutputs			:= TRUE);
+END_METHOD
+
+// Command to reset the module (ActStatemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+FlipLabel.Reset();
+EStop	:= SUPER^.EStop();
+END_METHOD
+
+// Gate open button is pushed. Safety gate is requesting to open (trigger signal)
+METHOD PUBLIC GateOpenRequested
+%FOLDER Commands/Gate Requests
+FlipLabel.GoIn();
+SUPER^.GateOpenRequested();
+END_METHOD
+
+// Check if magazine needs to get new labels from the stockpile
+// A new label may also be obtained with labels already on the suction cups. Existing labels will be blown off.
+METHOD PUBLIC GetNewLabels : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;	// Choose which drawer (or other label stockpile) to get labels from
+END_VAR
+%FOLDER Commands/Magazine Supply
+IF FlipLabel.GoIn() THEN
+	GetNewLabels	:= SUPER^.GetNewLabels(drawer);
+ELSE
+	GetNewLabels	:= SUPER^.GetNewLabels(enumDrawer.NoDrawer);
+END_IF
+END_METHOD
+
+// Move to a Waiting position.
+METHOD PUBLIC MoveToSafeDistanceAboveDrawer : BOOL
+%FOLDER Commands/Magazine
+MoveToSafeDistanceAboveDrawer	:= FlipLabel.GoIn() AND_THEN SUPER^.MoveToSafeDistanceAboveDrawer();
+END_METHOD
+
+// Move to a Takeover position.
+METHOD PUBLIC MoveToTakeOverPos : BOOL
+VAR_INPUT
+	takeOverPos	: USINT;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+%FOLDER Commands/Magazine
+// TEST! In case of lower drawer, the Flip can be set sooner.
+IF  _activeDrawer = enumDrawer.Lower
+AND Magazines.UnitMotors[1].actXPos > 200
+AND Magazines.UnitMotors[1].actZPos < Magazines.DataMotors[1].getNewLabelsLowerPos.value - Magazines.DataMotors[1].SafeDistanceAboveDrawers - 100
+THEN
+	FlipLabel.GoOut();
+END_IF
+
+IF motors.InSafePos THEN
+	FlipLabel.GoOut();
+END_IF
+
+IF NOT motors.InSafePos
+AND NOT FlipLabel.IsIn
+AND _activeDrawer <> enumDrawer.Lower
+THEN
+	LogPlc.Error('Movement unexpectedly halted because FlipLabel not in safe position');
+	motors.Stop();
+	RETURN;
+END_IF
+
+MoveToTakeOverPos	:= SUPER^.MoveToTakeOverPos(takeOverPos) AND_THEN FlipLabel.GoOut();
+END_METHOD
+
+// Move to waiting position.
+METHOD PUBLIC MoveToWaitingPos : BOOL
+%FOLDER Commands/Magazine
+// TEST! In case of lower drawer, the Flip can be set sooner.
+IF  _activeDrawer = enumDrawer.Lower
+AND Magazines.UnitMotors[1].actXPos > 200
+AND Magazines.UnitMotors[1].actZPos < Magazines.DataMotors[1].getNewLabelsLowerPos.value - Magazines.DataMotors[1].SafeDistanceAboveDrawers - 100
+THEN
+	FlipLabel.GoOut();
+END_IF
+
+IF motors.InSafePos THEN
+	FlipLabel.GoOut();
+END_IF
+
+IF NOT motors.InSafePos
+AND NOT FlipLabel.IsIn
+AND _activeDrawer <> enumDrawer.Lower
+THEN
+	LogPlc.Error('Movement unexpectedly halted because FlipLabel not in safe position');
+	motors.Stop();
+	RETURN;
+END_IF
+
+MoveToWaitingPos	:= SUPER^.MoveToWaitingPos() AND_THEN FlipLabel.GoOut();
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER Commands
+Reset	:= FlipLabel.GoIn() AND_THEN SUPER^.Reset();
+END_METHOD
+
+// Command to reset the module (ActStatemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+FlipLabel.GoIn();
+Stop	:= SUPER^.Stop();
+END_METHOD
+
+// Label transfer is complete. Reset the ReadyWithLabels state.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+%FOLDER Commands/Magazine Transfer
+TransferComplete	:= FlipLabel.GoIn() AND_THEN SUPER^.TransferComplete();
+END_METHOD

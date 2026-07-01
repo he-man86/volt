@@ -1,0 +1,1253 @@
+// Can be used for both dual and single type label magazines!
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK MagazineMotors_DrawerFB
+EXTENDS ModuleBaseHardwareFB
+IMPLEMENTS IMagazineMotors_Drawer_Commands, IObserverExclusive
+VAR_INPUT
+	xEnableDrive				: BOOL;
+	xQuickStop					: BOOL;
+	ButtonReleaseBrake1			: PushButtonLedFB;
+	ButtonReleaseBrake2			: PushButtonLedFB;
+	usiGlobalSERSpeed			: USINT;	// Limit speed of all drives in the SER robot (0 to 100%)
+	xGlobalReset				: BOOL;
+	A1Axis						: REFERENCE TO L_MC1P.AXIS_REF;			// i750 drive of the M1-axis
+	A2Axis						: REFERENCE TO L_MC1P.AXIS_REF;			// i750 drive of the M2-axis
+	XAxis						: REFERENCE TO L_MC1P.AXIS_REF;			// virtual drive of the X axis
+	ZAxis						: REFERENCE TO L_MC1P.AXIS_REF;			// virtual drive of the Z axis
+	MAxesGroup					: REFERENCE TO L_TT1P.AXES_GROUP_KIN;	// AxesGroup with the virtual axes
+	Data						: REFERENCE TO MagazineMotors_Drawer_Data;
+	DataBrink					: REFERENCE TO MagazineMotors_Drawer_BrinkData;
+END_VAR
+VAR_IN_OUT
+	coveredDistance				: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF UDINT;
+END_VAR
+VAR_OUTPUT
+	{attribute 'symbol' := 'read'}		powerSectionUtilisation		: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF REAL;		// todo
+	{attribute 'symbol' := 'read'}		motorUtilisation			: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF REAL;		// todo
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}		actXPos						: REAL;		// Read the actual position of the drive in mm.
+	{attribute 'symbol' := 'read'}		actZPos						: REAL;		// Read the actual position of the drive in mm.
+	{attribute 'symbol' := 'read'}		actA1Pos					: REAL;		// Read the actual position of the drive in mm.
+	{attribute 'symbol' := 'read'}		actA2Pos					: REAL;		// Read the actual position of the drive in mm.
+
+	{attribute 'symbol' := 'readwrite'}	manualMoveAttach			: BOOL;
+	{attribute 'symbol' := 'readwrite'}	manualMoveChooseX			: BOOL;
+	{attribute 'symbol' := 'readwrite'}	manualMoveVelocity			: REAL := 50;
+END_VAR
+VAR
+	xHaltOnPath					: BOOL;
+	lastKnownDrawer				: enumDrawer;
+
+	// Manual control is enabled from outside this module
+	manualControlEnabled		: BOOL;
+	manualMoveTargetPosX		: REAL;
+	manualMoveTargetPosZ		: REAL;
+
+	TM_PickPlace				: L_TT1P.L_TT1P_PickAndPlaceState;
+
+	KinematicModel					: KinematicModelFB;
+	MC_SetKinTransform1				: L_MC4P.MC_SetKinTransform;
+	L_MC1P_AverageFilterSetValues	: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF L_MC1P.L_MC1P_AverageFilterSetValues;
+	BrakeInterface					: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF L_MC1P.L_MC1P_BrakeInterface;
+	WriteSWLimits					: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF L_MC1P.L_MC1P_WriteSWLimit;
+	MeasureDistance					: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF TravelDistanceFB;
+	WriteSWLimits_X					: L_MC1P.L_MC1P_WriteSWLimit;
+	WriteSWLimits_Z					: L_MC1P.L_MC1P_WriteSWLimit;
+
+	TF_EnableDrive				: BTOF;
+	TP_QuickStopActive			: TP;
+
+//	rSetAcc						: REAL := 15_000;
+//	rSetDec						: REAL := 20_000;
+
+	xServiceModeReleaseBrake	: BOOL;
+
+	overrideGroupRegulatorOn	: BOOL;
+
+	waarhangikuit:INT;
+
+	serviceModeStop				: BOOL;			// Interrupt any active movements
+	serviceModeAutoEnable		: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF BOOL;			// When high, start moving to first position
+	serviceModeAutoPos			: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2, 1..ServiceMode.maxNumberOfServicePos] OF ServiceModePosType := [(xEnable := TRUE), (xEnable := TRUE)];
+END_VAR
+
+SUPER^();
+waarhangikuit:=1;
+
+END_FUNCTION_BLOCK
+
+// Abort the current profile execution, only possible if TM is in Standstill state!
+METHOD Abort : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Methods/Start/Stop/Resume
+TM_PickPlace.xAbort			:= TRUE;
+
+Abort						:= NOT TM_PickPlace.xPathHold;
+END_METHOD
+
+// Check if all references are valid.
+METHOD PRIVATE CheckValidRefs : BOOL;
+%FOLDER Methods/Private
+IF NOT __ISVALIDREF(A1Axis) THEN
+	ThrowException('The ServoDriveFB M1Axis is not connected to an axis!');
+END_IF
+IF NOT __ISVALIDREF(A2Axis) THEN
+	ThrowException('The ServoDriveFB M2Axis is not connected to an axis!');
+END_IF
+IF NOT __ISVALIDREF(MAxesGroup) THEN
+	ThrowException('The ServoDriveFB MAxesGroup is not connected to an axis!');
+END_IF
+IF NOT __ISVALIDREF(DataBrink) THEN
+	ThrowException('The ServoDriveFB is not connected to DataBrink1!');
+END_IF
+
+CheckValidRefs := TRUE;
+END_METHOD
+
+METHOD PRIVATE ClearProfilePoints
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Methods/Private
+FOR i := 1 TO 10 BY 1 DO
+	TM_PickPlace.scPar.ascProfilePar[i].lrXPos				:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrYPos				:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrZPos				:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrAux1Pos			:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrBlendingRadius	:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].eCoordSystem		:= L_TT1P.L_MC4P.L_MC4P_CoordSystem.WCS;
+	TM_PickPlace.scPar.ascProfilePar[i].lrPathVel			:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrPathAcc			:= 0;
+	TM_PickPlace.scPar.ascProfilePar[i].lrPathDec			:= 0;
+END_FOR
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	dynamicSWlimit_X_Pos			: LREAL	:= GVL_Constants.ArmLength;
+	dynamicSWlimit_X_Neg			: LREAL	:= 0.0;
+
+	actXPosWhenLeavingSafePos		: REAL;
+	LeavingSafePosTrigger			: TriggerFB;
+
+	attachTrigger					: TriggerFB;
+	guardPosition					: ARRAY[1..4] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+END_VAR
+// Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
+// After this time the power is cut from the drive and it cannnot slow down anymore.
+TP_QuickStopActive(	IN := xQuickStop, PT := T#100MS);
+IF TP_QuickStopActive.Q THEN
+	Quickstop(FALSE);
+END_IF
+waarhangikuit:=6;
+KinematicModel(
+	lrArmLength		:= GVL_Constants.ArmLength);
+waarhangikuit:=7;
+MC_SetKinTransform1(
+	AxesGroup		:= MAxesGroup,
+	KinTransform	:= KinematicModel);
+waarhangikuit:=8;
+MC_SetKinTransform1.Execute := TRUE;
+
+ServiceMode();
+
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xStop			:= TM_PickPlace.xStopALL;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xStop			:= TM_PickPlace.xStopALL;
+
+TM_PickPlace(
+	xEnableInternalControl		:= TRUE,
+	xEnable						:= TRUE,
+	scCtrlAGBC					:= ,
+	xResetError					:= xGlobalReset,
+	xRegulatorOnALL				:= TF_EnableDrive.Set(In := xEnableDrive AND NOT xQuickStop, Pt := 0.2) AND NOT overrideGroupRegulatorOn,
+	xPathStop					:= ,
+	xPathHalt					:= ,
+	xStopALL					:= ,
+	scPar						:= ,
+	AxesGroup					:= MAxesGroup,
+	xExecutePickAndPlace		:= ,
+	xPathInterrupt				:= ,
+	xGroupHomeExecute			:= ,
+	axHomeAbsSwitch				:= ,
+	xGroupEnableHWLimit			:= ,
+	axHWLimitPos				:= ,
+	axHWLimitNeg				:= ,
+	eSelectAxis					:= ,
+	xJogPos						:= ,
+	xJogNeg						:= ,
+	xAbort						:= ,
+	lrOverride					:= TO_REAL(usiGlobalSERSpeed) * 0.0095 + 0.05,
+	xAckPathHalt				:= ,
+	xInternalControlActive		=> ,
+	eTMState					=> ,
+	scStatusAGBC				=> ,
+	xError						=> ,
+	xWarning					=> ,
+	eErrorID					=> ,
+	ascErrorInfo				=> ,
+	xAxesEnabled				=> ,
+	xAxesGroupEnabled			=> ,
+	scSignalFlow				=> ,
+	xDone						=> ,
+	xBusy						=> ,
+	xAxesGroupHomed				=> ,
+	xHwLimitSwitchActive		=> ,
+	xSwLimitSwitchActive		=> ,
+	axHwLimitSwitchNeg			=> ,
+	axHwLimitSwitchPos			=> ,
+	axSwLimitSwitchEnable		=> ,
+	axSwLimitSwitchActive		=> ,
+	xPathHold					=> ,
+	xGripperCtrlActive			=> ,
+	xPulseGripper				=> ,
+	lrSetPathVelOut				=> ,
+	lrPathPreparationTime		=> ,
+	lrPreCalcProfileTime		=> ,
+	alrActAxisPos				=> ,
+	alrActAxisVel				=> );
+waarhangikuit:=9;
+TM_PickPlace.axHomeAbsSwitch[1]		:= NOT ReadDigitalInput(Axis := A1Axis);
+TM_PickPlace.axHomeAbsSwitch[2]		:= NOT ReadDigitalInput(Axis := A2Axis);
+
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHomeAbsSwitch:= NOT ReadDigitalInput(Axis := A1Axis);
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHomeAbsSwitch:= NOT ReadDigitalInput(Axis := A2Axis);
+
+TM_PickPlace.scCtrlAGBC.xRegulatorOnALL									:= FALSE;
+TM_PickPlace.scCtrlAGBC.xEnableAxesGroup								:= FALSE;
+TM_PickPlace.scCtrlAGBC.xMoveLinAbsExecute								:= FALSE;
+
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHomeExecute	:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHomeExecute	:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xRegulatorOn	:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xRegulatorOn	:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHalt			:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHalt			:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xStop			:= FALSE;
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xStop			:= FALSE;
+
+overrideGroupRegulatorOn												:= FALSE;
+
+TM_PickPlace.xPathStop				:= FALSE;
+TM_PickPlace.xPathHalt				:= FALSE;
+TM_PickPlace.xStopALL				:= FALSE;
+TM_PickPlace.xGroupHomeExecute		:= FALSE;
+TM_PickPlace.xExecutePickAndPlace	:= FALSE;
+TM_PickPlace.xPathInterrupt			:= FALSE;
+TM_PickPlace.xAbort					:= FALSE;
+//TM_PickPlace.xJogNeg				:= FALSE;
+//TM_PickPlace.xJogPos				:= FALSE;
+
+
+MeasureDistance[PickPlaceAxesNames.A1](
+	enable						:= TM_PickPlace.xAxesGroupHomed,
+	actPos						:= actA1Pos,
+	totalDistance				:= coveredDistance[PickPlaceAxesNames.A1]);
+
+MeasureDistance[PickPlaceAxesNames.A2](
+	enable						:= TM_PickPlace.xAxesGroupHomed,
+	actPos						:= actA2Pos,
+	totalDistance				:= coveredDistance[PickPlaceAxesNames.A2]);
+
+waarhangikuit:=10;
+L_MC1P_AverageFilterSetValues[PickPlaceAxesNames.A1](
+	Axis				:= A1Axis,
+	xEnable				:= TRUE,
+	eExecutionIndex		:= ,
+	xIgnoreFilterOnStop	:= ,
+	wFilterDepth		:= 50,
+	xManipulateTorque	:= ,
+	xBusy				=> ,
+	xActive				=> ,
+	xError				=> ,
+	eErrorID			=> ,
+	lrSetPosOut			=> ,
+	lrSetVelOut			=> ,
+	lrSetAccOut			=> ,
+	lrSetTorqueOut		=> ,
+	xInEqOut			=> );
+
+L_MC1P_AverageFilterSetValues[PickPlaceAxesNames.A2](
+	Axis				:= A2Axis,
+	xEnable				:= TRUE,
+	eExecutionIndex		:= ,
+	xIgnoreFilterOnStop	:= ,
+	wFilterDepth		:= 50,
+	xManipulateTorque	:= ,
+	xBusy				=> ,
+	xActive				=> ,
+	xError				=> ,
+	eErrorID			=> ,
+	lrSetPosOut			=> ,
+	lrSetVelOut			=> ,
+	lrSetAccOut			=> ,
+	lrSetTorqueOut		=> ,
+	xInEqOut			=> );
+
+
+actXPos					:= TO_REAL(TM_PickPlace.alrActAxisPos[PickPlaceAxesNames.X]);
+actZPos					:= TO_REAL(TM_PickPlace.alrActAxisPos[PickPlaceAxesNames.Z]);
+actA1Pos				:= TO_REAL(TM_PickPlace.alrActAxisPos[PickPlaceAxesNames.A1]);
+actA2Pos				:= TO_REAL(TM_PickPlace.alrActAxisPos[PickPlaceAxesNames.A2]);
+
+waarhangikuit:=11;
+// Voor drives met motorrem. Rem wordt geschakeld met knop.
+BrakeInterface[PickPlaceAxesNames.A1](
+	Axis						:= A1Axis,
+	xEnable						:= A1Axis.eDevice = L_MC1P.L_MC1P_DriveType.i500
+								OR A1Axis.eDevice = L_MC1P.L_MC1P_DriveType.i700
+								OR A1Axis.eDevice = L_MC1P.L_MC1P_DriveType.i750,
+	xReleaseBrake				:= ButtonReleaseBrake1.buttonInput OR xServiceModeReleaseBrake,
+	lrTorqueAdd					:= ,
+	xBrakeModeActivate			:= ,
+	eBrakeMode					:= ,
+	xValid						=> ,
+	xBusy						=> ,
+	xError						=> ,
+	eErrorID					=> ,
+	xBrakeReleaseOut			=> ,
+	xBrakeReleased				=> ,
+	lrActTorque					=> ,
+	lrStartingTorqueSaved		=> ,
+	lrStartingTorqueEffective	=> ,
+	eBrakeModeActive			=> );
+
+BrakeInterface[PickPlaceAxesNames.A2](
+	Axis						:= A2Axis,
+	xEnable						:= A2Axis.eDevice = L_MC1P.L_MC1P_DriveType.i500
+								OR A2Axis.eDevice = L_MC1P.L_MC1P_DriveType.i700
+								OR A2Axis.eDevice = L_MC1P.L_MC1P_DriveType.i750,
+	xReleaseBrake				:= ButtonReleaseBrake2.buttonInput OR xServiceModeReleaseBrake,
+	lrTorqueAdd					:= ,
+	xBrakeModeActivate			:= ,
+	eBrakeMode					:= ,
+	xValid						=> ,
+	xBusy						=> ,
+	xError						=> ,
+	eErrorID					=> ,
+	xBrakeReleaseOut			=> ,
+	xBrakeReleased				=> ,
+	lrActTorque					=> ,
+	lrStartingTorqueSaved		=> ,
+	lrStartingTorqueEffective	=> ,
+	eBrakeModeActive			=> );
+
+GlobalVars.manualControlRequested	S= BrakeInterface[PickPlaceAxesNames.A1].xReleaseBrake;
+GlobalVars.manualControlRequested	S= BrakeInterface[PickPlaceAxesNames.A2].xReleaseBrake;
+
+// Write new SW limits to Axis_ref upon change.
+IF LeavingSafePosTrigger.Falling(InSafePos) THEN
+	actXPosWhenLeavingSafePos	:= actXPos;
+END_IF
+
+(* dynamische sw limits zijn evt mogelijk, maar gaan we over nadenken
+dynamicSWlimit_X_Pos			:= SEL(InSafePos, MIN(actXPosWhenLeavingSafePos + 5, 894.95), 894.95);
+dynamicSWlimit_X_Neg			:= SEL(InSafePos, MAX(actXPosWhenLeavingSafePos - 5,   0.05),   0.05);
+*)
+DataBrink.rSWLimitPos_Z			:= 1420;
+DataBrink.rSWLimitNeg_Z			:= 756;
+
+waarhangikuit:=12;
+WriteSWLimits_X(
+	Axis						:= XAxis,
+	xExecute					:= dynamicSWlimit_X_Pos <> WriteSWLimits_X.lrSWLimitPos OR dynamicSWlimit_X_Neg <> WriteSWLimits_X.lrSWLimitNeg,
+	xSetSWLimitPos				:= dynamicSWlimit_X_Pos <> WriteSWLimits_X.lrSWLimitPos,
+	lrSWLimitPos				:= dynamicSWlimit_X_Pos,
+	xSetSWLimitNeg				:= dynamicSWlimit_X_Neg <> WriteSWLimits_X.lrSWLimitNeg,
+	lrSWLimitNeg				:= dynamicSWlimit_X_Neg,
+	xDone						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+WriteSWLimits_Z(
+	Axis						:= ZAxis,
+	xExecute					:= DataBrink.rSWLimitPos_Z <> WriteSWLimits_Z.lrSWLimitPos OR DataBrink.rSWLimitNeg_Z <> WriteSWLimits_Z.lrSWLimitNeg,
+	xSetSWLimitPos				:= DataBrink.rSWLimitPos_Z <> WriteSWLimits_Z.lrSWLimitPos,
+	lrSWLimitPos				:= DataBrink.rSWLimitPos_Z,
+	xSetSWLimitNeg				:= DataBrink.rSWLimitNeg_Z <> WriteSWLimits_Z.lrSWLimitNeg,
+	lrSWLimitNeg				:= DataBrink.rSWLimitNeg_Z,
+	xDone						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+WriteSWLimits[PickPlaceAxesNames.A1](
+	Axis						:= A1Axis,
+	xExecute					:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A1] <> WriteSWLimits[PickPlaceAxesNames.A1].lrSWLimitPos
+								OR DataBrink.rSWLimitNeg[PickPlaceAxesNames.A1] <> WriteSWLimits[PickPlaceAxesNames.A1].lrSWLimitNeg,
+	xSetSWLimitPos				:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A1] <> WriteSWLimits[PickPlaceAxesNames.A1].lrSWLimitPos,
+	lrSWLimitPos				:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A1],
+	xSetSWLimitNeg				:= DataBrink.rSWLimitNeg[PickPlaceAxesNames.A1] <> WriteSWLimits[PickPlaceAxesNames.A1].lrSWLimitNeg,
+	lrSWLimitNeg				:= DataBrink.rSWLimitNeg[PickPlaceAxesNames.A1],
+	xDone						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+WriteSWLimits[PickPlaceAxesNames.A2](
+	Axis						:= A2Axis,
+	xExecute					:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A2] <> WriteSWLimits[PickPlaceAxesNames.A2].lrSWLimitPos
+								OR DataBrink.rSWLimitNeg[PickPlaceAxesNames.A2] <> WriteSWLimits[PickPlaceAxesNames.A2].lrSWLimitNeg,
+	xSetSWLimitPos				:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A2] <> WriteSWLimits[PickPlaceAxesNames.A2].lrSWLimitPos,
+	lrSWLimitPos				:= DataBrink.rSWLimitPos[PickPlaceAxesNames.A2],
+	xSetSWLimitNeg				:= DataBrink.rSWLimitNeg[PickPlaceAxesNames.A2] <> WriteSWLimits[PickPlaceAxesNames.A2].lrSWLimitNeg,
+	lrSWLimitNeg				:= DataBrink.rSWLimitNeg[PickPlaceAxesNames.A2],
+	xDone						=> ,
+	xError						=> ,
+	eErrorID					=> );
+
+
+// Set parameters - L_TT1P_scPar_PickAndPlaceState
+
+TM_PickPlace.scCtrlAGBC.scPar.lrORFadingTime	:= 1;	//in seconds
+
+// TM_PickPlace.scPar.lrPathJerk			:= 0;	//path jerk not used
+// TM_PickPlace.scPar.lrPathStopDec			:= 1000;
+// TM_PickPlace.scPar.lrPathStopJerk		:= 10000;
+TM_PickPlace.scPar.xSingleStep				:= FALSE;
+
+////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////Path limits//////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+
+//TM_PickPlace.scPar.lrCartesianJogVel		:= 300;
+TM_PickPlace.scPar.lrCartesianJogAcc		:= 1000;
+TM_PickPlace.scPar.lrCartesianJogDec		:= 1000;
+TM_PickPlace.scPar.lrCartesianJogJerk		:= 10000;
+
+TM_PickPlace.scPar.lrRealAxisJogVel			:= 100;
+TM_PickPlace.scPar.lrRealAxisJogAcc			:= 500;
+TM_PickPlace.scPar.lrRealAxisJogDec			:= 500;
+TM_PickPlace.scPar.lrRealAxisJogJerk		:= 5000;
+
+TM_PickPlace.scPar.lrXMaxVel				:= 2500;
+TM_PickPlace.scPar.lrXMaxAccDec				:= 15000;
+TM_PickPlace.scPar.lrXMaxJerk				:= 0;
+
+TM_PickPlace.scPar.lrZMaxVel				:= 2500;
+TM_PickPlace.scPar.lrZMaxAccDec				:= 15000;
+TM_PickPlace.scPar.lrZMaxJerk				:= 0;
+
+TM_PickPlace.scPar.lrPathJerk				:= 0;
+
+// Manual mode speeds
+TM_PickPlace.scCtrlAGBC.scPar.lrPathVel		:= 300 * (manualMoveVelocity / 100);
+TM_PickPlace.scCtrlAGBC.scPar.lrPathAcc		:= 3000;
+TM_PickPlace.scCtrlAGBC.scPar.lrPathDec		:= 3000;
+TM_PickPlace.scCtrlAGBC.scPar.lrPathJerk	:= 30000;
+
+////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////Quickstop times///////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+IF MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.X] <> 0 THEN
+	TM_PickPlace.scPar.alrStopDec[L_MC4P.IDENT_IN_GROUP_REF.X]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.X]^.lrDecErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.X].lrStopDec		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.X]^.lrDecErrorStop;
+	TM_PickPlace.scPar.alrStopJerk[L_MC4P.IDENT_IN_GROUP_REF.X]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.X]^.lrJerkErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.X].lrStopJerk		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.X]^.lrJerkErrorStop;
+END_IF
+IF MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.Z] <> 0 THEN
+	TM_PickPlace.scPar.alrStopDec[L_MC4P.IDENT_IN_GROUP_REF.Z]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.Z]^.lrDecErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.Z].lrStopDec		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.Z]^.lrDecErrorStop;
+	TM_PickPlace.scPar.alrStopJerk[L_MC4P.IDENT_IN_GROUP_REF.Z]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.Z]^.lrJerkErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.Z].lrStopJerk		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.Z]^.lrJerkErrorStop;
+END_IF
+IF MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A1] <> 0 THEN
+	TM_PickPlace.scPar.alrStopDec[L_MC4P.IDENT_IN_GROUP_REF.A1]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A1]^.lrDecErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.A1].lrStopDec		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A1]^.lrDecErrorStop;
+	TM_PickPlace.scPar.alrStopJerk[L_MC4P.IDENT_IN_GROUP_REF.A1]					:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A1]^.lrJerkErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.A1].lrStopJerk		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A1]^.lrJerkErrorStop;
+END_IF
+IF MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A2] <> 0 THEN
+	TM_PickPlace.scPar.alrStopDec[L_MC4P.IDENT_IN_GROUP_REF.A2]						:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A2]^.lrDecErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.A2].lrStopDec		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A2]^.lrDecErrorStop;
+	TM_PickPlace.scPar.alrStopJerk[L_MC4P.IDENT_IN_GROUP_REF.A2]					:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A2]^.lrJerkErrorStop;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[L_MC4P.IDENT_IN_GROUP_REF.A2].lrStopJerk		:= MagazineAxes.apAxis[L_MC4P.IDENT_IN_GROUP_REF.A2]^.lrJerkErrorStop;
+END_IF
+////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
+
+attachTrigger.Call(CLK := manualMoveAttach);
+
+IF attachTrigger.Q_Rising THEN
+	IF NOT HardwareButtons.F1.Attach(THIS^) THEN		// If attaching fails somehow, reset the button again.
+		manualMoveAttach := FALSE;
+	END_IF
+	IF NOT HardwareButtons.F2.Attach(THIS^) THEN
+		manualMoveAttach := FALSE;
+	END_IF
+END_IF
+
+IF attachTrigger.Q_Falling THEN
+	HardwareButtons.F1.Detach(THIS^);
+	HardwareButtons.F2.Detach(THIS^);
+END_IF
+
+IF manualMoveAttach THEN
+	TM_PickPlace.eSelectAxis			:= SEL(manualMoveChooseX,
+												L_MC4P.IDENT_IN_GROUP_REF.Z,
+												L_MC4P.IDENT_IN_GROUP_REF.X);
+ELSE
+	TM_PickPlace.xJogNeg				:= FALSE;
+	TM_PickPlace.xJogPos				:= FALSE;
+END_IF
+
+IF Data.getNewLabelsUpperPos.manualActive THEN
+	manualMoveTargetPosX	:= 0;
+	manualMoveTargetPosZ	:= Data.getNewLabelsUpperPos.value - SEL(actXPos < 5, Data.SafeDistanceAboveDrawers, 0);
+ELSIF Data.getNewLabelsLowerPos.manualActive THEN
+	manualMoveTargetPosX	:= 0;
+	manualMoveTargetPosZ	:= Data.getNewLabelsLowerPos.value - SEL(actXPos < 5, Data.SafeDistanceAboveDrawers, 0);
+ELSIF Data.labelTakeOverPos.manualActive THEN
+	manualMoveTargetPosX	:= SEL(actZPos > Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers, GVL_Constants.ArmLength, 0);
+	manualMoveTargetPosZ	:= Data.labelTakeOverPos.value;
+ELSE
+	manualMoveTargetPosX	:= 0;
+	manualMoveTargetPosZ	:= 0;
+END_IF
+
+
+// Set limits for the positions, and guard the limits
+
+Data.waitingPos.lowerLimit				:= TO_REAL(ZAxis.lrSWLimitNeg);
+Data.waitingPos.upperLimit				:= TO_REAL(ZAxis.lrSWLimitPos);
+
+Data.labelTakeOverPos.lowerLimit		:= TO_REAL(ZAxis.lrSWLimitNeg);
+Data.labelTakeOverPos.upperLimit		:= TO_REAL(ZAxis.lrSWLimitPos);
+
+Data.getNewLabelsUpperPos.lowerLimit	:= TO_REAL(ZAxis.lrSWLimitNeg);
+Data.getNewLabelsUpperPos.upperLimit	:= TO_REAL(ZAxis.lrSWLimitPos);
+
+Data.getNewLabelsLowerPos.lowerLimit	:= TO_REAL(ZAxis.lrSWLimitNeg);
+Data.getNewLabelsLowerPos.upperLimit	:= TO_REAL(ZAxis.lrSWLimitPos);
+
+guardPosition[1](value := Data.waitingPos);
+guardPosition[2](value := Data.labelTakeOverPos);
+guardPosition[3](value := Data.getNewLabelsUpperPos);
+guardPosition[4](value := Data.getNewLabelsLowerPos);
+
+// Speeds are in m/s, Acc/dec in m/s²
+Data.ProfileMovingDown.rAcc			:= LIMIT(1.0,	Data.ProfileMovingDown.rAcc,		25);
+Data.ProfileMovingDown.rDec			:= LIMIT(1.0,	Data.ProfileMovingDown.rDec,		25);
+Data.ProfileMovingDown.rVel			:= LIMIT(0.1,	Data.ProfileMovingDown.rVel,		2.5);
+
+Data.ProfileMovingUp.rAcc			:= LIMIT(1.0,	Data.ProfileMovingUp.rAcc,			25);
+Data.ProfileMovingUp.rDec			:= LIMIT(1.0,	Data.ProfileMovingUp.rDec,			25);
+Data.ProfileMovingUp.rVel			:= LIMIT(0.1,	Data.ProfileMovingUp.rVel,			2.5);
+
+Data.ProfileWaitingToTakeover.rAcc	:= LIMIT(0.1,	Data.ProfileWaitingToTakeover.rAcc,	100);
+Data.ProfileWaitingToTakeover.rDec	:= LIMIT(0.1,	Data.ProfileWaitingToTakeover.rDec,	100);
+Data.ProfileWaitingToTakeover.rVel	:= LIMIT(0.01,	Data.ProfileWaitingToTakeover.rVel,	2.5);
+
+Data.VelocitySlowUpFromLabel		:= LIMIT(0.01,	Data.VelocitySlowUpFromLabel,		0.5);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Quickstop(FALSE);
+
+IF (Standstill OR NOT AxisEnabled) AND_THEN Abort() THEN
+	EStop := SUPER^.EStop();
+END_IF
+waarhangikuit:=2;
+END_METHOD
+
+// Returns true if the motor is in the required position
+METHOD PUBLIC InPositionAt : BOOL
+VAR_INPUT
+	position	: MagazineMotors_Positions;
+	tolerance	: REAL;
+END_VAR
+%FOLDER Commands
+CASE position OF
+	MagazineMotors_Positions.getNewLabelsPos:
+		CASE lastKnownDrawer OF
+			enumDrawer.Upper:
+				InPositionAt	:= InPositionAtPos(	0,
+													Data.getNewLabelsUpperPos.value,
+													tolerance);
+			enumDrawer.Lower:
+				InPositionAt	:= InPositionAtPos(	0,
+													Data.getNewLabelsLowerPos.value,
+													tolerance);
+			ELSE
+				InPositionAt	:= FALSE;
+		END_CASE
+
+	MagazineMotors_Positions.takeover1Pos:
+		InPositionAt	:= InPositionAtPos(	GVL_Constants.ArmLength,
+											Data.labelTakeOverPos.value,
+											tolerance);
+
+	MagazineMotors_Positions.takeover2Pos,
+	MagazineMotors_Positions.takeover3Pos,
+	MagazineMotors_Positions.takeover4Pos:
+		InPositionAt	:= FALSE;
+
+	MagazineMotors_Positions.beforeGetNewLabelsPos:
+		InPositionAt	:= FALSE;
+
+	MagazineMotors_Positions.beforeTakeoverPos:
+		InPositionAt	:= FALSE;
+
+	MagazineMotors_Positions.middlePosition:
+//		InPositionAt	:= InPositionAtPos(	GVL_Constants.ArmLength / 2,
+//											Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers,
+//											tolerance);
+		InPositionAt	:= InPositionAtPos(	GVL_Constants.ArmLength / 2,
+											TO_REAL(
+												LIMIT(	ZAxis.lrSWLimitNeg,
+														ZAxis.lrSWLimitNeg + 30,
+														MAX(ZAxis.lrSWLimitNeg, Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers)
+												)
+											),
+											tolerance);
+
+	MagazineMotors_Positions.waitingPosition:
+		InPositionAt	:= InPositionAtPos(	GVL_Constants.ArmLength,
+											Data.waitingPos.value,
+											tolerance);
+
+END_CASE
+END_METHOD
+
+// Returns true if the motor is in the required position
+METHOD PUBLIC InPositionAtPos : BOOL
+VAR_INPUT
+	Xpos		: REAL;
+	Zpos		: REAL;
+	tolerance	: REAL;
+END_VAR
+%FOLDER Commands
+InPositionAtPos	:=	PositionReachedValue(actXPos, XPos, tolerance)
+				AND PositionReachedValue(actZPos, ZPos, tolerance);
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+CheckValidRefs();
+
+// Set parent for the attached axis_ref structure
+IF MAxesGroup.ModuleHandler <> 0 THEN
+	MAxesGroup.ModuleHandler.SetParent(
+						ModuleHandlerParent	:= ModuleHandler,
+						RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
+END_IF
+END_METHOD
+
+// Stops the movement on the path. Only possible when state is MOVE_PP
+METHOD Interrupt : BOOL
+%FOLDER Methods/Start/Stop/Resume
+TM_PickPlace.xPathInterrupt	:= TRUE;
+
+Interrupt					:= IsInterrupted;
+END_METHOD
+
+METHOD ProfileHomeToSafePosition : BOOL
+VAR
+	point	: REFERENCE TO L_TT1P_scProfilePar;
+END_VAR
+%FOLDER Commands/Profiles
+// Clear all points
+ClearProfilePoints();
+
+lastKnownDrawer := enumDrawer.NoDrawer;
+
+// Profile point 1: Move to safe position above drawers
+point REF= TM_PickPlace.scPar.ascProfilePar[1];
+point.lrXPos				:= GVL_Constants.ArmLength / 2;
+// Send as high as possible, to the negative software limit. Easier to reach into machine.
+point.lrZPos				:= LIMIT(	ZAxis.lrSWLimitNeg,
+										ZAxis.lrSWLimitNeg + 30,
+										MAX(ZAxis.lrSWLimitNeg, Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers));
+point.lrBlendingRadius		:= 0.0;
+point.lrPathAcc				:= 10_000;
+point.lrPathDec				:= 10_000;
+point.lrPathVel				:= 500;		// mm/s
+END_METHOD
+
+METHOD ProfileSafeDistanceAboveDrawer : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;
+END_VAR
+VAR
+	point	: REFERENCE TO L_TT1P_scProfilePar;
+END_VAR
+%FOLDER Commands/Profiles
+// Clear all points
+ClearProfilePoints();
+
+IF drawer = enumDrawer.NoDrawer THEN
+	RETURN;	// Not possible
+END_IF
+
+lastKnownDrawer := drawer;
+
+// Profile point 1: Move to safe position above upper drawer
+point REF= TM_PickPlace.scPar.ascProfilePar[1];
+point.lrXPos				:= 0.0;
+point.lrZPos				:= Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers;
+point.lrBlendingRadius		:= 0.0;
+point.lrPathAcc				:= Data.ProfileMovingUp.rAcc * 1000;
+point.lrPathDec				:= Data.ProfileMovingUp.rDec * 1000;
+point.lrPathVel				:= Data.ProfileMovingUp.rVel * 1000;
+END_METHOD
+
+METHOD ProfileToHorizontal : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;
+END_VAR
+VAR
+	point	: REFERENCE TO L_TT1P_scProfilePar;
+END_VAR
+%FOLDER Commands/Profiles
+// Clear all points
+ClearProfilePoints();
+
+lastKnownDrawer := drawer;
+
+IF drawer = enumDrawer.NoDrawer THEN
+	// Profile point 1: Move to safe position above upper drawer
+	point REF= TM_PickPlace.scPar.ascProfilePar[1];
+	point.lrXPos			:= 0.0;
+	point.lrZPos			:= Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers;
+	point.lrBlendingRadius	:= 0.0;
+	point.lrPathAcc			:= Data.ProfileMovingDown.rAcc * 1000;
+	point.lrPathDec			:= Data.ProfileMovingDown.rDec * 1000;
+	point.lrPathVel			:= Data.ProfileMovingDown.rVel * 1000;
+	RETURN;
+END_IF
+
+
+// Profile point 1: Move to safe position above upper/lower drawer
+point REF= TM_PickPlace.scPar.ascProfilePar[1];
+point.lrXPos				:= 0.0;
+CASE drawer OF
+	enumDrawer.Upper:
+		point.lrZPos		:= Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers;
+	enumDrawer.Lower:
+		point.lrZPos		:= Data.getNewLabelsLowerPos.value - Data.SafeDistanceAboveDrawers;
+END_CASE
+point.lrBlendingRadius		:= 0.0;
+point.lrPathAcc				:= Data.ProfileMovingDown.rAcc * 1000;
+point.lrPathDec				:= Data.ProfileMovingDown.rDec * 1000;
+point.lrPathVel				:= Data.ProfileMovingDown.rVel * 1000;
+
+
+// Profile point 2: Move to take label position upper drawer
+point REF= TM_PickPlace.scPar.ascProfilePar[2];
+point.lrXPos				:= 0.0;
+CASE drawer OF
+	enumDrawer.Upper:
+		point.lrZPos		:= Data.getNewLabelsUpperPos.value;
+	enumDrawer.Lower:
+		point.lrZPos		:= Data.getNewLabelsLowerPos.value;
+END_CASE
+point.lrBlendingRadius		:= 0.0;
+point.lrPathAcc				:= Data.ProfileMovingDown.rAcc * 1000;
+point.lrPathDec				:= Data.ProfileMovingDown.rDec * 1000;
+point.lrPathVel				:= Data.ProfileMovingDown.rVel * 1000;
+END_METHOD
+
+// Move to any position that is vertical. For example  Waiting -> Takeover or Drawer -> Waiting
+METHOD ProfileToVertical : BOOL
+VAR_INPUT
+	drawer		: enumDrawer;
+	endPosition	: MagazineMotors_Positions;	// Should be any position where arm is vertical (so to transfer a label to Xi)
+END_VAR
+VAR
+	point		: REFERENCE TO L_TT1P_scProfilePar;
+	pointNumber	: INT;
+END_VAR
+%FOLDER Commands/Profiles
+// Clear all points
+ClearProfilePoints();
+
+IF drawer <> enumDrawer.NoDrawer THEN
+	lastKnownDrawer	:= drawer;
+END_IF
+
+pointNumber			:= 1;
+
+IF actXPos < 10 THEN	// X position is zero, so arm is horizontal. Move up first
+
+	IF drawer = enumDrawer.NoDrawer THEN
+		RETURN;	// Should not be necessary to move from above the drawers directly to take over position
+	END_IF
+
+	// Profile point 1: Above take out position upper drawer
+	point REF= TM_PickPlace.scPar.ascProfilePar[pointNumber];
+	point.lrXPos				:= 0.0;
+	CASE drawer OF
+		enumDrawer.Upper:
+			point.lrZPos		:= Data.getNewLabelsUpperPos.value;
+		enumDrawer.Lower:
+			point.lrZPos		:= Data.getNewLabelsLowerPos.value;
+	END_CASE
+	point.lrZPos				:= MIN(point.lrZPos - Data.DistanceSlowUpFromLabel, actZPos);		// Make the axes never move down from current position
+	point.lrBlendingRadius		:= 0.0;
+	point.lrPathAcc				:= Data.ProfileMovingUp.rAcc * 1000 / 2;
+	point.lrPathDec				:= Data.ProfileMovingUp.rDec * 1000;
+	point.lrPathVel				:= Data.VelocitySlowUpFromLabel * 1000;
+	Increment.AnyInt(pointNumber);
+
+	// Profile point 2: Move to safe position above upper drawer
+	point REF= TM_PickPlace.scPar.ascProfilePar[pointNumber];
+	point.lrXPos				:= 0.0;
+	CASE drawer OF
+		enumDrawer.Upper:
+			point.lrZPos		:= Data.getNewLabelsUpperPos.value;
+		enumDrawer.Lower:
+			point.lrZPos		:= Data.getNewLabelsLowerPos.value;
+	END_CASE
+	point.lrZPos				:= MIN(point.lrZPos - Data.SafeDistanceAboveDrawers, actZPos);		// Make the axes never move down from current position
+	point.lrBlendingRadius		:= 0.0;								// Todo: a value > 0 here causes very ugly movement. High jerks? Contact Lenze about this.
+	point.lrPathAcc				:= Data.ProfileMovingUp.rAcc * 1000;
+	point.lrPathDec				:= Data.ProfileMovingUp.rDec * 1000;
+	point.lrPathVel				:= Data.ProfileMovingUp.rVel * 1000;
+	Increment.AnyInt(pointNumber);
+
+END_IF
+
+// Profile point 3: Move to position
+point REF= TM_PickPlace.scPar.ascProfilePar[pointNumber];
+point.lrXPos				:= GVL_Constants.ArmLength;
+CASE endPosition OF
+	MagazineMotors_Positions.takeover1Pos,
+	MagazineMotors_Positions.takeover2Pos,
+	MagazineMotors_Positions.takeover3Pos,
+	MagazineMotors_Positions.takeover4Pos:
+		point.lrZPos		:= Data.labelTakeOverPos.value;
+	MagazineMotors_Positions.waitingPosition:
+		point.lrZPos		:= Data.waitingPos.value;
+END_CASE
+point.lrBlendingRadius		:= 0.0;
+IF actXPos < 10 THEN					// X start position is zero, so arm is horizontal. Assume moving up
+	point.lrPathAcc			:= Data.ProfileMovingUp.rAcc * 1000;
+	point.lrPathDec			:= Data.ProfileMovingUp.rDec * 1000;
+	point.lrPathVel			:= Data.ProfileMovingUp.rVel * 1000;
+ELSE									// Assume arm is vertical, so we move a small step up or down
+	point.lrPathAcc			:= Data.ProfileWaitingToTakeover.rAcc * 1000;
+	point.lrPathDec			:= Data.ProfileWaitingToTakeover.rDec * 1000;
+	point.lrPathVel			:= Data.ProfileWaitingToTakeover.rVel * 1000;
+END_IF
+
+Increment.AnyInt(pointNumber);
+END_METHOD
+
+// Stop all drive movements in case of E.stop. Error Stop Deceleration and Error Stop Jerk are used.
+METHOD PUBLIC Quickstop
+VAR_INPUT
+	requireRehomingDrive	: BOOL;
+END_VAR
+%FOLDER Methods/Start/Stop/Resume
+TM_PickPlace.xStopALL		:= TRUE;
+
+// The xStopALL input is also active with "Internal Control" enabled!!
+END_METHOD
+
+// Get a specific digital input of the drive where the homing sensor is connected
+METHOD PRIVATE ReadDigitalInput : BOOL
+VAR_INPUT
+	Axis : REFERENCE TO AXIS_REF;
+END_VAR
+%FOLDER Methods/Private
+ReadDigitalInput := L_MC1P.L_MC1P_GetDigInputsFromDrive(Axis) = 2#0001_0000_0000_0000_0000;		// bit 16 = digital input 1
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+	ui							: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+waarhangikuit:=3;
+IF CommandLock.FirstCall THEN
+	CheckValidRefs();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		// Set homing parameters into AxisBasicControl FBs
+		FOR ui := PickPlaceAxesNames.A1 TO PickPlaceAxesNames.A2 DO
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].xUseHomeExtParameter						:= TRUE;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.eHomeMode				:= L_MC1P.L_MC1P_HomeMode.CcwRpCwRn;				// Homing Mode 21
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.eHomeStopMode			:= L_MC1P_HomeStopMode.AbsolutePositioning;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.lrTargetPosition		:= 0;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.lrAcceleration1		:= 10000;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.lrAcceleration2		:= 100;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.lrVelocity1			:= 120;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.lrVelocity2			:= 80;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.rTorqueLimit			:= 0;
+			TM_PickPlace.scCtrlAGBC.ascCtrlABC[ui].scHomeExtParameter.rTorqueTime			:= 0.0;
+		END_FOR
+
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].lrHomePosition			:= DataBrink.rRefPos[PickPlaceAxesNames.A1];	//-43.6;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].lrHomePosition			:= DataBrink.rRefPos[PickPlaceAxesNames.A2];
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].scHomeExtParameter.lrJerk	:= DataBrink.lrJerk * 1000;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].scHomeExtParameter.lrJerk	:= DataBrink.lrJerk * 1000;
+
+		// Copy homing parameters into technology module. This homing method is not used, but may be manually started from visu.
+		TM_PickPlace.scPar.xUseHomeExtParameter			:= TRUE;
+
+		TM_PickPlace.scPar.ascHomeExtParameter[1]		:= TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].scHomeExtParameter;
+		TM_PickPlace.scPar.ascHomeExtParameter[2]		:= TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].scHomeExtParameter;
+		TM_PickPlace.scPar.aeHomingOrder[1]				:= L_MC4P.L_MC4P_HomingOrder.First;
+		TM_PickPlace.scPar.aeHomingOrder[2]				:= L_MC4P.L_MC4P_HomingOrder.First;
+		TM_PickPlace.scPar.alrHomePosition[1]			:= DataBrink.rRefPos[PickPlaceAxesNames.A1];
+		TM_PickPlace.scPar.alrHomePosition[2]			:= DataBrink.rRefPos[PickPlaceAxesNames.A2];
+
+		Increment.AnyInt(localState);
+
+	1:
+		// In case of errors in one of the drives, also stop the other drive.
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xError;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xAxisError;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xDriveError;
+
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xError;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xAxisError;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHalt		S= TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xDriveError;
+
+		// Path hold means that a profile is still active in the TM. Use Abort to make sure continuation of the path is no longer possible.
+		TM_PickPlace.xAbort S= TM_PickPlace.xPathHold;
+
+		IF TM_PickPlace.xAbort THEN		// Wait for Abort (and therefore PathHold) to be low before continuing.
+			RETURN;
+		END_IF
+
+		overrideGroupRegulatorOn	:= TRUE;
+
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xRegulatorOn	:= TRUE;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xRegulatorOn	:= TRUE;
+
+
+		IF NOT TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xAxisReadyForMotion
+		OR NOT TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xAxisReadyForMotion
+		OR TM_PickPlace.eTMState <> L_TT1P.L_TT1P_States.SERVICE
+		THEN
+			RETURN;
+		END_IF
+
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHomeExecute	:= TRUE;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHomeExecute	:= TRUE;
+
+		IF  TM_PickPlace.xAxesGroupHomed
+		AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xIsHomed
+		AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xFunDone
+		AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xIsHomed
+		AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xFunDone
+		THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		IF NOT AxisEnabled
+		OR TM_PickPlace.eTMState = L_TT1P.L_TT1P_States.SERVICE
+		THEN
+			RETURN;
+		END_IF
+
+		// Set and execute the profile for moving to safe position
+		ProfileHomeToSafePosition();
+		IF StartCommand() THEN
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD Resume : BOOL
+%FOLDER Methods/Start/Stop/Resume
+TM_PickPlace.xPathInterrupt	:= FALSE;
+
+Resume						:= IsMoving;
+END_METHOD
+
+// Manual operation of drive from CODESYS visu
+// Drive can move automatically to 1 or more positions. For drive testing.
+METHOD PRIVATE ServiceMode
+VAR_INST
+	axis						: PickPlaceAxesNames;
+	Timer						: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF BTON;			// Timer to wait on position
+	i							: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF USINT(1..ServiceMode.maxNumberOfServicePos);	// Access the ServicePositions array through this int
+	StartTrigger				: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF RisingTriggerFB;
+END_VAR
+VAR CONSTANT
+	maxNumberOfServicePos		: USINT := 2;
+END_VAR
+%FOLDER Methods/Private
+// TODO: Test and finish this.
+RETURN;
+
+
+TM_PickPlace.scCtrlAGBC.ascCtrlABC[axis].xHalt	:= FALSE;
+
+FOR axis := PickPlaceAxesNames.A1 TO PickPlaceAxesNames.A2 DO
+	IF serviceModeStop THEN
+		serviceModeAutoEnable[axis]		:= FALSE;
+		i[axis]							:= 1;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[axis].xHalt	:= TRUE;
+		Timer[axis].Reset();
+
+	ELSIF serviceModeAutoEnable[axis] THEN
+		IF StartTrigger[axis].Rising(CLK := Timer[axis].TON1.IN) THEN			// Start stopwatch on start of movement
+			serviceModeAutoPos[axis,i[axis]].sw.Start();
+		END_IF
+
+		serviceModeAutoPos[axis,i[axis]].Position.Pos.value			:= LIMIT(DataBrink.rSWLimitNeg[axis], serviceModeAutoPos[axis,i[axis]].Position.Pos.value, DataBrink.rSWLimitPos[axis]);
+
+//		TM_PickPlace.scCtrlAGBC.ascCtrlABC[axis].lrOverride			:= serviceModeAutoPos[axis,i[axis]].Position.rVel;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[axis].lrSetPos_Dist		:= serviceModeAutoPos[axis,i[axis]].Position.Pos.value;
+		TM_PickPlace.scCtrlAGBC.ascCtrlABC[axis].xMoveAbsExecute	:= serviceModeAutoPos[axis,i[axis]].xEnable;
+		IF NOT serviceModeAutoPos[axis,i[axis]].xEnable				// Service position is disabled
+//		OR_ELSE Timer[axis].Set(
+//						MoveAbs(
+//							serviceModeAutoPos[axis,i[axis]].Position),
+//							serviceModeAutoPos[axis,i[axis]].rDelay)
+		THEN
+			Timer[axis].Reset();
+			serviceModeAutoPos[axis,i[axis]].sw.End();
+			Increment.Subrange(i[axis], 1, maxNumberOfServicePos);// Increase int and move to next position
+		END_IF
+	ELSIF NOT TM_PickPlace.xInternalControlActive THEN
+		i[axis] := 1;												// When stopping Service mode, always start with the first Service position again.
+	ELSE
+		i[axis] := 1;
+	END_IF
+END_FOR
+END_METHOD
+
+METHOD PUBLIC SetDefaultData
+%FOLDER Commands
+// DataBrink.rVel						:= 350;
+// DataBrink.rAcc						:= 3500;
+// DataBrink.rDec						:= 3500;
+// DataBrink.rRefPos					:= 9.25;
+// DataBrink.lrJerk					:= 500000;
+// DataBrink.rSWLimitPos				:= 143;
+// DataBrink.rSWLimitNeg				:= -1;
+//
+// Data.GetNewLabelsProfile.rVel		:= 100;
+// Data.GetNewLabelsProfile.rAcc		:= 100;
+// Data.GetNewLabelsProfile.rDec		:= 100;
+//
+// Data.TakeoverProfile.rVel			:= 100;
+// Data.TakeoverProfile.rAcc			:= 100;
+// Data.TakeoverProfile.rDec			:= 100;
+//
+// Data.getNewLabelsPos.value			:= 143;
+// Data.takeoverPos.value				:= 0;
+// Data.beforeGetNewLabelsPos.value	:= 100;
+// Data.beforeTakeoverPos.value		:= 10;
+//
+// Data.SlowStart.rAcceleration		:= 5;
+// Data.SlowStart.rDistance			:= 10;
+// Data.SlowStart.xEnable			:= TRUE;
+
+Data.getNewLabelsLowerPos.value		:= 1370;
+Data.getNewLabelsUpperPos.value		:= 1070;
+Data.labelTakeOverPos.value			:= 1100;
+
+Data.DistanceSlowUpFromLabel		:= 20;
+Data.SafeDistanceAboveDrawers		:= 100;
+
+//Data.SlowSpeed						:= 100;
+//Data.HighSpeed						:= 2500;
+END_METHOD
+
+// Start some action on the module
+METHOD PUBLIC StartCommand : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Optional parameter
+END_VAR
+VAR_INST
+	wasBusy		: BOOL;
+END_VAR
+%FOLDER Commands
+// Path hold means that a profile is still active in the TM. This happens after a Stop() command.
+// I think I just want to start the movement anyways, and continue the path
+//TM_PickPlace.xExecutePickAndPlace		S= NOT TM_PickPlace.xPathHold;
+
+TM_PickPlace.xExecutePickAndPlace		:= TRUE;
+
+wasBusy									S= TM_PickPlace.xBusy;
+
+IF wasBusy AND TM_PickPlace.xDone THEN
+	StartCommand						:= TRUE;
+	TM_PickPlace.xExecutePickAndPlace	:= FALSE;
+	wasBusy								:= FALSE;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+TM_PickPlace.xPathHalt := TRUE;
+
+IF TM_PickPlace.eTMState = L_TT1P.L_TT1P_States.SERVICE THEN
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A1].xHalt		:= TRUE;
+	TM_PickPlace.scCtrlAGBC.ascCtrlABC[PickPlaceAxesNames.A2].xHalt		:= TRUE;
+	RETURN;
+END_IF
+waarhangikuit:=4;
+
+Stop := (Standstill OR NOT AxisEnabled) AND SUPER^.Stop();
+
+
+// The "STOP" status is set, i.e. movements are cancelled and the axes are brought to a standstill accurate to the path (following the travel profile) with the deceleration defined via the lrPathHaltDec parameter.
+// The technology module remains in the "STOP" state as long as xPathStop, xStopALL or xPathHalt is set to TRUE.
+END_METHOD
+
+// The Update method is called when subjects have a new state
+METHOD PUBLIC Update
+VAR_INPUT
+	payload	: ISubjectBasePayload;
+END_VAR
+VAR
+	hwButtonPayload : ISubjectHWButtonsPayload;
+	functionKeyPayload : ISubjectFunctionKeyPayload;
+END_VAR
+// Do nothing when manual control is not enabled
+IF NOT SER.ManualControlEnabled
+OR NOT AxisEnabled
+OR NOT manualControlEnabled
+OR NOT TM_PickPlace.xAxesGroupHomed
+//OR manualMoveTargetPosX = 0
+//OR manualMoveTargetPosZ = 0
+THEN
+	RETURN;
+END_IF
+waarhangikuit:=5;
+// Set global bool to indicate that a drive moved in manual mode
+GlobalVars.manualControlRequested := TRUE;
+
+CASE TM_PickPlace.eSelectAxis OF
+	L_MC4P.IDENT_IN_GROUP_REF.Z:
+		TM_PickPlace.scPar.lrCartesianJogVel	:= 150 * (manualMoveVelocity / 100);
+	L_MC4P.IDENT_IN_GROUP_REF.X:
+		TM_PickPlace.scPar.lrCartesianJogVel	:= 300 * (manualMoveVelocity / 100);
+END_CASE
+
+
+(*
+IF __QUERYINTERFACE(payload, functionKeyPayload) THEN
+
+	overrideGroupRegulatorOn					:= TRUE;
+	TM_PickPlace.scCtrlAGBC.xRegulatorOnALL		:= TRUE;
+	TM_PickPlace.scCtrlAGBC.xEnableAxesGroup	:= TRUE;
+	TM_PickPlace.scCtrlAGBC.eCoordSystem		:= L_TT1P.L_MC4P.L_MC4P_CoordSystem.WCS;
+
+	IF NOT TM_PickPlace.scStatusAGBC.xAxesGroupEnabled
+	OR NOT TM_PickPlace.scStatusAGBC.xRealAxesReadyALL
+	OR NOT TM_PickPlace.scStatusAGBC.xRealAxesEnabledALL
+	OR TM_PickPlace.eTMState <> L_TT1P.L_TT1P_States.SERVICE
+	THEN
+		RETURN;
+	END_IF
+
+	CASE functionKeyPayload.ButtonType OF
+		enumHWButtons.F1:
+			TM_PickPlace.scCtrlAGBC.alrSetPosDist[PickPlaceAxesNames.X]	:= manualMoveTargetPosX;
+			TM_PickPlace.scCtrlAGBC.alrSetPosDist[PickPlaceAxesNames.Z]	:= manualMoveTargetPosZ;
+			TM_PickPlace.scCtrlAGBC.xMoveLinAbsExecute	:= TRUE;
+
+	END_CASE
+
+
+
+END_IF
+*)
+
+IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
+	CASE hwButtonPayload.ButtonType OF
+		enumHWButtons.F1:			TM_PickPlace.xJogNeg	:= hwButtonPayload.ButtonState;
+		enumHWButtons.F2:			TM_PickPlace.xJogPos	:= hwButtonPayload.ButtonState;
+	END_CASE
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AxisEnabled : BOOL
+%FOLDER Properties
+GET
+AxisEnabled	:=  TM_PickPlace.xAxesEnabled
+			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A1].xAxisEnabled
+			AND TM_PickPlace.scStatusAGBC.ascStatusABC[PickPlaceAxesNames.A2].xAxisEnabled;
+END_GET
+END_PROPERTY
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+%FOLDER Properties
+SET
+manualControlEnabled := ExternalManualControlEnabled;
+END_SET
+END_PROPERTY
+
+// Homing (or reference) sensor of the servo drive
+{attribute 'monitoring' := 'call'}
+PROPERTY HomingSensorM1 : BOOL
+%FOLDER Properties
+GET
+HomingSensorM1	:= NOT ReadDigitalInput(A1Axis);
+END_GET
+END_PROPERTY
+
+// Homing (or reference) sensor of the servo drive
+{attribute 'monitoring' := 'call'}
+PROPERTY HomingSensorM2 : BOOL
+%FOLDER Properties
+GET
+HomingSensorM2	:= NOT ReadDigitalInput(A2Axis);
+END_GET
+END_PROPERTY
+
+// The axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos	:= actXPos > GVL_Constants.ArmLength - 40
+			OR actZPos < Data.getNewLabelsUpperPos.value - Data.SafeDistanceAboveDrawers + 1;
+END_GET
+END_PROPERTY
+
+// Axis is available, ready for operation, and enabled / powered on.
+{attribute 'monitoring':='call'}
+PROPERTY IsHomed : BOOL
+%FOLDER Properties
+GET
+IsHomed := TM_PickPlace.xAxesGroupHomed;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsInterrupted : BOOL
+%FOLDER Properties
+GET
+IsInterrupted := TM_PickPlace.eTMState = L_TT1P_States.PATH_INTERRUPT AND TM_PickPlace.xPathHold;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsMoving : BOOL
+%FOLDER Properties
+GET
+IsMoving := TM_PickPlace.eTMState = L_TT1P_States.MOVE_PP;
+END_GET
+END_PROPERTY
+
+// Axis is in standstill (velocity zero)
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC Standstill : BOOL
+%FOLDER Properties
+GET
+Standstill	:= TM_PickPlace.eTMState = L_TT1P_States.STOP OR TM_PickPlace.eTMState = L_TT1P_States.READY;
+END_GET
+END_PROPERTY

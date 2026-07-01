@@ -1,0 +1,547 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK XuUnit_DefaultFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IXuUnit_Default_Transfer_Commands, IXuUnit_Default_TakeoutFromMould_Commands, IXuUnit_Default_Commands, IXuUnit_Default_Config
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	Vacuum						: ARRAY[1..MaxVacuums] OF VacuumWithInputFB;
+	{attribute 'symbol' := 'readwrite'}	BufferAir					: AirBufferFB;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: XuUnit_Default_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	ProductsInGripper			: ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
+	movementInsideMouldActive	: BOOL;
+	_enableVacuums				: WORD;
+	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum;
+END_VAR
+VAR CONSTANT
+	MaxVacuums					: USINT	:= XuUnits.MaxVacuums;
+	NumberOfTakeoverPositions	: USINT	:= XuUnits.NumberOfTakeoverPositions;
+	EnableHalfwayPosition		: BOOL	:= TRUE;	// Drive moves to a position when the Y drive moves onto the safety strip
+	EnableEarlyProductRelease	: BOOL	:= FALSE;	// Products are released on a position during movement of Xu drive
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..1] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= XuUnit_Errors,
+	errorId			:= 5,		//1205 - Xu Axis: Ref. sensor. Check parking pos. of Xu Axis.
+	alarmCondition	:= Drive.HomingSensor AND Drive.PosReached(Data.ParkingPos.value) AND Data.ParkingPos.value < 50,
+	alarmDelay		:= 2.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= SEL(SER.InAutomaticOperation, enumErrorReaction.No_reaction, enumErrorReaction.Stop),
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..5] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..5] OF AttachPosToButtonFB(							drive			:= Drive);
+	guardTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF GuardRealFB(			moduleHandler	:= ModuleHandler);
+	attachTakeoverPosition		: ARRAY[1..NumberOfTakeoverPositions] OF AttachPosToButtonFB(	drive			:= Drive);
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Vacuum_Errors,
+		errorId					:= i,
+		alarmEnable				:= SER.DigIn.xAirPressureOK AND (SER.OperationMode <> SER_OperationModeType.SemiAuto OR HMI.SemiAutoMode = enumSemiAutoModeType.WithVacuums),
+		alarmDelay				:= 10.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= SEL(SER.InAutomaticOperation AND SER.OperationMode <> SER_OperationModeType.SemiAuto,
+										enumErrorReaction.No_reaction,
+										enumErrorReaction.Stop),
+		refVacuumHighTime		:= Data.rDelayAfterVacuum,
+		refReleaseVacuumTime	:= Data.rReleaseProductsDelay,
+		input1					:= );
+END_FOR
+
+BufferAir(
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	vacuums					:= itfVacuums);
+
+
+// Set limits for the positions, and guard the limits
+Data.ParkingPos.lowerLimit				:= DataBrink.rSWLimitNeg;
+Data.ParkingPos.upperLimit				:= SEL(EnableHalfwayPosition, MIN(Data.Takeout.Pos.value, SEL(PersistentVars.RecipeVars.EnableSticker, Data.Takeover[1].Pos.value, Arrays.Position_Smallest(Data.Takeover))), Data.HalfwayPos.value);
+
+Data.HalfwayPos.lowerLimit				:= Data.ParkingPos.value;
+Data.HalfwayPos.upperLimit				:= SEL(PersistentVars.RecipeVars.EnableSticker, Data.Takeover[1].Pos.value, Arrays.Position_Smallest(Data.Takeover));
+
+Data.HalfwayTakeoutPos.lowerLimit		:= Data.ParkingPos.value;
+Data.HalfwayTakeoutPos.upperLimit		:= Data.Takeout.Pos.value;
+
+Data.Takeout.Pos.lowerLimit				:= Data.ParkingPos.value;
+Data.Takeout.Pos.upperLimit				:= DataBrink.rSWLimitPos;
+
+Data.ReleaseProductPos.lowerLimit		:= MAX(Data.ParkingPos.value, Data.Takeover[1].Pos.value - 50);
+Data.ReleaseProductPos.upperLimit		:= SEL(PersistentVars.RecipeVars.EnableSticker, Data.Takeover[1].Pos.value, Arrays.Position_Smallest(Data.Takeover));
+Data.ReleaseProductPos.stepSize			:= 10;
+
+FOR i := 1 TO NumberOfTakeoverPositions DO
+	Data.Takeover[i].Pos.lowerLimit		:= Data.ParkingPos.value;
+	Data.Takeover[i].Pos.upperLimit		:= DataBrink.rSWLimitPos;
+	guardTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+	attachTakeoverPosition[i](		value := Data.Takeover[i].Pos);
+END_FOR
+
+guardPosition[1](value := Data.ParkingPos);
+IF EnableHalfwayPosition THEN
+	guardPosition[2](value := Data.HalfwayPos);
+END_IF
+guardPosition[3](value := Data.HalfwayTakeoutPos);
+guardPosition[4](value := Data.Takeout.Pos);
+IF EnableEarlyProductRelease THEN
+	guardPosition[5](value := Data.ReleaseProductPos);
+END_IF
+
+attachPosition[1](value := Data.ParkingPos);
+IF EnableHalfwayPosition THEN
+	attachPosition[2](value := Data.HalfwayPos);
+END_IF
+attachPosition[3](value := Data.HalfwayTakeoutPos);
+attachPosition[4](value := Data.Takeout.Pos);
+IF EnableEarlyProductRelease THEN
+	attachPosition[5](value := Data.ReleaseProductPos);
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Drive.Quickstop(TRUE);
+
+ClearProducts.Array2D(ProductsInGripper);
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+
+SUPER^.EStop();
+
+EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+END_METHOD
+
+// Releases all locks
+METHOD ForceReleaseLock
+%FOLDER Commands
+CommandLock.ForceRelease();
+END_METHOD
+
+// Check if a vacuum is high
+METHOD PUBLIC HasVacuumHigh : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands/Transfer
+IF vacuumIndex = AllVacuums THEN
+	HasVacuumHigh	:= HasPayload = enumPayload._All;
+
+ELSIF Arrays.Vacuum_Selected(
+					vacuumArray	:= itfVacuums,
+					bitMask		:= vacuumIndex,
+					condition	:= TRUE,
+					channel		:= SEL(	SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums,
+										enumSelectIQ.Input,
+										enumSelectIQ.Output))
+THEN
+	HasVacuumHigh	:= TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Initialize
+VAR
+	i		: USINT;
+END_VAR
+SUPER^.Initialize();
+
+// Set interfaces to correct vacuum instances
+FOR i := 1 TO MaxVacuums DO
+	itfVacuums[i]				:= Vacuum[i];
+END_FOR
+END_METHOD
+
+// Takeout the shot of products from the mould
+METHOD PUBLIC MoveBackFromMould : BOOL
+%FOLDER Commands/Takeout from mould
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+// Slowstart option not enabled. Use normal profile.
+IF NOT Data.SlowStart.xEnable THEN
+	Drive.SetMovementProfileData(Data.ParkingProfileInMould);
+	IF  Drive.MoveAbsPos(Data.ParkingPos.value)
+	AND InSafePos
+	AND HasPayload = enumPayload._All
+	THEN
+		movementInsideMouldActive	:= FALSE;
+		MoveBackFromMould := CommandLock.Release(__POUNAME());
+	END_IF
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Drive.SetMovementProfileSeparate(
+		rVel := Data.ParkingProfileInMould.rVel,
+		rAcc := Data.SlowStart.rAcceleration,
+		rDec := Data.ParkingProfileInMould.rDec);
+END_IF
+
+IF Drive.actPos <= Data.Takeout.Pos.value - Data.SlowStart.rDistance THEN
+	Drive.SetMovementProfileData(Data.ParkingProfileInMould);
+END_IF
+
+IF  Drive.MoveAbsContinuousUpdate(Data.ParkingPos.value)
+AND InSafePos
+AND HasPayload = enumPayload._All
+THEN
+	movementInsideMouldActive	:= FALSE;
+	MoveBackFromMould := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a position somewhere halfway, while the Y axis is still exiting the mould.
+METHOD MoveToHalfway : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands/Shared
+IF NOT EnableHalfwayPosition THEN
+	RETURN;
+END_IF
+
+IF HasPayload = enumPayload.None AND SER.OperationMode <> SER_OperationModeType.SemiAuto THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+Drive.SetMovementProfileData(Data.Takeover[1]);
+
+MoveToHalfway := Drive.MoveAbsPos(Data.HalfwayPos.value);
+
+CommandLock.Release(__POUNAME());
+END_METHOD
+
+// Make the X drives go to the parking position on start of program
+METHOD PUBLIC MoveToParking : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	almostSafe		: BOOL;		// Drive almost arrived in position
+END_VAR
+%FOLDER Commands/Shared
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Drive.SetMovementProfileData(Data.ParkingProfileOutMould);
+END_IF
+
+almostSafe	:= NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value, 20);
+
+IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
+	MoveToParking := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+%FOLDER Commands/Shared
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+CASE takeoverPosition OF
+	1..NumberOfTakeoverPositions:
+		IF Drive.MoveAbs(Data.Takeover[takeoverPosition]) THEN
+			MoveToTakeover := CommandLock.Release(__POUNAME());
+		ELSIF EnableEarlyProductRelease
+		AND Data.ReleaseProductPos.value <> 0
+		AND Drive.PosLargerOrEqual(Data.ReleaseProductPos.value)
+		THEN
+			MoveToTakeover := CommandLock.Release(__POUNAME());
+		END_IF
+
+	ELSE
+		;	// Invalid parameter
+END_CASE
+END_METHOD
+
+// Takeout the shot of products from the mould. Parameter indicates phase (optional)
+METHOD PUBLIC MoveTowardsMould : BOOL
+VAR_INPUT
+	moveToFinalPosition		: BOOL	:= TRUE;	// false: Move to halfway inside mould. true: Full takeout
+END_VAR
+VAR
+	i						: USINT;
+END_VAR
+%FOLDER Commands/Takeout from mould
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	movementInsideMouldActive	:= TRUE;
+	Drive.SetMovementProfileData(Data.Takeout);
+END_IF
+
+IF SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithVacuums THEN
+	// In semi-auto mode start vacuums one at a time, otherwise vacuum level is too low
+	itfVacuums[1].Set();
+	FOR i := 2 TO MaxVacuums DO
+		IF itfVacuums[i-1].IsHigh THEN
+			itfVacuums[i].Set();
+		END_IF
+	END_FOR
+	// Todo: the EnableVacuums option is not yet respected, this can be added later if needed
+ELSE
+	Arrays.Vacuum_SetSelected(itfVacuums, EnableVacuums);
+END_IF
+
+IF NOT moveToFinalPosition THEN
+	Drive.MoveAbsPos(Data.HalfwayTakeoutPos.value);
+	RETURN;
+END_IF
+
+IF  Drive.MoveAbs(Data.Takeout)
+AND (Drive.HomingSensor OR Data.Takeout.Pos.value <= DataBrink.rRefPos)
+AND HasPayload = enumPayload._All
+THEN
+	MoveTowardsMould := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Return a single product that is currently transferred. Products ordered from left to right, top to bottom.
+METHOD PUBLIC ProductData_Get : ProductType
+VAR_INPUT
+	product			: UINT;
+	clearLastProduct: BOOL := FALSE;	// Optional: Clear the LastProduct bit. Use when transferred products are not the last products on the gripper.
+	clearData		: BOOL := FALSE;	// Optional: Clear data of the product that is being transferred.
+END_VAR
+VAR
+	product0		: UINT;
+	inX				: UINT;
+	inY				: UINT;
+END_VAR
+%FOLDER Commands/Transfer
+product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
+
+// Get product in X direction; get a number in range of 1 to GVL_Constants.MaxProductsInX
+inX			:= (product0 MOD GVL_Constants.MaxProductsInX) + 1;
+
+// Get product in Y direction; get a number in range of 1 to GVL_Constants.MaxProductsInY
+inY			:= (product0  /  GVL_Constants.MaxProductsInX) + 1;
+inY			:= LIMIT(1, inY, GVL_Constants.MaxProductsInY);
+
+IF clearLastProduct THEN
+	ProductsInGripper[inX, inY].LastProduct	:= FALSE;
+END_IF
+
+ProductData_Get := ProductsInGripper[inX, inY];
+
+IF clearData THEN
+	ClearProducts.Single(ProductsInGripper[inX, inY]);
+END_IF
+
+// More info about method used: https://stackoverflow.com/questions/3803331/how-can-i-modulo-when-my-numbers-start-from-1-not-zero
+
+// First return top row from left to right, then middle row(s), then bottom row.
+END_METHOD
+
+// Copy the product data from the IMM of the produced shot.
+METHOD PUBLIC ProductData_Set
+VAR_INPUT
+	ProductsInMould	: ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
+END_VAR
+%FOLDER Commands/Takeout from mould
+THIS^.ProductsInGripper	:= ProductsInMould;
+END_METHOD
+
+// Release a certain amount of products. Parameter indicates which products are released.
+METHOD PUBLIC ReleaseProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands/Transfer
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF vacuumIndex = AllVacuums THEN
+	IF Arrays.Vacuum_ReleaseAll(itfVacuums) THEN
+		ClearProducts.Array2D(ProductsInGripper);
+		ReleaseProducts := CommandLock.Release(__POUNAME());
+	END_IF
+
+ELSIF Arrays.Vacuum_ReleaseSelected(itfVacuums, vacuumIndex) THEN	// Release a specific vacuum.
+	// The process is responsible for clearing the product data in this case!
+	// Do this by calling the ProductData_Get method.
+	// The Xu Unit does not know which product belongs to which vacuum.
+	ReleaseProducts := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	result				: UINT;
+	i					: USINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+	movementInsideMouldActive		:= FALSE;
+
+	result := Arrays.Vacuum_ResetIfNotHigh(itfVacuums);	// Reset vacuums when products are no longer on the suction cups
+	IF result = 0 THEN
+		ClearProducts.Array2D(ProductsInGripper);
+	END_IF
+END_IF
+
+CASE localState OF
+	0:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+
+		IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
+			Drive.globalSpeedOverrideEnable := TRUE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		// This is not the right place to fix this :(
+		// TransferProducts process knows about connection between products and vacuums.
+		FOR i := 1 TO MaxVacuums DO
+			IF Vacuum[i].IsHigh THEN
+				ProductsInGripper[i,1].Present	:= TRUE;
+				ProductsInGripper[i,2].Present	:= TRUE;
+				ProductsInGripper[i,3].Present	:= TRUE;
+				ProductsInGripper[i,4].Present	:= TRUE;
+				// When Xu fails to get products from the mould (vacuum missing),
+				// then the product has no status yet (only comes when Y Unit is on safety strip)
+				// Remove these products to shute
+				ProductsInGripper[i,1].ToShute	S= ProductsInGripper[i,1].CavNo = 0;
+				ProductsInGripper[i,2].ToShute	S= ProductsInGripper[i,2].CavNo = 0;
+				ProductsInGripper[i,3].ToShute	S= ProductsInGripper[i,3].CavNo = 0;
+				ProductsInGripper[i,4].ToShute	S= ProductsInGripper[i,4].CavNo = 0;
+			END_IF
+		END_FOR
+
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+SUPER^.Stop();
+
+Stop := Drive.Standstill OR NOT Drive.AxisEnabled;
+END_METHOD
+
+// Enable or disable certain vacuums circuits
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC EnableVacuums : WORD
+%FOLDER Config
+GET
+EnableVacuums := _enableVacuums;
+END_GET
+SET
+_enableVacuums := EnableVacuums;
+END_SET
+END_PROPERTY
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_Enabled_All(
+							vacuumArray	:= itfVacuums,
+							bitMask		:= EnableVacuums,
+							condition	:= TRUE,
+							channel		:= SEL(	SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums,
+												enumSelectIQ.Input,
+												enumSelectIQ.Output))
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Enabled_Any(
+							vacuumArray	:= itfVacuums,
+							bitMask		:= EnableVacuums,
+							condition	:= TRUE,
+							channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY
+
+// The X axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
+END_GET
+END_PROPERTY
+
+// The X axis is in a safe position to enter the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+%FOLDER Properties
+GET
+InSafePosForMouldEntry := InSafePos AND HasPayload = enumPayload.None;
+END_GET
+END_PROPERTY
+
+// The Xu unit is in standstill on the Takeout position inside the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+%FOLDER Properties
+GET
+IsOnTakeoutPos := Drive.HomingSensor AND Drive.PosReached(Data.Takeout.Pos.value);
+END_GET
+END_PROPERTY

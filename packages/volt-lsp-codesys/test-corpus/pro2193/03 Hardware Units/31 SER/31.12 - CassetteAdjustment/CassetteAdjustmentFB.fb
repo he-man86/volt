@@ -1,0 +1,1397 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK CassetteAdjustmentFB
+EXTENDS ModuleBaseHardwareFB
+VAR_INPUT
+	activeDrawer				: enumDrawer;	// Active drawer
+	airPressureOk				: BOOL;
+
+	{attribute 'symbol' := 'readwrite'}	Enable						: ARRAY[1..GVL_Constants_Magazine.MaxEnableValves] OF ActuatorWithManualControlFB;
+	{attribute 'symbol' := 'readwrite'}	Adjust						: ARRAY[1..GVL_Constants_Magazine.MaxAdjustValves] OF ActuatorWithManualControlFB;
+END_VAR
+VAR_IN_OUT
+	Data						: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes]		OF CassettePosition;
+	SwitchCountEnable			: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxEnableValves]	OF UDINT;
+	SwitchCountAdjust			: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxAdjustValves]	OF UDINT;
+	SwitchCountCassette			: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes]		OF ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF UDINT;
+	ActualCassettePosition		: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes]		OF CassettePosition;
+	TargetCassettePosition		: ARRAY[enumDrawer.Upper..enumDrawer.Lower, 1..GVL_Constants_Magazine.MaxCassettes]		OF CassettePosition;
+END_VAR
+VAR
+	Profiles					: ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile;	// Array with profiles of cassettes which must be adjusted
+	ProfilesToExecute			: ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile;	// Array with profiles of cassettes that can be adjusted simultaneously
+
+	ConfigError					: BOOL;
+	DrawerPlate					: ARRAY[enumDrawer.Upper..enumDrawer.Lower] OF DrawerPlateType;
+
+	CassetteId					: USINT;
+	MotorId						: enumMotorsType;
+
+	JsonTimer					: BTON;
+
+	{attribute 'symbol' := 'readwrite'}		Visu					: CassetteAdjustment_Visu_Type;
+
+	ParallelAdjustmentNotPossibleReason			: USINT;
+END_VAR
+VAR CONSTANT
+	PulseTime					: REAL				:= 0.4;
+	ReferencePos				: CassettePosition	:= (X1 := 42, X2 := 42, Y := 49);
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Adds a profile to the first available or matching slot in the profile array.
+// If the same drawer and cassette already exist, it overwrites the entry.
+// Stops searching once a match or empty slot (Cassette = 0) is found.
+METHOD PRIVATE AddToProfileArray
+VAR_INPUT
+	Profile			: REFERENCE TO MovementProfile;
+	ProfileArray	: REFERENCE TO ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile;
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER Private
+// Check if profile already exists in array, then overwrite. Else place profile at first empty position in the array.
+FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
+	IF (Profile.Drawer = ProfileArray[i].Drawer AND Profile.Cassette = ProfileArray[i].Cassette)
+	OR ProfileArray[i].Cassette = 0
+	THEN
+		ProfileArray[i] := Profile;
+		RETURN;
+	END_IF
+END_FOR
+END_METHOD
+
+// Calculates position changes for a cassette based on the specified label movement direction or rotation.
+// Determines which motors (X or Y) should move and in which direction, or applies differential movement for rotation.
+// Updates the cassette's target position with the calculated step values.
+METHOD AdjustCassette
+VAR_INPUT
+	DrawerId				: enumDrawer;
+	CassetteId				: USINT;
+	LabelMovement			: enumMovementType;
+	Steps					: SINT;
+END_VAR
+VAR
+	DirectionForMovement	: enumDirection;
+	MotorsForMovement		: enumMotorsType;
+
+	PositionChanges			: CassettePosition;
+	i						: USINT;
+END_VAR
+%FOLDER Commands
+IF CassetteId = 0 THEN RETURN; END_IF
+
+CASE LabelMovement OF
+	enumMovementType.Up, enumMovementType.Right, enumMovementType.Down, enumMovementType.Left:
+		DirectionForMovement	:= DrawerPlate[DrawerId].CassetteDefinition[CassetteId].DirectionsForMovements[LabelMovement];	// Positive or negative
+		MotorsForMovement		:= DrawerPlate[DrawerId].CassetteDefinition[CassetteId].MotorsForMovements[LabelMovement];		// X or Y
+
+		IF MotorsForMovement = enumMotorsType.X THEN
+			PositionChanges.X1 := PositionChanges.X2 := Steps * (SEL(DirectionForMovement = enumDirection.Positive, - 1, 1));
+		ELSIF MotorsForMovement = enumMotorsType.Y THEN
+			PositionChanges.Y := Steps * (SEL(DirectionForMovement = enumDirection.Positive, - 1, 1));
+		END_IF
+
+	enumMovementType.RotateCw:
+		CASE DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor OF
+			enumMotorsType.X2:
+				PositionChanges.X1 := (Steps / 2) + Steps MOD 2;
+				PositionChanges.X2 := (Steps / 2) * -1;
+				DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor := enumMotorsType.X1;
+			enumMotorsType.X1:
+				PositionChanges.X1 := Steps / 2;
+				PositionChanges.X2 := ((Steps / 2) + Steps MOD 2) * -1;
+				DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor := enumMotorsType.X2;
+		END_CASE
+
+	enumMovementType.RotateCcw:
+		CASE DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor OF
+			enumMotorsType.X2:
+				PositionChanges.X1 := ((Steps / 2) + Steps MOD 2) * -1;
+				PositionChanges.X2 := Steps / 2;
+				DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor := enumMotorsType.X1;
+			enumMotorsType.X1:
+				PositionChanges.X1 := (Steps / 2) * -1;
+				PositionChanges.X2 := (Steps / 2)  + Steps MOD 2;
+				DrawerPlate[DrawerId].CassetteData[CassetteId].LastRotateMotor := enumMotorsType.X2;
+		END_CASE
+END_CASE
+
+DrawerPlate[DrawerId].CassetteData[CassetteId].AddToTargetPositions(PositionChanges);
+END_METHOD
+
+// Determines the cassetteId based on the given cavity and label and adjusts the cassette
+// using the AdjustCassette method
+METHOD AdjustLabel
+VAR_INPUT
+	DrawerId				: enumDrawer;
+	Cavity					: USINT;
+	Label					: USINT;
+	LabelMovement			: enumMovementType;
+	Steps					: SINT;
+END_VAR
+%FOLDER Commands
+AdjustCassette(
+	DrawerId		:= DrawerId,
+	CassetteId		:= GetCassetteNumber(Cavity, Label),
+	LabelMovement	:= LabelMovement,
+	Steps			:= Steps);
+END_METHOD
+
+// Executes a 4-phase pulse sequence to control cassette movement based on direction and motor selection.
+// Each state sets specific valve outputs for a defined pulse duration using a timer.
+// After completing the sequence, all outputs are reset and a step completion flag is raised.
+METHOD PRIVATE AdjustOneStep : BOOL
+VAR_INPUT
+	Direction		: enumDirection;		// Direction for the movement
+	Motors			: enumMotorsType;			// Motors to adjust
+END_VAR
+VAR_OUTPUT
+	Enable			: BOOL;					// Connect the ENABLE output here
+	AdjustX1		: BOOL;					// Connect the ADJUSTMENT output for X1 here
+	AdjustX2		: BOOL;					// Connect the ADJUSTMENT output for X2 here
+	AdjustY			: BOOL;					// Connect the ADJUSTMENT output for Y here
+END_VAR
+VAR_INST
+	Timer			: BTON;
+	State			: USINT;
+END_VAR
+VAR
+	MovingPositive	: BOOL;
+	MovingNegative	: BOOL;
+	MovingX1		: BOOL;
+	MovingX2		: BOOL;
+	MovingY			: BOOL;
+END_VAR
+%FOLDER Private
+// Write helper booleans for direction and motors which have to move
+MovingPositive	:= Direction = enumDirection.Positive;
+MovingNegative	:= Direction = enumDirection.Negative;
+MovingX1		:= Motors = enumMotorsType.XY OR Motors = enumMotorsType.X OR Motors = enumMotorsType.X1	OR Motors = enumMotorsType.X1Y;
+MovingX2		:= Motors = enumMotorsType.XY OR Motors = enumMotorsType.X OR Motors = enumMotorsType.X2	OR Motors = enumMotorsType.X2Y;
+MovingY			:= Motors = enumMotorsType.XY OR Motors = enumMotorsType.Y OR Motors = enumMotorsType.X1Y	OR Motors = enumMotorsType.X2Y;
+
+CASE State OF
+	0:	// Set first outputs
+		Enable		:= MovingPositive;
+		AdjustX1	:= MovingX1 AND MovingNegative;
+		AdjustX2	:= MovingX2 AND MovingNegative;
+		AdjustY		:= MovingY	AND MovingNegative;
+		IF Timer.Set(TRUE, PulseTime) THEN
+			Timer.Reset();
+			Increment.AnyInt(State);
+		END_IF
+
+	1:	// Set all outputs
+		Enable		:= TRUE;
+		AdjustX1	:= MovingX1;
+		AdjustX2	:= MovingX2;
+		AdjustY		:= MovingY;
+		IF Timer.Set(TRUE, PulseTime) THEN
+			Timer.Reset();
+			Increment.AnyInt(State);
+		END_IF
+
+	2:	// Second outputs are set, reset first outputs
+		Enable		:= MovingNegative;
+		AdjustX1	:= MovingX1 AND MovingPositive;
+		AdjustX2	:= MovingX2 AND MovingPositive;
+		AdjustY		:= MovingY	AND MovingPositive;
+		IF Timer.Set(TRUE, PulseTime) THEN
+			Timer.Reset();
+			Increment.AnyInt(State);
+		END_IF
+
+	3:	// Reset all outputs
+		Enable		:= FALSE;
+		AdjustX1	:= FALSE;
+		AdjustX2	:= FALSE;
+		AdjustY		:= FALSE;
+		IF Timer.Set(TRUE, PulseTime) THEN
+			Timer.Reset();
+			State			:= 0;
+			AdjustOneStep	:= TRUE;
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Alarms
+VAR_INST
+END_VAR
+END_METHOD
+
+// Validates cassette configuration for the upper drawer, ensuring all values are within allowed limits.
+// Checks for invalid cassette counts, valve indices, and cassette IDs, and ensures no duplicate valve combinations exist.
+// Sets `CheckConfig` to FALSE if any configuration error is detected.
+METHOD PRIVATE CheckConfig : BOOL
+VAR
+	i : USINT;
+END_VAR
+%FOLDER Private
+CheckConfig		:= TRUE;
+
+// Check if any non-existing cassette is configured
+CheckConfig		R= DrawerPlate[enumDrawer.Upper].NumberOfCassettes > GVL_Constants_Magazine.MaxCassettes;
+
+// Check if any non-existing adjustment valve is configured for X1, X2 or Y
+CheckConfig		R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[1].AdjustmentValve[enumMotorsType.X1]	> GVL_Constants_Magazine.MaxAdjustValves;
+CheckConfig		R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[1].AdjustmentValve[enumMotorsType.X2]	> GVL_Constants_Magazine.MaxAdjustValves;
+CheckConfig		R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[1].AdjustmentValve[enumMotorsType.Y]	> GVL_Constants_Magazine.MaxAdjustValves;
+
+// Check if any non-existing enable valve is configured
+CheckConfig		R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[1].EnableValve > GVL_Constants_Magazine.MaxEnableValves;
+
+FOR i := 1 TO DrawerPlate[enumDrawer.Upper].NumberOfCassettes DO
+	// Check if cassetteId is between 0 and the configured number of cassettes on this plate
+	CheckConfig	R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[i].CassetteId < 1;
+	CheckConfig	R= DrawerPlate[enumDrawer.Upper].CassetteDefinition[i].CassetteId > DrawerPlate[enumDrawer.Upper].NumberOfCassettes;
+END_FOR
+
+// Check if combination of enable valves and adjustment valves is not used more than once
+CheckConfig		R= CombinationUsedMoreThanOnce();
+END_METHOD
+
+// Executes the cassette homing sequence by progressing through defined states.
+// Starts homing, checks for needed adjustments, and updates positions when homed.
+// Adds position changes at each step to guide the cassette to its reference position
+METHOD PRIVATE CheckHomingState
+VAR_INPUT
+	Cassette : REFERENCE TO CassetteFB;
+END_VAR
+%FOLDER Private
+IF Cassette.HomingState = enumCassetteHomingState.StopHoming THEN
+	Cassette.TargetPositionX1	:= Cassette.ActualPositionX1;
+	Cassette.TargetPositionX2	:= Cassette.ActualPositionX2;
+	Cassette.TargetPositionY	:= Cassette.ActualPositionY;
+
+	Cassette.NextHomingState();
+
+// Check if the homing process is starting
+ELSIF Cassette.HomingState = enumCassetteHomingState.StartHoming THEN
+	// Reset the actual and target positions to zero
+	Cassette.ActualPositionX1	:=	0;
+	Cassette.ActualPositionX2	:=	0;
+	Cassette.ActualPositionY	:=	0;
+	Cassette.TargetPositionX1	:=	0;
+	Cassette.TargetPositionX2	:=	0;
+	Cassette.TargetPositionY	:=	0;
+	// Move to the first step of the homing sequence
+	Cassette.NextHomingState();
+	// Add the position change required for the first homing step to the target positions
+	Cassette.AddToTargetPositions(GetPositionChangeForHomingStep(Cassette.HomingState));
+
+// If the homing process is already in progress (at or beyond step 1)
+ELSIF Cassette.HomingState >= enumCassetteHomingState.HomingStep1 THEN
+	// Check if the current homing step is finished
+	IF NOT Cassette.AdjustmentNeeded THEN
+		// Move to the next step in the homing sequence
+		Cassette.NextHomingState();
+
+		// If the homing process is complete
+		IF Cassette.HomingState = enumCassetteHomingState.Homed THEN
+			// Set the actual positions to the reference positions
+			Cassette.ActualPositionX1	:=	ReferencePos.X1;
+			Cassette.ActualPositionX2	:=	ReferencePos.X2;
+			Cassette.ActualPositionY	:=	ReferencePos.Y;
+			Cassette.TargetPositionX1	:=	ReferencePos.X1;
+			Cassette.TargetPositionX2	:=	ReferencePos.X2;
+			Cassette.TargetPositionY	:=	ReferencePos.Y;
+
+		// If homing is not yet complete, continue with the next step
+		ELSE
+			// Add the position change for the current homing step to the target positions
+			Cassette.AddToTargetPositions(GetPositionChangeForHomingStep(Cassette.HomingState));
+		END_IF
+	END_IF
+END_IF
+END_METHOD
+
+// Checks for duplicate cassette configurations in the upper drawer.
+// A duplicate is defined as two cassettes sharing the same enable valve and at least one identical adjustment valve.
+// If such a combination is found, the method sets a flag and exits early.
+METHOD PRIVATE CombinationUsedMoreThanOnce : BOOL
+VAR
+	i, j					: USINT;
+	CassetteI, CassetteJ	: REFERENCE TO CassetteDefinition;
+END_VAR
+%FOLDER Private
+CombinationUsedMoreThanOnce := FALSE;
+
+FOR i := 1 TO DrawerPlate[enumDrawer.Upper].NumberOfCassettes DO
+	CassetteI REF= DrawerPlate[enumDrawer.Upper].CassetteDefinition[i];
+	FOR j := i + 1 TO DrawerPlate[enumDrawer.Upper].NumberOfCassettes DO
+		CassetteJ REF= DrawerPlate[enumDrawer.Upper].CassetteDefinition[j];
+		IF CassetteI.EnableValve = CassetteJ.EnableValve THEN
+			IF CassetteI.AdjustmentValve[enumMotorsType.X1]	= CassetteJ.AdjustmentValve[enumMotorsType.X1]
+			OR CassetteI.AdjustmentValve[enumMotorsType.X2]	= CassetteJ.AdjustmentValve[enumMotorsType.X2]
+			OR CassetteI.AdjustmentValve[enumMotorsType.Y]	= CassetteJ.AdjustmentValve[enumMotorsType.Y]
+			THEN
+				CombinationUsedMoreThanOnce := TRUE;
+				RETURN;
+			END_IF
+		END_IF
+	END_FOR
+	IF CombinationUsedMoreThanOnce THEN
+		RETURN;
+	END_IF
+END_FOR
+END_METHOD
+
+// Use this method to define how the physical drawer and cassette system is built in the real world.
+// For each cassette, configure its ID, cavity, label type/orientation, and valve connections (adjustment and enable).
+// Ensure the configuration matches the actual hardware layout to enable correct movement.
+METHOD PRIVATE Config
+VAR
+	DrawerId : enumDrawer;
+	i		 : USINT;
+	j		 : DINT;
+	k		 : enumMovementType;
+END_VAR
+%FOLDER Config
+FOR DrawerId := enumDrawer.Upper TO enumDrawer.Lower DO
+	DrawerPlate[DrawerId].NumberOfCassettes											:= 12;
+	DrawerPlate[DrawerId].InvertDirectionsForXRaxis									:= FALSE;
+
+	DrawerPlate[DrawerId].CassetteDefinition[1].CassetteId							:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[1].CavityId							:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[1].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[1].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[1].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[1].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[1].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[1].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[1].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[1].EnableValve							:= 1;
+
+	DrawerPlate[DrawerId].CassetteDefinition[2].CassetteId							:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[2].CavityId							:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[2].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[2].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[2].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[2].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[2].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[2].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[2].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[2].EnableValve							:= 1;
+
+	DrawerPlate[DrawerId].CassetteDefinition[3].CassetteId							:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[3].CavityId							:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[3].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[3].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[3].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[3].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[3].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[3].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[3].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[3].EnableValve							:= 2;
+
+	DrawerPlate[DrawerId].CassetteDefinition[4].CassetteId							:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[4].CavityId							:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[4].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[4].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[4].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[4].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[4].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[4].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[4].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[4].EnableValve							:= 2;
+
+	DrawerPlate[DrawerId].CassetteDefinition[5].CassetteId							:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[5].CavityId							:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[5].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[5].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[5].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[5].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[5].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[5].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[5].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[5].EnableValve							:= 3;
+
+	DrawerPlate[DrawerId].CassetteDefinition[6].CassetteId							:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[6].CavityId							:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[6].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[6].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[6].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[6].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[6].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[6].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[6].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[6].EnableValve							:= 3;
+
+	DrawerPlate[DrawerId].CassetteDefinition[7].CassetteId							:= 7;
+	DrawerPlate[DrawerId].CassetteDefinition[7].CavityId							:= 7;
+	DrawerPlate[DrawerId].CassetteDefinition[7].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[7].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[7].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[7].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[7].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[7].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[7].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[7].EnableValve							:= 4;
+
+	DrawerPlate[DrawerId].CassetteDefinition[8].CassetteId							:= 8;
+	DrawerPlate[DrawerId].CassetteDefinition[8].CavityId							:= 8;
+	DrawerPlate[DrawerId].CassetteDefinition[8].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[8].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[8].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[8].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[8].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[8].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[8].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[8].EnableValve							:= 4;
+
+	DrawerPlate[DrawerId].CassetteDefinition[9].CassetteId							:= 9;
+	DrawerPlate[DrawerId].CassetteDefinition[9].CavityId							:= 9;
+	DrawerPlate[DrawerId].CassetteDefinition[9].LabelId								:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[9].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[9].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[9].CassetteOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[9].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[9].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[9].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[9].EnableValve							:= 5;
+
+	DrawerPlate[DrawerId].CassetteDefinition[10].CassetteId							:= 10;
+	DrawerPlate[DrawerId].CassetteDefinition[10].CavityId							:= 10;
+	DrawerPlate[DrawerId].CassetteDefinition[10].LabelId							:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[10].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[10].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[10].CassetteOrientation				:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[10].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[10].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[10].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[10].EnableValve						:= 5;
+
+	DrawerPlate[DrawerId].CassetteDefinition[11].CassetteId							:= 11;
+	DrawerPlate[DrawerId].CassetteDefinition[11].CavityId							:= 11;
+	DrawerPlate[DrawerId].CassetteDefinition[11].LabelId							:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[11].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[11].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[11].CassetteOrientation				:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[11].AdjustmentValve[enumMotorsType.X1]		:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[11].AdjustmentValve[enumMotorsType.X2]		:= 3;
+	DrawerPlate[DrawerId].CassetteDefinition[11].AdjustmentValve[enumMotorsType.Y]		:= 2;
+	DrawerPlate[DrawerId].CassetteDefinition[11].EnableValve						:= 6;
+
+	DrawerPlate[DrawerId].CassetteDefinition[12].CassetteId							:= 12;
+	DrawerPlate[DrawerId].CassetteDefinition[12].CavityId							:= 12;
+	DrawerPlate[DrawerId].CassetteDefinition[12].LabelId							:= 1;
+	DrawerPlate[DrawerId].CassetteDefinition[12].LabelType							:= enumLabelType.Wrap;
+	DrawerPlate[DrawerId].CassetteDefinition[12].LabelOrientation					:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[12].CassetteOrientation				:= enumOrientationType.Upright;
+	DrawerPlate[DrawerId].CassetteDefinition[12].AdjustmentValve[enumMotorsType.X1]		:= 4;
+	DrawerPlate[DrawerId].CassetteDefinition[12].AdjustmentValve[enumMotorsType.X2]		:= 6;
+	DrawerPlate[DrawerId].CassetteDefinition[12].AdjustmentValve[enumMotorsType.Y]		:= 5;
+	DrawerPlate[DrawerId].CassetteDefinition[12].EnableValve						:= 6;
+
+	FOR i := 1 TO DrawerPlate[DrawerId].NumberOfCassettes DO
+
+		FOR j := 1 TO UPPER_BOUND(GVL_Constants_Magazine.OrientationTable, 1) DO
+			FOR k := enumMovementType.Up TO enumMovementType.Left DO
+				IF	(GVL_Constants_Magazine.OrientationTable[j].CassetteOrientation = DrawerPlate[DrawerId].CassetteDefinition[i].CassetteOrientation)
+				AND (GVL_Constants_Magazine.OrientationTable[j].LabelOrientation = DrawerPlate[DrawerId].CassetteDefinition[i].LabelOrientation)
+				AND (GVL_Constants_Magazine.OrientationTable[j].Movement = k)
+				THEN
+					DrawerPlate[DrawerId].CassetteDefinition[i].MotorsForMovements[k]		:= GVL_Constants_Magazine.OrientationTable[j].Motor;
+					DrawerPlate[DrawerId].CassetteDefinition[i].DirectionsForMovements[k]	:= GVL_Constants_Magazine.OrientationTable[j].Direction;
+					IF DrawerPlate[DrawerId].InvertDirectionsForXRaxis
+					AND (k = enumMovementType.Up OR k = enumMovementType.Down)
+					THEN
+						DrawerPlate[DrawerId].CassetteDefinition[i].DirectionsForMovements[k] := GetOppositeDirection(DrawerPlate[DrawerId].CassetteDefinition[i].DirectionsForMovements[k]);
+					END_IF
+				END_IF
+			END_FOR
+		END_FOR
+
+	END_FOR
+
+END_FOR
+END_METHOD
+
+METHOD PUBLIC CopyActualPositionsToData : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+Data := ActualCassettePosition;
+
+CopyActualPositionsToData := TRUE;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR
+	drawerId			: enumDrawer;
+END_VAR
+VAR_INST
+	lastSelectedDrawer	: enumDrawer;
+END_VAR
+JsonBuilder.executeCassetteJson[instanceNo] S= Visu.SelectedDrawer <> lastSelectedDrawer;
+lastSelectedDrawer := Visu.SelectedDrawer;
+
+// Always rebuild the json for the visu
+IF JsonTimer.Set(NOT JsonBuilder.executeCassetteJson[instanceNo], 1) THEN
+	JsonBuilder.executeCassetteJson[instanceNo]	:= TRUE;
+	JsonTimer.Reset();
+END_IF
+
+CASE activeDrawer OF
+	enumDrawer.NoDrawer:					RETURN;
+	enumDrawer.Upper..enumDrawer.Lower:		;
+	ELSE									LogPlc.Error('Invalid activeDrawer parameter'); RETURN;
+END_CASE
+
+IF ConfigError THEN
+	LogPlc.Error('The CheckConfig() method detected an error in the configuration');
+	RETURN;
+END_IF
+
+// Call the cassetteFb's
+FOR drawerId := enumDrawer.Upper TO enumDrawer.Lower DO
+	FOR CassetteId := 1 TO GVL_Constants_Magazine.MaxCassettes DO
+		DrawerPlate[drawerId].CassetteData[CassetteId](
+			_ActualPosition := ActualCassettePosition[drawerId, CassetteId],
+			_TargetPosition := TargetCassettePosition[drawerId, CassetteId],
+			_SwitchCount	:= SwitchCountCassette[drawerId, CassetteId]
+		);
+	END_FOR
+END_FOR
+
+IF Visu.SelectedDrawer = enumDrawer.NoDrawer THEN
+	Visu.SelectedDrawer := activeDrawer;
+END_IF
+
+ManualFunctions();
+Execute();
+UpdateCassetteMotorPositions();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO GVL_Constants_Magazine.MaxEnableValves DO
+	Enable[i].Reset();
+END_FOR
+
+FOR i := 1 TO GVL_Constants_Magazine.MaxAdjustValves DO
+	Adjust[i].Reset();
+END_FOR
+
+CASE activeDrawer OF
+	enumDrawer.NoDrawer:;
+	enumDrawer.Upper..enumDrawer.Lower:		
+		StopAdjustingAllCassettes();
+END_CASE
+
+Visu.AllCassetteFunction 	:= enumCassetteFunctionAll.None;
+Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Returns an empty array of MovementProfiles
+METHOD PRIVATE EmptyProfileArray : ARRAY[1..GVL_Constants_Magazine.MaxCassettes] OF MovementProfile
+%FOLDER Private
+END_METHOD
+
+// Manages the multi-step adjustment process for all cassettes in the connected drawer using a state machine.
+// Includes homing checks, profile collection, parallel adjustment validation, signal triggering, and position updates.
+// Transitions through states to coordinate safe and synchronized cassette movements based on adjustment needs.
+METHOD PRIVATE Execute : BOOL
+VAR_INST
+	State				: USINT;
+END_VAR
+VAR
+	i,j					: USINT;
+	_Enable				: BOOL;
+	_AdjustX1			: BOOL;
+	_AdjustX2			: BOOL;
+	_AdjustY			: BOOL;
+	LimitActivated		: BOOL;
+	result				: BOOL;
+	actDrawerPlate		: REFERENCE TO DrawerPlateType;
+	ProfileTemp			: MovementProfile;
+END_VAR
+actDrawerPlate		REF= DrawerPlate[activeDrawer];
+
+CASE State OF
+	0:
+		// Check the homing states of the cassettes
+		FOR i := 1 TO actDrawerPlate.NumberOfCassettes DO
+			CheckHomingState(actDrawerPlate.CassetteData[i]);
+		END_FOR
+
+		// Check if any adjustment is needed
+		IF AnyAdjustmentNeeded AND airPressureOk THEN
+			Profiles			:= EmptyProfileArray();
+			ProfilesToExecute	:= EmptyProfileArray();
+			State				:= 10;
+		END_IF
+
+	10:
+		// Collect profiles of all cassettes that need adjustment
+		FOR i := 1 TO actDrawerPlate.NumberOfCassettes DO
+			IF actDrawerPlate.CassetteData[i].AdjustmentNeeded THEN
+				// Add the profile for the cassette to the profiles array
+				ProfileTemp	:= actDrawerPlate.CassetteData[i].GetAdjustmentProfile(activeDrawer, i);
+				AddToProfileArray(ProfileTemp, Profiles);
+			END_IF
+		END_FOR
+
+		// Check which cassettes can be adjusted together
+		AddToProfileArray(Profiles[1], ProfilesToExecute);
+
+		FOR i := 2 TO actDrawerPlate.NumberOfCassettes DO
+			IF Profiles[i].Cassette = 0 THEN
+				EXIT;
+			END_IF
+			result := TRUE;
+			// Compare with all profiles in the execution array and add to execution array when possible
+			FOR j := 1 TO i - 1 DO
+				IF NOT ParallelAdjustmentPossible(Profiles[j], Profiles[i]) THEN
+					result := FALSE;
+					EXIT;
+				END_IF
+			END_FOR
+			IF result OR AllCassettesHoming THEN
+				AddToProfileArray(Profiles[i], ProfilesToExecute);
+			END_IF
+		END_FOR
+
+		Increment.AnyInt(State, 10);
+
+	20:	// Do the adjustments
+		IF AdjustOneStep(
+				Direction	:= ProfilesToExecute[1].Direction,
+				Motors		:= ProfilesToExecute[1].Motors,
+				Enable		=> _Enable,
+				AdjustX1	=> _AdjustX1,
+				AdjustX2	=> _AdjustX2,
+				AdjustY		=> _AdjustY
+			)
+		THEN
+			Increment.AnyInt(State, 10);
+		END_IF
+
+		FOR i := 1 TO actDrawerPlate.NumberOfCassettes DO
+			IF ProfilesToExecute[i].Cassette = 0 THEN
+				EXIT;
+			END_IF
+
+			Enable[actDrawerPlate.CassetteDefinition[ProfilesToExecute[i].Cassette].EnableValve].SetOrReset(_Enable);
+			Adjust[actDrawerPlate.CassetteDefinition[ProfilesToExecute[i].Cassette].AdjustmentValve[enumMotorsType.X1]].SetOrReset(_AdjustX1);
+			Adjust[actDrawerPlate.CassetteDefinition[ProfilesToExecute[i].Cassette].AdjustmentValve[enumMotorsType.X2]].SetOrReset(_AdjustX2);
+			Adjust[actDrawerPlate.CassetteDefinition[ProfilesToExecute[i].Cassette].AdjustmentValve[enumMotorsType.Y]].SetOrReset(_AdjustY);
+		END_FOR
+
+	30: // Update cassette position, decrement Steps and check if more steps are needed
+		FOR i := 1 TO actDrawerPlate.NumberOfCassettes DO
+			IF ProfilesToExecute[i].Cassette = 0 THEN
+				EXIT;
+			END_IF
+
+			// Check if cassette came to a limit while moving
+			LimitActivated		S= LimitActiveForAdjustment(
+										Drawer		:= ProfilesToExecute[i].Drawer,
+										Cassette	:= ProfilesToExecute[i].Cassette,
+										Adjustment	:= ProfilesToExecute[i].Motors,
+										Direction	:= ProfilesToExecute[i].Direction);
+		END_FOR
+		State	:= 0;
+END_CASE
+END_METHOD
+
+// Returns the cassetteId for the given cavity/label combination
+METHOD PRIVATE GetCassetteNumber : USINT
+VAR_INPUT
+	Cavity		: USINT;
+	Label		: USINT;
+END_VAR
+VAR
+	CassetteId	: USINT;
+END_VAR
+%FOLDER Private
+FOR CassetteId := 1 TO DrawerPlate[1].NumberOfCassettes DO
+	IF DrawerPlate[1].CassetteDefinition[CassetteId].CavityId = Cavity AND DrawerPlate[1].CassetteDefinition[CassetteId].LabelId = Label THEN
+		GetCassetteNumber := CassetteId;
+		EXIT;
+	END_IF
+END_FOR
+END_METHOD
+
+// Inverts the given direction positive to negative and vice versa
+METHOD PRIVATE GetOppositeDirection : enumDirection
+VAR_INPUT
+	Direction : enumDirection;
+END_VAR
+%FOLDER Private
+GetOppositeDirection := SEL(Direction = enumDirection.Negative, enumDirection.Negative, enumDirection.Positive);
+END_METHOD
+
+// Defines position changes for each homing step of the cassette axes (X1, X2, Y).
+// Each step corresponds to a specific movement pattern required for proper alignment.
+// Values are assigned based on the current homing state to guide the cassette through its sequence.
+METHOD PRIVATE GetPositionChangeForHomingStep : CassettePosition
+VAR_INPUT
+	HomingState	: enumCassetteHomingState;
+END_VAR
+%FOLDER Private
+CASE HomingState OF
+	enumCassetteHomingState.HomingStep1:
+		GetPositionChangeForHomingStep.X1	:= -6;
+		GetPositionChangeForHomingStep.X2	:= -6;
+		GetPositionChangeForHomingStep.Y	:= 0;
+
+	enumCassetteHomingState.HomingStep2:
+		GetPositionChangeForHomingStep.X1	:= 0;
+		GetPositionChangeForHomingStep.X2	:= 0;
+		GetPositionChangeForHomingStep.Y	:= 100;
+
+	enumCassetteHomingState.HomingStep3:
+		GetPositionChangeForHomingStep.X1	:= 100;
+		GetPositionChangeForHomingStep.X2	:= 100;
+		GetPositionChangeForHomingStep.Y	:= 0;
+
+	enumCassetteHomingState.HomingStep4:
+		GetPositionChangeForHomingStep.X1	:= -3;
+		GetPositionChangeForHomingStep.X2	:= -3;
+		GetPositionChangeForHomingStep.Y	:= 0;
+
+	enumCassetteHomingState.HomingStep5:
+		GetPositionChangeForHomingStep.X1	:= 0;
+		GetPositionChangeForHomingStep.X2	:= 0;
+		GetPositionChangeForHomingStep.Y	:= 6;
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+TaskDisableWatchdog();		// Disable the watchdog for this cycle, because Config() call takes about 1 ms.
+Config();
+
+ConfigError						:= NOT CheckConfig();
+
+Visu.SingleSelectedFunction		:= enumCassetteFunctionSingle.None;
+Visu.AllCassetteFunction		:= enumCassetteFunctionAll.None;
+END_METHOD
+
+METHOD PRIVATE InitializeAllCassettes : BOOL
+VAR_INPUT
+	StopHoming	: BOOL;
+END_VAR
+VAR
+	i			: USINT;
+END_VAR
+VAR_INST
+	localState	: USINT;
+END_VAR
+%FOLDER Private
+CASE localState OF
+	0:
+		FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+			DrawerPlate[activeDrawer].CassetteData[i].StartHoming();
+		END_FOR
+		IF AllCassettesHoming THEN
+			localState	:= 1;
+		END_IF
+
+	1:
+		IF AllCassettesHomed OR StopHoming THEN
+			localstate := 0;
+			InitializeAllCassettes := NOT StopHoming;
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PRIVATE InitializeSingleCassette : BOOL
+VAR_INPUT
+	CassetteId	: USINT;
+END_VAR
+VAR_INST
+	localState	: USINT;
+END_VAR
+%FOLDER Private
+CASE localState OF
+	0:
+		DrawerPlate[activeDrawer].CassetteData[CassetteId].StartHoming();
+		IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
+			localState	:= 1;
+		END_IF
+
+	1:
+		IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState = enumCassetteHomingState.Homed THEN
+			localstate	:= 0;
+			InitializeSingleCassette := TRUE;
+		ELSIF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState < enumCassetteHomingState.Homed THEN
+			localstate	:= 0;
+		END_IF
+END_CASE
+END_METHOD
+
+// Checks if movement in the specified direction would exceed the mechanical limits for X1, X2, or Y axes.
+// Evaluates which limits are relevant based on the active adjustment motor type.
+// Sets a flag if any applicable limit is currently active, preventing further movement.
+METHOD PRIVATE LimitActiveForAdjustment : BOOL
+VAR_INPUT
+	Drawer		: enumDrawer;		// Drawer to check
+	Cassette	: USINT;			// Cassette to check
+	Adjustment	: enumMotorsType;		// Adjustment to check
+	Direction	: enumDirection;	// Direction of the adjustment
+END_VAR
+VAR
+	LimitX1		: BOOL;
+	LimitX2		: BOOL;
+	LimitY		: BOOL;
+	Limited		: BOOL;
+END_VAR
+%FOLDER Private
+// Check if X1 has a positive or negative limit while moving in the corresponding direction
+LimitX1 :=	(DrawerPlate[Drawer].CassetteData[Cassette].NegativeLimitReachedX1 AND Direction = enumDirection.Negative)
+		OR	(DrawerPlate[Drawer].CassetteData[Cassette].PositiveLimitReachedX1 AND Direction = enumDirection.Positive);
+
+// Check if X2 has a positive or negative limit while moving in the corresponding direction
+LimitX2 :=	(DrawerPlate[Drawer].CassetteData[Cassette].NegativeLimitReachedX2 AND Direction = enumDirection.Negative)
+		OR	(DrawerPlate[Drawer].CassetteData[Cassette].PositiveLimitReachedX2 AND Direction = enumDirection.Positive);
+
+// Check if Y has a positive or negative limit while moving in the corresponding direction
+LimitY  :=	(DrawerPlate[Drawer].CassetteData[Cassette].NegativeLimitReachedY  AND Direction = enumDirection.Negative)
+		OR	(DrawerPlate[Drawer].CassetteData[Cassette].PositiveLimitReachedY  AND Direction = enumDirection.Positive);
+
+// Check if the active limits found above do exist in the adjustment
+CASE Adjustment OF
+	enumMotorsType.X:		Limited := LimitX1 OR LimitX2;
+	enumMotorsType.X1:		Limited := LimitX1;
+	enumMotorsType.X1Y:		Limited := LimitX1 OR LimitY;
+	enumMotorsType.X2:		Limited := LimitX2;
+	enumMotorsType.X2Y:		Limited := LimitX2 OR LimitY;
+	enumMotorsType.XY:		Limited := LimitX1 OR LimitX2 OR LimitY;
+	enumMotorsType.Y:		Limited := LimitY;
+END_CASE
+
+LimitActiveForAdjustment := Limited;
+END_METHOD
+
+METHOD PRIVATE ManualFunctions : BOOL
+VAR
+	i				: USINT;
+	Movement		: enumMovementType;
+END_VAR
+VAR_INST
+	localState		: USINT;
+	result			: ARRAY[1..2] OF BOOL;
+	trigger			: RisingTriggerFB;
+END_VAR
+// ============================================================================
+// Cassette Position Control and Adjustment Logic
+// ============================================================================
+// This code manages individual and collective cassette movements within a drawer
+// system, including initialization, positioning, and fine adjustments.
+// ============================================================================
+
+// Enable UI buttons only when idle and no function is selected
+Visu.EnableButtons := localState = 0 AND Visu.SingleSelectedFunction = enumCassetteFunctionSingle.None;
+
+// Update current drawer display
+Visu.CurrentDrawer := activeDrawer;
+
+// Trigger JSON execution when any cassette function is selected or another drawer is selected
+JsonBuilder.executeCassetteJson[instanceNo] S= trigger.Rising(CLK := Visu.SingleSelectedFunction > enumCassetteFunctionSingle.None OR Visu.AllCassetteFunction > enumCassetteFunctionAll.None);
+
+
+// ============================================================================
+// Main State Machine
+// ============================================================================
+CASE localState OF
+	// ------------------------------------------------------------------------
+	// STATE 0: IDLE - Ready for new commands
+	// ------------------------------------------------------------------------
+	0:
+		// Safety check: Air pressure must be OK to proceed
+		IF NOT airPressureOk THEN
+			// Air pressure fault - remain in idle state and prevent all operations
+			;
+
+		// ----------------------------------------------------------------
+		// All Cassettes: Initialize to Center or Data position
+		// ----------------------------------------------------------------
+		ELSIF Visu.ExecuteFunction AND (Visu.AllCassetteFunction = enumCassetteFunctionAll.InitCenter OR Visu.AllCassetteFunction = enumCassetteFunctionAll.InitData) THEN
+			localState := 10;  // Transition to initialization state
+			Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;  // Clear any single cassette selection
+
+		// ----------------------------------------------------------------
+		// All Cassettes: Move to Data position (without initialization)
+		// ----------------------------------------------------------------
+		ELSIF Visu.ExecuteFunction AND Visu.AllCassetteFunction = enumCassetteFunctionAll.Data THEN
+			localState := 20;  // Transition to data position state
+			Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+
+		// ----------------------------------------------------------------
+		// Single Cassette Operations
+		// ----------------------------------------------------------------
+		ELSIF Visu.SelectedCassette > 0 AND Visu.SelectedCassette <= GVL_Constants_Magazine.MaxCassettes THEN
+			CASE Visu.SingleSelectedFunction OF
+				// ------------------------------------------------------------
+				// Fine positioning adjustments (incremental movements)
+				// ------------------------------------------------------------
+				enumCassetteFunctionSingle.Left:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.Left, 1);
+
+				enumCassetteFunctionSingle.Up:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.Up, 1);
+
+				enumCassetteFunctionSingle.Down:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.Down, 1);
+
+				enumCassetteFunctionSingle.Right:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.Right, 1);
+
+				enumCassetteFunctionSingle.RotateCw:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.RotateCw, 1);
+
+				enumCassetteFunctionSingle.RotateCcw:
+					AdjustCassette(activeDrawer, Visu.SelectedCassette, enumMovementType.RotateCcw, 1);
+
+				// ------------------------------------------------------------
+				// Initialize single cassette and move to center position
+				// ------------------------------------------------------------
+				enumCassetteFunctionSingle.InitCenter:
+					// Short-circuit evaluation: Initialize first, then move to center
+					// result[1] stores the completion state of initialization
+					IF (result[1] OR_ELSE (result[1] := InitializeSingleCassette(Visu.SelectedCassette))) AND_THEN MoveSingleCassetteToMiddlePosition(Visu.SelectedCassette) THEN
+						result[1] := FALSE;  // Reset completion flag
+						Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;  // Clear function selection
+					END_IF
+
+				// ------------------------------------------------------------
+				// Initialize single cassette and move to data position
+				// ------------------------------------------------------------
+				enumCassetteFunctionSingle.InitData:
+					// Short-circuit evaluation: Initialize first, then move to data position
+					IF (result[1] OR_ELSE (result[1] := InitializeSingleCassette(Visu.SelectedCassette))) AND_THEN MoveSingleCassetteToDataPosition(Visu.SelectedCassette) THEN
+						result[1] := FALSE;  // Reset completion flag
+						Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+					END_IF
+
+				// ------------------------------------------------------------
+				// Move single cassette to data position (no initialization)
+				// ------------------------------------------------------------
+				enumCassetteFunctionSingle.Data:
+					IF MoveSingleCassetteToDataPosition(Visu.SelectedCassette) THEN
+						Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+					END_IF
+
+				// ------------------------------------------------------------
+				// Stop adjusting single cassette
+				// ------------------------------------------------------------
+				enumCassetteFunctionSingle.Stop:
+					IF StopAdjustingSingleCassette(Visu.SelectedCassette) THEN
+						Visu.ExecuteFunction := FALSE;
+						Arrays.Bool_Reset(result);
+						Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+					END_IF
+			END_CASE
+
+			// Clear function selection after basic adjustment movements (Left through RotateCcw)
+			// These are one-shot commands that complete immediately
+			IF Visu.SingleSelectedFunction <= enumCassetteFunctionSingle.RotateCcw THEN
+				Visu.SingleSelectedFunction := enumCassetteFunctionSingle.None;
+			END_IF
+		END_IF
+
+	// ------------------------------------------------------------------------
+	// STATE 10: INITIALIZE ALL CASSETTES
+	// ------------------------------------------------------------------------
+	10:
+		// Execute initialization sequence for all cassettes
+		IF InitializeAllCassettes(Visu.AllCassetteFunction = enumCassetteFunctionAll.Stop) THEN
+			// Initialization complete - determine next state based on selected function
+			IF Visu.AllCassetteFunction = enumCassetteFunctionAll.InitData THEN
+				localState := 20;  // Continue to data position
+			ELSIF Visu.AllCassetteFunction = enumCassetteFunctionAll.InitCenter THEN
+				localState := 30;  // Continue to center position
+			END_IF
+		END_IF
+
+		// User requested stop
+		IF Visu.AllCassetteFunction = enumCassetteFunctionAll.Stop THEN
+			IF StopAdjustingAllCassettes() THEN
+				Visu.AllCassetteFunction := enumCassetteFunctionAll.None;
+				Visu.ExecuteFunction := FALSE;  // Clear execution flag
+				localState := 0;  // Return to idle state
+			END_IF
+		END_IF
+
+	// ------------------------------------------------------------------------
+	// STATE 20: MOVE ALL CASSETTES TO DATA POSITION
+	// ------------------------------------------------------------------------
+	20:
+		// User requested stop
+		IF Visu.AllCassetteFunction = enumCassetteFunctionAll.Stop THEN
+			IF StopAdjustingAllCassettes() THEN
+				Visu.AllCassetteFunction := enumCassetteFunctionAll.None;
+				Visu.ExecuteFunction := FALSE;  // Clear execution flag
+				localState := 0;  // Return to idle state
+			END_IF
+		END_IF
+
+		// Execute movement to data position for all cassettes
+		IF MoveAllCassettesToDataPosition() THEN
+			// Movement complete - reset to idle
+			Visu.AllCassetteFunction := enumCassetteFunctionAll.None;
+			Visu.ExecuteFunction := FALSE;
+			localState := 0;
+		END_IF
+
+	// ------------------------------------------------------------------------
+	// STATE 30: MOVE ALL CASSETTES TO CENTER POSITION
+	// ------------------------------------------------------------------------
+	30:
+		// User requested stop
+		IF Visu.AllCassetteFunction = enumCassetteFunctionAll.Stop THEN
+			IF StopAdjustingAllCassettes() THEN
+				Visu.AllCassetteFunction := enumCassetteFunctionAll.None;
+				Visu.ExecuteFunction := FALSE;  // Clear execution flag
+				localState := 0;  // Return to idle state
+			END_IF
+		END_IF
+
+		// Execute movement to center position for all cassettes
+		IF MoveAllCassettesToMiddlePosition() THEN
+			// Movement complete - reset to idle
+			Visu.AllCassetteFunction := enumCassetteFunctionAll.None;
+			Visu.ExecuteFunction := FALSE;
+			localState := 0;
+		END_IF
+END_CASE
+
+// ============================================================================
+// End of Cassette Control Logic
+// ============================================================================
+END_METHOD
+
+// Copy all the target positions from the data struct to the setpoints of the cassettes
+METHOD PUBLIC MoveAllCassettesToDataPosition : BOOL
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	MoveSingleCassetteToDataPosition(i);
+END_FOR
+
+MoveAllCassettesToDataPosition := AllCassettesReady;
+END_METHOD
+
+// Moves all cassettes to the zero position
+METHOD MoveAllCassettesToMiddlePosition : BOOL
+VAR
+	i : USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO GVL_Constants_Magazine.MaxCassettes DO
+	MoveSingleCassetteToMiddlePosition(i);
+END_FOR
+
+MoveAllCassettesToMiddlePosition := AllCassettesReady;
+END_METHOD
+
+// Copy the target position from the data struct to the setpoints of the selected cassette
+METHOD PUBLIC MoveSingleCassetteToDataPosition : BOOL
+VAR_INPUT
+	CassetteId	: USINT;
+END_VAR
+%FOLDER Commands
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= Data[activeDrawer, CassetteId].X1;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= Data[activeDrawer, CassetteId].X2;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= Data[activeDrawer, CassetteId].Y;
+
+MoveSingleCassetteToDataPosition	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+END_METHOD
+
+// Moves the selected cassette to the zero position
+METHOD PUBLIC MoveSingleCassetteToMiddlePosition : BOOL
+VAR_INPUT
+	CassetteId	: USINT;
+END_VAR
+%FOLDER Commands
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= 0;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= 0;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= 0;
+
+MoveSingleCassetteToMiddlePosition	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+END_METHOD
+
+// Determines if two cassettes can be adjusted in parallel based on motor compatibility, direction, and homing state.
+// Ensures both cassettes share the same enable valve and adjustment configuration for safe simultaneous movement.
+// If any condition fails (motors mismatch, direction conflict, homing active, or valve mismatch), parallel adjustment is disabled.
+METHOD PRIVATE ParallelAdjustmentPossible : BOOL
+VAR_INPUT
+	FirstProfile		: MovementProfile;
+	SecondProfile		: MovementProfile;
+END_VAR
+VAR
+	MotorsMatch		: BOOL;
+	FirstCassette	: REFERENCE TO CassetteDefinition;
+	SecondCassette	: REFERENCE TO CassetteDefinition;
+	Homing			: BOOL;
+END_VAR
+%FOLDER Private
+ParallelAdjustmentPossible	:= TRUE;
+FirstCassette				REF= DrawerPlate[FirstProfile.Drawer].CassetteDefinition[FirstProfile.Cassette];
+SecondCassette				REF= DrawerPlate[SecondProfile.Drawer].CassetteDefinition[SecondProfile.Cassette];
+Homing						:= DrawerPlate[FirstProfile.Drawer].CassetteData[FirstProfile.Cassette].HomingState >= enumCassetteHomingState.HomingStep1;
+ParallelAdjustmentNotPossibleReason		:= 0;
+
+// Check if motors match. For example: When first profile motor is X1 and second profile motors is XY, both can be adjusted in X1.
+CASE FirstProfile.Motors OF
+	enumMotorsType.X:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.X;
+	enumMotorsType.X1:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.X OR SecondProfile.Motors = enumMotorsType.X1Y OR SecondProfile.Motors = enumMotorsType.X1;
+	enumMotorsType.X1Y:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.X1Y;
+	enumMotorsType.X2:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.X OR SecondProfile.Motors = enumMotorsType.X2Y OR SecondProfile.Motors = enumMotorsType.X2;
+	enumMotorsType.X2Y:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.X2Y;
+	enumMotorsType.XY:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY;
+	enumMotorsType.Y:		MotorsMatch := SecondProfile.Motors = enumMotorsType.XY OR SecondProfile.Motors = enumMotorsType.Y OR SecondProfile.Motors = enumMotorsType.X1Y OR SecondProfile.Motors = enumMotorsType.X2Y;
+END_CASE
+
+// No match found in CASE statement above
+ParallelAdjustmentPossible	R= NOT MotorsMatch;
+
+// Directions must be the same when moving together
+ParallelAdjustmentPossible	R= FirstProfile.Direction	<> SecondProfile.Direction;
+IF NOT ParallelAdjustmentPossible AND ParallelAdjustmentNotPossibleReason = 0 THEN ParallelAdjustmentNotPossibleReason		:= 8; END_IF
+
+// When one of the cassettes is homing, they cannot move together
+ParallelAdjustmentPossible	R= (DrawerPlate[FirstProfile.Drawer].CassetteData[FirstProfile.Cassette].HomingState <> DrawerPlate[SecondProfile.Drawer].CassetteData[SecondProfile.Cassette].HomingState);
+IF NOT ParallelAdjustmentPossible AND ParallelAdjustmentNotPossibleReason = 0 THEN ParallelAdjustmentNotPossibleReason		:= 9; END_IF
+
+// When Enable is different and also the adjustments are different, simultaneous adjustment is not possible.
+ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.EnableValve AND FirstCassette.AdjustmentValve[enumMotorsType.X1] <> SecondCassette.AdjustmentValve[enumMotorsType.X1];
+ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.EnableValve AND FirstCassette.AdjustmentValve[enumMotorsType.X2] <> SecondCassette.AdjustmentValve[enumMotorsType.X2];
+ParallelAdjustmentPossible	R= FirstCassette.EnableValve <> SecondCassette.EnableValve AND FirstCassette.AdjustmentValve[enumMotorsType.Y]  <> SecondCassette.AdjustmentValve[enumMotorsType.Y];
+IF NOT ParallelAdjustmentPossible AND ParallelAdjustmentNotPossibleReason = 0 THEN ParallelAdjustmentNotPossibleReason		:= 10; END_IF
+END_METHOD
+
+// Call this method when the config should be reloaded, for example after a program change.
+METHOD ReloadConfig : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+_initialized := FALSE;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR
+END_VAR
+%FOLDER Commands
+// A Stop command does not have any effect on cassette adjustment.
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Stop adjusting all cassettes by setting the actual value as target position.
+METHOD StopAdjustingAllCassettes : BOOL
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	StopAdjustingSingleCassette(i);
+END_FOR
+
+StopAdjustingAllCassettes := AllCassettesReady;
+END_METHOD
+
+// Stop adjusting a single cassette by setting the actual value as target position.
+METHOD StopAdjustingSingleCassette : BOOL
+VAR_INPUT
+	CassetteId				: USINT;
+END_VAR
+%FOLDER Commands
+IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
+	DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState := enumCassetteHomingState.StopHoming;
+END_IF
+
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX1	:= ActualCassettePosition[activeDrawer, CassetteId].X1;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionX2	:= ActualCassettePosition[activeDrawer, CassetteId].X2;
+DrawerPlate[activeDrawer].CassetteData[CassetteId].TargetPositionY	:= ActualCassettePosition[activeDrawer, CassetteId].Y;
+
+StopAdjustingSingleCassette	:= NOT DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded;
+END_METHOD
+
+// Detects rising edges on adjustment and enable valve outputs for all cassettes in the connected drawer.
+// Increments or decrements the actual motor position based on valve activation and signal transitions.
+// Ensures accurate tracking of cassette movement per motor axis (X1, X2, Y) during manual or automatic adjustments.
+METHOD PRIVATE UpdateCassetteMotorPositions
+VAR_INST
+	risingAdjust : ARRAY[1..GVL_Constants_Magazine.MaxAdjustValves] OF RisingTriggerFB;
+	risingEnable : ARRAY[1..GVL_Constants_Magazine.MaxEnableValves] OF RisingTriggerFB;
+END_VAR
+VAR
+	i			: USINT;
+	Motor		: enumMotorsType;
+	adjustOut	: ARRAY[enumMotorsType.X1..enumMotorsType.Y] OF USINT;
+	enableOut	: USINT;
+END_VAR
+FOR i := 1 TO GVL_Constants_Magazine.MaxAdjustValves DO
+	IF risingAdjust[i].Rising(CLK := Adjust[i].Map()) THEN
+		Increment.AnyInt(SwitchCountAdjust[activeDrawer, i]);
+	END_IF
+END_FOR
+
+FOR i := 1 TO GVL_Constants_Magazine.MaxEnableValves DO
+	IF risingEnable[i].Rising(CLK := Enable[i].Map()) THEN
+		Increment.AnyInt(SwitchCountEnable[activeDrawer, i]);
+	END_IF
+END_FOR
+
+FOR i := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	enableOut := DrawerPlate[activeDrawer].CassetteDefinition[i].EnableValve;
+	FOR Motor := enumMotorsType.X1 TO enumMotorsType.Y DO
+		adjustOut[Motor] := DrawerPlate[activeDrawer].CassetteDefinition[i].AdjustmentValve[Motor];
+		IF risingAdjust[adjustOut[Motor]].Q AND Enable[enableOut].Map() THEN
+			DrawerPlate[activeDrawer].CassetteData[i].AddToActualPosition(Motor, 1);
+		END_IF
+		IF risingEnable[enableOut].Q AND Adjust[adjustOut[Motor]].Map() THEN
+			DrawerPlate[activeDrawer].CassetteData[i].AddToActualPosition(Motor, -1);
+		END_IF
+	END_FOR
+END_FOR
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY AllCassettesHomed : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId		: USINT;
+END_VAR
+AllCassettesHomed			:= TRUE;
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState <> enumCassetteHomingState.Homed THEN
+		AllCassettesHomed	:= FALSE;
+		RETURN;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AllCassettesHoming : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId		: USINT;
+	HomingState		: enumCassetteHomingState;
+END_VAR
+AllCassettesHoming			:= TRUE;
+HomingState					:= DrawerPlate[activeDrawer].CassetteData[1].HomingState;
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState <> HomingState
+	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState <= enumCassetteHomingState.Homed
+	THEN
+		AllCassettesHoming	:= FALSE;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AllCassettesReady : BOOL
+%FOLDER Properties
+GET
+AllCassettesReady	:= NOT AnyAdjustmentNeeded;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AnyAdjustmentNeeded : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId	: USINT;
+END_VAR
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].AdjustmentNeeded THEN
+		AnyAdjustmentNeeded	:= TRUE;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AnyHomingBusy : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId	: USINT;
+END_VAR
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState > enumCassetteHomingState.Homed THEN
+		AnyHomingBusy	:= TRUE;
+		RETURN;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AnyHomingNeeded : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId	: USINT;
+END_VAR
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].HomingState = enumCassetteHomingState.NotHomed THEN
+		AnyHomingNeeded	:= TRUE;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AnyNegativeLimitReached : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId	: USINT;
+END_VAR
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedX1
+	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedX2
+	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].NegativeLimitReachedY
+	THEN
+		AnyNegativeLimitReached	:= TRUE;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY AnyPositiveLimitReached : BOOL
+%FOLDER Properties
+GET
+VAR
+	CassetteId	: USINT;
+END_VAR
+FOR CassetteId := 1 TO DrawerPlate[activeDrawer].NumberOfCassettes DO
+	IF DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedX1
+	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedX2
+	OR DrawerPlate[activeDrawer].CassetteData[CassetteId].PositiveLimitReachedY
+	THEN
+		AnyPositiveLimitReached	:= TRUE;
+		EXIT;
+	END_IF
+END_FOR
+END_GET
+END_PROPERTY

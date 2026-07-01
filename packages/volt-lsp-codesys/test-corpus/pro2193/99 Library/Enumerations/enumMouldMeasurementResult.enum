@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumMouldMeasurementResult :
+(
+	Unclassified	:= 0,
+	Good			:= 1,
+	Flash			:= 2,
+	Short			:= 3
+);
+END_TYPE

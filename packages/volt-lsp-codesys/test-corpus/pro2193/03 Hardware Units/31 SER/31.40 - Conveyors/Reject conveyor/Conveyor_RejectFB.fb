@@ -1,0 +1,141 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Conveyor_RejectFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IConveyor_Reject_Move_Commands
+VAR_INPUT
+	AreaFree					: DigitalSensorFB(invert := FALSE);
+	{attribute 'symbol' := 'readwrite'}	RejectConveyor				: ConveyorFB;
+END_VAR
+VAR_IN_OUT
+	Data						: Conveyor_Reject_Data;
+END_VAR
+VAR
+	RunningTimer				: BTON;
+	stopConveyorAfterTimer		: BOOL;
+	moveConveyorAfterEStop		: BOOL := TRUE;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+//	SetError					: ARRAY[1..1] OF SetErrorFB;
+END_VAR
+(*SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxOutfeed_Errors,
+	errorId			:= 1,
+	alarmCondition	:= BoxOutputConveyorFull.IsActive AND SER.InAutomaticOperation AND NOT SetError[2].active,
+	alarmDelay		:= 2.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+*)
+END_METHOD
+
+METHOD PROTECTED Cyclic
+RejectConveyor(
+	moduleHandler		:= ModuleHandler,
+	textRefId			:= Conveyor_Errors,
+	errorId				:= 4,
+	alarmEnable			:= TRUE,
+	alarmDelay			:= 10.0,
+	severity			:= enumErrorSeverity.Fault,
+	reaction			:= enumErrorReaction.No_reaction,
+	manualControlEnabled:= NOT SER.InAutomaticOperation,
+	beltRunning			:= ,
+	profile				:= Data.rejectConveyorProfile,
+);
+
+RunningTimer.Set(
+		RejectConveyor.Map() AND (AreaFree.IsActive OR HMI.testMachineWithoutConveyors),
+		Data.rejectConveyorRuntime);
+
+IF stopConveyorAfterTimer AND RunningTimer.Q THEN			// Await stacking timer before stopping conveyor
+	RejectConveyor.Reset();
+	stopConveyorAfterTimer := FALSE;
+	CommandLock.ForceRelease();			// Be carefull because this ForceRelease will restart any command that is currently active (like Reset())
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+moveConveyorAfterEStop			:= TRUE;
+
+RejectConveyor.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Start command for the conveyor to move the stacks
+METHOD PUBLIC MoveStep : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	RejectConveyor.Set();
+	RunningTimer.Reset();
+	stopConveyorAfterTimer			:= TRUE;
+END_IF
+
+IF RejectConveyor.ConveyorState = enumConveyorRunning_State.Standstill THEN
+	MoveStep := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		// in this case it is nice to just always home the conveyor. Stefan
+
+
+
+//		IF moveConveyorAfterEStop						// Estop was pressed, or machine was just started
+//		OR AreaFree.IsInactive							// Sensor is still detecting something.
+//		THEN
+			RejectConveyor.Set();
+			moveConveyorAfterEStop			:= FALSE;
+			stopConveyorAfterTimer			:= TRUE;
+			Reset := CommandLock.Release(__POUNAME());
+//			Increment.AnyInt(localState);
+//		ELSE
+//			RejectConveyor.Reset();
+//			Reset := CommandLock.Release(__POUNAME());
+//		END_IF
+//
+//	1:
+//		IF RejectConveyor.ConveyorState = enumConveyorRunning_State.Standstill THEN
+//			Reset := CommandLock.Release(__POUNAME());
+//		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();		// Steal the lock from any command that may be active
+
+stopConveyorAfterTimer			:= TRUE;
+
+Stop := RejectConveyor.ConveyorState = enumConveyorRunning_State.Standstill;
+END_METHOD

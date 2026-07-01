@@ -1,0 +1,25 @@
+// Pass this interface to the module that's responsible for counting the production (like Z Unit, or Chain).
+INTERFACE IAddProductionStats
+
+// Add a product to the statistics
+METHOD PUBLIC Count
+VAR_IN_OUT
+	Product				: ProductType;
+END_VAR
+END_METHOD
+
+// Add a product array to the statistics
+METHOD PUBLIC CountArray
+VAR_IN_OUT
+	aProductArray		: ARRAY[*] OF ProductType;
+END_VAR
+END_METHOD
+
+// Add a 2 dimensional product array to the statistics
+METHOD PUBLIC CountArray2D
+VAR_IN_OUT
+	aProductArray		: ARRAY[*,*] OF ProductType;
+END_VAR
+END_METHOD
+
+END_INTERFACE

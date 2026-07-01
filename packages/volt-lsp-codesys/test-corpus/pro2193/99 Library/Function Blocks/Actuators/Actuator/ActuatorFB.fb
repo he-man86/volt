@@ -1,0 +1,59 @@
+// Basic FB to control an output. No manual control!
+{attribute 'monitoring_display' := 'output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ActuatorFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'read'}	output					: BOOL;
+	MeasureOnTime			: ONTIME;
+	TimeOfLastSwitch		: DT;
+END_VAR
+
+Counters();
+
+END_FUNCTION_BLOCK
+
+// Basic FB to control an output. No manual control!
+{attribute 'monitoring_display' := 'output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ActuatorFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'read'}	output					: BOOL;
+	MeasureOnTime			: ONTIME;
+	TimeOfLastSwitch		: DT;
+END_VAR
+NETWORK 1 FBD
+  // Calculate the on-time and the number of switches of the output
+  MeasureOnTime(In := output);
+END_NETWORK
+NETWORK 2 FBD
+  // On a rising edge of the output, save the current date/time
+  LET i1 := output RISING;
+  LET en1 := i1;
+  IF en1 THEN TimeOfLastSwitch := MOVE(TimeSettings.dtNow); END_IF
+END_NETWORK
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC Map : BOOL
+Map := output;
+END_METHOD
+
+// Reset the output (=False)
+METHOD PUBLIC Reset
+output := FALSE;
+END_METHOD
+
+// Set the output (=True)
+METHOD PUBLIC Set : BOOL
+output := TRUE;
+END_METHOD
+
+// Set the output True or False
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+output := xValue;
+END_METHOD

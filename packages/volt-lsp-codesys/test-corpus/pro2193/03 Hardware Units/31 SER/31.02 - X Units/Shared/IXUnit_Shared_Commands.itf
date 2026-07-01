@@ -1,0 +1,27 @@
+// Commands specific for any X Unit
+INTERFACE IXUnit_Shared_Commands
+EXTENDS IModuleHasPayload, IModuleHasSafePos, IModuleManualControlEnabled, __SYSTEM.IQueryInterface
+
+// Move to a position somewhere halfway, while the Y axis is still exiting the mould.
+METHOD MoveToHalfway : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Make the X drives go to the parking position on start of program
+METHOD PUBLIC MoveToParking : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	almostSafe		: BOOL;		// Drive almost arrived in position
+END_VAR
+END_METHOD
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+END_METHOD
+
+END_INTERFACE

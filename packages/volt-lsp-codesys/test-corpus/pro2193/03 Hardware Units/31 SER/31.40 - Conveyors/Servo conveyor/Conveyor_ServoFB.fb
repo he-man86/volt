@@ -1,0 +1,607 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Conveyor_ServoFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IConveyor_Shared_Stacking_Commands, IConveyor_Shared_Move_Commands, IConveyor_Servo_Pick_Commands, IModuleBlocksSafetyGate
+VAR_INPUT
+	AreaFree					: ARRAY[1..3] OF DigitalSensorFB[(invert := FALSE)];	// 1: SER, 2: Middle, 3: BFU
+//	BeltFull					: DigitalSensorFB(invert := TRUE);
+END_VAR
+VAR_OUTPUT
+	StackStatus					: ARRAY[1..MaxPositionsOnConveyor] OF ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF StackStatusType;
+END_VAR
+VAR_IN_OUT
+	Data						: Conveyor_Servo_Data;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}		actStackingHeight			: UINT;			// Private backing field for StackIndex property. Do not use directly.
+	{attribute 'symbol' := 'readwrite'}	EndCycleWhenBeltIsFull		: BOOL;			// Switch machine to 'completing' state when the belt is not emptied in time.
+END_VAR
+VAR
+	ReadMachineData				: L_MC1P.L_MC1P_ReadMachineData;
+	iAlternatingStackIndex		: INT(1..iNumberOfAlternatingStacks);
+	_productsOnTopOfStack		: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+	{attribute 'hide'}	_movingStacksAllowed		: BOOL;
+	{attribute 'hide'}	_currentStackFull			: BOOL;
+
+	actMaxStackingHeight		: UINT;
+	conveyorIsMovingContinuously: BOOL;
+	conveyorIsMovingToOpenGate	: BOOL;
+	moveConveyorAfterEStop		: BOOL := TRUE;
+	debugStacksAreShort			: ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF BOOL;
+	alarmAreaNotFree			: BOOL;
+END_VAR
+VAR CONSTANT
+	iNumberOfAlternatingStacks	: INT	:= Conveyors.iNumberOfAlternatingStacks;
+	MaxPositionsOnConveyor		: USINT := 5;
+	MaxAllowedStackingHeightWhenGateOpens	: INT := 0;		// Any product is pushed over when gate opens.
+//	MaxAllowedStackingHeightWhenGateOpens	: INT := 200;	// Stacks higher than 200 mm are pushed over when gate opens.
+	gateLockString				: STRING(14)		:= 'opening_gate';
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..3] OF SetErrorFB;
+END_VAR
+//SetError[1](
+//	moduleHandler	:= ModuleHandler,
+//	textRefId		:= Conveyor_Errors,
+//	errorId			:= 1,		// Belt is full
+//	alarmCondition	:= BeltFull.IsActive,
+//	alarmDelay		:= 10.0,
+//	severity		:= enumErrorSeverity.Warning,
+//	reaction		:= enumErrorReaction.No_reaction,
+//	active			=> );
+
+//SetError[2](
+//	moduleHandler	:= ModuleHandler,
+//	textRefId		:= Conveyor_Errors,
+//	errorId			:= 2,		// Automatic cycle stopped because belt is full
+//	alarmCondition	:= BeltFull.IsActive AND SER.InAutomaticOperation AND EndCycleWhenBeltIsFull,
+//	alarmDelay		:= 60.0,
+//	severity		:= enumErrorSeverity.Fault,
+//	reaction		:= enumErrorReaction.EndCycle,
+//	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Conveyor_Errors,
+	errorId			:= 3,		// Stacking area not free on conveyor
+	alarmCondition	:= alarmAreaNotFree OR (StackIndex = 0 AND Arrays.DigitalSensor_Any(AreaFree, FALSE) AND (SER.InAutomaticOperation OR SER.ActState = PACK_ML.State.Resetting)),
+	alarmDelay		:= 3.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..1] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	BeltFullTrigger				: TriggerFB;
+END_VAR
+VAR
+	i							: USINT;
+END_VAR
+ReadMachineData(
+	Axis					:= AxisRef,
+	xEnable					:= TRUE,
+	xValid					=> ,
+	xBusy					=> ,
+	xError					=> ,
+	eErrorID				=> ,
+	lrFeedconstant			=> ,
+	dwGearDenominator		=> ,
+	dwGearNumerator			=> ,
+	dwAddGearDenominator	=> ,
+	dwAddGearNumerator		=> ,
+	dwPosResolution			=> ,
+	xOrientation			=> ,
+	eTraversingRange		=> ,
+	lrCycleLength			=> ,
+	xVirtual				=> );
+
+actStackingHeight				:= StackIndex;
+debugStacksAreShort				:= StacksAreShort;
+ExternalManualControlEnabled	:= TRUE;
+
+
+IF  conveyorIsMovingToOpenGate
+AND Drive.Standstill
+AND NOT Drive.AxisBasicControl.xFunBusy
+THEN
+	ResetStackIndex();
+	conveyorIsMovingToOpenGate := FALSE;
+	ProcessCommandLock.Release(gateLockString);
+END_IF
+
+
+//IF  conveyorIsMovingContinuously
+//AND BeltFullTrigger.Rising(CLK := BeltFull.IsActive)
+//THEN
+//	conveyorIsMovingContinuously	:= FALSE;
+//	Stop();
+//END_IF
+
+
+
+// Set limits for the positions, and guard the limits
+Data.Step.Pos.lowerLimit				:= 100;
+Data.Step.Pos.upperLimit				:= 5000;
+Data.Step.Pos.stepSize					:= 10;
+
+IF Data.Step.Pos.value = 0 THEN
+	Data.Step.Pos.value					:= Data.Step.Pos.lowerLimit;
+END_IF
+
+guardPosition[1](value := Data.Step.Pos);
+
+//todo dit afmaken een keer
+IF FALSE (*bfu step by step*) AND NOT StacksPresent(MaxPositionsOnConveyor) THEN
+	FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+		StackStatus[MaxPositionsOnConveyor][i].Present			:= TRUE;
+		StackStatus[MaxPositionsOnConveyor][i].VirtualStack		:= TRUE;
+		StackStatus[MaxPositionsOnConveyor][i].numberOfProducts	:= GetCurrentMaxStackingHeight(FALSE);
+		StackStatus[MaxPositionsOnConveyor][i].Complete			:= TRUE;
+	END_FOR
+END_IF
+
+IF GlobalVars.debugTestBool1 THEN
+	FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+		StackStatus[1][i].Present									:= TRUE;
+		StackStatus[1][i].numberOfProducts							:= 10;
+		StackStatus[1][i].Complete									:= FALSE;
+	END_FOR
+END_IF
+
+IF GlobalVars.debugTestBool2 THEN
+	FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+		StackStatus[GlobalVars.debugTestInt5][i].Present			:= TRUE;
+		StackStatus[GlobalVars.debugTestInt5][i].numberOfProducts	:= GetCurrentMaxStackingHeight(FALSE);
+		StackStatus[GlobalVars.debugTestInt5][i].Complete			:= TRUE;
+	END_FOR
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+moveConveyorAfterEStop			:= TRUE;
+alarmAreaNotFree				:= FALSE;
+
+IF NOT Drive.config.virtualMode THEN
+	Drive.Quickstop(TRUE);
+END_IF
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+// Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateCloseCancelled
+%FOLDER Commands/Gate Requests
+// Do nothing when gate closes
+END_METHOD
+
+// Gate close button is pushed. Safety gate is requesting to close (trigger signal)
+METHOD PUBLIC GateCloseRequested
+%FOLDER Commands/Gate Requests
+// Do nothing when gate closes
+END_METHOD
+
+// Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateOpenCancelled
+%FOLDER Commands/Gate Requests
+// Do nothing when gate open is cancelled
+END_METHOD
+
+// Gate open button is pushed. Safety gate is requesting to open (trigger signal)
+METHOD PUBLIC GateOpenRequested
+%FOLDER Commands/Gate Requests
+IF NOT ProcessCommandLock.Request(gateLockString) THEN
+	RETURN;
+END_IF
+
+conveyorIsMovingContinuously	:= FALSE;
+conveyorIsMovingToOpenGate		:= TRUE;
+StartConveyor();
+Drive.MoveRel(Data.Step);
+END_METHOD
+
+METHOD PUBLIC GetCurrentMaxStackingHeight : UINT
+VAR_INPUT
+	firstStackAfterCycleStart	: BOOL;
+END_VAR
+%FOLDER Commands/Move
+// Optionally use a different stacking height for the first stack.
+IF firstStackAfterCycleStart AND Data.firstCycleStackHeight > 0 THEN
+	GetCurrentMaxStackingHeight	:= Data.firstCycleStackHeight;
+	RETURN;
+END_IF
+
+// Only use a new stacking height when the new value is higher than the current stack index
+IF Data.maxStackingHeight[iAlternatingStackIndex] > StackIndex THEN
+	actMaxStackingHeight	:= Data.maxStackingHeight[iAlternatingStackIndex];
+END_IF
+
+GetCurrentMaxStackingHeight		:= actMaxStackingHeight;
+END_METHOD
+
+METHOD IncreaseStackIndex
+VAR_INPUT
+	products : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType;
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands/Stacking
+ProductsOnTopOfStack := products;
+
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+
+	IF products[i].Present THEN
+		StackStatus[1][i].Present			:= TRUE;
+		StackStatus[1][i].Initialized		:= TRUE;
+		StackStatus[1][i].encoderPosition	:= Drive.actPos;
+
+		StackStatus[1][i].numberOfProducts	:= StackStatus[1][i].numberOfProducts + 1;
+		StackStatus[1][i].Complete			:= StackStatus[1][i].numberOfProducts = GetCurrentMaxStackingHeight(FALSE);
+
+		StackStatus[1][i].VirtualStack		:= SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums;
+	END_IF
+
+END_FOR
+END_METHOD
+
+// Toggle the move continuously mode on or off (Call only once!)
+METHOD PUBLIC MoveContinuouslyToggle
+VAR_INPUT
+END_VAR
+%FOLDER Commands/Move
+IF conveyorIsMovingContinuously THEN
+	conveyorIsMovingContinuously	:= FALSE;
+	Stop();
+ELSE
+	conveyorIsMovingContinuously	:= TRUE;
+	StartConveyor();
+	Drive.MoveVel(Data.Step);
+END_IF
+END_METHOD
+
+// Start command for the conveyor to move the stacks
+METHOD PUBLIC MoveStep : BOOL
+VAR_INST
+	result						: ARRAY[1..1] OF BOOL;
+END_VAR
+%FOLDER Commands/Move
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Arrays.Bool_Reset(result);
+	StartConveyor();
+	conveyorIsMovingContinuously	:= FALSE;
+END_IF
+
+result[1]			:= result[1] OR_ELSE Drive.MoveRel(Data.Step);
+
+IF NOT Arrays.Bool_All(result, TRUE) THEN
+	RETURN;
+END_IF
+
+alarmAreaNotFree				:= TRUE;
+IF Arrays.DigitalSensor_All(AreaFree, TRUE) OR HMI.testMachineWithoutConveyors THEN
+	alarmAreaNotFree			:= FALSE;
+	ResetStackIndex();
+	MoveStep := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+	result						: ARRAY[1..1] OF BOOL;
+	Timer						: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Drive.globalSpeedOverrideEnable := TRUE;
+		Arrays.Bool_Reset(result);
+		Increment.AnyInt(localState, 1, Drive.SetPositionDirect());
+
+	1:
+		IF moveConveyorAfterEStop										// Estop was pressed, or machine was just started
+		OR StackIndex > 0 AND Arrays.DigitalSensor_All(AreaFree, TRUE)	// Stacks are removed from the stacking area
+		OR StackIndex = 0 AND Arrays.DigitalSensor_Any(AreaFree, FALSE)	// No stacks should be present, but sensor is still detecting something.
+		THEN
+			moveConveyorAfterEStop			:= FALSE;
+			conveyorIsMovingContinuously	:= FALSE;
+			StartConveyor();
+			Timer.Reset();
+			Increment.AnyInt(localState);
+		ELSE
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+
+	2:
+		// todo: this step is the same as MoveStep() method, but CommandLock is already locked by homing :(
+
+		result[1]			:= result[1] OR_ELSE Drive.MoveRel(Data.Step);
+
+		IF Arrays.Bool_All(result, TRUE) THEN
+			alarmAreaNotFree				:= TRUE;
+			IF Timer.Set(Arrays.DigitalSensor_All(AreaFree, TRUE) OR HMI.testMachineWithoutConveyors, 0.1) THEN
+				alarmAreaNotFree			:= FALSE;
+				ResetStackIndex();
+				Reset := CommandLock.Release(__POUNAME());
+			END_IF
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED ResetStackIndex
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Methods
+FOR i := MaxPositionsOnConveyor TO 2 BY -1 DO
+	StackStatus[i] := StackStatus[i - 1];
+END_FOR
+ClearProducts.StackArray1D(StackStatus[1]);
+CurrentStackFull		:= FALSE;
+END_METHOD
+
+// Returns coordinates and status of stack to pick by the Fanuc
+METHOD PUBLIC ReturnNextStack : REFERENCE TO StackStatusType
+VAR_OUTPUT
+	indexX	: USINT;
+	indexY	: USINT;
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands/Picking
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+	IF  StackStatus[MaxPositionsOnConveyor][i].Present
+	AND StackStatus[MaxPositionsOnConveyor][i].numberOfProducts > 5	// Fanuc can not get stacks that are too low. Just move these on the reject conveyor
+	AND NOT StackStatus[MaxPositionsOnConveyor][i].VirtualStack		// Filter virtual stacks. These are ignored.
+	THEN
+		CASE i OF
+			1:	indexX := 0;		indexY := 1;
+			2:	indexX := 0;		indexY := 0;
+			3:	indexX := 1;		indexY := 1;
+			4:	indexX := 1;		indexY := 0;
+			5:	indexX := 2;		indexY := 1;
+			6:	indexX := 2;		indexY := 0;
+			7:	indexX := 3;		indexY := 1;
+			8:	indexX := 3;		indexY := 0;
+			9:	indexX := 4;		indexY := 1;
+			10:	indexX := 4;		indexY := 0;
+			11:	indexX := 5;		indexY := 1;
+			12:	indexX := 5;		indexY := 0;
+		END_CASE
+		ReturnNextStack		REF= StackStatus[MaxPositionsOnConveyor][i];
+		EXIT;
+	END_IF
+END_FOR
+
+// Note: X and Y index of returned stack might not actually match with the stack placed. Not a big proglem, all the stacks are the same. Check ZUnit method: ProductData_Get to fix this.
+
+// First stack to remove by Fanuc is on position: X 0, Y 1
+END_METHOD
+
+METHOD StacksPresent : BOOL
+VAR_INPUT
+	iStackNo	: USINT(1..MaxPositionsOnConveyor);
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Methods
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+	IF StackStatus[iStackNo][i].Present THEN
+		StacksPresent := TRUE;
+		RETURN;
+	END_IF
+END_FOR
+END_METHOD
+
+METHOD PRIVATE StartConveyor
+%FOLDER Methods
+// Increase the alternating stack index by 1 (to create odd / even stacks)
+Increment.Subrange(
+			input			:= iAlternatingStackIndex,
+			lower_limit		:= 1,
+			upper_limit		:= iNumberOfAlternatingStacks);
+
+// Set new maximum stacking height
+actMaxStackingHeight	:= Data.maxStackingHeight[iAlternatingStackIndex];
+
+// Reset current stacking height
+//ResetStackIndex();	// Reset stack index when movement finishes.
+
+// Clear stored product info
+ClearProducts.Array1D(_productsOnTopOfStack);
+
+MovingStacksAllowed := FALSE;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+alarmAreaNotFree				:= FALSE;
+
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// Conveyor process determent that the current stack is full and no more products are allowed
+{attribute 'monitoring':='call'}
+PROPERTY CurrentStackFull : BOOL
+%FOLDER Properties
+GET
+CurrentStackFull := _currentStackFull;
+END_GET
+SET
+_currentStackFull := CurrentStackFull;
+END_SET
+END_PROPERTY
+
+// Cycle length
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC CycleLength : LREAL
+%FOLDER Properties
+GET
+CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
+END_GET
+END_PROPERTY
+
+// The conveyor has stacks on it
+{attribute 'monitoring':='call'}
+PROPERTY HasStacks : BOOL
+%FOLDER Properties
+GET
+VAR
+	i	: USINT;
+	j	: USINT;
+END_VAR
+FOR i := 1 TO MaxPositionsOnConveyor DO
+	FOR j := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+		IF StackStatus[i][j].Present THEN
+			HasStacks := TRUE;
+			EXIT;
+		END_IF
+	END_FOR
+	IF HasStacks THEN EXIT; END_IF
+END_FOR
+END_GET
+END_PROPERTY
+
+// Get highest stacking height (including the height of the actual stack)
+{attribute 'monitoring':='call'}
+PROPERTY HighestStackIndex : UINT
+%FOLDER Properties
+GET
+VAR
+	i	: INT;
+END_VAR
+HighestStackIndex			:= MAX(StackIndex, Data.firstCycleStackHeight);
+
+FOR i := 1 TO iNumberOfAlternatingStacks DO
+	HighestStackIndex		:= MAX(HighestStackIndex, Data.maxStackingHeight[i]);
+END_FOR
+END_GET
+END_PROPERTY
+
+// Used by modules like: Z and M units, true when module is in a position where gate is free to open.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForGate : BOOL
+%FOLDER Commands/Gate Requests
+GET
+// Current height of stack is lower than max allowed stacking height
+InSafePosForGate	:= (StackIndex * PersistentVars.RecipeVars.productPitch.value) + PersistentVars.RecipeVars.productHeight.value < MaxAllowedStackingHeightWhenGateOpens;
+// Safe when there is no stack
+InSafePosForGate	S= StackIndex = 0;
+// Safe when servo is not enabled
+InSafePosForGate	S= NOT Drive.AxisEnabled;
+// Not safe when conveyor is moving
+InSafePosForGate	R= NOT Drive.Standstill;
+// Conveyor is locked
+InSafePosForGate	R= ProcessCommandLock.IsLocked;
+END_GET
+END_PROPERTY
+
+// The Z Unit has just finished stacking and the conveyor is allowed to move the stacks.
+{attribute 'monitoring':='call'}
+PROPERTY MovingStacksAllowed : BOOL
+%FOLDER Properties
+GET
+MovingStacksAllowed := _movingStacksAllowed;
+END_GET
+SET
+_movingStacksAllowed := MovingStacksAllowed;
+END_SET
+END_PROPERTY
+
+// The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
+//{attribute 'monitoring':='call'} Monitoring attribute is not supported for this property :(
+PROPERTY ProductsOnTopOfStack : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType
+%FOLDER Properties
+GET
+ProductsOnTopOfStack := _productsOnTopOfStack;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_productsOnTopOfStack := ProductsOnTopOfStack;
+END_SET
+END_PROPERTY
+
+// The actual stacking height of stack on the conveyor.
+{attribute 'monitoring':='call'}
+PROPERTY StackIndex : UINT
+%FOLDER Properties
+GET
+VAR
+	i			: USINT;
+	maxIndex	: UINT;
+END_VAR
+FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
+	maxIndex := MAX(maxIndex, StackStatus[1][i].numberOfProducts);
+END_FOR
+
+StackIndex := maxIndex;
+END_GET
+END_PROPERTY
+
+// The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
+{attribute 'monitoring':='call'}
+PROPERTY StackingAllowed : BOOL
+%FOLDER Properties
+GET
+StackingAllowed := (Arrays.DigitalSensor_All(AreaFree, TRUE) OR StackIndex > 0 OR HMI.testMachineWithoutConveyors)
+					AND Drive.Standstill
+					AND NOT MovingStacksAllowed
+					AND NOT CurrentStackFull;
+END_GET
+END_PROPERTY
+
+// Get a list of stacks that are missing 1 product. This can happen when the Z Units stacks an incomplete gripper during end-cycle.
+PROPERTY StacksAreShort : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF BOOL
+%FOLDER Properties
+GET
+VAR
+	i		: USINT;
+END_VAR
+FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
+	StacksAreShort[i] := StackIndex > 0 AND StackStatus[1][i].numberOfProducts < StackIndex;
+END_FOR
+END_GET
+END_PROPERTY
+
+PROPERTY PUBLIC Standstill : BOOL
+%FOLDER Properties
+GET
+Standstill := Drive.Standstill;
+END_GET
+END_PROPERTY

@@ -1,0 +1,118 @@
+// Control a Charger output. This will apply a static charge to the labels
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ChargerFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	xChargerCycleOk			: BOOL;
+	rSetPointCharger		: RealWithLimitsType;
+	xAutoCycleActive		: BOOL;
+	errorId					: WORD;
+END_VAR
+VAR
+	T_MaxChargerTime		: BTON;
+	NeedChargeTime			: MeasureTime;
+	iChargerFault			: USINT;
+	{attribute 'symbol' := 'read'}	rLabelChargedOkTime		: REAL;				// Time it takes for the labels to be fully charged.
+
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+	ChargerFaultAlarm		: SetErrorFB;
+END_VAR
+VAR CONSTANT
+	rMaxChargingTime		: REAL	:= 1.0;		// Max duration of charger output (in sec.)
+	iMaxCyclesBadCharge		: USINT	:= 3;		// Sound alarm when input check fails for this many cycles.
+END_VAR
+
+SUPER^();
+
+IF T_MaxChargerTime.Set(In := Output.Map(), Pt := rMaxChargingTime) THEN
+	Output.Reset();
+END_IF
+
+rLabelChargedOkTime := NeedChargeTime.Measure(In := Output.Map() AND NOT xChargerCycleOk);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+ChargerFaultAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND (iChargerFault > iMaxCyclesBadCharge * 2 AND rSetPointCharger.value <> 0),
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+
+IF ChargerFaultAlarm.active THEN
+	iChargerFault	:= 0;
+END_IF
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD MapAnalogOut : WORD
+IF xAutoCycleActive OR Output.Map() THEN
+	MapAnalogOut	:= RANGE_TO_WORD(input := rSetPointCharger.value, input_LO := 0.0, input_HI := rSetPointCharger.upperLimit);
+ELSE
+	MapAnalogOut	:= WORD#0;
+END_IF
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+// Check if the charger is turned on
+IF Output.Map() THEN
+	// If the input is high when the charger is turned off, the label was charged enough.
+	IF xChargerCycleOk THEN
+		iChargerFault	:= MAX(0, iChargerFault - 1);
+	ELSE
+		iChargerFault	:= iChargerFault + 2;
+	END_IF
+END_IF
+
+Output.Reset();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+IF T_MaxChargerTime.Q THEN
+	RETURN;
+END_IF
+
+IF rSetPointCharger.value < 0.01 THEN
+	RETURN;
+END_IF
+
+Output.Set();
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+IF xValue THEN
+	Set();
+ELSE
+	Reset();
+END_IF
+END_METHOD

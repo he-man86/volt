@@ -1,0 +1,57 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK XuUnit_ForChainFB
+EXTENDS XuUnit_DefaultFB
+IMPLEMENTS IXuUnit_ForChain_Transfer_Commands, IXuUnit_ForChain_Config
+VAR_IN_OUT
+	DataProject					: XuUnit_ForChain_Data;
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	rDistanceFromChain	: REAL := 25;
+END_VAR
+
+SUPER^(
+	Data				:= Data,
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+// Move to a position just before the chain
+METHOD MoveToInFrontOfChain : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+IF NOT EnableHalfwayPosition THEN
+	RETURN;
+END_IF
+
+IF HasPayload = enumPayload.None AND SER.OperationMode <> SER_OperationModeType.SemiAuto THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+Drive.SetMovementProfileData(Data.Takeover[1]);
+
+MoveToInFrontOfChain := Drive.MoveAbsPos(Data.Takeover[1].Pos.value - rDistanceFromChain);
+
+CommandLock.Release(__POUNAME());
+END_METHOD
+
+// The X axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForChain : BOOL
+%FOLDER Properties
+GET
+// Chain may already rotate when Xu unit is 15 mm back from Takeover pos
+InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.Takeover[1].Pos.value - rDistanceFromChain) OR_ELSE InSafePos;
+
+//InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.HalfwayPos.value) OR_ELSE InSafePos;
+END_GET
+END_PROPERTY

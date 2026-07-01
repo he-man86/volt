@@ -1,0 +1,138 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK RejectStation_WithCylinderFB
+EXTENDS RejectStation_BaseFB
+IMPLEMENTS IRejectStation_WithCylinder_Commands, IModuleHasSafePosForChain
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	Cylinder					: ARRAY[1..GVL_Constants.ChainProductsForReject] OF Cylinder_52ValveFB;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	DataWithCylinder			: RejectStation_WithCylinder_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+END_VAR
+
+SUPER^(Data := Data);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+SUPER^.Cyclic();
+
+FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+	Cylinder[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled AND ExternalManualControlEnabled,
+		textRefId				:= Reject_Errors,
+		errorId_SensorOut		:= TO_WORD(i),
+		errorId_SensorIn		:= TO_WORD(i + 2),
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 10.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		inputOut				:= ,
+		inputIn					:= );
+END_FOR
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+	Cylinder[i].Reset();
+END_FOR
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC GetProducts : BOOL
+VAR_INPUT
+	parameter					: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+VAR_INST
+	localState					: SINT;
+	Timer						: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		IF parameter.0 OR parameter.1 THEN
+			Cylinder[1].GoOut();
+		END_IF
+
+//		IF parameter.0 OR parameter.2 THEN
+//			Cylinder[2].GoOut();
+//		END_IF
+
+		IF Timer.Set(In :=	(Cylinder[1].IsOut OR NOT Cylinder[1].Map()),
+//						AND (Cylinder[2].IsOut OR NOT Cylinder[2].Map()),
+					 Pt := DataWithCylinder.rRejectOutDelay)
+		THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Cylinder[1].GoIn();
+//		Cylinder[2].GoIn();
+
+		IF Cylinder[1].IsIn (*AND Cylinder[2].IsIn*) THEN
+			GetProducts := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+	Cylinder[i].Reset();
+END_FOR
+
+Reset := SUPER^.Reset();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
+	Cylinder[i].Reset();
+END_FOR
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// The Y Drive is somewhere outside of the mould, on the safety strip.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForChain : BOOL
+%FOLDER Properties
+GET
+InSafePosForChain := Cylinder[1].IsIn; //AND Cylinder[2].IsIn;
+END_GET
+END_PROPERTY

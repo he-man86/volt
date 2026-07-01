@@ -1,0 +1,65 @@
+(* This code ist generated automatically *)
+(* Don't change the content! *)
+
+VAR_GLOBAL
+	(* #f6529a4a-0612-4d87-b1cc-c0a2093cf8f5# *)
+	SER_Errors : WORD:= 15616;
+	(* #a2f74aaa-05db-4329-9f11-7605c45b227c# *)
+	BFU_Errors : WORD:= 15372;
+	(* #a22b6015-88a5-4be0-a30d-314ff8279548# *)
+	IMM_Errors : WORD:= 15367;
+	(* #a40b62c2-c469-4af4-98cf-b64b6f3566d2# *)
+	XiUnit_Errors : WORD:= 15361;
+	(* #25e3d89a-0331-4802-8868-702ff8768c2d# *)
+	XuUnit_Errors : WORD:= 15362;
+	(* #b7eb5b65-0157-47ad-b08f-af3605bd2674# *)
+	Conveyor_Errors : WORD:= 15381;
+	(* #b8a432bc-72d6-4d7d-85cd-507f05edaece# *)
+	YUnit_Errors : WORD:= 15360;
+	(* #a4825215-97d2-4b2f-9ffe-5492b083155e# *)
+	Chain_Errors : WORD:= 15370;
+	(* #d677b8a0-3c62-4207-b285-16ac0e172abb# *)
+	Chain_WithCarrierPlates_Errors : WORD:= 15377;
+	(* #508dd5bf-3f46-4dce-b03b-cf495722f63e# *)
+	StickerUnit_Errors : WORD:= 15364;
+	(* #29c86025-1b1e-4258-829c-b46f8af0b6b1# *)
+	LabelSupplyDrawer_Errors : WORD:= 15371;
+	(* #507d4b88-b35c-46ca-9b81-0ebbba597f6c# *)
+	VisionSystem_Errors : WORD:= 15376;
+	(* #30460049-d943-4fff-b55e-2fa0791f61c1# *)
+	Reject_Errors : WORD:= 15375;
+	(* #8da5f7c3-d696-491e-a301-3569e99a0f05# *)
+	ZUnit_Errors : WORD:= 15363;
+	(* #f6010d2d-7323-4cc1-a5cf-b97f880edb63# *)
+	MagazineBase_Errors : WORD:= 15365;
+	(* #266d907d-81ef-47d3-a9a6-4e69ca4245da# *)
+	MagazineMotors_Errors : WORD:= 15368;
+	(* #2a38e907-1042-492d-8e6c-b4f11187e19a# *)
+	Fanuc_Errors : WORD:= 15373;
+	(* #a01fef91-3634-4725-968e-0c4043d8baaa# *)
+	BufferRack_Errors : WORD:= 15380;
+	(* #98b27a58-ea59-4a28-925c-01069639e258# *)
+	BoxOutfeed_Errors : WORD:= 15384;
+	(* #034f1794-01b0-4d1a-8071-8b4b4e2add80# *)
+	BoxInfeed_Errors : WORD:= 15383;
+	(* #483f3d2b-06ce-4ee3-b1cd-49bd1d006d61# *)
+	BoxPusher_Errors : WORD:= 15385;
+	(* #d0a1ce07-89b2-47ca-a9b7-ab4b11deee03# *)
+	BoxCenterUnit_Errors : WORD:= 15382;
+	(* #886bae33-483d-41fc-96ba-1739eb62542b# *)
+	FanucFB_Errors : WORD:= 15374;
+	(* #514c122c-1afd-4a2f-9581-38e51a3975c8# *)
+	Fuse_Errors : WORD:= 15366;
+	(* #c328ec73-0559-4e12-a19f-0db66a246de2# *)
+	General_Unit_Errors : WORD:= 15617;
+	(* #ad0da4af-04dd-43a5-b612-4eee92558291# *)
+	Pnoz_Errors : WORD:= 15378;
+	(* #67aca188-9feb-43f1-90ff-73689e2f0c52# *)
+	ServoDrive_Errors : WORD:= 15872;
+	(* #7a2e2209-4699-43f0-a5a7-7922065a77d2# *)
+	Servo_i950_Errors : WORD:= 15369;
+	(* #7725a10c-6751-4ddc-9fc9-ce4fc1da788d# *)
+	Vacuum_Errors : WORD:= 15618;
+	(* #d52efabe-4e38-4380-a7b3-2e2ff2d23dbd# *)
+	Vacuum_Label_Errors : WORD:= 15379;
+END_VAR

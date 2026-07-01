@@ -1,0 +1,84 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ActuatorWithManualControl_BaseFB
+IMPLEMENTS IObserver
+VAR_INPUT
+	{attribute 'symbol' := 'read'}	manualControlEnabled		: BOOL;		// Enable manual control when it is safe to move actuator
+END_VAR
+VAR
+	{attribute 'symbol' := 'readwrite'}	minButton				: BOOL;
+	{attribute 'symbol' := 'readwrite'}	plusButton				: BOOL;
+	{attribute 'symbol' := 'readwrite'}	attachButton			: BOOL;		// Attach this actuator to hardware buttons
+
+	minTrigger				: TriggerFB;
+	plusTrigger				: TriggerFB;
+	attachTrigger			: TriggerFB;
+
+	hardwareF1Pushed		: BOOL;
+	hardwareF2Pushed		: BOOL;
+END_VAR
+
+IF manualControlEnabled THEN
+	minTrigger.Call(CLK := minButton OR hardwareF1Pushed);
+	plusTrigger.Call(CLK := plusButton OR hardwareF2Pushed);
+
+	ManualControl(minTrigger.Q_Rising, plusTrigger.Q_Rising);
+
+	GlobalVars.manualControlRequested S= minTrigger.Q_Rising OR plusTrigger.Q_Rising;
+END_IF
+
+
+attachTrigger.Call(CLK := attachButton);
+
+IF attachTrigger.Q_Rising AND manualControlEnabled THEN
+	IF HardwareButtons.F1.Attach(THIS^) THEN
+		HMI.FooterName	:= enumFooterNames.OnOff;	// Show correct footer
+	ELSE
+		attachButton := FALSE;						// If attaching fails somehow, reset the button again.
+	END_IF
+	IF HardwareButtons.F2.Attach(THIS^) THEN
+		HMI.FooterName	:= enumFooterNames.OnOff;	// Show correct footer
+	ELSE
+		attachButton := FALSE;						// If attaching fails somehow, reset the button again.
+	END_IF
+END_IF
+
+IF attachTrigger.Q_Falling THEN
+	HardwareButtons.F1.Detach(THIS^);
+	HardwareButtons.F2.Detach(THIS^);
+
+	IF  HardwareButtons.F1.ObserverCount = 0
+	AND HardwareButtons.F2.ObserverCount = 0
+	THEN
+		HMI.FooterName	:= enumFooterNames.None;
+	END_IF
+END_IF
+
+END_FUNCTION_BLOCK
+
+{attribute 'analysis' := '-33'}
+METHOD PROTECTED ABSTRACT ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+END_METHOD
+
+// The Update method is called when subjects have a new state
+METHOD PUBLIC Update
+VAR_INPUT
+	payload	: ISubjectBasePayload;
+END_VAR
+VAR
+	hwButtonPayload : ISubjectHWButtonsPayload;
+END_VAR
+IF __QUERYINTERFACE(payload, hwButtonPayload) THEN
+
+	CASE hwButtonPayload.ButtonType OF
+		enumHWButtons.F1:
+			hardwareF1Pushed	:= hwButtonPayload.ButtonState;
+		enumHWButtons.F2:
+			hardwareF2Pushed	:= hwButtonPayload.ButtonState;
+	END_CASE
+
+END_IF
+END_METHOD

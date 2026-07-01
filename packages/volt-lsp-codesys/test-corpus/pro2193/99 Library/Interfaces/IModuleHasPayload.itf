@@ -1,0 +1,9 @@
+// Commands specific for a Magazine Unit
+INTERFACE IModuleHasPayload
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+END_PROPERTY
+
+END_INTERFACE

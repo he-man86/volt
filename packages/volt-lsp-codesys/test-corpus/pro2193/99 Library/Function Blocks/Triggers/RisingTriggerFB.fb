@@ -1,0 +1,38 @@
+{attribute 'no_explicit_call' := 'Do not call the body of RisingTriggerFB directly! Use methods like Rising to interact with this FB'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK RisingTriggerFB
+VAR
+	r_trig			: Standard.R_TRIG;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Monitor an input for a rising edge. Use property Q to get edge.
+METHOD PUBLIC Call
+VAR_INPUT
+	CLK	: BOOL;
+END_VAR
+
+// Use this method if you need the trigger output more than once per PLC cycle.
+r_trig(
+	CLK	:= CLK,
+	Q   => );
+END_METHOD
+
+// Triggers on rising edge of input. !!Only call this method once per PLC Cycle!!
+METHOD PUBLIC Rising : BOOL
+VAR_INPUT
+	CLK	: BOOL;
+END_VAR
+Call(CLK);
+Rising := Q;
+END_METHOD
+
+// Rising edge of the input signal
+PROPERTY PUBLIC Q : BOOL
+
+// Attribute 'monitoring':='call' is not needed here.
+GET
+Q := r_trig.Q;
+END_GET
+END_PROPERTY

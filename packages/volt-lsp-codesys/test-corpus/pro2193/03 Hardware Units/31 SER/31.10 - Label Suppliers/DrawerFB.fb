@@ -1,0 +1,87 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK DrawerFB
+IMPLEMENTS IDrawer
+VAR_INPUT
+	Lock		: DigitalSensorFB(invert := FALSE);
+	DrawerName	: enumDrawer;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	_isEmpty				: BOOL;
+	_releaseBrakeNeeded		: BOOL;
+	_releaseBrakeCounter	: INT;
+
+	{attribute 'symbol' := 'read'}	drawerActive			: BOOL;
+	{attribute 'symbol' := 'read'}	drawerEmpty				: BOOL;
+END_VAR
+VAR CONSTANT
+	NoOfTakeoutsForReleaseBrake : USINT := 15;	// After this number of label takeouts, next time the brakes will be released during takeout
+END_VAR
+
+drawerActive	:= IsLocked;
+drawerEmpty		:= IsEmpty;
+
+END_FUNCTION_BLOCK
+
+METHOD BrakeReleased : BOOL
+VAR_INPUT
+END_VAR
+_releaseBrakeCounter	:= 0;
+ReleaseBrakeNeeded		:= FALSE;
+END_METHOD
+
+METHOD LabelsTaken : BOOL
+VAR_INPUT
+END_VAR
+Increment.AnyInt(_releaseBrakeCounter);
+
+IF _releaseBrakeCounter = NoOfTakeoutsForReleaseBrake - 1 THEN
+	ReleaseBrakeNeeded	:= TRUE;
+	_releaseBrakeCounter	:= 0;
+END_IF
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY IsEmpty : BOOL
+GET
+IsEmpty	:= _isEmpty;
+END_GET
+SET
+_isEmpty := IsEmpty;
+END_SET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsLocked : BOOL
+GET
+IsLocked := Lock.IsActive;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY Name : enumDrawer
+GET
+Name := DrawerName;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY ReleaseBrakeCounter : INT
+GET
+ReleaseBrakeCounter := _releaseBrakeCounter;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY ReleaseBrakeNeeded : BOOL
+GET
+ReleaseBrakeNeeded := _releaseBrakeNeeded;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_releaseBrakeNeeded := ReleaseBrakeNeeded;
+END_SET
+END_PROPERTY

@@ -1,0 +1,204 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK BoxOutfeed_DefaultFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IBoxOutfeed_Default_Commands
+VAR_INPUT
+	BoxOutputConveyorFull		: DigitalSensorWithTriggersFB(invert := TRUE);
+	{attribute 'symbol' := 'readwrite'}	BoxOutputConveyor			: ConveyorFB;
+END_VAR
+VAR_IN_OUT
+	Data						: BoxOutfeed_Default_DataType;
+END_VAR
+VAR
+	alarmBeltIsFull				: BOOL;
+	emptyBeltTimeout			: REAL := 8.0;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxOutfeed_Errors,
+	errorId			:= 1,
+	alarmCondition	:= BoxOutputConveyorFull.IsActive
+					AND SER.InAutomaticOperation
+					AND NOT SetError[2].active,
+	alarmDelay		:= 1.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BoxOutfeed_Errors,
+	errorId			:= 2,			// 4501 - @iSource.General.Names.OutfeedFullConveyor@: @iSource.Alarms.BeltFullCycleStop@
+	alarmCondition	:= alarmBeltIsFull,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	TOFfullSensor				: BTOF;
+	TONbeltIsEmpty				: BTON;
+	calibrateStart				: BOOL;
+END_VAR
+BoxOutputConveyor(
+	moduleHandler		:= ModuleHandler,
+	textRefId			:= Conveyor_Errors,
+	errorId				:= 7,
+	alarmEnable			:= TRUE,
+	alarmDelay			:= 10.0,
+	severity			:= enumErrorSeverity.Fault,
+	reaction			:= enumErrorReaction.No_reaction,
+	manualControlEnabled:= NOT SER.InAutomaticOperation,
+	beltRunning			:= ,
+	profile				:= Data.boxOutputConveyorProfile,
+);
+
+BoxOutputConveyorFull();
+
+
+// Calibration
+// Place single full box at start on conveyor, and measure how long it takes to reach the sensor
+// Calibration is lost after power cycle. Copy value to emptyBeltTimeout by hand.
+calibrateStart	R= NOT SER.EnableFreqInvertersRelay.Map();
+
+IF calibrateStart THEN
+	BoxOutputConveyor.Set();
+
+	IF TONbeltIsEmpty.Set(In := TRUE, Pt := 30)
+	OR BoxOutputConveyorFull.IsActive
+	THEN
+		calibrateStart			:= FALSE;
+		emptyBeltTimeout		:= TO_REAL(TONbeltIsEmpty.TON1.ET) / 1000 + 1.0;
+		BoxOutputConveyor.Reset();
+		TONbeltIsEmpty.Reset();
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+alarmBeltIsFull			:= FALSE;
+
+BoxOutputConveyor.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Transport box
+METHOD PUBLIC EmptyBelt : BOOL
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Conveyor is full, wait until boxes are removed
+		BoxOutputConveyor.Reset();
+		IF Timer.Set(In := BoxOutputConveyorFull.IsInactive, 0.5) THEN			// Start conveyor half second after sensor becomes free
+			Timer.Reset();
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		BoxOutputConveyor.Set();
+		IF BoxOutputConveyorFull.IsActive
+		OR Timer.Set(In := BoxOutputConveyorFull.IsInactive, Pt := emptyBeltTimeout)	// Time this so a box moves the full conveyor length
+		THEN
+			BoxOutputConveyor.Reset();
+			EmptyBelt := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		BoxOutputConveyor.Reset();
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();		// Steal the lock from any command that may be active
+
+alarmBeltIsFull			:= FALSE;
+
+BoxOutputConveyor.Reset();
+
+Stop := BoxOutputConveyor.ConveyorState = enumConveyorRunning_State.Standstill;
+END_METHOD
+
+// Transport box
+METHOD PUBLIC TransportBox : BOOL
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Conveyor is full, wait until boxes are removed
+		BoxOutputConveyor.Reset();
+		alarmBeltIsFull			:= TRUE;
+		IF BoxOutputConveyorFull.IsInactive THEN
+			Timer.Reset();
+			alarmBeltIsFull		:= FALSE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		BoxOutputConveyor.Set();
+		IF BoxOutputConveyorFull.IsActive THEN
+			Increment.AnyInt(localState, -1);
+		ELSIF Timer.Set(In := TRUE, Pt := Data.boxOutputConveyorRuntime) THEN
+			BoxOutputConveyor.Reset();
+			TransportBox := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD

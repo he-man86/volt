@@ -1,0 +1,13 @@
+INTERFACE IDigitalSensor
+
+// Sensor is active (SensorInput is opposite of the Invert signal)
+{attribute 'monitoring':='call'}
+PROPERTY IsActive : BOOL
+END_PROPERTY
+
+// Sensor is inactive (SensorInput is false (or true when inverted))
+{attribute 'monitoring':='call'}
+PROPERTY IsInactive : BOOL
+END_PROPERTY
+
+END_INTERFACE

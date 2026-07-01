@@ -1,0 +1,17 @@
+TYPE ZUnit_Base_Data :
+STRUCT
+	Takeover					: ARRAY[1..ZUnits.NumberOfTakeoverPositions] OF PositionWithProfileType;
+
+	FirstPart					: PositionWithProfileType;
+
+	rStackingDelay				: REAL;					// [s] Delay after vacuum release
+	rSafeRotateDistance			: REAL;					// [mm] Distance measured above the stack where the Z Unit can still rotate freely.
+	EarlyProductReleaseDistance	: RealWithLimitsType;	// [mm] Distance from top of stack where products are dropped
+	rGettingProductsDelay		: REAL;					// [s] Get new products delay. Vacuum build-up time
+
+	rTorqueLimit				: REAL :=  0.5;			// [Nm] Stop stacking when torque exceeds this value while moving down
+
+	SlowMoveToStack				: SlowStartOptionType;
+	SlowMoveFromStack			: SlowStartOptionType;
+END_STRUCT
+END_TYPE

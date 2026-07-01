@@ -1,0 +1,39 @@
+// Brink-TOF
+{attribute 'no_explicit_call' := 'Do not call the body of BTOF directly! Use methods like Set to interact with this FB'}
+{attribute 'monitoring_display' := 'TOF1.ET'}
+FUNCTION_BLOCK FINAL BTOF
+VAR
+	TOF1		: Standard.TOF;
+END_VAR
+
+// Use methods to interact with the FB.
+
+END_FUNCTION_BLOCK
+
+// Reset the timer.
+METHOD PUBLIC Reset
+TOF1(IN := FALSE);
+END_METHOD
+
+// Set Brink timer
+METHOD PUBLIC Set : BOOL
+VAR_INPUT
+	In	: BOOL;	// Starts timer with rising edge, stops timer with falling edge
+	Pt	: REAL;	// Time to pass (in sec.), before Q is set
+END_VAR
+TOF1(
+	IN := In,
+	PT := TO_TIME(Pt * 1000),
+	Q  => ,
+	ET => );
+
+Set := TOF1.Q;
+END_METHOD
+
+// Monitor the output Q of the timer
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC Q : BOOL
+GET
+Q := TOF1.Q;
+END_GET
+END_PROPERTY

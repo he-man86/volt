@@ -1,0 +1,8 @@
+{attribute 'monitoring_display' := 'xEnable'}
+TYPE SlowStartOptionType :
+STRUCT
+	xEnable			: BOOL;			// Enable to start movement with extra slow acceleration.
+	rAcceleration	: REAL := 10;	// Acceleration to start movement with (in procent)
+	rDistance		: REAL := 3;	// Distance in mm after which the normal acceleration is used further
+END_STRUCT
+END_TYPE

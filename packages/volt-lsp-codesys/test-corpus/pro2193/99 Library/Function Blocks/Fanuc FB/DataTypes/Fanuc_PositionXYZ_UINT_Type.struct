@@ -1,0 +1,7 @@
+TYPE Fanuc_PositionXYZ_UINT_Type :
+STRUCT
+	_X	: Fanuc_HighLowUInt_Type;
+	_Y	: Fanuc_HighLowUInt_Type;
+	_Z	: Fanuc_HighLowUInt_Type;
+END_STRUCT
+END_TYPE

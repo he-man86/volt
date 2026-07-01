@@ -1,0 +1,20 @@
+INTERFACE IModuleManager
+
+// Registers a module
+METHOD Register : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+END_METHOD
+
+// Unregisters a module
+METHOD Unregister : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+END_METHOD
+
+PROPERTY PUBLIC ModuleHandler : L_IMHP.L_IMHP_IModuleHandler
+END_PROPERTY
+
+END_INTERFACE

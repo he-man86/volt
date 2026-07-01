@@ -1,0 +1,22 @@
+// Modules and other FB's that implement this interface are able to be registered by a Module Manager
+INTERFACE IAbleToRegister
+EXTENDS __SYSTEM.IQueryInterface
+
+// Automatically generated name of the instance
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InstanceName : STRING(80)
+END_PROPERTY
+
+// Instance number, the number of the module or unit (start from 1)
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InstanceNo : UINT
+
+// Note: this number does not have to be unique for each module...
+END_PROPERTY
+
+// Location of the FB in memory (for debugging)
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC MemoryAddress : STRING(8)
+END_PROPERTY
+
+END_INTERFACE

@@ -1,0 +1,11 @@
+TYPE XUnits_Shared_Data :
+STRUCT
+	ParkingProfileInMould	: ProfileType;		// Profile for movements in mould (faster)
+	ParkingProfileOutMould	: ProfileType;		// Profile for movements out mould (slower)
+
+	ParkingPos				: PositionWithLimitsType;
+	HalfwayPos				: PositionWithLimitsType;
+
+	SlowStart				: SlowStartOptionType;
+END_STRUCT
+END_TYPE

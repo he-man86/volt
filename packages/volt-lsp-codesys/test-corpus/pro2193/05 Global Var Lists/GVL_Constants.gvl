@@ -1,0 +1,47 @@
+{attribute 'qualified_only'}
+{attribute 'analysis' := '-33'}	// Unused Variable
+VAR_GLOBAL CONSTANT
+	MaxRejectReasonsMisc		: USINT			:= 1;		// IMM Euromap Reject, handle mounting reject, mould measurement reject, etc.
+	MaxRejectReasonsCamera		: USINT			:= 7;		// Cam1 Reject, Cam2 Reject, etc.
+	MaxRejectReasonsTotal		: USINT			:= MaxRejectReasonsMisc + MaxRejectReasonsCamera;
+
+	MaxMouldLevels				: UINT			:= 1;		// In case of a stack mould, the number of mould faces (or levels)
+	MaxProductsInX				: UINT			:= 3;		// Number of cavities in mould in X direction (horizontal)
+	MaxProductsInY				: UINT			:= 4;		// Number of cavities in mould in Y direction (vertical)
+	MaxProductsInMould			: UINT			:= MaxMouldLevels * MaxProductsInX * MaxProductsInY;	// Total number of cavities
+
+	CavityStartIndex			: UINT			:= 1;											// Cavity numbering start index (usually 1)
+	CavityEndIndex				: UINT			:= CavityStartIndex - 1 + MaxProductsInMould;	// Cavity numbering end index (usually the same as MaxProductsInMould)
+
+	ChainProductsForXuUnit		: USINT			:= 4;
+	ChainProductsForReject		: USINT			:= 1;
+	ChainProductsForZUnit		: USINT			:= 6;
+	ZUnitProductsForConveyor	: USINT			:= 12;
+
+	ArmLength					: REAL			:= 895.0;	// Length of the arm/gripper in the drawer magazine in mm, normally 895 mm
+	MaxAttemptsLabelTakeOut		: UINT			:= 1;		// Number of times the magazine attempts to take a label before assuming that the magazine is empty
+
+	// Constants for Recipe Management
+	RecipeDefinitionsCount		: INT			:= 3;		// Number of different recipe definitions
+	AllRecipeDefinitions		: ARRAY[1..RecipeDefinitionsCount] OF STRING := ['Brink', 'Customer', 'Cassette'];	// Names of recipe definitions that are added to the Recipe Manager
+
+	// Constants for Module Manager
+	MaxNumberOfModules			: UINT			:= 40;		// Maximum amount of modules that the machine may have.
+	MaxNumberOfStartableModules	: UINT			:= 20;		// Maximum amount of startable modules
+	MaxNumberOfResettableModules: UINT			:= 20;		// Maximum amount of resettable modules
+	MaxNumberOfServoDrives		: UINT			:= 20;		// Maximum amount of servo drives
+	MaxNumberOfGates			: UINT			:= 10;		// Maximum amount of safety gates
+
+
+	TimeLongest					: TIME			:= T#49D17H2M47S295MS;				// 4294967295
+	DateTimeEarliest			: DATE_AND_TIME	:= DATE_AND_TIME#1970-1-1-00:00:00;	// 0
+	DateTimeLatest				: DATE_AND_TIME	:= DATE_AND_TIME#2106-2-7-6:28:15;	// 4294967295
+
+	RealSmallest				: REAL			:= -3.402823E+38;					// Smallest number
+	RealLargest					: REAL			:=  3.402823E+38;					// Largest number
+	LRealSmallest				: LREAL			:= -1.7976931348623157E+308;		// Smallest number
+	LRealLargest				: LREAL			:=  1.7976931348623157E+308;		// Largest number
+	DintSmallest				: DINT			:= -2147483648;						// Lower limit of DINT datatype
+	DintLargest					: DINT			:=  2147483647;						// Upper limit of DINT datatype
+	pi							: REAL			:= 3.14159274101257324;				// π
+END_VAR

@@ -1,0 +1,9 @@
+TYPE BFU_InputsType :
+STRUCT
+	emergencyStopOk				: BOOL;		// High when emergency stop is resetted.
+//	quickStopOk					: BOOL;		// TRUE when machine is safe (gates closed). Turns FALSE 300ms before the STO signals are removed from the drives.
+	xAirPressureOK				: BOOL;
+	xSafetyGateRelay			: BOOL;
+	workingLightsButton			: PushButtonLedFB;	// Button to enable machine working lights
+END_STRUCT
+END_TYPE

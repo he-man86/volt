@@ -1,0 +1,46 @@
+// Throw error messages when a emergency stop is pressed
+FUNCTION_BLOCK PnozEmergencyStopAlarmsFB
+EXTENDS PnozAlarmsBaseFB
+VAR_INPUT
+	eStopOperated			: BOOL;		// E-STOP pushbutton was operated (bit 1)
+	contactFailed			: BOOL;		// N/C contact 1 or 2 failed to switch or switched too late (bit 5)
+	errorTestPulse			: BOOL;		// Error in the test pulse wiring (bit 8)
+END_VAR
+VAR
+	eStopOperatedAlarm		: SetErrorFB;
+	contactFailedAlarm		: SetErrorFB;
+	errorTestPulseAlarm		: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+eStopOperatedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 1,		// E-STOP pushbutton is operated.
+	alarmCondition	:= eStopOperated,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction);
+
+contactFailedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 2,		// N/C contact 1 or 2 failed to switch or switched too late
+	alarmCondition	:= contactFailed,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+errorTestPulseAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 3,		// Error in the test pulse wiring
+	alarmCondition	:= errorTestPulse,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+END_FUNCTION_BLOCK

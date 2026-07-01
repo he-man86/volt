@@ -1,0 +1,11 @@
+// Basic interface for a module that just has a Start command
+INTERFACE IModuleStartCommand
+
+// Start some action on the module
+METHOD PUBLIC StartCommand : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Optional parameter
+END_VAR
+END_METHOD
+
+END_INTERFACE

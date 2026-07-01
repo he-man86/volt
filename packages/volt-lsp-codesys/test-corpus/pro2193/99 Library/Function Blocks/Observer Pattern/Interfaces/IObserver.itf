@@ -1,0 +1,12 @@
+//The participants, which depend on state data from a subject, are called Observers
+INTERFACE IObserver
+EXTENDS __SYSTEM.IQueryInterface
+
+// The Update method is called when subjects have a new state
+METHOD PUBLIC Update
+VAR_INPUT
+	payload	: ISubjectBasePayload;
+END_VAR
+END_METHOD
+
+END_INTERFACE

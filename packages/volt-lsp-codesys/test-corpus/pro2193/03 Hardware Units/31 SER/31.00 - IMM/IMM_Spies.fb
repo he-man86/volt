@@ -1,0 +1,57 @@
+// Control an Injection Moulding Machine with a Spies mould. Core-pullers are always enabled for this mould.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC IMM_Spies
+EXTENDS IMM_Default
+VAR_OUTPUT
+	ProductionWithoutIML		: ActuatorFB;	// High when no label in cavity (more material) - Low when label in cavity (less material)
+END_VAR
+VAR
+	_nextCycleHasLabels			: BOOL;
+END_VAR
+
+SUPER^(Data := Data);
+
+// Always enable both core-pullers outputs
+IF NOT euromapTestInProgress THEN
+	CorePullers.Release();
+END_IF
+
+CASE SER.ActState OF
+	PACK_ML.State.Execute,
+	PACK_ML.State.Completing:
+
+		IF TriggerMouldOpened.Q_Falling THEN		// Trigger when the mould starts to close
+
+			NextCycleHasLabels		:= Magazines.Unit[1].HasPayload = enumPayload._All AND MouldCleaning.CycleWithIML();
+
+			ProductionWithoutIML.SetOrReset(NOT NextCycleHasLabels);
+		END_IF
+
+	ELSE
+		ProductionWithoutIML.SetOrReset(NOT HasLabels);
+		NextCycleHasLabels			:= FALSE;
+END_CASE
+
+END_FUNCTION_BLOCK
+
+// The mould has labels in the cavities
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC NextCycleHasLabels : BOOL
+GET
+NextCycleHasLabels	:= _nextCycleHasLabels;
+END_GET
+SET
+_nextCycleHasLabels	:= NextCycleHasLabels;
+END_SET
+END_PROPERTY
+
+// Returns true when the mould is completely opened
+{attribute 'monitoring':='variable'}
+PROPERTY PUBLIC RequestFullMouldOpen : BOOL
+GET
+// Specific for Spies Pro2193: Corepullers are on fixed side of mould and need to be in back position
+// 2025-11-27: oh nee, toch niet :(
+
+RequestFullMouldOpen := SUPER^.RequestFullMouldOpen;// AND CorePullers.IsBack;
+END_GET
+END_PROPERTY

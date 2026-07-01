@@ -1,0 +1,37 @@
+// Mapping digital inputs. Use to map a byte into 8 individual bits
+FUNCTION_BLOCK INTERNAL MapperInputs
+EXTENDS MapperBase
+VAR_INPUT
+	slice			: REFERENCE TO BYTE;
+END_VAR
+VAR_OUTPUT
+	bit1			: BIT;
+	bit2			: BIT;
+	bit3			: BIT;
+	bit4			: BIT;
+	bit5			: BIT;
+	bit6			: BIT;
+	bit7			: BIT;
+	bit8			: BIT;
+END_VAR
+
+SUPER^();
+
+IF __ISVALIDREF(sliceInfo) THEN
+	sliceInfo.isOutput					:= FALSE;
+	FOR i := 1 TO 8 DO
+		sliceInfo.component[i].name		:= GVL_IQ.inputs[sliceNumber][i];
+		sliceInfo.component[i].actValue	:= BitLogic.ExtractFromByte(slice, TO_BYTE(i-1));
+	END_FOR
+END_IF
+
+bit1	:= slice.0;
+bit2	:= slice.1;
+bit3	:= slice.2;
+bit4	:= slice.3;
+bit5	:= slice.4;
+bit6	:= slice.5;
+bit7	:= slice.6;
+bit8	:= slice.7;
+
+END_FUNCTION_BLOCK

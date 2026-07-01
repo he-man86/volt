@@ -1,0 +1,61 @@
+(* This code is generated automatically *)
+(* Don't change the content! *)
+
+{attribute 'qualified_only'}
+{attribute 'linkalways'}
+VAR_GLOBAL
+	//Controller
+	Device 	: L_IC1P_ComponentHardware;
+
+	//EtherCAT device
+	L_i750_ZR 	: L_IC1P_ComponentHardware;
+	L_i750_C2 	: L_IC1P_ComponentHardware;
+	L_i750_M1 	: L_IC1P_ComponentHardware;
+	L_i750_M2 	: L_IC1P_ComponentHardware;
+	L_i750_Z 	: L_IC1P_ComponentHardware;
+	L_i750_C1 	: L_IC1P_ComponentHardware;
+	L_i750_Xi 	: L_IC1P_ComponentHardware;
+	L_i750_Xu 	: L_IC1P_ComponentHardware;
+	L_i950_Y 	: L_IC1P_ComponentHardware;
+	RIO_M1 	: L_IC1P_ComponentHardware;
+	RIO_Z1 	: L_IC1P_ComponentHardware;
+	RIO_BFU 	: L_IC1P_ComponentHardware;
+	FANUC_R_30iB_Plus 	: L_IC1P_ComponentHardware;
+
+	//I/O module
+	DI_30 	: L_IC1P_ComponentHardware;
+	DI_31 	: L_IC1P_ComponentHardware;
+	DI_32 	: L_IC1P_ComponentHardware;
+	DI_33 	: L_IC1P_ComponentHardware;
+	DQ_30 	: L_IC1P_ComponentHardware;
+	DQ_31 	: L_IC1P_ComponentHardware;
+	DQ_32 	: L_IC1P_ComponentHardware;
+	DQ_33 	: L_IC1P_ComponentHardware;
+	DQ_34 	: L_IC1P_ComponentHardware;
+	DQ_35 	: L_IC1P_ComponentHardware;
+	DQ_36 	: L_IC1P_ComponentHardware;
+	DI_40 	: L_IC1P_ComponentHardware;
+	DI_41 	: L_IC1P_ComponentHardware;
+	DI_42 	: L_IC1P_ComponentHardware;
+	DI_43 	: L_IC1P_ComponentHardware;
+	DI_44 	: L_IC1P_ComponentHardware;
+	DI_45 	: L_IC1P_ComponentHardware;
+	DQ_40 	: L_IC1P_ComponentHardware;
+	DQ_41 	: L_IC1P_ComponentHardware;
+	DQ_42 	: L_IC1P_ComponentHardware;
+	DQ_43 	: L_IC1P_ComponentHardware;
+	DQ_44 	: L_IC1P_ComponentHardware;
+	DQ_45 	: L_IC1P_ComponentHardware;
+	DQ_46 	: L_IC1P_ComponentHardware;
+	DI_50 	: L_IC1P_ComponentHardware;
+	DI_51 	: L_IC1P_ComponentHardware;
+	DI_52 	: L_IC1P_ComponentHardware;
+	DI_53 	: L_IC1P_ComponentHardware;
+	DI_54 	: L_IC1P_ComponentHardware;
+	DQ_50 	: L_IC1P_ComponentHardware;
+	DQ_51 	: L_IC1P_ComponentHardware;
+	DQ_52 	: L_IC1P_ComponentHardware;
+	DQ_53 	: L_IC1P_ComponentHardware;
+	DQ_54 	: L_IC1P_ComponentHardware;
+
+END_VAR

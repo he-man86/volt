@@ -1,0 +1,40 @@
+// Retained variables that are saved in the customer recipe
+{attribute 'symbol' := 'readwrite'}
+TYPE RetainedVarsInRecipeType :
+STRUCT
+	// Read only variables for safety. Vars can be changed by buttons in HMI program.
+	{attribute 'symbol' := 'read'}	EnableIML					: BOOL;
+	{attribute 'symbol' := 'read'}	EnableHMU					: BOOL;
+	{attribute 'symbol' := 'read'}	EnableVision				: BOOL;
+	{attribute 'symbol' := 'read'}	EnableSticker				: BOOL;
+
+	ActiveExchangeSet			: enumExchangeSets;
+
+	targetCycleTime				: REAL;	// The desired cycle time (sec) for this recipe. Used for statistics.
+
+	productWeight				: REAL;	// Weight of a single product as measured by the customer (g).
+
+	productPitch				: RealWithLimitsType :=		// Pitch between the products (mm).
+	(
+		lowerLimit	:= 0.1,
+		value		:= 0.1,
+		upperLimit	:= 100,
+		stepSize	:= 0.1
+	);
+
+	productHeight				: RealWithLimitsType :=		// Height of a single product (mm).
+	(
+		lowerLimit	:= 1,
+		value		:= 1,
+		upperLimit	:= 500,
+		stepSize	:= 2
+	);
+
+	{attribute 'symbol' := 'none'}	chainPos_XuUnit				: ARRAY[1..GVL_Constants.ChainProductsForXuUnit] OF UINT;
+	{attribute 'symbol' := 'none'}	chainPos_Camera				: UINT;
+	{attribute 'symbol' := 'none'}	chainPos_Reject				: ARRAY[1..GVL_Constants.ChainProductsForReject] OF UINT;
+	{attribute 'symbol' := 'none'}	chainPos_ZUnit				: ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF UINT;
+	{attribute 'symbol' := 'none'}	chainPos_Sensor				: UINT;
+
+END_STRUCT
+END_TYPE

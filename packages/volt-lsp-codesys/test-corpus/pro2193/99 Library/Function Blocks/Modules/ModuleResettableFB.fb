@@ -1,0 +1,55 @@
+// Generic variables that all modules use
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ModuleResettableFB
+EXTENDS ModuleBaseHardwareFB
+IMPLEMENTS IModuleResettable
+VAR
+	{attribute 'hide'}
+	{attribute 'no_copy'}
+	_resetConditions			: ARRAY[1..2] OF IModuleResettable;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+//FB_Init is always available implicitly and it is used primarily for initialization.
+//The return value is not evaluated. For a specific influence, you can also declare the
+//methods explicitly and provide additional code there with the standard initialization
+//code. You can evaluate the return value.
+{attribute 'analysis' := '-33'}
+METHOD FB_Init: BOOL
+VAR_INPUT
+	bInitRetains	: BOOL;							// TRUE: the retain variables are initialized (reset warm / reset cold)
+	bInCopyCode		: BOOL;							// TRUE: the instance will be copied to the copy code afterward (online change)
+
+	instanceNo		: UINT;							// Handled in ModuleRegisterableFB.FB_Init method
+	moduleManager	: IModuleManager;				// Handled in ModuleRegisterableFB.FB_Init method
+	moduleParent	: L_IMHP.L_IMHP_IModuleHandler;	// Handled in ModuleRegisterableFB.FB_Init method
+
+	resetCondition1	: IModuleResettable;
+	resetCondition2	: IModuleResettable;
+END_VAR
+_resetConditions[1]	:= resetCondition1;
+_resetConditions[2]	:= resetCondition2;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC ABSTRACT Reset : BOOL	// Returns true when homing done
+END_METHOD
+
+// The order in which the modules are homed.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ResetCondition1 : IModuleResettable
+GET
+ResetCondition1	:= _resetConditions[1];
+END_GET
+END_PROPERTY
+
+// The order in which the modules are homed.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ResetCondition2 : IModuleResettable
+GET
+ResetCondition2	:= _resetConditions[2];
+END_GET
+END_PROPERTY

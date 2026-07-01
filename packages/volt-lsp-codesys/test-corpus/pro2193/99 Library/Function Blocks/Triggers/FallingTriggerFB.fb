@@ -1,0 +1,38 @@
+{attribute 'no_explicit_call' := 'Do not call the body of FallingTriggerFB directly! Use methods like Falling to interact with this FB'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK FallingTriggerFB
+VAR
+	f_trig			: Standard.F_TRIG;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Monitor an input for a falling edge. Use property Q to get edge.
+METHOD PUBLIC Call
+VAR_INPUT
+	CLK	: BOOL;
+END_VAR
+
+// Use this method if you need the trigger output more than once per PLC cycle.
+f_trig(
+	CLK	:= CLK,
+	Q   => );
+END_METHOD
+
+// Triggers on falling edge of input. !!Only call this method once per PLC Cycle!!
+METHOD PUBLIC Falling : BOOL
+VAR_INPUT
+	CLK	: BOOL;
+END_VAR
+Call(CLK);
+Falling := Q;
+END_METHOD
+
+// Rising edge of the input signal
+PROPERTY PUBLIC Q : BOOL
+
+// Attribute 'monitoring':='call' is not needed here.
+GET
+Q := f_trig.Q;
+END_GET
+END_PROPERTY

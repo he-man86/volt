@@ -1,0 +1,12 @@
+// Statistics counters (total, or per cavity)
+{attribute 'symbol' := 'read'}
+TYPE ProductionStatsCavityType :
+STRUCT
+	Produced			: UDINT;		// Total produced products by IMM
+	Stacked				: UDINT;		// Total number of good parts
+	Rejected			: UDINT;		// Total number of rejects
+	UncountedReject		: UDINT;		// Sampleshot / mouldClean / DisableLabel / cycle start shots
+	RejectReason		: ARRAY[1..GVL_Constants.MaxRejectReasonsTotal] OF UDINT;	// Array of rejected parts by reason number
+	History				: DWORD;		// History of latest 32 products
+END_STRUCT
+END_TYPE

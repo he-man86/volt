@@ -1,0 +1,29 @@
+// A button subject from the CODESYS visu. Has some duplicate code in methods because it overrides logic in SubjectUUIDFB
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'hide_all_locals'}
+FUNCTION_BLOCK PUBLIC SubjectFunctionKeyFromCodesysVisuFB
+EXTENDS SubjectFunctionKeyFB
+IMPLEMENTS ISubject, ISubjectFunctionKeyPayload
+
+END_FUNCTION_BLOCK
+
+// Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
+METHOD PUBLIC Attach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+
+// Code copy from: SubjectBaseFB.Attach()
+IF AttachAllowed(observer) THEN
+	Attach := AttachObserver(observer);
+END_IF
+END_METHOD
+
+// Notify all attached observers of state changes
+METHOD PUBLIC Notify
+
+// Code copy from: SubjectBaseFB.Notify()
+FOR ui := 1 TO ObserverCount DO
+	observers[ui].Update(THIS^);
+END_FOR
+END_METHOD

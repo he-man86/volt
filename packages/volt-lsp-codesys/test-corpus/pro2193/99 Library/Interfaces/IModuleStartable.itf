@@ -1,0 +1,20 @@
+// This module will start some operations when the automatic cycle is started on the SER
+INTERFACE IModuleStartable
+EXTENDS IAbleToRegister, __SYSTEM.IQueryInterface
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+END_METHOD
+
+// Start automatic operations now! Returns true when module is started.
+METHOD StartCycle : BOOL
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+END_METHOD
+
+END_INTERFACE

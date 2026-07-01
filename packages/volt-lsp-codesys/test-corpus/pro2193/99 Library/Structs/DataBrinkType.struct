@@ -1,0 +1,12 @@
+TYPE DataBrinkType :
+STRUCT
+	rVel		: REAL	:= 0.5;		// Maximum speed				(m/s or °/s)
+	rAcc		: REAL	:= 0.5;		// Maximum acceleration			(m/s² or °/s²)
+	rDec		: REAL	:= 0.5;		// Maximum decleration			(m/s² or °/s²)
+	rRefPos		: REAL;				// Position on reference point	(mm or °)
+	lrJerk		: LREAL;			// Maximum jerk					(m/s³ or °/s³)
+	rSWLimitPos	: REAL	:= 500;		// Positive software limit		(mm or °)
+	rSWLimitNeg	: REAL	:= -1;		// Negative software limit		(mm or °)
+	homingSpeed	: REAL	:= 100;		// Speed of axis during homing	(1-100 %)
+END_STRUCT
+END_TYPE

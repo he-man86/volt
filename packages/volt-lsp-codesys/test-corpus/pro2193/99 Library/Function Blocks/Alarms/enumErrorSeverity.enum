@@ -1,0 +1,13 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumErrorSeverity :
+(
+	No_response		:= TO_USINT(L_IE1P.L_IE1P_SeverityLevel.No_Response),	// No reaction
+	Warning			:= TO_USINT(L_IE1P.L_IE1P_SeverityLevel.Warning),		// No acknowledgement
+	Information		:= TO_USINT(L_IE1P.L_IE1P_SeverityLevel.Information),	// No acknowledgement
+	Warning_Lock	:= TO_USINT(L_IE1P.L_IE1P_SeverityLevel.Warning_Lock),	// Needs acknowledgement
+	Fault			:= TO_USINT(L_IE1P.L_IE1P_SeverityLevel.Fault)			// Needs acknowledgement
+) USINT;
+END_TYPE
+
+// Subset of Lenze enum: L_IE1P.L_IE1P_SeverityLevel

@@ -1,0 +1,79 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK RejectStation_WithBlowOffFB
+EXTENDS RejectStation_BaseFB
+IMPLEMENTS IRejectStation_WithBlowOff_Commands
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	BlowOff						: ActuatorWithManualControlFB;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	DataWithBlowOff			: RejectStation_WithBlowOff_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+END_VAR
+
+SUPER^(Data := Data);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	BlowOffDuration						: BTON;
+END_VAR
+SUPER^.Cyclic();
+
+BlowOff(
+	manualControlEnabled	:= SER.ManualControlEnabled AND ExternalManualControlEnabled);
+
+DataWithBlowOff.rBlowOffDuration	:= LIMIT(0.05, DataWithBlowOff.rBlowOffDuration, 5);
+
+IF BlowOffDuration.Set(In := BlowOff.Map(), Pt := DataWithBlowOff.rBlowOffDuration) THEN
+	BlowOff.Reset();
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+BlowOff.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC GetProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	BlowOff.Set();
+END_IF
+
+//IF NOT BlowOff.Map() THEN
+	GetProducts := CommandLock.Release(__POUNAME());
+//END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER Commands
+BlowOff.Reset();
+
+Reset := SUPER^.Reset();
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+BlowOff.Reset();
+
+Stop := SUPER^.Stop();
+END_METHOD

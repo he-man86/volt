@@ -1,0 +1,17 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumExchangeSets :
+(
+	Default
+//	SingleCavSingleTakeover,
+//	SingleCavDualTakeover,
+//	FourCavDualTakeover,
+//	TwoCavSingleTakeover
+);
+END_TYPE
+
+// Please rename 'Default' to a more descriptive name.
+// Check the type plate on the gripper how it is named.
+
+// HINT!! Right-click on 'Default' -> Refactoring -> Rename ...

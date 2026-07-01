@@ -1,0 +1,6 @@
+TYPE Fanuc_HighLowUInt_Type :
+STRUCT
+	High	: UINT;
+	Low		: UINT;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,8 @@
+// Define a movement profile to reach a certain position
+TYPE ProfileType :
+STRUCT
+	rVel			: REAL	:= 100;	// Velocity in percentage of max. velocity entered by user
+	rAcc			: REAL	:= 100;	// Acceleration in percentage of max. acc. entered by user
+	rDec			: REAL	:= 100;	// Decleration in percentage of max. dec. entered by user
+END_STRUCT
+END_TYPE

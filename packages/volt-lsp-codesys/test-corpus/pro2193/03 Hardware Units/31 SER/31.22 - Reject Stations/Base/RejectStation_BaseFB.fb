@@ -1,0 +1,157 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT RejectStation_BaseFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IRejectStation_Base_Commands, IConveyor_Reject_Move_Commands
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	Conveyor					: ConveyorFB;
+	AreaFree					: DigitalSensorFB(invert := FALSE);
+	ProductOnRejectPos			: ARRAY[1..GVL_Constants.ChainProductsForReject] OF DigitalSensorFB(invert := FALSE);
+	RejectGutterFull			: DigitalSensorFB(invert := FALSE);
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR_IN_OUT
+	Data						: RejectStation_Base_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	LastProductInShute			: ARRAY[1..GVL_Constants.ChainProductsForReject] OF ProductType;
+	RunningTimer				: BTON;
+
+	// Manual control is enabled from outside this module
+	manualControlEnabled		: BOOL;
+	stopConveyorAfterTimer		: BOOL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForReject));
+	product			: ProductType;
+END_VAR
+%FOLDER Commands
+productNo						:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForReject));
+LastProductInShute[productNo]	:= product;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+Conveyor(
+	moduleHandler			:= ModuleHandler,
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	textRefId				:= Conveyor_Errors,
+	errorId					:= 5,
+	alarmEnable				:= SER.EnableFreqInvertersRelay.Map(),
+	alarmDelay				:= 5.0,
+	severity				:= enumErrorSeverity.Fault,
+	reaction				:= enumErrorReaction.No_reaction,
+	beltRunning				:= ,
+	profile					:= Data.rejectConveyorProfile);
+
+RunningTimer.Set(
+		Conveyor.Map() AND (AreaFree.IsActive OR HMI.testMachineWithoutConveyors),
+		Data.rejectConveyorRuntime);
+
+IF stopConveyorAfterTimer AND RunningTimer.Q THEN			// Await stacking timer before stopping conveyor
+	Conveyor.Reset();
+	stopConveyorAfterTimer := FALSE;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Conveyor.Reset();
+stopConveyorAfterTimer := FALSE;
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD ABSTRACT GetProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands
+END_METHOD
+
+// Start command for the conveyor to move the stacks
+METHOD PUBLIC MoveStep : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Conveyor.Set();
+	RunningTimer.Reset();
+	stopConveyorAfterTimer			:= TRUE;
+END_IF
+
+MoveStep := CommandLock.Release(__POUNAME());
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	ClearProducts.Array1D(LastProductInShute);
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Conveyor.Reset();
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Conveyor.Reset();
+stopConveyorAfterTimer := FALSE;
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Transfer of labels / products is completed. Magazine or Z Unit may start actions to get new labels / move to next position / stack products.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+%FOLDER Commands
+Conveyor.Set();
+
+RunningTimer.Reset();
+
+stopConveyorAfterTimer			:= TRUE;
+
+TransferComplete				:= TRUE;
+END_METHOD
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+%FOLDER Properties
+GET
+PROTECTED
+VAR
+END_VAR
+ExternalManualControlEnabled := manualControlEnabled;
+END_GET
+SET
+manualControlEnabled := ExternalManualControlEnabled;
+END_SET
+END_PROPERTY

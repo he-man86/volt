@@ -1,0 +1,149 @@
+// A subject is a sensor or button that sends data to attached observers. This base subject does not send any data, only empty events.
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC SubjectBaseFB
+IMPLEMENTS ISubject, ISubjectBasePayload
+VAR
+	observers				: ARRAY[1..MaxObservers] OF IObserver;
+	{attribute 'hide'}
+	_observerCount			: UINT(0..MaxObservers) := 0;
+	ui						: UINT;
+END_VAR
+VAR CONSTANT
+	MaxObservers			: UINT := 32;
+END_VAR
+
+// More info: https://stefanhenneken.net/2018/05/27/iec-61131-3-the-observer-pattern/
+
+END_FUNCTION_BLOCK
+
+// Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
+METHOD PUBLIC Attach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+IF AttachAllowed(observer) THEN
+	Attach := AttachObserver(observer);
+END_IF
+END_METHOD
+
+METHOD PROTECTED AttachAllowed : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+VAR
+	exclusiveObserver	: IObserverExclusive;
+END_VAR
+// is the observer NULL?
+IF observer = 0 THEN
+	LogPlc.Warn('Hey we cannot send messages when observer is NULL!');
+	RETURN;
+END_IF
+
+// is the observer already registered?
+FOR ui := 1 TO ObserverCount DO
+	IF observers[ui] = observer THEN
+		LogPlc.Warn('Do not attach an observer twice!');
+		RETURN;
+	END_IF
+END_FOR
+
+// are we already attached to an exclusive observer?
+IF ObserverCount = 1 AND_THEN __QUERYINTERFACE(observers[1], exclusiveObserver) THEN
+	LogPlc.Warn('Use Detach() to remove exclusive observer!');
+	DetachAllObservers();
+END_IF
+
+// is the new observer Exclusive? If so, detach all observers!
+IF __QUERYINTERFACE(observer, exclusiveObserver) THEN
+	DetachAllObservers();
+END_IF
+
+// is the observer registry full?
+IF ObserverCount = MaxObservers THEN
+	LogPlc.Fatal('Observer Register Full! Observer will NOT be notified ');
+	RETURN;
+END_IF
+
+AttachAllowed := TRUE;
+END_METHOD
+
+METHOD PROTECTED AttachObserver : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+// save the observer object into the array of observers and send the actual value
+ObserverCount							:= ObserverCount + 1;
+observers[ObserverCount]				:= observer;
+
+// We decided that we do NOT send the current state of the subject when attaching!
+//observers[ObserverCount].Update(THIS^);
+
+AttachObserver := TRUE;
+END_METHOD
+
+// Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
+METHOD PUBLIC Detach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+VAR
+	observerIndex		: UINT;
+END_VAR
+IF observer = 0 THEN
+  RETURN;
+END_IF
+
+FOR ui := 1 TO MaxObservers DO
+	IF observers[ui] = observer THEN			// Find the observer in the register
+		observerIndex := ui;					// Store location where it was found
+		observers[ui] := 0;					// Clear the reference
+		ObserverCount := ObserverCount - 1;	// Decrease count
+		Detach := TRUE;
+		EXIT;
+	END_IF
+END_FOR
+
+IF observerIndex = 0 THEN
+	LogPlc.Warn('Detach failed: Observer not found');
+END_IF
+
+// Move all references in the register one place up, so there are no gaps in the array.
+IF observerIndex > 0 AND observerIndex < MaxObservers THEN
+	FOR ui := observerIndex TO MaxObservers - 1 DO
+		observers[ui] := observers[ui + 1];
+		IF observers[ui + 1] = 0 THEN
+			EXIT;
+		END_IF
+	END_FOR
+END_IF
+END_METHOD
+
+// Detach (unsubscribe) all observers from this subject.
+METHOD PROTECTED DetachAllObservers
+FOR ui := 1 TO ObserverCount DO
+	observers[ui] := 0;
+END_FOR
+ObserverCount := 0;
+END_METHOD
+
+// Notify all attached observers of state changes
+METHOD PUBLIC Notify
+FOR ui := 1 TO ObserverCount DO
+	observers[ui].Update(THIS^);
+END_FOR
+END_METHOD
+
+// The actual number of observers that are receiving events
+{attribute 'monitoring' := 'call'}
+PROPERTY ObserverCount : UINT
+GET
+ObserverCount := _observerCount;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_observerCount := ObserverCount;
+END_SET
+END_PROPERTY

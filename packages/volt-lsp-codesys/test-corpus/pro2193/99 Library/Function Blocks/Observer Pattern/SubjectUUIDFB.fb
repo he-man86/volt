@@ -1,0 +1,73 @@
+// A special subject that only attaches to observers when a UUID matches
+{attribute 'no_explicit_call' := 'Do not call this FB. Only use the methods.'}
+FUNCTION_BLOCK PUBLIC SubjectUUIDFB
+EXTENDS SubjectBaseFB
+IMPLEMENTS ISubject, ISubjectBasePayload
+VAR
+	storedUUID				: STRING(40);
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED AttachAllowed : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+IF NOT SUPER^.AttachAllowed(observer) THEN
+	AttachAllowed := FALSE;
+	RETURN;
+END_IF
+
+// There is no manual control screen open, do not allow to connect this observer
+IF HMI.UUIDActiveScreen = '' THEN
+	LogPlc.Fatal('Trying to attach an observer without a manual control screen open on the HMI');
+	AttachAllowed := FALSE;
+	RETURN;
+END_IF
+
+// is this the first observer to attach to this subject?
+IF storedUUID = '' THEN
+	storedUUID := HMI.UUIDActiveScreen;
+	AttachAllowed := TRUE;
+	RETURN;
+END_IF
+
+// A new manual control screen was opened. Remove all active observers. Attaching is allowed.
+IF storedUUID <> HMI.UUIDActiveScreen THEN
+	LogPlc.Warn('Manual control screen on HMI changed without first detaching all observers');
+	DetachAllObservers();
+	storedUUID := HMI.UUIDActiveScreen;
+END_IF
+
+// both UUIDs match, so the new observer is on the same manual control screen. Attaching is allowed.
+
+AttachAllowed := TRUE;
+END_METHOD
+
+// Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
+METHOD PUBLIC Detach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+SUPER^.Detach(observer);
+
+IF HMI.UUIDActiveScreen = '' THEN
+	storedUUID := '';
+END_IF
+END_METHOD
+
+METHOD PUBLIC Notify
+//Manual control screen was closed or changed, remove all observers!
+IF storedUUID <> HMI.UUIDActiveScreen THEN
+	IF ObserverCount > 0 THEN
+		LogPlc.Warn('Manual control screen on HMI changed, no further action allowed.');
+		DetachAllObservers();
+	END_IF
+	storedUUID := HMI.UUIDActiveScreen;
+END_IF
+
+//Only notify observers if any manual control screen is opened on the HMI
+IF HMI.UUIDActiveScreen <> '' THEN
+	SUPER^.Notify();
+END_IF
+END_METHOD

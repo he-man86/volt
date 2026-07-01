@@ -1,0 +1,59 @@
+// Control an illuminated push-button, also handle input from the visualisation. Set the color of the button.
+// Remember to declare this FB with: '{attribute 'symbol' := 'readwrite'}'
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC PushButtonLedWithHmiFB
+EXTENDS PushButtonLedFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'readwrite'}	button					: BOOL;				// Button is pushed down (from HMI)
+	{attribute 'symbol' := 'read'}		feedback				: enumColorList;	// Current color of button
+
+	colorOn			: enumColorList		:= enumColorList.Lime;
+	colorOff		: enumColorList		:= enumColorList.Silver;
+	colorPushed		: enumColorList		:= enumColorList.Black;
+END_VAR
+
+// Illuminate button while pressed down
+IF button THEN
+	Override();
+END_IF
+
+CASE state OF
+	enumLedState.Off, enumLedState.ForcedOff:
+		feedback		:= colorOff;
+
+	enumLedState.Solid, enumLedState.ForcedOn:
+		feedback		:= colorOn;
+
+	enumLedState.Flashing:
+		IF NOT FrequencySelect THEN
+			feedback	:= SEL(GlobalVars.BlinkerNormal, colorOff, colorOn);
+		ELSE
+			feedback	:= SEL(GlobalVars.BlinkerFast, colorOff, colorOn);
+		END_IF
+
+END_CASE
+
+IF xOverride THEN
+	feedback := colorPushed;
+END_IF
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED CallTrigger
+Trig_Pushed.Call(CLK := buttonInput OR button);
+END_METHOD
+
+// Set the colors for the button
+METHOD PUBLIC SetColors
+VAR_INPUT
+	colorOn			: enumColorList		:= enumColorList.Lime;
+	colorOff		: enumColorList		:= enumColorList.Silver;
+	colorPushed		: enumColorList		:= enumColorList.Black;
+END_VAR
+THIS^.colorOn			:= colorOn;
+THIS^.colorOff			:= colorOff;
+THIS^.colorPushed		:= colorPushed;
+END_METHOD

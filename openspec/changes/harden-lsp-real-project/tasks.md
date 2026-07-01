@@ -1,15 +1,15 @@
 ## 1. Materialize the corpus
 
-- [ ] 1.1 Confirm IP clearance: decide full project vs. sanitized/representative subset; get sign-off before any `.st` lands in the repo.
-- [ ] 1.2 Snapshot the project: `pwsh volt-scripts/codesys-bridge.ps1 up -Project <real.project>` (headless, :8556), then fetch every item (`volt pull` in a temp workspace, or `POST /fetch {knownItems:{}}`) → `.st` tree.
-- [ ] 1.3 Sanitize if required (identifiers/strings), then commit the tree under `packages/volt-lsp-codesys/src/tests/conformance/real-corpus/**`.
-- [ ] 1.4 Write a repeatable regen script + short README documenting exactly how the corpus was produced (project source, bridge version, sanitization), so it can be refreshed.
+- [x] 1.1 IP cleared (commit as-is, full project). Kind-based scheme (post `kind-based-file-extensions`), so the corpus is kind-named, not `.st`.
+- [x] 1.2 Materialized the pro2193 full-option project via the headless bridge; renamed `.st` POUs by kind (185 fb / 47 prg / 37 fun); DUT/itf/gvl already kind-named.
+- [x] 1.3 Committed the tree under `packages/volt-lsp-codesys/test-corpus/pro2193/` (424 kind source files + references).
+- [~] 1.4 `scripts/coverage-report.ts` regenerates the report; a `.st`→kind rename script exists (scratchpad). A one-shot regen script + README is still TODO.
 
 ## 2. Disk-sourced corpus harness
 
-- [ ] 2.1 Add `buildCorpusWorkspaceFromDisk(dir)` in `src/tests/conformance/_shared.ts` (mirror `dispatch.ts` `walkForStFiles`): read every `.st`, `ws.openDocument(pathToFileURL(f), text, 1)`, return the `Workspace` + `getProjectScope()`.
-- [ ] 2.2 Add a `corpus-real/*.test.ts` (or extend the existing loop) that runs the LSP queries (definition/references/hover/completion/workspace-symbol/semantic-tokens) over the real corpus and snapshots results — hermetic (committed `.st`, no live bridge).
-- [ ] 2.3 Add a **whole-corpus diagnostics sweep** test: parse + `computeSemanticDiagnostics` over every corpus file via the production `resolveConfig` path (vendor = `codesys`), asserting the valid corpus produces **zero** diagnostics.
+- [x] 2.1 Built `computeCoverage(dir)` in `scripts/coverage-report.ts` (walks the kind set, builds the project scope) — the disk-sourced harness (equivalent to `buildCorpusWorkspaceFromDisk`, purpose-built for coverage metrics).
+- [~] 2.2 Per-query snapshot tests over the real corpus — deferred (heavy/churny); the aggregate coverage metrics cover the signal for now.
+- [x] 2.3 Whole-corpus **coverage/precision sweep** as a hermetic ratchet test (`src/tests/real-corpus.test.ts`, vendor=codesys) — asserts the baseline never regresses (goal: 0 diagnostics). 3.1s, no bridge.
 
 ## 3. Precision — zero false positives
 

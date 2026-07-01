@@ -1,0 +1,113 @@
+// Control a colored led on a stacklight, or illuminated push-button
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC LedFB
+IMPLEMENTS IActuator, ILed
+VAR
+	Output			: ActuatorFB;
+	FrequencySelect	: BOOL;
+	xOverride		: BOOL;
+	state			: enumLedState;
+END_VAR
+
+CASE state OF
+	enumLedState.Off, enumLedState.ForcedOff:
+		Output.Reset();
+
+	enumLedState.Solid, enumLedState.ForcedOn:
+		Output.Set();
+
+	enumLedState.Flashing:
+		IF NOT FrequencySelect THEN
+			Output.SetOrReset(GlobalVars.BlinkerNormal);
+		ELSE
+			Output.SetOrReset(GlobalVars.BlinkerFast);
+		END_IF
+
+END_CASE
+
+IF xOverride THEN
+	Output.Set();
+	xOverride := FALSE;
+END_IF
+
+// Instantiate the output
+Output();
+
+END_FUNCTION_BLOCK
+
+// Start flashing the led
+METHOD PUBLIC Flash
+IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
+	state := enumLedState.Flashing;
+END_IF
+END_METHOD
+
+// Force turn the led off
+METHOD PUBLIC LedTestOff
+state := enumLedState.ForcedOff;
+END_METHOD
+
+// Force turn the led on
+METHOD PUBLIC LedTestOn
+state := enumLedState.ForcedOn;
+END_METHOD
+
+// Stop forcing the led state
+METHOD PUBLIC LedTestStop
+state := enumLedState.Off;
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Turn the led off
+METHOD PUBLIC Off
+IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
+	state := enumLedState.Off;
+END_IF
+END_METHOD
+
+// When button is pressed, set the led output without changing the state
+METHOD PROTECTED Override
+THIS^.xOverride := TRUE;
+END_METHOD
+
+// Reset the output (=False)
+{attribute 'hide'}
+METHOD Reset
+Off();
+END_METHOD
+
+// Set the output (=True)
+{attribute 'hide'}
+METHOD Set : BOOL
+Solid();
+END_METHOD
+
+METHOD PUBLIC SetFlashingFrequency
+VAR_INPUT
+	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
+END_VAR
+FrequencySelect		:= Value;
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+IF xValue THEN
+	state := enumLedState.Solid;
+ELSE
+	state := enumLedState.Off;
+END_IF
+END_METHOD
+
+// Turn the led on
+METHOD PUBLIC Solid
+IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
+	state := enumLedState.Solid;
+END_IF
+END_METHOD

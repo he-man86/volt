@@ -1,0 +1,26 @@
+{attribute 'analysis' := '-33'}	// Unused Variable
+VAR_GLOBAL CONSTANT
+	// Use the constants below to access bits in any integer parameter
+	AllVacuums			: WORD := 0;	// Ask all vacuums (parameter is zero)
+	Vacuum00			: WORD := 0;	// Vacuum 0 (first bit) will not be in use! Vacuums start numbering from 1.
+	Vacuum01			: WORD := 1;	// Ask vacuum 1 (or products belonging to vacuum 1)
+	Vacuum02			: WORD := 2;	// Ask vacuum 2 (or products belonging to vacuum 2)
+	Vacuum03			: WORD := 3;	// Ask vacuum 3 (or products belonging to vacuum 3)
+	Vacuum04			: WORD := 4;	// Ask vacuum 4 (or products belonging to vacuum 4)
+	Vacuum05			: WORD := 5;	// Ask vacuum 5 (or products belonging to vacuum 5)
+	Vacuum06			: WORD := 6;	// Ask vacuum 6 (or products belonging to vacuum 6)
+	Vacuum07			: WORD := 7;	// Ask vacuum 7 (or products belonging to vacuum 7)
+	Vacuum08			: WORD := 8;	// Ask vacuum 8 (or products belonging to vacuum 8)
+	Vacuum09			: WORD := 9;	// Ask vacuum 9 (or products belonging to vacuum 9)
+	Vacuum10			: WORD := 10;	// Ask vacuum 10 (or products belonging to vacuum 10)
+	Vacuum11			: WORD := 11;	// Ask vacuum 11 (or products belonging to vacuum 11)
+	Vacuum12			: WORD := 12;	// Ask vacuum 12 (or products belonging to vacuum 12)
+	Vacuum13			: WORD := 13;	// Ask vacuum 13 (or products belonging to vacuum 13)
+	Vacuum14			: WORD := 14;	// Ask vacuum 14 (or products belonging to vacuum 14)
+	Vacuum15			: WORD := 15;	// Ask vacuum 15 (or products belonging to vacuum 15)
+END_VAR
+
+// So to access the second bit in an integer, use like this:
+// vacuumIndex.Vacuum01 := true;
+
+// No 'qualified_only' attribute! Or bitaccess doesn't work.

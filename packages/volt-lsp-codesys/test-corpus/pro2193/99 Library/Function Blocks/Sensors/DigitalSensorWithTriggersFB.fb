@@ -1,0 +1,30 @@
+// Add rising and falling trigger to a digital input (remember to call the instance of this FB!)
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'IsActive'}
+FUNCTION_BLOCK DigitalSensorWithTriggersFB
+EXTENDS DigitalSensorFB
+VAR
+	Trigger			: TriggerFB;
+END_VAR
+
+Trigger.Call(CLK := SensorInput = NOT _isInverted);
+
+END_FUNCTION_BLOCK
+
+PROPERTY Falling : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+Falling := Trigger.Q_Falling;
+END_GET
+END_PROPERTY
+
+PROPERTY Rising : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+Rising := Trigger.Q_Rising;
+END_GET
+END_PROPERTY

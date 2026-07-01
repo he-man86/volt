@@ -1,0 +1,116 @@
+// Push button from CODESYS WebVisu
+FUNCTION_BLOCK PUBLIC PushButtonFunctionKeyFromCodesysVisuFB
+EXTENDS PushButtonLedFB
+IMPLEMENTS IActuator, ISubject
+VAR_INPUT
+	buttonType				: enumHWButtons;	// The type of button will be supplied to attached observers
+END_VAR
+VAR
+	Subject					: SubjectFunctionKeyFromCodesysVisuFB;
+	FunctionKeyState		:	// Keep internal state of function key
+		(
+			Released			:= 0,
+			Tapped				:= 1,	// In state for as long as button is pressed, or until switched to Held
+			AwaitingDoubleTap	:= 2,	// In state for max 1 sec.
+			DoubleTapped		:= 3,	// In state for as long as button is pressed, or until switched to DoubleTapHeld
+			Held				:= 4,
+			DoubleTapHeld		:= 5,
+		);
+	HeldTrigger				: RisingTriggerFB;
+	HeldTimer				: BTON;
+	AwaitTapTimer			: BTON;
+END_VAR
+VAR CONSTANT
+	HeldTimeout				: REAL := 0.5;		// Max 'Tap' duration. Switch to 'Held' state after this timeout
+	AwaitTapTimeout			: REAL := 0.5;		// When released, await a double tap for this time.
+END_VAR
+
+// Implicit Enumeration: The implicit enumeration allows for an easy way to declare a new enumeration variable which is valid only within the local POU.
+// https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_datatype_implicit_enumeration-1853150.html
+
+SUPER^();
+
+IF HeldTrigger.Rising(CLK := HeldTimer.Set(buttonInput, HeldTimeout)) THEN
+	HandleHeld();
+END_IF
+
+IF AwaitTapTimer.Set(FunctionKeyState = AwaitingDoubleTap, AwaitTapTimeout) THEN
+	FunctionKeyState := Released;
+END_IF
+
+END_FUNCTION_BLOCK
+
+// Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
+METHOD PUBLIC Attach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+Attach := Subject.Attach(observer);
+END_METHOD
+
+// Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
+METHOD PUBLIC Detach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+Detach := Subject.Detach(observer);
+END_METHOD
+
+METHOD PROTECTED HandleHeld
+IF FunctionKeyState = Tapped THEN
+	FunctionKeyState := Held;
+
+	Subject.ButtonType	:= buttonType;
+	Subject.ExtState	:= enumFunctionKeyPayload.Held;
+	Subject.Notify();
+
+ELSIF FunctionKeyState = DoubleTapped THEN
+	FunctionKeyState := DoubleTapHeld;
+
+	Subject.ButtonType	:= buttonType;
+	Subject.ExtState	:= enumFunctionKeyPayload.DoubleTapHeld;
+	Subject.Notify();
+
+END_IF
+END_METHOD
+
+METHOD PROTECTED HandlePushed
+SUPER^.HandlePushed();
+
+IF FunctionKeyState = Released THEN
+	FunctionKeyState := Tapped;
+ELSIF FunctionKeyState = AwaitingDoubleTap THEN
+	FunctionKeyState := DoubleTapped;
+END_IF
+
+Subject.ButtonType	:= buttonType;
+//Subject.ButtonState	:= TRUE;
+Subject.ExtState	:= enumFunctionKeyPayload.Tapped;
+Subject.Notify();
+END_METHOD
+
+METHOD PROTECTED HandleReleased
+SUPER^.HandleReleased();
+
+
+IF FunctionKeyState = Tapped THEN
+	FunctionKeyState := AwaitingDoubleTap;
+ELSIF FunctionKeyState = DoubleTapped THEN
+	FunctionKeyState := Released;
+ELSIF FunctionKeyState = Held OR FunctionKeyState = DoubleTapHeld THEN
+	FunctionKeyState := Released;
+END_IF
+
+Subject.ButtonType	:= buttonType;
+//Subject.ButtonState	:= FALSE;
+Subject.ExtState	:= enumFunctionKeyPayload.Released;
+Subject.Notify();
+END_METHOD
+
+// The actual number of observers that are receiving events
+{attribute 'monitoring' := 'call'}
+PROPERTY ObserverCount : UINT
+GET
+ObserverCount := Subject.ObserverCount;
+END_GET
+END_PROPERTY

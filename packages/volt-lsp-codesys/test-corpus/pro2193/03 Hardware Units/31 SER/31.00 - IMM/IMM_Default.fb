@@ -1,0 +1,1250 @@
+// Control an Injection Moulding Machine through the EUROMAP 67 standard.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC IMM_Default
+EXTENDS ModuleResettableFB
+IMPLEMENTS IIMM_Default_XYControl, IModuleStartable
+VAR_INPUT
+	// #######################################################################################################################
+	// ### EUROMAP 67 - Electrical Interface between Injection Moulding Machine and Handling Device / Robot
+	// #######################################################################################################################
+
+	// The switch contact is closed when safety devices (e.g. safety guards, footboard safety, etc.) on the IMM are operative
+	// so that dangerous movements of the handling device / robot are possible. The signal is active in any operation mode.
+	// The signal must be the result of limit switch contact series of mould area safety devices according to EN 201.
+	xDoorsClosed				: BOOL;			// ZA3 & ZA4
+	// HIGH signal when the moulding is a reject. HIGH signal when the mould is open and must remain HIGH at least until "Enable mould closure"
+	// It is recommended to have HIGH signal already when the mould opening starts.
+	xRejectMoulding				: BOOL;			// ZA5
+	// HIGH signal when the mould closing is completed. Note: The signal "Enable mould closure" is then no longer required.
+	xMouldClosed				: BOOL;			// ZA6
+	// HIGH signal when mould opening position is equal or more than required position. Inadvertent alteration to mould opening stroke smaller
+	// than that required for the handling device / robot to approach must be impossible. The signal must remain HIGH as long as the mould
+	// is open and must not be interrupted by a change of operation mode or safety guard opening.
+	xMouldOpen					: BOOL;			// ZA7
+	// HIGH signal when mould opening reaches a set position smaller than mould opening position. The signal remains HIGH to the end of mould opening
+	// position. Two sequences are possible with this signal:
+	//	a) Mould opening stops on intermediate position and gives start signal to handling device / robot. Mould opening restarts with the signal "Enable full mould opening".
+	//	b) Mould opening does not stop on intermediate position, however gives the signal to handling device / robot. At this sequence the signals “ Enable full mould opening” and “Mould area free” are not in use.
+	// LOW signal when intermediate mould opening position is NOT in use.
+	xIntermediateOpen			: BOOL;			// ZA8
+	// HIGH signal when the injection moulding machine is able to be operated with handling device / robot. This signal shall not be used to start the handling
+	// device / robot. If the signal turns LOW during the operation mode of the handling device / robot "operation with injection moulding machine",
+	// it is recommended that the handling device / robot continues its automatic cycle until the end position.
+	xAutoOperation				: BOOL;			// ZB2
+	Ejectors					: EjectorCorePullerFB;	// ZB3 - ZB4 - B3 - B4 - Ejectors
+	CorePullers					: EjectorCorePullerFB;	// ZB5 - ZB6 - B5 - B6 - Core pullers 1 (Optional)
+
+	// #######################################################################################################################
+	// ### EUROMAP 78 - Electrical Interface between Injection Moulding Machines and External Safety Devices
+	// #######################################################################################################################
+
+	// Only closed when the "Request signal" (a5) is at low level (see timing diagram)
+	// Note: Closed contact indicates that the IMM has reached the safe condition. The unlocking may be depending from other parameters
+	enableReleaseOfGuardLocking	: BOOL;			// Open (False) = opening NOT enabled / Closed (True) = opening enabled (c1/c7)
+
+
+	// Extra mould open sensors for safety (not part of Euromap)
+	sensorMouldOpen				: BOOL;
+	sensorIntermediateOpen		: BOOL;
+
+	detectMovementIMM			: BOOL;		// Must be high before starting auto. operation. If low, the IMM may have moved (after estop) and robot alignment must be checked.
+//	holdingPressure				: WORD;
+//	switchoverPoint				: WORD;
+END_VAR
+VAR_OUTPUT
+	// #######################################################################################################################
+	// ### EUROMAP 67 - Electrical Interface between Injection Moulding Machine and Handling Device / Robot
+	// #######################################################################################################################
+
+	// The switch contact is closed when the handling device / robot is outside the mould area and does not interfere with mould opening and closing movements.
+	// The switch contact must be opened when the handling device / robot leaves its start position. If the switch contact is open neither opening nor closing
+	// of the mould may occur. However the injection moulding machine may ignore this signal when mould opening is carried out after e.g. an intermediate stop,
+	// if the optional sequence is selected on the injection moulding machine. The signal must have the described effect even when the handling device / robot
+	// is switched off. It is recommended to close the switch contact when the handling device / robot is unselected.
+	MouldAreaFree				: ActuatorFB;	// A3/C3 Mould area free signal.
+	// HIGH signal when the handling device / robot is retracted enough for start of mould closure. The signal must remain HIGH at least until "Mould closed"
+	// is available. If the signal is LOW as a result of a fault, mould closing must be interrupted. The signal "Enable mould closure" must not be a logical
+	// "or" with either other signals, e.g. "Close safety guard" or a push button in any operation mode. The signal must be HIGH if the handling device /
+	// robot is switched off. It is recommended to have HIGH signal when the handling device / robot is unselected.
+	EnableMouldClosure			: ActuatorFB;	// A6 Enable Mould Closure
+	// HIGH signal when the handling device / robot has taken the part and allows to continue mould opening. The signal must remain HIGH until "Mould open"
+	// signal is given by the injection moulding machine.
+	EnableFullMouldOpening		: ActuatorFB;	// A7 Enable Full Mould Opening (Optional)
+	// LOW signal when the handling device / robot mode switch is "Operation with injection moulding machine".
+	// HIGH signal when the handling device / robot mode switch is "No operation with injection moulding machine".
+	// HIGH signal when the handling device / robot is switched off.
+	OperationWithRobot			: ActuatorFB;	// B2 Handling device / robot operation mode
+
+	// #######################################################################################################################
+	// ### EUROMAP 78 - Electrical Interface between Injection Moulding Machines and External Safety Devices
+	// #######################################################################################################################
+
+	// High level: Operator actuates a device (e.g. push button) on the external safety device in order to request access to the protected area. Minimum duration 100 ms
+	RequestSignal				: ActuatorFB;	// (a5)B2 Handling device / robot operation mode
+END_VAR
+VAR_IN_OUT
+	Data						: IMM_Data;
+END_VAR
+VAR
+	mouldWasClosed				: BOOL;			// The mould closed during the cycle.
+	{attribute 'hide'}
+	_labelsInCavities			: BOOL;			// Private backing field for HasLabels property. Do not use directly.
+	{attribute 'hide'}
+	_enableDetectMovementIMM	: BOOL;
+	xPreviousShotHadLabels		: BOOL;			// Used for tracking if IML switched on or off
+	ui, x, y					: UINT;
+	ProductsInMould				: ARRAY[1..GVL_Constants.MaxMouldLevels] OF ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
+
+	TriggerMouldClosed			: TriggerFB;	// Trigger when the mould is closed
+	TriggerMouldOpened			: TriggerFB;	// Trigger when the mould is completely open
+	TriggerIMMDoors				: TriggerFB;	// Trigger when the IMM doors open / close
+
+	iEjectState					: INT;
+	MouldCleaning				: MouldCleaningFB;
+	TickMouldIsOpened			: CAA.TICK;
+	syncedXYControls			: ARRAY[1..ProcessModules.numberOfXYControls] OF BOOL;
+
+	startDelayedMouldClosing	: BOOL;		// Start delayed closing of mould when a drawer is currently changing
+	setAlarmProductsMissing		: BOOL;		// Give alarm message: Mould did not close because products are missing on the takeout gripper
+	euromapTestInProgress		: BOOL;
+
+	cycleTimeTakeoutFB			: JsonArrayFromReal :=		// Hold a history of cycle times and generate string for visu
+	(
+		jsonString	:= ADR(cycleTimeTakeoutJson),
+		stringSize	:= SIZEOF(cycleTimeTakeoutJson)
+	);
+	cycleTimeTotalFB				: JsonArrayFromReal :=		// Hold a history of cycle times and generate string for visu
+	(
+		jsonString	:= ADR(cycleTimeTotalJson),
+		stringSize	:= SIZEOF(cycleTimeTotalJson)
+	);
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'read'}		rEarlyMouldCloseCycleTimeSaved	: REAL;					// Cycle time saved because of Early Mould Closing option
+	{attribute 'symbol' := 'read'}		shotCounter						: UDINT;				// Count number of shots of IMM
+	{attribute 'symbol' := 'read'}		cycleTimeTakeoutJson			: STRING(80) := '[ ]';	// Total time spent inside mould area
+	{attribute 'symbol' := 'read'}		cycleTimeTotalJson				: STRING(80) := '[ ]';	// Total cycle time of the machine
+	{attribute 'symbol' := 'read'}		cycleTimeTakeout				: REAL;					// Total time spent inside mould area
+	{attribute 'symbol' := 'read'}		cycleTimeTotal					: REAL;					// Total cycle time of the machine
+	{attribute 'symbol' := 'read'}		euromapTestProgress				: INT;					// Currently active test step in EUROMAP-Test sequence
+	{attribute 'symbol' := 'read'}		euromapTestDescription			: STRING(80);			// Description of active test step
+	{attribute 'symbol' := 'read'}		euromapTestResult				: STRING(80);			// Euromap input that is tested result
+	{attribute 'symbol' := 'read'}		euromapTestResultOk				: BOOL;					// Active test step result is Ok
+	{attribute 'symbol' := 'readwrite'}	euromapTestNextStep				: BOOL;					// Button to start / resume testing
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError		: ARRAY[1..8] OF SetErrorFB;
+END_VAR
+%FOLDER Private
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 1,	// IMM Doors opened
+	alarmCondition	:= NOT xDoorsClosed,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Information,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 6,	// IMM in automatic mode not allowed during Semi-auto mode
+	alarmCondition	:= AutoOperation AND SER.OperationMode = SER_OperationModeType.SemiAuto AND SER.InAutomaticOperation,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 7,
+	alarmCondition	:= (xMouldOpen AND NOT sensorMouldOpen) OR (xMouldClosed AND sensorMouldOpen),
+	alarmDelay		:= 3.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 8,
+	alarmCondition	:= (xMouldOpen AND NOT sensorIntermediateOpen) OR (xMouldClosed AND sensorIntermediateOpen),
+	alarmDelay		:= 3.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[5](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 9,
+	alarmCondition	:= EnableDetectMovementIMMInput AND NOT detectMovementIMM,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+SetError[6](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 10,
+	alarmCondition	:= Data.overrideMouldRejectSignal,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[7](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 11,
+	alarmCondition	:= Data.overrideMeasurementRejectSignal OR Data.dwOverrideCavMouldMeasurement > 0,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[8](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= IMM_Errors,
+	errorId			:= 13,
+	alarmCondition	:= setAlarmProductsMissing,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+setAlarmProductsMissing	R= GlobalVars.Reset;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	currentTime					: ARRAY[1..2] OF CAA.TICK;
+	usiSelect					: USINT(1..2);
+	TriggerEnterMouldArea		: TriggerFB;
+	DelayedMouldClosingTimer	: BTON;		// Mould will close after timer
+END_VAR
+%FOLDER Private
+EjectStateMachine();
+FollowSERState();
+EuromapTester();
+SetMouldWasClosed();
+
+IF NOT euromapTestInProgress THEN		// Disconnect all euromap outputs when the test is in progress
+	MouldAreaFree();
+	EnableMouldClosure();
+	EnableFullMouldOpening();
+	OperationWithRobot();
+
+	Ejectors(
+		moduleHandler		:= ModuleHandler,
+		textRefId			:= IMM_Errors,
+		errorId_NotBack		:= 2,
+		errorId_NotForward	:= 3,
+		alarmEnable			:= AutoOperation AND Data.Ejectors.EarlyStartEnable <> EarlyEjectOption.Disabled,
+		alarmDelay			:= 5,
+		severity			:= enumErrorSeverity.Fault,
+		reaction			:= enumErrorReaction.No_reaction,
+		xInvertOutput		:= Data.Ejectors.xInverseOperation);
+
+	CorePullers(
+		moduleHandler		:= ModuleHandler,
+		textRefId			:= IMM_Errors,
+		errorId_NotBack		:= 4,
+		errorId_NotForward	:= 5,
+		alarmEnable			:= AutoOperation AND Data.CorePullers.EarlyStartEnable <> EarlyEjectOption.Disabled,
+		alarmDelay			:= 5,
+		severity			:= enumErrorSeverity.Fault,
+		reaction			:= enumErrorReaction.No_reaction,
+		xInvertOutput		:= Data.CorePullers.xInverseOperation);
+END_IF
+
+MouldCleaning(
+	Data				:= Data.MouldCleaning);
+
+// Trigger when the mould is closed
+TriggerMouldClosed.Call(	CLK := xMouldClosed AND NOT xMouldOpen);
+
+// Trigger when the mould is open
+TriggerMouldOpened.Call(	CLK := xMouldOpen AND NOT xMouldClosed);
+
+// Trigger when the IMM doors open / close
+TriggerIMMDoors.Call(		CLK := xDoorsClosed);
+
+// Trigger when Y unit leaves the safety strip during Semi-auto mode
+IF SER.InAutomaticOperation AND SER.OperationMode = SER_OperationModeType.SemiAuto THEN
+	TriggerEnterMouldArea.Call(Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe));
+END_IF
+
+// Record the time when the mould is fully opened (or Y unit leaves the safety strip during Semi-auto mode)
+IF NOT SER.InAutomaticOperation THEN
+	currentTime[1]	:= currentTime[2]	:= 0;
+
+ELSIF MouldIsOpen OR TriggerEnterMouldArea.Q_Falling THEN
+
+	// Calculate total cycle time from mould open to next mould open
+	currentTime[usiSelect]	:= TickMouldIsOpened	:= TICKS.GetTick(FALSE);
+
+	IF currentTime[1] <> 0 AND currentTime[2] <> 0 THEN
+		// Store the cycle time value of the last total cycle
+		cycleTimeTotalFB.AddMeasurement(TO_REAL(currentTime[usiSelect] - currentTime[SEL(usiSelect = 1, USINT#1, USINT#2)]) / 1000);
+	END_IF
+	Increment.Subrange(usiSelect, 1, 2);
+END_IF
+
+IF TriggerMouldClosed.Q_Falling		// Trigger when the mould starts to open
+OR TriggerEnterMouldArea.Q_Falling	// Trigger when Y unit leaves the safety strip during Semi-auto mode to generate product data
+THEN
+	// Count number of shots the IMM produces
+	Increment.AnyInt(ShotCounter);
+
+	// Generate data of the shot that was produced by the IMM
+	GenerateProductData();
+
+	// There are no more labels inside the cavities
+	xPreviousShotHadLabels		:= HasLabels;
+	HasLabels					:= FALSE;
+END_IF
+
+// Trigger when the IMM doors are opening
+IF TriggerIMMDoors.Q_Falling THEN
+	// When IMM door opens, clear the labels from the mould.
+	// Remember: To use IML during Semi-auto mode, open the door every cycle to allow the Xi unit to place new labels in the mould!
+	xPreviousShotHadLabels		:= HasLabels;
+	HasLabels					:= FALSE;
+END_IF
+
+// Trigger when the mould starts to close
+IF TriggerMouldOpened.Q_Falling THEN
+	// Mould closes, so products are either picked by Xu Unit, or manually ejected
+	ClearProducts.Mould(ProductsInMould);
+END_IF
+
+IF DelayedMouldClosingTimer.Set(
+		In := startDelayedMouldClosing,
+		Pt := MIN(Data.mouldCloseDelayOnDrawerChange, 10))	// Hard limit on mould close delay of 10 seconds.
+THEN
+	EnableMouldClosure.Set();
+	MouldAreaFree.Set();
+	startDelayedMouldClosing	:= FALSE;
+END_IF
+
+cycleTimeTakeout	:= cycleTimeTakeoutFB.latestMeasurement;
+cycleTimeTotal		:= cycleTimeTotalFB.latestMeasurement;
+END_METHOD
+
+(* Command to reset the module (Statemachine to zero state) in case of E-Stop
+
+Add code here to handle emergency stops. For example:
+
+// Reset the state of the unit.
+State := MyUnit_State.None;
+
+// Stop the servo drive
+Drive.Stop(TRUE);
+
+// Reset all cylinders and outputs
+SomeCylinder.Reset();
+SomeOtherOutput.Reset();
+
+// Reset all vacuums with a helper function
+VacuumResetAll(Vacuum);
+
+// Does this module have a servo drive? Then you can return true when the drive has braked to standstill
+EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+// Else, just return true.
+EStop := TRUE;
+
+ *)
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER IModuleBase
+InhibitAll();
+MouldCleaning.EStop();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Start the Ejector/Core pullers program.
+METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Front position.
+VAR_INPUT
+END_VAR
+%FOLDER Commands
+IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
+	EjectShot := TRUE;
+	RETURN;
+END_IF
+
+// Kick the state machine
+IF iEjectState = 0 THEN
+	iEjectState := 1;
+END_IF
+
+// Return result when done
+EjectShot := iEjectState = 2;
+END_METHOD
+
+METHOD PRIVATE EjectStateMachine
+VAR_INPUT
+END_VAR
+VAR_INST
+	T_Timer	: BTON;
+END_VAR
+%FOLDER Private
+// The option to start the ejectors early on a position, is only valid if you have a single Y Unit.
+// If you really need this option, and you have multiple Y Units, you need to change the program below.
+IF YUnits.usiNumberOfUnits > 1 THEN
+	IF Data.Ejectors.EarlyStartEnable = EarlyEjectOption.OnYDrivePosition THEN
+		Data.Ejectors.EarlyStartEnable		:= EarlyEjectOption.Disabled;
+	END_IF
+	IF Data.CorePullers.EarlyStartEnable = EarlyEjectOption.OnYDrivePosition THEN
+		Data.CorePullers.EarlyStartEnable	:= EarlyEjectOption.Disabled;
+	END_IF
+END_IF
+IF XuUnits.usiNumberOfUnits > 1 THEN
+	IF Data.Ejectors.EarlyStartEnable = EarlyEjectOption.OnXuDrivePosition THEN
+		Data.Ejectors.EarlyStartEnable		:= EarlyEjectOption.Disabled;
+	END_IF
+	IF Data.CorePullers.EarlyStartEnable = EarlyEjectOption.OnXuDrivePosition THEN
+		Data.CorePullers.EarlyStartEnable	:= EarlyEjectOption.Disabled;
+	END_IF
+END_IF
+
+CASE iEjectState OF
+	0:
+		// Wait for start command
+
+	1:
+		// De 'harde' koppeling hier met de Y en Xu assen kan mooier??
+
+		// Check the option to disable the early ejectors during startup of IMM
+		IF  ShotCounter > Data.usiFirstShotsNoEarlyEject
+		AND PersistentVars.usiGlobalSERSpeed = 100
+		THEN
+
+			CASE Data.Ejectors.EarlyStartEnable OF
+				EarlyEjectOption.Disabled:			// No early ejector function
+					;
+				EarlyEjectOption.OnYDrivePosition:	// Enable ejectors during movement of Y drive
+					// Only checking the first Y drive, because option is disbled in case of multiple Y drives.
+					IF YDrive.lrActPosition >= YUnits.Data[1].Takeout.Pos.value - Data.Ejectors.rEarlyStartDistance THEN
+						Ejectors.EnableForward();
+					END_IF
+				EarlyEjectOption.OnXuDrivePosition:	// Enable ejectors during movement of Xu drive
+					// Only checking the first Xu drive, because option is disbled in case of multiple Xu drives.
+					// Check absolute distance because Takeout position may be smaller than Parking positon.
+					IF ABS(XuDrive.lrActPosition - XuUnits.Data[1].Takeout.Pos.value) < Data.Ejectors.rEarlyStartDistance THEN
+						Ejectors.EnableForward();
+					END_IF
+			END_CASE
+
+			CASE Data.CorePullers.EarlyStartEnable OF
+				EarlyEjectOption.Disabled:			// No early core-puller function
+					;
+				EarlyEjectOption.OnYDrivePosition:	// Enable core-puller during movement of Y drive
+					IF YDrive.lrActPosition >= YUnits.Data[1].Takeout.Pos.value - Data.CorePullers.rEarlyStartDistance THEN
+						CorePullers.EnableForward();
+					END_IF
+				EarlyEjectOption.OnXuDrivePosition:	// Enable core-puller during movement of Xu drive
+					IF ABS(XuDrive.lrActPosition - XuUnits.Data[1].Takeout.Pos.value) < Data.CorePullers.rEarlyStartDistance THEN
+						CorePullers.EnableForward();
+					END_IF
+			END_CASE
+
+		END_IF
+
+		IF  YUnits.AllUnitsAreOnTakeoutPos
+		AND XuUnits.AllUnitsAreOnTakeoutPos
+		THEN
+			Ejectors.EnableForward();
+			CorePullers.EnableForward();
+		END_IF
+
+		IF T_Timer.Set(		In :=	(Ejectors.IsForward OR NOT Data.Ejectors.xWaitForForwardSignal)
+								AND (CorePullers.IsForward OR NOT Data.CorePullers.xWaitForForwardSignal)
+								AND (XuUnits.AllXuUnitsHaveAllProducts),
+							Pt := Data.rTimeEjectorsInFront)
+		THEN
+			T_Timer.Reset();
+			iEjectState		:= 2;
+		END_IF
+
+	2:
+		// Command 'EjectShot' returns true when arrived in this state
+
+		Ejectors.EnableBack();
+		CorePullers.EnableBack();
+
+		// Keep hanging in this state until the mould is closing.
+		IF NOT xMouldOpen THEN
+			iEjectState		:= 3;
+		END_IF
+
+	3:
+		// Check inputs from IMM
+		IF  (Ejectors.IsBack OR Data.Ejectors.EarlyStartEnable = EarlyEjectOption.Disabled)
+		AND (CorePullers.IsBack OR Data.CorePullers.EarlyStartEnable = EarlyEjectOption.Disabled)
+		THEN
+			iEjectState := 0;
+		END_IF
+END_CASE
+END_METHOD
+
+// During testing, only 1 euromap input may be high at any time. If more than 1 is high this method returns FALSE
+METHOD PRIVATE EuromapInputCount : BOOL
+VAR_INPUT
+	requestednumberOfInputsHigh	: USINT(0..10);
+END_VAR
+VAR
+	inputsHigh					: USINT;
+END_VAR
+%FOLDER Private/Euromap Tester
+inputsHigh	:= 0;
+
+IF xDoorsClosed					THEN Increment.AnyInt(inputsHigh); END_IF
+IF xRejectMoulding				THEN Increment.AnyInt(inputsHigh); END_IF
+IF xMouldClosed					THEN Increment.AnyInt(inputsHigh); END_IF
+IF xMouldOpen					THEN Increment.AnyInt(inputsHigh); END_IF
+IF xIntermediateOpen			THEN Increment.AnyInt(inputsHigh); END_IF
+IF xAutoOperation				THEN Increment.AnyInt(inputsHigh); END_IF
+IF Ejectors.inputIsBack			THEN Increment.AnyInt(inputsHigh); END_IF
+IF Ejectors.inputIsForward		THEN Increment.AnyInt(inputsHigh); END_IF
+IF CorePullers.inputIsBack		THEN Increment.AnyInt(inputsHigh); END_IF
+IF CorePullers.inputIsForward	THEN Increment.AnyInt(inputsHigh); END_IF
+
+EuromapInputCount := inputsHigh = requestednumberOfInputsHigh;
+END_METHOD
+
+METHOD PRIVATE EuromapTester
+VAR_INST
+	NextStepTrigger		: RisingTriggerFB;
+	NextStepTimer		: BTON;
+END_VAR
+%FOLDER Private/Euromap Tester
+NextStepTrigger.Call(euromapTestNextStep);
+
+// Start the EUROMAP test
+euromapTestInProgress	S= NextStepTrigger.Q AND SER.ActState = PACK_ML.State.Stopped;
+// Stop or abort the EUROMAP test
+euromapTestInProgress	R= HardwareButtons.Homing.ButtonPushed;
+euromapTestInProgress	R= HardwareButtons.Stop.ButtonPushed;
+euromapTestInProgress	R= HardwareButtons.EndCycle.ButtonPushed;
+euromapTestInProgress	R= (xDoorsClosed AND euromapTestProgress <> 1 AND euromapTestProgress <> 2);	// Testing only possible when IMM door is open; except when door itself is tested
+
+IF NOT euromapTestInProgress THEN
+	NextStepTimer.Reset();
+	euromapTestProgress		:= 0;
+	euromapTestResultOk		:= FALSE;
+	euromapTestDescription	:= 'EUROMAP Test Inactive';
+	IF SER.ActState <> PACK_ML.State.Stopped THEN
+		euromapTestResult	:= 'Press Stop button on Brink robot first..';
+	ELSIF xDoorsClosed THEN
+		euromapTestResult	:= 'IMM gate must be open to start the test';
+	ELSE
+		euromapTestResult	:= 'Test is ready to be started..';
+	END_IF
+	RETURN;	// Return here if testing is not active.
+END_IF
+
+// Euromap test is active
+CASE euromapTestProgress OF
+	0:
+		InhibitAll();
+		euromapTestDescription	:= 'All EUROMAP inputs must be Low';
+		euromapTestResult		:= SEL(EuromapInputCount(0), 'Any input is still high ', 'All inputs are low');
+		euromapTestResultOk		:= EuromapInputCount(0);
+		IF NextStepTimer.Set(euromapTestResultOk, 1) THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	1:
+		euromapTestDescription	:= 'Close the IMM Door (S2)';
+		euromapTestResult		:= CONCAT('Safety gates (ZA3 & ZA4) are ', SEL(xDoorsClosed, 'opened', 'closed'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xDoorsClosed;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	2:
+		euromapTestDescription	:= 'Open the IMM Door (S2)';
+		euromapTestResult		:= CONCAT('Safety gates (ZA3 & ZA4) are ', SEL(xDoorsClosed, 'opened', 'closed'));
+		euromapTestResultOk		:= EuromapInputCount(0) AND NOT xDoorsClosed;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	3:
+		euromapTestDescription	:= 'Test emergency stop button (S1) on euromap test cabinet (Pilz safety PLC only!)';
+		euromapTestResult		:= CONCAT('Emergency stop signal from IMM = ', SEL(PNOZMulti2.eStopIMM.eStopOperated, 'Inactive', 'Active'));
+		euromapTestResultOk		:= EuromapInputCount(0) AND PNOZMulti2.eStopIMM.eStopOperated;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	4:
+		euromapTestDescription	:= 'Reset emergency stop button (S1) on euromap test cabinet';
+		euromapTestResult		:= CONCAT('Emergency stop signal from IMM = ', SEL(PNOZMulti2.eStopIMM.eStopOperated, 'Inactive', 'Active'));
+		euromapTestResultOk		:= EuromapInputCount(0) AND NOT PNOZMulti2.eStopIMM.eStopOperated;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	5:
+		euromapTestDescription	:= 'Reset emergency stop on Brink panel';
+		euromapTestResult		:= CONCAT('Emergency stop is ', SEL(GlobalVars.EmergencyStopActive, 'Inactive', 'Active'));
+		euromapTestResultOk		:= NOT GlobalVars.EmergencyStopActive;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	6:
+		euromapTestDescription	:= 'IMM Reject switch (S3) -> ON';
+		euromapTestResult		:= CONCAT('Reject (ZA5) = ', SEL(xRejectMoulding, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xRejectMoulding;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	7:
+		euromapTestDescription	:= 'IMM Reject switch (S3) -> OFF';
+		euromapTestResult		:= CONCAT('Reject (ZA5) = ', SEL(xRejectMoulding, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(0) AND NOT xRejectMoulding;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	8:
+		euromapTestDescription	:= 'IMM Intermediate mould opening position switch (S4) -> ON';
+		euromapTestResult		:= CONCAT('Intermediate mould opening position (ZA8) = ', SEL(xIntermediateOpen, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xIntermediateOpen;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	9:
+		euromapTestDescription	:= 'IMM Intermediate mould opening position switch (S4) -> OFF';
+		euromapTestResult		:= CONCAT('Intermediate mould opening position (ZA8) = ', SEL(xIntermediateOpen, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(0) AND NOT xIntermediateOpen;
+		IF NextStepTimer.Set(euromapTestResultOk, 1) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	10:
+		euromapTestDescription	:= 'Enable Mould Closure (A6) -> ON';
+		euromapTestResult		:= CONCAT('Mould closed (ZA6) = ', SEL(xMouldClosed, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xMouldClosed;
+		EnableMouldClosure.Set();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	11:
+		euromapTestDescription	:= 'Enable Full Mould Opening (A7) -> ON';
+		euromapTestResult		:= CONCAT('Mould open position (ZA7) = ', SEL(xMouldOpen, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xMouldOpen;
+		EnableFullMouldOpening.Set();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	12:
+		euromapTestDescription	:= 'Handling device / robot operation mode (B2) -> ON';
+		euromapTestResult		:= CONCAT('Enable operation with robot (ZB2) = ', SEL(xAutoOperation, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND xAutoOperation;
+		OperationWithRobot.Set();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	13:
+		euromapTestDescription	:= 'Enable ejectors Back (B3) -> ON';
+		euromapTestResult		:= CONCAT('Ejector back position (ZB3) = ', SEL(Ejectors.inputIsBack, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND Ejectors.inputIsBack;
+		Ejectors.EnableBack();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	14:
+		euromapTestDescription	:= 'Enable ejectors forward (B4) -> ON';
+		euromapTestResult		:= CONCAT('Ejector forward position (ZB4) = ', SEL(Ejectors.inputIsForward, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND Ejectors.inputIsForward;
+		Ejectors.EnableForward();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	15:
+		euromapTestDescription	:= 'Enable core pullers (B5) -> ON';
+		euromapTestResult		:= CONCAT('Core pullers 1 in position 1 (ZB5) = ', SEL(CorePullers.inputIsBack, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND CorePullers.inputIsBack;
+		CorePullers.EnableBack();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	16:
+		euromapTestDescription	:= 'Enable core pullers (B6) -> ON';
+		euromapTestResult		:= CONCAT('Core pullers 1 in position 2 (ZB6) = ', SEL(CorePullers.inputIsForward, 'OFF', 'ON'));
+		euromapTestResultOk		:= EuromapInputCount(1) AND CorePullers.inputIsForward;
+		CorePullers.EnableForward();
+		IF NextStepTimer.Set(euromapTestResultOk, 3) OR NextStepTrigger.Q THEN
+			NextStepTimer.Reset();
+			InhibitAll();
+			euromapTestResultOk	:= FALSE;
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	17:
+		euromapTestDescription	:= 'Check emergency stop signals from robot (I1 and I2)';
+		euromapTestResult		:= 'Are EM-stop CH1 and CH2 indicators on?';
+		euromapTestResultOk		:= FALSE;
+		IF NextStepTrigger.Q THEN
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	18:
+		euromapTestDescription	:= 'Check mould area free indicator (I3)';
+		euromapTestResult		:= 'Y axis on safety strip? Is indicator on?';
+		euromapTestResultOk		:= FALSE;
+		MouldAreaFree.Set();
+		IF NextStepTrigger.Q THEN
+			InhibitAll();
+			Increment.AnyInt(euromapTestProgress);
+		END_IF
+
+	19:
+		euromapTestDescription	:= 'EUROMAP Test finished!';
+		euromapTestResult		:= 'Press button to restart the test';
+		euromapTestResultOk		:= FALSE;
+		IF NextStepTrigger.Q THEN
+			euromapTestProgress	:= 0;
+		END_IF
+
+END_CASE
+END_METHOD
+
+METHOD PRIVATE FollowSERState
+%FOLDER Private
+CASE SER.ActState OF
+	PACK_ML.State.Idle:
+		// Only release outputs to the IMM when all Y axes are outside the mould, and the doors are closed.
+		IF Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe) THEN
+			ReleaseAll();
+		ELSE
+			InhibitAll();
+		END_IF
+
+	PACK_ML.State.Suspending, PACK_ML.State.Suspended:
+		IF Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe) THEN
+			Ejectors.Release();
+			CorePullers.Release();
+		END_IF
+
+	PACK_ML.State.UnSuspending:
+		Ejectors.EnableBack();
+		CorePullers.EnableBack();
+
+	PACK_ML.State.Execute:
+		IF MouldIsOpen THEN
+			InhibitMouldClosing();
+		END_IF
+
+	PACK_ML.State.Complete:
+		InhibitAll();
+END_CASE
+END_METHOD
+
+METHOD PRIVATE GenerateProductData
+VAR
+	SampleShotRequested		: ARRAY[1..ProcessModules.numberOfXYControls] OF BOOL;
+	ZeroBasedCavNumbering	: USINT;
+	Product					: REFERENCE TO ProductType;
+END_VAR
+%FOLDER Private
+// Get sample shot request status from all XY Controls (cache this value locally, so method is executed once per module)
+FOR ui := 1 TO ProcessModules.numberOfXYControls DO
+	SampleShotRequested[ui]				:= ProcessModules.XYControl[ui].GetSampleShotRequest();
+END_FOR
+
+// Set cavity numbering
+//ARRAY[1..GVL_Constants.MaxMouldLevels] OF ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
+
+(*
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+	enumExchangeSets.SingleCavSingleTakeover:
+		ProductsInMould[1][1,1].CavNo		:= 1;		// Top left
+	enumExchangeSets.SingleCavDualTakeover:
+		ProductsInMould[1][1,1].CavNo		:= 1;		// Top left
+	enumExchangeSets.TwoCavSingleTakeover:
+		ProductsInMould[1][1,1].CavNo		:= 1;		// Top left
+		ProductsInMould[1][2,1].CavNo		:= 2;		// Top right
+	enumExchangeSets.FourCavDualTakeover:
+		ProductsInMould[1][1,1].CavNo		:= 1;		// Top left
+		ProductsInMould[1][2,1].CavNo		:= 2;		// Top right
+		ProductsInMould[1][1,2].CavNo		:= 3;		// Bottom left
+		ProductsInMould[1][2,2].CavNo		:= 4;		// Bottom right
+	ELSE
+		ProductsInMould[1][1,1].CavNo		:= 1;		// Top left
+		ProductsInMould[1][2,1].CavNo		:= 2;		// Top right
+		ProductsInMould[1][1,2].CavNo		:= 3;		// Bottom left
+		ProductsInMould[1][2,2].CavNo		:= 4;		// Bottom right
+END_CASE
+*)
+
+ProductsInMould[1][1,1].CavNo		:= GVL_Constants.CavityStartIndex;		// Top left
+ProductsInMould[1][2,1].CavNo		:= 2;
+ProductsInMould[1][3,1].CavNo		:= 3;									// Top right	NOS
+ProductsInMould[1][1,2].CavNo		:= 4;
+ProductsInMould[1][2,2].CavNo		:= 5;
+ProductsInMould[1][3,2].CavNo		:= 6;
+ProductsInMould[1][1,3].CavNo		:= 7;
+ProductsInMould[1][2,3].CavNo		:= 8;
+ProductsInMould[1][3,3].CavNo		:= 9;
+ProductsInMould[1][1,4].CavNo		:= 10;									// Bottom left
+ProductsInMould[1][2,4].CavNo		:= 11;
+ProductsInMould[1][3,4].CavNo		:= GVL_Constants.CavityEndIndex;		// Bottom right	NOS
+
+FOR ui := 1 TO GlobalVars.ActMouldLevels DO
+
+	FOR x := 1 TO GlobalVars.ActProductsInX DO
+
+		FOR y := 1 TO GlobalVars.ActProductsInY DO
+
+			// Set a reference (like a pointer) to the current product
+			Product REF= ProductsInMould[ui][x,y];
+
+			Product.Present					:= TRUE;
+			//Product.WithIML					:= HasLabels;	// WARNING!!! TODO!!! When accessing this property, the reference to Product becomes invalid :( ?????
+			Product.WithIML					:= _labelsInCavities;
+			Product.SampleShot				S= SampleShotRequested[LIMIT(1, ui, ProcessModules.numberOfXYControls)];
+			Product.RejectReason[1]			:= xRejectMoulding;
+			Product.RejectReasonIgnored[1]	:= Data.overrideMouldRejectSignal;
+			Product.StartNewStack			:= xPreviousShotHadLabels <> HasLabels;
+
+			// Get cavity number of current product, numbered from 0 to x
+			ZeroBasedCavNumbering	:= TO_USINT(product.CavNo - 1);
+
+			Product.UncountedReject	:= BitLogic.Extract(Data.dwRejectCavities, ZeroBasedCavNumbering);
+			Product.UncountedReject	S= Data.usiFirstShotsAllReject > 0 AND ShotCounter <= Data.usiFirstShotsAllReject;
+
+			Product.ToShute			:= Data.usiFirstShotsAllReject > 0 AND ShotCounter <= Data.usiFirstShotsAllReject;
+
+			// Remove all product data if the cavity is completely disabled.
+			IF BitLogic.Extract(Data.dwDisableCavities, ZeroBasedCavNumbering) THEN
+				ClearProducts.Single(Product);
+				CONTINUE;
+			END_IF
+
+		END_FOR
+
+	END_FOR
+
+END_FOR
+END_METHOD
+
+// Get product data of all products per mould level
+METHOD PUBLIC GetProductData : ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType
+VAR_INPUT
+	MouldLevel	: UINT(1..GVL_Constants.MaxMouldLevels);
+END_VAR
+%FOLDER Commands
+GetProductData	:= ProductsInMould[MouldLevel];
+
+// Clear the product data of the mould level that we return.
+ClearProducts.Array2D(ProductsInMould[MouldLevel]);
+END_METHOD
+
+// Inhibit all outputs to the IMM. The IMM may not move.
+METHOD PRIVATE InhibitAll
+VAR_INPUT
+END_VAR
+%FOLDER Private/All Outputs
+MouldAreaFree.Reset();
+EnableMouldClosure.Reset();
+EnableFullMouldOpening.Reset();
+OperationWithRobot.Reset();
+Ejectors.Inhibit();
+CorePullers.Inhibit();
+END_METHOD
+
+// Inhibit (disable) closing of the mould. The Y axis is going in.
+METHOD PUBLIC InhibitMouldClosing
+VAR
+	i	: USINT;
+END_VAR
+%FOLDER Commands
+EnableMouldClosure.Reset();
+MouldAreaFree.Reset();
+
+// Reset locally stored syncronize info, for next cycle.
+FOR i := 1 TO ProcessModules.numberOfXYControls DO
+	syncedXYControls[i] := FALSE;
+END_FOR
+END_METHOD
+
+// Release all outputs to the IMM. The IMM may move freely.
+METHOD PRIVATE ReleaseAll
+VAR_INPUT
+END_VAR
+%FOLDER Private/All Outputs
+MouldAreaFree.Set();
+EnableMouldClosure.Set();
+EnableFullMouldOpening.Set();
+OperationWithRobot.Set();
+Ejectors.Release();
+CorePullers.Release();
+END_METHOD
+
+// Monitor when the Y axis has cleared the mould area. Enable mould closing by IMM.
+METHOD PUBLIC ReleaseMouldClosing : BOOL	// Returns true when the Y axis has cleared the mould.
+VAR_INPUT
+	mouldClosingIsRequired		: BOOL;		// Indicates that another shot is needed to finish production
+END_VAR
+VAR_OUTPUT
+	xMouldClosed				: BOOL;		// True if the mould close command was given to the IMM.
+END_VAR
+VAR
+	allYUnitsClear				: BOOL;
+	allXiUnitsHaveAllLabels		: BOOL := TRUE;
+	anyDrawerIsChanging			: BOOL := FALSE;
+	i							: USINT;
+END_VAR
+%FOLDER Commands
+IF  Data.xEarlyMouldClosingEnable
+AND YUnits.usiNumberOfUnits = 1		// Only enable early mould closing when there is a single Y Unit ?
+AND PersistentVars.usiGlobalSERSpeed = 100
+AND YDrive.lrActPosition < YUnits.Data[1].Takeout.Pos.value - Data.rEarlyMouldClosingDistance
+THEN
+	allYUnitsClear	:= TRUE;
+ELSIF Arrays.AllUnitsAreInSafePosition(YUnits.itfYUnitsSafe) THEN
+	allYUnitsClear	:= TRUE;
+END_IF
+
+IF NOT allYUnitsClear THEN
+	RETURN;
+END_IF
+
+{IF defined (pou: XiUnits)}
+FOR i := 1 TO XiUnits.usiNumberOfUnits DO
+	IF XiUnits.Unit[i].HasPayload <> enumPayload._All THEN
+		allXiUnitsHaveAllLabels		:= FALSE;
+		EXIT;						// Exit the loop on the first match
+	END_IF
+END_FOR
+{ELSE}
+	allXiUnitsHaveAllLabels			:= FALSE;
+{END_IF}
+
+{IF defined (pou: LabelSuppliers)}
+FOR i := 1 TO LabelSuppliers.usiNumberOfUnits DO
+	IF LabelSuppliers.Unit[i].ActiveDrawerItf = 0 THEN	// No active drawer, so the unit is changing drawers
+		anyDrawerIsChanging			:= TRUE;
+		EXIT;						// Exit the loop on the first match
+	END_IF
+END_FOR
+{END_IF}
+
+// Only close mould during normal production mode
+IF SER.OperationMode = SER_OperationModeType.Production THEN
+	IF XuUnits.AllXuUnitsHaveAllProducts
+	AND (  SER.ActState = PACK_ML.State.Execute
+		OR SER.ActState = PACK_ML.State.Suspended
+		OR HasLabels
+		OR mouldClosingIsRequired
+		)
+	THEN
+		IF  anyDrawerIsChanging							// Any drawer is currently being changed
+		AND Data.mouldCloseDelayOnDrawerChange > 0		// Setting must be enabled
+		AND NOT allXiUnitsHaveAllLabels					// If all Xi axes have a label ready on the core, close the IMM anyway
+		THEN
+			startDelayedMouldClosing	:= TRUE;
+		ELSE
+			EnableMouldClosure.Set();
+			MouldAreaFree.Set();
+		END_IF
+
+		mouldWasClosed					:= FALSE;
+		xMouldClosed					:= TRUE;
+
+	ELSE		// The mould does not close again, so this shot is the last shot that was produced.
+		FOR ui := 1 TO GlobalVars.ActMouldLevels DO
+			FOR x := 1 TO GlobalVars.ActProductsInX DO
+				FOR y := 1 TO GlobalVars.ActProductsInY DO
+					ProductsInMould[ui][x,y].LastProduct := TRUE;
+				END_FOR
+			END_FOR
+		END_FOR
+
+		// The mould actually should have closed with these conditions, so a product must be missing on the Xu gripper
+		setAlarmProductsMissing	S= SER.ActState = PACK_ML.State.Execute OR HasLabels OR mouldClosingIsRequired;
+		xMouldClosed		:= FALSE;
+	END_IF
+END_IF
+
+// Store the cycle time value of the last takeout action
+cycleTimeTakeoutFB.AddMeasurement(TO_REAL(TICKU.GetElapsedTimeInUSec(TickMouldIsOpened)) / 1_000_000);
+
+ReleaseMouldClosing		:= TRUE;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+%FOLDER IModuleResettable
+InhibitAll();
+
+Reset := TRUE;
+END_METHOD
+
+// Check if the mould closes every cycle
+METHOD PROTECTED SetMouldWasClosed
+%FOLDER Private
+IF NOT SER.InAutomaticOperation THEN
+	mouldWasClosed			:= FALSE;
+	ShotCounter				:= 0;
+ELSIF NOT sensorIntermediateOpen
+AND NOT sensorMouldOpen
+AND NOT xMouldOpen
+AND	xMouldClosed
+THEN
+	mouldWasClosed			:= TRUE;
+END_IF
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER IModuleStartable
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := FALSE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := FALSE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// Start automatic operations now! Returns true when module is started.
+METHOD StartCycle : BOOL
+%FOLDER IModuleStartable
+OperationWithRobot.Reset();
+
+Ejectors.EnableBack();
+CorePullers.EnableBack();
+
+iEjectState	:= 0;
+
+StartCycle	:= TRUE;
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER IModuleBase
+IF MouldIsOpen THEN
+	InhibitMouldClosing();
+	InhibitAll();
+END_IF
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER IModuleStartable
+StopCycle				:= TRUE;
+END_METHOD
+
+// This method returns true as soon as every XYControl called it.
+METHOD PUBLIC SynchronizeYUnits : BOOL
+VAR_INPUT
+	instanceNo	: UINT;	// Instance number of the XY module that is synchronizing.
+END_VAR
+VAR
+	i			: USINT;
+END_VAR
+%FOLDER Commands
+// Find the XYControl with the correct instance number and store the number locally.
+FOR i := 1 TO ProcessModules.numberOfXYControls DO
+	IF ProcessModules.XYControl[i].InstanceNo = instanceNo THEN
+		syncedXYControls[i] := TRUE;
+		EXIT;
+	END_IF
+END_FOR
+
+// Now loop through all XYControls and check if they all called this method.
+SynchronizeYUnits := Arrays.Bool_All(syncedXYControls, TRUE);
+END_METHOD
+
+// Returns true when the Xi axis is allowed to place labels in the mould cavities
+// Only ask once per IMM cycle!
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AllowLabelsInCavities : BOOL
+%FOLDER Properties
+GET
+AllowLabelsInCavities	:=  (NOT HasLabels OR SER.OperationMode = SER_OperationModeType.SemiAuto)
+						AND (ShotCounter > Data.usiFirstShotsWithoutIML OR SER.OperationMode = SER_OperationModeType.SemiAuto);
+
+(*
+AllowLabelsInCavities	:=  MouldCleaning.CycleWithIML()
+						AND (NOT HasLabels OR SER.OperationMode = SER_OperationModeType.SemiAuto)
+						AND (ShotCounter > Data.usiFirstShotsWithoutIML OR SER.OperationMode = SER_OperationModeType.SemiAuto);
+
+*)
+END_GET
+END_PROPERTY
+
+//
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AutoOperation : BOOL
+%FOLDER Properties
+GET
+AutoOperation := xAutoOperation OR euromapTestInProgress;
+END_GET
+END_PROPERTY
+
+//
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC DoorsClosed : BOOL
+%FOLDER Properties
+GET
+DoorsClosed := xDoorsClosed;
+END_GET
+END_PROPERTY
+
+// Enable or disable alarm message when input is low
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC EnableDetectMovementIMMInput : BOOL
+%FOLDER Config
+GET
+EnableDetectMovementIMMInput := _enableDetectMovementIMM;
+END_GET
+SET
+_enableDetectMovementIMM := EnableDetectMovementIMMInput;
+END_SET
+END_PROPERTY
+
+// The mould has labels in the cavities
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC HasLabels : BOOL
+%FOLDER Properties
+GET
+HasLabels := _labelsInCavities;
+END_GET
+SET
+_labelsInCavities			:= HasLabels;
+END_SET
+END_PROPERTY
+
+// Trigger when the mould is completely open
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC MouldIsOpen : BOOL
+%FOLDER Properties
+GET
+MouldIsOpen := TriggerMouldOpened.Q_Rising;
+END_GET
+END_PROPERTY
+
+// Trigger when the mould starts to open
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC MouldIsOpening : BOOL
+%FOLDER Properties
+GET
+MouldIsOpening := TriggerMouldClosed.Q_Falling;
+END_GET
+END_PROPERTY
+
+// Returns true when the mould is completely opened
+{attribute 'monitoring':='variable'}
+PROPERTY PUBLIC RequestFullMouldOpen : BOOL
+%FOLDER Properties
+GET
+// Mould is fully opened.
+IF  xMouldOpen
+AND NOT xMouldClosed
+AND sensorMouldOpen
+AND sensorIntermediateOpen
+AND (AutoOperation XOR SER.OperationMode = SER_OperationModeType.SemiAuto)
+AND xDoorsClosed
+AND (mouldWasClosed OR SER.OperationMode = SER_OperationModeType.SemiAuto)	// Mould has been closed to produce a shot
+
+
+THEN
+	RequestFullMouldOpen := TRUE;
+END_IF
+END_GET
+END_PROPERTY
+
+// Returns true when the Y unit has permission to move into the mould area
+{attribute 'monitoring':='variable'}
+PROPERTY PUBLIC RequestMouldEntry : BOOL
+%FOLDER Properties
+GET
+// Use Early Mould Entry option and start moving before the mould is fully opened.
+IF  Data.xIntermediateOpenEnable
+AND SER.ActState <> PACK_ML.State.Starting
+AND xIntermediateOpen
+AND sensorIntermediateOpen
+AND (AutoOperation XOR SER.OperationMode = SER_OperationModeType.SemiAuto)
+AND xDoorsClosed
+AND (mouldWasClosed OR SER.OperationMode = SER_OperationModeType.SemiAuto)	// Mould has been closed to produce a shot
+THEN
+	RequestMouldEntry := TRUE;
+
+// Enter mould area when mould is fully opened.
+ELSIF RequestFullMouldOpen THEN
+	RequestMouldEntry := TRUE;
+
+END_IF
+END_GET
+END_PROPERTY

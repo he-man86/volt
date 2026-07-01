@@ -1,0 +1,57 @@
+FUNCTION_BLOCK ABSTRACT ToJsonBaseFB
+VAR_INPUT
+	execute					: BOOL;
+END_VAR
+VAR_OUTPUT
+	busy					: BOOL;
+	done					: BOOL;
+END_VAR
+VAR
+	chunk					: UINT;
+	sw						: StopwatchFB;
+END_VAR
+
+IF execute THEN
+	IF NOT busy THEN
+		chunk		:= 0;
+	END_IF
+	busy			S= NOT done;
+ELSE
+	done			:= FALSE;
+END_IF
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED CreateJson
+VAR_INPUT
+	psProperties				: POINTER TO STRING(1);		// Double array: key/value [0..*,0..1]
+	udiPropertiesArraySize		: UDINT;					// Total size of array
+	udiPropertiesStringLength	: UDINT;					// Length of string (key/value)
+	psJSON						: POINTER TO STRING(1);		// Output for content
+	udiJSONStringLength			: UDINT;					// Length of string
+END_VAR
+VAR_INST
+	JSON_builder			: L_ITCA_JSON_Builder_Variable;
+END_VAR
+
+// L_ITCA_JSON_Builder_Variable FB always finishes the same PLC cycle.
+// It could actually be a Function instead
+// JSON libs received from Lenze and stored here: N:\Software\Automation\Lenze\Libraries\Lenze JSON lib
+// Create content
+JSON_builder(
+	xExecute					:= TRUE,
+	psProperties				:= psProperties,
+	udiPropertiesArraySize		:= udiPropertiesArraySize,
+	udiPropertiesStringLength	:= udiPropertiesStringLength,
+	psJSON						:= psJSON,
+	udiJSONStringLength			:= udiJSONStringLength);
+
+JSON_builder(
+	xExecute					:= FALSE);
+END_METHOD
+
+// Enables the FB to recreate the JSON while execute input remains high
+METHOD PUBLIC Reset
+busy	:= FALSE;
+done	:= FALSE;
+END_METHOD

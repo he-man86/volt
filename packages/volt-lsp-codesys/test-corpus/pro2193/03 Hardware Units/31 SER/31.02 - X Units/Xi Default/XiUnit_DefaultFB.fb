@@ -1,0 +1,453 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK XiUnit_DefaultFB
+EXTENDS ModuleWithServoBaseFB
+IMPLEMENTS IXiUnit_Default_Transfer_Commands, IXiUnit_Default_PlaceInMould_Commands
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	Charger						: ARRAY[1..MaxChargers] OF ChargerFB;
+	{attribute 'symbol' := 'readwrite'}	Vacuum						: ARRAY[1..MaxVacuums] OF VacuumFB;
+	{attribute 'symbol' := 'readwrite'}	BufferAir					: AirBufferFB;
+	{attribute 'symbol' := 'readwrite'}	LockCores					: ActuatorWithManualControlFB;
+END_VAR
+VAR_IN_OUT
+	Data						: XiUnit_Default_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum;
+END_VAR
+VAR CONSTANT
+	MaxVacuums					: USINT	:= XiUnits.MaxVacuums;
+	MaxChargers					: USINT	:= XiUnits.MaxChargers;
+	EnableHalfwayPosition		: BOOL	:= TRUE;	// Drive moves to a position when the Y drive moves onto the safety strip
+END_VAR
+
+SUPER^(
+	AxisRef				:= AxisRef,
+	DataBrink			:= DataBrink,
+	coveredDistance		:= coveredDistance,
+);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..2] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= XiUnit_Errors,
+	errorId			:= 5,		//1205 - Xi Axis: Ref. sensor. Check parking pos. of Xi Axis.
+	alarmCondition	:= Drive.HomingSensor AND Drive.PosReached(Data.ParkingPos.value),
+	alarmDelay		:= 2.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= SEL(SER.InAutomaticOperation, enumErrorReaction.No_reaction, enumErrorReaction.FastStop),
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= XiUnit_Errors,
+	errorId			:= 1,
+	alarmCondition	:= FALSE,	//Main.I.QuickStop AND NOT PositionReached(Drive.rActPosition, Drive.rSetPosition) AND (Drive.eSetMode = Brink.DriveMode.AutomaticMode OR System.On),
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.FastStop,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	guardPosition				: ARRAY[1..5] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
+	attachPosition				: ARRAY[1..5] OF AttachPosToButtonFB(							drive			:= Drive);
+	guardReleaseVacuumDistance	: ARRAY[1..MaxVacuums] OF GuardRealFB(							moduleHandler	:= ModuleHandler);
+
+END_VAR
+VAR
+	i		: USINT;
+END_VAR
+FOR i := 1 TO MaxChargers DO
+	Data.rSetPointCharger[i].lowerLimit	:= 0.0;
+	Data.rSetPointCharger[i].upperLimit	:= 20.0;	// Upper limit of charger setpoint
+
+	Charger[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= XiUnit_Errors,
+		errorId					:= SEL(i=2, 19, 20),		// 1119 - @iLinked.Axis.Xi@: @iSource.Alarms.MaximumNumberOfChargerFaultsReached@
+		alarmEnable				:= TRUE,
+		alarmDelay				:= 0.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		xChargerCycleOk			:= ,
+		rSetPointCharger		:= Data.rSetPointCharger[i],
+		xAutoCycleActive		:= SER.InAutomaticOperation);
+END_FOR
+
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i](
+		moduleHandler			:= ,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= ,
+		alarmEnable				:= ,
+		alarmDelay				:= ,
+		severity				:= ,
+		reaction				:= ,
+		refVacuumHighTime		:= Data.rWrapAroundCoresDelay,
+		refReleaseVacuumTime	:= ,
+		enableDuringSemiAuto	:= NOT SER.semiAutoInContinuousMode);
+END_FOR
+
+BufferAir(
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	vacuums					:= itfVacuums);
+
+LockCores(
+	manualControlEnabled	:= SER.ManualControlEnabled);
+
+IF  NOT SER.InAutomaticOperation
+AND NOT SER.VacuumPumps.xHighVacuumtankFull
+THEN
+	Arrays.Vacuum_ReleaseAll(itfVacuums);
+END_IF
+
+
+// Set limits for the positions, and guard the limits
+Data.ParkingPos.lowerLimit				:= DataBrink.rSWLimitNeg;
+Data.ParkingPos.upperLimit				:= MIN(Data.LabelInsert.Pos.value, Data.LabelPickup.Pos.value);
+
+Data.HalfwayPos.lowerLimit				:= Data.ParkingPos.value;
+Data.HalfwayPos.upperLimit				:= Data.LabelPickup.Pos.value;
+
+Data.LabelInsert.Pos.lowerLimit			:= Data.ParkingPos.value;
+Data.LabelInsert.Pos.upperLimit			:= DataBrink.rSWLimitPos;
+
+FOR i := 1 TO MaxVacuums DO
+	Data.EarlyReleaseVacuumDistance[i].lowerLimit	:= 0;
+	Data.EarlyReleaseVacuumDistance[i].upperLimit	:= Data.LabelInsert.Pos.value - Data.ParkingPos.value;
+	Data.EarlyReleaseVacuumDistance[i].stepSize		:= 20;
+END_FOR
+
+Data.EarlyStartChargerDistance.lowerLimit			:= 0;
+Data.EarlyStartChargerDistance.upperLimit			:= Data.LabelInsert.Pos.value - Data.ParkingPos.value;
+Data.EarlyStartChargerDistance.stepSize				:= 20;
+
+Data.LabelPickup.Pos.lowerLimit			:= Data.ParkingPos.value;
+Data.LabelPickup.Pos.upperLimit			:= DataBrink.rSWLimitPos;
+
+guardPosition[1](value := Data.ParkingPos);
+IF EnableHalfwayPosition THEN
+	guardPosition[2](value := Data.HalfwayPos);
+END_IF
+guardPosition[3](value := Data.LabelInsert.Pos);
+guardPosition[4](value := Data.LabelPickup.Pos);
+guardPosition[5](value := Data.EarlyStartChargerDistance);
+
+FOR i := 1 TO MaxVacuums DO
+	guardReleaseVacuumDistance[i](value := Data.EarlyReleaseVacuumDistance[i]);
+END_FOR
+
+attachPosition[1](value := Data.ParkingPos);
+IF EnableHalfwayPosition THEN
+	attachPosition[2](value := Data.HalfwayPos);
+END_IF
+attachPosition[3](value := Data.LabelInsert.Pos);
+attachPosition[4](value := Data.LabelPickup.Pos);
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxChargers DO
+	Charger[i].Reset();
+END_FOR
+LockCores.Reset();
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+
+Drive.Quickstop(TRUE);
+
+EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
+END_METHOD
+
+// Gets labels by starting a vacuum. Parameter indicates which vacuum (inlay-core) to start
+METHOD PUBLIC GetLabels : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF vacuumIndex = AllVacuums THEN
+	IF Arrays.Vacuum_SetAll(itfVacuums) THEN
+		GetLabels := CommandLock.Release(__POUNAME());
+	END_IF
+
+ELSIF Arrays.Vacuum_SetSelected(itfVacuums, vacuumIndex) THEN
+	GetLabels := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+METHOD PROTECTED Initialize
+VAR
+	i		: USINT;
+END_VAR
+SUPER^.Initialize();
+
+// Set interfaces to correct vacuum instances
+FOR i := 1 TO MaxVacuums DO
+	itfVacuums[i]				:= Vacuum[i];
+END_FOR
+END_METHOD
+
+// Move to a position somewhere halfway, while the Y axis is still exiting the mould.
+METHOD MoveToHalfway : BOOL
+VAR_INPUT
+END_VAR
+%FOLDER Commands/Shared
+IF NOT EnableHalfwayPosition THEN
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+LockCores.Set();
+
+Drive.SetMovementProfileData(Data.LabelPickup);
+
+MoveToHalfway := Drive.MoveAbsPos(Data.HalfwayPos.value);
+
+CommandLock.Release(__POUNAME());
+END_METHOD
+
+// Make the X drives go to the parking position on start of program
+METHOD PUBLIC MoveToParking : BOOL
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+	almostSafe		: BOOL;		// Drive almost arrived in position
+END_VAR
+%FOLDER Commands/Shared
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Drive.SetMovementProfileData(Data.ParkingProfileOutMould);
+END_IF
+
+LockCores.Set();
+
+almostSafe	:= NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value, 20);
+
+IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
+	MoveToParking := CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeover : BOOL
+VAR_INPUT
+	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
+END_VAR
+%FOLDER Commands/Shared
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+LockCores.Set();
+
+CASE takeoverPosition OF
+	1:
+		IF Drive.MoveAbs(Data.LabelPickup) THEN
+			MoveToTakeover := CommandLock.Release(__POUNAME());
+		END_IF
+
+	ELSE
+		;	// Invalid parameter
+END_CASE
+END_METHOD
+
+// Place the labels into the cavities of the mould
+METHOD PUBLIC PlaceInMould : BOOL
+VAR_INST
+	localState			: SINT;
+	Timer				: BTON;
+//	switchSpeed			: BOOL;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState	:= 0;
+//	switchSpeed	:= FALSE;
+END_IF
+
+CASE localState OF
+	0:
+		LockCores.Reset();
+
+		// Early release of vacuums when moving past a position
+		FOR i := 1 TO MaxVacuums DO
+			IF Drive.PosLargerOrEqual(Data.LabelInsert.Pos.value, Data.EarlyReleaseVacuumDistance[i].value) THEN
+				Vacuum[i].Reset();
+			END_IF
+		END_FOR
+
+		// Start charging the label when moving past a position
+		IF Drive.PosLargerOrEqual(Data.LabelInsert.Pos.value, Data.EarlyStartChargerDistance.value) THEN
+			FOR i := 1 TO MaxChargers DO
+				Charger[i].Set();
+			END_FOR
+		END_IF
+
+		IF  Drive.MoveAbs(Data.LabelInsert)
+		AND Drive.HomingSensor
+		THEN
+			Arrays.Vacuum_ReleaseAll(itfVacuums);
+			FOR i := 1 TO MaxChargers DO
+				Charger[i].Set();
+			END_FOR
+			Timer.Reset();
+			InjectionMouldingMachine.Unit.HasLabels	:= TRUE;	// Set a flag to remember that there are labels inside the mould.
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Increment.AnyInt(localState, 1, Timer.Set(TRUE, Data.rWaitTimeInMould));
+
+	2:
+		Drive.EnableContinuousUpdate(Data.SlowStart.xEnable);
+
+		IF  Data.SlowStart.xEnable					// Act position is in slow start area. Use slow profile
+		AND Drive.PosLargerOrEqual(Data.LabelInsert.Pos.value, Data.SlowStart.rDistance)
+		THEN
+			Drive.SetMovementProfileSeparate(
+				rVel := Data.ParkingProfileInMould.rVel,
+				rAcc := Data.SlowStart.rAcceleration,
+				rDec := Data.ParkingProfileInMould.rDec);
+		ELSE										// Slowstart option not enabled. Use normal profile.
+			Drive.SetMovementProfileData(Data.ParkingProfileInMould);
+		END_IF
+
+(*		IF NOT Data.SlowStart.xEnable THEN		// Slowstart option not enabled. Use normal profile.
+			Drive.SetMovementProfileData(Data.ParkingProfileInMould);
+		ELSIF Drive.actPos > Data.LabelInsert.Pos.value - Data.SlowStart.rDistance THEN	// Act position is in slow start area. Use slow profile
+			Drive.SetMovementProfileSeparate(
+				rVel := Data.ParkingProfileInMould.rVel,
+				rAcc := Data.SlowStart.rAcceleration,
+				rDec := Data.ParkingProfileInMould.rDec);
+		ELSIF NOT switchSpeed THEN					// Drive leaves slow start area. Write new profile to drive once.
+			switchSpeed := TRUE;
+			Drive.SetMovementProfileData(Data.ParkingProfileInMould);
+		END_IF*)
+
+		IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
+			FOR i := 1 TO MaxChargers DO
+				Charger[i].Reset();
+			END_FOR
+			LockCores.Set();
+			InjectionMouldingMachine.Unit.NextCycleHasLabels	:= FALSE;
+			PlaceInMould := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	result				: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		Drive.globalSpeedOverrideEnable := FALSE;
+		IF Drive.Home() THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:
+		Drive.SetMovementProfileSeparate(DataBrink.homingSpeed, 100, 100);
+
+		IF Drive.MoveAbsPos(Data.ParkingPos.value) AND InSafePos THEN
+			Drive.globalSpeedOverrideEnable := TRUE;
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:
+		LockCores.Reset();
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+VAR
+	i		: USINT;
+END_VAR
+%FOLDER Commands
+FOR i := 1 TO MaxChargers DO
+	Charger[i].Reset();
+END_FOR
+LockCores.Reset();
+
+IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
+	Drive.Halt();
+END_IF
+
+Stop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.Stop();
+END_METHOD
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_All(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Output)
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Any(
+		vacuumArray	:= itfVacuums,
+		condition	:= TRUE,
+		channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY
+
+// The X axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
+END_GET
+END_PROPERTY

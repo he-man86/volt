@@ -1,0 +1,17 @@
+// Commands specific for an Xu Unit
+INTERFACE IXuUnit_Default_Commands
+EXTENDS IModuleHasPayload, IModuleHasTakeoutPos, __SYSTEM.IQueryInterface
+
+// Copy the product data from the IMM of the produced shot.
+METHOD PUBLIC ProductData_Set
+VAR_INPUT
+	ProductsInMould	: ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Constants.MaxProductsInY] OF ProductType;
+END_VAR
+END_METHOD
+
+// The X axis is in a safe position to enter the mould.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+END_PROPERTY
+
+END_INTERFACE

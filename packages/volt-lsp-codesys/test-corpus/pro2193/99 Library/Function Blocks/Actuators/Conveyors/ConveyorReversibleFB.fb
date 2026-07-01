@@ -1,0 +1,72 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ConveyorReversibleFB
+EXTENDS ConveyorFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'read'}	OutputReverse			: ActuatorFB;
+END_VAR
+
+SUPER^(profile := profile);
+
+// Instantiate the output
+OutputReverse();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+NotRunningAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND (beltRunning XOR (Output.Map() OR OutputReverse.Map())),
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	IF Output.Map() THEN	// Conveyor moving forward
+		Reset();
+	ELSE
+		Set();
+	END_IF
+END_IF
+
+IF minButtonPushed THEN
+	IF OutputReverse.Map() THEN	// Conveyor moving in reverse
+		Reset();
+	ELSE
+		Reverse();
+	END_IF
+END_IF
+END_METHOD
+
+// Maps the actuator to start conveyor in reverse
+METHOD MapReverse : BOOL
+MapReverse := OutputReverse.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+SUPER^.Reset();
+OutputReverse.Reset();
+END_METHOD
+
+METHOD Reverse : BOOL
+VAR_INPUT
+END_VAR
+SUPER^.Set();
+OutputReverse.Set();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+SUPER^.Set();
+OutputReverse.Reset();
+END_METHOD

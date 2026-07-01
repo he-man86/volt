@@ -1,0 +1,84 @@
+{attribute 'monitoring_display' := 'GateStatus'}
+FUNCTION_BLOCK GatesControlIMMCircuitFB
+VAR_INPUT
+	xGateAllowedOpen			: BOOL;				// High when it is allowed to open the gate (Stopped or Idle state)
+	xSafetyGateRelay			: BOOL;
+END_VAR
+VAR_OUTPUT
+	xPnozMulti2Acknowledgement	: BOOL;
+END_VAR
+VAR_IN_OUT
+	xRequestForOpening			: BOOL;
+	xAcknowledgement			: BOOL;
+END_VAR
+VAR
+	IMMRequestForOpening		: ActuatorFB;
+	IMMAcknowledgement			: ActuatorFB;
+	Tr_AcknowledgementRequest	: R_Trig;
+	T_SafetyGateRelay			: BTON;
+	T_Timer						: BTON;
+	GateStatus					: enumGateStates;
+END_VAR
+
+Tr_AcknowledgementRequest(CLK := xAcknowledgement);
+T_SafetyGateRelay.Set(xSafetyGateRelay, 0.5);
+
+CASE GateStatus OF
+enumGateStates.Opened://Gate opened
+	IMMRequestForOpening.SetOrReset(xGateAllowedOpen AND xRequestForOpening);
+	IMMAcknowledgement.Reset();
+	xPnozMulti2Acknowledgement	:= FALSE;
+
+	IF xAcknowledgement AND NOT xRequestForOpening THEN
+		GateStatus	:= enumGateStates.Closed;
+	END_IF
+
+enumGateStates.Closed://Gate closed and button pressed, Acknowledge request to PnozMulti2, IMM gate opened
+	IMMRequestForOpening.Reset();
+	IMMAcknowledgement.Reset();
+	xPnozMulti2Acknowledgement	:= TRUE;
+	T_Timer.Set(TRUE, 2);
+
+	IF xSafetyGateRelay THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Acknowledged;
+	ELSIF xRequestForOpening OR (T_Timer.Q AND NOT xAcknowledgement) THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Opened;
+	END_IF
+
+enumGateStates.Acknowledged://Gate Acknowledged, delay Acknowledge sinal to IMM
+	IMMRequestForOpening.Reset();
+	IMMAcknowledgement.Reset();
+	xPnozMulti2Acknowledgement	:= FALSE;
+	T_Timer.Set(TRUE, 0.1);
+
+	IF T_SafetyGateRelay.Q AND T_Timer.Q THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Locked;
+	ELSIF xRequestForOpening OR NOT xSafetyGateRelay THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Opened;
+	END_IF
+
+enumGateStates.Locked://Acknowledge signal to IMM for 0.5 second or Button is pressed
+	IMMRequestForOpening.Reset();
+	IMMAcknowledgement.SetOrReset(NOT T_Timer.Set(TRUE, 0.5) OR xAcknowledgement);
+	xPnozMulti2Acknowledgement	:= xAcknowledgement;
+
+	IF Tr_AcknowledgementRequest.Q THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Acknowledged;
+	ELSIF xRequestForOpening OR NOT xSafetyGateRelay THEN
+		T_Timer.Reset();
+		GateStatus	:= enumGateStates.Opened;
+	END_IF
+END_CASE
+
+xRequestForOpening	:= FALSE;
+xAcknowledgement	:= FALSE;
+
+IMMRequestForOpening();
+IMMAcknowledgement();
+
+END_FUNCTION_BLOCK

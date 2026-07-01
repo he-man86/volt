@@ -1,0 +1,50 @@
+// When disabled a sensor will always return TRUE when asked! So the program will continue and ignore the sensor.
+{attribute 'no_explicit_call' := 'No need to call this FB. No code to execute!'}
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'IsActive'}
+FUNCTION_BLOCK DigitalSensorWithEnableFB
+EXTENDS DigitalSensorFB
+VAR
+	_isEnabled		: BOOL;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+// Sensor is active (SensorInput is opposite of the Invert signal)
+{attribute 'monitoring':='call'}
+PROPERTY IsActive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsActive := NOT IsEnabled OR_ELSE SUPER^.IsActive;
+END_GET
+END_PROPERTY
+
+// Sensor is enabled or disabled
+{attribute 'monitoring':='call'}
+PROPERTY IsEnabled : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsEnabled := _isEnabled;
+END_GET
+SET
+PUBLIC
+VAR
+END_VAR
+_isEnabled := IsEnabled;
+END_SET
+END_PROPERTY
+
+// Sensor is inactive (SensorInput is false (or true when inverted))
+{attribute 'monitoring':='call'}
+PROPERTY IsInactive : BOOL
+GET
+PUBLIC
+VAR
+END_VAR
+IsInactive := NOT IsEnabled OR_ELSE SUPER^.IsInactive;
+END_GET
+END_PROPERTY

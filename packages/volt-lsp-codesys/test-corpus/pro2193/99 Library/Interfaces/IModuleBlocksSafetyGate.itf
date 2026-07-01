@@ -1,0 +1,26 @@
+// This module can block a safety gate from opening. For example an Z Unit that needs to move up before the gate can open.
+INTERFACE IModuleBlocksSafetyGate
+EXTENDS IModuleWithCommandLock
+
+// Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateCloseCancelled
+END_METHOD
+
+// Gate close button is pushed. Safety gate is requesting to close (trigger signal)
+METHOD PUBLIC GateCloseRequested
+END_METHOD
+
+// Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateOpenCancelled
+END_METHOD
+
+// Gate open button is pushed. Safety gate is requesting to open (trigger signal)
+METHOD PUBLIC GateOpenRequested
+END_METHOD
+
+// Used by modules like: Z and M units, true when module is in a position where gate is free to open.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForGate : BOOL
+END_PROPERTY
+
+END_INTERFACE

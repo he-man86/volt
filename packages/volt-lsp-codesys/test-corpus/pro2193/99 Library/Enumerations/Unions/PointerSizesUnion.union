@@ -1,0 +1,17 @@
+// Access data at pointer address as any datatype
+TYPE PointerSizesUnion :
+UNION
+	p1_Sint		: POINTER TO SINT;
+	p2_Int		: POINTER TO INT;
+	p4_Dint		: POINTER TO DINT;
+	p8_Lint		: POINTER TO LINT;
+	p4_Real		: POINTER TO REAL;
+	p8_LReal	: POINTER TO LREAL;
+	p1_Byte		: POINTER TO BYTE;
+	p2_Word		: POINTER TO WORD;
+	p4_DWord	: POINTER TO DWORD;
+	p8_LWord	: POINTER TO LWORD;
+END_UNION
+END_TYPE
+
+// In a union, all variables start at the same address. So all pointers above are stored in the same memory location, and take up the same space as a single pointer.

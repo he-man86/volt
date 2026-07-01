@@ -1,0 +1,54 @@
+// Push button that is any of the buttons defined in enumHWButtons. Button sends state to attached observers
+FUNCTION_BLOCK PUBLIC PushButtonWithObserverFB
+EXTENDS PushButtonLedFB
+IMPLEMENTS IActuator, ISubject
+VAR_INPUT
+	buttonType				: enumHWButtons;	// The type of button will be supplied to attached observers
+END_VAR
+VAR
+	Subject					: SubjectHWButtonFB;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Attach (subscribe) an observer to this subject. The observer will receive state from the subject.
+METHOD PUBLIC Attach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+Attach := Subject.Attach(observer);
+END_METHOD
+
+// Detach (unsubscribe) an observer from this subject. The observer do longer receives updates.
+METHOD PUBLIC Detach : BOOL
+VAR_INPUT
+	observer			: IObserver;
+END_VAR
+Detach := Subject.Detach(observer);
+END_METHOD
+
+METHOD PROTECTED HandlePushed
+SUPER^.HandlePushed();
+
+Subject.ButtonType	:= buttonType;
+Subject.ButtonState	:= TRUE;
+Subject.Notify();
+END_METHOD
+
+METHOD PROTECTED HandleReleased
+SUPER^.HandleReleased();
+
+Subject.ButtonType	:= buttonType;
+Subject.ButtonState	:= FALSE;
+Subject.Notify();
+END_METHOD
+
+// The actual number of observers that are receiving events
+{attribute 'monitoring' := 'call'}
+PROPERTY ObserverCount : UINT
+GET
+ObserverCount := Subject.ObserverCount;
+END_GET
+END_PROPERTY

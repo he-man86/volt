@@ -1,0 +1,7 @@
+TYPE RecipeMetaDataType :
+STRUCT
+	saveDate		: DT;			// Date/time when recipe was last saved
+	savedByUser		: STRING(80);	// The user that last saved this recipe
+	description		: STRING(255);	// Description of the recipe
+END_STRUCT
+END_TYPE

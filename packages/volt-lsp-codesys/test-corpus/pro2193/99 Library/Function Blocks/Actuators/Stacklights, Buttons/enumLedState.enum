@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumLedState :
+(
+	Off			:= 0,
+	Solid		:= 1,
+	Flashing	:= 2,
+	ForcedOn	:= 3,
+	ForcedOff	:= 4
+);
+END_TYPE

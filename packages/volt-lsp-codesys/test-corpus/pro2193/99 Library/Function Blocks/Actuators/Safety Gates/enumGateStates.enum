@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enumGateStates :
+(
+	Opened,			// Door is opened
+	Closed,			// Door is physically closed, but not acknowledged
+	Acknowledged,	// Door is locked by cylinder or magnet
+	Locked			// Door is locked, and not allowed to open
+);
+END_TYPE

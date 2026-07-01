@@ -1,0 +1,48 @@
+// Commands specific for a Magazine Unit
+INTERFACE IConveyor_Shared_Move_Commands
+EXTENDS IConveyor_Shared_Commands
+
+METHOD PUBLIC GetCurrentMaxStackingHeight : UINT
+VAR_INPUT
+	firstStackAfterCycleStart	: BOOL;
+END_VAR
+END_METHOD
+
+// Toggle the move continuously mode on or off
+METHOD PUBLIC MoveContinuouslyToggle
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Start command for the conveyor to move the stacks
+METHOD PUBLIC MoveStep : BOOL
+END_METHOD
+
+// Returns coordinates and status of stack to pick by the Fanuc
+METHOD PUBLIC ReturnNextStack : REFERENCE TO StackStatusType
+VAR_OUTPUT
+	indexX	: USINT;
+	indexY	: USINT;
+END_VAR
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+END_METHOD
+
+// Conveyor process determent that the current stack is full and no more products are allowed
+{attribute 'monitoring':='call'}
+PROPERTY CurrentStackFull : BOOL
+END_PROPERTY
+
+// The conveyor has stacks on it
+{attribute 'monitoring':='call'}
+PROPERTY HasStacks : BOOL
+END_PROPERTY
+
+// The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
+//{attribute 'monitoring':='call'} Monitoring attribute is not supported for this property :(
+PROPERTY ProductsOnTopOfStack : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType
+END_PROPERTY
+
+END_INTERFACE

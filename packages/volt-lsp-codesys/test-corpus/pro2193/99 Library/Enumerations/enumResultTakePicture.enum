@@ -1,0 +1,12 @@
+// Used by Vision system to return result of Taking a picture
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumResultTakePicture :
+(
+	Busy		:= 0,
+	Ok,
+	NoPicTaken,
+	Error
+) SINT;
+END_TYPE

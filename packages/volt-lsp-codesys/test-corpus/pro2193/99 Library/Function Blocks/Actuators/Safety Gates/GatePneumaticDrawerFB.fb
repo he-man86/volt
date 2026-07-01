@@ -1,0 +1,57 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'eState'}
+FUNCTION_BLOCK GatePneumaticDrawerFB
+EXTENDS GateBaseFB
+VAR_INPUT
+	drawer					: IModuleBlocksSafetyGate;
+END_VAR
+VAR
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	drawerLockedForGate	: BOOL;
+	gateOpenPermission	: BOOL;
+	Blinker				: BLINK;
+END_VAR
+SUPER^.Cyclic();
+
+// Get drawer hardware control and prevent other actions on the drawer
+IF  eState <> enumGateStates.Locked
+AND (ButtonLock.buttonInput OR ButtonUnLock.buttonInput)
+AND_THEN drawer.LockRequest(InstanceName)
+THEN
+	drawerLockedForGate := TRUE;
+END_IF
+
+IF (ButtonLock.buttonInput OR ButtonUnLock.buttonInput)					// Some button is being pressed
+AND drawerLockedForGate													// Don't do anything when the drawer is not ours
+AND (moduleThatBlocks = 0 OR_ELSE moduleThatBlocks.InSafePosForGate)	// Gate is not safe to open. First a module must move to a safe spot.
+THEN
+	// Drawers are a little different for every machine, so you can adjust how strong the cylinder acts here.
+	Blinker(ENABLE:= TRUE, TIMELOW:= T#500MS, TIMEHIGH:= T#1500MS, OUT=> );
+	IF drawer.InSafePosForGate OR Blinker.OUT THEN	// Cylinder must be set when on the safety sensor or on the high time of the blinker
+		IF ButtonUnLock.buttonInput THEN
+			drawer.GateOpenRequested();				// Help opening the gate
+		ELSIF ButtonLock.buttonInput AND xGateAllowedClosed THEN
+			drawer.GateCloseRequested();			// Help closing the gate
+		END_IF
+	ELSE
+		drawer.GateOpenCancelled();					// Not in safe pos and blinker is low, or Button is released
+		drawer.GateCloseCancelled();				// Not in safe pos and blinker is low, or Button is released
+	END_IF
+END_IF
+
+IF (ButtonLock.ButtonReleased OR ButtonUnLock.ButtonReleased)
+AND drawerLockedForGate
+THEN
+	drawerLockedForGate := FALSE;
+	drawer.GateOpenCancelled();
+	drawer.GateCloseCancelled();
+	drawer.LockRelease(InstanceName);
+END_IF
+END_METHOD

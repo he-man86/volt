@@ -1,0 +1,44 @@
+// Check if a sensor does NOT detect a product somewhere within a window
+FUNCTION_BLOCK PUBLIC ModuloCheckSensorOnPosition
+VAR_INPUT
+	enable					: BOOL;		// Enable the calculation
+	position				: REAL;		// Actual position of C Axis
+	stepDistance			: REAL;		// Step distance of C Axis
+	sensorPosition			: REAL;		// Middle position of the gap where the sensor can detect something
+	hysteresis				: REAL;		// Gap of the sensor measured from the sensorPosition
+	sensor					: BOOL;		// Connected sensor
+END_VAR
+VAR_OUTPUT
+	leftWindow				: BOOL;		// Trigger output: Chain just left the measuring window
+	productDetected			: BOOL;		// Trigger output: A product was detected within the last window
+END_VAR
+VAR
+	delta					: REAL;		// Result of mod function
+	inWindow				: BOOL;		// Reading the sensor is enabled.
+	inWindowTrigger			: TriggerFB;
+	sensorDetected			: BOOL;
+END_VAR
+
+IF NOT enable THEN
+	leftWindow		:= FALSE;
+	productDetected	:= FALSE;
+	RETURN;
+END_IF
+
+// Get the remainder of position / stepDistance. This is how much the position is different.
+delta				:= TO_REAL( TO_DINT(position * 10) MOD TO_DINT(stepDistance * 10) ) / 10;
+
+// Delta goes from 0 to stepDistance. Check if sensorPosition is in range.
+inWindow			:= ModuloTools.PositionReached(delta, sensorPosition, TO_DINT(stepDistance), hysteresis);
+
+// Save result when sensor is detected within the window
+sensorDetected		S= sensor AND inWindow;
+
+// Give output when leaving window, and sensor is not detected (so a product is present).
+leftWindow			:= inWindowTrigger.Falling(CLK := inWindow);
+productDetected		:= leftWindow AND NOT sensorDetected;
+
+// When leaving the window, reset result
+sensorDetected		R= NOT inWindow;
+
+END_FUNCTION_BLOCK

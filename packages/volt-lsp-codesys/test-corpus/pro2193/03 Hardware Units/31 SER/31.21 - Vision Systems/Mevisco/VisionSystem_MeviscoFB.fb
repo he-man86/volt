@@ -1,0 +1,285 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK VisionSystem_MeviscoFB
+EXTENDS VisionSystem_BaseFB
+IMPLEMENTS IVisionSystem_Mevisco_Commands
+VAR_INPUT
+	ready					: BOOL;			// Signals that the image processing software is running and ready for execution
+	resultToggle			: BOOL;			// Toggle signal to notify that a new set of results is available. Changes everytime when new results are available.
+	OK						: BOOL;			// Signals that all cameras classified this test object as OK.
+	bypassMode				: BOOL;			// Displays that the image processing system is in Bypass-mode. All object are classified as OK objects.
+	imageAcquisition		: BOOL;			// Pulse 5ms. If everything is fine, the signal should come approx. 50ms after the trigger signal. This means that all 7 cameras have sent their image to the PC.
+											// If something is wrong with the cameras or the cables (e.g. a broken trigger cable) our software generates an “Image acquisition error” after a certain timeout. This timeout could be set to 200ms, for example. In this error case the “ImageAcquisition” signal will not come 50ms, but 200ms after the trigger. We can additionally send a dedicated error signal in case our software detects an image acquisition error.
+	idle					: BOOL;			// High level indicates that all image processing tasks have been completed and the system is waiting for the next images to process. But: even when the signal is low, the system accepts incoming triggers and puts the images in a buffer waiting to be processed. So in summary, our Idle signal is just an inverted Busy signal.
+	triggerSensor			: BOOL;			// Direct sensor signal (for on the fly triggering)
+	error					: BOOL;
+	camOK					: ARRAY[1..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;				// Signals for each camera or line the classification of the object. A line is the logical AND-connection of multiple cameras.
+
+	{attribute 'symbol' := 'readwrite'}	DisableTrigger			: ActuatorWithManualControlFB;		// Trigger signal for the cameras. Starts the image acquisition and the whole processing
+	{attribute 'symbol' := 'readwrite'}	Cavity_Reset			: ActuatorWithManualControlFB;		// Used for the cavity statistic to prevent the statistics counters from divergence
+	{attribute 'symbol' := 'readwrite'}	Activate_BypassMode		: ActuatorWithManualControlFB;		// As long the signal is applied the image processing switchs to the Bypass Mode
+	{attribute 'symbol' := 'readwrite'}	Error_Reset				: ActuatorWithManualControlFB;		// Not in use
+	PulseOutput				: PulseActuatorFB;
+	TriggerOutput			: ActuatorFB;
+END_VAR
+VAR_IN_OUT
+	DataMevisco				: VisionSystem_Mevisco_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	resultToggleOld		: BOOL;
+	triggerTimer		: TP;
+END_VAR
+
+(*
+The rising and falling edges are usually detected by a PLC with different delays. That means:
+When an edge change of the Result Toggle signal is detected, then the reading of the result signals
+should be delayed.
+The delay complies with the electronic specifications of the PLC. When an input clamp is specified
+with 3 to 5 ms then there should be a delay of 2 ms after the recognition of an edge change of
+the toggle signal (difference of 5 ms-3 ms).If no delay is programmed it could happen that a wrong
+signal status is read.
+In general a delay of 5 ms is fine. Look at the specification of the PLC in use!
+*)
+
+SUPER^(Data := Data);
+
+triggerTimer(IN := triggerSensor, PT := T#20MS);
+TriggerOutput();
+TriggerOutput.SetOrReset(triggerTimer.Q);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..3] OF SetErrorFB;
+END_VAR
+SUPER^.Alarms();
+
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 6,
+	alarmCondition	:= SER.InAutomaticOperation
+					AND PersistentVars.RecipeVars.EnableVision
+					AND NOT Data.overrideRunmodeReject
+					AND NOT ready,
+	alarmDelay		:= 0.1,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 7,
+	alarmCondition	:= SER.InAutomaticOperation
+					AND PersistentVars.RecipeVars.EnableVision
+					AND NOT Data.overrideRunmodeReject
+					AND bypassMode,
+	alarmDelay		:= 0.1,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= VisionSystem_Errors,
+	errorId			:= 8,
+	alarmCondition	:= SER.InAutomaticOperation
+					AND PersistentVars.RecipeVars.EnableVision
+					AND NOT Data.overrideRunmodeReject
+					AND error,
+	alarmDelay		:= 0.1,
+	severity		:= enumErrorSeverity.Warning_Lock,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	ResultReadyDelay	: TON;
+END_VAR
+VAR
+	i					: USINT;
+END_VAR
+DisableTrigger(
+	manualControlEnabled	:= );
+
+Cavity_Reset(
+	manualControlEnabled	:= );
+
+Activate_BypassMode(
+	manualControlEnabled	:= );
+
+PulseOutput(
+	pulseTimeLow	:= ,
+	pulseTimeHigh	:= );
+
+// Put Mevicxo in Bypass mode when Vision is disabled during automatic operation. This will blink a warning light at the Mevisco cabinet.
+//IF SER.InAutomaticOperation AND SER.OperationMode = SER_OperationModeType.Production THEN
+	Activate_BypassMode.SetOrReset(NOT PersistentVars.RecipeVars.EnableVision);
+//END_IF
+
+
+// -------------- Handle the Result Ready (resultToggle) signal from Mevisco cameras -------------
+ResultReadyDelay(IN := resultToggle <> resultToggleOld, PT := T#4MS);
+
+IF ResultReadyDelay.Q THEN
+
+	// Set all reject reasons when there is no reason specified for a rejected product.
+	IF NOT OK AND_THEN arrays.Bool_All(camOK, FALSE) THEN
+		FOR i := 1 TO GVL_Constants.MaxRejectReasonsCamera DO
+			_results[i] := TRUE;
+		END_FOR
+	ELSE
+		FOR i := 1 TO GVL_Constants.MaxRejectReasonsCamera DO
+			_results[i] := NOT camOK[i];
+		END_FOR
+	END_IF
+
+	IF NOT OK THEN
+		PulseOutput.AddPulse();
+	END_IF
+
+	// Mark all results as OK, when Mevisco in bypass-mode
+	_results[0]					:= Data.overrideRejectStatus OR bypassMode;
+	resultToggleOld				:= resultToggle;
+
+	THIS^.CameraResultReady		:= TRUE;
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+DisableTrigger.Reset();
+Cavity_Reset.Reset();
+Activate_BypassMode.Reset();
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+METHOD PROTECTED Initialize
+SUPER^.Initialize();
+
+resultToggleOld		:= resultToggle;
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState					: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		DisableTrigger.Set();
+		Cavity_Reset.Reset();
+		Activate_BypassMode.Reset();
+
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+DisableTrigger.Reset();
+Cavity_Reset.Reset();
+Activate_BypassMode.Reset();
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+METHOD TakePicture : enumResultTakePicture
+VAR_INST
+	localState					: SINT;
+	Timeout						: BTON;
+	debugCounter				: ARRAY[1..2] OF INT;
+	debugTimeAwaitTrigger		: UINT;		// in ms
+//	debugTimeAwaitAcquisition	: UINT;		// in ms
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timeout.Reset();
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:	// Check ready signal
+		IF NOT ready THEN
+			TakePicture		:= SEL(Data.overrideRunmodeReject,
+										enumResultTakePicture.Error,
+										enumResultTakePicture.NoPicTaken);
+			CommandLock.Release(__POUNAME());
+		ELSE
+			TakePicture		:= enumResultTakePicture.Busy;
+			Increment.AnyInt(localState);
+		END_IF
+
+	1:	// Check image acquisition signal
+		IF NOT imageAcquisition THEN
+			Increment.AnyInt(localState);
+		END_IF
+
+	2:	// Enable trigger, wait for camera ready signal
+		DisableTrigger.Reset();
+
+		IF triggerSensor THEN
+			debugTimeAwaitTrigger		:= TO_UINT(Timeout.TON1.ET);
+			Timeout.Reset();
+			DisableTrigger.Set();
+			TakePicture		:= enumResultTakePicture.Ok;
+			CommandLock.Release(__POUNAME());
+			Increment.AnyInt(localState);
+		ELSIF Timeout.Set(TRUE, 1) THEN
+			Timeout.Reset();
+			DisableTrigger.Set();
+			Increment.AnyInt(debugCounter[1]);
+			TakePicture		:= enumResultTakePicture.Error;
+			CommandLock.Release(__POUNAME());
+			Increment.AnyInt(localState);
+		END_IF
+
+(*	3:	// Wait for image transfer to PC. Should take approx. 50 ms
+		IF imageAcquisition THEN
+			debugTimeAwaitAcquisition	:= TO_UINT(Timeout.TON1.ET);
+			Timeout.Reset();
+			DisableTrigger.Set();
+			Increment.AnyInt(localState);
+			TakePicture		:= enumResultTakePicture.Ok;
+			CommandLock.Release(__POUNAME());
+		ELSIF Timeout.Set(TRUE, 0.15) THEN	// When no signal for 150 ms, something is wrong at Mevisco
+			DisableTrigger.Set();
+			Increment.AnyInt(debugCounter[2]);
+			Increment.AnyInt(localState);
+			TakePicture		:= enumResultTakePicture.Error;
+			CommandLock.Release(__POUNAME());
+		END_IF
+*)
+	3:
+		;
+	4:
+		;
+END_CASE
+END_METHOD
+
+PROPERTY PUBLIC Busy : BOOL
+%FOLDER Properties
+GET
+Busy	:= NOT idle;
+END_GET
+END_PROPERTY

@@ -1,0 +1,304 @@
+// Function block to register all modules in the program. So its no longer needed to manually fill an array in the SER program.
+{attribute 'no_explicit_call' := 'Do not call this FB. This is just a place to store data about regestered modules.'}
+{attribute 'no_assign'}
+FUNCTION_BLOCK FINAL ModuleManagerFB
+IMPLEMENTS IModuleManager
+VAR_OUTPUT
+	baseModules				: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF IModuleBase;
+	baseModulesCount		: UINT;
+
+	startableModules		: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF IModuleStartable;
+	startableModulesCount	: UINT;
+
+	resettableModules		: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules] OF IModuleResettable;
+	resettableModulesCount	: UINT;
+
+	servoDrives				: ARRAY[1..GVL_Constants.MaxNumberOfServoDrives] OF IServoDrive;
+	servoDrivesCount		: UINT;
+
+	gates					: ARRAY[1..GVL_Constants.MaxNumberOfGates] OF ISafetyGate;
+	gatesCount				: UINT;
+
+END_VAR
+VAR
+	{attribute 'hide'}	_name					: STRING(12);									// Name of module manager
+	{attribute 'hide'}	_moduleHandler			: L_IMHP.L_IMHP_ModuleHandler :=				// Lenze module handler
+						(
+							Layer				:= L_IMHP_Layer.Process_Control,
+							CompType			:= L_IMHP_ComponentType.GeneralMachineModule
+						);
+END_VAR
+
+END_FUNCTION_BLOCK
+
+//FB_Init is always available implicitly and it is used primarily for initialization.
+//The return value is not evaluated. For a specific influence, you can also declare the
+//methods explicitly and provide additional code there with the standard initialization
+//code. You can evaluate the return value.
+METHOD FB_Init: BOOL
+VAR_INPUT
+	bInitRetains	: BOOL;							// TRUE: the retain variables are initialized (reset warm / reset cold)
+	bInCopyCode		: BOOL;							// TRUE: the instance will be copied to the copy code afterward (online change)
+
+	name			: STRING(12);					// Give name of module manager (For example SER or BFU)
+END_VAR
+THIS^._name						:= name;
+THIS^._moduleHandler.CompName	:= name;
+END_METHOD
+
+METHOD PRIVATE LogMessage
+VAR_INPUT
+	moduleName		: STRING(12);
+	selUnRegister	: BOOL;
+	index			: UINT;
+	module			: IAbleToRegister;
+END_VAR
+LogPlc.Debug(
+	CONCAT9(
+		Name,
+		': ',
+		moduleName,
+		' module ',
+		TO_STRING(index),
+		SEL(selUnRegister, ' registered: ', ' unregistered: '),
+		module.InstanceName,
+		SEL(module.MemoryAddress = '', ', Address: ', ''),
+		module.MemoryAddress
+	)
+);
+END_METHOD
+
+// Registers a module
+METHOD Register : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+VAR
+	baseModule		: IModuleBase;
+	startableModule	: IModuleStartable;
+	resettableModule: IModuleResettable;
+	servoDrive		: IServoDrive;
+	gate			: ISafetyGate;
+
+	thingMatchedAnyInterface : BOOL;
+END_VAR
+IF thingToRegister = 0 THEN
+	LogPlc.Fatal('Null reference exception! Interface does not exist.');
+	RETURN;
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, baseModule) THEN
+	IF baseModulesCount = GVL_Constants.MaxNumberOfModules THEN
+		LogPlc.Fatal(CONCAT('Register Full! Module NOT registered: ', thingToRegister.InstanceName));
+	ELSE
+		thingMatchedAnyInterface				:= TRUE;
+		Increment.AnyInt(baseModulesCount);
+		baseModules[baseModulesCount]			:= baseModule;
+		LogMessage('Base', FALSE, baseModulesCount, thingToRegister);
+	END_IF
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, startableModule) THEN
+	IF startableModulesCount = GVL_Constants.MaxNumberOfStartableModules THEN
+		LogPlc.Fatal(CONCAT('Startable Register Full! Module NOT registered: ', thingToRegister.InstanceName));
+	ELSE
+		thingMatchedAnyInterface				:= TRUE;
+		Increment.AnyInt(startableModulesCount);
+		startableModules[startableModulesCount]	:= startableModule;
+		LogMessage('Startable', FALSE, startableModulesCount, thingToRegister);
+	END_IF
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, resettableModule) THEN
+	IF resettableModulesCount = GVL_Constants.MaxNumberOfResettableModules THEN
+		LogPlc.Fatal(CONCAT('Resettable Register Full! Module NOT registered: ', thingToRegister.InstanceName));
+	ELSE
+		thingMatchedAnyInterface				:= TRUE;
+		Increment.AnyInt(resettableModulesCount);
+		resettableModules[resettableModulesCount] := resettableModule;
+		LogMessage('Resettable', FALSE, resettableModulesCount, thingToRegister);
+	END_IF
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, servoDrive) THEN
+	IF servoDrivesCount = GVL_Constants.MaxNumberOfServoDrives THEN
+		LogPlc.Fatal(CONCAT('Servodrive Register Full! Module NOT registered: ', thingToRegister.InstanceName));
+	ELSE
+		thingMatchedAnyInterface				:= TRUE;
+		Increment.AnyInt(servoDrivesCount);
+		servoDrives[servoDrivesCount]			:= servoDrive;
+		LogMessage('Servo', FALSE, servoDrivesCount, thingToRegister);
+	END_IF
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, gate) THEN
+	IF gatesCount = GVL_Constants.MaxNumberOfGates THEN
+		LogPlc.Fatal(CONCAT('Gate Register Full! Module NOT registered: ', thingToRegister.InstanceName));
+	ELSE
+		thingMatchedAnyInterface				:= TRUE;
+		Increment.AnyInt(gatesCount);
+		gates[gatesCount]						:= gate;
+		LogMessage('Gate', FALSE, gatesCount, thingToRegister);
+	END_IF
+END_IF
+
+IF NOT thingMatchedAnyInterface THEN
+	LogPlc.Fatal(Concat('Unable to register module: ', thingToRegister.InstanceName));	// Please add a handler for this kind of interface
+END_IF
+
+Register := TRUE;
+END_METHOD
+
+// Unregisters a module
+METHOD Unregister : BOOL
+VAR_INPUT
+	thingToRegister	: IAbleToRegister;
+END_VAR
+VAR
+	i				: UINT;
+	moduleIndex		: UINT;
+	baseModule		: IModuleBase;
+	startableModule	: IModuleStartable;
+	resettableModule: IModuleResettable;
+	servoDrive		: IServoDrive;
+	gate			: ISafetyGate;
+	thingMatchedAnyInterface : BOOL;
+END_VAR
+IF thingToRegister = 0 THEN
+	LogPlc.Fatal('Null reference exception! Interface does not exist.');
+	RETURN;
+END_IF
+
+// Check if the current interface is of type: module
+IF __QUERYINTERFACE(thingToRegister, baseModule) THEN
+	FOR i := 1 TO GVL_Constants.MaxNumberOfModules DO
+		IF baseModule = baseModules[i] THEN		// Find the module in the register
+			moduleIndex := i;				// Store location where it was found
+			baseModules[i] := 0;			// Clear the reference
+			baseModulesCount := baseModulesCount - 1;	// Decrease count
+			LogMessage('Base', TRUE, moduleIndex, thingToRegister);
+			EXIT;
+		END_IF
+	END_FOR
+	// Move all references in the register one place up, so there are no gaps in the array.
+	IF moduleIndex > 0 AND moduleIndex < GVL_Constants.MaxNumberOfModules THEN
+		FOR i := moduleIndex TO GVL_Constants.MaxNumberOfModules - 1 DO
+			baseModules[i] := baseModules[i + 1];
+			IF baseModules[i + 1] = 0 THEN
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+	thingMatchedAnyInterface := TRUE;
+	moduleIndex := 0;
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, startableModule) THEN
+	FOR i := 1 TO GVL_Constants.MaxNumberOfStartableModules DO
+		IF startableModule = startableModules[i] THEN
+			moduleIndex := i;
+			startableModules[i] := 0;
+			startableModulesCount := startableModulesCount - 1;
+			LogMessage('Startable', TRUE, moduleIndex, thingToRegister);
+			EXIT;
+		END_IF
+	END_FOR
+	IF moduleIndex > 0 AND moduleIndex < GVL_Constants.MaxNumberOfStartableModules THEN
+		FOR i := moduleIndex TO GVL_Constants.MaxNumberOfStartableModules - 1 DO
+			startableModules[i] := startableModules[i + 1];
+			IF startableModules[i + 1] = 0 THEN
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+	thingMatchedAnyInterface := TRUE;
+	moduleIndex := 0;
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, resettableModule) THEN
+	FOR i := 1 TO GVL_Constants.MaxNumberOfResettableModules DO
+		IF resettableModule = resettableModules[i] THEN
+			moduleIndex := i;
+			resettableModules[i] := 0;
+			resettableModulesCount := resettableModulesCount - 1;
+			LogMessage('Resettable', TRUE, moduleIndex, thingToRegister);
+			EXIT;
+		END_IF
+	END_FOR
+	IF moduleIndex > 0 AND moduleIndex < GVL_Constants.MaxNumberOfResettableModules THEN
+		FOR i := moduleIndex TO GVL_Constants.MaxNumberOfResettableModules - 1 DO
+			resettableModules[i] := resettableModules[i + 1];
+			IF resettableModules[i + 1] = 0 THEN
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+	thingMatchedAnyInterface := TRUE;
+	moduleIndex := 0;
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, servoDrive) THEN
+	FOR i := 1 TO GVL_Constants.MaxNumberOfServoDrives DO
+		IF servoDrive = servoDrives[i] THEN
+			moduleIndex := i;
+			servoDrives[i] := 0;
+			servoDrivesCount := servoDrivesCount - 1;
+			LogMessage('Servo', TRUE, moduleIndex, thingToRegister);
+			EXIT;
+		END_IF
+	END_FOR
+	IF moduleIndex > 0 AND moduleIndex < GVL_Constants.MaxNumberOfServoDrives THEN
+		FOR i := moduleIndex TO GVL_Constants.MaxNumberOfServoDrives - 1 DO
+			servoDrives[i] := servoDrives[i + 1];
+			IF servoDrives[i + 1] = 0 THEN
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+	thingMatchedAnyInterface := TRUE;
+	moduleIndex := 0;
+END_IF
+
+IF __QUERYINTERFACE(thingToRegister, gate) THEN
+	FOR i := 1 TO GVL_Constants.MaxNumberOfGates DO
+		IF gate = gates[i] THEN
+			moduleIndex := i;
+			gates[i] := 0;
+			gatesCount := gatesCount - 1;
+			LogMessage('Gate', TRUE, moduleIndex, thingToRegister);
+			EXIT;
+		END_IF
+	END_FOR
+	IF moduleIndex > 0 AND moduleIndex < GVL_Constants.MaxNumberOfGates THEN
+		FOR i := moduleIndex TO GVL_Constants.MaxNumberOfGates - 1 DO
+			gates[i] := gates[i + 1];
+			IF gates[i + 1] = 0 THEN
+				EXIT;
+			END_IF
+		END_FOR
+	END_IF
+	thingMatchedAnyInterface := TRUE;
+	moduleIndex := 0;
+END_IF
+
+IF NOT thingMatchedAnyInterface THEN
+	LogPlc.Fatal(Concat('Unable to unregister module: ', thingToRegister.InstanceName));	// Please add a handler for this kind of interface
+END_IF
+
+Unregister := TRUE;
+END_METHOD
+
+PROPERTY PUBLIC ModuleHandler : L_IMHP.L_IMHP_IModuleHandler
+GET
+ModuleHandler	:= _moduleHandler;
+END_GET
+END_PROPERTY
+
+PROPERTY PUBLIC Name : STRING(12)
+GET
+Name	:= _name;
+
+// This does not work because CompName has no Getter. Maybe change in the future when Lenze changes library
+// Name	:= _moduleHandler.CompName;
+END_GET
+END_PROPERTY

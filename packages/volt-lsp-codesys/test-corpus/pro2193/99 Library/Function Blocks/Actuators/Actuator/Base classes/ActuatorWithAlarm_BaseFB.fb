@@ -1,0 +1,18 @@
+// Abstract Base fb for cylinders. Has general stuff for all cylinder types.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ActuatorWithAlarm_BaseFB
+VAR_INPUT
+	moduleHandler			: L_IMHP.L_IMHP_IModuleHandler;
+	textRefId				: WORD;
+	alarmEnable				: BOOL	:= TRUE;	// General condition to enable the alarm message (use: G_xAirPressureOk)
+	alarmDelay				: REAL;				// Time after which the alarms trips.
+	severity				: enumErrorSeverity := enumErrorSeverity.Fault;
+	reaction				: enumErrorReaction;	// Severity of alarm messages.
+END_VAR
+
+Alarms();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED ABSTRACT Alarms
+END_METHOD

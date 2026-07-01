@@ -1,0 +1,96 @@
+// This function block can be used to control a pulsating output like for instance a Labelhammer.
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC FINAL HammerFB
+EXTENDS ActuatorWithManualControlAndAlarm_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	rTimeLow				: REAL	:= 0.2;		// The time the output stays off (Low)
+	rTimeHigh				: REAL	:= 0.5;		// The time the output stays on (High)
+	usiLimitStop			: USINT	:= 20;		// Hammer will hit the label this many times before giving up
+	usiLimitAlarm			: USINT	:= 15;		// After hitting this many times sound the alarm
+	errorId					: WORD;
+END_VAR
+VAR_OUTPUT
+	uiCounter				: UINT;
+END_VAR
+VAR
+	{attribute 'hide'}
+	Blinker					: BlinkHammerFB;
+	{attribute 'hide'}
+	xMoveAuto				: BOOL;		// When high the cylinder moves automatically
+
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+	NoLabelsAlarm			: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+Blinker(
+	ENABLE		:= xMoveAuto AND uiCounter < usiLimitStop,
+	TIMELOW		:= TO_TIME(MAX(0.1, rTimeLow) * 1000),
+	TIMEHIGH	:= TO_TIME(MAX(0.3, rTimeHigh) * 1000),
+	OUT			=> ,
+	xEdge		=> );
+
+// Count the number of times that the hammer hits the label stack
+IF NOT xMoveAuto OR GlobalVars.Reset THEN
+	uiCounter := 0;
+ELSIF Blinker.xEdge THEN
+	Increment.AnyInt(uiCounter);
+END_IF
+
+Output();
+
+Output.SetOrReset(Blinker.OUT);
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+NoLabelsAlarm(
+	moduleHandler	:= moduleHandler,
+	textRefId		:= textRefId,
+	alarmCondition	:= alarmEnable AND (uiCounter >= usiLimitAlarm),
+	alarmDelay		:= alarmDelay,
+	errorId			:= errorId,
+	severity		:= severity,
+	reaction		:= reaction,
+	active			=> ,
+	elapsedTime		=> );
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Stop pulsating the output. If the output is active, it will remain high until the TimeHigh timer is elapsed.
+METHOD PUBLIC Reset
+xMoveAuto := FALSE;
+END_METHOD
+
+// Start pulsating the output.
+METHOD Set : BOOL
+xMoveAuto := TRUE;
+END_METHOD
+
+// Set the output True or False
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+xMoveAuto := xValue;
+END_METHOD

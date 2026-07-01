@@ -1,0 +1,79 @@
+// Modules that react to EStop and Stop events from the machine
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ABSTRACT ModuleBaseHardwareFB
+EXTENDS ModuleRegisterableFB
+IMPLEMENTS IModuleBase, IModuleWithCommandLock
+VAR
+	CommandLock					: LockFB;		// Internal lock. Lock hardware unit when a command is active
+	ProcessCommandLock			: LockFB;		// External lock from the process. So a process can claim a hardware unit for itself
+END_VAR
+
+SUPER^();
+
+Alarms();	// Handle custom alarms that are not defined in the FB's called in Cyclic()
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+
+(* Command to reset the module (Statemachine to zero state) in case of E-Stop
+
+Add code here to handle emergency stops. For example:
+
+// Reset the state of the unit.
+State := MyUnit_State.None;
+
+// Stop the servo drive
+Drive.Stop(TRUE);
+
+// Reset all cylinders and outputs
+SomeCylinder.Reset();
+SomeOtherOutput.Reset();
+
+// Reset all vacuums with a helper function
+VacuumResetAll(Vacuum);
+
+// Does this module have a servo drive? Then you can return true when the drive has braked to standstill
+EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
+// Else, just return true.
+EStop := TRUE;
+
+ *)
+CommandLock.ForceRelease();
+ProcessCommandLock.ForceRelease();
+
+EStop := TRUE;
+END_METHOD
+
+// Force releasing the lock
+METHOD LockForceRelease
+ProcessCommandLock.ForceRelease();
+END_METHOD
+
+// Release the lock by the current lock holder
+METHOD PUBLIC LockRelease : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is releasing the lock
+END_VAR
+LockRelease		:= ProcessCommandLock.Release(locker);
+END_METHOD
+
+// Request a lock. Returns false if the lock is already taken by someone else.
+METHOD PUBLIC LockRequest : BOOL
+VAR_INPUT
+	locker		: STRING(80);		// The module that is requesting the lock
+END_VAR
+LockRequest		:= ProcessCommandLock.Request(locker);
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+CommandLock.ForceRelease();
+ProcessCommandLock.ForceRelease();
+
+Stop := TRUE;
+END_METHOD

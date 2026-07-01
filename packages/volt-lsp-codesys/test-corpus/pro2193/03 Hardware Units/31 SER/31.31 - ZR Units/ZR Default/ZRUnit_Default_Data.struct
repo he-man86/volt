@@ -1,0 +1,6 @@
+TYPE ZRUnit_Default_Data :
+STRUCT
+	Takeover				: PositionWithProfileType;
+	Stacking				: PositionWithProfileType;
+END_STRUCT
+END_TYPE

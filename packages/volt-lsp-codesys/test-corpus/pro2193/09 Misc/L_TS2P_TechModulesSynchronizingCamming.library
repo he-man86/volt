@@ -1,0 +1,5 @@
+LIBRARY L_TS2P_TechModulesSynchronizingCamming
+NAMESPACE L_TS2P
+RESOLUTION L_TS2P_TechModulesSynchronizingCamming, 3.32.0.10 (Lenze)
+PLACEHOLDER true
+SYSTEM false

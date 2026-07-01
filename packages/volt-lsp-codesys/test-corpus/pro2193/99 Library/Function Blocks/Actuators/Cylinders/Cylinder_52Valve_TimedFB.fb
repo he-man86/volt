@@ -1,0 +1,115 @@
+// Control a single output (e.g. a cylinder). No sensors, use timers to check cylinder position. Sensor inputs are ignored. Alarms are disabled.
+{attribute 'monitoring_display' := 'Output.output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC Cylinder_52Valve_TimedFB
+EXTENDS ActuatorWithManualControl_BaseFB
+IMPLEMENTS IActuator
+VAR_INPUT
+	rTimeToGoIn				: REAL	:= 0.3;		// Time it should take for the cylinder to move in.
+	rTimeToGoOut			: REAL	:= 0.3;		// Time it should take for the cylinder to move out.
+END_VAR
+VAR
+	{attribute 'symbol' := 'read'}		Output					: ActuatorFB;
+
+	timeGoOut				: BTON;
+	timeGoIn				: BTON;
+
+	{attribute 'symbol' := 'readwrite'}	adjustButton			: BOOL;		// Enable adjust mode for cylinder
+	adjustTrigger			: TriggerFB;
+	{attribute 'hide'}
+	Blinker					: BLINK;	// Blinker for adjust mode
+	inAdjustMode			: BOOL;		// When high the cylinder moves automatically
+	SetAdjustModeTimer		: BTON;
+
+END_VAR
+VAR CONSTANT
+	tAdjustFrequency		: TIME	:= T#2S;
+END_VAR
+
+// Execute base fb
+SUPER^();
+
+// Instantiate the output
+Output();
+
+timeGoIn.Set(	In := NOT Output.Map(),	Pt := rTimeToGoIn);
+timeGoOut.Set(	In := Output.Map(),		Pt := rTimeToGoOut);
+
+IF adjustTrigger.Rising(CLK := adjustButton) THEN
+	inAdjustMode := NOT inAdjustMode;
+END_IF
+
+inAdjustMode	S= SetAdjustModeTimer.Set(In := hardwareF1Pushed AND hardwareF2Pushed, Pt := 5);
+inAdjustMode	R= plusTrigger.Q_Rising;
+inAdjustMode	R= minTrigger.Q_Rising;
+
+GlobalVars.manualControlRequested S= inAdjustMode;
+
+Blinker(ENABLE := inAdjustMode, TIMELOW := tAdjustFrequency, TIMEHIGH := tAdjustFrequency);
+
+END_FUNCTION_BLOCK
+
+// The cylinder moves in. Returns true when cylinder is in.
+METHOD PUBLIC FINAL GoIn : BOOL
+Reset();
+
+GoIn := IsIn;
+END_METHOD
+
+// The cylinder moves out. Returns true when cylinder is out.
+METHOD PUBLIC FINAL GoOut : BOOL
+Set();
+
+GoOut := IsOut;
+END_METHOD
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF inAdjustMode THEN
+	SetOrReset(Blinker.OUT);
+ELSIF plusButtonPushed THEN
+	GoOut();
+ELSIF minButtonPushed THEN
+	GoIn();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD Reset
+Output.Reset();
+END_METHOD
+
+// Set the output (=True)
+METHOD Set : BOOL
+Output.Set();
+END_METHOD
+
+// Set the output True or False
+METHOD SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+Output.SetOrReset(xValue);
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY IsIn : BOOL
+GET
+IsIn := timeGoIn.Q;
+END_GET
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY IsOut : BOOL
+GET
+IsOut := timeGoOut.Q;
+END_GET
+END_PROPERTY

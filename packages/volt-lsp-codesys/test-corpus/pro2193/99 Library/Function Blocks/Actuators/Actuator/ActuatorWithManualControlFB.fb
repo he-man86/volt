@@ -1,0 +1,50 @@
+// Basic actuator with manual control enabled
+{attribute 'monitoring_display' := 'Output.output'}
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK PUBLIC ActuatorWithManualControlFB
+EXTENDS ActuatorWithManualControl_BaseFB
+IMPLEMENTS IActuator
+VAR
+	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED ManualControl
+VAR_INPUT
+	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
+END_VAR
+IF plusButtonPushed THEN
+	Set();
+END_IF
+
+IF minButtonPushed THEN
+	Reset();
+END_IF
+END_METHOD
+
+// Maps the actuator to the physical output
+METHOD PUBLIC Map : BOOL
+Map := Output.Map();
+END_METHOD
+
+// Reset the output (=False)
+METHOD PUBLIC Reset
+Output.Reset();
+END_METHOD
+
+// Set the output (=True)
+METHOD PUBLIC Set : BOOL
+Output.Set();
+END_METHOD
+
+// Set the output True or False
+METHOD PUBLIC SetOrReset
+VAR_INPUT
+	xValue	: BOOL;
+END_VAR
+Output.SetOrReset(xValue);
+END_METHOD

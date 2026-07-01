@@ -1,0 +1,174 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK BufferRack_DefaultFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IBufferRack_Default_Commands
+VAR_INPUT
+	fanucInBufferArea			: BOOL;
+	StackDetection				: DigitalSensorFB(invert := TRUE);
+END_VAR
+VAR_IN_OUT
+	Data						: BufferRack_Data;
+	BufferStackStatus			: StackStatusType;
+	BufferStackIndex			: USINT;
+END_VAR
+VAR
+	alarmStackNotDetected		: BOOL;
+	alarmStackDetected			: BOOL;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+// Add a partial stack to the buffer.
+METHOD PUBLIC AddToStack
+VAR_INPUT
+	StackStatus : REFERENCE TO StackStatusType;	// Status of the stack that is being placed
+END_VAR
+%FOLDER Commands
+IF StackStatus.Present THEN
+	BufferStackStatus.Initialized		:= TRUE;
+	BufferStackStatus.NumberOfProducts	:= BufferStackStatus.NumberOfProducts + StackStatus.NumberOfProducts;
+	BufferStackStatus.Complete			:= BufferStackStatus.NumberOfProducts = Data.NumberOfProductsOnStack;
+	BufferStackStatus.Combined			:= BufferStackStatus.NumberOfProducts = Data.NumberOfProductsOnStack;
+	BufferStackStatus.Present			:= BufferStackStatus.NumberOfProducts > 0;
+	BufferStackStatus.Rejected			S= BufferStackStatus.NumberOfProducts > Data.NumberOfProductsOnStack;
+
+	StackIndex							:= StackIndex + 1;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..4] OF SetErrorFB;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BufferRack_Errors,
+	errorId			:= 1,		// Stack not detected on buffer
+	alarmCondition	:= alarmStackNotDetected,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BufferRack_Errors,
+	errorId			:= 2,		// Bufferrack is not empty
+	alarmCondition	:= alarmStackDetected,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+alarmStackNotDetected	R= SetError[1].active;
+alarmStackDetected		R= SetError[2].active;
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BufferRack_Errors,
+	errorId			:= 3,		// Stack on buffer too high
+	alarmCondition	:= BufferStackStatus.NumberOfProducts > Data.NumberOfProductsOnStack,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= BufferRack_Errors,
+	errorId			:= 4,		// Stack cannot be completed due to incorrect stack height
+	alarmCondition	:= FALSE,
+	alarmDelay		:= 0.5,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+END_METHOD
+
+METHOD PROTECTED Cyclic
+IF NOT BufferStackStatus.Present THEN
+	StackIndex := 0;
+END_IF
+
+// Monitor stack detection sensor
+IF  NOT fanucInBufferArea
+AND NOT BufferStackStatus.Rejected	// Stack in buffer rack is already rejected
+THEN
+	IF BufferStackStatus.Present THEN
+		IF StackDetection.IsInactive THEN
+			LogPlc.Error('Buffer rack lost a stack');
+			alarmStackNotDetected		:= TRUE;
+			BufferStackStatus.Rejected	:= TRUE;
+		END_IF
+	ELSE
+		IF StackDetection.IsActive THEN
+			LogPlc.Error('Stack detected in error, reject just in case');
+			alarmStackDetected			:= TRUE;
+			BufferStackStatus.Rejected	:= TRUE;
+		END_IF
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ClearProducts.Stack(BufferStackStatus);
+
+EStop			:= SUPER^.EStop();
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+END_IF
+
+CASE localState OF
+	0:
+		IF StackDetection.IsActive AND NOT BufferStackStatus.Present THEN
+			BufferStackStatus.Present	:= TRUE;
+			BufferStackStatus.Rejected	:= TRUE;
+		END_IF
+		Increment.AnyInt(localState);
+
+	1:
+		Reset := CommandLock.Release(__POUNAME());
+END_CASE
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+Stop := SUPER^.Stop();
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY StackIndex : USINT
+%FOLDER Properties
+GET
+StackIndex			:= BufferStackIndex;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+BufferStackIndex	:= StackIndex;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+%FOLDER Properties
+GET
+StackStatus		REF= BufferStackStatus;
+END_GET
+END_PROPERTY

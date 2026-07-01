@@ -1,0 +1,41 @@
+// Throw error messages when a general input has a problem
+FUNCTION_BLOCK PnozEnableSwitchAlarmsFB
+EXTENDS PnozAlarmsBaseFB
+VAR_INPUT
+	switchEnabled			: BOOL;		// Enable switch has not been operated or is fully depressed (signal inverted) (bit 1)
+	contactFailed			: BOOL;		// N/C contact 1 or 2 failed to switch or switched too late (bit 5)
+	errorTestPulse			: BOOL;		// Error in the test pulse wiring (bit 8)
+END_VAR
+VAR_OUTPUT
+	switchEnabledOut		: BOOL;
+END_VAR
+VAR
+	contactFailedAlarm		: SetErrorFB;
+	errorTestPulseAlarm		: SetErrorFB;
+END_VAR
+
+SUPER^();
+
+switchEnabledOut := switchEnabled;
+
+contactFailedAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 2,		// N/C contact 1 or 2 failed to switch or switched too late
+	alarmCondition	:= contactFailed,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+errorTestPulseAlarm(
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= Pnoz_Errors,
+	errorId			:= 3,		// Error in the test pulse wiring
+	alarmCondition	:= errorTestPulse,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+END_FUNCTION_BLOCK

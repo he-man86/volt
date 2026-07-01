@@ -1,0 +1,600 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK Magazine_DoubleMFB
+EXTENDS ModuleResettableFB
+IMPLEMENTS IMagazine_Transfer_Commands, IMagazine_Supply_Commands, IModuleBlocksSafetyGate
+VAR_INPUT
+	{attribute 'symbol' := 'readwrite'}	Vacuum						: ARRAY[1..MaxVacuums] OF VacuumWithInputFB;
+	{attribute 'symbol' := 'readwrite'}	VacuumAdditional			: ARRAY[1..MaxAdditionalVacuums] OF VacuumFB;
+	{attribute 'symbol' := 'readwrite'}	BufferAir					: AirBufferFB;
+	{attribute 'symbol' := 'readwrite'}	IonizingBar					: ActuatorWithManualControlFB;
+	motors						: IMagazineMotors_Drawer_Commands;
+END_VAR
+VAR_IN_OUT
+	Data						: Magazine_Data;
+END_VAR
+VAR//VISU
+END_VAR
+VAR
+	{attribute 'hide'}
+	_anotherLabelNeeded			: BOOL;			// Private backing field for property. Do not use directly.
+	_activeDrawer				: enumDrawer;	// Private backing field for property. Do not use directly.
+	_blowBetweenLabelsRequest	: BOOL;
+	_activeState				: enumMagazineState;
+
+	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum;
+	itfAdditionalVacuums		: ARRAY[1..MaxAdditionalVacuums] OF IVacuum;
+	itfVacuumsTotal				: ARRAY[1..MaxVacuums + MaxAdditionalVacuums] OF IVacuum;
+END_VAR
+VAR CONSTANT
+	MaxVacuums					: USINT	:= 6;
+	MaxAdditionalVacuums		: USINT := 2;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Cyclic
+VAR_INST
+	testReset	: BOOL;
+END_VAR
+VAR
+	i			: USINT;
+END_VAR
+FOR i := 1 TO MaxVacuums DO
+	Vacuum[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Vacuum_Label_Errors,
+		errorId					:= i,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 3.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		refVacuumHighTime		:= ,
+		refReleaseVacuumTime	:= Data.rPostReleaseLabelsDelay,
+		input1					:= ,
+		enableDuringSemiAuto	:= NOT SER.semiAutoInContinuousMode);
+END_FOR
+
+FOR i := 1 TO MaxAdditionalVacuums DO
+	VacuumAdditional[i](
+		moduleHandler			:= ModuleHandler,
+		manualControlEnabled	:= SER.ManualControlEnabled,
+		textRefId				:= Vacuum_Errors,
+		alarmEnable				:= SER.DigIn.xAirPressureOK,
+		alarmDelay				:= 3.0,
+		severity				:= enumErrorSeverity.Fault,
+		reaction				:= enumErrorReaction.No_reaction,
+		refVacuumHighTime		:= ,
+		refReleaseVacuumTime	:= Data.rPostReleaseLabelsDelay,
+		enableDuringSemiAuto	:= NOT SER.semiAutoInContinuousMode);
+END_FOR
+
+BufferAir(
+	manualControlEnabled	:= SER.ManualControlEnabled,
+	vacuums					:= itfVacuumsTotal);
+
+// Handle ionizing bar
+IonizingBar(
+	manualControlEnabled	:= FALSE);
+
+IF SER.InAutomaticOperation_Rising THEN
+	IonizingBar.Set();
+END_IF
+
+IF SER.InAutomaticOperation_Falling THEN
+	IonizingBar.Reset();
+END_IF
+
+IF testReset AND_THEN Reset() THEN
+	testReset	:= FALSE;
+END_IF
+END_METHOD
+
+// Await a delay before releasing labels
+METHOD PUBLIC DelayBeforeReleaseLabels : BOOL
+VAR_INST
+	Timer	: BTON;
+END_VAR
+%FOLDER Commands/Magazine Transfer
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+END_IF
+
+IF Timer.Set(TRUE, Data.rPreReleaseLabelsDelay) THEN
+	DelayBeforeReleaseLabels	:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to reset the module (ActStatemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+ActState := enumMagazineState.None;
+
+AnotherLabelNeeded			:= FALSE;
+
+Arrays.Vacuum_ReleaseAll(itfVacuums);
+Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums);
+
+EStop := SUPER^.EStop();
+END_METHOD
+
+// Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateCloseCancelled
+%FOLDER Commands/Gate Requests
+// Do nothing when gate closes
+END_METHOD
+
+// Gate close button is pushed. Safety gate is requesting to close (trigger signal)
+METHOD PUBLIC GateCloseRequested
+%FOLDER Commands/Gate Requests
+// Do nothing when gate closes
+END_METHOD
+
+// Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
+METHOD PUBLIC GateOpenCancelled
+%FOLDER Commands/Gate Requests
+motors.Stop();
+END_METHOD
+
+// Gate open button is pushed. Safety gate is requesting to open (trigger signal)
+METHOD PUBLIC GateOpenRequested
+%FOLDER Commands/Gate Requests
+motors.ProfileHomeToSafePosition();
+motors.StartCommand();
+END_METHOD
+
+// Check if magazine needs to get new labels from the stockpile
+// A new label may also be obtained with labels already on the suction cups. Existing labels will be blown off.
+METHOD PUBLIC GetNewLabels : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;	// Choose which drawer (or other label stockpile) to get labels from
+END_VAR
+VAR_INST
+	localState			: SINT;
+END_VAR
+%FOLDER Commands/Magazine Supply
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+// Only update the local active drawer reference when a new drawer is known.... Not the best solution??..
+IF drawer <> enumDrawer.LastDrawer THEN
+	_activeDrawer		:= drawer;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState		:= 0;
+	ActState		:= enumMagazineState.Busy_GetNew;
+	motors.ProfileToHorizontal(_activeDrawer);
+	ReleaseLabels(AllVacuums);
+	ReleaseAdditionalVacuums(AllVacuums);
+END_IF
+
+CASE localState OF
+	0:
+		IF motors.StartCommand() THEN						// Movement done
+			IF _activeDrawer = enumDrawer.NoDrawer THEN	// Wait for a drawer to be ready
+				Increment.AnyInt(localState);
+			ELSE
+				GetNewLabels	:= CommandLock.Release(__POUNAME());
+			END_IF
+		END_IF
+	1:
+		IF _activeDrawer <> enumDrawer.NoDrawer THEN
+			motors.ProfileToHorizontal(_activeDrawer);
+			localState			:= 0;						// There is an active drawer, move again.
+		END_IF
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Initialize
+VAR
+	i	: USINT;
+	j	: USINT	:= 1;
+END_VAR
+SUPER^.Initialize();
+
+// Set interfaces to correct vacuum instances
+FOR i := 1 TO MaxAdditionalVacuums DO
+	itfAdditionalVacuums[i]		:= VacuumAdditional[i];
+END_FOR
+
+FOR i := 1 TO MaxVacuums DO
+	itfVacuums[i]				:= Vacuum[i];
+	itfVacuumsTotal[i]			:= Vacuum[i];
+END_FOR
+
+IF MaxAdditionalVacuums > 0 THEN
+	FOR i := MaxVacuums + 1 TO MaxVacuums + MaxAdditionalVacuums DO
+		itfVacuumsTotal[i]		:= VacuumAdditional[j];
+		Increment.AnyInt(j);
+	END_FOR
+END_IF
+END_METHOD
+
+// Move to a Waiting position.
+METHOD PUBLIC MoveToSafeDistanceAboveDrawer : BOOL
+%FOLDER Commands/Magazine
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	motors.ProfileSafeDistanceAboveDrawer(_activeDrawer);
+END_IF
+
+// Start blowing when act drive position is near position id 1 (rGetLabelsPos)
+_blowBetweenLabelsRequest		:= motors.InPositionAt(
+										position	:= MagazineMotors_Positions.getNewLabelsPos,
+										tolerance	:= Data.rBlowBetweenLabelsDistance);
+
+IF motors.StartCommand() THEN
+	_blowBetweenLabelsRequest	:= FALSE;
+	MoveToSafeDistanceAboveDrawer	:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to a Takeover position.
+METHOD PUBLIC MoveToTakeOverPos : BOOL
+VAR_INPUT
+	takeOverPos	: USINT;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+%FOLDER Commands/Magazine
+IF takeOverPos < 1
+OR takeOverPos > 4
+THEN
+	LogPlc.Error(CONCAT('Invalid parameter: ', TO_STRING(takeOverPos)));
+	RETURN;
+END_IF
+
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	// Check if already on correct Takeover position
+	IF (takeOverPos = 1 AND_THEN motors.InPositionAt(position := MagazineMotors_Positions.takeover1Pos, tolerance := 1))
+	OR (takeOverPos = 2 AND_THEN motors.InPositionAt(position := MagazineMotors_Positions.takeover2Pos, tolerance := 1))
+	OR (takeOverPos = 3 AND_THEN motors.InPositionAt(position := MagazineMotors_Positions.takeover3Pos, tolerance := 1))
+	OR (takeOverPos = 4 AND_THEN motors.InPositionAt(position := MagazineMotors_Positions.takeover4Pos, tolerance := 1))
+	THEN
+		IF HasPayload = enumPayload._All THEN
+			ActState			:= enumMagazineState.ReadyWithLabels;
+		ELSE
+			ActState			:= enumMagazineState.ReadyWithoutLabels;
+		END_IF
+		MoveToTakeOverPos		:= CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+
+	motors.ProfileToVertical(_activeDrawer, MagazineMotors_Positions.takeover1Pos);
+END_IF
+
+// Start blowing when act drive position is near position id 1 (rGetLabelsPos)
+_blowBetweenLabelsRequest		:= motors.InPositionAt(
+										position	:= MagazineMotors_Positions.getNewLabelsPos,
+										tolerance	:= Data.rBlowBetweenLabelsDistance);
+
+IF motors.StartCommand() THEN
+	_blowBetweenLabelsRequest	:= FALSE;
+
+	IF HasPayload = enumPayload._All THEN
+		ActState				:= enumMagazineState.ReadyWithLabels;
+	ELSE
+		ActState				:= enumMagazineState.ReadyWithoutLabels;
+	END_IF
+	MoveToTakeOverPos			:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Move to waiting position.
+METHOD PUBLIC MoveToWaitingPos : BOOL
+%FOLDER Commands/Magazine
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	// Check if already on Waiting position
+	IF motors.InPositionAt(position := MagazineMotors_Positions.waitingPosition, tolerance := 1) THEN
+		IF HasPayload = enumPayload._All THEN
+			ActState			:= enumMagazineState.ReadyWithLabels;
+		ELSE
+			ActState			:= enumMagazineState.ReadyWithoutLabels;
+		END_IF
+		MoveToWaitingPos		:= CommandLock.Release(__POUNAME());
+		RETURN;
+	END_IF
+
+	motors.ProfileToVertical(_activeDrawer, MagazineMotors_Positions.waitingPosition);
+END_IF
+
+// Start blowing when act drive position is near position id 1 (rGetLabelsPos)
+_blowBetweenLabelsRequest		:= motors.InPositionAt(
+										position	:= MagazineMotors_Positions.getNewLabelsPos,
+										tolerance	:= Data.rBlowBetweenLabelsDistance);
+
+IF motors.StartCommand() THEN
+	_blowBetweenLabelsRequest	:= FALSE;
+
+	IF HasPayload = enumPayload._All THEN
+		ActState				:= enumMagazineState.ReadyWithLabels;
+	ELSE
+		ActState				:= enumMagazineState.ReadyWithoutLabels;
+	END_IF
+	MoveToWaitingPos			:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+//
+METHOD PUBLIC NewLabelsNeededDuringSemiAutoOperation
+%FOLDER Commands/Magazine Transfer
+ActState := enumMagazineState.LabelsNeededDuringSemiAuto;
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC ReleaseAdditionalVacuums : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands/Magazine
+IF vacuumIndex = AllVacuums THEN	// Release all products by resetting all vacuums
+	IF Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums) THEN
+		ReleaseAdditionalVacuums	:= TRUE;
+	END_IF
+
+ELSE								// Release a specific vacuum.
+	IF Arrays.Vacuum_ReleaseSelected(itfAdditionalVacuums, vacuumIndex) THEN
+		ReleaseAdditionalVacuums	:= TRUE;
+	END_IF
+END_IF
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC ReleaseLabels : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands/Magazine
+IF vacuumIndex = AllVacuums THEN	// Release all products by resetting all vacuums
+	IF Arrays.Vacuum_ReleaseAll(itfVacuums) THEN
+		ReleaseLabels				:= TRUE;
+	END_IF
+
+ELSE								// Release a specific vacuum.
+	IF Arrays.Vacuum_ReleaseSelected(itfVacuums, vacuumIndex) THEN
+		ReleaseLabels				:= TRUE;
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+VAR_INST
+	localState			: SINT;
+	result				: UINT;
+END_VAR
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	localState := 0;
+	IF HasPayload <> enumPayload._All THEN
+		Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums);
+	END_IF
+	Arrays.Vacuum_ResetIfNotHigh(itfVacuums);
+END_IF
+
+CASE localState OF
+	0:
+		IF motors.Reset() THEN
+
+			// Check if there are labels ready.
+			IF HasPayload = enumPayload._All THEN
+				ActState		:= enumMagazineState.ReadyWithLabels;
+			ELSE
+				ActState		:= enumMagazineState.ReadyWithoutLabels;
+			END_IF
+
+			Reset := CommandLock.Release(__POUNAME());
+		END_IF
+END_CASE
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC StartAdditionalVacuums : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+%FOLDER Commands/Magazine Supply
+IF vacuumIndex = AllVacuums THEN	// Set all additional vacuums
+	IF Arrays.Vacuum_SetAll(itfAdditionalVacuums) THEN
+		StartAdditionalVacuums		:= TRUE;
+	END_IF
+
+ELSE								// Set a specific vacuum
+	IF Arrays.Vacuum_SetSelected(itfAdditionalVacuums, vacuumIndex) THEN
+		StartAdditionalVacuums		:= TRUE;
+	END_IF
+END_IF
+END_METHOD
+
+// Start vacuums and transfer labels from the stockpile. Will time out in case of no vacuum detected
+METHOD StartVacuums : enumResultGeneric
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+VAR_INST
+	Timer			: BTON;
+END_VAR
+VAR
+	i				: USINT;
+END_VAR
+%FOLDER Commands/Magazine Supply
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	Timer.Reset();
+END_IF
+
+IF ser.semiAutoInContinuousMode THEN
+	StartVacuums	:= enumResultGeneric.Success;
+	CommandLock.Release(__POUNAME());
+ELSIF Timer.Set(In := TRUE, Pt := 1) THEN	// Waiting for vacuum is taking too long
+	StartVacuums		:= enumResultGeneric.Error;
+	CommandLock.Release(__POUNAME());
+
+ELSIF vacuumIndex = AllVacuums THEN	// Set all vacuums
+	IF Arrays.Vacuum_SetAll(itfVacuums) THEN
+		StartVacuums	:= enumResultGeneric.Success;
+		CommandLock.Release(__POUNAME());
+	END_IF
+
+ELSE								// Set a specific vacuum.
+	IF Arrays.Vacuum_SetSelected(itfVacuums, vacuumIndex) THEN
+		StartVacuums	:= enumResultGeneric.Success;
+		CommandLock.Release(__POUNAME());
+	END_IF
+END_IF
+END_METHOD
+
+// Command to reset the module (ActStatemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+IF  ActState <> enumMagazineState.ReadyWithLabels
+AND ActState <> enumMagazineState.ReadyWithoutLabels
+THEN
+	ActState := enumMagazineState.None;
+END_IF
+
+AnotherLabelNeeded := FALSE;
+
+IF HasPayload <> enumPayload._All THEN
+	Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums);
+END_IF
+Arrays.Vacuum_ResetIfNotHigh(itfVacuums);
+
+Stop := SUPER^.Stop();
+END_METHOD
+
+// Label transfer is complete. Reset the ReadyWithLabels state.
+METHOD PUBLIC TransferComplete : BOOL
+VAR_INPUT
+	iParameter : INT := 0;	// Number indicates which transfer is completed
+END_VAR
+%FOLDER Commands/Magazine Transfer
+// Signal the GetNewLabel process that another label is needed to complete the gripper.
+AnotherLabelNeeded := iParameter = 1;
+
+IF HasPayload = enumPayload.None THEN		// Reset Ready state only if all labels have been transferred.
+	ActState := enumMagazineState.ReadyWithoutLabels;
+ELSE										// There is still 1 label on the magazine, so we are not yet ready to get new labels.
+	ActState := enumMagazineState.ReadyWithLabels;
+END_IF
+
+TransferComplete := TRUE;
+END_METHOD
+
+// Current state of magazine
+{attribute 'monitoring':='call'}
+PROPERTY ActState : enumMagazineState
+%FOLDER Properties
+GET
+ActState := _activeState;
+END_GET
+SET
+PROTECTED
+VAR
+END_VAR
+_activeState := ActState;
+END_SET
+END_PROPERTY
+
+// When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
+{attribute 'monitoring':='call'}
+PROPERTY AnotherLabelNeeded : BOOL
+%FOLDER Properties
+GET
+AnotherLabelNeeded := _anotherLabelNeeded;
+END_GET
+SET
+PRIVATE
+VAR
+END_VAR
+_anotherLabelNeeded := AnotherLabelNeeded;
+END_SET
+END_PROPERTY
+
+// When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
+{attribute 'monitoring':='call'}
+PROPERTY BlowBetweenLabelsRequest : BOOL
+%FOLDER Properties
+GET
+BlowBetweenLabelsRequest := _blowBetweenLabelsRequest;
+END_GET
+END_PROPERTY
+
+// Manual control of hardware is enabled from external context
+{attribute 'monitoring':='call'}
+PROPERTY ExternalManualControlEnabled : BOOL
+%FOLDER Properties
+SET
+motors.ExternalManualControlEnabled		:= ExternalManualControlEnabled;
+END_SET
+END_PROPERTY
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY HasPayload : enumPayload
+%FOLDER Properties
+GET
+IF Arrays.Vacuum_All(
+							vacuumArray	:= itfVacuums,
+							condition	:= TRUE,
+							channel		:= enumSelectIQ.Input)
+//							channel		:= SEL(	SER.OperationMode = SER_OperationModeType.SemiAuto AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums,
+//												enumSelectIQ.Input,
+//												enumSelectIQ.Output))
+THEN
+	HasPayload := enumPayload._All;
+
+ELSIF Arrays.Vacuum_Any(
+							vacuumArray	:= itfVacuums,
+							condition	:= TRUE,
+							channel		:= enumSelectIQ.Both)
+THEN
+	HasPayload := enumPayload._Any;
+
+ELSE
+	HasPayload := enumPayload.None;
+END_IF
+END_GET
+END_PROPERTY
+
+// The axis is homed, and in a safe (parking) position
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePos : BOOL
+%FOLDER Properties
+GET
+InSafePos := motors.InSafePos;
+END_GET
+END_PROPERTY
+
+// Used by modules like: Z and M units, true when module is in a position where gate is free to open.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC InSafePosForGate : BOOL
+%FOLDER Commands/Gate Requests
+GET
+InSafePosForGate := motors.InPositionAt(MagazineMotors_Positions.middlePosition, 10);
+END_GET
+END_PROPERTY
