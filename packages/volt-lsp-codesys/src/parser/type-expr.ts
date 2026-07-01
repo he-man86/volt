@@ -212,6 +212,13 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 function parseArrayDim(c: Cursor): ArrayDim | undefined {
 	// Capture lower bound tokens until '..'
 	const start = c.peek().span;
+	// Variable-length array dimension: `ARRAY[*]` (and `ARRAY[*, *]`) — no bounds. Real code uses these
+	// for VAR_IN_OUT / interface params. Model as a dim whose bounds are the `*` token.
+	if (c.peek().kind === "punct" && c.peek().text === "*") {
+		const star = c.consume();
+		const b: BodySpan = { kind: "body", tokens: [star], span: star.span };
+		return { kind: "array_dim", lower: b, upper: b, span: star.span };
+	}
 	const lowerTokens: Token[] = [];
 	while (!c.atEof()) {
 		const next = c.peek();

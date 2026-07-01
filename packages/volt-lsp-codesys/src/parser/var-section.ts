@@ -142,8 +142,24 @@ function parseVarDecl(c: Cursor): VarDecl | undefined {
 		}
 	}
 
-	// Optional `:= <init>` clause
+	// Optional initializer. Two forms (either or both):
+	//   - an array-element list `[ (f := v, …), … ]` after an `ARRAY[…] OF <FB>` type — real code
+	//     initializes each element's FB instance parameters this way;
+	//   - a `:= <expr>` clause (scalar, struct `( f := v, … )`, or array literal).
+	// Both are captured opaquely into `init` — the LSP round-trips them; the bridge validates on push.
 	let init: VarDecl["init"];
+	if (c.peek().kind === "punct" && c.peek().text === "[") {
+		const open = c.consume();
+		const tokens: Token[] = [open];
+		let depth = 1;
+		while (!c.atEof() && depth > 0) {
+			const t = c.consume();
+			tokens.push(t);
+			if (t.kind === "punct" && t.text === "[") depth++;
+			else if (t.kind === "punct" && t.text === "]") depth--;
+		}
+		init = bodySpanFromTokens(tokens, open.span);
+	}
 	const assign = c.eatPunct(":=");
 	if (assign !== undefined) {
 		const tokens: Token[] = [];
