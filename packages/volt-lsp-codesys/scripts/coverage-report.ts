@@ -11,16 +11,16 @@
  * corpus); this file's CLI prints a human report.
  * CLI: bun run scripts/coverage-report.ts <corpus-dir> [--vendor codesys|twincat] [--list]
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { readFileSync } from "node:fs";
+import { extname, relative } from "node:path";
 import { parseSource } from "../src/parser/parser.js";
 import { buildSymbolTable, type SymbolTableInput } from "../src/semantic/symbol-table-build.js";
 import { computeSemanticDiagnostics } from "../src/semantic/diagnostics.js";
 import { buildBodyModelsForParseResult } from "../src/semantic/body.js";
 import { resolveConfig } from "../src/lsp/config/index.js";
-import { loadLibraryNamespaces } from "../src/semantic/library-catalog.js";
-import { loadDeviceInstances } from "../src/semantic/device-catalog.js";
+import { loadLibraryNamespaces, loadDeviceInstances } from "../src/semantic/reference-catalog.js";
 import { isExcludedFromBuild } from "../src/semantic/exclude-marker.js";
+import { walkFiles } from "../src/fs-walk.js";
 
 // Every writable source kind is named by its kind (bridge: ItemKind.ExtFor).
 export const KIND_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
@@ -43,12 +43,8 @@ export interface Coverage {
 
 function collect(dir: string): string[] {
 	const out: string[] = [];
-	for (const entry of readdirSync(dir)) {
-		if (entry.startsWith(".") || entry === "node_modules") continue;
-		const full = join(dir, entry);
-		const s = statSync(full);
-		if (s.isDirectory()) out.push(...collect(full));
-		else if (KIND_EXTS.has(extname(entry).toLowerCase())) out.push(full);
+	for (const file of walkFiles(dir)) {
+		if (KIND_EXTS.has(extname(file).toLowerCase())) out.push(file);
 	}
 	return out;
 }

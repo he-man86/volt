@@ -14,7 +14,7 @@
  */
 import type { Method } from "../ast.js";
 import type { Cursor } from "../cursor.js";
-import { parseTypeExpression } from "../type-expr.js";
+import { parseOptionalReturnType } from "../type-expr.js";
 import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js";
 import type { Keyword } from "../../lexer/tokens.js";
 
@@ -79,15 +79,7 @@ export function parseMethod(c: Cursor): Method | undefined {
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 
-	// Optional `: ReturnType`
-	let returnType: Method["returnType"];
-	if (c.eatPunct(":") !== undefined) {
-		returnType = parseTypeExpression(c);
-	}
-	// Tolerate a trailing `;` after the header — some CODESYS exports emit `METHOD name : Type;`.
-	// Left unconsumed, collectVarSections sees a stray `;` before the VAR blocks and skips them, so
-	// every method-local (and the return name) resolves nowhere.
-	c.eatPunct(";");
+	const returnType = parseOptionalReturnType(c);
 
 	const varSections = collectVarSections(c);
 	const body = collectBodyUntil(c, "END_METHOD", "method");

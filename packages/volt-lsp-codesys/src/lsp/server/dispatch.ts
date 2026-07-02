@@ -25,8 +25,8 @@ import type {
 	Position,
 } from "vscode-languageserver-protocol";
 import { computeDiagnostics, type DiagnosticsPusher } from "./diagnostics-push.js";
-import { loadLibraryNamespaces } from "../../semantic/library-catalog.js";
-import { loadDeviceInstances } from "../../semantic/device-catalog.js";
+import { loadLibraryNamespaces, loadDeviceInstances } from "../../semantic/reference-catalog.js";
+import { walkFiles } from "../../fs-walk.js";
 import { buildServerCapabilities } from "../capabilities.js";
 import { resolveConfig, type PlcLspInitOptions } from "../config/index.js";
 import {
@@ -524,29 +524,14 @@ export function handleNotification(
 }
 
 /**
- * Recursively walk `dir` and yield absolute paths of every PLC-text source file.
- * Every writable source kind is named by its KIND: POUs (.fb/.prg/.fun), interfaces
- * (.itf), GVLs (.gvl), and the DUT subkinds (.struct/.enum/.union/.alias). Skips
- * `node_modules` and hidden directories.
+ * Yield every PLC-text source file under `dir`. Every writable source kind is named by its KIND: POUs
+ * (.fb/.prg/.fun), interfaces (.itf), GVLs (.gvl), and the DUT subkinds (.struct/.enum/.union/.alias).
  */
 const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([
 	".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl",
 ]);
 function* walkForStFiles(dir: string): Generator<string> {
-	let entries: fs.Dirent[];
-	try {
-		entries = fs.readdirSync(dir, { withFileTypes: true });
-	} catch {
-		return;
-	}
-	for (const entry of entries) {
-		if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-		const full = path.join(dir, entry.name);
-		if (entry.isDirectory()) {
-			yield* walkForStFiles(full);
-		} else if (entry.isFile()) {
-			const ext = path.extname(entry.name).toLowerCase();
-			if (ST_LIKE_EXTENSIONS.has(ext)) yield full;
-		}
+	for (const file of walkFiles(dir)) {
+		if (ST_LIKE_EXTENSIONS.has(path.extname(file).toLowerCase())) yield file;
 	}
 }

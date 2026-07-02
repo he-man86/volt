@@ -211,6 +211,19 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 	};
 }
 
+/**
+ * Parse a METHOD/FUNCTION header's optional `: ReturnType`, then eat an optional trailing `;`. The `;`
+ * (some CODESYS exports emit `METHOD name : Type;`) MUST be consumed: left in place, `collectVarSections`
+ * sees a stray `;` before the VAR blocks and skips them, so every local — and the return name — resolves
+ * nowhere.
+ */
+export function parseOptionalReturnType(c: Cursor): TypeExpr | undefined {
+	let returnType: TypeExpr | undefined;
+	if (c.eatPunct(":") !== undefined) returnType = parseTypeExpression(c);
+	c.eatPunct(";");
+	return returnType;
+}
+
 function parseArrayDim(c: Cursor): ArrayDim | undefined {
 	// Capture lower bound tokens until '..'
 	const start = c.peek().span;

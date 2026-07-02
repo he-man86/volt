@@ -7,7 +7,7 @@
  */
 import type { Function as FunctionAST } from "../ast.js";
 import type { Cursor } from "../cursor.js";
-import { parseTypeExpression } from "../type-expr.js";
+import { parseOptionalReturnType } from "../type-expr.js";
 import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js";
 
 export function parseFunction(c: Cursor): FunctionAST | undefined {
@@ -17,14 +17,7 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
 	if (nameTok === undefined) return undefined;
 	const name = identFromToken(nameTok);
 
-	// Optional `: ReturnType`
-	let returnType: FunctionAST["returnType"];
-	if (c.eatPunct(":") !== undefined) {
-		returnType = parseTypeExpression(c);
-	}
-	// Tolerate a trailing `;` after the header (`FUNCTION name : Type;`) — same as METHOD: left
-	// unconsumed it makes collectVarSections skip the VAR blocks, unresolving every local.
-	c.eatPunct(";");
+	const returnType = parseOptionalReturnType(c);
 
 	const varSections = collectVarSections(c);
 	const body = collectBodyUntil(c, "END_FUNCTION", "function");
