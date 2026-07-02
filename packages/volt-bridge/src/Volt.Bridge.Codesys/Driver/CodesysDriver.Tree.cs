@@ -87,7 +87,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         if (_om.IsFolder(node)) return ItemKind.PlcFolder;
         var iobj = _om.ReadObject(node);
         var ifaces = _om.ObjectInterfaceNames(iobj);
-        string? decl = ifaces.Contains("IPOUObject") || ifaces.Contains("IDUTObject")
+        string? decl = ifaces.Contains("IPOUObject") || ifaces.Contains("IDUTObject") || ifaces.Contains("ITextListEnumerationObject")
             ? CodesysObjectModel.ReadAspectText(iobj, "Interface") : null;
         return CodesysTypeMap.CodeForObject(ifaces, false, _om.GetName(node), decl);
     }

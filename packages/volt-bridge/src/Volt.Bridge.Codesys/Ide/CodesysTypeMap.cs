@@ -47,6 +47,11 @@ namespace Volt.Bridge.Codesys
             if (Has(ifaces, "IPOUObject")) return RefinePou(declaration);
             if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
             if (Has(ifaces, "IDUTObject")) return RefineDut(declaration);
+            // A text-list-backed enumeration (ITextListEnumerationObject) is a normal `TYPE X : (…)` enum
+            // whose members map to a text list. CODESYS surfaces it as its OWN object kind, not IDUTObject —
+            // classify it as a DUT so its enum declaration materializes. Otherwise it drops to Unknown and
+            // every reference is unresolved (real cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
+            if (Has(ifaces, "ITextListEnumerationObject")) return RefineDut(declaration);
             if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 
             // Recognized non-source kinds — distinct wire kinds matching TwinCAT
