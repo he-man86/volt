@@ -70,6 +70,9 @@ public static class ItemKind
     public const int PlcLogic = 691;        // enum). Recursed into; their source children surface flat.
     public const int Device = 692;
     public const int TaskConfig = 693;      // its ITaskObject children surface as individual `task` items
+    public const int GenericContainer = 694; // a node with only the base object interfaces (no specific type) that
+                                            // GROUPS children — e.g. SoftMotion "Kinematics". Recursed into so
+                                            // nested source is never dropped; the node itself is never emitted.
     public const int Unknown = -2;          // classification failed / unrecognized
     public const int Skip = -1;             // transient / hidden
 

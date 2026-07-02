@@ -76,9 +76,18 @@ namespace Volt.Bridge.Codesys
             // KNOWN-SKIP: CODESYS-only build/debug artifacts with no TwinCAT tree-item equivalent and no
             // editable source — intentionally not emitted (no warning). Recipe DEFINITIONs fall here too:
             // TwinCAT doesn't emit them separately from the recipe manager, so skipping preserves parity.
+            // IProjectInfoObject is the "Project Information" metadata node (title/author/version) — not source.
             if (Has(ifaces, "ITraceObject") || Has(ifaces, "ISymbolConfigObject")
-                || Has(ifaces, "IWorkspaceObject") || Has(ifaces, "IRecipeDefinitionObject"))
+                || Has(ifaces, "IWorkspaceObject") || Has(ifaces, "IRecipeDefinitionObject")
+                || Has(ifaces, "IProjectInfoObject"))
                 return ItemKind.Unknown;
+
+            // A node with NO specific object type — only the base IGenericObject/IObject — that GROUPS children
+            // is a transparent container (e.g. a SoftMotion "Kinematics" holding its axis devices). Recurse into
+            // it so nested source is never dropped, but never emit the node itself. Distinct from IUnknownObject
+            // (CODESYS's own no-handler marker, above): here CODESYS DOES know the type, it just carries no
+            // classifying interface. Not a miss — a decision, so no warning.
+            if (IsBareGeneric(ifaces)) return ItemKind.GenericContainer;
 
             // TRULY unrecognized: surface ONCE per distinct object-interface signature so a kind we SHOULD
             // handle becomes visible — logged, NOT thrown (throwing mid-walk would crash /refs on one node).
@@ -111,7 +120,18 @@ namespace Volt.Bridge.Codesys
 
         /// <summary>Containers we recurse into but never emit.</summary>
         public static bool IsRecurseOnlyContainer(int code) =>
-            code is ItemKind.Application or ItemKind.PlcLogic or ItemKind.Device or ItemKind.TaskConfig;
+            code is ItemKind.Application or ItemKind.PlcLogic or ItemKind.Device or ItemKind.TaskConfig
+                or ItemKind.GenericContainer;
+
+        /// <summary>True when the node carries NO classifying object interface — only the universal base
+        /// (IGenericObject/IObject). Such a node is a transparent grouping container, not a typed object.</summary>
+        private static bool IsBareGeneric(HashSet<string> ifaces)
+        {
+            foreach (var i in ifaces)
+                if (i.EndsWith("Object", StringComparison.Ordinal) && i != "IObject" && i != "IGenericObject")
+                    return false;   // has a specific *Object interface → not bare
+            return Has(ifaces, "IGenericObject") || Has(ifaces, "IObject");
+        }
 
         /// <summary>Transient/hidden/unrecognized nodes: skip entirely (no emit, no recurse).</summary>
         public static bool IsSkipped(int code) => code is ItemKind.Skip or ItemKind.Unknown;
