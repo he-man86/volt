@@ -62,10 +62,16 @@ public sealed partial class CodesysDriver : IDebugIntrospect
 
             items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
 
-            // The Library Manager additionally yields its individual library references as flat items.
+            // The Library Manager additionally yields its individual library references. Nest them UNDER a
+            // folder named after the manager, at the manager's own tree location — mirroring how CODESYS
+            // shows the referenced libraries as children of the Library Manager node (and matching the
+            // Beckhoff walk, which recurses the manager so its refs land under it).
             if (code == ItemKind.PlcLibMan)
+            {
+                var libFolder = FolderPath.Append(folderPath, name);
                 foreach (var lib in _om.GetLibraryRefs(child))
-                    items.Add(new ProjectItem(lib.Name, new ItemRef(lib), ItemKind.PlcLibRef, false, folderPath));
+                    items.Add(new ProjectItem(lib.Name, new ItemRef(lib), ItemKind.PlcLibRef, false, libFolder));
+            }
         }
     }
 
