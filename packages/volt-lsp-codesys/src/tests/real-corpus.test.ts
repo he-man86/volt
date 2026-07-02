@@ -27,11 +27,15 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   diags 6894→1851. Same-named methods across FBs (Reset/Set/Map/…) no longer resolve a body against
 //   the wrong FB's members. Remaining ~1573 unresolved are external library/builtin symbols that
 //   `volt pull` does not mirror (L_MC1P, SER_*, CONCAT, …) + a small tail of project-local gaps.
+// + exclude-from-build gate (pro2193.excluded.json — 15 items captured live from the bridge, 9 in-corpus):
+//   diags 1851→1334 built-only. Objects the IDE never compiles (MagazineBaseFB & cluster) have NO ground
+//   truth, so their 517 diagnostics are suppressed, not counted. "goal 0" now means 0 on BUILT objects.
 const BASE = {
 	files: 424, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 424, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 424, // 100% — floor
-	totalDiags: 1851, // ceiling — every diagnostic on the clean project is a false-positive suspect (goal 0)
+	totalDiags: 1334, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	excludedFiles: 9, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 
 describe("real-project coverage (pro2193)", () => {
@@ -56,7 +60,13 @@ describe("real-project coverage (pro2193)", () => {
 		expect(cov.ingestFiles).toBeGreaterThanOrEqual(BASE.ingestFiles);
 	});
 
-	test("precision does not regress (no new false positives)", () => {
+	test("precision does not regress (no new false positives on built objects)", () => {
 		expect(cov.totalDiags).toBeLessThanOrEqual(BASE.totalDiags);
+	});
+
+	test("exclude-from-build manifest stays loaded (built-only measurement is honest)", () => {
+		// If the manifest fails to load, excludedFiles drops to 0 and totalDiags jumps back to ~1851 —
+		// this floor makes that silent regression fail loudly rather than quietly re-counting excluded noise.
+		expect(cov.excludedFiles).toBeGreaterThanOrEqual(BASE.excludedFiles);
 	});
 });

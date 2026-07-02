@@ -12,7 +12,7 @@
  * CLI: bun run scripts/coverage-report.ts <corpus-dir> [--vendor codesys|twincat] [--list]
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { basename, extname, join, relative } from "node:path";
 import { parseSource } from "../src/parser/parser.js";
 import { buildSymbolTable, type SymbolTableInput } from "../src/semantic/symbol-table-build.js";
 import { computeSemanticDiagnostics } from "../src/semantic/diagnostics.js";
@@ -29,11 +29,26 @@ export interface Coverage {
 	parseErrors: number;
 	ingestFiles: number; // files yielding ≥1 unit
 	filesNoUnits: number;
-	totalDiags: number;
-	byCode: Record<string, number>;
+	totalDiags: number; // diagnostics on BUILT files only — the honest precision number (excluded files have no ground truth)
+	byCode: Record<string, number>; // built-only
 	parseErrByMsg: Record<string, number>;
 	parseErrFiles: { file: string; count: number }[];
 	noUnitFiles: string[];
+	excludedFiles: number; // corpus files excluded from build (diagnostics not counted — CODESYS never compiles them)
+	excludedDiags: number; // diagnostics suppressed because their file is excluded (informational)
+}
+
+/** Basenames (bare item name + kind ext, e.g. "MagazineBaseFB.fb") that are excluded from build. Read from a
+ *  committed manifest beside the corpus (`<root>.excluded.json`, an array of names). Empty if absent — then
+ *  nothing is excluded and precision is measured over all files, exactly as before. */
+export function loadExcluded(root: string): Set<string> {
+	try {
+		const raw = readFileSync(`${root.replace(/[\\/]+$/, "")}.excluded.json`, "utf-8").replace(/^﻿/, "");
+		const arr = JSON.parse(raw) as unknown;
+		return new Set(Array.isArray(arr) ? (arr as string[]) : []);
+	} catch {
+		return new Set();
+	}
 }
 
 function collect(dir: string): string[] {
@@ -51,7 +66,11 @@ function collect(dir: string): string[] {
 const normMsg = (m: string) => m.replace(/'[^']*'/g, "'X'").replace(/"[^"]*"/g, '"X"').replace(/\b\d+\b/g, "N");
 
 /** Run the three coverage axes over `root` with the given vendor config. Pure — no I/O beyond reading. */
-export function computeCoverage(root: string, vendor: "codesys" | "twincat" = "codesys"): Coverage {
+export function computeCoverage(
+	root: string,
+	vendor: "codesys" | "twincat" = "codesys",
+	excluded: Set<string> = loadExcluded(root),
+): Coverage {
 	const files = collect(root);
 	const rel = (uri: string) => relative(root, uri.replace("file:///", "")).replace(/\//g, "\\");
 	const inputs: SymbolTableInput[] = files.map((f) => {
@@ -64,6 +83,7 @@ export function computeCoverage(root: string, vendor: "codesys" | "twincat" = "c
 	const cov: Coverage = {
 		files: files.length, units: 0, parseCleanFiles: 0, parseErrors: 0, ingestFiles: 0,
 		filesNoUnits: 0, totalDiags: 0, byCode: {}, parseErrByMsg: {}, parseErrFiles: [], noUnitFiles: [],
+		excludedFiles: 0, excludedDiags: 0,
 	};
 	for (const input of inputs) {
 		const { parseResult, source } = input;
@@ -78,11 +98,17 @@ export function computeCoverage(root: string, vendor: "codesys" | "twincat" = "c
 		cov.units += units;
 		if (units === 0) { cov.filesNoUnits++; cov.noUnitFiles.push(rel(input.uri)); }
 		else cov.ingestFiles++;
+		// Parsing/ingest cover EVERY file (even excluded — they still materialize), but diagnostics on an
+		// excluded file have no ground truth (CODESYS never compiles it), so they are suppressed from the
+		// precision number, exactly as the live LSP gates them. Matched by basename (the wire full-name).
+		const isExcluded = excluded.has(basename(input.uri));
 		const bodyModels = buildBodyModelsForParseResult(parseResult);
 		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels })) {
+			if (isExcluded) { cov.excludedDiags++; continue; }
 			cov.byCode[d.code] = (cov.byCode[d.code] ?? 0) + 1;
 			cov.totalDiags++;
 		}
+		if (isExcluded) cov.excludedFiles++;
 	}
 	return cov;
 }
@@ -98,7 +124,7 @@ if (import.meta.main) {
 	console.log(`corpus: ${c.files} files, ${c.units} top-level units\n`);
 	console.log(`1. PARSE     ${c.parseCleanFiles}/${c.files} files clean (${pct(c.parseCleanFiles, c.files)}) — ${c.parseErrors} parse errors in ${c.parseErrFiles.length} files`);
 	console.log(`2. INGEST    ${c.ingestFiles}/${c.files} files yield ≥1 unit (${pct(c.ingestFiles, c.files)}) — ${c.filesNoUnits} parsed to 0 units`);
-	console.log(`3. PRECISION ${c.totalDiags} diagnostics on the clean project (target 0 — every one is a false-positive suspect)`);
+	console.log(`3. PRECISION ${c.totalDiags} diagnostics on BUILT files (target 0) — ${c.excludedFiles} files excluded from build (${c.excludedDiags} diags suppressed, no ground truth)`);
 	console.log(`\n   diagnostics by code:`);
 	for (const [code, n] of Object.entries(c.byCode).sort((a, b) => b[1] - a[1])) console.log(`     ${code}: ${n}`);
 	console.log(`\n   TOP PARSE-ERROR messages (normalized):`);

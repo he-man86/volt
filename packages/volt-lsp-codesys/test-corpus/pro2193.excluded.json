@@ -1,0 +1,17 @@
+[
+	"CheckPointer.fun",
+	"IMagazinePeeling_Commands.itf",
+	"MagazineBaseFB.fb",
+	"MagazineMotors_Servo_Visu.visualization",
+	"MagazineMotors_TurnAroundFB.fb",
+	"MagazineMotors_TurnAround_Stateasdfasdfasdf.enum",
+	"MagazineMotors_WrapFB.fb",
+	"MagazineMotors_Wrap_State.enum",
+	"MagazinePeeling_BeursFB.fb",
+	"MagazinePeeling_Data.struct",
+	"MagazinePeeling_State.enum",
+	"Magazine_BeursFB.fb",
+	"RemoveStackStatusBFU.fun",
+	"ShiftStackStatusFB.fb",
+	"StickerUnits.prg"
+]

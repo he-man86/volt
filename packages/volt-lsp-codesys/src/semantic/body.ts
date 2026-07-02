@@ -11,7 +11,7 @@
 import type { BodySpan, TopLevel } from "../parser/ast.js";
 import type { Span } from "../lexer/span.js";
 import { scanAllIdentifiersInBody } from "./identifier-scan.js";
-import { isVgBody, isReadOnlyBody, parseVgBody, type VgBody } from "../vg/index.js";
+import { isVgBody, parseVgBody, type VgBody } from "../vg/index.js";
 import { collectVgIdentifierRefs } from "../vg/identifiers.js";
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -78,8 +78,8 @@ export interface CallSite {
  */
 export function buildBodyModel(st: BodySpan, source?: string): BodyModel {
 	if (isVgBody(st.tokens)) return buildVgBodyModel(st, source);
-	// A read-only graphical body (`READONLY <LANG>`) is not analyzed — no identifiers, no diagnostics.
-	if (isReadOnlyBody(st.tokens)) return { span: st.span, language: "readonly", identifiers: [], calls: [], st };
+	// CFC/SFC bodies now materialize as an informational marker COMMENT (no `READONLY` marker); the scan
+	// below finds no identifiers in a comment-only body, so it needs no special-casing.
 
 	const occurrences = scanAllIdentifiersInBody(st);
 	const identifiers: IdentifierRef[] = occurrences.map((o) => ({
