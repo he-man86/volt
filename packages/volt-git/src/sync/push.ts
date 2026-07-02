@@ -7,7 +7,7 @@
 import type { PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
 import { autoCommitSrc, diffRefs, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
-import { bodyIsReadOnly, isPushable, isReadOnly } from "../registry/extensions.js";
+import { isPushable, isReadOnly } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, countChanges, hasChanges } from "./diff.js";
@@ -60,9 +60,10 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	const rows = diffRefs(root, RANGE, "HEAD", "src");
 
 	const affected = rows.flatMap((r) => (r.kind === "rename" ? [stripSrcPrefix(r.oldPath), stripSrcPrefix(r.newPath)] : [stripSrcPrefix(r.path)]));
-	// Read-only = a reference-kind extension, OR a POU whose body is the `READONLY <LANG>` marker (a
-	// read-only CFC/SFC body — self-described in content, since its .fb/.prg/.fun extension is writable).
-	const readOnly = affected.filter((p) => isReadOnly(p) || bodyIsReadOnly(headSrc(p)));
+	// Read-only = a reference-kind extension (library/task/visu/…). Graphical CFC/SFC POU bodies are no
+	// longer content-marked; a push over one is refused by the bridge on LIVE IDE state (BodyLanguage), so
+	// there's nothing to pre-filter by content here.
+	const readOnly = affected.filter((p) => isReadOnly(p));
 	if (readOnly.length > 0) {
 		return { kind: "rejected", reason: `read-only items can't be pushed — revert these:\n${readOnly.map((p) => `  ${p}`).join("\n")}` };
 	}

@@ -50,6 +50,7 @@ export interface IdeRefs {
 	projectVersion: string;
 	items: Record<string, string>; // full name → version  (what the IDE last had)
 	folders: Record<string, string>; // full name → folder
+	excluded?: string[]; // full names EFFECTIVELY excluded from build (IDE won't compile them → LSP skips diagnostics)
 }
 
 export function loadIdeRefs(root: string): IdeRefs | undefined {

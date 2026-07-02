@@ -20,8 +20,8 @@
 ## 4. Wire types + CLI/manifest
 
 - [x] 4.1 `volt-git bridge/types.ts`: add optional `excludeFromBuild` to `FetchedItemSchema`; add the per-item map to `RefsResponseSchema`. No `readOnly` field.
-- [ ] 4.2 `volt-git` fetch/materialize + sidecar: persist `excludeFromBuild` per item.
-- [ ] 4.3 `volt-control`: add `readExcludedFromBuild(workspaceRoot)` returning a per-path set (mirror `readExtensionAccess`). Remove `bodyIsReadOnly`/`READONLY`-marker logic. Leave the config-kind read-only access map (feeds the `RO` badge) unchanged.
+- [x] 4.2 `volt-git` fetch/materialize + sidecar: persist `excludeFromBuild` per item.
+- [x] 4.3 `volt-control`: add `readExcludedFromBuild(workspaceRoot)` returning a per-path set (mirror `readExtensionAccess`). Remove `bodyIsReadOnly`/`READONLY`-marker logic. Leave the config-kind read-only access map (feeds the `RO` badge) unchanged.
 
 ## 5. LSP: gate diagnostics + honest ground truth
 
@@ -32,7 +32,7 @@
 
 ## 6. VS Code decorations
 
-- [ ] 6.1 `providers/decorations.ts`: add an `EX` badge (`disabledForeground`, tooltip about skipped diagnostics) from `readExcludedFromBuild`, populated in `refresh()`. Keep the `RO` badge fed by the config-kind access map; confirm graphical POUs no longer get `RO`.
+- [x] 6.1 `providers/decorations.ts`: add an `EX` badge (`disabledForeground`, tooltip about skipped diagnostics) from `readExcludedFromBuild`, populated in `refresh()`. Keep the `RO` badge fed by the config-kind access map; confirm graphical POUs no longer get `RO`.
 
 ## 7. Verify + sync
 

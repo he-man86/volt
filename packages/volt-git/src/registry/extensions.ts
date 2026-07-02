@@ -102,13 +102,6 @@ export function isReadOnly(relPath: string): boolean {
 	return getByPath(relPath)?.defaultAccess === "r";
 }
 
-/** A source POU is read-only if its materialized body is the `READONLY <LANG>` marker (a CFC/SFC body
- *  the IDE authored graphically). Read-only is thus self-describing in the file, not in the extension:
- *  a `.fb`/`.prg`/`.fun` can be writable (textual/FBD/LD) or read-only (this marker). */
-export function bodyIsReadOnly(content: string): boolean {
-	return /^\s*READONLY\s+\w+\s*$/m.test(content);
-}
-
 export function gitattributesContent(): string {
 	// Normalize EVERY workspace file to LF. The bridge always emits LF and the whole workspace is text
 	// (ST, VG, and the read-only manifests). Without a blanket rule, Windows git (core.autocrlf) round-

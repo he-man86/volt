@@ -36,7 +36,7 @@ export function readBridgePort(workspaceRoot: string): number | undefined {
 }
 
 /** Per-extension access from .git/volt/config.json: ".st" → "rw", ".cfc" → "r", etc.
- *  Drives the read-only badge — read-only graphical/config files the AI reads but can't push. */
+ *  Drives the read-only badge — read-only config kinds the AI reads but can't push. */
 export function readExtensionAccess(workspaceRoot: string): Record<string, "r" | "rw"> {
 	try {
 		const raw = readFileSync(join(workspaceRoot, ".git", "volt", "config.json"), "utf-8")
@@ -44,6 +44,19 @@ export function readExtensionAccess(workspaceRoot: string): Record<string, "r" |
 		return parsed.extensionAccess ?? {}
 	} catch {
 		return {}
+	}
+}
+
+/** Full item names (e.g. "MagazineBaseFB.fb") EFFECTIVELY excluded from build, from the pull sidecar
+ *  (.git/volt/ide-refs.json). The IDE never compiles these, so the LSP skips diagnostics and the editor
+ *  badges them `EX`. Empty set if the sidecar is absent or predates the field. */
+export function readExcludedFromBuild(workspaceRoot: string): Set<string> {
+	try {
+		const raw = readFileSync(join(workspaceRoot, ".git", "volt", "ide-refs.json"), "utf-8")
+		const parsed = JSON.parse(raw) as { excluded?: string[] }
+		return new Set(parsed.excluded ?? [])
+	} catch {
+		return new Set()
 	}
 }
 

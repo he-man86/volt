@@ -58,7 +58,12 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
 	const ideFiles = fetched.changed.flatMap(materializeItem);
-	const newSidecar: IdeRefs = { projectVersion: fetched.projectVersion, items: fetched.items, folders: refs.folders };
+	const newSidecar: IdeRefs = {
+		projectVersion: fetched.projectVersion,
+		items: fetched.items,
+		folders: refs.folders,
+		excluded: Object.keys(fetched.excludeFromBuild ?? {}).sort(),
+	};
 	const head = headCommit(root);
 
 	// Bootstrap: unborn HEAD — no merge target. Seed both refs + materialize files + sync the index.
