@@ -20,9 +20,10 @@ console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
-// Items whose assembled sourceText is known-corrupt — omitted so the corpus keeps its 100%-parse invariant.
-// SetErrorFB.fb: a CFC-bodied FB whose child methods assemble with the PARENT's declaration (StAssembler
-// bug, tracked separately). Re-add once that's fixed.
+// Items omitted so the corpus keeps its 100%-parse invariant. SetErrorFB.fb: a CFC-bodied FB whose child
+// methods materialized with the PARENT's declaration — FIXED (Materializer now reads a graphical child's
+// decl from its own aspect). The committed corpus was harvested BEFORE the fix, so it's still omitted;
+// remove this entry and re-harvest from a bridge built at/after that fix to fold it back in.
 const KNOWN_BAD = new Set(["SetErrorFB.fb"])
 let written = 0, kind = 0, skipped = 0
 for (const item of fetched.changed) {
