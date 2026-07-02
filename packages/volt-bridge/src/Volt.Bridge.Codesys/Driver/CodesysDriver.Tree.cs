@@ -38,7 +38,11 @@ public sealed partial class CodesysDriver : IDebugIntrospect
 
     private void Walk(object node, string folderPath, List<ProjectItem> items)
     {
-        foreach (var child in _om.GetChildren(node))
+        // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
+        // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
+        IReadOnlyList<object> children;
+        try { children = _om.GetChildren(node); } catch { return; }
+        foreach (var child in children)
         {
             var name = _om.GetName(child);
             var code = KindCodeOf(child);

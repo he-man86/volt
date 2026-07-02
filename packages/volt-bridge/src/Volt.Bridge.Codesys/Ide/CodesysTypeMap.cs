@@ -82,17 +82,20 @@ namespace Volt.Bridge.Codesys
                 || Has(ifaces, "IProjectInfoObject"))
                 return ItemKind.Unknown;
 
-            // A node with NO specific object type — only the base IGenericObject/IObject — that GROUPS children
-            // is a transparent container (e.g. a SoftMotion "Kinematics" holding its axis devices). Recurse into
-            // it so nested source is never dropped, but never emit the node itself. Distinct from IUnknownObject
-            // (CODESYS's own no-handler marker, above): here CODESYS DOES know the type, it just carries no
-            // classifying interface. Not a miss — a decision, so no warning.
-            if (IsBareGeneric(ifaces)) return ItemKind.GenericContainer;
+            // A node with NO specific object type — only the base IGenericObject/IObject — is a transparent
+            // grouping container (e.g. a SoftMotion "Kinematics" holding its axis devices). No warning: it
+            // carries no type to handle. Falls through to GenericContainer below (recurse, never emit).
+            // TRULY unrecognized (a specific *Object interface we don't handle): surface ONCE per distinct
+            // signature so a kind we SHOULD map becomes visible — logged, NOT thrown.
+            if (!IsBareGeneric(ifaces)) WarnUnrecognized(name, ifaces);
 
-            // TRULY unrecognized: surface ONCE per distinct object-interface signature so a kind we SHOULD
-            // handle becomes visible — logged, NOT thrown (throwing mid-walk would crash /refs on one node).
-            WarnUnrecognized(name, ifaces);
-            return ItemKind.Unknown; // unrecognized / non-emittable — don't emit a phantom item
+            // Either way, treat it as a GenericContainer: RECURSE so nested source under an unclassified node
+            // is never dropped (matching the Beckhoff walk, which recurses any hybrid), but never emit the node
+            // itself (Map(GenericContainer) is null). This is the safety net the no-fallback policy needs — a
+            // new vendor grouping type warns us to add proper handling WITHOUT silently losing its children.
+            // (IUnknownObject — CODESYS's own no-handler marker — returned Unknown above and is NOT recursed:
+            // its subtree is genuinely unreadable, so we leave it opaque.)
+            return ItemKind.GenericContainer;
         }
 
         private static readonly HashSet<string> _loggedUnknown = new HashSet<string>(StringComparer.Ordinal);
