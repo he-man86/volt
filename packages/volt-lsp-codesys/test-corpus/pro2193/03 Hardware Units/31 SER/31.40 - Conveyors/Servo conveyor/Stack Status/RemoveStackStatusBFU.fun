@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 FUNCTION RemoveStackStatusBFU
 VAR_IN_OUT
 	TempStatus : ARRAY[*] OF StackStatusType;

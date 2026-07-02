@@ -67,6 +67,20 @@ describe("volt-git sync", () => {
 		expect(existsSync(join(root, "libs"))).toBe(false); // no separate generated catalog
 	});
 
+	test("1c. an excluded object gets the in-file marker on pull, stripped on push", async () => {
+		const body = "FUNCTION_BLOCK Bad\nVAR\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n";
+		const bridge = await setup([{ name: "Bad.fb", sourceText: body, excludeFromBuild: true }]);
+		// Pull materialized the exclude marker into the file.
+		expect(readSrc(root, "Bad.fb").startsWith("(* @volt-exclude-from-build *)")).toBe(true);
+		// Edit + push → the bridge receives clean source (marker stripped, never reaches the IDE).
+		writeSrc(root, "Bad.fb", `(* @volt-exclude-from-build *)\n${body.replace("x : INT;", "y : INT;")}`);
+		commitAll(root, "edit excluded fb");
+		await push(root, bridge);
+		const op = bridge.pushCalls.at(-1)!.ops[0] as Record<string, unknown>;
+		expect(op.sourceText).not.toContain("@volt-exclude-from-build");
+		expect(op.sourceText).toContain("y : INT;");
+	});
+
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {
 		const bridge = await setup([{ name: "A.fb", sourceText: "v1\n" }]);
 		bridge.set("A.fb", "v2\n");

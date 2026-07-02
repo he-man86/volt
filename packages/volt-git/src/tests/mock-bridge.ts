@@ -16,6 +16,7 @@ export interface MockItem {
 	name: string;
 	folder?: string;
 	sourceText: string;
+	excludeFromBuild?: boolean;
 }
 
 const ver = (s: string): string => createHash("sha1").update(s).digest("hex").slice(0, 16);
@@ -80,7 +81,9 @@ export class MockBridge implements Remote {
 			.filter((it) => known[it.name] !== ver(it.sourceText))
 			.map((it) => ({ name: it.name, folder: it.folder, sourceText: it.sourceText, version: ver(it.sourceText) }));
 		const removed = Object.keys(known).filter((n) => !this.items.has(n));
-		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions() };
+		const excludeFromBuild: Record<string, boolean> = {};
+		for (const it of this.items.values()) if (it.excludeFromBuild) excludeFromBuild[it.name] = true;
+		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions(), excludeFromBuild };
 	}
 
 	async pushBatch(req: PushRequest): Promise<PushResponse> {

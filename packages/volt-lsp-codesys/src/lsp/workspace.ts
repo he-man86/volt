@@ -84,17 +84,6 @@ export class Workspace {
 		this._config = config;
 	}
 
-	/** Full item names (e.g. `MagazineBaseFB.fb`) the IDE won't compile (excluded from build). The IDE
-	 *  never checks them, so we skip diagnostics on them — they have no ground truth. Loaded from the pull
-	 *  sidecar at `initialize`; empty until then (⇒ nothing excluded, all files checked). */
-	private _excluded = new Set<string>();
-	get excludedFromBuild(): ReadonlySet<string> {
-		return this._excluded;
-	}
-	setExcludedFromBuild(names: Iterable<string>): void {
-		this._excluded = new Set(names);
-	}
-
 	/** Lowercased namespaces of the project's referenced libraries, from the committed `libs/` catalog
 	 *  (`loadLibraryNamespaces`). A qualified reference root (`PACK_ML.State`) resolves nowhere in the
 	 *  project symbol table but is valid — the unresolved-identifier check skips these. Loaded at

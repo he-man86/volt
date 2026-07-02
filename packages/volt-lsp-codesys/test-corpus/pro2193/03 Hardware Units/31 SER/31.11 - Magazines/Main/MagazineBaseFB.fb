@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 {attribute 'symbol' := 'none'}
 FUNCTION_BLOCK MagazineBaseFB
 EXTENDS ModuleBaseHardwareFB

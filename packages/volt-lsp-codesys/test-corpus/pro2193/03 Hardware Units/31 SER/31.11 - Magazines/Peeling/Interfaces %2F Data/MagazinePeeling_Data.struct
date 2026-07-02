@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 TYPE MagazinePeeling_Data :
 STRUCT
 	rStopperIN					: REAL;

@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 // Can be used for both dual and single type label magazines!
 {attribute 'symbol' := 'none'}
 FUNCTION_BLOCK MagazineMotors_WrapFB

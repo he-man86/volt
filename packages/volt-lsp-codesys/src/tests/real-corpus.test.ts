@@ -90,9 +90,10 @@ describe("real-project coverage (pro2193)", () => {
 		expect(cov.totalDiags).toBeLessThanOrEqual(BASE.totalDiags);
 	});
 
-	test("exclude-from-build manifest stays loaded (built-only measurement is honest)", () => {
-		// If the manifest fails to load, excludedFiles drops to 0 and totalDiags jumps back to ~1851 —
-		// this floor makes that silent regression fail loudly rather than quietly re-counting excluded noise.
+	test("exclude-from-build markers are read (built-only measurement is honest)", () => {
+		// Excluded objects carry an in-file `(* @volt-exclude-from-build *)` marker. If it stops being read,
+		// excludedFiles drops to 0 and totalDiags jumps back up — this floor makes that regression fail loudly
+		// rather than quietly re-counting the excluded (no-ground-truth) noise.
 		expect(cov.excludedFiles).toBeGreaterThanOrEqual(BASE.excludedFiles);
 	});
 });

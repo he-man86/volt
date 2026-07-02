@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 {attribute 'qualified_only'}
 //{attribute 'strict'}
 {attribute 'to_string'}

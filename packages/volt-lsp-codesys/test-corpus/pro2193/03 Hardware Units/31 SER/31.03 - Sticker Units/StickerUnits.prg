@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 // Sticker units (or label dispencers) attach a printed label or sticker to the products
 {attribute 'symbol' := 'none'}
 PROGRAM StickerUnits

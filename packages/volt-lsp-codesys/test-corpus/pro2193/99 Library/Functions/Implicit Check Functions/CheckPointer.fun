@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 // Implicitly generated code : DO NOT EDIT
 FUNCTION CheckPointer : POINTER TO BYTE
 VAR_INPUT

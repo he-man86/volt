@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 FUNCTION_BLOCK ShiftStackStatusFB
 VAR_INPUT
 	xEnable				: BOOL;

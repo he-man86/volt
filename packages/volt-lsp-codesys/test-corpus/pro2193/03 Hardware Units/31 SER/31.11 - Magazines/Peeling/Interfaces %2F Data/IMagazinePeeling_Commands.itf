@@ -1,3 +1,4 @@
+(* @volt-exclude-from-build *)
 // Commands specific for a Magazine Unit
 INTERFACE IMagazinePeeling_Commands
 EXTENDS IModuleBase, IModuleStartCommand

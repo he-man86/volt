@@ -20,7 +20,9 @@ import {
 	resolveGitDir,
 	updateRef,
 } from "../git/plumbing.js";
+import { basename } from "node:path";
 import { materializeItem } from "../translate/materialize.js";
+import { addExcludeMarker, isSourceFile } from "../translate/exclude-marker.js";
 import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
@@ -57,7 +59,11 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	autoCommitSrc(root);
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
-	const ideFiles = fetched.changed.flatMap(materializeItem);
+	// Excluded-from-build objects carry an in-file marker (self-contained, read by the LSP; stripped on push).
+	const excluded = fetched.excludeFromBuild ?? {};
+	const ideFiles = fetched.changed
+		.flatMap(materializeItem)
+		.map((f) => (isSourceFile(f.path) && excluded[basename(f.path)] ? { ...f, content: addExcludeMarker(f.content) } : f));
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,

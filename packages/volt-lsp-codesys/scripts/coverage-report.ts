@@ -12,13 +12,14 @@
  * CLI: bun run scripts/coverage-report.ts <corpus-dir> [--vendor codesys|twincat] [--list]
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, extname, join, relative } from "node:path";
+import { extname, join, relative } from "node:path";
 import { parseSource } from "../src/parser/parser.js";
 import { buildSymbolTable, type SymbolTableInput } from "../src/semantic/symbol-table-build.js";
 import { computeSemanticDiagnostics } from "../src/semantic/diagnostics.js";
 import { buildBodyModelsForParseResult } from "../src/semantic/body.js";
 import { resolveConfig } from "../src/lsp/config/index.js";
 import { loadLibraryNamespaces } from "../src/semantic/library-catalog.js";
+import { isExcludedFromBuild } from "../src/semantic/exclude-marker.js";
 
 // Every writable source kind is named by its kind (bridge: ItemKind.ExtFor).
 export const KIND_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
@@ -39,19 +40,6 @@ export interface Coverage {
 	excludedDiags: number; // diagnostics suppressed because their file is excluded (informational)
 }
 
-/** Basenames (bare item name + kind ext, e.g. "MagazineBaseFB.fb") that are excluded from build. Read from a
- *  committed manifest beside the corpus (`<root>.excluded.json`, an array of names). Empty if absent — then
- *  nothing is excluded and precision is measured over all files, exactly as before. */
-export function loadExcluded(root: string): Set<string> {
-	try {
-		const raw = readFileSync(`${root.replace(/[\\/]+$/, "")}.excluded.json`, "utf-8").replace(/^﻿/, "");
-		const arr = JSON.parse(raw) as unknown;
-		return new Set(Array.isArray(arr) ? (arr as string[]) : []);
-	} catch {
-		return new Set();
-	}
-}
-
 function collect(dir: string): string[] {
 	const out: string[] = [];
 	for (const entry of readdirSync(dir)) {
@@ -70,7 +58,6 @@ const normMsg = (m: string) => m.replace(/'[^']*'/g, "'X'").replace(/"[^"]*"/g, 
 export function computeCoverage(
 	root: string,
 	vendor: "codesys" | "twincat" = "codesys",
-	excluded: Set<string> = loadExcluded(root),
 ): Coverage {
 	const files = collect(root);
 	const rel = (uri: string) => relative(root, uri.replace("file:///", "")).replace(/\//g, "\\");
@@ -102,8 +89,8 @@ export function computeCoverage(
 		else cov.ingestFiles++;
 		// Parsing/ingest cover EVERY file (even excluded — they still materialize), but diagnostics on an
 		// excluded file have no ground truth (CODESYS never compiles it), so they are suppressed from the
-		// precision number, exactly as the live LSP gates them. Matched by basename (the wire full-name).
-		const isExcluded = excluded.has(basename(input.uri));
+		// precision number, exactly as the live LSP gates them. Signalled by the in-file marker.
+		const isExcluded = isExcludedFromBuild(source);
 		const bodyModels = buildBodyModelsForParseResult(parseResult);
 		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels, libraryNamespaces })) {
 			if (isExcluded) { cov.excludedDiags++; continue; }

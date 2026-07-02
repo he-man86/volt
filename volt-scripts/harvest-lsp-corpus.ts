@@ -4,8 +4,9 @@
  *   bun volt-scripts/harvest-lsp-corpus.ts <outDir> [port]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import { materializeItem } from "../packages/volt-git/src/translate/materialize.ts"
+import { addExcludeMarker, isSourceFile } from "../packages/volt-git/src/translate/exclude-marker.ts"
 
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
@@ -15,7 +16,11 @@ const res = await fetch(`http://127.0.0.1:${port}/fetch`, {
 	method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ knownItems: {} }),
 })
 if (!res.ok) { console.error(`/fetch failed: ${res.status} ${await res.text()}`); process.exit(1) }
-const fetched = (await res.json()) as { changed: { name: string; folder?: string; sourceText: string; version: string }[] }
+const fetched = (await res.json()) as {
+	changed: { name: string; folder?: string; sourceText: string; version: string }[]
+	excludeFromBuild?: Record<string, boolean>
+}
+const excluded = fetched.excludeFromBuild ?? {}
 console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
@@ -31,9 +36,11 @@ for (const item of fetched.changed) {
 		const dot = f.path.lastIndexOf(".")
 		const ext = dot < 0 ? "" : f.path.slice(dot).toLowerCase()
 		if (!WRITE.has(ext)) { skipped++; continue }
+		// Excluded-from-build source files carry the in-file marker the LSP reads (matches volt pull).
+		const content = isSourceFile(f.path) && excluded[basename(f.path)] ? addExcludeMarker(f.content) : f.content
 		const p = join(outDir, f.path)
 		mkdirSync(dirname(p), { recursive: true })
-		writeFileSync(p, f.content, "utf-8")
+		writeFileSync(p, content, "utf-8")
 		written++; ext === ".library" ? lib++ : kind++
 	}
 }
