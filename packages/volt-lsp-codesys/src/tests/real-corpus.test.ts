@@ -56,11 +56,20 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   the `*`-version placeholder libs). The LSP scans them and resolves qualified library-reference roots
 //   (PACK_ML ×219, L_MC1P ×75, Stu ×72, L_MC4P ×42, …). Diags 563→95. The remaining 95 are device/axis
 //   instances (~41), bare library ELEMENTS (~19, → Phase 2), and project-local gaps (~27).
+// + device-tree instances: the corpus mirrors the CODESYS device tree — a read-only `.device` descriptor per
+//   instance (Name/Vendor/Type/ID/Version/…), at its tree location (105 files, controller spine excluded). The
+//   LSP registers each filename as a known global, so bare device references resolve (EtherCAT_Master, YDrive,
+//   MagazineAxes, the drives + axes); member access into a device's internal type is not ours to check and
+//   falls through. Diags 95→55. Remaining 55: bare library ELEMENTS (~19, → Phase 2) + project-local gaps.
+// + complete tree mirror (structure only, diags unchanged at 55): the corpus now nests EXACTLY as CODESYS —
+//   Device → Plc Logic → Application → usercode, with the hardware devices as siblings under Device (no more
+//   split between hardware under Device/ and software flattened at the root). File scan is recursive, so the
+//   counts + resolution are path-independent; this is a layout change, not a precision change.
 const BASE = {
 	files: 523, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 523, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 523, // 100% — floor
-	totalDiags: 95, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	totalDiags: 55, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 

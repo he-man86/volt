@@ -26,6 +26,7 @@ import type {
 } from "vscode-languageserver-protocol";
 import { computeDiagnostics, type DiagnosticsPusher } from "./diagnostics-push.js";
 import { loadLibraryNamespaces } from "../../semantic/library-catalog.js";
+import { loadDeviceInstances } from "../../semantic/device-catalog.js";
 import { buildServerCapabilities } from "../capabilities.js";
 import { resolveConfig, type PlcLspInitOptions } from "../config/index.js";
 import {
@@ -124,6 +125,11 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 			const libraryNamespaces = new Set<string>();
 			for (const root of roots) for (const ns of loadLibraryNamespaces(root)) libraryNamespaces.add(ns);
 			ctx.workspace.setLibraryNamespaces(libraryNamespaces);
+			// Load the device-tree instance names from the read-only `.device` files so bare device references
+			// (`MagazineAxes`, `EtherCAT_Master`, drives, axes) resolve.
+			const deviceInstances = new Set<string>();
+			for (const root of roots) for (const n of loadDeviceInstances(root)) deviceInstances.add(n);
+			ctx.workspace.setDeviceInstances(deviceInstances);
 			const result: InitializeResult = {
 				capabilities: buildServerCapabilities(ctx.workspace.clientCapabilities),
 				serverInfo: { name: "volt-lsp-codesys", version: "0.0.0" },

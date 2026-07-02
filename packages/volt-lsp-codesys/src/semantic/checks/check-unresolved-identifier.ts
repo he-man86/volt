@@ -38,6 +38,7 @@ export function checkUnresolvedIdentifiers(
 	bodyModels: Map<BodySpan, BodyModel> | undefined,
 	out: DiagnosticItem[],
 	libraryNamespaces?: ReadonlySet<string>,
+	deviceInstances?: ReadonlySet<string>,
 ): void {
 	for (const unit of parseResult.units) {
 		const body = getBody(unit);
@@ -115,6 +116,10 @@ export function checkUnresolvedIdentifiers(
 			// reference. Materialized into the workspace's `libs/` catalog from the project's library refs
 			// (not the project symbol table), so it resolves nowhere yet is valid. Skip it.
 			if (libraryNamespaces?.has(name.toLowerCase())) continue;
+			// A device-tree instance (EtherCAT_Master, YDrive, MagazineAxes, …) — an implicit global from the
+			// device tree, mirrored as a read-only `.device` file (not the project symbol table). The bare
+			// reference is valid; its internal members aren't ours to check. Skip it.
+			if (deviceInstances?.has(name.toLowerCase())) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",

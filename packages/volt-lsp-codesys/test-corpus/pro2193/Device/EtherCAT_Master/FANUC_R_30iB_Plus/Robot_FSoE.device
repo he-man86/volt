@@ -1,0 +1,7 @@
+Name:         Robot FSoE
+Vendor:       FANUC CORPORATION
+Type:         68
+ID:           691_000100C4_65732_10001
+Version:      0
+Order number: Robot FSoE
+Description:  EtherCAT Module imported from Slave XML: fanuc_rs_esi0002_ctt.xml Device: Robot FSoE

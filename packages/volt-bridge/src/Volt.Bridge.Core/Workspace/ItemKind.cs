@@ -53,6 +53,16 @@ public static class ItemKind
     public const int PlcRecipeMan = 632;    // observed live; no published name
     public const int PlcRecipes = 633;      // recipes container under the recipe manager (same wire kind as 632)
     public const int PlcLibRef = 657;       // individual library reference; CODESYS synthesizes these from ILibManObject
+    public const int PlcDevice = 695;       // an EMITTED device-tree instance (read-only descriptor). Distinct from
+                                            // Device (692) = the recurse-only controller/spine. CODESYS-first; a
+                                            // TwinCAT bridge would classify its I/O tree onto the same code.
+    public const int PlcProjectInfo = 696;  // the project's "Project Information" metadata (title/author/version/
+                                            // company) — read-only descriptor. IProjectInfoObject. CODESYS-first.
+    public const int PlcTrace = 697;        // a trace/recording configuration (read-only `.trace`). ITraceObject.
+    public const int PlcRecipe = 698;       // a recipe definition — its variable list (read-only `.recipe`).
+                                            // IRecipeDefinitionObject, a child of the Recipe Manager.
+    public const int PlcSymbolConfig = 699;  // the symbol-configuration flags (read-only `.symbols`). ISymbolConfigObject.
+                                            // (695-699 are CODESYS-first read-only descriptors for non-source project objects.)
 
     // ── [TC-only] TwinCAT TREEITEMTYPEs with no CODESYS equivalent ──
     public const int PlcParamList = 629;    // ADS parameter list — CODESYS has no parameter-list object type (docs + Hauzer)
@@ -113,6 +123,11 @@ public static class ItemKind
         PlcItfPropGet => "interface_property_get",
         PlcItfPropSet => "interface_property_set",
         PlcLibRef => "library",
+        PlcDevice => "device",
+        PlcProjectInfo => "project_info",
+        PlcTrace => "trace",
+        PlcRecipe => "recipe",
+        PlcSymbolConfig => "symbol_config",
         _ => null,
     };
 
@@ -152,6 +167,11 @@ public static class ItemKind
         "gvl" => "gvl",
         "tmc_file" => "tmc",
         "library" => "library",
+        "device" => "device",
+        "project_info" => "projectinfo",
+        "trace" => "trace",
+        "recipe" => "recipe",
+        "symbol_config" => "symbols",
         "task" => "task",
         "image_pool" => "image_pool",
         "parameter_list" => "parameter_list",

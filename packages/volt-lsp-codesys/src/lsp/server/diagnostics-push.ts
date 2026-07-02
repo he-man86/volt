@@ -68,6 +68,7 @@ export function computeDiagnostics(
 		activeVendor: workspace.config.vendor,
 		bodyModels: doc.bodyModels,
 		libraryNamespaces: workspace.libraryNamespaces,
+		deviceInstances: workspace.deviceInstances,
 	}).map((d) => ({
 		range: {
 			start: { line: d.span.startLine - 1, character: d.span.startCol },

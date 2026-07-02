@@ -51,6 +51,12 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 657 | *(unconfirmed)* | `PlcLibRef` | `library` | both | ✅ | opaque | ✅ | individual lib ref (CODESYS: synthetic from LibManObject) |
 | 0 | — | `PlcSystemRoot` | — | TC | — | — | — | solution/system root — *above* the PLC project, never reached by the walk → `Map` returns null (not emitted). Const kept only so read-failures use -2, not 0 |
 | 690-693 | — | `Application`/`PlcLogic`/`Device`/`TaskConfig` | — | CDS | recurse | — | ✅ | CODESYS-only containers; recursed, never emitted |
+| 694 | — | `GenericContainer` | — | CDS | recurse | — | ✅ | bare grouping node (SoftMotion "Kinematics", the drive "Functions" group); recursed — inside the device tree it nests as a folder to mirror the hierarchy |
+| 695 | — | `PlcDevice` | `device` | CDS | ✅ | opaque | ✅ | EMITTED device-tree instance (read-only `.device` descriptor: Name/Vendor/Type/ID/Version/…). Distinct from 692 (the recurse-only controller/spine). CODESYS-first; a TC bridge would map its I/O tree here |
+| 696 | — | `PlcProjectInfo` | `project_info` | CDS | ✅ | opaque | ✅ | the project's "Project Information" metadata (read-only `.projectinfo`: Title/Version/Company/Author/…). IProjectInfoObject. Project SETTINGS (IWorkspaceObject) stays a known-skip — no readable content. CODESYS-first |
+| 697 | — | `PlcTrace` | `trace` | CDS | ✅ | opaque | ✅ | a trace/recording config (read-only `.trace`: task/trigger/resolution/samples). ITraceObject. CODESYS-first |
+| 698 | — | `PlcRecipe` | `recipe` | CDS | ✅ | opaque | ✅ | a recipe definition's variable list (read-only `.recipe`: `var : type (column)`). IRecipeDefinitionObject, nested under the recurse-emitted Recipe Manager. CODESYS-first |
+| 699 | — | `PlcSymbolConfig` | `symbol_config` | CDS | ✅ | opaque | ✅ | the symbol-configuration flags (read-only `.symbols`: OPC UA / direct-I/O / filter). ISymbolConfigObject. CODESYS-first |
 
 ## Complete coverage map — what could exist vs. what we map
 

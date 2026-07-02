@@ -96,6 +96,17 @@ export class Workspace {
 		this._libraryNamespaces = new Set(namespaces);
 	}
 
+	/** Lowercased device-tree instance names, from the read-only `.device` files (`loadDeviceInstances`). A
+	 *  bare device reference (`MagazineAxes`, `EtherCAT_Master`) resolves nowhere in the project symbol table
+	 *  but is valid. Loaded at `initialize`; empty until then (⇒ every reference checked as before). */
+	private _deviceInstances = new Set<string>();
+	get deviceInstances(): ReadonlySet<string> {
+		return this._deviceInstances;
+	}
+	setDeviceInstances(names: Iterable<string>): void {
+		this._deviceInstances = new Set(names);
+	}
+
 	openDocument(uri: string, source: string, version: number, _languageId: string = ST_LANGUAGE_ID): void {
 		// A body is ST or VG — VG ("Volt Graphical") is a distinct language
 		// for FBD/LD bodies, routed by its `NETWORK` first token (see

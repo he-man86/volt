@@ -51,6 +51,10 @@ export interface DiagnosticsArgs {
 	/** Lowercased namespaces of the project's referenced libraries (from the `libs/` catalog). A qualified
 	 *  reference root (`PACK_ML.State`) resolves nowhere in the project symbol table but is valid. */
 	libraryNamespaces?: ReadonlySet<string>;
+	/** Lowercased device-tree instance names (from the read-only `.device` files). A bare reference to a
+	 *  device global (`MagazineAxes`, `EtherCAT_Master`) resolves nowhere in the project symbol table but is
+	 *  valid — the device tree exposes it as an implicit global. */
+	deviceInstances?: ReadonlySet<string>;
 }
 
 /** Shared context passed to every check function. Carries everything
@@ -98,7 +102,7 @@ const CHECKS: CheckSpec[] = [
 		// Uses BodyModel.identifiers — the language-neutral surface
 		// the body adapter populates from ST body tokens.
 		run: (ctx, out) =>
-			checkUnresolvedIdentifiers(ctx.parseResult, ctx.project, ctx.bodyModels, out, ctx.libraryNamespaces),
+			checkUnresolvedIdentifiers(ctx.parseResult, ctx.project, ctx.bodyModels, out, ctx.libraryNamespaces, ctx.deviceInstances),
 	},
 	{
 		id: "pragmas",

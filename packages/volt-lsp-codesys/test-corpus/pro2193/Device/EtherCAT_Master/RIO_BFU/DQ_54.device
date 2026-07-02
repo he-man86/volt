@@ -1,0 +1,6 @@
+Name:         EPM-S308: DO2, Relais
+Vendor:       Lenze
+Type:         68
+ID:           3B_0109AF90_0
+Version:      1.0.0.5
+Description:  Ethercat Module imported from Slave XML: Lenze_IOSystem100_EPM_S130_Modules_V11.xml Device: EPM-S308 DO2, Relais

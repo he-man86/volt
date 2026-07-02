@@ -36,6 +36,11 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         return items;
     }
 
+    // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
+    // structural node (PLC Logic / Application / Task Configuration), or a device — nests its children under its
+    // own name, so the tree reads exactly as the IDE: Device → Plc Logic → Application → usercode, with the
+    // hardware devices as siblings under Device. Nothing is flattened; the only per-kind logic is WHAT each leaf
+    // emits (source text vs a device descriptor vs a library reference).
     private void Walk(object node, string folderPath, List<ProjectItem> items)
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
@@ -49,23 +54,33 @@ public sealed partial class CodesysDriver : IDebugIntrospect
             var name = _om.GetName(child);
             var code = KindCodeOf(child);
 
-            if (code == ItemKind.PlcFolder)
+            // A device-tree node (controller, fieldbus master, drive, axis, I/O module — all IDeviceObject): emit
+            // a read-only `.device` descriptor and mirror its subtree. A device WITH children gets a folder named
+            // after it and keeps its descriptor INSIDE that folder (Coupler_I_O_moduls/Coupler_I_O_moduls.device)
+            // so the node reads together with its children; a childless leaf is a plain file at the parent level.
+            if (code == ItemKind.Device)
             {
-                var nested = FolderPath.Append(folderPath, name);
-                Walk(child, nested, items);
+                var deviceFolder = FolderPath.Append(folderPath, name);
+                var hasChildren = HasChildren(child);
+                items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice, false,
+                    hasChildren ? deviceFolder : folderPath, _om.IsExcludedFromBuild(child)));
+                if (hasChildren) Walk(child, deviceFolder, items);
                 continue;
             }
-            // Device / Plc Logic / Application / Task Configuration: descend without adding to the path.
-            if (CodesysTypeMap.IsRecurseOnlyContainer(code)) { Walk(child, folderPath, items); continue; }
+            // Any other container — a user folder or a structural node (PLC Logic, Application, Task Configuration,
+            // the SoftMotion "Kinematics" / drive "Functions" groupers) — nests its children under its own name.
+            if (code == ItemKind.PlcFolder || CodesysTypeMap.IsRecurseOnlyContainer(code))
+            {
+                Walk(child, FolderPath.Append(folderPath, name), items);
+                continue;
+            }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
             if (ItemKind.IsInlinedInPou(code)) continue;        // collected inside the POU
 
             items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
 
-            // The Library Manager additionally yields its individual library references. Nest them UNDER a
-            // folder named after the manager, at the manager's own tree location — mirroring how CODESYS
-            // shows the referenced libraries as children of the Library Manager node (and matching the
-            // Beckhoff walk, which recurses the manager so its refs land under it).
+            // The Library Manager additionally yields its individual library references, nested under a folder
+            // named after the manager (mirroring CODESYS, and matching the Beckhoff walk).
             if (code == ItemKind.PlcLibMan)
             {
                 var libFolder = FolderPath.Append(folderPath, name);
@@ -74,6 +89,12 @@ public sealed partial class CodesysDriver : IDebugIntrospect
                     // e.g. "SysTypes2 Interfaces, * (System)"). Encode it so the .library file materializes —
                     // otherwise that library (and its namespace) is silently dropped on Windows.
                     items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, false, libFolder));
+            }
+            // The Recipe Manager holds its recipe DEFINITIONs as children (emitted as `.recipe` variable lists).
+            // Like the Library Manager, recurse it so they materialize nested under a folder named after it.
+            else if (code == ItemKind.PlcRecipeMan)
+            {
+                Walk(child, FolderPath.Append(folderPath, name), items);
             }
         }
     }
@@ -85,6 +106,13 @@ public sealed partial class CodesysDriver : IDebugIntrospect
     {
         var node = _om.FindByName(name);
         return node == null ? null : new ItemRef(node);
+    }
+
+    /// <summary>Does the node have any children? Guarded (an unreadable subtree ⇒ treat as a leaf) so the
+    /// device-descriptor placement decision never crashes the walk.</summary>
+    private bool HasChildren(object node)
+    {
+        try { return _om.GetChildren(node).Count > 0; } catch { return false; }
     }
 
     public int ChildCount(ItemRef item) => _om.GetChildren(item.Native).Count;

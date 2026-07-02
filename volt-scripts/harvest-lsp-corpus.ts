@@ -24,11 +24,12 @@ const excluded = fetched.excludeFromBuild ?? {}
 console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
-// KIND source (analyzed by the LSP) + `.library` reference files (their NAMESPACE drives library resolution;
-// bridge-encoded filenames are Windows-safe). Bodies (.cfc/.sfc) and other reference kinds are skipped.
+// KIND source (analyzed by the LSP) + `.library` reference files (their NAMESPACE drives library resolution)
+// + `.device` files (their filename = a device-tree instance name the LSP registers as a known global).
+// Bridge-encoded filenames are Windows-safe. Bodies (.cfc/.sfc) and other reference kinds are skipped.
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
-const WRITE = new Set([...KIND, ".library"])
-let written = 0, kind = 0, lib = 0, skipped = 0
+const WRITE = new Set([...KIND, ".library", ".device", ".projectinfo", ".trace", ".recipe", ".symbols"])
+let written = 0, kind = 0, lib = 0, dev = 0, info = 0, misc = 0, skipped = 0
 for (const item of fetched.changed) {
 	let files
 	try { files = materializeItem(item) } catch { skipped++; continue } // non-source kind not in the registry
@@ -41,7 +42,12 @@ for (const item of fetched.changed) {
 		const p = join(outDir, f.path)
 		mkdirSync(dirname(p), { recursive: true })
 		writeFileSync(p, content, "utf-8")
-		written++; ext === ".library" ? lib++ : kind++
+		written++
+		if (ext === ".library") lib++
+		else if (ext === ".device") dev++
+		else if (ext === ".projectinfo") info++
+		else if (KIND.has(ext)) kind++
+		else misc++
 	}
 }
-console.log(`wrote ${written} files (${kind} KIND source, ${lib} .library refs), skipped ${skipped}`)
+console.log(`wrote ${written} files (${kind} KIND source, ${lib} .library, ${dev} .device, ${info} .projectinfo, ${misc} .trace/.recipe/.symbols), skipped ${skipped}`)

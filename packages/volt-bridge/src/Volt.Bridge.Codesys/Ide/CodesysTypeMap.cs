@@ -63,6 +63,20 @@ namespace Volt.Bridge.Codesys
             if (Has(ifaces, "IImagePoolObject")) return ItemKind.PlcImagePool;
             if (Has(ifaces, "IGlobalTextListObject") || Has(ifaces, "ITextListObject")) return ItemKind.PlcTextList;
 
+            // The project's "Project Information" metadata (title/author/version/company) — a standard
+            // IProjectInfoObject with a readable ScriptProjectInfo facet. Emitted as a read-only `.projectinfo`
+            // descriptor. (Project SETTINGS — IWorkspaceObject below — has NO readable facet, so it stays a
+            // deliberate known-skip.)
+            if (Has(ifaces, "IProjectInfoObject")) return ItemKind.PlcProjectInfo;
+
+            // Read-only descriptors for non-source project objects with clean scripting facets:
+            //   Trace  = a recording config (task/trigger/resolution) — ScriptTraceObject
+            //   Recipe = a recipe definition's variable list — ScriptRecipeDefinitionObject (child of the mgr)
+            //   Symbols = the symbol-configuration flags (OPC UA / direct I/O) — ScriptSymbolConfigObject
+            if (Has(ifaces, "ITraceObject")) return ItemKind.PlcTrace;
+            if (Has(ifaces, "IRecipeDefinitionObject")) return ItemKind.PlcRecipe;
+            if (Has(ifaces, "ISymbolConfigObject")) return ItemKind.PlcSymbolConfig;
+
             // Individual cyclic task → `task` (621), matching TwinCAT's flat task items.
             if (Has(ifaces, "ITaskObject")) return ItemKind.PlcTask;
 
@@ -73,14 +87,10 @@ namespace Volt.Bridge.Codesys
             // is CODESYS declaring the type opaque. Listed explicitly so it reads as a decision, not a miss.
             if (Has(ifaces, "IUnknownObject")) return ItemKind.Unknown;
 
-            // KNOWN-SKIP: CODESYS-only build/debug artifacts with no TwinCAT tree-item equivalent and no
-            // editable source — intentionally not emitted (no warning). Recipe DEFINITIONs fall here too:
-            // TwinCAT doesn't emit them separately from the recipe manager, so skipping preserves parity.
-            // IProjectInfoObject is the "Project Information" metadata node (title/author/version) — not source.
-            if (Has(ifaces, "ITraceObject") || Has(ifaces, "ISymbolConfigObject")
-                || Has(ifaces, "IWorkspaceObject") || Has(ifaces, "IRecipeDefinitionObject")
-                || Has(ifaces, "IProjectInfoObject"))
-                return ItemKind.Unknown;
+            // KNOWN-SKIP: CODESYS-only artifacts with no editable source. IWorkspaceObject is "Project
+            // Settings" — a config tree the scripting API exposes NO readable content for (only a
+            // ScriptNoProjectInfoMarker), so there is nothing to mirror as text.
+            if (Has(ifaces, "IWorkspaceObject")) return ItemKind.Unknown;
 
             // A node with NO specific object type — only the base IGenericObject/IObject — is a transparent
             // grouping container (e.g. a SoftMotion "Kinematics" holding its axis devices). No warning: it

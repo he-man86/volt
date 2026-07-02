@@ -19,6 +19,7 @@ import { computeSemanticDiagnostics } from "../src/semantic/diagnostics.js";
 import { buildBodyModelsForParseResult } from "../src/semantic/body.js";
 import { resolveConfig } from "../src/lsp/config/index.js";
 import { loadLibraryNamespaces } from "../src/semantic/library-catalog.js";
+import { loadDeviceInstances } from "../src/semantic/device-catalog.js";
 import { isExcludedFromBuild } from "../src/semantic/exclude-marker.js";
 
 // Every writable source kind is named by its kind (bridge: ItemKind.ExtFor).
@@ -67,7 +68,8 @@ export function computeCoverage(
 	});
 	const project = buildSymbolTable(inputs);
 	const config = resolveConfig({ vendor }).diagnostics;
-	const libraryNamespaces = loadLibraryNamespaces(root);   // libs/namespaces.json — resolves library refs
+	const libraryNamespaces = loadLibraryNamespaces(root);   // .library files — resolves library refs
+	const deviceInstances = loadDeviceInstances(root);       // .device files — resolves device-tree globals
 
 	const cov: Coverage = {
 		files: files.length, units: 0, parseCleanFiles: 0, parseErrors: 0, ingestFiles: 0,
@@ -92,7 +94,7 @@ export function computeCoverage(
 		// precision number, exactly as the live LSP gates them. Signalled by the in-file marker.
 		const isExcluded = isExcludedFromBuild(source);
 		const bodyModels = buildBodyModelsForParseResult(parseResult);
-		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels, libraryNamespaces })) {
+		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels, libraryNamespaces, deviceInstances })) {
 			if (isExcluded) { cov.excludedDiags++; continue; }
 			cov.byCode[d.code] = (cov.byCode[d.code] ?? 0) + 1;
 			cov.totalDiags++;

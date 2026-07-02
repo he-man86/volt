@@ -1,0 +1,7 @@
+Name:         FANUC R-30iB Plus
+Vendor:       FANUC CORPORATION
+Type:         65
+ID:           691_0001000100010000
+Version:      Revision=16#00010000
+Order number: FANUC R-30iB Plus
+Description:  EtherCAT Slave imported from Slave XML: fanuc_rs_esi0002_ctt.xml Device: FANUC R-30iB Plus. FANUC R-30iB Plus

@@ -289,6 +289,110 @@ namespace Volt.Bridge.Codesys
 
         public object? ParentOf(object node) => GetMember(Unwrap(node), "parent");
 
+        // ── device descriptor ───────────────────────────────────────────────
+        /// <summary>The vendor-neutral device descriptor for a device-tree instance — the same fields CODESYS
+        /// shows on a device's Information tab (Name/Vendor/Type/ID/Version/Order number/Description), read from
+        /// the device-repository <c>DeviceInfo</c> + <c>get_device_identification</c>. No build needed. This is
+        /// the read-only <c>.device</c> file body (the extension identifies the kind — no marker needed); the LSP
+        /// registers the instance NAME (the filename) as a known global so source references resolve, without
+        /// pretending to know the device's internal members.</summary>
+        public string DeviceDescriptor(object node)
+        {
+            var dev = Facet(node, "ScriptDeviceObject");
+            var info = GetMember(InvokeMethod(dev, "GetReadable"), "DeviceInfo");
+            var devId = InvokeMethod(dev, "get_device_identification");
+            string Field(object? o, params string[] names)
+            {
+                foreach (var n in names) { var v = GetMember(o, n); var s = v == null ? null : System.Convert.ToString(v); if (!string.IsNullOrEmpty(s)) return s!.Replace("\r", "").Replace("\n", " ").Trim(); }
+                return "";
+            }
+            var sb = new System.Text.StringBuilder();
+            void Line(string key, string val) { if (!string.IsNullOrEmpty(val)) sb.Append(key.PadRight(14)).Append(val).Append('\n'); }
+            Line("Name:", Field(info, "Name"));
+            Line("Vendor:", Field(info, "Vendor"));
+            Line("Type:", Field(devId, "Type", "TypeId", "type"));
+            Line("ID:", Field(devId, "Id", "Identification", "id"));
+            Line("Version:", Field(devId, "Version", "version"));
+            Line("Order number:", Field(info, "OrderNumber"));
+            Line("Description:", Field(info, "Description"));
+            return sb.ToString();
+        }
+
+        /// <summary>The read-only descriptor for the project's "Project Information" node — the standard
+        /// <c>IProjectInfoObject</c> metadata (Title/Version/Company/Author/Namespace/Description) CODESYS shows
+        /// in Project → Project Information, read from its <c>ScriptProjectInfo</c> facet. The <c>.projectinfo</c>
+        /// file body; not referenced by source, so the LSP just carries it as project context.</summary>
+        public string ProjectInfoDescriptor(object node) => FacetDescriptor(node, "ScriptProjectInfo",
+            ("Title", "title"), ("Version", "version"), ("Company", "company"), ("Author", "author"),
+            ("Default namespace", "default_namespace"), ("Released", "released"), ("Description", "description"));
+
+        /// <summary>A trace/recording configuration (`.trace`): which task/trigger/resolution records what.
+        /// Read from the `ScriptTraceObject` facet. The per-diagram traced-variable expressions are not exposed
+        /// as scripting properties, so this captures the recording config (the reproducible part).</summary>
+        public string TraceDescriptor(object node) => FacetDescriptor(node, "ScriptTraceObject",
+            ("Task", "task_name"), ("Record", "record_name"), ("Resolution", "resolution"),
+            ("Post-trigger samples", "post_trigger_samples"), ("Every N cycles", "every_n_cycles"),
+            ("Auto start", "auto_start"), ("Trigger enabled", "trigger_enabled"),
+            ("Trigger variable", "trigger_variable"), ("Comment", "comment"));
+
+        /// <summary>The symbol-configuration flags (`.symbols`): which access features a project exposes
+        /// (OPC UA, direct I/O, attribute filter). The resolved exposed-symbol LIST is compiled-model state,
+        /// not in the scripting facet — this captures the configuration.</summary>
+        public string SymbolConfigDescriptor(object node) => FacetDescriptor(node, "ScriptSymbolConfigObject",
+            ("Features", "content_feature_flags"), ("Direct I/O access", "enable_direct_io_access"),
+            ("Attribute filter", "symbol_attribute_filter_type"));
+
+        /// <summary>A recipe definition (`.recipe`): the list of PLC variables the recipe reads/writes, each as
+        /// `variable : type (recipe column name)`. Read from the `ScriptRecipeDefinitionObject` facet.</summary>
+        public string RecipeDescriptor(object node)
+        {
+            var f = Facet(node, "ScriptRecipeDefinitionObject");
+            var sb = new System.Text.StringBuilder();
+            if (GetMember(f, "variables") is IEnumerable vars)
+                foreach (var v in vars)
+                {
+                    if (v == null) continue;
+                    var name = System.Convert.ToString(GetMember(v, "variablename"))?.Trim() ?? "";
+                    if (name.Length == 0) continue;
+                    var type = System.Convert.ToString(GetMember(v, "type"))?.Trim() ?? "";
+                    var col = System.Convert.ToString(GetMember(v, "name"))?.Trim() ?? "";
+                    sb.Append(name);
+                    if (type.Length > 0) sb.Append(" : ").Append(type);
+                    if (col.Length > 0) sb.Append("  (").Append(col).Append(')');
+                    sb.Append('\n');
+                }
+            return sb.ToString();
+        }
+
+        /// <summary>Render a node's read-only descriptor from ONE scripting facet's scalar properties as
+        /// aligned `Label: value` lines (empty values omitted). Shared by the project-info / trace / symbol
+        /// descriptors — the device descriptor stays bespoke (it reads two facets).</summary>
+        private string FacetDescriptor(object node, string facetName, params (string Label, string Prop)[] fields)
+        {
+            var f = Facet(node, facetName);
+            var pad = 0;
+            foreach (var fld in fields) pad = System.Math.Max(pad, fld.Label.Length);
+            var sb = new System.Text.StringBuilder();
+            foreach (var fld in fields)
+            {
+                var v = GetMember(f, fld.Prop);
+                var s = v == null ? "" : (System.Convert.ToString(v)?.Replace("\r", "").Replace("\n", " ").Trim() ?? "");
+                if (s.Length > 0) sb.Append((fld.Label + ":").PadRight(pad + 2)).Append(s).Append('\n');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>A named scripting facet of a node — device / project-info APIs live on the Extender's DLR
+        /// extension list, not the base ScriptObject. Throws if the facet is absent (fail loud, no fallback).</summary>
+        private object Facet(object node, string facetTypeName)
+        {
+            var ext = GetMember(Unwrap(node), "Extender");
+            if (GetMember(ext, "Extensions") is IEnumerable facets)
+                foreach (var f in facets)
+                    if (f != null && f.GetType().Name == facetTypeName) return f;
+            throw new InvalidOperationException($"node has no {facetTypeName} facet");
+        }
+
         // ── build / diagnostics ─────────────────────────────────────────────
         private static readonly Guid BuildActiveApplication = new Guid("A0DA4287-64ED-459e-81F0-98AB3667A58F");
 
