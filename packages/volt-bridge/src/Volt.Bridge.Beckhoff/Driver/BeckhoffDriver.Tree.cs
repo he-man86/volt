@@ -36,7 +36,7 @@ public sealed partial class BeckhoffDriver
 
             if (itemType == ItemKind.PlcFolder || itemType == ItemKind.PlcLibMan)
             {
-                var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
+                var nested = FolderPath.Append(folderPath, name);
                 WalkInner(child, nested, items);
                 continue;
             }
@@ -51,7 +51,7 @@ public sealed partial class BeckhoffDriver
             try { childCount = _om.ChildCount(child); } catch { }
             bool isTopLevelCrud = ItemKind.IsTopLevelCrud(itemType);
             bool isHybrid = childCount > 0 && !isTopLevelCrud;
-            string emitFolder = isHybrid ? (string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}") : folderPath;
+            string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
             items.Add(new ProjectItem(name, new ItemRef(child), itemType, isTopLevelCrud, emitFolder));
             if (isHybrid) WalkInner(child, emitFolder, items);
@@ -70,7 +70,8 @@ public sealed partial class BeckhoffDriver
             try { device = _om.ChildAt(tiid, i); } catch { continue; }
             string name;
             try { name = _om.GetName(device); } catch { continue; }
-            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), false, "I/O Devices"));
+            // Encode the synthetic label like any other segment — "I/O Devices" carries a literal '/'.
+            items.Add(new ProjectItem(name, new ItemRef(device), ClassifiedKind(device), false, FolderPath.Encode("I/O Devices")));
         }
     }
 

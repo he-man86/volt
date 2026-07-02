@@ -145,7 +145,7 @@ public static class Materializer
 
             if (itemType == ItemKind.PlcFolder)
             {
-                var subPath = string.IsNullOrEmpty(folderPath) ? childName : $"{folderPath}/{childName}";
+                var subPath = FolderPath.Append(folderPath, childName);
                 children.AddRange(CollectChildren(ide, child, subPath));
                 continue;
             }

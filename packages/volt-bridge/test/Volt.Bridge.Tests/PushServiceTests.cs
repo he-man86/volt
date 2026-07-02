@@ -46,6 +46,18 @@ public class PushServiceTests
     }
 
     [Fact]
+    public void Move_into_a_folder_whose_name_contains_a_slash_creates_ONE_decoded_folder()
+    {
+        var ide = OneProgram();
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        // The wire folder is the ENCODED form volt-git sends for a folder literally named "Interfaces / Data".
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = FolderPath.Encode("Interfaces / Data") });
+        Assert.True(resp.Accepted);
+        Assert.Contains("create:Interfaces / Data", ide.Recorded);   // ONE folder, decoded to its real name
+        Assert.DoesNotContain(ide.Recorded, r => r is "create:Interfaces " or "create: Data"); // NOT split on the name's '/'
+    }
+
+    [Fact]
     public void Set_rename_plus_edit_renames_then_writes_content()
     {
         var ide = OneProgram();

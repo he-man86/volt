@@ -49,7 +49,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
 
             if (code == ItemKind.PlcFolder)
             {
-                var nested = string.IsNullOrEmpty(folderPath) ? name : $"{folderPath}/{name}";
+                var nested = FolderPath.Append(folderPath, name);
                 Walk(child, nested, items);
                 continue;
             }

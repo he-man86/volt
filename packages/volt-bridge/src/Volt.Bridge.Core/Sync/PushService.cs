@@ -374,7 +374,7 @@ public static class PushService
     {
         if (string.IsNullOrEmpty(folder)) return parent;
         var node = parent;
-        foreach (var part in folder!.Split('/'))
+        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
             node = FindOrCreateFolder(ide, node, part);
         return node;
     }
