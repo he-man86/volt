@@ -209,7 +209,8 @@ public static class StSplitter
 	/// <summary>Index of the first line that begins the body content: the editable graphical-body marker
 	/// <c>NETWORK &lt;n&gt; …</c>, and, when <paramref name="includeFolder"/> (children), also a leading
 	/// <c>%FOLDER</c> directive (it's prepended to the impl and must stay there for PeelFolderDirective).
-	/// -1 for a plain textual body (which includes read-only CFC/SFC — declaration-only, no marker).
+	/// -1 for a plain textual body (which includes CFC/SFC — their `(* @volt-graphical: LANG *)` marker is a
+	/// comment, i.e. trivia, so it's declaration-adjacent, not a body start).
 	/// Trivia (comments/strings) is skipped so a comment mentioning these can't false-match.</summary>
 	private static int FirstMarkerLine(IList<string> lines, bool includeFolder)
 	{

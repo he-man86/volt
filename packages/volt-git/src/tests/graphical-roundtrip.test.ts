@@ -64,7 +64,7 @@ suite("graphical round-trip (FBD ↔ .prg)", () => {
 		expect(f).not.toBeNull()
 		const vg = readFileSync(f!, "utf-8")
 		expect(vg).toContain("NETWORK ") // editable graphical body leads with the network marker
-		expect(vg).not.toContain("@volt-graphical") // root file carries NO legacy marker
+		expect(vg).not.toContain("@volt-graphical") // an EDITABLE FBD/LD body is VG (NETWORK), never the CFC/SFC info marker
 	})
 
 	it("no-op push of a graphical body produces no drift", async () => {

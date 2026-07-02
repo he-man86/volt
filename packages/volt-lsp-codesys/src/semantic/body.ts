@@ -21,10 +21,10 @@ export interface BodyModel {
 	span: Span;
 	/** Which sublanguage this body is. A POU body is `vg` when its first
 	 *  significant token is `NETWORK` (a graphical FBD/LD body rendered as
-	 *  VG text); `readonly` when it is a `READONLY <LANG>` marker (a read-only
-	 *  CFC/SFC body — not analyzed); otherwise `st`. The discriminator every
-	 *  query/check uses to route a body. */
-	language: "st" | "vg" | "readonly";
+	 *  VG text); otherwise `st`. (CFC/SFC bodies materialize as an
+	 *  `(* @volt-graphical: LANG *)` comment, which is `st` and analyzes to
+	 *  nothing.) The discriminator every query/check uses to route a body. */
+	language: "st" | "vg";
 	/** Every name occurrence — drives references, highlight,
 	 *  completion, and the unresolved-identifier diagnostic. For a VG
 	 *  body these are only declaration-scope references (real vars / FB

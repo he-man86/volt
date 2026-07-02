@@ -133,8 +133,8 @@ public static class ItemKind
     /// (function_block→fb, program→prg, function→fun, interface→itf, DUTs→struct/enum/union/alias,
     /// gvl→gvl); read-only reference manifests keep their own name. No silent fallback. A POU's body
     /// LANGUAGE is not in the extension: an editable FBD/LD body is the same <c>.fb</c>/<c>.prg</c>/<c>.fun</c>
-    /// as a textual one (graphical detected by the NETWORK marker), and a read-only CFC/SFC body is that
-    /// kind extension too, self-described by a <c>READONLY &lt;LANG&gt;</c> body marker. Kind is recovered
+    /// as a textual one (graphical detected by the NETWORK marker), and a CFC/SFC body is that kind extension
+    /// too, materialized as an <c>(* @volt-graphical: LANG *)</c> informational comment. Kind is recovered
     /// from file content on push, so the extension carries kind alone.</summary>
     public static string ExtFor(string kind) => kind switch
     {

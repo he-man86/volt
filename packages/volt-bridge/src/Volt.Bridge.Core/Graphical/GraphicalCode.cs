@@ -20,8 +20,8 @@ public sealed record GraphicalBody(string Language, string Body, string Declarat
 public static class GraphicalCode
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable VG;
-    /// CFC/SFC → a read-only marker (empty body). A body the gate calls graphical but the export can't
-    /// yield as FBD/LD is a loud failure, never a silent marker.</summary>
+    /// CFC/SFC → an empty body (the Materializer wraps it in an `@volt-graphical` informational marker). A
+    /// body the gate calls graphical but the export can't yield as FBD/LD is a loud failure, never silent.</summary>
     public static GraphicalBody? Read(ICodeStore code, ItemRef item)
     {
         var lang = code.BodyLanguage(item);
@@ -30,7 +30,7 @@ public static class GraphicalCode
         var xml = code.ReadXml(item);                        // graphical → the PLCopen transport (throws on failure)
         var decl = DeclarationFrom(code, item, xml);
 
-        if (lang is "CFC" or "SFC")                          // CFC/SFC: read-only (no VG round-trip) → read-only marker, real decl
+        if (lang is "CFC" or "SFC")                          // CFC/SFC: no VG round-trip → empty body (Materializer adds the @volt-graphical marker), real decl
             return new GraphicalBody(lang, "", decl);
 
         var fbd = PlcOpenDocument.FindFbdLdBody(xml)

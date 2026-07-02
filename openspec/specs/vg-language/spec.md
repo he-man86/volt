@@ -46,7 +46,7 @@ SHALL NOT be analyzed as VG or ST. There is no read-only-language flag.
 
 #### Scenario: A CFC body is materialized as an informational marker
 - **WHEN** a project contains a CFC (or SFC) body
-- **THEN** it materializes as an informational marker (e.g. `(* Graphical CFC — edit in the IDE; Volt does not represent it as text *)`) and is not analyzed as VG or ST
+- **THEN** it materializes as an `(* @volt-graphical: <LANG> *)` informational marker comment (e.g. `(* @volt-graphical: CFC *)`, which the LSP hover explains) and is not analyzed as VG or ST
 
 ### Requirement: Content detection covers whole files and inlined graphical methods
 

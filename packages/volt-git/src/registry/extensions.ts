@@ -12,10 +12,10 @@ export interface ExtensionDef {
 }
 
 const EXTENSIONS: readonly ExtensionDef[] = [
-	// Writable source is named by KIND (bridge: ItemKind.ExtFor). A POU's read-only-ness is NOT the
-	// extension — a read-only CFC/SFC body is the same .fb/.prg/.fun, self-described by a `READONLY <LANG>`
-	// body marker (see bodyIsReadOnly). So these default `rw` and push filters read-only by content;
-	// only reference kinds are read-only by extension.
+	// Writable source is named by KIND (bridge: ItemKind.ExtFor). A POU's editability is NOT the extension —
+	// a graphical CFC/SFC body is the same .fb/.prg/.fun (materialized as an `(* @volt-graphical: LANG *)`
+	// info comment). These default `rw`; a push over a CFC/SFC body is refused by the bridge on live IDE
+	// state (not pre-filtered here). Only reference KINDS are read-only by extension.
 	{ ext: "fb", defaultAccess: "rw" },
 	{ ext: "prg", defaultAccess: "rw" },
 	{ ext: "fun", defaultAccess: "rw" },
