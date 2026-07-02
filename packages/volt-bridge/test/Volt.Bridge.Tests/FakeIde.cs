@@ -18,7 +18,8 @@ public sealed class FakeIde : IIdeDriver
 {
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
-        string? Declaration, string? Implementation, string? BodyLang, string? Xml)
+        string? Declaration, string? Implementation, string? BodyLang, string? Xml,
+        string[]? Children = null)
     {
         /// <summary>A plain textual (ST) POU — materializes via the declaration/implementation transports.</summary>
         public static Item TextualPou(string name, string decl, string impl, string folder = "") =>
@@ -34,6 +35,9 @@ public sealed class FakeIde : IIdeDriver
     private readonly List<Item> _items;
     public FakeIde(params Item[] items) => _items = items.ToList();
     private Item Find(ItemRef r) => _items.First(i => i.Name == (string)r.Native);
+    // Tolerant lookup: refs that never entered _items (a freshly CreateChild'd POU, a folder, "<root>") have
+    // no children — return 0 rather than throw, matching the pre-children hard-coded ChildCount => 0.
+    private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => i.Name == (string)r.Native);
 
     /// <summary>Mutations recorded for apply-dispatch tests: create:/delete:/rename:/write: entries.</summary>
     public List<string> Recorded { get; } = new();
@@ -42,11 +46,11 @@ public sealed class FakeIde : IIdeDriver
     public IReadOnlyList<ProjectItem> WalkItems() =>
         _items.Select(i => new ProjectItem(i.Name, new ItemRef(i.Name), i.KindCode, i.IsTopLevel, i.Folder)).ToList();
     public int KindCode(ItemRef item) => Find(item).KindCode;
-    public int ChildCount(ItemRef item) => 0;
+    public int ChildCount(ItemRef item) => FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) => Find(item).Name;
     public ItemRef? Lookup(string name) => _items.Any(i => i.Name == name) ? new ItemRef(name) : (ItemRef?)null;
     public ItemRef GetPlcProjectRoot() => new ItemRef("<root>");
-    public ItemRef ChildAt(ItemRef parent, int index1Based) => throw new NotSupportedException();
+    public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");

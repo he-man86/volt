@@ -162,10 +162,17 @@ public static class Materializer
                     ? GraphicalImpl(graphical)
                     : NullIfEmpty(ide.ReadImplementation(child)?.Trim());
 
+                // A child's declaration ALWAYS comes from its own Interface aspect — never the graphical
+                // export. BOTH vendors export the ENCLOSING POU for a graphical child (CODESYS
+                // ExportXmlString, TwinCAT ExportPouXml→EnclosingPou), and both wrap it with a plaintext
+                // interface (InterfaceAsPlainText) that comes FIRST — so GraphicalBody.Declaration
+                // (DeclFromExport → first InterfaceAsPlainText) was the PARENT POU's declaration, not the
+                // child's. That corrupted every graphical-bodied method: each child assembled with the
+                // parent's decl + END_METHOD (unparseable, and would corrupt the item on push). Reading the
+                // aspect is correct and vendor-identical (CODESYS Interface aspect / TwinCAT DeclarationText).
+                // The graphical read still supplies the child's IMPLEMENTATION (VG body or read-only marker).
                 // Actions synthesize their signature; a method needs its real declaration.
-                var declText = isAction
-                    ? $"ACTION {childName}"
-                    : (graphical is not null ? graphical.Declaration : ide.ReadDeclaration(child)).Trim();
+                var declText = isAction ? $"ACTION {childName}" : ide.ReadDeclaration(child).Trim();
 
                 var entry = new Dictionary<string, object?>
                 {
