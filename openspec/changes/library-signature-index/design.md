@@ -70,6 +70,43 @@ are themselves indexed).
 `libs/` is committed — stable (per-version), self-contained (LSP + AI resolve with no bridge), diffable
 (a library upgrade shows as a catalog diff). Per-version keying keeps churn minimal.
 
+## Spike results (2026-07-02, round 3 — implemented via a temporary `/debug?lib=1`, reverted)
+
+Ran the extraction live against Pro2193. Four findings that **revise the plan** — Phase 1 shrinks to a
+**namespace catalog**, and per-element stubs move to Phase 2:
+
+1. **Extraction is build-INDEPENDENT.** `GetCompileContext(appGuid)` returns null because the headless app
+   build FAILS (`built:false` — device/library mismatch in the headless env). But
+   `LanguageModelMgr.AllPrecompiledSignatures(true,true)` returns **4225 library-owned signatures anyway**
+   (libraries are precompiled independently of the app). So no 30–35 s app build, no build-failure handling
+   — a big simplification over the original recipe. (`AllSignatures`/`GlobalSignatures` return `IScope`, not
+   enumerable — skip.)
+
+2. **Namespaces are ALREADY on the wire — no signature extraction needed for the bulk win.** The library
+   REFERENCE (`.library` manifest, `NAMESPACE` field, already emitted by `ToLibRef`) carries the namespace
+   the source references (`PACK_ML`, `Stu`, `Util`, `L_MC1P`, `L_MC4P`, …). 62 distinct namespaces on
+   Pro2193.
+
+3. **A namespace-only catalog clears 468 / 563 unresolved (83%) — VERIFIED.** The unresolved diagnostics
+   flag the qualified-reference ROOTS (`PACK_ML` ×219, `L_MC1P` ×75, `Stu` ×72, `L_MC4P` ×42, …), which are
+   exactly the library namespaces. Registering the namespace names alone clears them. The remaining 95:
+   device/axis instances (~41 — `MagazineAxes`, `*Drive`, `EtherCAT_Master`, `Axis_*`; a separate
+   device-instance-exposure feature), bare library ELEMENTS (~19 — `CLOCK`, `TICKS`, `L_TSeverity`,
+   `L_IMHP_Layer` → Phase 2), and project-local (~27 — `takeover`, `OUT`, `product0/1`).
+
+4. **Kind is NOT cleanly extractable, and the LibraryId→namespace join is fuzzy.** Every signature is the
+   generic `.NET` type `Signature` with the same `ISignature..7` interfaces; kind members (`TypeClass`,
+   `IsFunctionBlock`, `IsEnum`, …) are all null; only `GetAllMethods`/`GetAllVariables` COUNTS distinguish
+   loosely (enum=0 methods/N vars, FB=N methods). And `sig.LibraryId` (e.g. `"omac packml state machine,
+   1.0.0.4 (3s…)"` vs `"systypes2 interfaces * (system)"`) does not string-match the ref resolution cleanly
+   (case + a `*`-placeholder form). So **per-element stubs with correct kinds are a Phase-2 problem** — they
+   need the signature extraction AND a reliable namespace join AND kind detection, none of which Phase 1
+   requires.
+
+**Revised Phase 1 = the namespace catalog** (from the refs, already on the wire): materialize the library
+namespaces; the LSP registers them so qualified references resolve. Signature extraction
+(`AllPrecompiledSignatures`), element names, kinds, and per-element stubs all move to Phase 2.
+
 ## Risks / Trade-offs
 
 - **Phase-2 render fidelity is unproven** — the whole reason this change is Phase-1-scoped. Phase 2 needs
