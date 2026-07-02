@@ -40,6 +40,12 @@ export function checkAssignmentTypes(
 			// Pattern: <ident> := <single-rhs> ;
 			const lhsTok = meaningful[i];
 			if (lhsTok === undefined || lhsTok.kind !== "identifier") continue;
+			// Skip a member/bit-access target (`x.field := …` or `word.bit := …`): the identifier after a `.`
+			// is resolved against the LHS expression's type, not the global scope. Matching a same-named
+			// global would false-positive — e.g. `xuUnitVacuum.Vacuum01 := TRUE` is a WORD bit access (the
+			// bit index named by the constant Vacuum01), not an assignment to the WORD global `Vacuum01`.
+			const prev = meaningful[i - 1];
+			if (prev?.kind === "punct" && prev.text === ".") continue;
 			const assign = meaningful[i + 1];
 			if (assign?.kind !== "punct" || assign.text !== ":=") continue;
 			// Find the terminating `;`. Capture everything between as RHS.
@@ -163,6 +169,10 @@ function resolveRhsIdentifierType(scope: Scope, name: string): string | undefine
  * bug than flag valid code as broken.
  */
 function isAssignable(lhs: string, rhs: string, scope: Scope, project: Scope): boolean {
+	// BIT — a 1-bit field type valid only inside STRUCT/FB — is boolean storage: freely assignable to and
+	// from BOOL (CODESYS treats `bitField := boolExpr` / `boolVar := bitField` as compatible).
+	if (lhs.toUpperCase() === "BIT") lhs = "BOOL";
+	if (rhs.toUpperCase() === "BIT") rhs = "BOOL";
 	if (lhs === rhs) return true;
 
 	// Enum handling: lhs or rhs may be tagged with ENUM_PREFIX.
