@@ -30,11 +30,14 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 // + exclude-from-build gate (pro2193.excluded.json — 15 items captured live from the bridge, 9 in-corpus):
 //   diags 1851→1334 built-only. Objects the IDE never compiles (MagazineBaseFB & cluster) have NO ground
 //   truth, so their 517 diagnostics are suppressed, not counted. "goal 0" now means 0 on BUILT objects.
+// + standard-function reference table (LEN/CONCAT/UPPER_BOUND/LOWER_BOUND/MOVE + CODESYS Str*A), consulted
+//   by the unresolved check: diags 1334→1119. Remaining ~1066 are un-mirrored LIBRARY symbols (PACK_ML,
+//   L_MC1P/L_MC4P motion, SER_*/IQSlices/Fanuc/Cmp* types) — the floor until a library symbol index exists.
 const BASE = {
 	files: 424, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 424, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 424, // 100% — floor
-	totalDiags: 1334, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	totalDiags: 1119, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 9, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 

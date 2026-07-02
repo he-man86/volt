@@ -15,6 +15,7 @@ import { lookupLocal } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
 import { resolveNamedType } from "../type-resolver.js";
 import { getConversion } from "../../reference/type-conversion.js";
+import { lookup as referenceLookup } from "../../reference/index.js";
 import { type DiagnosticItem, KEYWORD_SET, getBody, findScopeForUnit } from "./_shared.js";
 
 /**
@@ -105,6 +106,10 @@ export function checkUnresolvedIdentifiers(
 			// source-type. Without this skip, every conversion call
 			// would surface a false-positive unresolved-identifier.
 			if (getConversion(name) !== undefined) continue;
+			// Standard IEC 61131-3 / CODESYS library names (operators like SEL/MUX/LIMIT, standard FBs like
+			// TON/CTU, standard functions, and builtin types) live in the reference catalog, not the project
+			// symbol table — they resolve nowhere yet are valid. Skip anything the catalog knows.
+			if (referenceLookup(name) !== undefined) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",

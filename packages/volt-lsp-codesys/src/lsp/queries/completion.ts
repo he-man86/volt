@@ -284,6 +284,8 @@ function sortPrefixFor(entry: ReferenceEntry): string {
 			// just above data-types so they surface near concrete types
 			// at completion time. Engineers reach for these constantly.
 			return "18_";
+		case "standard-function":
+			return "35_"; // stdlib functions (LEN/CONCAT/…) — rank alongside operators
 	}
 }
 
@@ -304,6 +306,8 @@ function lspKindForReference(entry: ReferenceEntry): CompletionItemKind {
 			// Function blocks are class-shaped instantiables — same LSP
 			// kind we use for user-defined FBs (see lspKindForSymbol).
 			return CompletionItemKind.Class;
+		case "standard-function":
+			return CompletionItemKind.Function;
 	}
 }
 
@@ -323,6 +327,8 @@ function humanKindForReference(entry: ReferenceEntry): string {
 			return "FB lifecycle method";
 		case "standard-fb":
 			return "standard function block";
+		case "standard-function":
+			return "standard function";
 	}
 }
 
