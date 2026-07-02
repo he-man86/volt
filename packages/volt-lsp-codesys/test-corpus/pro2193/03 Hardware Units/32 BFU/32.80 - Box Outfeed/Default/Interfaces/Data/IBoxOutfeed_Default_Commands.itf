@@ -1,0 +1,16 @@
+INTERFACE IBoxOutfeed_Default_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+// Transport box
+METHOD PUBLIC EmptyBelt : BOOL
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+END_METHOD
+
+// Transport box
+METHOD PUBLIC TransportBox : BOOL
+END_METHOD
+
+END_INTERFACE

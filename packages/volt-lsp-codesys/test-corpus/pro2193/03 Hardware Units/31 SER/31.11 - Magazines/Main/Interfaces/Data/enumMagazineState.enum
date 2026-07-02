@@ -1,0 +1,13 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE enumMagazineState :
+(
+	None								:= 0,		// Machine just started up, or is not homed, or stopped unexpectedly
+	ReadyWithLabels						:= 1,		// Magazine is ready to give labels to the inlay cores
+	ReadyWithoutLabels					:= 2,		// Magazine is ready when IML is disabled
+	LabelsNeededDuringSemiAuto			:= 3,
+	Busy_GetNew							:= 4,
+	Busy_Transfer						:= 5
+) DINT;
+END_TYPE

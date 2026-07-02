@@ -1,0 +1,13 @@
+TYPE ChainBase_Data :
+STRUCT
+	Step						: PositionWithProfileType;
+
+	NumberOfProductCarriers		: IntWithLimitsType;		// Actual number of product carriers mounted on the chain links. Must be lower than MaxLinks constant.
+
+	adjustTriggerPosition		: REAL := 16.5;
+	sensorPosition				: REAL;			// Middle position of the gap where the sensor can detect something
+	detectRange					: REAL;			// Gap of the sensor measured from the sensorPosition
+
+	rTimeForCheckingImageBuffer	: REAL	:= 30;	// Time (sec) that robot is allowed to run with Keyence image buffer full
+END_STRUCT
+END_TYPE

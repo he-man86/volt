@@ -1,0 +1,8 @@
+//Communication from Fanuc to Brink
+TYPE Fanuc_Place_IN :
+(
+	AtPlacePos				:= 1,	// At place position
+	AtPlaceCheckPos			:= 2,	// At check position after placing
+	AtHomePos				:= 99	// At home position
+) UINT;
+END_TYPE

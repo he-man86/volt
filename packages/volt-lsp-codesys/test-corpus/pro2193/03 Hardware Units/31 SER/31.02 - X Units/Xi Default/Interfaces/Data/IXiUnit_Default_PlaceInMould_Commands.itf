@@ -1,0 +1,8 @@
+// Commands specific for an Xi Unit
+INTERFACE IXiUnit_Default_PlaceInMould_Commands
+
+// Place the labels into the cavities of the mould
+METHOD PUBLIC PlaceInMould : BOOL
+END_METHOD
+
+END_INTERFACE

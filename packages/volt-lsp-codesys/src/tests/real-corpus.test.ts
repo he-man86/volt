@@ -33,14 +33,20 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 // + standard-function reference table (LEN/CONCAT/UPPER_BOUND/LOWER_BOUND/MOVE + CODESYS Str*A), consulted
 //   by the unresolved check: diags 1334→1119.
 // + reserved-keyword exempts contextual keywords valid as names (Set/Override/…): diags 1119→1097.
-//   Remaining ~1066 are un-mirrored LIBRARY symbols (PACK_ML, L_MC1P/L_MC4P motion, SER_*/IQSlices/Fanuc/
-//   Cmp* types) — the floor until a library symbol (signature) index exists.
+// + corpus refresh (424→519 files — harvested COMPLETE from the bridge; the old subset was missing ~95
+//   files, so their referenced project types looked "external"). Bundles two fixes: (a) the bridge now
+//   classifies ITextListEnumerationObject as an enum DUT, so text-list enums (SER_OperationModeType,
+//   IQSlices, enumRecipeCommandResult — ~355 refs) materialize instead of dropping to Unknown; (b) the
+//   parser skips `%FOLDER` in interface methods/properties (incl. GET/END_GET accessor blocks). Built-only
+//   diags 1097→628. One file (SetErrorFB.fb) is omitted pending a separate StAssembler bug (CFC-bodied FB
+//   children assemble with the parent's declaration). Remaining ~597 unresolved are un-mirrored LIBRARY
+//   symbols (PACK_ML, L_MC1P/L_MC4P motion, Fanuc/Cmp* types) — the floor until a library signature index exists.
 const BASE = {
-	files: 424, // corpus size — must not shrink (files went missing)
-	parseCleanFiles: 424, // 100% — every corpus file parses clean; must not regress
-	ingestFiles: 424, // 100% — floor
-	totalDiags: 1097, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
-	excludedFiles: 9, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
+	files: 519, // corpus size — must not shrink (files went missing)
+	parseCleanFiles: 519, // 100% — every corpus file parses clean; must not regress
+	ingestFiles: 519, // 100% — floor
+	totalDiags: 628, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 
 describe("real-project coverage (pro2193)", () => {

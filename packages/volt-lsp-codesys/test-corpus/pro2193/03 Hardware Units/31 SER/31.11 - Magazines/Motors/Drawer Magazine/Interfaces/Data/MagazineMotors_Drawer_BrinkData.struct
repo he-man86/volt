@@ -1,0 +1,10 @@
+TYPE MagazineMotors_Drawer_BrinkData :
+STRUCT
+	lrJerk			: LREAL;																	// Maximum jerk					(m/s³ or °/s³)
+	rRefPos			: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF REAL;				// Position on reference point	(mm or °)
+	rSWLimitPos		: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF REAL	:= [500.0];		// Positive software limit		(mm or °)
+	rSWLimitNeg		: ARRAY[PickPlaceAxesNames.A1..PickPlaceAxesNames.A2] OF REAL	:= [-1.0];		// Negative software limit		(mm or °)
+	rSWLimitPos_Z	: REAL	:= 1500;															// Positive software limit of virtual Z axis		(mm or °)
+	rSWLimitNeg_Z	: REAL	:= 700;																// Negative software limit of virtual Z axis		(mm or °)
+END_STRUCT
+END_TYPE

@@ -1,0 +1,8 @@
+//Communication from Fanuc to Brink
+TYPE Fanuc_Homing_IN :
+(
+	Finished		:= 1,	// Homing is finished
+	AtServicePos	:= 10,
+	Error			:= 2	// Homing error, not in homing area
+) UINT;
+END_TYPE

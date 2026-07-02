@@ -1,0 +1,9 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+//Communication from Brink to Fanuc
+TYPE Fanuc_Reject_OUT :
+(
+	Retract		:= 1,
+	GoToHomePos	:= 99
+) UINT;
+END_TYPE

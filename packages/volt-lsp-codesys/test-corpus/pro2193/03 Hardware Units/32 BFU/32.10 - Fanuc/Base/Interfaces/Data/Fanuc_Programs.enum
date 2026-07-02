@@ -1,0 +1,13 @@
+TYPE Fanuc_Programs :
+(
+	Standby		:= 0,
+	MainProgram	:= 10,	// Main program, Fanuc is standby and waiting for a program to run.
+	Homing		:= 11,	// Homing program
+	Pick		:= 12,	// Pick program to get the products from tabel or Fanuc 1 gripper
+	Place		:= 13,	// Stacking program
+	Reject		:= 14,	// Reject program
+	Buffer		:= 15,	// Buffer program
+	Service		:= 19,	// Service program to make robot access easier
+	ManualHoming := 900
+) UINT;
+END_TYPE

@@ -1,0 +1,6 @@
+TYPE Fanuc_Place_Data_Type :
+STRUCT
+	Teach		: Fanuc_PositionXYZWPR_Type;	// Teach place position (first stack)
+	AboveBoxZ	: REAL;							// Safe distance above box
+END_STRUCT
+END_TYPE

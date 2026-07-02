@@ -20,7 +20,7 @@ import type {
 } from "../ast.js";
 import type { Cursor } from "../cursor.js";
 import { parseTypeExpression } from "../type-expr.js";
-import { collectVarSections, describeToken, identFromToken, joinSpans } from "../util.js";
+import { collectVarSections, describeToken, identFromToken, joinSpans, skipFolderDirective } from "../util.js";
 
 export function parseInterface(c: Cursor): Interface | undefined {
 	const start = c.expectKeyword("INTERFACE", "at start of INTERFACE");
@@ -57,6 +57,10 @@ export function parseInterface(c: Cursor): Interface | undefined {
 				span: joinSpans(start.span, endIface.span),
 			};
 		}
+
+		// A method that lives in a sub-folder carries a `%FOLDER <path>` directive (between members or
+		// just before its END_METHOD) — bridge metadata, not interface content.
+		if (skipFolderDirective(c)) continue;
 
 		const next = c.peek();
 		if (next.kind === "keyword" && next.keyword === "METHOD") {
@@ -123,6 +127,7 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 		returnType = parseTypeExpression(c);
 	}
 	const varSections = collectVarSections(c);
+	skipFolderDirective(c); // a folder-organized method carries `%FOLDER <path>` just before END_METHOD
 	// One canonical form (matches the bridge + what `volt pull` emits): every interface method is
 	// closed by END_METHOD. Redline a missing one so the agent writes the canonical form, not a shape
 	// the bridge will reject on push (LSP diagnostics ⊇ bridge rejections).
@@ -152,14 +157,17 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
 	const dataType = parseTypeExpression(c);
 	if (dataType === undefined) return undefined;
 	c.eatPunct(";"); // some exports terminate the property data type with a trailing `;`
-	// Interfaces may declare which of GET/SET accessors are required.
+	// Interfaces declare which of GET/SET accessors are required. The bridge materializes each as a bare
+	// keyword OR a full `GET … END_GET` block (with a leading `%FOLDER` directive when folder-organized).
 	let hasGetter = false;
 	let hasSetter = false;
 	while (true) {
+		if (skipFolderDirective(c)) continue;
 		const accessor = c.eatAnyKeyword("GET", "SET");
 		if (accessor === undefined) break;
 		if (accessor.keyword === "GET") hasGetter = true;
 		if (accessor.keyword === "SET") hasSetter = true;
+		c.eatKeyword(accessor.keyword === "GET" ? "END_GET" : "END_SET"); // block form: consume its closer
 	}
 	const endProp = c.eatKeyword("END_PROPERTY");
 	const endSpan = endProp?.span ?? dataType.span;

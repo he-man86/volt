@@ -1,5 +1,0 @@
-LIBRARY CAA NetBaseSrv
-NAMESPACE NBS
-RESOLUTION CAA Net Base Services, 3.5.19.0 (CAA Technical Workgroup)
-PLACEHOLDER true
-SYSTEM false

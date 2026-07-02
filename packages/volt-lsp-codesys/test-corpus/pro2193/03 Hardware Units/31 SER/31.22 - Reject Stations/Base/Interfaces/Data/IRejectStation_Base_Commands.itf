@@ -1,0 +1,20 @@
+// Commands specific for a reject station
+INTERFACE IRejectStation_Base_Commands
+EXTENDS IModuleTransferComplete, IModuleManualControlEnabled
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForReject));
+	product			: ProductType;
+END_VAR
+END_METHOD
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC GetProducts : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+END_INTERFACE

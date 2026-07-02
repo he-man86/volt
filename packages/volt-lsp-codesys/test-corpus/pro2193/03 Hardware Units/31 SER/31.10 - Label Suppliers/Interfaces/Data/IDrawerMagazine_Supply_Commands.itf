@@ -1,0 +1,18 @@
+INTERFACE IDrawerMagazine_Supply_Commands
+EXTENDS IDrawerMagazine_Commands
+
+METHOD HoldBrakes : BOOL
+END_METHOD
+
+METHOD StopBlowBetweenLabels : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+METHOD PUBLIC TransferLabels : BOOL
+VAR_INPUT
+	labelTransferComplete	: BOOL;
+END_VAR
+END_METHOD
+
+END_INTERFACE

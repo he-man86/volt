@@ -1,5 +1,0 @@
-LIBRARY L_ILMP_LicenseManager
-NAMESPACE L_ILMP
-RESOLUTION L_ILMP_LicenseManager, 3.32.0.1 (Lenze)
-PLACEHOLDER true
-SYSTEM false

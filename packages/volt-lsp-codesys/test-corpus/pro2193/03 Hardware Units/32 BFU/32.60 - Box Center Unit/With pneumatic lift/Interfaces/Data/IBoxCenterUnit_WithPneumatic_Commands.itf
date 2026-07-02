@@ -1,0 +1,44 @@
+INTERFACE IBoxCenterUnit_WithPneumatic_Commands
+EXTENDS IModuleWithCommandLock, __SYSTEM.IQueryInterface
+
+// Add products or sheets to box
+METHOD PUBLIC AddToBox : BOOL
+VAR_INPUT
+	item : enumBoxItem;
+END_VAR
+END_METHOD
+
+METHOD PUBLIC BoxRemoved
+END_METHOD
+
+METHOD PUBLIC PrepareBoxForFilling : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+METHOD PUBLIC ReleaseBox : BOOL
+END_METHOD
+
+METHOD PUBLIC SetBoxStateToChangeNeeded : BOOL
+END_METHOD
+
+METHOD PUBLIC Stop : BOOL
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY BoxCanBeFilled : BOOL
+END_PROPERTY
+
+PROPERTY PUBLIC BoxInFillPosition : IDigitalSensor
+END_PROPERTY
+
+// Indicates the next item which is needed in the box, or none when box is not ready.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
+END_PROPERTY
+
+{attribute 'monitoring':='call'}
+PROPERTY LayerIndex : UINT
+END_PROPERTY
+
+END_INTERFACE

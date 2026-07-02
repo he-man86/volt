@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+//Communication from Brink to Fanuc
+TYPE Fanuc_Pick_OUT :
+(
+	GoToShift		:= 1,	// Move to shift position
+	GoToShiftPick	:= 2,	// Move to shift pick position
+	GoToRetractPos	:= 3,	// Move to retract position
+	GoToHomePos		:= 99	// Move to home position
+) UINT;
+END_TYPE

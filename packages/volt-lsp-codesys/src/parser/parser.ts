@@ -32,7 +32,7 @@ import { parseNamespace } from "./units/namespace.js";
 import { parseProgram } from "./units/program.js";
 import { parseProperty } from "./units/property.js";
 import { parseTypeDecl } from "./units/type-decl.js";
-import { describeToken } from "./util.js";
+import { describeToken, skipFolderDirective } from "./util.js";
 
 /** Convenience wrapper — parse source text directly. */
 export function parseSource(src: string): ParseResult {
@@ -48,13 +48,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
 		// Skip a `%FOLDER <path>` directive at file scope — the bridge emits it between top-level items
 		// (a POU's methods/properties) to mark their sub-folder. It's metadata, not a unit; left unhandled
 		// it desyncs the whole file (the following members mis-parse as strays).
-		const head = c.peek();
-		if (head.kind === "punct" && head.text === "%" && c.peek(1).kind === "identifier" && c.peek(1).text.toUpperCase() === "FOLDER") {
-			const line = head.span.startLine;
-			c.consume();
-			while (!c.atEof() && c.peek().span.startLine === line) c.consume();
-			continue;
-		}
+		if (skipFolderDirective(c)) continue;
 		const unit = parseTopLevel(c);
 		if (unit !== undefined) {
 			units.push(unit);

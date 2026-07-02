@@ -1,0 +1,49 @@
+{attribute 'qualified_only'}
+//{attribute 'strict'}
+TYPE enumRecipeCommandResult :
+(
+	// These values are added by Brink to indicate that custom errors occurred
+	MaxRecipesReached	:= 16#101,														// Increase the MaxNumberOfRecipes const
+	NotAllowedForActive	:= 16#102,														// Not allowed to delete or rename the currently active recipe.
+	SelectADefinition	:= 16#103,														// selectedRecipeDefinition is empty
+	InvalidDefinition	:= 16#104,														// selectedRecipeDefinition does not match a known definition
+	InvalidRecipeName	:= 16#105,														// selectedRecipeName is empty
+	DotNotAllowed		:= 16#106,														// selectedRecipeName contains a '.'
+	NoRecipeActive		:= 16#107,														// Use 'Save as' instead of 'Save'
+	RecipeSaved			:= 16#108,														// Recipe saved
+	RecipeLoaded		:= 16#109,														// Recipe loaded
+	RecipeDeleted		:= 16#10A,														// Recipe deleted
+	RecipeRenamed		:= 16#10B,														// Recipe renamed
+
+	// The rest of the values are a copy of Recipe_Management.ReturnValues GVL
+	Ok					:= Recipe_Management.ReturnValues.ERR_OK,						// The operation succeeded
+	Failed				:= Recipe_Management.ReturnValues.ERR_FAILED,					// The operation failed
+	Parameter			:= Recipe_Management.ReturnValues.ERR_PARAMETER,				// Wrong parameter
+	NotInitialized		:= Recipe_Management.ReturnValues.ERR_NOTINITIALIZED,			// The dataserver object is not initialized. The dataserver is necessary if the recipe management is used in combination with the CODESYS HMI.
+	NotImplemented		:= Recipe_Management.ReturnValues.ERR_NOTIMPLEMENTED,			// The dataserver does not implement the interface IDataServer4, which is necessary if the recipe management is used in combination with the CODESYS HMI.
+	NoObject			:= Recipe_Management.ReturnValues.ERR_NO_OBJECT,				// Not all recipe definition variables can be written via the dataserver. Only the valid recipe definition variables are written.
+	NoMemory			:= Recipe_Management.ReturnValues.ERR_NOMEMORY,					// The dataserver did not get enough memory
+	RecipeFileNotFound	:= Recipe_Management.ReturnValues.ERR_RECIPE_FILE_NOT_FOUND,	// The recipe file was not found.
+	RecipeMismatch		:= Recipe_Management.ReturnValues.ERR_RECIPE_MISMATCH,			// The content of the recipe file does not match the current recipe. This error is only generated when the storage type is textual (see “RecipeManager” “Storage Type” in your project) and when a variable name in the file does not match the variable name in the recipe definition. The recipe file is not loaded when this error occurs.
+																						// Possible reasons: A variable has been removed in the recipe definition of the project.
+	SaveError			:= Recipe_Management.ReturnValues.ERR_RECIPE_SAVE_ERR,			// The save operation failed. Possible reasons:
+																						// * The file cannot be created or opened because the disk is full.
+																						// * The configured file path does not exist (see “RecipeManager” “File Path” in your project).
+																						// * The configured file extension is not allowed by the runtime (see “RecipeManager” “File Extension” in your project).
+	RecipeNotFound		:= Recipe_Management.ReturnValues.ERR_RECIPE_NOT_FOUND,			// The recipe does not exist
+	RecipeDefNotFound	:= Recipe_Management.ReturnValues.ERR_RECIPE_DEFINITION_NOT_FOUND,	// The recipe definition does not exist
+	RecipeAlreadyExists	:= Recipe_Management.ReturnValues.ERR_RECIPE_ALREADY_EXIST,		// The recipe already exists in the recipe definition. Use another name to create a new recipe.
+	NoRecipeManagerSet	:= Recipe_Management.ReturnValues.ERR_NO_RECIPE_MANAGER_SET,	// The global recipe manager is not set. Possible reasons:
+																						// This can happen when the option recipe management in plc is not set in the recipe manager of the current application.
+	NotAllVarsLoaded	:= Recipe_Management.ReturnValues.ERR_RECIPE_NOT_ALL_VARIABLES_WERE_LOADED,	// The recipe definition contains more variables than the recipe file. In this case the variable values from the recipe file are written anyway. This is only an info not an error.
+	RecipeNoMemory		:= Recipe_Management.ReturnValues.ERR_RECIPE_NOMEMORY,			// The recipe definition has no free memory to create an new recipe. Possible reasons:
+																						// This can happen when the option “save recipe changes to recipe files automatically” is not set in the recipe manager of the current application. In this case only 50 recipes per recipe definition are possible.
+																						// If the option “save recipe changes to recipe files automatically” is set the error cannot happen. When the disk is full the error ERR_RECIPE_SAVE_ERR is created.
+	LockedOnlineChange	:= Recipe_Management.ReturnValues.ERR_RECIPE_MANAGER_LOCKED_DURING_ONLINE_CHANGE,	// The recipe manager was locked during online change. Possible reasons:
+																						// Some of the recipe man commands should be executed while an online change occurs. These commands were not executed during online change.
+	SourceExhausted		:= Recipe_Management.ReturnValues.ERR_SOURCE_EXHAUSTED,			// Used for UTF8 helper
+	TargetExhausted		:= Recipe_Management.ReturnValues.ERR_TARGET_EXHAUSTED,			// Used for UTF8 helper
+	SourceIllegal		:= Recipe_Management.ReturnValues.ERR_SOURCE_ILLEGAL			// Used for UTF8 helper
+
+) UDINT;
+END_TYPE

@@ -1,0 +1,27 @@
+TYPE IMM_Data :
+STRUCT
+	xIntermediateOpenEnable			: BOOL;		// The Y Unit enters the mould when Intermediate Open signal is received
+
+	dwRejectCavities				: DWORD;	// All products from these cavities are rejected (zero-indexed; Cavity 1 has index 0)
+	dwDisableCavities				: DWORD;	// These cavities are disabled on the mould and don't produce products (zero-indexed; Cavity 1 has index 0)
+	overrideMouldRejectSignal		: BOOL;		// Reject status from IMM mould is ignored and products are stacked normally.
+
+	overrideMeasurementRejectSignal	: BOOL;		// Reject status from mould measurement is ignored and products are stacked normally.
+	dwOverrideCavMouldMeasurement	: DWORD;	// Reject status from mould measurement is ignored for specific cavity (zero-indexed; Cavity 1 has index 0)
+
+	usiFirstShotsAllReject			: USINT;	// The first couple of shots from the IMM are always all rejected
+	usiFirstShotsWithoutIML			: USINT;	// The first couple of shots from the IMM are without labels
+	usiFirstShotsNoEarlyEject		: USINT;	// The first couple of shots from the IMM ignores the Early Ejector option
+
+	Ejectors						: Ejector_Data;
+	CorePullers						: Ejector_Data;
+	rTimeEjectorsInFront			: REAL;		// Time the ejectors / core pullers stay in the forward position before being sent back.
+
+	xEarlyMouldClosingEnable		: BOOL;		// Give mould closing command before the Y Unit is on the safety strip.
+	rEarlyMouldClosingDistance		: REAL := 2000;		// Distance measured from the Y Drive Takeout position
+
+	MouldCleaning					: MouldCleaning_Data;
+
+	mouldCloseDelayOnDrawerChange	: REAL;		// Optional delay before closing the mould when a drawer change is active
+END_STRUCT
+END_TYPE

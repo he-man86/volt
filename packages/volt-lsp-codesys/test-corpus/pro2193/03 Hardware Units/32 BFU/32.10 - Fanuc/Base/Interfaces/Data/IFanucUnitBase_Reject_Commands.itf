@@ -1,0 +1,14 @@
+INTERFACE IFanucUnitBase_Reject_Commands
+EXTENDS IFanucUnitBase_Shared_Commands
+
+METHOD PUBLIC RejectStack : BOOL
+VAR_INPUT
+	EndPosition					: Fanuc_Reject_OUT;		// Define where the buffer program has to end (retract or home)
+END_VAR
+VAR_OUTPUT
+	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
+END_VAR
+END_METHOD
+
+END_INTERFACE

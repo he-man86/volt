@@ -1,0 +1,6 @@
+TYPE DrawerMagazine_Data :
+STRUCT
+	ReleaseBrakeTime	: REAL; // When waiting for vacuum, after this time the brakes will be released
+	BrakeTime			: REAL; // Waiting time after brakes are reset
+END_STRUCT
+END_TYPE

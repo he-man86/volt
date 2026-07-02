@@ -1,0 +1,36 @@
+// Commands specific for a Magazine Unit
+INTERFACE IMagazine_Supply_Commands
+EXTENDS IMagazine_Commands, IModuleHasSafePos
+
+// Check if magazine needs to get new labels from the stockpile
+METHOD PUBLIC GetNewLabels : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;	// Choose which drawer (or other label stockpile) to get labels from
+END_VAR
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC StartAdditionalVacuums : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+// Start vacuums and transfer labels from the stockpile. Will time out in case of no vacuum detected
+METHOD StartVacuums : enumResultGeneric
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+// When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
+{attribute 'monitoring':='call'}
+PROPERTY AnotherLabelNeeded : BOOL
+END_PROPERTY
+
+// When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
+{attribute 'monitoring':='call'}
+PROPERTY BlowBetweenLabelsRequest : BOOL
+END_PROPERTY
+
+END_INTERFACE

@@ -1,0 +1,8 @@
+INTERFACE IConveyor_Reject_Move_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+// Start command for the conveyor to move the stacks
+METHOD PUBLIC MoveStep : BOOL
+END_METHOD
+
+END_INTERFACE

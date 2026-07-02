@@ -1,0 +1,28 @@
+INTERFACE IFanucUnitBase_Buffer_Commands
+EXTENDS IFanucUnitBase_Shared_Commands
+
+METHOD PUBLIC GetRotateSettingForStack : BOOL
+VAR_INPUT
+	stackNumber	: UINT;
+END_VAR
+END_METHOD
+
+METHOD PUBLIC PickStackFromBuffer : BOOL
+VAR_INPUT
+	rotateGripper				: BOOL;								// True when stack must be picked upside down.
+	StackStatus					: REFERENCE TO StackStatusType;		// Stack status of the stack to pick
+END_VAR
+END_METHOD
+
+METHOD PUBLIC PlaceStackUponBuffer : BOOL
+VAR_INPUT
+	bufferPosZindex				: USINT;				// Index (0, or 1, or 2) of how many stacks are on the bufferrack. Fanuc uses it for Z-position
+	EndPosition					: Fanuc_Buffer_OUT;		// Define where the buffer program has to end (retract for pick or home for place/reject)
+END_VAR
+VAR_OUTPUT
+	stackReleased				: BOOL;					// True for 1 cycle when stack is released. StackStatus is valid when true.
+	StackStatus					: StackStatusType;		// Stack status of the stack that is placed
+END_VAR
+END_METHOD
+
+END_INTERFACE

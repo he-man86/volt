@@ -1,0 +1,14 @@
+INTERFACE IIMM_Default
+EXTENDS __SYSTEM.IQueryInterface
+
+//
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC AutoOperation : BOOL
+END_PROPERTY
+
+//
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC DoorsClosed : BOOL
+END_PROPERTY
+
+END_INTERFACE

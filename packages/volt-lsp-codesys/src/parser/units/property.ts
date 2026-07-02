@@ -14,7 +14,7 @@ import type { BodySpan, Property } from "../ast.js";
 import type { Cursor } from "../cursor.js";
 import type { Keyword } from "../../lexer/tokens.js";
 import { parseTypeExpression } from "../type-expr.js";
-import { bodySpanFromTokens, collectVarSections, describeToken, identFromToken, joinSpans } from "../util.js";
+import { bodySpanFromTokens, collectVarSections, describeToken, identFromToken, joinSpans, skipFolderDirective } from "../util.js";
 
 export function parseProperty(c: Cursor): Property | undefined {
 	const start = c.expectKeyword("PROPERTY", "at start of PROPERTY");
@@ -82,17 +82,6 @@ export function parseProperty(c: Cursor): Property | undefined {
 		...(setter !== undefined ? { setter } : {}),
 		span: joinSpans(start.span, dataType.span),
 	};
-}
-
-/** Skip a `%FOLDER <path>` directive (bridge metadata for a child's sub-folder). It occupies one line;
- *  the path may be multiple tokens (`%FOLDER PackML States`). Returns true if one was consumed. */
-function skipFolderDirective(c: Cursor): boolean {
-	const p = c.peek();
-	if (p.kind !== "punct" || p.text !== "%") return false;
-	const line = p.span.startLine;
-	c.consume(); // %
-	while (!c.atEof() && c.peek().span.startLine === line) c.consume();
-	return true;
 }
 
 function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {

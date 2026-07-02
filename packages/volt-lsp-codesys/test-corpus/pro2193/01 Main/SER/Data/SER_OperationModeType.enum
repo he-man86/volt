@@ -1,0 +1,12 @@
+{attribute 'to_string'}
+// The specific unit mode the SER will run with when started
+TYPE SER_OperationModeType :
+(
+	Production			:= 0,	// SER will start in normal operation mode with IMM
+	SemiAuto			:= 1,	// The machine will do a single step, then wait for user input.
+	CleaningMode		:= 2,	// Clean up leftover products in the machine. Do not get new labels.
+	OnlyInsertLabels	:= 3,	// The machine will only insert labels into the cavities
+	TakeOutOnce			:= 4,	// The machine will take-out products once. Mould will not close and the cycle will halt.
+	AutoTakeoutLabels	:= 5	// Only take out labels out of magazine.
+);
+END_TYPE

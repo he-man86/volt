@@ -1,0 +1,6 @@
+TYPE RejectStation_WithBlowOff_Data :
+STRUCT
+	rBlowOffDuration : REAL;		// Time the blow off is active
+
+END_STRUCT
+END_TYPE

@@ -1,0 +1,9 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+//Communication from Brink to Fanuc
+TYPE Fanuc_Place_OUT :
+(
+	GoToPlaceCheckPos		:= 1,	// Move to check position after placing
+	GoToHomePos				:= 99	// Move to between place position
+) UINT;
+END_TYPE

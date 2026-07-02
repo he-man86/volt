@@ -1,0 +1,10 @@
+//Communication from Fanuc to Brink
+TYPE Fanuc_Pick_IN :
+(
+	AtPickPos				:= 1,	// At check position
+	AtShiftPos				:= 2,	// At shift position
+	AtShiftPickPos			:= 3,	// At shift down position to pick the stack
+	AtRetractPos			:= 4,	// At retract position
+	AtHomePos				:= 99	// At home position
+) UINT;
+END_TYPE

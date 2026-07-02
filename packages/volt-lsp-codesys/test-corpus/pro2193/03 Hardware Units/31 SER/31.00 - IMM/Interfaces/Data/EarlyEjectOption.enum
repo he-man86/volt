@@ -1,0 +1,9 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE EarlyEjectOption :
+(
+	Disabled			:= 0,
+	OnYDrivePosition	:= 1,
+	OnXuDrivePosition	:= 2
+);
+END_TYPE

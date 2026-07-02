@@ -1,0 +1,8 @@
+TYPE Fanuc_Reject_Data_Type :
+STRUCT
+	Teach						: Fanuc_PositionXYZWPR_Type;	// Teach reject position
+	ApproachDistanceX			: REAL;
+	ApproachDistanceZ			: REAL;
+	RetractDistanceAfterRelease : REAL;
+END_STRUCT
+END_TYPE

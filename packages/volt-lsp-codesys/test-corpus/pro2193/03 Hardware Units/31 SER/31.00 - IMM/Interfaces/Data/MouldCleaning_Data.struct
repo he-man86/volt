@@ -1,0 +1,7 @@
+TYPE MouldCleaning_Data :
+STRUCT
+	xEnable		: BOOL;		// Enable Mould cleaning (Shots without IML)
+	iInterval	: INT;		// Number of produced shots before mould cleaning is started
+	iDuration	: INT;		// Number of produced shots without IML
+END_STRUCT
+END_TYPE

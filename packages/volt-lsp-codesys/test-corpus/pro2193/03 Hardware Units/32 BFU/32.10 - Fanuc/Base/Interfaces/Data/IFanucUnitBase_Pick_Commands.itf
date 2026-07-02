@@ -1,0 +1,13 @@
+INTERFACE IFanucUnitBase_Pick_Commands
+EXTENDS IFanucUnitBase_Shared_Commands
+
+METHOD PUBLIC PickStackFromConveyor : BOOL
+VAR_INPUT
+	StackToPickX				: UINT;					// X-position of the stack to pick
+	StackToPickY				: UINT;					// Y-position of the stack to pick
+	StackStatus					: REFERENCE TO StackStatusType;		// Stack status of the stack to pick
+	EndPosition					: Fanuc_Pick_OUT;		// Define where the pick program has to end (retract for buffer or home for reject)
+END_VAR
+END_METHOD
+
+END_INTERFACE

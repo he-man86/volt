@@ -1,0 +1,6 @@
+TYPE RejectStation_WithCylinder_Data :
+STRUCT
+	rRejectOutDelay : REAL;		// Time the reject cylinder stays out
+
+END_STRUCT
+END_TYPE

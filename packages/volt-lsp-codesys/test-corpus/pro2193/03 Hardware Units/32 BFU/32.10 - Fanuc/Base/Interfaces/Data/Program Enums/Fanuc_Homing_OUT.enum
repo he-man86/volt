@@ -1,0 +1,7 @@
+//Communication from Brink to Fanuc
+TYPE Fanuc_Homing_OUT :
+(
+	Done				:= 1,		// Homing program finished
+	GoToServicePosition	:= 2
+) UINT;
+END_TYPE

@@ -1,0 +1,46 @@
+// Commands specific for a Magazine Unit
+INTERFACE IMagazineMotors_Commands
+EXTENDS IModuleBase, IModuleManualControlEnabled
+
+// Returns true if the motor is in the required position
+METHOD PUBLIC InPositionAt : BOOL
+VAR_INPUT
+	position	: MagazineMotors_Positions;
+	tolerance	: REAL;
+END_VAR
+END_METHOD
+
+// Move to safe waiting position before getting new labels
+METHOD PUBLIC MoveToBeforeGetNewLabels : BOOL		// Returns true when in position
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Move to safe waiting position before the takeover position
+METHOD PUBLIC MoveToBeforeTakeoverLabels : BOOL	// Returns true when in position
+VAR_INPUT
+END_VAR
+END_METHOD
+
+// Move to get new labels position with a custom profile
+METHOD PUBLIC MoveToGetNewLabels : BOOL		// Returns true when in position
+VAR_INPUT
+	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
+END_VAR
+END_METHOD
+
+// Move to takeover labels position with a custom profile
+METHOD PUBLIC MoveToTakeoverLabels : BOOL	// Returns true when in position
+VAR_INPUT
+	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
+END_VAR
+END_METHOD
+
+// Move to waiting position above label takeover position
+METHOD PUBLIC MoveToWaitingPos : BOOL	// Returns true when in position
+VAR_INPUT
+	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
+END_VAR
+END_METHOD
+
+END_INTERFACE

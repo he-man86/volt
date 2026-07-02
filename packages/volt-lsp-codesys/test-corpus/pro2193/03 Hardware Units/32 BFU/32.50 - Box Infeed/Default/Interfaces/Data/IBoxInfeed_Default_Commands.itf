@@ -1,0 +1,14 @@
+INTERFACE IBoxInfeed_Default_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+METHOD PUBLIC FeedInBox : BOOL
+END_METHOD
+
+METHOD PUBLIC ReverseBox : BOOL
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+END_METHOD
+
+END_INTERFACE

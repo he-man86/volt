@@ -1,0 +1,11 @@
+TYPE Magazine_Data :
+STRUCT
+	rPreReleaseLabelsDelay		: REAL;
+	rPostReleaseLabelsDelay		: REAL;
+
+	rBlowBetweenLabelsDistance	: REAL;
+
+	rHammerOnTime				: REAL := 0.2;
+	rHammerOffTime				: REAL := 0.5;
+END_STRUCT
+END_TYPE

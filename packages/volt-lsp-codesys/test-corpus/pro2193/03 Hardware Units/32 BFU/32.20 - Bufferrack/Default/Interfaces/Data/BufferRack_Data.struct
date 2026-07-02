@@ -1,0 +1,5 @@
+TYPE BufferRack_Data :
+STRUCT
+	NumberOfProductsOnStack	: UINT;
+END_STRUCT
+END_TYPE

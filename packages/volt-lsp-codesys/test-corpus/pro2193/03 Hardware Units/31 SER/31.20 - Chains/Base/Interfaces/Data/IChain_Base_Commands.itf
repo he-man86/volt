@@ -1,0 +1,76 @@
+// Commands specific for a chain
+INTERFACE IChain_Base_Commands
+
+METHOD PUBLIC InExactPosition : BOOL
+END_METHOD
+
+METHOD PUBLIC InPosition : BOOL
+VAR_INPUT
+	hysteresis		: REAL;	// Max allowed difference
+END_VAR
+END_METHOD
+
+// Set UncountedReject flag for all products on chain (or a specific product)
+METHOD PUBLIC InvalidateProduct
+VAR_INPUT
+	position	: UINT(0..Chain_BaseFB.MaxLinks);
+END_VAR
+END_METHOD
+
+// Move chain a fixed step
+METHOD PUBLIC MoveStep : BOOL
+VAR_INPUT
+	steps		: USINT := 1;		// Number of steps to move. Default is 1 step.
+END_VAR
+END_METHOD
+
+{warning disable C0222} // Disables Precompiler error C0222: Outputs can't be of type REFERENCE TO
+METHOD PUBLIC ReturnProduct : REFERENCE TO ProductType
+VAR_INPUT
+	position	: UINT(1..Chain_BaseFB.MaxLinks);
+END_VAR
+END_METHOD
+
+// The current payload status (products or labels) of the unit
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC HasPayload : BOOL
+END_PROPERTY
+
+// Intake is blocked. That means the chains needs new products at the intake.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC IntakeIsBlocked : BOOL
+END_PROPERTY
+
+// Oldest product on the chain that is still waiting for a camera result
+{warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC OldestProductWaitingForResult : REFERENCE TO ProductType
+END_PROPERTY
+
+// Oldest product on the chain that is still waiting for a camera result
+{warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC OldestProductWaitingForTrigger : REFERENCE TO ProductType
+END_PROPERTY
+
+// Products are needed at intake side of chain
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ProductsNeeded : BOOL
+END_PROPERTY
+
+// Image buffer is full for too long. Stop the chain and await all results
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC StopToCheckImageBuffer : BOOL
+END_PROPERTY
+
+// Trigger sensor is within a window
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC TriggerSensorValid : BOOL
+END_PROPERTY
+
+// TRUE: Z Unit is after Reject unit. FALSE: Reject unit is after Z Unit.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
+END_PROPERTY
+
+END_INTERFACE

@@ -1,0 +1,18 @@
+INTERFACE IBoxPusher_Default_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+// Move pusher with full box
+METHOD PUBLIC Push : BOOL
+END_METHOD
+
+// Retract pusher back to fill position
+METHOD PUBLIC Retract : BOOL
+END_METHOD
+
+PROPERTY PUBLIC BoxAtOutfeedPosition : BOOL
+END_PROPERTY
+
+PROPERTY PUBLIC BoxAtOutfeedPositionSensor : IDigitalSensor
+END_PROPERTY
+
+END_INTERFACE

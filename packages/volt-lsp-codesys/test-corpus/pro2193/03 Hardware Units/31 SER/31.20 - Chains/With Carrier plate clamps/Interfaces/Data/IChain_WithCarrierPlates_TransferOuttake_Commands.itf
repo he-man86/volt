@@ -1,0 +1,24 @@
+// Commands specific for a chain
+INTERFACE IChain_WithCarrierPlates_TransferOuttake_Commands
+EXTENDS IChain_Base_TransferOuttake_Commands
+
+// Closes all Reject product carrier plates
+METHOD PUBLIC RejectCloseProductCarriers : BOOL
+END_METHOD
+
+// Opens all Reject product carrier plates
+METHOD PUBLIC RejectOpenProductCarriers : BOOL
+END_METHOD
+
+// Closes all Z product carrier plates
+METHOD PUBLIC ZCloseProductCarriers : BOOL
+END_METHOD
+
+// Opens selected Z product carrier plates
+METHOD PUBLIC ZOpenProductCarriers : BOOL
+VAR_INPUT
+	productCarrierIndex		: WORD;
+END_VAR
+END_METHOD
+
+END_INTERFACE

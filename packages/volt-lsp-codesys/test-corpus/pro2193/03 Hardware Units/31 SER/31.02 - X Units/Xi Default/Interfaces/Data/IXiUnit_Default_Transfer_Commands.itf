@@ -1,0 +1,12 @@
+// Commands specific for an Xi Unit
+INTERFACE IXiUnit_Default_Transfer_Commands
+EXTENDS IXUnit_Shared_Commands
+
+// Gets labels by starting a vacuum. Parameter indicates which vacuum (inlay-core) to start
+METHOD PUBLIC GetLabels : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+END_INTERFACE

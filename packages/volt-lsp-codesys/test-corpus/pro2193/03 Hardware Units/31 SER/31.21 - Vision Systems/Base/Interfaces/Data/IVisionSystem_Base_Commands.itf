@@ -1,0 +1,24 @@
+// Commands specific for a vision system (Keyence controller)
+INTERFACE IVisionSystem_Base_Commands
+
+METHOD CancelTakePicture
+END_METHOD
+
+METHOD TakePicture : enumResultTakePicture
+VAR_INPUT
+END_VAR
+END_METHOD
+
+PROPERTY PUBLIC Busy : BOOL
+END_PROPERTY
+
+// Camera has a result ready. The data is in the Results property
+{attribute 'monitoring':='call'}
+PROPERTY CameraResultReady : BOOL
+END_PROPERTY
+
+// Results[0] holds overrideRejectStatus. Results[1..x] holds the data.
+PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
+END_PROPERTY
+
+END_INTERFACE

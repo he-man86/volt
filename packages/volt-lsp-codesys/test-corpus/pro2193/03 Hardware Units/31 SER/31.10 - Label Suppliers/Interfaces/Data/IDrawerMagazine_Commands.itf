@@ -1,0 +1,14 @@
+INTERFACE IDrawerMagazine_Commands
+EXTENDS IModuleWithCommandLock
+
+// Returns the inactive drawer, or 0 when no drawer is ready
+{attribute 'monitoring':='call'}
+PROPERTY ActiveDrawerItf : IDrawer
+END_PROPERTY
+
+// Returns the active drawer which is ready for label pickup, or 0 when no drawer is ready
+{attribute 'monitoring':='call'}
+PROPERTY InactiveDrawerItf : IDrawer
+END_PROPERTY
+
+END_INTERFACE

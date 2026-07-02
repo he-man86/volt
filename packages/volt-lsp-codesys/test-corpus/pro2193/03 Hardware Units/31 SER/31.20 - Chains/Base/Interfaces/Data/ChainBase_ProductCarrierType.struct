@@ -1,0 +1,6 @@
+TYPE ChainBase_ProductCarrierType :
+STRUCT
+	productPosition			: REAL := -1;	// Encoder position where the product was placed on the chain
+	Product					: ProductType;	// Data about this product
+END_STRUCT
+END_TYPE

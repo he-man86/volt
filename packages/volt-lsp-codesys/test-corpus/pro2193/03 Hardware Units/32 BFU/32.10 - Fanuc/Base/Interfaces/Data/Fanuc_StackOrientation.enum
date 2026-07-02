@@ -1,0 +1,8 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE Fanuc_StackOrientation :
+(
+	Horizontal	:= 0,
+	Vertical	:= 1
+);
+END_TYPE

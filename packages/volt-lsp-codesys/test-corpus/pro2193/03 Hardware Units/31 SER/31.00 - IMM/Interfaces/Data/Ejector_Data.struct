@@ -1,0 +1,8 @@
+TYPE Ejector_Data :
+STRUCT
+	xInverseOperation				: BOOL;		// Inputs and outputs for the ejectors are inverted
+	EarlyStartEnable				: EarlyEjectOption;
+	rEarlyStartDistance				: REAL;
+	xWaitForForwardSignal			: BOOL;		// Await the Ejector in Forward position input from the IMM
+END_STRUCT
+END_TYPE

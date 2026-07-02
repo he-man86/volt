@@ -25,6 +25,19 @@ export function identFromToken(tok: Token): Identifier {
 	return { kind: "identifier", text: tok.text, span: tok.span };
 }
 
+/** Skip a `%FOLDER <path>` directive — bridge metadata (StAssembler) marking a child's sub-folder within
+ *  its POU/interface. It occupies one line; the path may be multiple tokens (`%FOLDER PackML States`).
+ *  Left unhandled its `%` mis-parses as a stray. Returns true if one was consumed. */
+export function skipFolderDirective(c: Cursor): boolean {
+	const p = c.peek();
+	if (p.kind !== "punct" || p.text !== "%") return false;
+	if (c.peek(1).kind !== "identifier" || c.peek(1).text.toUpperCase() !== "FOLDER") return false;
+	const line = p.span.startLine;
+	c.consume(); // %
+	while (!c.atEof() && c.peek().span.startLine === line) c.consume();
+	return true;
+}
+
 /**
  * Consume meaningful tokens until `pred` returns true for the next
  * one (or we hit EOF). Returns the consumed tokens. Does NOT consume

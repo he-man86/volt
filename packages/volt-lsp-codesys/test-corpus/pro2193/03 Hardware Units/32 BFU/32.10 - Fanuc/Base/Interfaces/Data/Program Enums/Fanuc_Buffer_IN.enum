@@ -1,0 +1,9 @@
+//Communication from Fanuc to Brink
+TYPE Fanuc_Buffer_IN :
+(
+	AtPickPlacePos			:= 2,	// At pick/place position
+	AtRetractPos			:= 3,	// At retract position
+	WaitingAtRetractPos		:= 4,	// Stopped at retract position
+	AtHomePos				:= 99	// At home position
+) UINT;
+END_TYPE

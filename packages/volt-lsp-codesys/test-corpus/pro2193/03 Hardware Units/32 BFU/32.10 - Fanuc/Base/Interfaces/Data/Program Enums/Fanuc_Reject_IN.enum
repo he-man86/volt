@@ -1,0 +1,8 @@
+//Communication from Fanuc to Brink
+TYPE Fanuc_Reject_IN :
+(
+	AtRejectPos				:= 1,	// At reject position
+	AtRetractPos			:= 2,	// At retract position
+	AtHomePosition			:= 99	// At home position
+) UINT;
+END_TYPE

@@ -1,0 +1,8 @@
+TYPE Fanuc_BoxSettings :
+STRUCT
+	BoxSize				: Fanuc_PositionXYZ_Type;
+	StackSize			: Fanuc_PositionXYZ_Type;
+	StackOrientation	: Fanuc_StackOrientation;
+	StackShape			: Fanuc_StackShape;
+END_STRUCT
+END_TYPE

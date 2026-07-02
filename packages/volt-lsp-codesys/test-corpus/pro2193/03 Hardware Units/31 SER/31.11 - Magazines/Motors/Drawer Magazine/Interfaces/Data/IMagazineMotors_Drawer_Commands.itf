@@ -1,0 +1,40 @@
+// Commands specific for a Magazine Unit
+INTERFACE IMagazineMotors_Drawer_Commands
+EXTENDS IModuleBase, IModuleManualControlEnabled, IModuleStartCommand, IModuleHasSafePos
+
+// Returns true if the motor is in the required position
+METHOD PUBLIC InPositionAt : BOOL
+VAR_INPUT
+	position	: MagazineMotors_Positions;
+	tolerance	: REAL;
+END_VAR
+END_METHOD
+
+METHOD ProfileHomeToSafePosition : BOOL
+END_METHOD
+
+METHOD ProfileSafeDistanceAboveDrawer : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;
+END_VAR
+END_METHOD
+
+METHOD ProfileToHorizontal : BOOL
+VAR_INPUT
+	drawer	: enumDrawer;
+END_VAR
+END_METHOD
+
+// Move to any position that is vertical. For example  Waiting -> Takeover or Drawer -> Waiting
+METHOD ProfileToVertical : BOOL
+VAR_INPUT
+	drawer		: enumDrawer;
+	endPosition	: MagazineMotors_Positions;	// Should be any position where arm is vertical (so to transfer a label to Xi)
+END_VAR
+END_METHOD
+
+// Command to reset the module. Servodrives are homed.
+METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+END_METHOD
+
+END_INTERFACE

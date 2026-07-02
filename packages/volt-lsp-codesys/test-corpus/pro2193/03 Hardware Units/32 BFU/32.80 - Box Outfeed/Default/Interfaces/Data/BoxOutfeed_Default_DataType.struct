@@ -1,0 +1,7 @@
+TYPE BoxOutfeed_Default_DataType :
+STRUCT
+	boxOutputConveyorProfile	: ProfileType;
+	boxOutputConveyorRuntime	: REAL;
+//	delayBeforeStartingConveyor	: REAL;		// To bring boxes closer together on outfeed conveyor
+END_STRUCT
+END_TYPE

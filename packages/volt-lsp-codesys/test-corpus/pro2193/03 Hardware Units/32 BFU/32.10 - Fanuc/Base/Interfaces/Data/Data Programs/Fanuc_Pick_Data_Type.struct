@@ -1,0 +1,11 @@
+TYPE Fanuc_Pick_Data_Type :
+STRUCT
+	Teach		: Fanuc_PositionXYZWPR_Type;	// Teach position for pickup (first stack)
+	PitchX		: REAL;							// Distance between stacks in X direction (first or second row)
+	PitchY		: REAL;							// Distance between stacks in Y direction (stack 1 to 8 in the row)
+	ApproachZ	: REAL;							// Approach position above stack
+	ApproachX	: REAL;							// Approach distance in front of stack
+	ShiftY		: REAL;							// Shift distance in Y direction
+	ShiftZ		: REAL;							// Shift distance in Z direction
+END_STRUCT
+END_TYPE

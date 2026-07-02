@@ -1,0 +1,27 @@
+// Commands specific for a chain
+INTERFACE IChain_Base_TransferIntake_Commands
+EXTENDS IModuleTransferComplete
+
+// Receive a certain amount of products by vacuum or clamps. Parameter indicates which product is received.
+METHOD PUBLIC CopyProductStatus : BOOL
+VAR_INPUT
+	productNo		: USINT(1..GVL_Constants.ChainProductsForXuUnit);
+	product			: ProductType;
+END_VAR
+END_METHOD
+
+METHOD PUBLIC InExactPosition : BOOL
+END_METHOD
+
+METHOD PUBLIC InPosition : BOOL
+VAR_INPUT
+	hysteresis		: REAL;	// Max allowed difference
+END_VAR
+END_METHOD
+
+// Products are needed at intake side of chain. High when Xu needs to place products. Low when Xu is finished placing.
+{attribute 'monitoring':='call'}
+PROPERTY PUBLIC ProductsNeeded : BOOL
+END_PROPERTY
+
+END_INTERFACE

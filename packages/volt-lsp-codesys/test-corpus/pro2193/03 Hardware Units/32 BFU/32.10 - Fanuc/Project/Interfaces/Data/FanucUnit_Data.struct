@@ -1,0 +1,6 @@
+TYPE FanucUnit_Data :
+STRUCT
+	placeholder : BOOL;		// Add some empty data here so this struct is loaded in the recipe.
+
+END_STRUCT
+END_TYPE

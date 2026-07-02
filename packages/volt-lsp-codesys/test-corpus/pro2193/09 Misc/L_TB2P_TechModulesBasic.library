@@ -1,5 +1,0 @@
-LIBRARY L_TB2P_TechModulesBasic
-NAMESPACE L_TB2P
-RESOLUTION L_TB2P_TechModulesBasic, 3.32.0.22 (Lenze)
-PLACEHOLDER true
-SYSTEM false

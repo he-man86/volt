@@ -1,0 +1,9 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+//Communication from Fanuc to Brink
+TYPE Fanuc_Service_IN :
+(
+	Finished	:= 1,	// Moving to service pos is finished
+	Error		:= 2	// Error while moving to service pos
+) UINT;
+END_TYPE

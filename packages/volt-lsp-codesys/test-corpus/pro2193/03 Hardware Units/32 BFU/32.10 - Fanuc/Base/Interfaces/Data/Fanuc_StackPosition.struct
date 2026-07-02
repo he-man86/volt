@@ -1,0 +1,9 @@
+TYPE Fanuc_StackPosition :
+STRUCT
+	StackNumber			: UINT;							// Sorting number of the stack in the box
+	PlacePosition		: Fanuc_PositionXYZWPR_Type;	// Place position in the box
+	Offset				: Fanuc_PositionXYZ_Type;		// Offsets for placing the stack
+	ToolOffset			: Fanuc_PositionXYZ_Type;		// Tool-offsets for placing the stack
+	Config				: UINT;							// Configuration for placement of the stack
+END_STRUCT
+END_TYPE

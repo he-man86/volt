@@ -1,0 +1,13 @@
+// Commands specific for a chain
+INTERFACE IChain_WithCarrierPlates_TransferIntake_Commands
+EXTENDS IChain_Base_TransferIntake_Commands
+
+// Closes all Xu product carrier plates
+METHOD PUBLIC XuCloseProductCarriers : BOOL
+END_METHOD
+
+// Opens all Xu product carrier plates
+METHOD PUBLIC XuOpenProductCarriers : BOOL
+END_METHOD
+
+END_INTERFACE

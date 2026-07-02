@@ -1,0 +1,10 @@
+TYPE Fanuc_Buffer_Data_Type :
+STRUCT
+	Teach				: Fanuc_PositionXYZWPR_Type;	// Teach position for buffer (first stack)
+	PitchZ				: REAL;							// Distance between stacks in Z direction
+	ApproachX			: REAL;							// Approach distance in front of stack
+	DistUpAfterPick		: REAL;							// Distance to move up after pick
+	StackingApproachZ	: REAL;							// Approach distance in Z for stacking
+	PickStackOffsetZ	: REAL;							// Pick offset complete stack from buffer
+END_STRUCT
+END_TYPE

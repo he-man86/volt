@@ -1,0 +1,13 @@
+TYPE MagazinePeeling_Data :
+STRUCT
+	rStopperIN					: REAL;
+	rRollIN						: REAL;
+	rRollOUT					: REAL;
+	rStopperOUT					: REAL;
+
+	rVacuumHighTime				: REAL;
+
+	rHammerOnTime				: REAL := 0.2;
+	rHammerOffTime				: REAL := 0.5;
+END_STRUCT
+END_TYPE

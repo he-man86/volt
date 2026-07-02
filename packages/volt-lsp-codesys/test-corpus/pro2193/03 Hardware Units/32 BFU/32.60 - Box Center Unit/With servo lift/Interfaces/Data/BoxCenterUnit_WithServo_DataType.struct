@@ -1,0 +1,9 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE BoxCenterUnit_WithServo_DataType :
+STRUCT
+	InBoxPosition				: PositionWithProfileType;			// Position inside boxes
+	OutBoxPosition				: PositionWithProfileType;			// Position above boxes, or to feed boxes in
+	NumberOfLayers				: UINT;
+	EnableSheets				: BOOL;
+END_STRUCT
+END_TYPE

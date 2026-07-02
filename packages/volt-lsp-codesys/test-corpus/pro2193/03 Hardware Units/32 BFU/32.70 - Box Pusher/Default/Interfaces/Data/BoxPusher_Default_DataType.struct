@@ -1,0 +1,6 @@
+TYPE BoxPusher_Default_DataType :
+STRUCT
+	pusherInFrontDelay	: REAL;
+	pusherInBackDelay	: REAL;
+END_STRUCT
+END_TYPE

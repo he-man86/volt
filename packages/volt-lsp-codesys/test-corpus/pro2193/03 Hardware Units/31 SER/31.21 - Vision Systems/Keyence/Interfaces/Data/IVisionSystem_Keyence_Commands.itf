@@ -1,0 +1,5 @@
+// Commands specific for a vision system (Keyence controller)
+INTERFACE IVisionSystem_Keyence_Commands
+EXTENDS IVisionSystem_Base_Commands
+
+END_INTERFACE

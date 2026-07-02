@@ -1,0 +1,16 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+{attribute 'to_string'}
+TYPE MagazineMotors_Positions :
+(
+	getNewLabelsPos,
+	takeover1Pos,
+	takeover2Pos,
+	takeover3Pos,
+	takeover4Pos,
+	beforeGetNewLabelsPos,
+	beforeTakeoverPos,
+	middlePosition,		// Arms hang in V-shape to open the doors
+	waitingPosition		// In case of wrap-label, magazine moves here before placing labels on inlay-cores
+);
+END_TYPE

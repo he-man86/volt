@@ -1,0 +1,23 @@
+TYPE FanucUnitBase_Data :
+STRUCT
+	rNormalSpeed			: REAL;
+	rReducedSpeed			: REAL;
+	rCollisionGuardLow		: REAL;
+	rCollisionGuardHigh		: REAL;
+
+	Pick					: Fanuc_Pick_Data_Type;
+	Place					: Fanuc_Place_Data_Type;
+	Buffer					: Fanuc_Buffer_Data_Type;
+	Reject					: Fanuc_Reject_Data_Type;
+	Home					: Fanuc_PositionJoint_Type;
+	Service					: Fanuc_PositionJoint_Type;
+	{attribute 'symbol' := 'none'}
+	StackPosition			: ARRAY[1..GVL_Constants_BFU.MaxNumberOfStacksInBox] OF Fanuc_StackPosition;	// Stacking position with offsets for all stacks in the box
+
+	rClampDelay				: REAL;	// Time needed to clamp the productstack at pickup position
+	rStackingDelay			: REAL; // Time needed to release the products at place position
+	rRejectDelay			: REAL;	// Time needed to release the products at reject position
+
+	BoxSettings				: Fanuc_BoxSettings;
+END_STRUCT
+END_TYPE

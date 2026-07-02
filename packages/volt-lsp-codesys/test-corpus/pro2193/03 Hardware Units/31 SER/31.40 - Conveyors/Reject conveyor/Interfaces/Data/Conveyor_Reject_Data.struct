@@ -1,0 +1,6 @@
+TYPE Conveyor_Reject_Data :
+STRUCT
+	rejectConveyorProfile		: ProfileType;
+	rejectConveyorRuntime		: REAL;
+END_STRUCT
+END_TYPE

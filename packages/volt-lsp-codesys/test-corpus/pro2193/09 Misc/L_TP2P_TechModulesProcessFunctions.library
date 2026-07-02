@@ -1,5 +1,0 @@
-LIBRARY L_TP2P_TechModulesProcessFunctions
-NAMESPACE L_TP2P
-RESOLUTION L_TP2P_TechModulesProcessFunctions, 3.32.0.7 (Lenze)
-PLACEHOLDER true
-SYSTEM false

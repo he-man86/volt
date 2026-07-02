@@ -1,0 +1,34 @@
+// Commands specific for a Magazine Unit
+INTERFACE IMagazine_Commands
+EXTENDS IModuleHasPayload, IModuleWithCommandLock
+
+// Move to a Takeover position. Parameter indicates number of Takeover position
+METHOD PUBLIC MoveToTakeOverPos : BOOL
+VAR_INPUT
+	takeOverPos	: USINT;	// 0: Invalid, 1: Takeover Pos 1, etc.
+END_VAR
+END_METHOD
+
+METHOD MoveToWaitingPos : BOOL
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC ReleaseAdditionalVacuums : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+// Releases labels by resetting a vacuum. Parameter indicates which vacuums to kill
+METHOD PUBLIC ReleaseLabels : BOOL
+VAR_INPUT
+	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
+END_VAR
+END_METHOD
+
+// Current state of magazine
+{attribute 'monitoring':='call'}
+PROPERTY ActState : enumMagazineState
+END_PROPERTY
+
+END_INTERFACE

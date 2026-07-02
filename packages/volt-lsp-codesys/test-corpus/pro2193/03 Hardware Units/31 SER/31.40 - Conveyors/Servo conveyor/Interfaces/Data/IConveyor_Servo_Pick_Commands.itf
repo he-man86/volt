@@ -1,0 +1,18 @@
+// Commands specific for a Magazine Unit
+INTERFACE IConveyor_Servo_Pick_Commands
+EXTENDS IConveyor_Shared_Commands
+
+// Returns coordinates and status of stack to pick by the Fanuc
+METHOD PUBLIC ReturnNextStack : REFERENCE TO StackStatusType
+VAR_OUTPUT
+	indexX	: USINT;
+	indexY	: USINT;
+END_VAR
+END_METHOD
+
+// The conveyor has stacks on it
+{attribute 'monitoring':='call'}
+PROPERTY HasStacks : BOOL
+END_PROPERTY
+
+END_INTERFACE

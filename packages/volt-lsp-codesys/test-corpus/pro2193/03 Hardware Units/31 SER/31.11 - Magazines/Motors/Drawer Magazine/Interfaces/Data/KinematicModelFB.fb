@@ -1,0 +1,127 @@
+FUNCTION_BLOCK KinematicModelFB
+EXTENDS L_MC4P_Kin_Ref_Generic
+VAR_INPUT
+	lrArmLength : LREAL := 895;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+VAR CONSTANT
+	Deg90ToRads : LREAL := 1.5707963267949; // Radians value for 90 degrees
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD CalcBackwardTrafo : WORD
+VAR_IN_OUT
+	AxesGroup		: L_MC4P.AXES_GROUP_KIN;
+	alrPosFlange	: ARRAY[1..6] OF LREAL;
+	alrPosAxes		: ARRAY[1..6] OF LREAL;
+	aiConfiguration	: ARRAY[1..6] OF INT;
+END_VAR
+VAR_INST
+	actualXPos			: LREAL;
+END_VAR
+// Implement here: Backward-Trafo / inverse kinematics:
+// Calculate the ACS-Positions according to position of the flange (TCS-Position, defined in MCS)
+
+IF alrPosFlange[1] > lrArmLength THEN
+	actualXPos		:= lrArmLength - (alrPosFlange[1] - lrArmLength);
+	alrPosAxes[1]	:= alrPosFlange[3] - SQRT(EXPT(lrArmLength, 2) - EXPT(lrArmLength - actualXPos,2));
+	alrPosAxes[2]	:= alrPosFlange[3] + SQRT(EXPT(lrArmLength, 2) - EXPT(actualXPos, 2));
+
+ELSIF alrPosFlange[1] < 0 THEN
+	actualXPos		:= ABS(alrPosFlange[1]);
+	alrPosAxes[1]	:= alrPosFlange[3] + SQRT(EXPT(lrArmLength, 2) - EXPT(lrArmLength - actualXPos,2));
+	alrPosAxes[2]	:= alrPosFlange[3] - SQRT(EXPT(lrArmLength, 2) - EXPT(actualXPos, 2));
+
+ELSE
+
+	actualXPos		:= alrPosFlange[1];
+	alrPosAxes[1]	:= alrPosFlange[3] - SQRT(EXPT(lrArmLength, 2) - EXPT(lrArmLength - actualXPos,2));		// This is the calculated position of the M1-axis
+	alrPosAxes[2]	:= alrPosFlange[3] - SQRT(EXPT(lrArmLength, 2) - EXPT(actualXPos, 2));					// This is the calculated position of the M2-axis
+END_IF
+END_METHOD
+
+METHOD CalcForwardTrafo : WORD
+VAR_IN_OUT
+	AxesGroup		: L_MC4P.AXES_GROUP_KIN;
+	alrPosFlange	: ARRAY[1..6] OF LREAL;
+	alrPosAxes		: ARRAY[1..6] OF LREAL;
+END_VAR
+VAR_INST
+	diffAxes		: LREAL;
+	diffAngle		: LREAL;
+	diffAngleDeg	: LREAL;
+	distAxes		: LREAL;
+	angleA1			: LREAL;
+	actualXPos		: LREAL;
+END_VAR
+// Implement here: Forward-Trafo / direct kinematics:
+// Calculate the position of the flange (TCS-Position, defined in MCS) according to ACS-Positions
+
+// Difference between the Axis positions
+diffAxes		:= alrPosAxes[1] - alrPosAxes[2];
+
+// Angle in radians of the line between the Axis positions referred to the horizontal line
+diffAngle		:= ATAN(diffAxes / lrArmLength);
+
+// Length of the line between the Axis positions
+distAxes		:= SQRT(EXPT(lrArmLength, 2) + EXPT(diffAxes, 2));
+
+// Angle in radians of the gripper measured to the vertical line
+angleA1			:= Deg90ToRads - diffAngle - ACOS((distAxes / 2) / lrArmLength);
+
+// Real actual X-position
+actualXPos		:=  SIN(angleA1) * lrArmLength;
+
+// Angle in degrees
+diffAngleDeg	:= diffAngle * 180.0 / GVL_Constants.pi;
+
+// X position was at maximum of 895, and went back again. Make 'virtual' X position > lrArmLength
+IF diffAngleDeg < -45 THEN
+	alrPosFlange[1]	:= (lrArmLength - actualXPos) + lrArmLength;											// X-position
+	alrPosFlange[3]	:= SQRT(EXPT(lrArmLength, 2) - EXPT((lrArmLength - actualXPos), 2)) + alrPosAxes[1];	// Z-position
+
+// X position was at minimum of 0, and went back again. Make 'virtual' X position < 0
+ELSIF diffAngleDeg > 45 THEN
+	alrPosFlange[1]	:= -actualXPos;																			// X-position
+	alrPosFlange[3]	:= SQRT(EXPT(lrArmLength, 2) - EXPT((actualXPos), 2)) + alrPosAxes[2];					// Z-position
+
+// X position is within normal operating range
+ELSE
+	alrPosFlange[1]	:= actualXPos;																			// X-position
+	alrPosFlange[3]	:= SQRT(EXPT(lrArmLength, 2) - EXPT((lrArmLength - actualXPos), 2)) + alrPosAxes[1];	// Z-position
+END_IF
+END_METHOD
+
+METHOD CalculateConfiguration : WORD
+VAR_IN_OUT
+	AxesGroup	: L_MC4P.AXES_GROUP_KIN;
+	alrPosFlange	: ARRAY[1..6] OF LREAL;
+	alrPosAxes	: ARRAY[1..6] OF LREAL;
+	aiConfiguration	: ARRAY[1..6] OF INT;
+END_VAR
+// Use this method, if your Backwardtransformation has more than one solution, depending on the actual position of the ACS-Axes
+END_METHOD
+
+METHOD CalculateParameter
+// Calculate variables depending on user-defined parameters
+END_METHOD
+
+METHOD CheckParameter : BOOL
+CheckParameter := TRUE;
+END_METHOD
+
+METHOD SetACSAxisType
+// Overwrite this method, if ACS-axes in user-trafo are different from the default implementation
+VAR_OUTPUT CONSTANT
+	aeAxes: ARRAY[1..6] OF L_MC4P_AxisType := [L_MC4P_AxisType.linear,
+											   L_MC4P_AxisType.linear,
+											   L_MC4P_AxisType.unconnected,
+											   L_MC4P_AxisType.unconnected,
+											   L_MC4P_AxisType.unconnected,
+											   L_MC4P_AxisType.unconnected];
+END_VAR
+END_METHOD

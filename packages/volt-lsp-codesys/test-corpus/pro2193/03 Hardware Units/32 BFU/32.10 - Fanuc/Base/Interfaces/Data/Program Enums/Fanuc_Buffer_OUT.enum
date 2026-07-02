@@ -1,0 +1,13 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+//Communication from Brink to Fanuc
+TYPE Fanuc_Buffer_OUT :
+(
+	GoToPick			:= 1,	// Move to buffer for pick
+	GoToPlace			:= 2,	// Move to buffer for place
+	RetractFromPick		:= 3,	// Move to retract position from pick
+	RetractFromPlace	:= 4,	// Move to retract position from place
+	StopAtRetract		:= 5,	// End program at retract position
+	GoToHomePos			:= 99	// Move to home position
+) UINT;
+END_TYPE

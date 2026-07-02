@@ -1,0 +1,9 @@
+TYPE BoxInfeed_Default_DataType :
+STRUCT
+	boxInputConveyorProfile		: ProfileType;
+
+	awaitBoxAtPosition			: REAL;		// Time to wait after the box is arrived at fill position
+	suckInPlasticBagTime		: REAL;
+	clearSecondPositionDelay	: REAL;
+END_STRUCT
+END_TYPE

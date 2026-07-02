@@ -1,0 +1,7 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE BoxCenterUnit_WithPneumatic_DataType :
+STRUCT
+	NumberOfLayers				: UINT;
+	EnableSheets				: BOOL;
+END_STRUCT
+END_TYPE

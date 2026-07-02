@@ -1,0 +1,10 @@
+TYPE MagazineMotors_Data :
+STRUCT
+	waitingPos				: PositionWithLimitsType;	// Position where to wait for the inlay-core (in case of wrap labels)
+	labelTakeOverPos		: PositionWithLimitsType;	// Position where to give the labels to the Xi-axis
+	beforeGetNewLabelsPos	: PositionWithLimitsType;	// Position before reaching label cassette. Cylinders may still move freely here.
+	beforeTakeoverPos		: PositionWithLimitsType;	// Position before reaching Xi unit. This is the position after resetting, and when disabled.
+
+	SlowStart				: SlowStartOptionType;	// Option to move extra slowly out of the label stockpile
+END_STRUCT
+END_TYPE

@@ -1,0 +1,5 @@
+// Commands specific for a vision system (Mevisco controller)
+INTERFACE IVisionSystem_Mevisco_Commands
+EXTENDS IVisionSystem_Base_Commands
+
+END_INTERFACE

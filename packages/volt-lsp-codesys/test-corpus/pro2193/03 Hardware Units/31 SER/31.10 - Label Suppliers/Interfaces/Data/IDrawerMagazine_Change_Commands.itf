@@ -1,0 +1,23 @@
+INTERFACE IDrawerMagazine_Change_Commands
+EXTENDS IDrawerMagazine_Commands
+
+METHOD DrawerChange : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+METHOD DrawerLock : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+METHOD DrawerUnlock : BOOL
+VAR_INPUT
+END_VAR
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY HoodIsAcknowledged : BOOL
+END_PROPERTY
+
+END_INTERFACE

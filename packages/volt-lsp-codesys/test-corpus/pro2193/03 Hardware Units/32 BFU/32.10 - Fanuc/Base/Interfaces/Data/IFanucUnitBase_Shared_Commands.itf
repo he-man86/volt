@@ -1,0 +1,7 @@
+INTERFACE IFanucUnitBase_Shared_Commands
+EXTENDS IModuleManualControlEnabled, IModuleWithCommandLock
+
+PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+END_PROPERTY
+
+END_INTERFACE

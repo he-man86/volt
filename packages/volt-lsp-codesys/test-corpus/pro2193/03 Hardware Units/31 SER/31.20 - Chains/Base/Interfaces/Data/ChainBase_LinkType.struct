@@ -1,0 +1,6 @@
+TYPE ChainBase_LinkType :
+STRUCT
+	productCarrierPresent	: BOOL;		// When true a productcarrier is present on this chain-link.
+	ProductCarrier			: REFERENCE TO ChainBase_ProductCarrierType;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,18 @@
+INTERFACE IBufferRack_Default_Commands
+EXTENDS __SYSTEM.IQueryInterface
+
+// Add a partial stack to the buffer.
+METHOD PUBLIC AddToStack
+VAR_INPUT
+	StackStatus : REFERENCE TO StackStatusType;	// Status of the stack that is being placed
+END_VAR
+END_METHOD
+
+{attribute 'monitoring':='call'}
+PROPERTY StackIndex : USINT
+END_PROPERTY
+
+PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+END_PROPERTY
+
+END_INTERFACE

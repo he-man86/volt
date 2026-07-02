@@ -1,0 +1,17 @@
+TYPE MagazineMotors_Drawer_Data :
+STRUCT
+	waitingPos				: PositionWithLimitsType;	// Position where to wait for the inlay-core (in case of wrap labels)
+	labelTakeOverPos		: PositionWithLimitsType;	// Position where to give the labels to the Xi-axis
+
+	getNewLabelsUpperPos	: PositionWithLimitsType;	// Position where to take-out new label from the stockpile in the upper drawer
+	getNewLabelsLowerPos	: PositionWithLimitsType;	// Position where to take-out new label from the stockpile in the lower drawer
+
+	DistanceSlowUpFromLabel		: REAL;					// Distance slow movement from label pickup after taking the labels
+	VelocitySlowUpFromLabel		: REAL;					// Velocity [m/s]
+	SafeDistanceAboveDrawers	: REAL;					// Distance above the drawers where it is safe to go to takeover position
+
+	ProfileMovingDown			: ProfileType;
+	ProfileMovingUp				: ProfileType;
+	ProfileWaitingToTakeover	: ProfileType;
+END_STRUCT
+END_TYPE
