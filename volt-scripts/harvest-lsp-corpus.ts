@@ -5,8 +5,8 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { basename, dirname, join } from "node:path"
-import { materializeItem } from "../packages/volt-git/src/translate/materialize.ts"
-import { addExcludeMarker, isSourceFile } from "../packages/volt-git/src/translate/exclude-marker.ts"
+import { materializeItem } from "../packages/volt-git/src/translate/materialize.js"
+import { addExcludeMarker, isSourceFile } from "../packages/volt-git/src/translate/exclude-marker.js"
 
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
