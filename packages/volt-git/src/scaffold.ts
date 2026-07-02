@@ -83,6 +83,20 @@ function vscodeSettings(): string {
 	return (
 		JSON.stringify(
 			{
+				// Pin the PLC source extensions to Structured Text. `.prg` especially is a widely-claimed
+				// extension (Visual FoxPro, Clipper/xBase, KUKA robot programs, …); without this an unrelated
+				// installed extension can win the association and the Volt language features never engage.
+				"files.associations": {
+					"*.fb": "structured-text",
+					"*.prg": "structured-text",
+					"*.fun": "structured-text",
+					"*.itf": "structured-text",
+					"*.struct": "structured-text",
+					"*.enum": "structured-text",
+					"*.union": "structured-text",
+					"*.alias": "structured-text",
+					"*.gvl": "structured-text",
+				},
 				"files.watcherExclude": { "**/node_modules/**": true },
 				"search.exclude": { "**/node_modules": true },
 				"typescript.tsdk": "node_modules/typescript/lib",
