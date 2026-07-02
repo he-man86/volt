@@ -23,6 +23,7 @@ public static class FetchService
 
         var versions = new Dictionary<string, string>();          // bare-name keys for aggregate hashing
         var fullVersions = new Dictionary<string, string>();       // full-name keys for wire Items
+        var excluded = new Dictionary<string, bool>();             // full-name → true for build-excluded items
         var changed = new List<FetchedItem>();
 
         foreach (var it in ide.WalkItems())
@@ -40,6 +41,7 @@ public static class FetchService
 
             versions[it.Name] = version;
             fullVersions[fullName] = version;
+            if (it.ExcludeFromBuild) excluded[fullName] = true;
 
             if (knownItems.TryGetValue(fullName, out var known) && known == version) continue;
 
@@ -61,6 +63,7 @@ public static class FetchService
             Changed = changed,
             Removed = removed,
             Items = fullVersions,
+            ExcludeFromBuild = excluded,
         };
     }
 }

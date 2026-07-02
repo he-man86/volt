@@ -16,6 +16,11 @@ public class RefsResponse
 
     [JsonPropertyName("folders")]
     public Dictionary<string, string> Folders { get; set; } = new();
+
+    /// <summary>Full-name → true for items EFFECTIVELY excluded from build (the IDE won't compile them,
+    /// so clients skip diagnostics). Only excluded items are listed — absent ⇒ false.</summary>
+    [JsonPropertyName("excludeFromBuild")]
+    public Dictionary<string, bool> ExcludeFromBuild { get; set; } = new();
 }
 
 public class FetchRequest
@@ -60,4 +65,9 @@ public class FetchResponse
 
     [JsonPropertyName("items")]
     public Dictionary<string, string> Items { get; set; } = new();
+
+    /// <summary>Full-name → true for items EFFECTIVELY excluded from build (all items, not just changed),
+    /// so the client can keep a complete exclusion manifest. Only excluded items are listed — absent ⇒ false.</summary>
+    [JsonPropertyName("excludeFromBuild")]
+    public Dictionary<string, bool> ExcludeFromBuild { get; set; } = new();
 }

@@ -78,14 +78,21 @@ public static class Materializer
         return result;
     }
 
+    /// <summary>The informational marker materialized for a non-editable graphical (CFC/SFC) body. It is an
+    /// ordinary ST comment — parsed as a comment by the LSP (no diagnostics), carrying no read-only semantics;
+    /// it only tells the reader the body is graphical and lives in the IDE.</summary>
+    internal static string GraphicalBodyMarker(string language) =>
+        $"(* Graphical {language} body — authored in the IDE. Volt does not represent {language} graphical code as text; edit it in CODESYS. *)";
+
     private static Dictionary<string, object?> BuildPou(IIdeDriver ide, ItemRef item, string declaration, GraphicalBody? graphical)
     {
         var children = CollectChildren(ide, item);
         var result = new Dictionary<string, object?> { ["declaration"] = declaration.Trim() };
 
         // The POU's OWN body may be graphical. The file is named by KIND regardless of language; the body
-        // language rides in the CONTENT: editable FBD/LD leads with the NETWORK marker, read-only CFC/SFC
-        // (which come back empty) get a `READONLY <LANG>` marker so the file self-describes as read-only.
+        // language rides in the CONTENT: editable FBD/LD leads with the NETWORK marker. CFC/SFC bodies have
+        // no text form (they come back empty), so they get an INFORMATIONAL marker comment — a human/AI hint
+        // to edit in the IDE, with no read-only *semantics* (push-refusal is enforced by live IDE state).
         // A null graphical means the gate found a textual body — never a missed graphical one.
         if (graphical is not null)
         {
@@ -95,7 +102,7 @@ public static class Materializer
             }
             else
             {
-                result["implementation"] = $"READONLY {graphical.Language}";
+                result["implementation"] = GraphicalBodyMarker(graphical.Language);
             }
             result["language"] = graphical.Language;
         }
@@ -215,8 +222,12 @@ public static class Materializer
     /// <summary>A graphical child's implementation text: the VG (leading NETWORK marker) for editable
     /// FBD/LD. A read-only CFC/SFC child has no editable VG body, so it is DECLARATION-ONLY (empty
     /// implementation) — its language rides on the kind/extension, not a content marker.</summary>
+    // Editable FBD/LD child body → its VG text; non-editable CFC/SFC child (empty body) → the informational
+    // marker, so a graphical method inside a textual POU self-describes just like a whole graphical POU.
     private static string GraphicalImpl(GraphicalBody gb) =>
-        string.IsNullOrEmpty(gb.Body) ? "" : gb.Body;
+        VgBody.IsEditable(gb.Language)
+            ? (string.IsNullOrEmpty(gb.Body) ? "" : gb.Body)
+            : GraphicalBodyMarker(gb.Language);
 
     private static string? NullIfEmpty(string? s) => string.IsNullOrEmpty(s) ? null : s;
 

@@ -20,6 +20,7 @@ public static class RefsService
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
+        var excluded = new Dictionary<string, bool>();
 
         foreach (var it in ide.WalkItems())
         {
@@ -35,6 +36,7 @@ public static class RefsService
             {
                 fullVersions[mat.FullName] = version;
                 folders[mat.FullName] = it.Folder;
+                if (it.ExcludeFromBuild) excluded[mat.FullName] = true;
             }
         }
 
@@ -44,6 +46,7 @@ public static class RefsService
             StructureVersion = Hasher.ComputeStructureVersion(versions),
             Items = fullVersions,
             Folders = folders,
+            ExcludeFromBuild = excluded,
         };
     }
 }

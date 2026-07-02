@@ -21,6 +21,13 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         return names;
     }
 
+    /// <summary>Diagnostic (/debug): effective exclude-from-build for a tree node plus the raw member probe.</summary>
+    public string ExcludeFromBuildProbe(ItemRef item)
+    {
+        if (item.Native is LibRefNode) return "n/a (library ref)";
+        return $"{_om.IsExcludedFromBuild(item.Native)} | {_om.ExcludeProbe(item.Native)}";
+    }
+
     public IReadOnlyList<ProjectItem> WalkItems()
     {
         var items = new List<ProjectItem>();
@@ -47,7 +54,7 @@ public sealed partial class CodesysDriver : IDebugIntrospect
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
             if (ItemKind.IsInlinedInPou(code)) continue;        // collected inside the POU
 
-            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath));
+            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
 
             // The Library Manager additionally yields its individual library references as flat items.
             if (code == ItemKind.PlcLibMan)

@@ -221,12 +221,9 @@ public static class PushService
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
         var pouVg = VgBody.Is(impl);
 
-        // A `READONLY <LANG>` body is the self-describing marker for a read-only CFC/SFC POU — it is never
-        // pushable. The CLI already filters it out; refuse defensively so a hand-crafted push can't land it
-        // (an existing CFC/SFC is also caught by the body-type guard below).
-        if (VgBody.IsReadOnly(impl))
-            throw new BridgeException(400, "UNSUPPORTED",
-                $"'{name}' is a read-only graphical body — edit it in the IDE, not via push.");
+        // Read-only enforcement for graphical bodies is by LIVE IDE STATE, not content: an existing CFC/SFC
+        // body is refused by the body-type guard below (which reads `BodyLanguage`). The materialized
+        // informational marker carries no semantics, so there is no content-marker check here.
 
         ItemRef pou;
         if (existing is not { } existingPou)

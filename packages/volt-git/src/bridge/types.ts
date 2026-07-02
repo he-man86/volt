@@ -80,6 +80,9 @@ export const RefsResponseSchema = z
 		structureVersion: z.string(),
 		items: z.record(z.string(), z.string()),
 		folders: z.record(z.string(), z.string()),
+		// full name → true for items EFFECTIVELY excluded from build (only excluded listed; absent ⇒ false).
+		// Optional for back-compat with bridges predating the flag.
+		excludeFromBuild: z.record(z.string(), z.boolean()).optional(),
 	})
 	.strict();
 export type RefsResponse = z.infer<typeof RefsResponseSchema>;
@@ -98,6 +101,8 @@ export const FetchResponseSchema = z
 		changed: z.array(FetchedItemSchema),
 		removed: z.array(z.string()),
 		items: z.record(z.string(), z.string()),
+		// full name → true for build-excluded items (all items, not just changed). Optional; absent ⇒ false.
+		excludeFromBuild: z.record(z.string(), z.boolean()).optional(),
 	})
 	.strict();
 export type FetchResponse = z.infer<typeof FetchResponseSchema>;
