@@ -20,6 +20,8 @@ public class FolderPathTests
     [InlineData(" leading")]            // leading space (Windows-hostile)
     [InlineData("trailing ")]           // trailing space (Windows strips it)
     [InlineData("dot.")]                // trailing dot (Windows strips it)
+    [InlineData(".hidden")]             // leading dot (hidden dir — dotfile-skipping tooling drops it)
+    [InlineData(".Interfaces / Data")]  // the real Pro2193 case — leading dot AND a '/'
     [InlineData("100%")]                // percent must self-escape to stay reversible
     [InlineData("   ")]                 // all spaces
     public void Encode_decode_round_trips(string name)
@@ -33,6 +35,14 @@ public class FolderPathTests
         var e = FolderPath.Encode("Interfaces / Data");
         Assert.DoesNotContain('/', e);                 // no separator collision on the wire / filesystem
         Assert.Equal("Interfaces %2F Data", e);        // internal spaces + letters stay literal
+    }
+
+    [Fact]
+    public void Encode_unhides_a_leading_dot_directory()
+    {
+        // A leading dot makes a hidden dir that dotfile-skipping tools (incl. the LSP file scan) drop.
+        Assert.False(FolderPath.Encode(".Interfaces / Data").StartsWith("."));
+        Assert.Equal("%2EInterfaces %2F Data", FolderPath.Encode(".Interfaces / Data"));
     }
 
     [Fact]

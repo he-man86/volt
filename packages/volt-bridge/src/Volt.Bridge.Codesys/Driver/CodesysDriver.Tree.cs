@@ -40,8 +40,10 @@ public sealed partial class CodesysDriver : IDebugIntrospect
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
+        // Surface the failure (no-fallback policy) rather than swallowing it silently.
         IReadOnlyList<object> children;
-        try { children = _om.GetChildren(node); } catch { return; }
+        try { children = _om.GetChildren(node); }
+        catch (Exception ex) { Console.Error.WriteLine($"[bridge] could not read children of a node (subtree skipped): {ex.Message}"); return; }
         foreach (var child in children)
         {
             var name = _om.GetName(child);

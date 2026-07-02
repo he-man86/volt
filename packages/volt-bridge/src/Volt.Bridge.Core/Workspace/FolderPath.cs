@@ -14,8 +14,9 @@ namespace Volt.Bridge.Core.Workspace;
 /// are illegal in a filesystem path component. Real CODESYS projects have a folder literally named
 /// "Interfaces / Data" — the `/` in the NAME is indistinguishable from the separator, so a raw join both
 /// mis-resolves on push (splitting it into "Interfaces " + " Data") and materializes to broken, git-hostile
-/// directories on pull. Names can also carry `\`, Windows-reserved characters, or leading/trailing spaces
-/// and trailing dots (which Windows silently strips → data loss).
+/// directories on pull. Names can also carry `\`, Windows-reserved characters, leading/trailing spaces or
+/// dots (Windows strips a trailing dot; a leading dot hides the directory from dotfile-skipping tooling —
+/// including the LSP's own file scan — as seen with a real ".Interfaces / Data" folder in Pro2193).
 ///
 /// <see cref="Encode"/> percent-escapes exactly those hazards; everything else (letters, digits, internal
 /// spaces) stays literal so paths remain readable ("Interfaces / Data" → "Interfaces %2F Data").
@@ -41,8 +42,11 @@ public static class FolderPath
         {
             char c = name[i];
             bool edgeSpace = c == ' ' && (i == 0 || i == name.Length - 1);
-            bool trailingDot = c == '.' && i == name.Length - 1;
-            if (c == '%' || IsHostile(c) || edgeSpace || trailingDot)
+            // Leading dot: a hidden directory (Unix/git convention). Tooling that ignores dotfiles — including
+            // the LSP's own file scan — would silently drop the folder's contents, and it risks colliding with
+            // .git/.opencode. Encode it so the folder is visible. (A trailing dot Windows also strips outright.)
+            bool edgeDot = c == '.' && (i == 0 || i == name.Length - 1);
+            if (c == '%' || IsHostile(c) || edgeSpace || edgeDot)
                 sb.Append('%').Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
             else
                 sb.Append(c);
