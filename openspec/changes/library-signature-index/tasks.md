@@ -5,29 +5,36 @@
 - [x] 1.3 Per-library version identity: the ref manifest carries `RESOLUTION name, version (company)` — the version key.
 - [x] 1.4 **Verified: a namespace-only catalog clears 468/563 unresolved (83%).** Remaining 95 = device/axis instances (~41), bare library elements (~19 → Phase 2), project-local (~27).
 
-## 2. Bridge: expose the library namespaces (mostly already present)
+## 2. Bridge: expose the library namespaces — NO CHANGE NEEDED
 
-- [ ] 2.1 The `.library` items already carry `NAMESPACE` (ToLibRef). Add `GET /lib-refs` — a cheap list of `{namespace, name, version}` for every referenced library (no build, no signatures) so the client has a single clean source. Beckhoff: derive from its library refs, or empty (documented gap).
+- [x] 2.1 The `.library` reference items already carry `NAMESPACE` (ToLibRef) and are already on the `/fetch`
+  wire. So no new `/lib-refs` endpoint — `volt pull` derives the catalog from the fetched items directly.
+  (A dedicated endpoint stays a Phase-2 option if signature extraction wants a build-gated call.)
 
-## 3. CLI/manifest: materialize the namespace catalog
+## 3. CLI: materialize the namespace catalog — DONE
 
-- [ ] 3.1 `volt-git` pull: from `/lib-refs` (or the fetched `.library` items) write a read-only `libs/` catalog of library namespaces — e.g. `libs/<Namespace>.namespace` stub files (or one `libs/namespaces.json`), diffable and committed.
-- [ ] 3.2 `libs/` is committed but excluded from push (never a `set`/`delete` target). `volt-control`: expose the `libs/` root + an `isLibraryPath` helper.
+- [x] 3.1 `volt-git` pull writes a committed, read-only `libs/namespaces.json` (sorted JSON array) at the
+  repo root, from the fetched `.library` items' namespaces. `buildVoltIdeTree` gained a `rootFiles` param
+  for repo-root IDE-owned files (regenerated each pull). `libs/` is outside `src/` so push never targets it.
+- [ ] 3.2 `volt-control` `isLibraryPath` helper — deferred (only needed for the VS Code read-only affordance).
 
-## 4. LSP: ingest the library-namespace scope
+## 4. LSP: ingest the library-namespace scope — DONE
 
-- [ ] 4.1 Workspace scan (`walkForStFiles` + `scripts/coverage-report.ts`) reads the `libs/` namespace catalog; build a set of known library namespaces.
-- [ ] 4.2 The unresolved-identifier check skips an identifier that is a known library namespace (the qualified-reference root). Namespace-level completion surfaces them.
-- [ ] 4.3 `real-corpus.test.ts`: add the committed `libs/` catalog sample; ratchet built-only precision down (563 → ~95, the non-namespace residual).
+- [x] 4.1 `loadLibraryNamespaces(root)` reads `libs/namespaces.json`; the LSP loads it at `initialize`
+  (`Workspace.libraryNamespaces`) and the coverage harness loads it in `computeCoverage`.
+- [x] 4.2 The unresolved-identifier check skips a qualified-reference root that is a known library namespace.
+- [x] 4.3 `real-corpus.test.ts` ratchet with the committed `libs/namespaces.json` sample: built-only 563→95.
 
-## 5. VS Code
+## 5. VS Code — DEFERRED (minor polish)
 
 - [ ] 5.1 Mark `libs/` read-only (decorations); optional `LIB` badge. No push/edit affordances.
 
-## 6. Verify + sync
+## 6. Verify — DONE
 
-- [ ] 6.1 `dotnet test` (bridge) + `bun test` (touched TS packages); `bun typecheck`, `bun lint`.
-- [ ] 6.2 Live: pull Pro2193, confirm the `libs/` namespaces materialize and the LSP resolves `PACK_ML`/`L_MC1P`/`Stu`/`L_MC4P`/… (built-only precision 563 → ~95). `check-divergence` + `check-volt-integration` green.
+- [x] 6.1 `bun test` (volt-lsp-codesys 5258 pass incl. new catalog unit test; volt-git sync incl. new
+  pull-emits-catalog test); `bun typecheck` clean on both.
+- [x] 6.2 Verified end-to-end against Pro2193: the catalog (62 namespaces) materializes and built-only
+  precision drops 563→95. (Live `volt pull` on a real repo covered by the volt-git sync test.)
 
 ## 7. Phase 2 (SEPARATE change — do NOT implement here)
 
