@@ -18,6 +18,7 @@ import { buildSymbolTable, type SymbolTableInput } from "../src/semantic/symbol-
 import { computeSemanticDiagnostics } from "../src/semantic/diagnostics.js";
 import { buildBodyModelsForParseResult } from "../src/semantic/body.js";
 import { resolveConfig } from "../src/lsp/config/index.js";
+import { loadLibraryNamespaces } from "../src/semantic/library-catalog.js";
 
 // Every writable source kind is named by its kind (bridge: ItemKind.ExtFor).
 export const KIND_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
@@ -79,6 +80,7 @@ export function computeCoverage(
 	});
 	const project = buildSymbolTable(inputs);
 	const config = resolveConfig({ vendor }).diagnostics;
+	const libraryNamespaces = loadLibraryNamespaces(root);   // libs/namespaces.json — resolves library refs
 
 	const cov: Coverage = {
 		files: files.length, units: 0, parseCleanFiles: 0, parseErrors: 0, ingestFiles: 0,
@@ -103,7 +105,7 @@ export function computeCoverage(
 		// precision number, exactly as the live LSP gates them. Matched by basename (the wire full-name).
 		const isExcluded = excluded.has(basename(input.uri));
 		const bodyModels = buildBodyModelsForParseResult(parseResult);
-		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels })) {
+		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels, libraryNamespaces })) {
 			if (isExcluded) { cov.excludedDiags++; continue; }
 			cov.byCode[d.code] = (cov.byCode[d.code] ?? 0) + 1;
 			cov.totalDiags++;

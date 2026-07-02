@@ -37,6 +37,7 @@ export function checkUnresolvedIdentifiers(
 	project: Scope,
 	bodyModels: Map<BodySpan, BodyModel> | undefined,
 	out: DiagnosticItem[],
+	libraryNamespaces?: ReadonlySet<string>,
 ): void {
 	for (const unit of parseResult.units) {
 		const body = getBody(unit);
@@ -110,6 +111,10 @@ export function checkUnresolvedIdentifiers(
 			// TON/CTU, standard functions, and builtin types) live in the reference catalog, not the project
 			// symbol table — they resolve nowhere yet are valid. Skip anything the catalog knows.
 			if (referenceLookup(name) !== undefined) continue;
+			// A referenced LIBRARY's namespace (PACK_ML, L_MC4P, Stu, …) — the root of a `Namespace.Element`
+			// reference. Materialized into the workspace's `libs/` catalog from the project's library refs
+			// (not the project symbol table), so it resolves nowhere yet is valid. Skip it.
+			if (libraryNamespaces?.has(name.toLowerCase())) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",

@@ -25,6 +25,7 @@ import type {
 	Position,
 } from "vscode-languageserver-protocol";
 import { computeDiagnostics, type DiagnosticsPusher } from "./diagnostics-push.js";
+import { loadLibraryNamespaces } from "../../semantic/library-catalog.js";
 import { buildServerCapabilities } from "../capabilities.js";
 import { resolveConfig, type PlcLspInitOptions } from "../config/index.js";
 import {
@@ -129,6 +130,11 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				} catch { /* no sidecar / malformed → treat as none excluded */ }
 			}
 			ctx.workspace.setExcludedFromBuild(excluded);
+			// Load the referenced-library namespaces from the committed `libs/` catalog so the
+			// unresolved-identifier check resolves qualified library references (`PACK_ML.State`).
+			const libraryNamespaces = new Set<string>();
+			for (const root of roots) for (const ns of loadLibraryNamespaces(root)) libraryNamespaces.add(ns);
+			ctx.workspace.setLibraryNamespaces(libraryNamespaces);
 			const result: InitializeResult = {
 				capabilities: buildServerCapabilities(ctx.workspace.clientCapabilities),
 				serverInfo: { name: "volt-lsp-codesys", version: "0.0.0" },

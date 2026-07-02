@@ -95,6 +95,18 @@ export class Workspace {
 		this._excluded = new Set(names);
 	}
 
+	/** Lowercased namespaces of the project's referenced libraries, from the committed `libs/` catalog
+	 *  (`loadLibraryNamespaces`). A qualified reference root (`PACK_ML.State`) resolves nowhere in the
+	 *  project symbol table but is valid — the unresolved-identifier check skips these. Loaded at
+	 *  `initialize`; empty until then (⇒ no library namespace known, every reference checked). */
+	private _libraryNamespaces = new Set<string>();
+	get libraryNamespaces(): ReadonlySet<string> {
+		return this._libraryNamespaces;
+	}
+	setLibraryNamespaces(namespaces: Iterable<string>): void {
+		this._libraryNamespaces = new Set(namespaces);
+	}
+
 	openDocument(uri: string, source: string, version: number, _languageId: string = ST_LANGUAGE_ID): void {
 		// A body is ST or VG — VG ("Volt Graphical") is a distinct language
 		// for FBD/LD bodies, routed by its `NETWORK` first token (see

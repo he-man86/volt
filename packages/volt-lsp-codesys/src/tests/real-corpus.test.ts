@@ -50,13 +50,17 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 // + folder-name leading-dot encoding (520→523 files): a CODESYS folder named ".Interfaces / Data" (leading
 //   dot) materialized as a HIDDEN directory the LSP file-scan skipped, dropping 3 source files — incl.
 //   MagazineMotors_Positions.enum (24 refs). The bridge now encodes a leading dot too, so the folder is
-//   visible. Diags 608→563. Remaining ~563 unresolved are un-mirrored LIBRARY symbols (PACK_ML, L_MC1P/
-//   L_MC4P motion, Cmp*, Stu string utils) — the floor until a library signature index exists.
+//   visible. Diags 608→563.
+// + library-signature-index Phase 1 (namespace catalog): `libs/namespaces.json` lists the 62 referenced-
+//   library namespaces (materialized from the project's library refs). The unresolved-identifier check
+//   resolves qualified library-reference roots (PACK_ML ×219, L_MC1P ×75, Stu ×72, L_MC4P ×42, …). Diags
+//   563→95. The remaining 95 are device/axis instances (~41), bare library ELEMENTS (~19, → Phase 2), and
+//   project-local gaps (~27).
 const BASE = {
 	files: 523, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 523, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 523, // 100% — floor
-	totalDiags: 563, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	totalDiags: 95, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 

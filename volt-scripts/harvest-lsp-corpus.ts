@@ -20,8 +20,14 @@ console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
+const namespaces = new Set<string>()   // referenced-library namespaces → libs/namespaces.json (Phase 1 catalog)
 let written = 0, kind = 0, skipped = 0
 for (const item of fetched.changed) {
+	// A `.library` item's body is the reference manifest; capture its NAMESPACE for the library catalog.
+	if (item.name.endsWith(".library")) {
+		const m = item.sourceText.match(/^NAMESPACE (.+)$/m)
+		if (m && m[1]!.trim()) namespaces.add(m[1]!.trim())
+	}
 	// Folder-segment names are already percent-encoded by the bridge (FolderPath) — a name like
 	// "Interfaces / Data" arrives as "Interfaces %2F Data", a filesystem-safe segment — so materialize
 	// produces clean paths with no normalization needed here.
@@ -36,4 +42,8 @@ for (const item of fetched.changed) {
 		written++; kind++
 	}
 }
-console.log(`wrote ${written} files (${kind} KIND source), skipped ${skipped} unrecognized`)
+// The library namespace catalog (Phase 1 of the library signature index) — sorted, so it's diffable.
+const catalog = join(outDir, "libs", "namespaces.json")
+mkdirSync(dirname(catalog), { recursive: true })
+writeFileSync(catalog, JSON.stringify([...namespaces].sort(), null, "\t") + "\n", "utf-8")
+console.log(`wrote ${written} files (${kind} KIND source), ${namespaces.size} library namespaces, skipped ${skipped} unrecognized`)

@@ -48,6 +48,9 @@ export interface DiagnosticsArgs {
 	config: DiagnosticConfig;
 	/** Active vendor — drives wrong-vendor-pragma vs unknown-pragma distinction. */
 	activeVendor?: Vendor;
+	/** Lowercased namespaces of the project's referenced libraries (from the `libs/` catalog). A qualified
+	 *  reference root (`PACK_ML.State`) resolves nowhere in the project symbol table but is valid. */
+	libraryNamespaces?: ReadonlySet<string>;
 }
 
 /** Shared context passed to every check function. Carries everything
@@ -95,7 +98,7 @@ const CHECKS: CheckSpec[] = [
 		// Uses BodyModel.identifiers — the language-neutral surface
 		// the body adapter populates from ST body tokens.
 		run: (ctx, out) =>
-			checkUnresolvedIdentifiers(ctx.parseResult, ctx.project, ctx.bodyModels, out),
+			checkUnresolvedIdentifiers(ctx.parseResult, ctx.project, ctx.bodyModels, out, ctx.libraryNamespaces),
 	},
 	{
 		id: "pragmas",
