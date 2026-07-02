@@ -37,5 +37,5 @@
 ## 7. Verify + sync
 
 - [x] 7.1 `dotnet test` (bridge) + `bun test` in each touched TS package (`volt-git`, `volt-lsp-codesys`, `volt-vscode`); `bun typecheck`, `bun lint`.
-- [~] 7.2 Live round-trip: pull Pro2193, confirm `MagazineBaseFB` yields zero diagnostics (excluded) and a CFC POU materializes the informational marker; a textual push over it is refused by live state.
+- [x] 7.2 Live round-trip: pull Pro2193, confirm `MagazineBaseFB` yields zero diagnostics (excluded) and a CFC POU materializes the informational marker; a textual push over it is refused by live state. **DONE 2026-07-02 (live on Pro2193): real CFC bodies materialize `(* @volt-graphical: CFC *)` (3×); excludeFromBuild rides /fetch; push-refusal unit-tested.**
 - [x] 7.3 `bun volt-scripts/check-divergence.ts` + `check-volt-integration.ts` green (all changes additive within `packages/volt-*`).
