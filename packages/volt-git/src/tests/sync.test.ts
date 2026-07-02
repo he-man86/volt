@@ -53,20 +53,18 @@ describe("volt-git sync", () => {
 		expect(s.merging).toBeNull();
 	});
 
-	test("1b. pull materializes the library catalog at the repo root", async () => {
+	test("1b. .library refs materialize nested under their Library Manager (mirrors CODESYS)", async () => {
 		await setup([
 			{ name: "A.fb", sourceText: "a\n" },
-			{ name: "PackML.library", sourceText: "LIBRARY PackML\nNAMESPACE PACK_ML\nRESOLUTION PackML, 1 (v)\nPLACEHOLDER false\nSYSTEM false\n" },
-			{ name: "Motion.library", sourceText: "LIBRARY Motion\nNAMESPACE L_MC4P\nRESOLUTION Motion, 2 (v)\nPLACEHOLDER true\nSYSTEM false\n" },
+			{ name: "PackML.library", sourceText: "LIBRARY PackML\nNAMESPACE PACK_ML\nRESOLUTION PackML, 1 (v)\n", folder: "09 Misc/Library Manager" },
+			{ name: "Motion.library", sourceText: "LIBRARY Motion\nNAMESPACE L_MC4P\nRESOLUTION Motion, 2 (v)\n", folder: "09 Misc/Library Manager" },
 		]);
-		const cat = join(root, "libs", "libraries.json");
-		expect(existsSync(cat)).toBe(true);
-		const parsed = JSON.parse(readFileSync(cat, "utf8")) as { libraries: { namespace: string; name: string; placeholder: boolean }[] };
-		// Sorted by namespace, structured (not bare strings), not under src/.
-		expect(parsed.libraries.map((l) => l.namespace)).toEqual(["L_MC4P", "PACK_ML"]);
-		expect(parsed.libraries[0]).toMatchObject({ namespace: "L_MC4P", name: "Motion", resolution: "Motion, 2 (v)", placeholder: true });
-		// It's committed (part of the volt/ide tree), not stray.
-		expect(git(root, "ls-files", "libs/libraries.json")).toBe("libs/libraries.json");
+		// The libraries mirror the IDE: read-only .library files under their Library Manager folder.
+		expect(existsSync(srcFile(root, "09 Misc/Library Manager/PackML.library"))).toBe(true);
+		expect(existsSync(srcFile(root, "09 Misc/Library Manager/Motion.library"))).toBe(true);
+		expect(readSrc(root, "09 Misc/Library Manager/PackML.library")).toContain("NAMESPACE PACK_ML");
+		expect(git(root, "ls-files", "src/09 Misc/Library Manager/PackML.library")).toContain("PackML.library"); // committed
+		expect(existsSync(join(root, "libs"))).toBe(false); // no separate generated catalog
 	});
 
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {

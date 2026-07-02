@@ -1,0 +1,5 @@
+LIBRARY L_MK4P_RoboticKinematics
+NAMESPACE L_MK4P
+RESOLUTION L_MK4P_RoboticKinematics, 3.32.0.9 (Lenze)
+PLACEHOLDER true
+SYSTEM false

@@ -1,0 +1,5 @@
+LIBRARY SysTypes2 Interfaces, * (System)
+NAMESPACE SysTypes
+RESOLUTION SysTypes2 Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

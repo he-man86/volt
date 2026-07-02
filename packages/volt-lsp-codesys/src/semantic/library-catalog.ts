@@ -1,45 +1,56 @@
 /**
- * The library catalog — Phase 1 of the library signature index.
+ * The referenced-library namespaces — Phase 1 of the library signature index.
  *
  * A project's referenced libraries expose their symbols under a NAMESPACE (`PACK_ML.State`,
  * `L_MC4P.MC_MoveAbsolute`, `Stu.StrLenA`). Those symbols live in the library, not the mirrored `src/`
  * tree, so a qualified reference's root (`PACK_ML`) resolves nowhere in the project symbol table and would
  * false-positive as an unresolved identifier — the bulk of the library "floor".
  *
- * `volt pull` writes the referenced libraries into a committed, read-only `libs/libraries.json` — a
- * structured `{ libraries: [{ namespace, name, resolution, placeholder, system }] }` (the same info the
- * `.library` reference manifests carry). It's committed (not a runtime sidecar) so it's self-contained,
- * diffable when a library is added/upgraded, and available to the LSP, the AI, and the corpus ratchet
- * without a live bridge. The format is future-proof: Phase 2 hangs each library's element names /
- * signatures off its entry.
+ * `volt pull` mirrors the CODESYS project structure: each referenced library is a read-only `.library`
+ * reference file nested under its Library Manager (`…/Library Manager/PACK_ML.library`), whose body is the
+ * reference manifest — a `NAMESPACE <name>` line among others. We read that structure directly (no separate
+ * generated catalog) so the workspace mirrors what the engineer sees in CODESYS.
  *
- * This loads the file for a workspace root and returns the NAMESPACES lowercased (PLC identifiers are
- * case-insensitive) — all Phase 1 needs to resolve qualified references. The unresolved-identifier check
- * consults the set.
+ * This scans a workspace root for `.library` files and returns their namespaces LOWERCASED (PLC identifiers
+ * are case-insensitive) — all Phase 1 needs to resolve qualified references. The unresolved-identifier
+ * check consults the set. (Element names and full signatures are Phase 2.)
  */
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { extname, join } from "node:path"
 
-export const LIBRARY_CATALOG_PATH = join("libs", "libraries.json")
-
-interface LibraryCatalogFile {
-	libraries?: { namespace?: unknown }[]
+/** Scan `<root>` for `.library` reference files and collect their (lowercased) namespaces. Empty (⇒
+ *  nothing known, every reference checked as before) when there are none / the tree is unreadable. */
+export function loadLibraryNamespaces(root: string): Set<string> {
+	const out = new Set<string>()
+	scan(root, out)
+	return out
 }
 
-/** Load `<root>/libs/libraries.json` → a set of lowercased library namespaces. Empty (⇒ nothing known,
- *  every reference checked as before) if the file is absent or malformed. */
-export function loadLibraryNamespaces(root: string): Set<string> {
+function scan(dir: string, out: Set<string>): void {
+	let entries: string[]
 	try {
-		const raw = readFileSync(join(root, LIBRARY_CATALOG_PATH), "utf-8").replace(/^﻿/, "")
-		const parsed = JSON.parse(raw) as LibraryCatalogFile
-		if (!Array.isArray(parsed.libraries)) return new Set()
-		return new Set(
-			parsed.libraries
-				.map((l) => l.namespace)
-				.filter((ns): ns is string => typeof ns === "string" && ns.length > 0)
-				.map((ns) => ns.toLowerCase()),
-		)
+		entries = readdirSync(dir)
 	} catch {
-		return new Set()
+		return
+	}
+	for (const entry of entries) {
+		if (entry.startsWith(".") || entry === "node_modules") continue
+		const full = join(dir, entry)
+		let isDir: boolean
+		try {
+			isDir = statSync(full).isDirectory()
+		} catch {
+			continue
+		}
+		if (isDir) {
+			scan(full, out)
+		} else if (extname(entry).toLowerCase() === ".library") {
+			try {
+				const ns = readFileSync(full, "utf-8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
+				if (ns !== undefined && ns.length > 0) out.add(ns.toLowerCase())
+			} catch {
+				/* unreadable ref file — skip */
+			}
+		}
 	}
 }

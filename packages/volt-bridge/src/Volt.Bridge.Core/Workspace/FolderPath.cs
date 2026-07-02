@@ -34,6 +34,11 @@ public static class FolderPath
     public static IEnumerable<string> Segments(string? path) =>
         string.IsNullOrEmpty(path) ? Enumerable.Empty<string>() : path!.Split('/').Select(Decode);
 
+    /// <summary>Reversibly encode an ITEM name (a single tree-item / file basename) into a filesystem-safe
+    /// token — same codec as a folder segment. Source item names are IEC-clean, but a synthetic reference
+    /// name (a placeholder library's `* (System)` version) can carry a Windows-illegal char.</summary>
+    public static string EncodeName(string name) => Encode(name);
+
     /// <summary>Reversibly encode one segment name into a `/`-free, filesystem-safe token.</summary>
     public static string Encode(string name)
     {

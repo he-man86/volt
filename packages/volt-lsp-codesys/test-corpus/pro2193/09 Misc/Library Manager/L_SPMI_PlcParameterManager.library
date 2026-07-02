@@ -1,0 +1,5 @@
+LIBRARY L_SPMI_PlcParameterManager
+NAMESPACE L_SPMI
+RESOLUTION L_SPMI_PlcParameterManager, 3.32.0.3 (Lenze)
+PLACEHOLDER true
+SYSTEM false

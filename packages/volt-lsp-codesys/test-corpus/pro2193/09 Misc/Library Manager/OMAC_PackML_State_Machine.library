@@ -1,0 +1,5 @@
+LIBRARY OMAC_PackML_State_Machine
+NAMESPACE PACK_ML
+RESOLUTION OMAC PackML State Machine, 1.0.0.4 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false

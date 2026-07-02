@@ -1,0 +1,5 @@
+LIBRARY L_MC4P_RoboticHandling
+NAMESPACE L_MC4P
+RESOLUTION L_MC4P_RoboticHandling, 3.32.0.78 (Lenze)
+PLACEHOLDER true
+SYSTEM false

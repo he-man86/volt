@@ -12,21 +12,21 @@ import { buildBodyModelsForParseResult } from "../../semantic/body.js"
 import { DEFAULT_DIAGNOSTIC_CONFIG } from "../../lsp/config/index.js"
 import { loadLibraryNamespaces } from "../../semantic/library-catalog.js"
 
-function withCatalog(content: string | null): string {
+/** Materialize a workspace with `.library` reference files nested under a Library Manager folder. */
+function withLibraries(files: { name: string; body: string }[] | null): string {
 	const root = mkdtempSync(join(tmpdir(), "volt-libcat-"))
-	if (content !== null) {
-		mkdirSync(join(root, "libs"), { recursive: true })
-		writeFileSync(join(root, "libs", "libraries.json"), content, "utf-8")
+	if (files !== null) {
+		const dir = join(root, "src", "09 Misc", "Library Manager")
+		mkdirSync(dir, { recursive: true })
+		for (const f of files) writeFileSync(join(dir, f.name), f.body, "utf-8")
 	}
 	return root
 }
-
-const catalogJson = (namespaces: string[]) =>
-	JSON.stringify({ libraries: namespaces.map((namespace) => ({ namespace, name: namespace, resolution: "", placeholder: false, system: false })) })
+const lib = (namespace: string) => ({ name: `${namespace}.library`, body: `LIBRARY ${namespace}\nNAMESPACE ${namespace}\nRESOLUTION x, 1 (v)\n` })
 
 describe("loadLibraryNamespaces", () => {
-	it("reads the structured catalog and lowercases the namespaces", () => {
-		const root = withCatalog(catalogJson(["PACK_ML", "L_MC4P", "Stu"]))
+	it("scans .library files and lowercases their namespaces", () => {
+		const root = withLibraries([lib("PACK_ML"), lib("L_MC4P"), lib("Stu")])
 		try {
 			const ns = loadLibraryNamespaces(root)
 			expect(ns.has("pack_ml")).toBe(true)
@@ -38,15 +38,15 @@ describe("loadLibraryNamespaces", () => {
 		}
 	})
 
-	it("returns empty for a missing or malformed catalog", () => {
-		const missing = withCatalog(null)
-		const malformed = withCatalog("{ nope: true }")
+	it("returns empty when there are no .library files, and skips a ref with no NAMESPACE", () => {
+		const none = withLibraries(null)
+		const noNs = withLibraries([{ name: "Weird.library", body: "LIBRARY Weird\nRESOLUTION x\n" }])
 		try {
-			expect(loadLibraryNamespaces(missing).size).toBe(0)
-			expect(loadLibraryNamespaces(malformed).size).toBe(0)
+			expect(loadLibraryNamespaces(none).size).toBe(0)
+			expect(loadLibraryNamespaces(noNs).size).toBe(0)
 		} finally {
-			rmSync(missing, { recursive: true, force: true })
-			rmSync(malformed, { recursive: true, force: true })
+			rmSync(none, { recursive: true, force: true })
+			rmSync(noNs, { recursive: true, force: true })
 		}
 	})
 })

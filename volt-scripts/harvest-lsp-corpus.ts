@@ -6,7 +6,6 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { materializeItem } from "../packages/volt-git/src/translate/materialize.ts"
-import { buildLibraryCatalog } from "../packages/volt-git/src/translate/library-catalog.ts"
 
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
@@ -20,27 +19,22 @@ const fetched = (await res.json()) as { changed: { name: string; folder?: string
 console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
+// KIND source (analyzed by the LSP) + `.library` reference files (their NAMESPACE drives library resolution;
+// bridge-encoded filenames are Windows-safe). Bodies (.cfc/.sfc) and other reference kinds are skipped.
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
-let written = 0, kind = 0, skipped = 0
+const WRITE = new Set([...KIND, ".library"])
+let written = 0, kind = 0, lib = 0, skipped = 0
 for (const item of fetched.changed) {
-	// Folder-segment names are already percent-encoded by the bridge (FolderPath) — a name like
-	// "Interfaces / Data" arrives as "Interfaces %2F Data", a filesystem-safe segment — so materialize
-	// produces clean paths with no normalization needed here.
 	let files
 	try { files = materializeItem(item) } catch { skipped++; continue } // non-source kind not in the registry
 	for (const f of files) {
 		const dot = f.path.lastIndexOf(".")
-		if (dot < 0 || !KIND.has(f.path.slice(dot).toLowerCase())) { skipped++; continue } // KIND source only (reference kinds have invalid Windows names anyway)
+		const ext = dot < 0 ? "" : f.path.slice(dot).toLowerCase()
+		if (!WRITE.has(ext)) { skipped++; continue }
 		const p = join(outDir, f.path)
 		mkdirSync(dirname(p), { recursive: true })
 		writeFileSync(p, f.content, "utf-8")
-		written++; kind++
+		written++; ext === ".library" ? lib++ : kind++
 	}
 }
-// The library catalog (Phase 1 of the library signature index) — same builder volt pull uses.
-const catalog = buildLibraryCatalog(fetched.changed)
-const catalogPath = join(outDir, catalog.path)
-mkdirSync(dirname(catalogPath), { recursive: true })
-writeFileSync(catalogPath, catalog.content, "utf-8")
-const libCount = (JSON.parse(catalog.content) as { libraries: unknown[] }).libraries.length
-console.log(`wrote ${written} files (${kind} KIND source), ${libCount} libraries, skipped ${skipped} unrecognized`)
+console.log(`wrote ${written} files (${kind} KIND source, ${lib} .library refs), skipped ${skipped}`)

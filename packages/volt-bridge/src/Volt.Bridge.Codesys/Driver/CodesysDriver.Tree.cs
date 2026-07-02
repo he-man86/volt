@@ -70,7 +70,10 @@ public sealed partial class CodesysDriver : IDebugIntrospect
             {
                 var libFolder = FolderPath.Append(folderPath, name);
                 foreach (var lib in _om.GetLibraryRefs(child))
-                    items.Add(new ProjectItem(lib.Name, new ItemRef(lib), ItemKind.PlcLibRef, false, libFolder));
+                    // A placeholder library's name can contain a Windows-illegal char (the '*' wildcard version,
+                    // e.g. "SysTypes2 Interfaces, * (System)"). Encode it so the .library file materializes —
+                    // otherwise that library (and its namespace) is silently dropped on Windows.
+                    items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, false, libFolder));
             }
         }
     }

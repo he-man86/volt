@@ -1,0 +1,5 @@
+LIBRARY L_CT1P_ControlToolbox
+NAMESPACE L_CT1P
+RESOLUTION L_CT1P_ControlToolbox, 3.32.0.20 (Lenze)
+PLACEHOLDER true
+SYSTEM false

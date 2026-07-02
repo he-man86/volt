@@ -1,0 +1,5 @@
+LIBRARY L_TT1P_TechnologyModules
+NAMESPACE L_TT1P
+RESOLUTION L_TT1P_TechnologyModules_LM, * (Lenze)
+PLACEHOLDER true
+SYSTEM false
