@@ -3,59 +3,65 @@
 After the exclude-from-build, standard-function, and reserved-keyword wins, built-only LSP precision on
 pro2193 is **1097 diagnostics — and ~1066 of them are one thing: un-mirrored library symbols**
 (`PACK_ML`, `L_MC1P`/`L_MC4P` motion, `SER_*`, `IQSlices`, `Fanuc_*`, `Cmp*`, `Str*A`). `volt pull` mirrors
-project source only; referenced libraries live outside the repo, so the LSP can't resolve their types/FBs
-and flags every reference. There's no ground truth to fix in the resolver — the symbols genuinely aren't
-in what we mirror.
+project source only; referenced libraries live outside the repo, so the LSP has never heard of their
+names and flags every reference. There's nothing to fix in the resolver — the symbols genuinely aren't in
+what we mirror.
 
-A **live spike (2026-07-02, since reverted) proved we can extract them.** The referenced libraries'
-resolved signatures are reachable in-process through the same .NET automation the bridge already
-reflects over: build the project, then `LanguageModelMgr.GetCompileContext(appGuid).GetAllSignaturesFlat()`
-returns the **complete resolved symbol table** — 16,424 signatures for pro2193, project *and* every
-library, including the exact offenders (`L_MC4P_PARAMETERINDEX`, `L_MC4P_AXESGROUP_STATE`, …). Each is an
-`ISignature2` we can render to ST declaration text via `GetConverterToIEC`. So we can mirror each
-library's public interface into the repo as signature stubs the LSP ingests.
+A **live spike (2026-07-02, reverted)** proved the library symbols are reachable in-process through the
+same .NET automation the bridge already reflects over: build the project, then
+`LanguageModelMgr.GetCompileContext(appGuid).GetAllSignaturesFlat()` returns the resolved symbol table
+(16,424 entries — project + every library), each tagged with its owning **`LibraryId`**. That lets us
+extract, per library, a catalog of its public symbol **names + kinds** — enough for the LSP to *resolve*
+the references and clear the floor. (The same spike found that full source *declarations* — struct
+fields, FB method/property signatures — are NOT cleanly reachable: that model is compiler-lowered and the
+clean source form isn't exposed where we looked; see `design.md`. So this change is scoped to Phase 1,
+the name index, with Phase 2 flagged as a separate deeper spike.)
 
 ## What Changes
 
-Mirror each referenced library into the repo as **read-only signature files** — one file per public
-library element, declaration/signature only (no bodies), using the same kind-based extensions as project
-source (`.fb`/`.prg`/`.fun`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`/`.itf`), organized by library
-namespace under a dedicated read-only `libs/` tree (e.g. `libs/L_MC4P/L_MC4P_AxesGroup.struct`,
-`libs/PACK_ML/State.enum`). The LSP ingests `libs/` into an ambient library scope so qualified and bare
-references to library symbols resolve — clearing the ~1066-diagnostic floor and enabling real hover /
-completion / go-to-definition on library symbols.
+**Phase 1 (this change): a library-symbol resolution index.** The bridge extracts, per referenced
+library, the public symbol names + kinds + namespace (from the flat compiled model, filtered by
+`LibraryId`). Each element materializes as a **minimal declaration stub** file — one file per element,
+kind-based extension (`.fb`/`.prg`/`.fun`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`/`.itf`), namespaced
+under a read-only `libs/` tree (`libs/L_MC4P/AxesGroup.struct`, `libs/PACK_ML/State.enum`) — a header/name
+with an empty body. The LSP ingests `libs/` into an ambient library scope so bare and namespace-qualified
+references to those symbols resolve — clearing the ~1066-diagnostic floor and giving name-level
+completion. The stub files are the same tree Phase 2 later enriches, so nothing is thrown away.
 
-**Key efficiency (user's insight):** library signatures are immutable for a given library *version*, so
+**Efficiency (user's insight):** library contents are immutable per `(name, version, resolution)`, so
 extraction is **keyed and cached per library-version, not per project state** — a normal pull skips the
-expensive build+extract entirely; only added/removed/version-bumped libraries re-extract. This makes the
-`libs/` tree stable and diffable, and sidesteps the ~25–35 s build cost on every fetch.
+build+extract entirely; only added/removed/version-bumped libraries re-extract. The `libs/` tree is
+stable and diffable.
+
+**Phase 2 (future, needs its own spike): fill the stubs with full signatures** — struct fields, FB
+`VAR_INPUT/OUTPUT`, method/property signatures, function params — for real hover, member-completion, and
+go-to-definition. Blocked on a clean source-signature extraction path (the compiled model is lowered;
+`GetConverterToIEC` is a value converter, not a declaration renderer; the per-library precompile path was
+not cracked in the spike).
 
 ## Capabilities
 
 ### New Capabilities
-- `library-signature-index`: the bridge extracts referenced-library signatures (build → compile-context →
-  render), the CLI materializes them into a read-only `libs/` tree keyed by library version, and the LSP
-  resolves library symbols through them.
+- `library-signature-index`: the bridge extracts a per-library symbol catalog (names/kinds), the CLI
+  materializes it as a read-only `libs/` stub tree keyed by library version, and the LSP resolves library
+  symbols through it.
 
 ### Modified Capabilities
-- `bridge-protocol`: a new library-signature extraction step/endpoint, versioned per library so the wire
-  ships only changed libraries.
-- `language-server`: the LSP SHALL resolve identifiers against an ambient library scope built from the
-  `libs/` tree (in addition to project scope); the hand-curated standard-function table becomes a
-  fallback/stopgap, largely superseded.
-- `workspace-file-extensions`: the read-only `libs/` tree uses the kind-based extensions but is never a
-  push target.
+- `bridge-protocol`: a new library-symbol extraction step, versioned per library so the wire ships only
+  changed libraries.
+- `language-server`: the LSP SHALL resolve identifiers against an ambient library scope built from
+  `libs/`; the hand-curated standard-function table becomes a fallback.
+- `workspace-file-extensions`: the read-only `libs/` tree uses kind extensions but is never a push target.
 
 ## Impact
 
-- **Code:** `packages/volt-bridge` (signature extraction via `LanguageModelMgr` +
-  `GetCompileContext`/`GetAllSignaturesFlat`/`GetConverterToIEC`; a per-library-versioned wire endpoint;
-  Beckhoff returns none initially), `packages/volt-git` + `packages/volt-control` (materialize `libs/` +
-  a library-version manifest; incremental refresh), `packages/volt-lsp-codesys` (ingest the library
-  scope; scan `libs/` read-only; reduce `standard-functions.ts`), `packages/volt-vscode` (mark `libs/`
-  read-only, optional `LIB` badge).
-- **Repo:** a new top-level read-only `libs/` tree (committed, versioned by a library manifest hash).
-- **Cost:** extraction requires a build (~25–35 s on pro2193), amortized by per-library-version caching —
-  paid only when a library changes, not per pull.
-- **Supersedes:** the `standard-functions.ts` stopgap (the CODESYS Standard/String libraries are
-  themselves indexed libraries). Mirrors the archived `exclude-from-build-awareness` cross-layer shape.
+- **Code:** `packages/volt-bridge` (catalog extraction via `LanguageModelMgr` + `GetCompileContext` +
+  `GetAllSignaturesFlat`, filtered by `LibraryId`; a per-library-versioned wire endpoint; Beckhoff returns
+  none), `packages/volt-git` + `packages/volt-control` (materialize `libs/` stubs + a library-version
+  manifest; incremental refresh), `packages/volt-lsp-codesys` (ingest the library scope; scan `libs/`
+  read-only; reduce `standard-functions.ts`), `packages/volt-vscode` (mark `libs/` read-only).
+- **Repo:** a new read-only `libs/` tree (committed, versioned by a library manifest hash).
+- **Cost:** extraction needs a build (~25–35 s), amortized by per-library-version caching — paid only on
+  a library change.
+- **Supersedes:** the `standard-functions.ts` stopgap. Mirrors the archived `exclude-from-build-awareness`
+  cross-layer shape.

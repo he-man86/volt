@@ -1,16 +1,17 @@
 ## ADDED Requirements
 
-### Requirement: The bridge extracts referenced-library signatures, versioned per library
+### Requirement: The bridge extracts a referenced-library symbol catalog, versioned per library
 
-The bridge SHALL be able to extract the **public signatures** (declarations only, no implementation
-bodies) of every referenced library, rendered as Structured Text. Because a library's contents are
-immutable for a given `(name, version, resolution)`, extraction SHALL be keyed and cached per
-**library version**, not per project state: a cheap version manifest (`namespace → {version,
-resolutionId, signatureHash}`) lets a client fetch signatures only for libraries whose version changed,
-so an unchanged library set costs nothing. Extraction MAY require a project build (the compiler
-populates the symbol model); the bridge SHALL only extract on demand, gated on a version-manifest diff,
-never on every `/fetch`. A vendor bridge that cannot extract library signatures SHALL return an empty
-set (documented parity gap), keeping the wire contract identical in shape.
+The bridge SHALL be able to extract a **catalog of every referenced library's public symbols** — the
+name, kind (FB/function/struct/enum/interface/GVL), and owning library/namespace of each — rendered as
+minimal Structured Text declaration stubs (a header + name + empty body; NO member bodies in this
+phase). Because a library's contents are immutable for a given `(name, version, resolution)`, extraction
+SHALL be keyed and cached per **library version**, not per project state: a cheap version manifest
+(`namespace → {version, resolutionId, catalogHash}`) lets a client fetch catalog entries only for
+libraries whose version changed, so an unchanged library set costs nothing. Extraction MAY require a
+project build (the compiler populates the symbol model); the bridge SHALL only extract on demand, gated
+on a version-manifest diff, never on every `/fetch`. A vendor bridge that cannot extract SHALL return an
+empty catalog + empty manifest (documented parity gap), keeping the wire contract identical in shape.
 
 #### Scenario: Only changed libraries are re-extracted
 - **WHEN** a client requests library signatures with its known library-version manifest and no library version has changed
