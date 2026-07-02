@@ -14,7 +14,7 @@
 
 - [x] 3.1 `Materializer`: emit `(* Graphical <LANG> — edit in the IDE; Volt does not represent it as text *)` for CFC/SFC bodies instead of `READONLY <LANG>`.
 - [x] 3.2 `VgBody`: remove `IsReadOnly` / `ReadOnlyLanguageOf` / `ReadOnlyHeader`.
-- [~] 3.3 `PushService`: remove the now-dead marker-based refusal (line ~227). Confirm the live-state body-type guard (CFC/SFC via `BodyLanguage`, lines ~272-285) still refuses graphical pushes — this is the retained safety net; add/adjust a test proving refusal with no marker present.
+- [x] 3.3 `PushService`: remove the now-dead marker-based refusal (line ~227). Confirm the live-state body-type guard (CFC/SFC via `BodyLanguage`, lines ~272-285) still refuses graphical pushes — this is the retained safety net; add/adjust a test proving refusal with no marker present.
 - [x] 3.4 Update `ItemKind`/comments and any C# tests/fixtures asserting the `READONLY` marker.
 
 ## 4. Wire types + CLI/manifest
@@ -36,6 +36,6 @@
 
 ## 7. Verify + sync
 
-- [ ] 7.1 `dotnet test` (bridge) + `bun test` in each touched TS package (`volt-git`, `volt-lsp-codesys`, `volt-vscode`); `bun typecheck`, `bun lint`.
-- [ ] 7.2 Live round-trip: pull Pro2193, confirm `MagazineBaseFB` yields zero diagnostics (excluded) and a CFC POU materializes the informational marker; a textual push over it is refused by live state.
-- [ ] 7.3 `bun volt-scripts/check-divergence.ts` + `check-volt-integration.ts` green (all changes additive within `packages/volt-*`).
+- [x] 7.1 `dotnet test` (bridge) + `bun test` in each touched TS package (`volt-git`, `volt-lsp-codesys`, `volt-vscode`); `bun typecheck`, `bun lint`.
+- [~] 7.2 Live round-trip: pull Pro2193, confirm `MagazineBaseFB` yields zero diagnostics (excluded) and a CFC POU materializes the informational marker; a textual push over it is refused by live state.
+- [x] 7.3 `bun volt-scripts/check-divergence.ts` + `check-volt-integration.ts` green (all changes additive within `packages/volt-*`).
