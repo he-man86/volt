@@ -24,16 +24,28 @@ export function voltIdeHead(gitDir: string): string | undefined {
  * non-tracked `src/` files kept verbatim from HEAD. Tracked HEAD `src/` files absent from the IDE set
  * are dropped (so IDE deletions propagate through the merge).
  */
-export function buildVoltIdeTree(gitDir: string, headCommit: string | undefined, ideFiles: readonly MaterializedFile[]): string {
+export function buildVoltIdeTree(
+	gitDir: string,
+	headCommit: string | undefined,
+	ideFiles: readonly MaterializedFile[],
+	rootFiles: readonly { path: string; content: string }[] = [],
+): string {
 	const entries: IndexEntry[] = [];
 	for (const f of ideFiles) {
 		entries.push({ mode: "100644", sha: writeBlob(gitDir, f.content), path: `${SRC_DIR}/${f.path}` });
 	}
+	// Root-level IDE-owned files (e.g. the read-only `libs/` catalog) — repo-root-relative, regenerated
+	// every pull (like `src/`), so the stale HEAD copy is dropped below.
+	for (const f of rootFiles) {
+		entries.push({ mode: "100644", sha: writeBlob(gitDir, f.content), path: f.path });
+	}
+	const rootPaths = new Set(rootFiles.map((f) => f.path));
 	if (headCommit !== undefined) {
 		for (const e of listTree(gitDir, headCommit)) {
 			// IDE-owned src/ files are replaced by ideFiles (or deleted); the scaffold + any foreign src/ file is kept verbatim.
 			const rel = e.path.startsWith(`${SRC_DIR}/`) ? e.path.slice(SRC_DIR.length + 1) : null;
 			if (rel !== null && isTrackedPath(rel)) continue;
+			if (rootPaths.has(e.path)) continue; // regenerated this pull — drop the stale copy
 			entries.push({ mode: e.mode, sha: e.sha, path: e.path });
 		}
 	}

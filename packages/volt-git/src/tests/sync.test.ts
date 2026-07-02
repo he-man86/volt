@@ -53,6 +53,19 @@ describe("volt-git sync", () => {
 		expect(s.merging).toBeNull();
 	});
 
+	test("1b. pull materializes the library namespace catalog at the repo root", async () => {
+		await setup([
+			{ name: "A.fb", sourceText: "a\n" },
+			{ name: "PackML.library", sourceText: "LIBRARY PackML\nNAMESPACE PACK_ML\nRESOLUTION x, 1 (v)\n" },
+			{ name: "Motion.library", sourceText: "LIBRARY Motion\nNAMESPACE L_MC4P\nRESOLUTION y, 2 (v)\n" },
+		]);
+		const cat = join(root, "libs", "namespaces.json");
+		expect(existsSync(cat)).toBe(true);
+		expect(JSON.parse(readFileSync(cat, "utf8"))).toEqual(["L_MC4P", "PACK_ML"]); // sorted, not under src/
+		// It's committed (part of the volt/ide tree), not stray.
+		expect(git(root, "ls-files", "libs/namespaces.json")).toBe("libs/namespaces.json");
+	});
+
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {
 		const bridge = await setup([{ name: "A.fb", sourceText: "v1\n" }]);
 		bridge.set("A.fb", "v2\n");

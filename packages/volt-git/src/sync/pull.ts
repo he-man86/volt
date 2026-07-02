@@ -21,7 +21,8 @@ import {
 	updateRef,
 } from "../git/plumbing.js";
 import { materializeItem } from "../translate/materialize.js";
-import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
+import { libraryCatalog } from "../translate/library-catalog.js";
+import { ensureGitignore, stripSrcPrefix, writeRootFile, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
 import type { PullResult } from "./types.js";
@@ -58,6 +59,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
 	const ideFiles = fetched.changed.flatMap(materializeItem);
+	const catalog = libraryCatalog(fetched.changed); // libs/namespaces.json — the LSP's library resolution
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,
@@ -68,18 +70,19 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	// Bootstrap: unborn HEAD — no merge target. Seed both refs + materialize files + sync the index.
 	if (head === undefined) {
-		const tree = buildVoltIdeTree(gitDir, undefined, ideFiles);
+		const tree = buildVoltIdeTree(gitDir, undefined, ideFiles, [catalog]);
 		const commit = commitVoltIde(gitDir, tree, undefined, `volt: IDE @ ${fetched.projectVersion}`);
 		updateRef(gitDir, RANGE, commit);
 		updateRef(gitDir, `refs/heads/${currentBranch(root) ?? "main"}`, commit);
 		writeSrcFiles(root, ideFiles);
+		writeRootFile(root, catalog);
 		readTreeToIndex(root, commit);
 		saveIdeRefs(root, newSidecar);
 		return { kind: "ok", synced: ideFiles.map((f) => f.path), message: "initialized workspace from the IDE" };
 	}
 
 	// Steady state: commit the IDE tree onto the volt/ide chain, then merge into the branch.
-	const tree = buildVoltIdeTree(gitDir, head, ideFiles);
+	const tree = buildVoltIdeTree(gitDir, head, ideFiles, [catalog]);
 	const parent = voltIdeHead(gitDir) ?? head;
 	const commit = commitVoltIde(gitDir, tree, parent, `volt: IDE @ ${fetched.projectVersion}`);
 	updateRef(gitDir, RANGE, commit);

@@ -25,6 +25,13 @@ export function writeSrcFiles(root: string, files: readonly SrcFile[]): void {
 	}
 }
 
+/** Write a repo-ROOT-relative file (NOT under `src/`) — e.g. the read-only `libs/` library catalog. */
+export function writeRootFile(root: string, file: SrcFile): void {
+	const abs = join(root, file.path);
+	mkdirSync(dirname(abs), { recursive: true });
+	writeFileSync(abs, file.content);
+}
+
 export function removeSrcFiles(root: string, paths: readonly string[]): void {
 	for (const p of paths) {
 		const abs = join(root, SRC_DIR, p);
