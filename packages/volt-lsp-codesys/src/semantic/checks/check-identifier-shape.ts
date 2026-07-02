@@ -14,6 +14,13 @@ import type { Scope, Symbol } from "../symbol-table.js";
 import type { DiagnosticConfig } from "../../lsp/config/index.js";
 import { type DiagnosticItem, KEYWORD_SET, getUnitName } from "./_shared.js";
 
+/** Contextual keywords that are ALSO valid identifiers (accessors + access/inheritance modifiers). CODESYS
+ *  reserves them only in specific positions, so a method/var named `Set`, `Get`, `Override`, … is legal and
+ *  must not be flagged reserved-keyword. Mirrors `Cursor.expectName`'s soft-keyword acceptance. */
+const CONTEXTUAL_KEYWORDS = new Set([
+	"get", "set", "public", "private", "protected", "internal", "final", "abstract", "override",
+]);
+
 export function walkDeclarations(
 	parseResult: ParseResult,
 	project: Scope,
@@ -50,7 +57,7 @@ function emitIdentifierShapeDiagnostics(
 	cfg: DiagnosticConfig,
 	out: DiagnosticItem[],
 ): void {
-	if (cfg.reservedKeyword && KEYWORD_SET.has(name.toLowerCase())) {
+	if (cfg.reservedKeyword && KEYWORD_SET.has(name.toLowerCase()) && !CONTEXTUAL_KEYWORDS.has(name.toLowerCase())) {
 		out.push({
 			severity: "error",
 			span,
