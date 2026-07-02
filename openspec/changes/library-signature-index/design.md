@@ -42,6 +42,15 @@ sibling of `src/`, never a push target. Filter to library-owned public signature
 project's own POUs/types (already under `src/`) and implicit/compiler signatures (`VARIABLES`,
 `IEC_DATATYPE`, `__TL_*_GVL`, …); dedup by qualified name.
 
+**"Declaration only" is the FULL public interface, not just the top VAR block.** An FB's/interface's
+methods and properties are SEPARATE child signatures (not part of its top-level declaration), so each
+element file mirrors a project FB: the `VAR_INPUT/OUTPUT/…` interface PLUS a `METHOD Name : RetType …
+VAR_INPUT … END_VAR END_METHOD` block and a `PROPERTY Name : Type` block for every **public** method /
+property — all signature-only (no bodies). Members come from `GetAllMethods(sign)` / properties /
+`GetAllVariables(sign)`; inherited members are reachable via `GetBaseSignature`/`GetInterfaceSignatures`
+(materialize `EXTENDS`/`IMPLEMENTS` so the resolver's base-chain walk finds them, rather than inlining
+inherited members). Private/internal members are excluded.
+
 ### 2. Extraction is keyed and cached per LIBRARY VERSION, not per project state
 A library's signatures are immutable for a given `(name, version, resolution)` — there is **no
 instability risk** in hashing per library (unlike project items, which change with edits). So the wire

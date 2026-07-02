@@ -1,6 +1,7 @@
 ## 1. Spike: confirm render fidelity + filtering (live)
 
-- [ ] 1.1 Re-add a temporary `/debug?lib=` probe; against Pro2193 (build first), for a sample of library signatures (an FB with methods, a struct, an enum, a GVL, an interface) render via `GetConverterToIEC` and confirm the output PARSES as valid ST declarations the LSP resolves.
+- [ ] 1.1 Re-add a temporary `/debug?lib=` probe; against Pro2193 (build first), for a sample of library signatures render via `GetConverterToIEC` and confirm the output PARSES as valid ST the LSP resolves. MUST include an FB that has PUBLIC METHODS AND PROPERTIES — confirm the rendered `.fb` contains the VAR interface PLUS each public `METHOD …/END_METHOD` and `PROPERTY …` signature (body-less), so `libFb.Method(...)`/`libFb.Prop` resolve. Also cover a struct, enum, GVL, and interface.
+- [ ] 1.1b Confirm how members are enumerated: `GetAllMethods(ISignature2)`, the properties accessor, `GetAllVariables(ISignature2)`, and how `GetBaseSignature`/`GetInterfaceSignatures` expose EXTENDS/IMPLEMENTS (materialize the base reference, don't inline inherited members). Confirm public-vs-private/internal is distinguishable.
 - [ ] 1.2 Determine the filter: how to tell a library-owned signature from a project one and from implicit/compiler signatures (`VARIABLES`, `IEC_DATATYPE`, `__TL_*_GVL`). Confirm each signature exposes its owning library/namespace + kind. Record the exact API in design.md.
 - [ ] 1.3 Confirm per-library version identity (name/version/resolutionId) is readable for the version manifest + hash.
 
@@ -8,6 +9,7 @@
 
 - [ ] 2.1 `CodesysObjectModel`: add signature extraction — `LanguageModelMgr` (`SystemInstances.LanguageModelMgr`) → `GetCompileContext(appGuid)` → `GetAllSignaturesFlat()`; render each via `GetConverterToIEC`. Build-first (reuse the build path); skip gracefully on build failure.
 - [ ] 2.2 Filter to public library elements (per 1.2); classify kind → extension (reuse `ItemKind.ExtFor`); group by namespace; dedup by qualified name.
+- [ ] 2.2b Assemble each POU file as the FULL public interface: the top VAR declaration PLUS a body-less `METHOD`/`PROPERTY` block per public member (from `GetAllMethods`/properties), and carry `EXTENDS`/`IMPLEMENTS` (from `GetBaseSignature`/`GetInterfaceSignatures`) so inherited members resolve via the base chain, not by inlining. Mirror the project FB materialization shape.
 - [ ] 2.3 Compute the per-library version manifest (`namespace → {version, resolutionId, signatureHash}`).
 - [ ] 2.4 Beckhoff/TwinCAT: return an empty set + empty manifest (documented gap).
 
