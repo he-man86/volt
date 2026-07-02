@@ -766,3 +766,37 @@ describe("interface methods — one canonical form (END_METHOD required)", () =>
 		expect(errors).toContain("expected END_METHOD to close the interface method");
 	});
 });
+
+describe("trailing `;` after a METHOD/FUNCTION return type (some CODESYS exports emit it)", () => {
+	// Regression: the unconsumed `;` made collectVarSections skip the VAR blocks, so every local + the
+	// return name resolved nowhere (whole-method false-positives on real projects).
+	it("keeps the method's VAR sections when the header ends with `: Type;`", () => {
+		const src = `FUNCTION_BLOCK FB_X
+VAR
+END_VAR
+END_FUNCTION_BLOCK
+METHOD PUBLIC M : INT;
+VAR
+	y : UINT;
+END_VAR
+M := y;
+END_METHOD`;
+		const { units, errors } = parseOne(src);
+		expect(errors).toEqual([]);
+		const method = units.find((u) => u.kind === "method") as Method;
+		expect(method.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toContain("y");
+	});
+
+	it("keeps the function's VAR sections when the header ends with `: Type;`", () => {
+		const src = `FUNCTION Fn : INT;
+VAR
+	z : UINT;
+END_VAR
+Fn := z;
+END_FUNCTION`;
+		const { units, errors } = parseOne(src);
+		expect(errors).toEqual([]);
+		const fn = units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] };
+		expect(fn.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toContain("z");
+	});
+});

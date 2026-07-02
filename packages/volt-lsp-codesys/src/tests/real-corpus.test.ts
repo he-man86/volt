@@ -65,11 +65,17 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   Device → Plc Logic → Application → usercode, with the hardware devices as siblings under Device (no more
 //   split between hardware under Device/ and software flattened at the root). File scan is recursive, so the
 //   counts + resolution are path-independent; this is a layout change, not a precision change.
+// + method/function trailing-`;` fix: a `METHOD name : Type;` / `FUNCTION name : Type;` header (some CODESYS
+//   exports emit the semicolon) left the `;` unconsumed, so collectVarSections skipped the VAR blocks and every
+//   local + the return name resolved nowhere. Cleared the whole ZUnit_ForChainWithServoRotateFB cluster
+//   (product0/product1/takeover/product/clearData). Diags 55→35. The remaining 35 are library-blocked: bare
+//   library ELEMENTS + members inherited from library base FBs (BlinkHammerFB EXTENDS the Util `BLINK`) — all
+//   Phase 2 — plus a 2-diag polymorphism edge case (a base FB calling a method defined only in a derived FB).
 const BASE = {
 	files: 523, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 523, // 100% — every corpus file parses clean; must not regress
 	ingestFiles: 523, // 100% — floor
-	totalDiags: 55, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	totalDiags: 35, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 

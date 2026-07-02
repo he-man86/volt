@@ -84,6 +84,10 @@ export function parseMethod(c: Cursor): Method | undefined {
 	if (c.eatPunct(":") !== undefined) {
 		returnType = parseTypeExpression(c);
 	}
+	// Tolerate a trailing `;` after the header — some CODESYS exports emit `METHOD name : Type;`.
+	// Left unconsumed, collectVarSections sees a stray `;` before the VAR blocks and skips them, so
+	// every method-local (and the return name) resolves nowhere.
+	c.eatPunct(";");
 
 	const varSections = collectVarSections(c);
 	const body = collectBodyUntil(c, "END_METHOD", "method");

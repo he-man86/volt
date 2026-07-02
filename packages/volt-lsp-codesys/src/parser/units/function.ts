@@ -22,6 +22,9 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
 	if (c.eatPunct(":") !== undefined) {
 		returnType = parseTypeExpression(c);
 	}
+	// Tolerate a trailing `;` after the header (`FUNCTION name : Type;`) — same as METHOD: left
+	// unconsumed it makes collectVarSections skip the VAR blocks, unresolving every local.
+	c.eatPunct(";");
 
 	const varSections = collectVarSections(c);
 	const body = collectBodyUntil(c, "END_FUNCTION", "function");
