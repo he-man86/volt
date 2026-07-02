@@ -51,11 +51,11 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   dot) materialized as a HIDDEN directory the LSP file-scan skipped, dropping 3 source files — incl.
 //   MagazineMotors_Positions.enum (24 refs). The bridge now encodes a leading dot too, so the folder is
 //   visible. Diags 608→563.
-// + library-signature-index Phase 1 (namespace catalog): `libs/namespaces.json` lists the 62 referenced-
-//   library namespaces (materialized from the project's library refs). The unresolved-identifier check
-//   resolves qualified library-reference roots (PACK_ML ×219, L_MC1P ×75, Stu ×72, L_MC4P ×42, …). Diags
-//   563→95. The remaining 95 are device/axis instances (~41), bare library ELEMENTS (~19, → Phase 2), and
-//   project-local gaps (~27).
+// + library-signature-index Phase 1 (library catalog): `libs/libraries.json` records the referenced
+//   libraries (namespace + name + resolution + flags, materialized from the project's library refs). The
+//   unresolved-identifier check resolves qualified library-reference roots (PACK_ML ×219, L_MC1P ×75, Stu
+//   ×72, L_MC4P ×42, …). Diags 563→95. The remaining 95 are device/axis instances (~41), bare library
+//   ELEMENTS (~19, → Phase 2), and project-local gaps (~27).
 const BASE = {
 	files: 523, // corpus size — must not shrink (files went missing)
 	parseCleanFiles: 523, // 100% — every corpus file parses clean; must not regress

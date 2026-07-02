@@ -53,17 +53,20 @@ describe("volt-git sync", () => {
 		expect(s.merging).toBeNull();
 	});
 
-	test("1b. pull materializes the library namespace catalog at the repo root", async () => {
+	test("1b. pull materializes the library catalog at the repo root", async () => {
 		await setup([
 			{ name: "A.fb", sourceText: "a\n" },
-			{ name: "PackML.library", sourceText: "LIBRARY PackML\nNAMESPACE PACK_ML\nRESOLUTION x, 1 (v)\n" },
-			{ name: "Motion.library", sourceText: "LIBRARY Motion\nNAMESPACE L_MC4P\nRESOLUTION y, 2 (v)\n" },
+			{ name: "PackML.library", sourceText: "LIBRARY PackML\nNAMESPACE PACK_ML\nRESOLUTION PackML, 1 (v)\nPLACEHOLDER false\nSYSTEM false\n" },
+			{ name: "Motion.library", sourceText: "LIBRARY Motion\nNAMESPACE L_MC4P\nRESOLUTION Motion, 2 (v)\nPLACEHOLDER true\nSYSTEM false\n" },
 		]);
-		const cat = join(root, "libs", "namespaces.json");
+		const cat = join(root, "libs", "libraries.json");
 		expect(existsSync(cat)).toBe(true);
-		expect(JSON.parse(readFileSync(cat, "utf8"))).toEqual(["L_MC4P", "PACK_ML"]); // sorted, not under src/
+		const parsed = JSON.parse(readFileSync(cat, "utf8")) as { libraries: { namespace: string; name: string; placeholder: boolean }[] };
+		// Sorted by namespace, structured (not bare strings), not under src/.
+		expect(parsed.libraries.map((l) => l.namespace)).toEqual(["L_MC4P", "PACK_ML"]);
+		expect(parsed.libraries[0]).toMatchObject({ namespace: "L_MC4P", name: "Motion", resolution: "Motion, 2 (v)", placeholder: true });
 		// It's committed (part of the volt/ide tree), not stray.
-		expect(git(root, "ls-files", "libs/namespaces.json")).toBe("libs/namespaces.json");
+		expect(git(root, "ls-files", "libs/libraries.json")).toBe("libs/libraries.json");
 	});
 
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {

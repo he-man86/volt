@@ -6,6 +6,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { materializeItem } from "../packages/volt-git/src/translate/materialize.ts"
+import { buildLibraryCatalog } from "../packages/volt-git/src/translate/library-catalog.ts"
 
 const outDir = process.argv[2]
 const port = process.argv[3] ?? "8556"
@@ -20,14 +21,8 @@ console.log(`fetched ${fetched.changed.length} items`)
 
 rmSync(outDir, { recursive: true, force: true })
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
-const namespaces = new Set<string>()   // referenced-library namespaces → libs/namespaces.json (Phase 1 catalog)
 let written = 0, kind = 0, skipped = 0
 for (const item of fetched.changed) {
-	// A `.library` item's body is the reference manifest; capture its NAMESPACE for the library catalog.
-	if (item.name.endsWith(".library")) {
-		const m = item.sourceText.match(/^NAMESPACE (.+)$/m)
-		if (m && m[1]!.trim()) namespaces.add(m[1]!.trim())
-	}
 	// Folder-segment names are already percent-encoded by the bridge (FolderPath) — a name like
 	// "Interfaces / Data" arrives as "Interfaces %2F Data", a filesystem-safe segment — so materialize
 	// produces clean paths with no normalization needed here.
@@ -42,8 +37,10 @@ for (const item of fetched.changed) {
 		written++; kind++
 	}
 }
-// The library namespace catalog (Phase 1 of the library signature index) — sorted, so it's diffable.
-const catalog = join(outDir, "libs", "namespaces.json")
-mkdirSync(dirname(catalog), { recursive: true })
-writeFileSync(catalog, JSON.stringify([...namespaces].sort(), null, "\t") + "\n", "utf-8")
-console.log(`wrote ${written} files (${kind} KIND source), ${namespaces.size} library namespaces, skipped ${skipped} unrecognized`)
+// The library catalog (Phase 1 of the library signature index) — same builder volt pull uses.
+const catalog = buildLibraryCatalog(fetched.changed)
+const catalogPath = join(outDir, catalog.path)
+mkdirSync(dirname(catalogPath), { recursive: true })
+writeFileSync(catalogPath, catalog.content, "utf-8")
+const libCount = (JSON.parse(catalog.content) as { libraries: unknown[] }).libraries.length
+console.log(`wrote ${written} files (${kind} KIND source), ${libCount} libraries, skipped ${skipped} unrecognized`)

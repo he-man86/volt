@@ -21,7 +21,7 @@ import {
 	updateRef,
 } from "../git/plumbing.js";
 import { materializeItem } from "../translate/materialize.js";
-import { libraryCatalog } from "../translate/library-catalog.js";
+import { buildLibraryCatalog } from "../translate/library-catalog.js";
 import { ensureGitignore, stripSrcPrefix, writeRootFile, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
@@ -59,7 +59,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
 	const ideFiles = fetched.changed.flatMap(materializeItem);
-	const catalog = libraryCatalog(fetched.changed); // libs/namespaces.json — the LSP's library resolution
+	const catalog = buildLibraryCatalog(fetched.changed); // libs/libraries.json — the LSP's library resolution
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,

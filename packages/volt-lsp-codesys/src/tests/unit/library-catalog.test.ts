@@ -16,14 +16,17 @@ function withCatalog(content: string | null): string {
 	const root = mkdtempSync(join(tmpdir(), "volt-libcat-"))
 	if (content !== null) {
 		mkdirSync(join(root, "libs"), { recursive: true })
-		writeFileSync(join(root, "libs", "namespaces.json"), content, "utf-8")
+		writeFileSync(join(root, "libs", "libraries.json"), content, "utf-8")
 	}
 	return root
 }
 
+const catalogJson = (namespaces: string[]) =>
+	JSON.stringify({ libraries: namespaces.map((namespace) => ({ namespace, name: namespace, resolution: "", placeholder: false, system: false })) })
+
 describe("loadLibraryNamespaces", () => {
-	it("reads the catalog and lowercases the namespaces", () => {
-		const root = withCatalog(JSON.stringify(["PACK_ML", "L_MC4P", "Stu"]))
+	it("reads the structured catalog and lowercases the namespaces", () => {
+		const root = withCatalog(catalogJson(["PACK_ML", "L_MC4P", "Stu"]))
 		try {
 			const ns = loadLibraryNamespaces(root)
 			expect(ns.has("pack_ml")).toBe(true)
@@ -37,7 +40,7 @@ describe("loadLibraryNamespaces", () => {
 
 	it("returns empty for a missing or malformed catalog", () => {
 		const missing = withCatalog(null)
-		const malformed = withCatalog("{ not an array }")
+		const malformed = withCatalog("{ nope: true }")
 		try {
 			expect(loadLibraryNamespaces(missing).size).toBe(0)
 			expect(loadLibraryNamespaces(malformed).size).toBe(0)
