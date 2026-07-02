@@ -319,7 +319,6 @@ namespace Volt.Bridge.Codesys
                 if (InvokeMethod(store, "GetMessages", cat) is not IEnumerable msgs) continue;
                 foreach (var m in msgs)
                 {
-                    DumpMessageOnce(m);   // TEMP probe
                     var text = GetMember(m, "Text") as string ?? "";
                     outv.Add(new Dictionary<string, object?>
                     {
@@ -333,25 +332,6 @@ namespace Volt.Bridge.Codesys
             return outv;
         }
 
-        private static int _probed;   // TEMP
-        private static void DumpMessageOnce(object m)   // TEMP probe — dump a build message's full shape
-        {
-            if (_probed++ >= 8) return;
-            try
-            {
-                var t = m.GetType();
-                var parts = new List<string>();
-                foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-                {
-                    object? v; try { v = p.GetValue(m); } catch { v = "<err>"; }
-                    var s = v?.ToString() ?? "null";
-                    if (s.Length > 70) s = s.Substring(0, 70);
-                    parts.Add($"{p.Name}={s}");
-                }
-                Console.Error.WriteLine($"[diag-probe] {t.FullName} | {string.Join(" | ", parts)}");
-            }
-            catch (Exception ex) { Console.Error.WriteLine("[diag-probe] fail: " + ex.Message); }
-        }
 
         private static string SeverityToString(object? sev)
         {
