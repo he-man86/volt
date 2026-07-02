@@ -11,20 +11,20 @@
   wire. So no new `/lib-refs` endpoint — `volt pull` derives the catalog from the fetched items directly.
   (A dedicated endpoint stays a Phase-2 option if signature extraction wants a build-gated call.)
 
-## 3. CLI: materialize the namespace catalog — DONE
+## 3. CLI: mirror the CODESYS structure — DONE (no generated catalog)
 
-- [x] 3.1 `volt-git` pull writes a committed, read-only `libs/libraries.json` at the repo root — a structured
-  `{ libraries: [{ namespace, name, resolution, placeholder, system }] }` (the `.library` manifest info,
-  sorted; Phase-2 hangs `elements` off each entry). `buildVoltIdeTree` gained a `rootFiles` param for
-  repo-root IDE-owned files (regenerated each pull). `libs/` is outside `src/` so push never targets it.
+- [x] 3.1 The workspace mirrors CODESYS: each referenced library is a read-only `.library` file nested under
+  its Library Manager (`src/…/Library Manager/PACK_ML.library`), materialized naturally by `materializeItem`
+  — no invented `libs/` catalog. The bridge encodes the library-ref FILENAME so a `*`-version placeholder
+  library (e.g. "SysTypes2 Interfaces, * (System)") materializes on Windows too (all 75 libs present).
 - [ ] 3.2 `volt-control` `isLibraryPath` helper — deferred (only needed for the VS Code read-only affordance).
 
 ## 4. LSP: ingest the library-namespace scope — DONE
 
-- [x] 4.1 `loadLibraryNamespaces(root)` reads `libs/libraries.json`; the LSP loads it at `initialize`
-  (`Workspace.libraryNamespaces`) and the coverage harness loads it in `computeCoverage`.
+- [x] 4.1 `loadLibraryNamespaces(root)` scans the workspace for `.library` files and reads each NAMESPACE;
+  the LSP loads it at `initialize` (`Workspace.libraryNamespaces`) and the coverage harness in `computeCoverage`.
 - [x] 4.2 The unresolved-identifier check skips a qualified-reference root that is a known library namespace.
-- [x] 4.3 `real-corpus.test.ts` ratchet with the committed `libs/libraries.json` sample: built-only 563→95.
+- [x] 4.3 `real-corpus.test.ts` ratchet with the committed `.library` files (nested): built-only 563→95.
 
 ## 5. VS Code — DEFERRED (minor polish)
 
