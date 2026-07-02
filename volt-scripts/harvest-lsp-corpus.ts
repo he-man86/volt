@@ -22,11 +22,9 @@ rmSync(outDir, { recursive: true, force: true })
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 let written = 0, kind = 0, skipped = 0
 for (const item of fetched.changed) {
-	// Corpus hygiene: a CODESYS folder name may embed `/` or trailing spaces (e.g. "Interfaces / Data"),
-	// which materialize to git-hostile trailing-space directories on Windows. Trim each path segment — the
-	// folder path is irrelevant to what the LSP corpus tests (item name + content). This is a fixture-only
-	// normalization; real materialize.ts must NOT trim (push round-trips the exact folder name).
-	if (item.folder) item.folder = item.folder.split("/").map((s) => s.trim()).filter(Boolean).join("/")
+	// Folder-segment names are already percent-encoded by the bridge (FolderPath) — a name like
+	// "Interfaces / Data" arrives as "Interfaces %2F Data", a filesystem-safe segment — so materialize
+	// produces clean paths with no normalization needed here.
 	let files
 	try { files = materializeItem(item) } catch { skipped++; continue } // non-source kind not in the registry
 	for (const f of files) {

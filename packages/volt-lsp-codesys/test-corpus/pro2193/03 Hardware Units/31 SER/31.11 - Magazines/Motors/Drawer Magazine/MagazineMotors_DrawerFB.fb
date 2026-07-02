@@ -81,7 +81,7 @@ END_FUNCTION_BLOCK
 METHOD Abort : BOOL
 VAR_INPUT
 END_VAR
-%FOLDER Methods/Start/Stop/Resume
+%FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xAbort			:= TRUE;
 
 Abort						:= NOT TM_PickPlace.xPathHold;
@@ -637,7 +637,7 @@ END_METHOD
 
 // Stops the movement on the path. Only possible when state is MOVE_PP
 METHOD Interrupt : BOOL
-%FOLDER Methods/Start/Stop/Resume
+%FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= TRUE;
 
 Interrupt					:= IsInterrupted;
@@ -840,7 +840,7 @@ METHOD PUBLIC Quickstop
 VAR_INPUT
 	requireRehomingDrive	: BOOL;
 END_VAR
-%FOLDER Methods/Start/Stop/Resume
+%FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xStopALL		:= TRUE;
 
 // The xStopALL input is also active with "Internal Control" enabled!!
@@ -962,7 +962,7 @@ END_CASE
 END_METHOD
 
 METHOD Resume : BOOL
-%FOLDER Methods/Start/Stop/Resume
+%FOLDER Methods/Start%2FStop%2FResume
 TM_PickPlace.xPathInterrupt	:= FALSE;
 
 Resume						:= IsMoving;
