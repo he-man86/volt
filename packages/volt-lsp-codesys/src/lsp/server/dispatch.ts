@@ -118,6 +118,17 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				roots.push(params.rootPath);
 			}
 			ctx.state.workspaceRoots = roots;
+			// Load the build-exclusion set from the pull sidecar so diagnostics skip objects the IDE won't
+			// compile. Best-effort: no sidecar (never pulled) ⇒ nothing excluded, every file checked.
+			const excluded: string[] = [];
+			for (const root of roots) {
+				try {
+					const raw = fs.readFileSync(path.join(root, ".git", "volt", "ide-refs.json"), "utf-8");
+					const parsed = JSON.parse(raw) as { excluded?: string[] };
+					if (Array.isArray(parsed.excluded)) excluded.push(...parsed.excluded);
+				} catch { /* no sidecar / malformed → treat as none excluded */ }
+			}
+			ctx.workspace.setExcludedFromBuild(excluded);
 			const result: InitializeResult = {
 				capabilities: buildServerCapabilities(ctx.workspace.clientCapabilities),
 				serverInfo: { name: "volt-lsp-codesys", version: "0.0.0" },

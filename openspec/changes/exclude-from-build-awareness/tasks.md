@@ -26,7 +26,7 @@
 ## 5. LSP: gate diagnostics + honest ground truth
 
 - [x] 5.1 Remove the `isReadOnlyBody` / `READONLY`-marker path; a graphical body is now a comment and needs no special handling.
-- [~] 5.2 Tag each parsed unit with its item's `excludeFromBuild` (from the workspace manifest); `computeSemanticDiagnostics` skips units whose item is excluded.
+- [x] 5.2 Tag each parsed unit with its item's `excludeFromBuild` (from the workspace manifest); `computeSemanticDiagnostics` skips units whose item is excluded.
 - [x] 5.3 `scripts/coverage-report.ts`: partition the corpus built vs excluded (from a committed excluded-paths manifest); report precision over built only + excluded count separately.
 - [x] 5.4 `real-corpus.test.ts`: ratchet on built-only precision; record the new baseline. Regenerate the excluded-paths manifest from a `/refs` against the real project and commit it beside the corpus.
 

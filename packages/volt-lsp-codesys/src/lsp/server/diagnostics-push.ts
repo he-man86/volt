@@ -55,6 +55,11 @@ export function computeDiagnostics(
 		message: e.message,
 	}));
 
+	// Build-excluded objects are never compiled by the IDE, so their references have no ground truth —
+	// skip semantic diagnostics on them (parse diagnostics still surface). Matched by the item's full name.
+	const itemName = decodeURIComponent(uri).replace(/[?#].*$/, "").split(/[\\/]/).pop() ?? "";
+	if (workspace.excludedFromBuild.has(itemName)) return parseDiags;
+
 	const semantic: LspDiagnostic[] = computeSemanticDiagnostics({
 		parseResult: doc.parseResult,
 		source: doc.source,
