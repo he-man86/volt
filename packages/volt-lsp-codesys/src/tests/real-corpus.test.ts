@@ -43,13 +43,20 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   materialized with its PARENT POU's declaration (both vendors export the enclosing POU; DeclFromExport
 //   grabbed the parent's InterfaceAsPlainText). SetErrorFB.fb (previously omitted) now parses; ActuatorFB /
 //   Cylinder_53ValveFB had corrupted children that silently parsed but emitted false positives. Diags
-//   628→608 (vg-undeclared 10→0). Remaining ~587 unresolved are un-mirrored LIBRARY symbols (PACK_ML,
-//   L_MC1P/L_MC4P motion, Fanuc/Cmp* types) — the floor until a library signature index exists.
+//   628→608 (vg-undeclared 10→0).
+// + assignment-check fixes: BOOL↔BIT is compatible (BIT is 1-bit boolean storage), and a member/bit-access
+//   LHS (`word.Vacuum01 := TRUE`) is no longer mistaken for the same-named global. assignment-type-mismatch
+//   21→0.
+// + folder-name leading-dot encoding (520→523 files): a CODESYS folder named ".Interfaces / Data" (leading
+//   dot) materialized as a HIDDEN directory the LSP file-scan skipped, dropping 3 source files — incl.
+//   MagazineMotors_Positions.enum (24 refs). The bridge now encodes a leading dot too, so the folder is
+//   visible. Diags 608→563. Remaining ~563 unresolved are un-mirrored LIBRARY symbols (PACK_ML, L_MC1P/
+//   L_MC4P motion, Cmp*, Stu string utils) — the floor until a library signature index exists.
 const BASE = {
-	files: 520, // corpus size — must not shrink (files went missing)
-	parseCleanFiles: 520, // 100% — every corpus file parses clean; must not regress
-	ingestFiles: 520, // 100% — floor
-	totalDiags: 608, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	files: 523, // corpus size — must not shrink (files went missing)
+	parseCleanFiles: 523, // 100% — every corpus file parses clean; must not regress
+	ingestFiles: 523, // 100% — floor
+	totalDiags: 563, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 
