@@ -13,16 +13,7 @@ Counters();
 
 END_FUNCTION_BLOCK
 
-// Basic FB to control an output. No manual control!
-{attribute 'monitoring_display' := 'output'}
-{attribute 'symbol' := 'none'}
-FUNCTION_BLOCK PUBLIC ActuatorFB
-IMPLEMENTS IActuator
-VAR
-	{attribute 'symbol' := 'read'}	output					: BOOL;
-	MeasureOnTime			: ONTIME;
-	TimeOfLastSwitch		: DT;
-END_VAR
+METHOD PRIVATE Counters
 NETWORK 1 FBD
   // Calculate the on-time and the number of switches of the output
   MeasureOnTime(In := output);

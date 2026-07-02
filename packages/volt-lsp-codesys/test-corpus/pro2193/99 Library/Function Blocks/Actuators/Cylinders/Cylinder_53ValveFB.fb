@@ -174,26 +174,11 @@ METHOD Set : BOOL
 GoOut();
 END_METHOD
 
-// Control a dual output cylinder. Two sensors check if the cylinder is in position.
-{attribute 'symbol' := 'none'}
-FUNCTION_BLOCK PUBLIC Cylinder_53ValveFB
-EXTENDS Cylinder_BaseFB
-IMPLEMENTS IActuator
+METHOD PRIVATE SetAlarm : BOOL
 VAR_INPUT
-	rGiveAirToBothOutputs	: REAL := 0.2;	// When a 5/3 valve is set while both outputs are low, give air to both outputs for this time. To avoid fast moving cylinder. Default is 200MS.
-	xEnableOutputs			: BOOL;			// Use like this: 'G_xEnableMainvalve OR System.On'. Resets outputs when air pressure is killed. Alarms are disables when low. Set to TRUE to disable this feature.
-END_VAR
-VAR
-	{attribute 'symbol' := 'readwrite'}	middleButton			: BOOL;			// Enable adjust mode for cylinder
-	{attribute 'symbol' := 'read'}		OutputIn				: ActuatorFB;	// Output when cylinder moves in
-	{attribute 'symbol' := 'read'}		OutputOut				: ActuatorFB;	// Output when cylinder moves out
-
-	middleTrigger			: TriggerFB;
-
-	switchBothOutputs		: BTON;
-	EnableOutputs			: BTOF;
-	xStartGoInDelay			: BOOL;
-	xStartGoOutDelay		: BOOL;
+	xOutput		: BOOL;		// The output
+	xOutInv		: BOOL;		// The output that moves the cylinder the other way.
+	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
 NETWORK 1 FBD
   SetAlarm := (((xOutput AND NOT xOutInv AND NOT xSensor) OR (xOutInv AND NOT xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);

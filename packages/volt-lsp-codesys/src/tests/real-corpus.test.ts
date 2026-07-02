@@ -38,14 +38,18 @@ const CORPUS = join(import.meta.dir, "..", "..", "test-corpus", "pro2193");
 //   classifies ITextListEnumerationObject as an enum DUT, so text-list enums (SER_OperationModeType,
 //   IQSlices, enumRecipeCommandResult — ~355 refs) materialize instead of dropping to Unknown; (b) the
 //   parser skips `%FOLDER` in interface methods/properties (incl. GET/END_GET accessor blocks). Built-only
-//   diags 1097→628. One file (SetErrorFB.fb) is omitted pending a separate StAssembler bug (CFC-bodied FB
-//   children assemble with the parent's declaration). Remaining ~597 unresolved are un-mirrored LIBRARY
-//   symbols (PACK_ML, L_MC1P/L_MC4P motion, Fanuc/Cmp* types) — the floor until a library signature index exists.
+//   diags 1097→628.
+// + graphical-child declaration fix (519→520 files): a graphical (FBD/LD/CFC/SFC) method child was
+//   materialized with its PARENT POU's declaration (both vendors export the enclosing POU; DeclFromExport
+//   grabbed the parent's InterfaceAsPlainText). SetErrorFB.fb (previously omitted) now parses; ActuatorFB /
+//   Cylinder_53ValveFB had corrupted children that silently parsed but emitted false positives. Diags
+//   628→608 (vg-undeclared 10→0). Remaining ~587 unresolved are un-mirrored LIBRARY symbols (PACK_ML,
+//   L_MC1P/L_MC4P motion, Fanuc/Cmp* types) — the floor until a library signature index exists.
 const BASE = {
-	files: 519, // corpus size — must not shrink (files went missing)
-	parseCleanFiles: 519, // 100% — every corpus file parses clean; must not regress
-	ingestFiles: 519, // 100% — floor
-	totalDiags: 628, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
+	files: 520, // corpus size — must not shrink (files went missing)
+	parseCleanFiles: 520, // 100% — every corpus file parses clean; must not regress
+	ingestFiles: 520, // 100% — floor
+	totalDiags: 608, // ceiling — diagnostics on BUILT files only; each is a false-positive suspect (goal 0)
 	excludedFiles: 14, // floor — the manifest must stay loaded (excluded corpus files whose diags are suppressed)
 };
 
