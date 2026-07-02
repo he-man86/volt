@@ -46,12 +46,12 @@ namespace Volt.Bridge.Codesys
             // Top-level source.
             if (Has(ifaces, "IPOUObject")) return RefinePou(declaration);
             if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
-            if (Has(ifaces, "IDUTObject")) return RefineDut(declaration);
-            // A text-list-backed enumeration (ITextListEnumerationObject) is a normal `TYPE X : (…)` enum
-            // whose members map to a text list. CODESYS surfaces it as its OWN object kind, not IDUTObject —
-            // classify it as a DUT so its enum declaration materializes. Otherwise it drops to Unknown and
-            // every reference is unresolved (real cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
-            if (Has(ifaces, "ITextListEnumerationObject")) return RefineDut(declaration);
+            // IDUTObject is the usual struct/enum/union/alias. ITextListEnumerationObject is a text-list-backed
+            // enumeration — a normal `TYPE X : (…)` enum whose members map to a text list, surfaced by CODESYS
+            // as its OWN object kind (not IDUTObject). Both refine from the declaration into the same DUT kinds;
+            // without the second, a text-list enum drops to Unknown and every reference is unresolved (real
+            // cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
+            if (Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject")) return RefineDut(declaration);
             if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 
             // Recognized non-source kinds — distinct wire kinds matching TwinCAT
@@ -101,6 +101,13 @@ namespace Volt.Bridge.Codesys
             if (isNew)
                 Console.Error.WriteLine($"[bridge] unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
         }
+
+        /// <summary>True when the node's kind is REFINED from its declaration text — POU (keyword →
+        /// fb/func/prog/itf) or DUT/text-list-enum (struct/enum/union/alias). The driver reads the Interface
+        /// aspect only for these, so this predicate MUST stay in sync with the RefinePou/RefineDut branches
+        /// in <see cref="CodeForObject"/> — keeping both here makes that a single-file invariant.</summary>
+        public static bool NeedsDeclaration(HashSet<string> ifaces) =>
+            Has(ifaces, "IPOUObject") || Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject");
 
         /// <summary>Containers we recurse into but never emit.</summary>
         public static bool IsRecurseOnlyContainer(int code) =>

@@ -87,8 +87,9 @@ public sealed partial class CodesysDriver : IDebugIntrospect
         if (_om.IsFolder(node)) return ItemKind.PlcFolder;
         var iobj = _om.ReadObject(node);
         var ifaces = _om.ObjectInterfaceNames(iobj);
-        string? decl = ifaces.Contains("IPOUObject") || ifaces.Contains("IDUTObject") || ifaces.Contains("ITextListEnumerationObject")
-            ? CodesysObjectModel.ReadAspectText(iobj, "Interface") : null;
+        // Read the Interface aspect only for kinds whose classification refines from the declaration —
+        // CodesysTypeMap owns that list (NeedsDeclaration), so the two never drift.
+        string? decl = CodesysTypeMap.NeedsDeclaration(ifaces) ? CodesysObjectModel.ReadAspectText(iobj, "Interface") : null;
         return CodesysTypeMap.CodeForObject(ifaces, false, _om.GetName(node), decl);
     }
 }
