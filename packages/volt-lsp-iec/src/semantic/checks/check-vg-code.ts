@@ -15,6 +15,7 @@ import type { BodySpan } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
 import { getConversion } from "../../reference/type-conversion.js";
+import { lookup as referenceLookup } from "../../reference/index.js";
 import type { DiagnosticConfig } from "../../lsp/config/index.js";
 import type { VgNetwork, VgStatement } from "../../vg/index.js";
 import { type DiagnosticItem, KEYWORD_SET, getAnyBody, findScopeForUnit } from "./_shared.js";
@@ -48,6 +49,10 @@ function checkUndeclared(model: BodyModel, scope: Scope, out: DiagnosticItem[]):
 		const name = ref.name;
 		if (KEYWORD_SET.has(name.toLowerCase())) continue; // operator-words / function-words
 		if (getConversion(name) !== undefined) continue;
+		// Standard IEC / CODESYS library names — operators (SEL/MUX), standard FBs (TON), standard functions
+		// (CONCAT/DELETE/REPLACE/INSERT/FIND/…), builtin types — live in the reference catalog, not the project
+		// scope. The ST unresolved-identifier check consults it the same way; the VG analogue must too.
+		if (referenceLookup(name) !== undefined) continue;
 		if (resolverLookup(scope, name) !== undefined) continue;
 		out.push({
 			severity: "warning",

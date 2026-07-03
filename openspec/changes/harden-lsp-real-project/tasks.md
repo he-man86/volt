@@ -27,9 +27,12 @@
 - [x] 3.1a **`analysis` pragma FP fixed** — `{attribute 'analysis' := '-33'}` (CODESYS Static-Analysis
   rule suppression) was flagged `unknown-pragma`. Added it to the shared pragma catalog (`reference/pragmas.ts`).
   Completion snapshots updated (it now offers as a valid attribute). Full LSP suite 5689 pass.
-- [ ] 3.1b `vg-undeclared-identifier` on `EXECUTE`/`DELETE`/`REPLACE` (5, bakon-nano) — the VG (graphical)
-  analyzer flags these as undeclared, but `DELETE`/`REPLACE` are standard IEC string functions the ST
-  analyzer already knows via `standard-functions.ts`. The VG check should consult the same table. NEXT.
+- [x] 3.1b **VG standard-function FP fixed** — `check-vg-code.ts` now consults the reference catalog
+  (`reference/index.ts` `lookup`, which covers `standard-functions.ts`) exactly as the ST unresolved check
+  does, so `DELETE`/`REPLACE` (and any standard fn/operator/FB) inside graphical FBD/LD bodies no longer
+  false-positive. bakon `vg-undeclared` 5→2; ratchet ceiling 280→277. The 2 remaining are `EXECUTE()` in
+  `Recipes.prg` — a library function not in the corpus (same library-blindness as the 275
+  `unresolved-identifier`), correctly deferred to `library-signature-index`, not a VG defect.
 - [ ] 3.2 Fix `unresolved-identifier` library-blindness (`check-unresolved-identifier.ts`): implement strategy (b) — don't flag bare references absent from the whole project scope (extend the existing member-access fall-through); re-survey.
 - [ ] 3.3 Confirm `unknownPragma` / `wrongVendorPragma` / `initSlotCollision` stay OFF by default and don't need to be forced on for real projects; verify the CODESYS vendor mask (`rule-vendor-applicability.ts`) hides the twincat-only checks.
 - [ ] 3.4 Triage every remaining diagnostic: each must be a genuine defect or get a tuned check + a regression fixture. Drive the sweep (2.3) to green.

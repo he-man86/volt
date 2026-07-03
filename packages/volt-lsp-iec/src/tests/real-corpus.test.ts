@@ -70,18 +70,20 @@ import { computeCoverage } from "../../scripts/coverage-report.js";
 //   library ELEMENTS + members inherited from library base FBs (BlinkHammerFB EXTENDS the Util `BLINK`) — all
 //   Phase 2 — plus a 2-diag polymorphism edge case (a base FB calling a method defined only in a derived FB).
 // bakon-nano (2026-07-03): the full-option "Bakon Nano new VISU v00_90" project (130 source files) added as
-// a SECOND real-project corpus. Parser/lexer clean on first contact — 0 parse errors, 100% ingest. Baseline
-// 280 diags = 275 unresolved-identifier (library-blind: PACK_ML/L_*/… → library-signature-index) + 5
-// vg-undeclared-identifier (EXECUTE/DELETE/REPLACE inside graphical bodies — the VG analyzer doesn't yet
-// consult the standard string-function table the ST analyzer uses). Also surfaced + fixed the `analysis`
-// static-analysis attribute pragma (was mis-flagged unknown-pragma). No exclude-from-build manifest yet.
+// a SECOND real-project corpus. Parser/lexer clean on first contact — 0 parse errors, 100% ingest. Also
+// surfaced + fixed the `analysis` static-analysis attribute pragma (was mis-flagged unknown-pragma). No
+// exclude-from-build manifest yet.
+// + VG reference-catalog lookup (check-vg-code.ts): the graphical analyzer now consults the same reference
+//   catalog the ST unresolved check does, so standard functions inside FBD/LD bodies (DELETE/REPLACE/…) no
+//   longer false-positive. diags 280→277 (vg-undeclared 5→2). The 2 remaining are `EXECUTE()` — a library
+//   function not materialized (same library-blindness as the 275 unresolved-identifier → library-signature-index).
 const CORPORA: ReadonlyArray<{
 	name: string;
 	dir: string;
 	base: { files: number; parseCleanFiles: number; ingestFiles: number; totalDiags: number; excludedFiles: number };
 }> = [
 	{ name: "pro2193", dir: "pro2193", base: { files: 523, parseCleanFiles: 523, ingestFiles: 523, totalDiags: 35, excludedFiles: 14 } },
-	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 280, excludedFiles: 0 } },
+	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 277, excludedFiles: 0 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {
