@@ -75,15 +75,19 @@ import { computeCoverage } from "../../scripts/coverage-report.js";
 // exclude-from-build manifest yet.
 // + VG reference-catalog lookup (check-vg-code.ts): the graphical analyzer now consults the same reference
 //   catalog the ST unresolved check does, so standard functions inside FBD/LD bodies (DELETE/REPLACE/…) no
-//   longer false-positive. diags 280→277 (vg-undeclared 5→2). The 2 remaining are `EXECUTE()` — a library
-//   function not materialized (same library-blindness as the 275 unresolved-identifier → library-signature-index).
+//   longer false-positive. diags 280→277 (vg-undeclared 5→2).
+// + bridge Execute-box fix (graphical-execute-box): the 2 remaining `EXECUTE()` were NOT library-blindness —
+//   they were a bridge data-loss bug. Recipes.fbd holds CODESYS "Execute" boxes (inline ST in an <STCode>)
+//   the bridge dropped, rendering a phantom `EXECUTE()`. The bridge now materializes such bodies read-only
+//   (the @volt-graphical marker) instead. Re-harvested: Recipes.prg is the marker, vg-undeclared 2→0.
+//   diags 277→275 (all now unresolved-identifier, library-blind → library-signature-index).
 const CORPORA: ReadonlyArray<{
 	name: string;
 	dir: string;
 	base: { files: number; parseCleanFiles: number; ingestFiles: number; totalDiags: number; excludedFiles: number };
 }> = [
 	{ name: "pro2193", dir: "pro2193", base: { files: 523, parseCleanFiles: 523, ingestFiles: 523, totalDiags: 35, excludedFiles: 14 } },
-	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 277, excludedFiles: 0 } },
+	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 275, excludedFiles: 0 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {

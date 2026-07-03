@@ -1,42 +1,38 @@
-## 1. Lock the gap in a failing test FIRST (regression-first)
+## 1. Lock the gap in a failing test FIRST (regression-first) — DONE
 
-- [ ] 1.1 Capture the ground truth: commit the real Execute-box PlcOpen XML from Bakon `Recipes.prg` as a
-  C# test fixture under `packages/volt-bridge/test/Volt.Bridge.Tests/fixtures/` (an FBD network with a
-  `<block typeName="EXECUTE">` carrying `fbdcalltype=execute` + an `<STCode>` body). Reference XML is saved
-  in this change dir (`execute-box.reference.xml`).
-- [ ] 1.2 Write a **failing** C# test: feed that XML through `PlcOpenReader` → `VgWriter` and assert the
-  materialized VG CONTAINS the box's ST statements and does NOT contain a bare `EXECUTE()` call. This test
-  is red until §2 lands and stays green forever after (the guard the user asked for).
+- [x] 1.1 Ground truth captured: the real Execute-box PlcOpen XML from Bakon `Recipes.prg` is committed as
+  `execute-box.reference.xml` in this change dir; the C# test uses a minimal faithful in-XML Execute box
+  (`<block typeName="EXECUTE">` + `fbdcalltype=execute` + `<STCode>`) built from that shape.
+- [x] 1.2 Two **failing** C# tests added to `GraphicalCodeTests.cs` (`Fbd_body_with_an_execute_box_reads_as_
+  read_only_not_a_phantom_call`, `Write_refuses_a_body_that_currently_holds_an_execute_box`). Red before the
+  fix (Failed 2 / Passed 12), green after (193 pass) — the durable guard.
 
-## 2. Read + materialize the Execute box's ST
+## 2. Read-only-first (B) — chosen + implemented (DONE)
 
-- [ ] 2.1 `PlcOpenReader`: when `CallType == "execute"`, read the sibling `stcode` addData; capture the ST
-  text + the EN-input source onto the model (`Block.StCode` or an `ExecuteBox` node in `GraphModel.cs`).
-- [ ] 2.2 `VgWriter`: render the box as its inline ST, EN-guarded (`IF <en> THEN <stcode> END_IF`) when EN is
-  wired, else the raw statements — never `EXECUTE()`. §1.2 goes green.
-- [ ] 2.3 `docs/vg-language.md`: document the Execute-box materialized form.
+- [x] 2.1 `GraphicalCode.Read`: detect the Execute box via the already-read `Block.CallType == "execute"`
+  (`HasExecuteBox`); when present, return a read-only body (empty + `@volt-graphical` marker), like CFC/SFC —
+  no `PlcOpenReader`/`GraphModel` change needed for this cut (no STCode extraction).
+- [x] 2.2 `GraphicalCode.Write`: refuse writing over a body whose current export holds an Execute box
+  (`BridgeException 400 UNSUPPORTED`) — so a client that edits the marker into VG can't overwrite the box.
+- [ ] 2.3 (follow-up) Materialize the Execute box's ST INLINE so the LSP analyzes it: `PlcOpenReader` reads
+  the `stcode` addData onto the model, `VgWriter` renders `IF <en> THEN <stcode> END_IF`, and the VG
+  language/parser (`docs/vg-language.md`, `VgParser`) represent inline-ST-in-a-network for round-trip. Not
+  required to stop the data loss; deferred.
 
-## 3. Round-trip decision (design.md) — no writable+lossy state
+## 4. Re-harvest + re-baseline the corpus — DONE
 
-- [ ] 3.1 Choose (A) full round-trip or (B) read-only-first (recommended). Record the choice in design.md.
-- [ ] 3.2 **If (B):** mark any body containing an Execute box read-only (reuse the CFC/SFC gate); add a C#
-  test asserting a `push` of such a body is refused (never a lossy write-back).
-- [ ] 3.3 **If (A):** `VgParser` + `PlcOpenWriter` reconstruct the `<block typeName="EXECUTE">` with the
-  `stcode`/`fbdcalltype` addData; add a C# **round-trip** test (XML → VG → XML) asserting the STCode +
-  wiring survive byte-for-byte-equivalent.
+- [x] 4.1 Re-harvested `test-corpus/bakon-nano` off the rebuilt bridge (via a project copy — the IDE held the
+  lock). `Recipes.prg` now materializes as the read-only `(* @volt-graphical: FBD *)` marker; zero phantom
+  `EXECUTE()` remain in the corpus.
+- [x] 4.2 Re-baselined `real-corpus.test.ts` bakon-nano `totalDiags` 277→**275** (vg-undeclared 2→0; all
+  remaining are library-blind `unresolved-identifier`). Changelog updated.
 
-## 4. Re-harvest + re-baseline the corpus
+## 5. Land it — DONE
 
-- [ ] 4.1 Re-harvest `test-corpus/bakon-nano` (needs the fixed bridge + the project openable). `Recipes.prg`
-  recovers its ST; the 2 `EXECUTE` `vg-undeclared-identifier` clear.
-- [ ] 4.2 Re-baseline `real-corpus.test.ts` bakon-nano `totalDiags` (recovered ST may surface honest new
-  refs) — tighten, document the delta in the changelog comment.
-
-## 5. Land it
-
-- [ ] 5.1 `packages/volt-bridge`: `bun run build:all` + `dotnet test test/Volt.Bridge.Tests/` green (incl. the
-  new Execute-box tests). `packages/volt-lsp-iec`: `bun test` + `bun typecheck` green.
-- [ ] 5.2 `openspec validate graphical-execute-box`; sync the `bridge-protocol` delta + archive when done.
+- [x] 5.1 `dotnet test Volt.Bridge.Tests` green (193 pass, incl. the 2 new Execute-box tests). `packages/volt-lsp-iec`
+  `bun test` + `bun typecheck` green.
+- [x] 5.2 `openspec validate graphical-execute-box` clean; spec delta reflects read-only-first. (Sync + archive
+  after the branch merges.)
 
 ## Note — general bridge-gap policy (user directive, 2026-07-03)
 

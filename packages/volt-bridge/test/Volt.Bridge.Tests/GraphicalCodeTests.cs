@@ -1,4 +1,5 @@
 using System;
+using Volt.Bridge.Core;
 using Volt.Bridge.Core.Graphical;
 using Volt.Bridge.Core.Graphical.Vg;
 using Volt.Bridge.Core.Ide;
@@ -26,6 +27,20 @@ public class GraphicalCodeTests
     private const string FbdBody =
         "<FBD><inVariable localId=\"1\"><expression>a</expression></inVariable>" +
         "<outVariable localId=\"2\"><expression>x</expression><connectionPointIn><connection refLocalId=\"1\"/></connectionPointIn></outVariable></FBD>";
+
+    // An FBD network holding a CODESYS Execute box: a <block typeName="EXECUTE"> whose fbdcalltype is
+    // `execute`, carrying inline ST in an <STCode> element (the real shape captured from Bakon Recipes.prg —
+    // see openspec/changes/graphical-execute-box/execute-box.reference.xml).
+    private const string ExecuteBoxBody =
+        "<FBD><inVariable localId=\"1\"><expression>TRUE</expression></inVariable>" +
+        "<block localId=\"2\" typeName=\"EXECUTE\">" +
+          "<inputVariables><variable formalParameter=\"EN\"><connectionPointIn><connection refLocalId=\"1\"/></connectionPointIn></variable></inputVariables>" +
+          "<outputVariables><variable formalParameter=\"ENO\"><connectionPointOut/></variable></outputVariables>" +
+          "<addData>" +
+            "<data name=\"http://www.3s-software.com/plcopenxml/fbdcalltype\" handleUnknown=\"implementation\"><CallType>execute</CallType></data>" +
+            "<data name=\"http://www.3s-software.com/plcopenxml/stcode\" handleUnknown=\"implementation\"><STCode>target := 42;</STCode></data>" +
+          "</addData>" +
+        "</block></FBD>";
 
     private static ItemRef Item => new(new object());
 
@@ -74,6 +89,33 @@ public class GraphicalCodeTests
         var marker = Materializer.GraphicalBodyMarker(lang);
         Assert.Equal($"(* @volt-graphical: {lang} *)", marker);
         Assert.Matches(@"^\(\* @volt-graphical: \w+ \*\)$", marker);
+    }
+
+    [Fact]
+    public void Fbd_body_with_an_execute_box_reads_as_read_only_not_a_phantom_call()
+    {
+        // REGRESSION (graphical-execute-box): a CODESYS Execute box embeds inline ST the bridge cannot
+        // round-trip through VG yet. Rendering it as a call drops the ST and yields a phantom `EXECUTE()`
+        // a push would write back (data loss). So a body containing one materializes READ-ONLY — empty body
+        // + the @volt-graphical marker, exactly like CFC/SFC — leaving the ST editable in the IDE, never a phantom.
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var gb = GraphicalCode.Read(s, Item);
+        Assert.Equal("FBD", gb!.Language);
+        Assert.Equal("", gb.Body);                    // read-only — not transpiled
+        Assert.DoesNotContain("EXECUTE", gb.Body);    // NEVER the phantom call
+        Assert.DoesNotContain("NETWORK", gb.Body);    // not an editable VG body
+        Assert.Equal("PROGRAM P\nVAR\nEND_VAR", gb.Declaration);
+    }
+
+    [Fact]
+    public void Write_refuses_a_body_that_currently_holds_an_execute_box()
+    {
+        // Guard the write path too: even if a client turns the read-only marker into VG and pushes, writing
+        // would overwrite the IDE's Execute box and drop its inline ST. Refuse it with a clear message.
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false) };
+        var ex = Assert.Throws<BridgeException>(() => GraphicalCode.Write(
+            s, Item, "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n", "PROGRAM P\nVAR\n\tx : BOOL;\n\ta : BOOL;\nEND_VAR"));
+        Assert.Contains("Execute box", ex.Message);
     }
 
     [Fact]

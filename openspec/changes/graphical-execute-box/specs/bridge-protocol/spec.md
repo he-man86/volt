@@ -1,21 +1,25 @@
 ## ADDED Requirements
 
-### Requirement: Graphical Execute boxes preserve their inline ST
+### Requirement: Graphical Execute boxes are never materialized as a lossy phantom call
 
-The bridge SHALL preserve the inline ST of a CODESYS **Execute box** when materializing an FBD/CFC body — a PlcOpen block whose `fbdcalltype` addData is `execute` carries its statements in an `STCode` addData element, and the bridge SHALL NOT render that box as a bare `EXECUTE()` call and drop the code. The materialized body SHALL contain the box's actual ST (EN-guarded when the box has a wired EN input), so the LSP analyzes the real logic and a reader sees it.
+The bridge SHALL NOT render a CODESYS **Execute box** (a PlcOpen block whose `fbdcalltype` addData is
+`execute`, carrying inline ST in an `STCode` addData) as a bare `EXECUTE()` call in a materialized FBD/CFC
+body — doing so drops the box's ST and produces a phantom a push would write back over the real code. A body
+the bridge cannot yet round-trip losslessly (one containing an Execute box) SHALL be materialized **read-only**
+— an empty body plus the `@volt-graphical` marker, the same treatment as CFC/SFC — so the inline ST is edited
+in the IDE and a `push` of the body is refused rather than silently overwriting it. A body SHALL NEVER be both
+writable and lossy.
 
-A graphical body the bridge cannot yet round-trip losslessly (e.g. an Execute box whose ST it can read but
-not yet reconstruct on push) SHALL be materialized **read-only** — the same treatment as CFC/SFC bodies — so
-a `push` refuses it rather than writing back a lossy reconstruction. A body SHALL NEVER be both writable and
-lossy.
+(Follow-up, not required by this change: materialize the Execute box's ST inline so the LSP analyzes it —
+that needs the VG language + parser to represent inline-ST-in-a-network. Until then the ST lives in the IDE,
+as CFC/SFC bodies already do.)
 
-#### Scenario: An Execute box's ST is materialized, not dropped
-- **WHEN** a client fetches an FBD program whose network contains an Execute box holding
-  `IF cmd THEN target := 0; END_IF`
-- **THEN** the materialized body carries that ST (EN-guarded by the box's EN input), and contains no phantom
-  `EXECUTE()` call
+#### Scenario: An Execute box materializes read-only, never as a phantom call
+- **WHEN** a client fetches an FBD program whose network contains an Execute box (`fbdcalltype = execute`)
+- **THEN** the materialized body is read-only (the `@volt-graphical` marker, empty otherwise) and contains no
+  phantom `EXECUTE()` call and no editable VG networks
 
-#### Scenario: A body with an unreconstructable Execute box is read-only
-- **WHEN** the bridge can read an Execute box's ST but does not yet support reconstructing it on push
-- **THEN** the materialized body is marked read-only and a `push` of it is refused, so the box's ST is never
-  silently overwritten
+#### Scenario: A push over an Execute-box body is refused
+- **WHEN** a client pushes a body whose current IDE export contains an Execute box
+- **THEN** the write is refused with a clear "read-only — edit it in the IDE" message, so the box's inline ST
+  is never silently overwritten

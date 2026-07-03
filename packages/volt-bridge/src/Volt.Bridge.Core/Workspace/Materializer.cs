@@ -96,14 +96,13 @@ public static class Materializer
         // A null graphical means the gate found a textual body — never a missed graphical one.
         if (graphical is not null)
         {
-            if (VgBody.IsEditable(graphical.Language))
-            {
-                if (!string.IsNullOrEmpty(graphical.Body)) result["implementation"] = graphical.Body;
-            }
-            else
-            {
-                result["implementation"] = GraphicalBodyMarker(graphical.Language);
-            }
+            // A non-empty body is editable VG (FBD/LD with networks). An EMPTY body means the read found no
+            // transpilable text form — CFC/SFC (never have one) OR an FBD/LD body we can't round-trip yet (one
+            // holding an Execute box). Either way it gets the informational @volt-graphical marker (a human/AI
+            // "edit in the IDE" hint), so it never reads as a program with no code.
+            result["implementation"] = !string.IsNullOrEmpty(graphical.Body)
+                ? graphical.Body
+                : GraphicalBodyMarker(graphical.Language);
             result["language"] = graphical.Language;
         }
         else
