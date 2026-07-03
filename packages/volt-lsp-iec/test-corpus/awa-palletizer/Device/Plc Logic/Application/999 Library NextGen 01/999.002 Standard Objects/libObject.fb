@@ -1,0 +1,43 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT libObject
+VAR_OUTPUT
+	// Error 
+	xCMError: BOOL;
+END_VAR
+
+VAR_INPUT
+	// Name of the object
+	strName: STRING[30] := 'OBJECT';
+	// Execute logic in automatic state
+	xExecute: BOOL := TRUE;
+	// Reset the error
+	xCmdReset: BOOL := FALSE;
+	// First time execution
+	xInit: BOOL := TRUE;
+END_VAR
+
+VAR_OUTPUT
+	// What type of class am I
+	myClassType: enClassType;;	
+END_VAR
+
+VAR_INPUT
+	// Emergency stop is active
+	xCmdEStopActive: BOOL := FALSE;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// General object definition.
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+END_FUNCTION_BLOCK
+
+METHOD isClassType : BOOL
+VAR_INPUT
+	pClassType: enClassType;
+END_VAR
+isClassType := (myClassType = pClassType);
+END_METHOD

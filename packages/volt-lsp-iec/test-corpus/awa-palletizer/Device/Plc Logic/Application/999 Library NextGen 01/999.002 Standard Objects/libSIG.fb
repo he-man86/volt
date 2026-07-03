@@ -1,0 +1,114 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libSIG EXTENDS libObject
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutHMI;
+END_VAR
+
+VAR_INPUT
+	// Output value
+	xDO : BOOL := FALSE;
+	// Blinking
+	xDO_Blink: BOOL := FALSE;
+	// On delay
+	tOnDelay : TIME := T#0MS;
+	// Off delay
+	tOffDelay : TIME := T#0MS;
+	// Blink time high
+	tTimeHigh: TIME := T#600MS;
+	// Blink time low
+	tTimeLow: TIME := T#600MS;
+
+	// Interlock causes no output
+	xInterlocked: BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+	// Output value
+	xOutput : BOOL := FALSE;
+	// Rising edge
+	xDOeu : BOOL := FALSE;
+	// Falling edge
+	xDOed : BOOL := FALSE;
+END_VAR
+VAR
+	
+	// On delay
+	TON_Delay : TON;
+	// Off delay
+	TOF_Delay : TOF;
+	// Rising edge
+	RTRIG_euX : R_TRIG;
+	// Falling edge
+	FTRIG_edX : F_TRIG;
+	// Blinking
+	Blink: BLINK;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function controls a signal object.
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit       		:= FALSE;
+
+		_HMI.strName 		:= strName;			
+		_HMI.wCmd			:= 0;
+		_HMI.wStatus		:= 0;
+	
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.wCmd.1			:= FALSE; 	// On/Off.
+		_HMI.wCmd.2			:= FALSE;	// Blink.
+		
+		xExecute		 	:= TRUE;
+		xCmdReset			:= FALSE;	 
+				  
+		myClassType 		:= enClassType.ctSIG;		 
+	END_IF
+		 
+	Blink(ENABLE := TRUE, TIMEHIGH := tTimeHigh, TIMELOW:= tTimeLow);
+		 
+	IF (_HMI.wCmd.0) THEN
+		IF (xDO) THEN
+			IF (xDO_Blink) THEN
+				xOutput := Blink.OUT;
+			ELSE 
+				TOF_Delay(IN := TRUE);
+				TON_Delay(IN := TRUE, PT := tOnDelay);	 
+				xOutput := TON_Delay.Q;
+			END_IF;
+		END_IF
+		
+	ELSE
+		xOutput := _HMI.wCmd.1;
+			 
+		IF _HMI.wCmd.2 THEN
+			xOutput := Blink.OUT;				 
+		END_IF
+	END_IF;
+	
+	xOutput := xOutput AND NOT xInterlocked;
+		 
+	RTRIG_euX(CLK := xOutput, Q => xDOeu);
+	FTRIG_edX(CLK := xOutput, Q => xDOed);
+{endregion}
+
+
+// ### ALARM ###
+{region}
+
+{endregion}
+	 
+// ### VISUAL ###
+{region}
+	_HMI.wStatus.0 := _HMI.wCmd.0;			// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);		// Manual	
+	_HMI.wStatus.2 := xInterlocked;
+	_HMI.wStatus.3 := xDO;	 	  
+{endregion}
+
+END_FUNCTION_BLOCK

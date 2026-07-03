@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  t#4ms
+Priority:  1
+Watchdog:  off
+Calls:     pgHMI, pgPC01, pgRecipeHandler

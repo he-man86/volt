@@ -1,0 +1,33 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK ABSTRACT libModuleHandler EXTENDS libObject
+
+VAR_IN_OUT
+	// Parent handler
+	IQ_ModuleHandler : L_IMHP_ModuleHandler;	
+END_VAR
+
+VAR
+	// my handler
+	myModuleHandler : L_IMHP_ModuleHandler;	
+	// Connect alarms to parent
+	xInitProgramAlarms: BOOL := FALSE;
+	// Error ID
+	wErrorID: UINT := 0;
+	// Warning ID
+	wWarningID: UINT := 0;
+	// Forward alarms
+	ForwardAlarms : L_IE1P_ForwardSeverity;
+	// Warning
+	ALM_Warning : L_IE1P_SetErrorSingle;
+	// Error
+	ALM_Error : L_IE1P_SetErrorSingle;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// General object definition.
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+END_FUNCTION_BLOCK

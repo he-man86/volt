@@ -77,7 +77,8 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
 
 	// Decls until END_VAR.
 	while (!c.atEof()) {
-		const endVar = c.eatKeyword("END_VAR");
+		if (c.eatPunct(";") !== undefined) continue; // stray/empty declaration — CODESYS accepts `x : T;;`
+			const endVar = c.eatKeyword("END_VAR");
 		if (endVar !== undefined) {
 			section.span = joinSpans(header.span, endVar.span);
 			return section;

@@ -1,0 +1,17 @@
+TYPE dutSetpointHMI :
+STRUCT
+	// Name of the object
+	strName: STRING[30] := 'SETPOINT';
+
+	wCmd 	: WORD;
+	wStatus : WORD;		
+
+	rSetpoint_Manual: REAL := 50.0;
+	
+	// Scaled high value
+	rHi: REAL := 0.0;
+	// Scaled low value
+	rLo: REAL := 0.0;
+
+END_STRUCT
+END_TYPE

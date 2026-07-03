@@ -1,0 +1,5 @@
+LIBRARY System_VisuNativeControl
+NAMESPACE VisuNativeControl
+RESOLUTION VisuNativeControl, 4.8.0.0 (System)
+PLACEHOLDER true
+SYSTEM true

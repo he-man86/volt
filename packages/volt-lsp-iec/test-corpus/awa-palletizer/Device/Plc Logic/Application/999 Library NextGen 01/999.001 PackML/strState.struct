@@ -1,0 +1,41 @@
+TYPE strState :
+STRUCT
+	enMode        : enMode;
+	enState       : enState;
+	
+	xCmdModeManual    : BOOL := FALSE;
+	xCmdModeAutomatic : BOOL := TRUE;
+	xCmdModeCleaning  : BOOL := FALSE;
+	
+	xCmdInit      : BOOL;
+	xCmdReset     : BOOL;
+	xCmdResetDone : BOOL;
+	xCmdStart     : BOOL;
+	xCmdStartDone : BOOL;
+	xCmdStop      : BOOL;
+	xCmdStopDone  : BOOL;
+	xCmdAbort     : BOOL;
+	xCmdAbortDone : BOOL;
+	
+	xStsInit       : BOOL;
+	xStsResetting  : BOOL;
+	xStsIdle       : BOOL;
+	xStsStarting   : BOOL;
+	xStsStartingRT : BOOL;
+	xStsExecute    : BOOL;
+	xStsStopping   : BOOL;
+	xStsStopped    : BOOL;
+	xStsAborting   : BOOL;
+	xStsAborted    : BOOL;
+	
+	xStsModeChangeToCleaning  : BOOL;
+	xStsModeChangeToAutomatic : BOOL;
+	xStsActing : BOOL;
+	xStsWaiting : BOOL;
+	
+	xStsModeAutomatic : BOOL := TRUE;
+	xStsModeManual    : BOOL := FALSE;
+	xStsModeCleaning  : BOOL := FALSE;
+	
+END_STRUCT
+END_TYPE

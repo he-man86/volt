@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enMode :
+(
+	AUTOMATIC, MANUAL, CLEANING
+);
+END_TYPE

@@ -1,0 +1,46 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	// Conveyor 1
+	QxMOT01_Conveyor: BOOL := FALSE;
+	// Conveyor 2
+	QxMOT02_Conveyor: BOOL := FALSE;
+	// Conveyor 3
+	QxMOT03_Conveyor: BOOL := FALSE;
+	
+	// Conveyor 1
+	IxMOT01_ThermOk: BOOL := FALSE;
+	// Conveyor 2
+	IxMOT02_ThermOk: BOOL := FALSE;
+	// Conveyor 3
+	IxMOT03_ThermOk: BOOL := FALSE;
+	// Box at position
+	IxSEN01_Box01: BOOL := FALSE;
+	// Box at position
+	IxSEN01_Box02: BOOL := FALSE;
+	// Box at position
+	IxSEN01_Box03: BOOL := FALSE;
+	// Box at position
+	IxSEN01_Box04: BOOL := FALSE;
+	// Box at position
+	IxSEN02_Box01: BOOL := FALSE;
+	// Box at position
+	IxSEN02_Box02: BOOL := FALSE;
+	// Box at position
+	IxSEN02_Box03: BOOL := FALSE;
+	// Box at position
+	IxSEN02_Box04: BOOL := FALSE;
+	// Box at position
+	IxSEN03_Box01: BOOL := FALSE;
+	// Box at position
+	IxSEN03_Box02: BOOL := FALSE;
+	// Box at position
+	IxSEN03_Box03: BOOL := FALSE;
+	// Box at position
+	IxSEN03_Box04: BOOL := FALSE;
+	// Request box
+	QxDO01_InputEnable: BOOL := FALSE;
+	// Request box
+	QxDO02_InputEnable: BOOL := FALSE;
+	// Request box
+	QxDO03_InputEnable: BOOL := FALSE;
+END_VAR

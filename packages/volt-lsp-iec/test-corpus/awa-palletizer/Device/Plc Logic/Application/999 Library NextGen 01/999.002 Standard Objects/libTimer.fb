@@ -1,0 +1,64 @@
+FUNCTION_BLOCK libTimer
+VAR_INPUT
+	IN: BOOL;
+	PAUSE: BOOL;
+	PT: TIME;
+END_VAR
+VAR_OUTPUT
+	Q: BOOL;
+	ET: TIME;
+END_VAR
+VAR
+	fbTON: TON;
+	fbIN_RT: R_TRIG;
+	iState: INT;
+	tTime: TIME;
+END_VAR
+
+fbIN_RT(CLK := IN);
+
+CASE iState OF
+0 : 	fbTON(IN := FALSE, PT := PT);
+		Q := FALSE;
+		ET := T#0S;
+		
+	 	IF (fbIN_RT.Q) THEN
+			tTime := PT;
+			fbTON(IN := TRUE, PT := tTime);
+			Q := TRUE;
+			
+	 		iState := 100;			
+	 	END_IF
+
+100:	fbTON(IN := TRUE, PT := tTime);
+		Q := TRUE;
+		ET := fbTON.ET;
+		
+	 	IF (fbIN_RT.Q) THEN 
+			fbTON(IN := FALSE, PT := tTime);
+		END_IF
+		
+		IF (fbTON.Q) THEN
+			Q := FALSE;
+
+			iState := 0;
+		END_IF
+
+		IF (PAUSE) THEN
+			Q := FALSE;
+			
+			tTime := fbTON.PT - fbTON.ET;
+			fbTON(IN := FALSE, PT := tTime);
+			
+			iState := 200;
+		END_IF
+
+200:	fbTON(IN := FALSE, PT := tTime);
+		Q := FALSE;
+		
+		IF NOT(PAUSE) THEN
+			iState := 100;
+		END_IF
+END_CASE
+
+END_FUNCTION_BLOCK

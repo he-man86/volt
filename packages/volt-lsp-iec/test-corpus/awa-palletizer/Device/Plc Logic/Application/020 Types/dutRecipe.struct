@@ -1,0 +1,31 @@
+TYPE dutRecipe :
+STRUCT
+	sRecipeName	: STRING := 'Recept';		// Name of the recipe.
+	
+	// Pallet information.
+	lrPalletLength : REAL;
+	lrPalletWidth : REAL;	
+	lrPalletHeight : REAL;
+	strPalletName : STRING;
+	
+	// Box information.
+	lrBoxLength : REAL;
+	lrBoxWidth : REAL;
+	lrBoxHeight : REAL;
+	lrBoxName : STRING;
+	
+	// Stack information.
+	iStackRows : INT;
+	iStackLayers : INT;
+	iStackTotalHeight : REAL;
+	
+	// Nr of boxes on the pallet.
+	iNrOfBoxes : INT; 
+		
+	// Sheets in between.
+	// 0 = Bottom sheet.
+	// . = Between layers.
+	// 7 = Top sheet.
+	arrSheets : ARRAY[0..7] OF BOOL;
+END_STRUCT
+END_TYPE

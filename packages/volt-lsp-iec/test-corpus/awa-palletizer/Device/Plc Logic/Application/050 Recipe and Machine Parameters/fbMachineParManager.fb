@@ -1,0 +1,117 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK fbMachineParManager
+VAR_INPUT                       
+	sDatabaseName		: STRING;	//Database of recipe manager (name)
+END_VAR                                                             
+VAR_OUTPUT                                                 
+	iNumberOfRecipes	: INT;		//Counted recipes in database
+	dwReturnValue		: DWORD;	//Return value of recipe manager
+END_VAR
+VAR
+	RecipeHandler			: RecipeManCommands; //Function to access PLC recipes
+	sRecipeLocal			: STRING;          //Used to concat
+	// Names
+	psNames					: POINTER TO STRING(GLOBAL_CONSTANTS.iSizeRecipesNames);  
+	// Pointer
+	psLocal					: POINTER TO STRING;
+	iLoopNames				: INT; //Loop recipe names
+	strSearchChar			: STRING;
+	iResult					: INT;
+	sRecipeName				: STRING;    //Selected recipe (name)
+	GetDateAndTime			: rtclk.GetDateAndTime;
+	dtDateAndTIme			: DATE_AND_TIME;
+	sDateAndTIme			: STRING;
+	sDateAndTIme1			: STRING(255);
+	sDateAndTIme2			: STRING(255);
+	sRecipeNamePar			: STRING(255);
+	xSavePar				: BOOL;
+	{attribute 'symbol' := 'readwrite'}
+	HMI_stRecipeManagercmd	: dutRecipeManagerCmd;
+END_VAR
+
+GetDateAndTime(
+xExecute:= HMI_stRecipeManagercmd.xSave, 
+dtDateAndTime=> dtDateAndTIme );
+
+sDateAndTIme := TO_STRING(dtDateAndTIme);
+sDateAndTIme1:= DELETE(STR:=sDateAndTIme , LEN:=4 , POS:=0 );
+sDateAndTIme2:= REPLACE(STR1:= sDateAndTIme1, STR2:='h' , L:=1 , P:=14);
+sRecipeNamePar:= REPLACE(STR1:= sDateAndTIme2, STR2:='m' , L:=1 , P:=17);
+
+IF HMI_stRecipeManagercmd.xSave AND GetDateAndTime.xDone THEN
+	sRecipeName := sRecipeNamePar;
+	xSavePar := TRUE;
+	HMI_stRecipeManagercmd.xSave := FALSE;
+END_IF
+
+
+//Get data addresses
+psNames := ADR(HMI_stRecipeManagercmd.sRecipeNames);
+psLocal := ADR(sRecipeLocal);
+//Refresh file buffer
+RecipeHandler.ReloadRecipes(sDatabaseName);
+//Get recipe count
+iNumberOfRecipes := RecipeHandler.GetRecipeCount(sDatabaseName);                                  
+//Get saved recipe informations
+HMI_stRecipeManagercmd.sRecipeNames:='';             
+FOR iLoopNames:=0 TO iNumberOfRecipes-1 BY 1 DO
+	//Get recipe name
+	sRecipeLocal := '';
+	RecipeHandler.GetRecipeNames(sDatabaseName, ADR(sRecipeLocal) , 1, iLoopNames);
+	                             
+	//Add recipe name to end of string
+	StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= GLOBAL_CONSTANTS.iSizeRecipesNames);
+	
+	//Add seperator to end
+	sRecipeLocal := ';';
+	StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= GLOBAL_CONSTANTS.iSizeRecipesNames);
+END_FOR
+
+//************************************************************************Load recipe to HMI
+IF HMI_stRecipeManagercmd.xLoad THEN
+	//Qst_dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(IN_sDatabaseName, sRecipeName);//Load to handler recipe
+	dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName);//Load to handler recipe
+	IF dwReturnValue = 0 THEN
+		HMI_stRecipeManagercmd.sActiveRecipe := HMI_stRecipeManagercmd.sSelectedRecipeName;
+	END_IF
+	HMI_stRecipeManagercmd.xLoad := FALSE;
+END_IF
+//************************************************************************Save recipe to database
+(*IF HMI_stRecipeManagercmd.xSave THEN
+               Qst_dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(IN_sDatabaseName, HMI_stRecipeManagercmd.sActiveRecipe);                   //Save to file
+               xSavePar := FALSE; 
+END_IF*)
+//************************************************************************Delete recipe
+//More than 0 recipes left
+IF HMI_stRecipeManagercmd.xDelete THEN
+	dwReturnValue:=RecipeHandler.DeleteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName);               //Remove database link
+	IF HMI_stRecipeManagercmd.sActiveRecipe = HMI_stRecipeManagercmd.sSelectedRecipeName THEN
+		HMI_stRecipeManagercmd.sActiveRecipe:='';
+	END_IF 
+	HMI_stRecipeManagercmd.xDelete := FALSE;
+END_IF
+//************************************************************************Save recipe as
+IF xSavePar THEN
+	strSearchChar:='.';
+	iResult:=StrFindA(pst1:=ADR(sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0);
+	IF iResult <> 0 THEN
+		dwReturnValue:=16#7000;
+		RETURN;
+	END_IF
+	dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, sRecipeName); //Create new file and save        
+	
+	//New recipe OR when recipe already existed
+	IF dwReturnValue = 16#4005 OR dwReturnValue = 0 THEN
+		dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, sRecipeName);  //Create new file and save
+	END_IF 
+	IF dwReturnValue = 0 THEN
+		dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sRecipeName);//Load to handler recipe
+		dwReturnValue:=SEL(dwReturnValue <> 0, 0, 16#7001);                    
+	END_IF
+	IF dwReturnValue = 0 THEN
+		HMI_stRecipeManagercmd.sActiveRecipe := sRecipeName;
+	END_IF 
+	xSavePar := FALSE;                                     
+END_IF
+
+END_FUNCTION_BLOCK

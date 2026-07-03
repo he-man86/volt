@@ -1,0 +1,11 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE dutRecipeView_HMI :
+STRUCT
+	recipe : dutRecipe;
+	
+	iPalletPositionId : INT;
+	
+	xBtn_Ok : BOOL;
+	
+END_STRUCT
+END_TYPE

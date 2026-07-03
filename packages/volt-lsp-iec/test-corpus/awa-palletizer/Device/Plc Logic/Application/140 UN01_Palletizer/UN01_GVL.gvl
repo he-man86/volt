@@ -1,0 +1,5 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'none'}
+VAR_GLOBAL
+	//PH01_Picking : ARRAY[1..3] OF PH_Picking;
+END_VAR

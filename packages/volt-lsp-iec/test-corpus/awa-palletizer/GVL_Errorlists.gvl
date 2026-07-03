@@ -1,0 +1,9 @@
+(* This code ist generated automatically *)
+(* Don't change the content! *)
+
+VAR_GLOBAL
+	(* #c9cf8edb-a894-4c0a-9b16-b159fb5e8f64# *)
+	lib_TextList : WORD:= 15361;
+	(* #0ef5088a-a66e-4d08-a15d-2164226cc14d# *)
+	PC01_TextList : WORD:= 15362;
+END_VAR

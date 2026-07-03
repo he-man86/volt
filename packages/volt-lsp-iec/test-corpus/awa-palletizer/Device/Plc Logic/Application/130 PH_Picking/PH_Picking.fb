@@ -1,0 +1,265 @@
+FUNCTION_BLOCK PH_Picking EXTENDS libSFCHandler
+VAR_IN_OUT
+	// Picking station
+	PickingStation: dutPickingStation_HMI;
+END_VAR
+VAR_INPUT
+	// SFC Init
+	SFCInit: BOOL := FALSE;
+	// SFC Reset
+	SFCReset: BOOL := FALSE;
+	// SFC Execute
+	SFCExecute: BOOL := FALSE;
+	// SFC Pause
+	SFCPause: BOOL := FALSE;
+	// SFC Abort
+	SFCAbort: BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+	// SFC Error
+	SFCError: BOOL := FALSE;
+	// Status
+	xStsReadyForPick: BOOL := FALSE;
+	// Status
+	xStsPriority: BOOL := FALSE;
+	// Status
+	xStsFull: BOOL := FALSE;
+END_VAR
+VAR
+	// One time only execution
+	xInit: BOOL := TRUE;
+	// Current step name
+	SFCCurrentStep: STRING;
+	// Current state
+	iState: INT;
+	// Previous state
+	iPrevState: INT;
+	// State takes to long
+	fbTimeOut: TON;
+	// Time out time for one state
+	tTimeOut: TIME := T#10S;
+	// Timeout occured....
+	xTimeOut: BOOL := FALSE;
+	// Some time to wait
+	fbWait: TON;
+	// Some time to wait
+	tWait: TIME := T#5S;
+	// Timer to activate conveyor
+	fbTimer: libTimer;
+	// Restart
+	xRestart: BOOL := FALSE;
+	// State error
+	xStateError: BOOL := FALSE;
+	
+END_VAR
+
+// ### STATE LOGIC ###
+{region}		 
+	//--------------------------------------------------------------------------------------
+	// Logic to initially setup the module to pre-defined values.
+	//--------------------------------------------------------------------------------------
+			  
+	IF (SFCInit OR xInit) THEN
+		SFCCurrentStep := CONCAT( INT_TO_STRING(iState), ', Init');
+
+		SFCError 	:= FALSE;			 
+		xTimeOut 	:= FALSE;
+		xStateError := FALSE;
+		xInit    	:= FALSE;
+					 
+		fbTimeOut(IN := FALSE);
+		fbWait   (IN := FALSE);			  
+		
+		iState 	 := 900;
+	END_IF
+
+	//--------------------------------------------------------------------------------------
+	// Logic to reset the SFC.
+	//--------------------------------------------------------------------------------------
+		 
+	IF (SFCReset) THEN
+		SFCError := FALSE;
+		xTimeOut := FALSE;
+		xStateError := FALSE;
+			 
+		fbTimeOut(IN := FALSE);
+		fbWait   (IN := FALSE);
+	 
+		iState   := 900;
+	END_IF		 
+		 
+	//--------------------------------------------------------------------------------------
+	// Logic to reset the SFC.
+	//--------------------------------------------------------------------------------------
+		 
+	IF (SFCAbort) THEN
+		SFCError 	:= FALSE;
+		xTimeOut 	:= FALSE;
+			 
+		fbTimeOut(IN := FALSE);
+		fbWait   (IN := FALSE);
+			 
+		iState   := 900;
+	END_IF	
+	 
+	//--------------------------------------------------------------------------------------
+	// Logic to pause the SFC.
+	//--------------------------------------------------------------------------------------
+		 
+	IF (SFCPause) THEN
+		SFCError 	:= FALSE;
+		xTimeOut 	:= FALSE;
+		
+		
+		fbTimeOut(IN := FALSE);
+		fbWait   (IN := FALSE);
+		
+		iState   := 900;
+	END_IF
+		 	 		 			 
+	//--------------------------------------------------------------------------------------
+	// State logic..
+	//--------------------------------------------------------------------------------------
+
+	fbTimer(IN :=   (PickingStation.SEN_Box01.xDIeu OR
+					 PickingStation.SEN_Box02.xDIeu OR
+					 PickingStation.SEN_Box03.xDIeu OR
+					 PickingStation.SEN_Box04.xDIeu OR 
+					 xRestart) AND
+					(iState = 100),
+			PAUSE := FALSE,
+			PT := T#3S );
+			  
+	CASE (iState) OF
+	{region "Commands"}		 
+	0: 		//--------------------------------------------------------------------------------------
+			// Idle state, waiting for command.
+			//--------------------------------------------------------------------------------------
+
+	 		SFCCurrentStep := CONCAT( INT_TO_STRING(iState), ', Waiting for command');
+
+		  	PickingStation.MOT_Conveyor.xCmdGoForw := FALSE;
+			PickingStation.DO_Enable.xDO := FALSE;
+			  
+			// Start commands				 
+			IF (SFCExecute) THEN
+				xRestart := TRUE;
+				
+				iState := 100;
+			END_IF	
+	{endregion}
+			  
+	{region "Transport"}			
+	100:	//======================================================================================//
+			// Start transport.					                                                    //
+			//======================================================================================//
+
+	 		SFCCurrentStep := CONCAT( INT_TO_STRING(iState), ', Wait for box');
+			tTimeOut := T#1D;
+	
+			xRestart := FALSE;
+				
+			PickingStation.MOT_Conveyor.xCmdGoForw := fbTimer.Q;
+			PickingStation.DO_Enable.xDO := NOT(PickingStation.SEN_Box01.xDI AND 
+											    PickingStation.SEN_Box02.xDI)     ;
+
+			IF NOT(SFCExecute) THEN
+				iState := 900;
+			END_IF			
+	{end region}	
+		
+	{region Finish}
+	900:	//======================================================================================//
+			// Finish                                                                               //
+			//======================================================================================//
+
+	 		SFCCurrentStep := CONCAT( INT_TO_STRING(iState), ', Finish');
+			tTimeOut		:= T#1D;
+			
+		  	PickingStation.MOT_Conveyor.xCmdGoForw := FALSE;
+			PickingStation.DO_Enable.xDO := FALSE;	   
+			
+			iState   := 1000;				
+	{endregion}
+			  
+	{region "Ready"}											  
+	1000: 	//======================================================================================//
+			// Ready!!!!                                                                            //
+			//======================================================================================//
+
+	 		SFCCurrentStep := CONCAT( INT_TO_STRING(iState), ', Waiting for handshake');
+			tTimeOut		:= T#1D;
+					 
+			iState   := 0;
+	{endregion"}
+
+	ELSE
+		SFCCurrentStep 	:= 'Unknown state';
+		xStateError		:= TRUE;		 
+	END_CASE
+
+	//--------------------------------------------------------------------------------------
+	// Status....
+	//--------------------------------------------------------------------------------------				
+		
+	xStsReadyForPick := PickingStation.SEN_Box03.xDI AND PickingStation.SEN_Box04.xDI;		// Last 2 positions.
+	xStsPriority := xStsReadyForPick AND PickingStation.SEN_Box03.xDI;						// Last 2 + 1 position.
+	xStsFull := PickingStation.SEN_Box01.xDI AND PickingStation.SEN_Box02.xDI;				// All positions.
+
+	//--------------------------------------------------------------------------------------
+	// Handle waiting time for a state.....
+	//--------------------------------------------------------------------------------------		  
+
+	fbWait(IN := (iState = iPrevState) AND (iState <> 0) AND (iState < 1000), PT := tWait);				  
+{endregion}
+
+// ### ALARM ###
+{region}
+	//--------------------------------------------------------------------------------------
+	// Logic in case of an error....
+	//--------------------------------------------------------------------------------------
+
+	fbTimeOut(IN := (iState = iPrevState) AND (iState <> 0) AND (iState < 1000) AND (tTimeOut < T#1D), PT := tTimeOut);
+	xTimeOut   S= fbTimeOut.Q;
+	SFCError   := SFCError OR xTimeOut OR xStateError;
+		 		 
+	iPrevState := iState; 
+		
+	wErrorID := 16#0000;
+	wWarningID := 16#0000;
+
+	IF (xStateError) THEN wErrorID := 16#0001; END_IF
+	IF (xTimeOut)	 THEN wErrorID := 16#0002; END_IF
+		
+	//Alarm 
+	ALM_Error(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wErrorID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Fault, 
+		wTextRefId:= GVL_Errorlists.PC01_TextList, 
+		wErrorId:= wErrorID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.NormalStop);
+		
+	//Warning
+	ALM_Warning(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wWarningID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Warning, 
+		wTextRefId:= GVL_Errorlists.PC01_TextList, 
+		wErrorId:= wWarningID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.No_Reaction);
+		
+	IF NOT xInitProgramAlarms THEN 
+		myModuleHandler.SetParent(ModuleHandlerParent:= IQ_ModuleHandler);
+		xInitProgramAlarms:= TRUE;
+	END_IF
+	
+	ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);		
+{endregion}
+
+END_FUNCTION_BLOCK

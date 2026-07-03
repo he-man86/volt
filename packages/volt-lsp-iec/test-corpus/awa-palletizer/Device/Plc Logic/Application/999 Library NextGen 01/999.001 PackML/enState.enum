@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enState :
+(
+	INIT, RESETTING, IDLE, STARTING, EXECUTING, STOPPING, STOPPED, ABORTING, ABORTED
+);
+END_TYPE

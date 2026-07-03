@@ -1,0 +1,126 @@
+FUNCTION_BLOCK PC01_Main
+VAR
+	// Control module error
+	xCMError: BOOL := FALSE;
+
+	//State
+	myState : strState;
+	// First time init
+	xInit: BOOL := TRUE;
+	// my handler
+	myModuleHandler : L_IMHP_ModuleHandler := (CompType := L_IMHP_ComponentType.GeneralMachineModule);	
+	ForwardAlarms				: L_IE1P_ForwardSeverity;
+	ReadModuleStatus			: L_IE1P_ReadActualSeverity;
+	
+	ResetProgramAlarms			: L_IE1P_ResetErrorGlobal;
+END_VAR
+
+//UNITS - Start/Stop
+{region}
+	//State control
+			 
+		IF (xInit) THEN
+			xInit := FALSE;
+		END_IF
+			 
+		_Safety();
+		
+			 
+		PC01_GVL.UN01(IQ_ModuleHandler := myModuleHandler);
+  		
+	//CONTROL MODULES
+	{region}	 
+		PC01_GVL.BTN01_Start(			strName := 'BTN01_Start',
+										_HMI := PC01_HMI.BTN01_Start,
+										xInput := PC01_IO.IxBTN01_Start OR PC01_HMI.xBTN01_HmiStart,
+										tOffDelay := T#100MS,
+										tOnDelay  := T#0MS  );
+
+		PC01_GVL.BTN02_Stop(			strName := 'BTN02_Stop',
+										_HMI := PC01_HMI.BTN02_Stop,			
+										xInput := NOT PC01_IO.IxBTN02_Stop OR PC01_HMI.xBTN02_HmiStop,
+										tOffDelay := T#100MS,
+										tOnDelay  := T#0MS  );
+												  
+		PC01_GVL.BTN03_Reset(			strName := 'BTN03_Reset',
+										_HMI := PC01_HMI.BTN03_Reset,			
+										xInput := PC01_IO.IxBTN03_Reset OR PC01_HMI.xBTN03_HmiReset,
+										tOffDelay := T#100MS,
+										tOnDelay  := T#0MS  );
+				  
+		PC01_GVL.BTN04_EmergencyStop(	strName := 'BTN04_EmergencyStop',
+										_HMI := PC01_HMI.BTN04_EmergencyStop,			
+										xInput := PC01_IO.IxBTN04_EmergencyStop OR PC01_HMI.xBTN04_HmiEmergencyStop,
+					  					xCmdReset := PC01_GVL.BTN03_Reset.xDI,
+										tOffDelay := T#100MS,
+										tOnDelay  := T#0MS  ); 
+
+												  
+		PC01_GVL.SIG01_Red(  
+							  strName := 'SIG01_Red',
+							  _HMI := PC01_HMI.SIG01_Red,							  
+							  xDO       := PC01_GVL.UN01.myState.xStsAborting OR PC01_GVL.UN01.myState.xStsAborted,
+							  xDO_Blink := FALSE,
+							  xOutput   => PC01_IO.QxSIG01_Red );
+										
+		PC01_GVL.SIG02_Orange(
+							  strName := 'SIG02_Orange',
+							  _HMI := PC01_HMI.SIG02_Orange,								  
+							  xDO       := PC01_GVL.UN01.myState.xStsResetting OR PC01_GVL.UN01.myState.xStsIdle OR 
+										   PC01_GVL.UN01.myState.xStsStopping OR PC01_GVL.UN01.myState.xStsStopped,
+							  xDO_Blink := PC01_GVL.UN01.myState.xStsInit OR PC01_GVL.UN01.myState.xStsResetting,					 
+							  xOutput   => PC01_IO.QxSIG02_Orange);
+										
+		PC01_GVL.SIG03_Green( 
+							  strName := 'SIG03_Green',
+							  _HMI := PC01_HMI.SIG03_Green,								  
+							  xDO        := PC01_GVL.UN01.myState.xStsStarting OR PC01_GVL.UN01.myState.xStsExecute,
+							  xDO_Blink  := FALSE,
+							  xOutput   => PC01_IO.QxSIG03_Green);
+				  
+		PC01_GVL.SIG04_Reset( 
+							  strName := 'SIG04_Reset',
+							  _HMI := PC01_HMI.SIG04_Reset,								  
+							  xDO	    := TRUE,
+					  		  //xDO_Blink := NOT SafetyToPlc.xEmergencyStopOk,
+					 		  xOutput   => PC01_IO.QxSIG04_Reset);				  
+
+		myState.xCmdAbort := PC01_GVL.BTN04_EmergencyStop.xDI OR
+							 PC01_GVL.UN01.mystate.xStsAborting OR PC01_GVL.UN01.myState.xStsAborted;							
+	{endregion}			  
+{endregion}
+
+
+
+{region Alarms}	
+	//------------------------------------------------------------------------------------------------------
+	// Alarm and warning handling.
+	//------------------------------------------------------------------------------------------------------
+	
+	
+	 ReadModuleStatus(xEnable := TRUE,
+					ModuleHandler:= myModuleHandler);
+					
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault_Cinh
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault_Log
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault_Qsp
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault_Qsp_Cinh
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Fault_QspAppl
+	//					OR ReadModuleStatus.eReaction >= L_IE1P_Types.L_IE1P_Reaction.NormalStop;
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Warning
+	//					OR ReadModuleStatus.eSeverity = L_IE1P_Types.L_IE1P_SeverityLevel.Warning_Lock;
+					
+	 ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);
+{endregion}
+
+END_FUNCTION_BLOCK
+
+ACTION _Safety
+//
+// Safety communication.
+//
+END_ACTION

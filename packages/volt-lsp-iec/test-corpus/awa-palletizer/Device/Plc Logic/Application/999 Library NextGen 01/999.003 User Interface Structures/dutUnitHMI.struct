@@ -1,0 +1,14 @@
+TYPE dutUnitHMI :
+STRUCT
+	// Name of the object
+	strName: STRING[30] := 'UNIT';
+		
+	// Visual output
+	byModeVisual: BYTE;
+	// Visual output
+	byStsVisual: BYTE;
+	// Visual output
+	xStsModeManual: BOOL := FALSE;
+	
+END_STRUCT
+END_TYPE

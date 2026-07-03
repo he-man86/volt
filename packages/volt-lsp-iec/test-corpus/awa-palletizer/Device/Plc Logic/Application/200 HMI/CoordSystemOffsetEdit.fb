@@ -1,0 +1,44 @@
+FUNCTION_BLOCK CoordSystemOffsetEdit
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	// Compare with
+	iCoordSystemId: INT;
+END_VAR
+
+// Detect when to load the offsets.
+
+IF (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId > 0) AND (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId < 4) AND (iCoordSystemId <> UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId) THEN
+	UN01_HMI.CoordSystemOffset_HMI.lrROffset := UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrROffset;
+	UN01_HMI.CoordSystemOffset_HMI.lrXOffset := UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrXOffset;
+	UN01_HMI.CoordSystemOffset_HMI.lrYOffset := UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrYOffset;
+	UN01_HMI.CoordSystemOffset_HMI.lrZOffset := UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrZOffset;	
+	
+	iCoordSystemId := UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId;
+END_IF
+
+// Detect when to save.
+IF (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId > 0) AND (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId < 4) AND (UN01_HMI.CoordSystemOffset_HMI.xBtnSave) THEN
+	UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrROffset := UN01_HMI.CoordSystemOffset_HMI.lrROffset;
+	UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrXOffset := UN01_HMI.CoordSystemOffset_HMI.lrXOffset; 
+	UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrYOffset := UN01_HMI.CoordSystemOffset_HMI.lrYOffset; 
+	UN01_HMI.EM02_CoordSystem_HMI[UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId].lrZOffset := UN01_HMI.CoordSystemOffset_HMI.lrZOffset; 
+END_IF
+
+// Clear when not displayed.
+IF (UN01_HMI.CoordSystemOffset_HMI.xBtnCancel) OR (UN01_HMI.CoordSystemOffset_HMI.xBtnSave) THEN
+	UN01_HMI.CoordSystemOffset_HMI.lrROffset := 0.0; 
+    UN01_HMI.CoordSystemOffset_HMI.lrXOffset := 0.0; 
+    UN01_HMI.CoordSystemOffset_HMI.lrYOffset := 0.0; 
+    UN01_HMI.CoordSystemOffset_HMI.lrZOffset := 0.0; 
+	
+	UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId := 0;
+	iCoordSystemId := 0;
+END_IF
+
+UN01_HMI.CoordSystemOffset_HMI.xBtnSave := FALSE;
+UN01_HMI.CoordSystemOffset_HMI.xBtnCancel := FALSE;
+
+END_FUNCTION_BLOCK

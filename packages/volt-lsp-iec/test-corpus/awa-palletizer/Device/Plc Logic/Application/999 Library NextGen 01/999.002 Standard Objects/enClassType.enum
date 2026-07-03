@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE enClassType :
+(
+	ctAI, ctCylinder, ctDI, ctDO, ctMotor, ctObject, ctSafetyDI, ctSetpoint, ctSIG, ctValve, ctWatchDog, ctMinPlus, ctInverter
+);
+END_TYPE

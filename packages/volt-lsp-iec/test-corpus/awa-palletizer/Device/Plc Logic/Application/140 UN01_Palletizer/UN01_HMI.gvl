@@ -1,0 +1,24 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	{attribute 'symbol' := 'readwrite'}	
+	EM01_PickingStation_HMI: ARRAY[1..3] OF dutPickingStation_HMI;
+	{attribute 'symbol' := 'readwrite'}		
+	EM02_PalletPosition_HMI: ARRAY[1..4] OF dutPalletPosition_HMI;
+	{attribute 'symbol' := 'readwrite'}	
+	EM02_PalletPositionActuals_HMI: ARRAY[1..3] OF dutPalletPositionActuals_HMI;
+	{attribute 'symbol' := 'readwrite'}
+	EM02_CoordSystem_HMI: ARRAY[1..12] OF dutCoordSystem_HMI;
+	{attribute 'symbol' := 'readwrite'}
+	EM02_PalletizerControl_HMI: dutPalletizerControl_HMI;
+	{attribute 'symbol' := 'readwrite'}
+	RecipeView_HMI: dutRecipeView_HMI;
+	{attribute 'symbol' := 'readwrite'}
+	RecipeSelect_HMI: dutRecipeSelect_HMI;
+	{attribute 'symbol' := 'readwrite'}
+	CoordSystemOffset_HMI: dutCoordSystemOffset_HMI;	
+	{attribute 'symbol' := 'readwrite'}
+	UN01_HMI: dutHMI;
+	{attribute 'symbol' := 'readwrite'}
+	iTest:INT;
+END_VAR

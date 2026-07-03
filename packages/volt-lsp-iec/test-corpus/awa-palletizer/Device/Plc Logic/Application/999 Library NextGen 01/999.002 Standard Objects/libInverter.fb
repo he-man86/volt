@@ -1,0 +1,315 @@
+FUNCTION_BLOCK libInverter EXTENDS libModuleHandler
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutHMI;
+END_VAR
+VAR_INPUT
+	// Automatic forward
+	xCmdGoForw : BOOL := FALSE;
+	// Automatic backward
+	xCmdGoBackw : BOOL := FALSE;
+	// Setpoint
+	rSetpoint: REAL := 0;
+	// Switch delay from direction
+	tSwitchDelay : TIME := T#100MS;
+	// Interlock forward
+	xInterlForw : BOOL := FALSE;
+	// Interlock backward
+	xInterlBackw : BOOL := FALSE;
+	//Alarm
+	xThermFault : BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+	// Output forward
+	xOutForw : BOOL := FALSE;
+	// Output backward
+	xOutBackw : BOOL := FALSE;
+END_VAR
+VAR_INPUT
+	// Start next timer
+	tStartNext : TIME := T#1S;
+	// Stop next timer
+	tStopNext: TIME := T#1S;
+END_VAR
+VAR_OUTPUT
+	// Start next allowed.
+	xStartNext : BOOL;
+	// Stop next allowed.
+	xStopNext: BOOL;
+	// At stand still velocity
+	xStandstillVelocity: BOOL;
+END_VAR
+VAR
+	// Timer switch direction
+	fbSwitchOk : TON;
+	// Switch direction allowed
+	xSwitchOk : BOOL := FALSE;
+	// Falling trigger forward output
+	fbFTrigForw : F_TRIG;
+	// Falling trigger backward output
+	fbFTrigBackw : F_TRIG;
+	// Timer start next allowed.
+	fbStartNext : TON;
+	// Timer stop next allowed.
+	fbStopNext: TOF;
+	
+	//Alarm
+	xErrThermFault : BOOL := FALSE;
+	// Condition forward
+	xForwAllowed: BOOL := FALSE;
+	// Condition backward
+	xBackwAllowed: BOOL := FALSE;
+	// Interlock causes no output
+	xInterlocked: BOOL := FALSE;
+	// Visual output
+	byModeVisual: BYTE := 0;
+	
+	eTB2PAxisErrorId: L_TB2P.L_IE1P_Error;
+
+	// Short access to errors
+	eAxisErrorId: WORD;
+END_VAR
+VAR_INPUT
+		// Motion state Inverter
+	TB2P_Inverter: L_TB2P_BasicMotionBase;
+END_VAR
+
+VAR_IN_OUT
+	// Inverter Axis
+	AxisRef: AXIS_REF;
+END_VAR
+VAR
+	iState: INT;
+END_VAR
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit            	:= FALSE;
+
+		_HMI.strName 		:= strName;			
+		_HMI.wCmd 			:= 0;	
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.wCmd.1			:= FALSE; 	// Forward.
+		_HMI.wCmd.2			:= FALSE;	// Reverse.
+		_HMI.wStatus		:= 0;
+		
+		xExecute		 	:= TRUE;
+		xCmdReset			:= FALSE;	 
+		xCmdGoBackw	  	 	:= FALSE;
+		xCmdGoForw		 	:= FALSE;
+			 
+		xInterlForw			:= FALSE;
+		xInterlBackw		:= FALSE;
+
+		xErrThermFault   	:= FALSE;
+		 
+		myClassType      	:= enClassType.ctMotor;		 
+	END_IF
+
+	//
+	// Reset manual control after estop.
+	//
+	IF (xCmdEStopActive) THEN
+		_HMI.wCmd.1			:= FALSE; 	// Forward.
+		_HMI.wCmd.2			:= FALSE;	// Reverse.
+	END_IF	
+		 
+	//
+	// Determine if output is allowed, without interlock.
+	//
+	xForwAllowed  := ( (    _HMI.wCmd.0 AND xExecute AND xCmdGoForw  AND NOT xCmdGoBackw) OR 
+					   (NOT _HMI.wCmd.0 AND _HMI.wCmd.1 AND NOT _HMI.wCmd.2)) 
+					 AND NOT xErrThermFault AND NOT xCmdEStopActive AND xSwitchOk;
+						  
+	xBackwAllowed := ( (    _HMI.wCmd.0 AND xExecute AND xCmdGoBackw AND NOT xCmdGoForw ) OR 
+					   (NOT _HMI.wCmd.0 AND _HMI.wCmd.2 AND NOT _HMI.wCmd.1 )) 
+					 AND NOT xErrThermFault AND NOT xCmdEStopActive AND xSwitchOk;	
+
+	//
+	// Determine if the output is interlocked for display status.
+	//
+	xInterlocked  := (xForwAllowed  AND xInterlForw) OR (xBackwAllowed AND xInterlBackw);
+		 
+	//
+	// Interlock the output if necessary....
+	//
+	xForwAllowed  := xForwAllowed  AND NOT xInterlForw  AND NOT xCmdEStopActive;
+	xBackwAllowed := xBackwAllowed AND NOT xInterlBackw AND NOT xCmdEStopActive;
+		 	 			 				  
+	//
+	//Switch direction ok
+	//
+		 
+	fbSwitchOk(IN := NOT xOutForw AND NOT xOutBackw, PT := tSwitchDelay);
+		 
+	IF (fbSwitchOk.Q) THEN
+		xSwitchOk := TRUE;		 
+	END_IF
+			 
+	fbFTrigForw(CLK  := xOutForw );
+	fbFTrigBackw(CLK := xOutBackw);
+		 
+	IF (fbFTrigForw.Q OR fbFTrigBackw.Q) THEN
+		xSwitchOk := FALSE;	
+	END_IF
+	
+	//Output
+	xOutForw  := xForwAllowed;
+	xOutBackw := xBackwAllowed;
+		 
+	// Start next
+	fbStartNext(IN := (TB2P_Inverter.lrActVel > 1.0), PT := tStartNext);
+	xStartNext := fbStartNext.Q;
+	
+	// Stop next
+	fbStopNext(IN := xOutForw, PT := tStopNext);
+	xStopNext := fbStopNext.Q;
+		 
+	IF (eTB2PAxisErrorId <> L_TB2P.L_IE1P_Error.NoError) THEN
+		TB2P_Inverter.xResetError := NOT TB2P_Inverter.xResetError AND xCmdReset;
+		iState := 0;
+	END_IF
+		  
+	CASE iState OF
+	0: 	TB2P_Inverter.xEnable := (eTB2PAxisErrorId = L_TB2P.L_IE1P_Error.NoError);
+		TB2P_Inverter.xEnableOperation := FALSE;
+			 
+		TB2P_Inverter.xQSPApplication := TRUE;
+		TB2P_Inverter.scCtrlBasicMotion.xMoveVelExecute := FALSE;
+		TB2P_Inverter.xAbort := FALSE;
+			 
+		IF (TB2P_Inverter.xReadyForOperation AND TB2P_Inverter.xEnable)  THEN
+			TB2P_Inverter.xResetError := FALSE;
+			iState := 2;			
+		END_IF
+		
+	2:  TB2P_Inverter.xEnableOperation := FALSE;
+		TB2P_Inverter.xQSPApplication := TRUE;
+		TB2P_Inverter.scCtrlBasicMotion.xMoveVelExecute := FALSE;
+		 
+		IF xOutForw THEN // Check enable operation.
+			TB2P_Inverter.xEnableOperation := TRUE;
+			 
+			IF (TB2P_Inverter.xReadyForMotion) THEN	
+				TB2P_Inverter.xResetError := FALSE;					 
+				iState := 10;	
+			END_IF
+		END_IF
+			 
+	10:	TB2P_Inverter.xQSPApplication := FALSE;
+		TB2P_Inverter.scPar.eDirection := MC_DIRECTION.mcPositiveDirection; 
+		TB2P_Inverter.scPar.lrVel      := rSetpoint;
+		TB2P_Inverter.scCtrlBasicMotion.xMoveVelExecute := TRUE;
+		TB2P_Inverter.scPar.lrAcc		:= 500;
+		TB2P_Inverter.scPar.lrDec		:= 500;
+		TB2P_Inverter.scPar.lrJerk      := 0;
+			 
+		IF NOT xOutForw THEN
+			iState := 20;
+		END_IF
+			 
+	20: TB2P_Inverter.scCtrlBasicMotion.xMoveVelExecute := FALSE;
+		TB2P_Inverter.xAbort := TRUE;
+		TB2P_Inverter.scPar.lrVel  := 0.0;
+		
+		IF NOT TB2P_Inverter.scStatusBasicMotion.xFunDone THEN				 
+			iState := 30;
+		END_IF
+	
+	30: IF TB2P_Inverter.scStatusBasicMotion.xFunDone THEN
+			TB2P_Inverter.xAbort := FALSE;				 
+			iState := 0;
+		END_IF
+  
+	END_CASE
+			  
+	TB2P_Inverter(  xEnable := TRUE,
+	     		    Axis := AxisRef);
+
+	eAxisErrorId    := AxisRef.eActiveErrorID;		  
+	eTB2PAxisErrorId:= TB2P_Inverter.eErrorID;
+	
+	IF (AxisRef.xSTOActive) THEN
+		eAxisErrorId    := 0;		  
+		eTB2PAxisErrorId:= 0;
+		iState := 0;
+	END_IF							
+
+	xStandstillVelocity := TB2P_Inverter.scStatusBasicMotion.xStandstillActVelocity;
+	
+// ### ALARM ###
+{region}
+	IF (xCmdReset) THEN
+		xErrThermFault := FALSE;	 
+	END_IF
+		 
+	xErrThermFault := (xThermFault OR xErrThermFault OR (eTB2PAxisErrorId <> L_TB2P.L_IE1P_Error.NoError));			  
+{endregion}	 
+
+// ### ERROR  ###
+{region}			 
+	xCMError := xCMError OR xErrThermFault;
+{endregion}
+	 
+// ### VISUAL ###
+{region}
+	//Alarm
+	_HMI.wStatus.0 := _HMI.wCmd.0;				// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);			// Manual			
+	_HMI.wStatus.2 := xErrThermFault;			// Fault
+	_HMI.wStatus.3 := xInterlForw;				// Interlock forward
+	_HMI.wStatus.4 := xInterlBackw;				// Interlock backward
+	_HMI.wStatus.5 := xInterlocked;				// Interlocked
+	_HMI.wStatus.6 := xOutForw;					// Output forward
+	_HMI.wStatus.7 := xOutBackw;				// Output backward
+	_HMI.wStatus.8 := xOutForw OR xOutBackw;	// Output
+{endregion}	 
+	 
+
+{region}			 
+	//------------------------------------------------------------------------------------------------------
+	// Alarm and warning handling.
+	//------------------------------------------------------------------------------------------------------
+	
+	wErrorID := 16#0000;
+	wWarningID := 16#0000;
+
+	IF (xThermFault) THEN wErrorID := 16#0001; END_IF		 
+	IF (xInterlForw) THEN wWarningID := 16#0002; END_IF
+	IF (xInterlBackw) THEN wWarningID := 16#0003; END_IF		 
+
+	//Alarm 
+	ALM_Error(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wErrorID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Fault, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wErrorID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.NormalStop);
+		
+	//Warning
+	ALM_Warning(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wWarningID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Warning, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wWarningID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.No_Reaction);
+		
+	IF NOT xInitProgramAlarms THEN 
+		myModuleHandler.SetParent(ModuleHandlerParent:= IQ_ModuleHandler);
+		AxisRef.ModuleHandler.SetParent(ModuleHandlerParent := IQ_ModuleHandler);
+				  
+		xInitProgramAlarms:= TRUE;
+	END_IF
+	
+	ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);
+{endregion}
+
+END_FUNCTION_BLOCK

@@ -1,0 +1,8 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+END_VAR
+
+VAR_GLOBAL RETAIN PERSISTENT
+	// Generated instance path of persistent variable
+	pgRecipeHandler.RecipeManager.HMI_stRecipeVisu: dutRecipe;
+END_VAR

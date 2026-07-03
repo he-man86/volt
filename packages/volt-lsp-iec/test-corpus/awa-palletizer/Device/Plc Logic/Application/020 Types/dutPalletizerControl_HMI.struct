@@ -1,0 +1,23 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE dutPalletizerControl_HMI :
+STRUCT
+	strName : STRING[30];		// Name of the device.
+	
+	iCoordSystemId : INT;		// Selected coordination system		
+		
+	lrVelocitySetpoint : LREAL;		
+
+	lrX : LREAL;				// Position in selected coordination system
+	iXStatus : INT;
+	lrY : LREAL;
+	iYStatus : INT;
+	lrZ : LREAL;
+	iZStatus : INT;
+	lrR : LREAL;
+	iRStatus : INT;
+	
+	wCmd 	: WORD;				// Command
+	wStatus : WORD;				// Status
+	
+END_STRUCT
+END_TYPE

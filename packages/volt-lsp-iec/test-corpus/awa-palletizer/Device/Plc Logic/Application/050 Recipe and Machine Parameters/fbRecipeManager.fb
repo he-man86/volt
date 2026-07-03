@@ -1,0 +1,154 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK fbRecipeManager
+VAR_INPUT                       
+	sDatabaseName			: STRING;    //Database of recipe manager (name)
+END_VAR
+VAR_OUTPUT
+	iNumberOfRecipes  		: INT;   	//Counted recipes in database
+	dwReturnValue     		: DWORD;   	//Return value of recipe manager
+	ActiveRecipe        		: dutRecipe; 
+	{attribute 'symbol' := 'readwrite'}
+	xLoadedNewRecipe       	: BOOL; 
+	{attribute 'symbol' := 'readwrite'}
+	xRcpVisuPlcAreEqual		: BOOL;
+END_VAR                                                          
+VAR
+	NewRecipe 			: dutRecipe;  //Initial recipe values
+	RecipeHandler             	: RecipeManCommands; 	//Function to access PLC recipes
+	sRecipeLocal                : STRING;           	//Used to concat
+	psNames            			: POINTER TO STRING(gc_iSizeRecipesNames);          
+	psLocal       				: POINTER TO STRING;
+	iLoopNames         			: INT;    //Loop recipe names
+	strSearchChar          		: STRING;
+	iResult                 	: INT;
+	sRecipNameTemp           	: STRING;
+	 
+	F_TRIG_Save	: F_TRIG;
+	F_TRIG_Load	: F_TRIG;
+	xSaveStarted:BOOL;
+END_VAR
+VAR RETAIN PERSISTENT
+	 
+	//HMI
+	{attribute 'symbol' := 'readwrite'}
+	HMI_stRecipeVisu         	: dutRecipe;
+END_VAR
+VAR
+	{attribute 'symbol' := 'readwrite'}
+	HMI_stRecipeManagercmd  	: dutRecipeManagerCmd;
+END_VAR
+VAR CONSTANT                             
+	gc_iSizeRecipesNames    	: INT := 16384;
+END_VAR
+
+xLoadedNewRecipe := FALSE;
+
+//Get data addresses
+psNames := ADR(HMI_stRecipeManagercmd.sRecipeNames);
+psLocal := ADR(sRecipeLocal);
+
+//Refresh file buffer
+RecipeHandler.ReloadRecipes(sDatabaseName);
+
+//Get recipe count
+iNumberOfRecipes := RecipeHandler.GetRecipeCount(sDatabaseName);
+                                  
+//Get saved recipe informations
+HMI_stRecipeManagercmd.sRecipeNames:='';       
+FOR iLoopNames:=0 TO iNumberOfRecipes-1 BY 1 DO
+    //Get recipe name
+    sRecipeLocal := '';
+    RecipeHandler.GetRecipeNames(sDatabaseName, ADR(sRecipeLocal) , 1, iLoopNames);
+                                                           
+    //Add recipe name to end of string
+    StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+                          
+    //Add seperator to end
+    sRecipeLocal := ';';
+    StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+END_FOR
+
+IF HMI_stRecipeManagercmd.xLoad THEN
+	dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName);//Load to handler recipe
+	IF dwReturnValue = 0 THEN
+		ActiveRecipe:=HMI_stRecipeVisu;
+		HMI_stRecipeManagercmd.sActiveRecipe := HMI_stRecipeManagercmd.sSelectedRecipeName;
+	END_IF
+	xLoadedNewRecipe := TRUE;
+	HMI_stRecipeManagercmd.xLoad:=FALSE;                              
+END_IF
+
+ 
+IF HMI_stRecipeManagercmd.xNew THEN
+	sRecipNameTemp := HMI_stRecipeVisu.sRecipeName;
+	HMI_stRecipeVisu:= NewRecipe; // to set the initial recipe values
+	HMI_stRecipeVisu.sRecipeName:= sRecipNameTemp;
+	strSearchChar:='.';
+	dwReturnValue:=INT_TO_DWORD(StrFindA(pst1:=ADR(HMI_stRecipeVisu.sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0));
+	IF dwReturnValue = 0 THEN
+		dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, HMI_stRecipeVisu.sRecipeName);
+		HMI_stRecipeManagercmd.sSelectedRecipeName := HMI_stRecipeVisu.sRecipeName;
+	ELSE      
+		dwReturnValue:=16#7000;
+	END_IF
+	HMI_stRecipeManagercmd.xNew := FALSE;              
+END_IF
+
+IF HMI_stRecipeManagercmd.xEdit THEN
+	dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName);//Load to handler recipe
+	HMI_stRecipeManagercmd.xEdit:=FALSE;                 
+END_IF
+  
+IF HMI_stRecipeManagercmd.xSave THEN
+	dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, HMI_stRecipeVisu.sRecipeName); //Create new file and save
+	HMI_stRecipeManagercmd.xSave := FALSE;             
+END_IF
+  
+IF HMI_stRecipeManagercmd.xCopy THEN
+	 sRecipNameTemp:=HMI_stRecipeVisu.sRecipeName;
+	dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName);
+	HMI_stRecipeVisu.sRecipeName:=sRecipNameTemp;
+	strSearchChar:='.';
+	dwReturnValue:=INT_TO_DWORD(StrFindA(pst1:=ADR(HMI_stRecipeVisu.sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0));
+	IF dwReturnValue = 0 THEN
+		dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, HMI_stRecipeVisu.sRecipeName); 
+		HMI_stRecipeManagercmd.sSelectedRecipeName := HMI_stRecipeVisu.sRecipeName;
+    ELSE      
+          dwReturnValue:=16#7000;
+    END_IF
+    HMI_stRecipeManagercmd.xCopy := FALSE;             
+END_IF 
+ 
+IF HMI_stRecipeManagercmd.xDelete THEN
+	dwReturnValue:=RecipeHandler.DeleteRecipe(sDatabaseName, HMI_stRecipeManagercmd.sSelectedRecipeName); //Remove database link
+	HMI_stRecipeManagercmd.xDelete := FALSE;                         
+END_IF
+
+IF HMI_stRecipeManagercmd.xUpdate THEN
+	HMI_stRecipeVisu:=ActiveRecipe;
+	dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, HMI_stRecipeVisu.sRecipeName); //Create new file and save
+	HMI_stRecipeManagercmd.xUpdate := FALSE;        
+END_IF
+
+IF HMI_stRecipeManagercmd.xSaveAndLoad THEN
+	IF F_TRIG_Save.Q THEN
+		HMI_stRecipeManagercmd.xLoad := TRUE;
+	END_IF
+	IF F_TRIG_Load.Q THEN
+		HMI_stRecipeManagercmd.xSaveAndLoad := FALSE;
+	END_IF
+	
+	IF NOT(HMI_stRecipeManagercmd.xsave) AND NOT(xSaveStarted) THEN
+		HMI_stRecipeManagercmd.xsave := TRUE;
+		xSaveStarted:= TRUE;
+	END_IF
+ELSE
+	xSaveStarted := FALSE;
+END_IF
+
+F_TRIG_Save(CLK := HMI_stRecipeManagercmd.xsave);
+F_TRIG_Load(CLK := HMI_stRecipeManagercmd.xLoad);
+               
+HMI_stRecipeManagercmd.xRcpVisuPlcAreEqual := fcCompareStructs(PT1:=ADR(ActiveRecipe) ,PT2:=ADR(HMI_stRecipeVisu), SIZE1:=TO_INT(SIZEOF(ActiveRecipe)), SIZE2:=TO_INT(SIZEOF(HMI_stRecipeVisu)));
+
+END_FUNCTION_BLOCK

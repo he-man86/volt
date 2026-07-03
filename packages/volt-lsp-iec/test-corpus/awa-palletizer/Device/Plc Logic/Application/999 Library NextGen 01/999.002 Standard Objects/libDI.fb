@@ -1,0 +1,85 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libDI EXTENDS libObject
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutHMI;
+END_VAR
+
+VAR_INPUT
+	// Sensor value
+	xInput : BOOL := FALSE;
+	// On delay
+	tOnDelay : TIME := T#0MS;
+	// Off delay
+	tOffDelay : TIME := T#0MS;
+
+END_VAR
+VAR_OUTPUT
+	// Sensor output value
+	xDI : BOOL := FALSE;
+	// Sensor rising trigger
+	xDIeu : BOOL := FALSE;
+	// Sensor falling trigger
+	xDIed : BOOL := FALSE;
+END_VAR
+VAR
+	// On delay
+	TON_Delay : TON;
+	// Off delay
+	TOF_Delay : TOF;
+	// Rising trigger
+	RTRIG_euX : R_TRIG;
+	// Falling trigger
+	FTRIG_edX : F_TRIG;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function controls a digital input.
+//------------------------------------------------------------------------------------------
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit             	:= FALSE;
+		
+		_HMI.strName 		:= strName;		
+		_HMI.wCmd 			:= 0;
+		_HMI.wStatus 		:= 0;
+	 
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.wCmd.1			:= FALSE; 	// Value.
+	 
+		myClassType 		:= enClassType.ctDI;				 
+	END_IF
+		 
+	IF (_HMI.wCmd.0) THEN 
+		IF (xInput) THEN
+			TON_Delay(IN := TRUE, PT := tOnDelay);	 
+			xDI := TON_Delay.Q;
+			TOF_Delay(IN := xDI);				 
+		ELSE
+			TOF_Delay(IN := FALSE, PT := tOffDelay);	 
+			xDI := TOF_Delay.Q;
+			TON_Delay(IN := xDI);		 
+		END_IF
+	ELSE
+		xDI := _HMI.wCmd.1;		
+	END_IF
+		 
+	RTRIG_euX(CLK := xDI, Q => xDIeu);
+	FTRIG_edX(CLK := xDI, Q => xDIed);
+{endregion}
+
+// ### ALARM ###
+{region}
+
+{endregion}
+		  
+// ### VISUAL ###
+{region}
+	_HMI.wStatus.0 := _HMI.wCmd.0;			// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);		// Manual	
+	_HMI.wStatus.2 := xDI;		  
+{endregion}
+
+END_FUNCTION_BLOCK

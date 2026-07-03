@@ -1,0 +1,237 @@
+FUNCTION_BLOCK UN01_Main EXTENDS StateMachine;
+VAR
+	myState 		: strState;			// Unit state
+	iIndex			: INT;
+END_VAR
+
+{region}
+	 
+	{region}
+				  
+	//----------------------------------------------------------------------------------	 
+	// STATE CONTROL
+	//----------------------------------------------------------------------------------
+	
+			  
+		myState.xCmdInit  S= (FALSE					   );
+		myState.xCmdReset S= (PC01_GVL.BTN03_Reset.xDI );
+		myState.xCmdStart S= (PC01_GVL.BTN01_Start.xDI );
+		myState.xCmdStop  S= (PC01_GVL.BTN02_Stop.xDI  );
+		myState.xCmdAbort S= (FALSE					   );
+		
+		SUPER^.Handle(_HMI := UN01_HMI.UN01_HMI, myState := myState);  
+	{endregion}	 
+		  
+	//CONTROL MODULES
+	{region}
+								   
+		xCMError	:= FALSE;
+
+		//---------------------------------------------------------------------------------------------
+		// Control Modules.
+		//---------------------------------------------------------------------------------------------		
+
+
+
+
+		
+		
+		
+		//---------------------------------------------------------------------------------------------
+		// Phase Modules.
+		//---------------------------------------------------------------------------------------------		
+{*		
+		FOR iIndex := 1 TO 3 DO
+			UN01_GVL.PH01_Picking[iIndex](
+				PickingStation:= UN01_GVL.EM01_PickingStation[iIndex], 
+				SFCInit:= myState.xStsInit, 
+				SFCReset:= myState.xStsResetting, 
+				SFCExecute:= myState.xStsExecute, 
+				SFCPause:= NOT(myState.xStsExecute), 
+				SFCAbort:= myState.xStsAborting OR myState.xStsAborted, 
+				SFCError=> , 
+				xStsReadyForPick=> , 
+				xStsFull=>,
+				IQ_ModuleHandler := myModuleHandler );				
+		END_FOR
+*}				
+		//---------------------------------------------------------------------------------------------
+		// Always!
+		//---------------------------------------------------------------------------------------------				  
+
+											 
+	{endregion}
+			  
+	//ALARM
+	{region}	 			  
+		myState.xCmdAbort := xCMError;
+									
+		// For debugging purposes.
+		IF (myState.xCmdAbort) THEN
+			myState.xCmdAbort := true;
+		END_IF
+	{endregion}
+{endregion} 	
+
+
+{region}			 
+	//------------------------------------------------------------------------------------------------------
+	// Alarm and warning handling.
+	//------------------------------------------------------------------------------------------------------
+	
+	wErrorID := 16#0000;
+	wWarningID := 16#0000;
+
+	//Alarm 
+	ALM_Error(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wErrorID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Fault, 
+		wTextRefId:= GVL_Errorlists.PC01_TextList, 
+		wErrorId:= wErrorID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.NormalStop);
+		
+	//Warning
+	ALM_Warning(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wWarningID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Warning, 
+		wTextRefId:= GVL_Errorlists.PC01_TextList, 
+		wErrorId:= wWarningID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.No_Reaction);
+		
+	IF NOT xInitProgramAlarms THEN 
+		myModuleHandler.SetParent(ModuleHandlerParent:= myModuleHandler);
+		xInitProgramAlarms:= TRUE;
+	END_IF
+	
+	ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);
+{endregion}
+
+END_FUNCTION_BLOCK
+
+ACTION Aborted
+//----------------------------------------------------------------------------------	 
+// Aborted
+//----------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Aborting
+//----------------------------------------------------------------------------------	 
+// Aborting
+//----------------------------------------------------------------------------------
+
+
+myState.xCmdAbortDone := TRUE;
+END_ACTION
+
+ACTION Executing
+//-------------------------------------------------------------------------------------
+// Executing
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Idle
+//-------------------------------------------------------------------------------------
+// Idle
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Initialize
+//-------------------------------------------------------------------------------------
+// Initialize
+//-------------------------------------------------------------------------------------
+
+UN01_HMI.EM02_CoordSystem_HMI[1].iCoordSystemId := 1;
+UN01_HMI.EM02_CoordSystem_HMI[1].strName := 'Picking 1';
+
+UN01_HMI.EM02_CoordSystem_HMI[2].iCoordSystemId := 2;
+UN01_HMI.EM02_CoordSystem_HMI[2].strName := 'Picking 2';
+
+UN01_HMI.EM02_CoordSystem_HMI[3].iCoordSystemId := 3;
+UN01_HMI.EM02_CoordSystem_HMI[3].strName := 'Picking 3';
+
+UN01_HMI.EM02_CoordSystem_HMI[4].iCoordSystemId := 4;
+UN01_HMI.EM02_CoordSystem_HMI[4].strName := 'WCS';
+
+UN01_HMI.EM02_CoordSystem_HMI[5].iCoordSystemId := 5;
+UN01_HMI.EM02_CoordSystem_HMI[5].strName := 'Pallet 1';
+
+UN01_HMI.EM02_CoordSystem_HMI[6].iCoordSystemId := 6;
+UN01_HMI.EM02_CoordSystem_HMI[6].strName := 'Pallet 2';
+
+UN01_HMI.EM02_CoordSystem_HMI[7].iCoordSystemId := 7;
+UN01_HMI.EM02_CoordSystem_HMI[7].strName := 'Pallet 3';
+
+UN01_HMI.EM02_CoordSystem_HMI[8].iCoordSystemId := 8;
+UN01_HMI.EM02_CoordSystem_HMI[8].strName := 'IML 1';
+
+UN01_HMI.EM02_CoordSystem_HMI[9].iCoordSystemId := 9;
+UN01_HMI.EM02_CoordSystem_HMI[9].strName := 'IML 2';
+
+UN01_HMI.EM02_CoordSystem_HMI[10].iCoordSystemId := 10;
+UN01_HMI.EM02_CoordSystem_HMI[10].strName := 'IML 3';
+
+UN01_HMI.EM02_CoordSystem_HMI[11].iCoordSystemId := 11;
+UN01_HMI.EM02_CoordSystem_HMI[11].strName := 'IML 4';
+
+UN01_HMI.EM02_CoordSystem_HMI[12].iCoordSystemId := 12;
+UN01_HMI.EM02_CoordSystem_HMI[12].strName := 'Home';
+
+UN01_HMI.EM01_PickingStation_HMI[1].iStation := 1;
+UN01_HMI.EM01_PickingStation_HMI[1].strName := 'Picking 1';
+
+UN01_HMI.EM01_PickingStation_HMI[2].iStation := 2;
+UN01_HMI.EM01_PickingStation_HMI[2].strName := 'Picking 2';
+
+UN01_HMI.EM01_PickingStation_HMI[3].iStation := 3;
+UN01_HMI.EM01_PickingStation_HMI[3].strName := 'Picking 3';
+
+UN01_HMI.EM02_PalletPositionActuals_HMI[1].iPalletPositionNr := 1;
+UN01_HMI.EM02_PalletPositionActuals_HMI[1].strName := 'Pallet 1';
+
+UN01_HMI.EM02_PalletPositionActuals_HMI[2].iPalletPositionNr := 2;
+UN01_HMI.EM02_PalletPositionActuals_HMI[2].strName := 'Pallet 2';
+
+UN01_HMI.EM02_PalletPositionActuals_HMI[3].iPalletPositionNr := 3;
+UN01_HMI.EM02_PalletPositionActuals_HMI[3].strName := 'Pallet 3';
+END_ACTION
+
+ACTION Resetting
+//-------------------------------------------------------------------------------------
+// Resetting
+//-------------------------------------------------------------------------------------
+
+UN01_HMI.RecipeSelect_HMI.iPalletPositionId := 0;
+UN01_HMI.RecipeView_HMI.iPalletPositionId := 0;
+UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId := 1;
+
+myState.xCmdResetDone := TRUE;
+END_ACTION
+
+ACTION Starting
+//-------------------------------------------------------------------------------------
+// Starting
+//-------------------------------------------------------------------------------------
+
+myState.xCmdStartDone := TRUE;
+END_ACTION
+
+ACTION Stopped
+//-------------------------------------------------------------------------------------
+// Stopped
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Stopping
+//-------------------------------------------------------------------------------------
+// Stopping
+//-------------------------------------------------------------------------------------
+
+myState.xCmdStopDone := TRUE;
+END_ACTION

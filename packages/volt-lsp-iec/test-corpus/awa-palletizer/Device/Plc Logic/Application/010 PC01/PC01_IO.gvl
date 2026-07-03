@@ -1,0 +1,22 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'none'}
+VAR_GLOBAL
+END_VAR
+VAR_GLOBAL
+	// Button to start the system
+	IxBTN01_Start: BOOL := FALSE;
+	// Button to stop the system
+	IxBTN02_Stop: BOOL := TRUE;
+	// Button to reset the system
+	IxBTN03_Reset: BOOL := FALSE;
+	
+	IxBTN04_EmergencyStop 	: BOOL := FALSE;		// Button Emergency Stop
+	// Light On/Off
+	QxSIG01_Red: BOOL := FALSE;
+	// Light On/Off
+	QxSIG02_Orange: BOOL := FALSE;
+	// Light On/Off
+	QxSIG03_Green: BOOL := FALSE;
+	// Light On/Off
+	QxSIG04_Reset: BOOL := FALSE;
+END_VAR

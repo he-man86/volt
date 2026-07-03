@@ -1,0 +1,39 @@
+TYPE dutPickingStation_HMI :
+STRUCT
+	iStation : UDINT;							// 1 or 2 or 3. Which station to pick the box from.
+	
+	(*	
+		+--------+
+		|        |
+		|        |  >>>>> MOT_Conveyor
+		+--------+
+	
+		---------------------------------------------------------->
+		O                         O  O                            O
+		|                         |  |                            + SEN_Box04
+		|		     			  |  + SEN_Box03
+		|     					  + SEN_Box02
+		+ SEN_Box01
+		
+		
+		<- DO_Enable
+		
+	*)	
+	
+	strName : STRING := 'Station x';			// Station name.
+	
+	iLineNr : INT;								// Identification.
+	
+	SEN_Box01: dutHMI;							// Box.
+	SEN_Box02: dutHMI;							// Box.	
+	SEN_Box03: dutHMI;							// Box.
+	SEN_Box04: dutHMI;							// Box.		
+
+	DO_Enable : dutHMI;							// Enable input of boxes. 
+	
+	MOT_Conveyor: dutHMI;						// Conveyor. 
+	
+	xBtnRemove : BOOL := FALSE;					// Remove buttons to stack.
+	
+END_STRUCT
+END_TYPE

@@ -1,0 +1,8 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+END_VAR
+VAR_GLOBAL CONSTANT
+iProductPositions	: INT := 10;
+
+iSizeRecipesNames 	: INT := 5000;
+END_VAR

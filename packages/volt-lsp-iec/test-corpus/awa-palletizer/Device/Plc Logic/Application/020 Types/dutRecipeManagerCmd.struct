@@ -1,0 +1,19 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE dutRecipeManagerCmd :
+STRUCT
+	
+	xLoad					:BOOL;
+	xNew					:BOOL;
+	xEdit					:BOOL;
+	xSave					:BOOL;
+	xSaveAndLoad			:BOOL;	
+	xSaveAs					:BOOL;
+	xCopy					:BOOL;
+	xDelete					:BOOL;
+	xUpdate					:BOOL;
+	xRcpVisuPlcAreEqual		:BOOL;
+	sSelectedRecipeName		:STRING;
+	sActiveRecipe			:STRING;
+	sRecipeNames			:STRING(GLOBAL_CONSTANTS.iSizeRecipesNames);	//Combined recipe names	
+END_STRUCT
+END_TYPE

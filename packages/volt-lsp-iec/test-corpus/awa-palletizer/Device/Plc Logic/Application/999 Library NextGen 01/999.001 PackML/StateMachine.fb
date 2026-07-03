@@ -1,0 +1,291 @@
+FUNCTION_BLOCK ABSTRACT StateMachine EXTENDS libModuleHandler
+VAR
+	StartingRT     : R_TRIG;
+	CmdInitRT      : R_TRIG;
+	CmdResetRT     : R_TRIG;
+	CmdResetDoneRT : R_TRIG;
+	CmdStartRT     : R_TRIG;
+	CmdStartDoneRT : R_TRIG;
+	CmdStopRT      : R_TRIG;
+	CmdStopDoneRT  : R_TRIG;
+	CmdAbortRT     : R_TRIG;
+	CmdAbortDoneRT : R_TRIG;	
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Handle : BOOL
+VAR_IN_OUT
+	// Interface to HMI
+	{attribute 'symbol' := 'readwrite'}
+	_HMI: dutHMI;
+	myState: strState;
+END_VAR
+VAR_INPUT
+	xForce: BOOL := FALSE;
+END_VAR
+//
+// HMI input.
+//
+myState.xCmdInit   := myState.xCmdInit   OR _HMI.wCmd.0;
+myState.xCmdReset  := myState.xCmdReset  OR _HMI.wCmd.1;
+myState.xCmdStart  := myState.xCmdStart  OR _HMI.wCmd.2;
+myState.xCmdStop   := myState.xCmdStop   OR _HMI.wCmd.3;
+myState.xCmdAbort  := myState.xCmdAbort  OR _HMI.wCmd.4;
+
+_HMI.wCmd := 0;
+
+
+//
+// Detect rising edge....
+//
+CmdInitRT     (CLK := myState.xCmdInit);
+CmdResetRT    (CLK := myState.xCmdReset);  
+CmdResetDoneRT(CLK := myState.xCmdResetDone);
+CmdStartRT    (CLK := myState.xCmdStart);   
+CmdStartDoneRT(CLK := myState.xCmdStartDone);
+CmdStopRT     (CLK := myState.xCmdStop);
+CmdStopDoneRT (CLK := myState.xCmdStopDone);
+CmdAbortRT    (CLK := myState.xCmdAbort); 
+CmdAbortDoneRT(CLK := myState.xCmdAbortDone);
+
+
+
+IF myState.enMode = enMode.MANUAL THEN
+	IF myState.xCmdInit      THEN myState.enState := enState.INIT;       END_IF
+	IF myState.xCmdReset     THEN myState.enState := enState.RESETTING;  END_IF
+	IF myState.xCmdStart     THEN myState.enState := enState.STARTING;   END_IF;
+	IF myState.xCmdStop      THEN myState.enState := enState.STOPPING;   END_IF
+	IF myState.xCmdAbort     THEN myState.enState := enState.ABORTING;   END_IF
+END_IF
+
+IF (myState.enMode = enMode.AUTOMATIC) OR (myState.enMode = enMode.CLEANING) THEN
+	IF myState.xCmdAbort AND NOT myState.xStsAborting AND NOT myState.xStsAborted AND (NOT myState.xStsResetting OR xForce) THEN
+		myState.enState := enState.ABORTING;
+	END_IF
+	
+	IF myState.xCmdInit  AND NOT myState.xStsInit THEN
+		myState.enState := enState.INIT;
+	END_IF
+END_IF
+
+	
+CASE myState.enState OF
+	enState.INIT: 
+		_HandleMode(myState);
+	
+		Initialize();
+			
+		IF CmdResetRT.Q THEN
+			myState.xCmdReset := FALSE;
+			myState.enState := enState.RESETTING;
+		END_IF
+			
+	enState.RESETTING:
+		Resetting();
+
+		IF myState.xCmdStop THEN
+			myState.xCmdStop := FALSE;
+			myState.enState := enState.ABORTING;
+		END_IF
+			
+		IF myState.xCmdResetDone THEN
+			myState.xCmdResetDone := FALSE;
+			myState.enState := enState.idle;
+		END_IF
+			
+	enState.IDLE:
+		_HandleMode(myState);
+	
+		Idle();
+			
+		IF myState.xCmdStart THEN
+			myState.xCmdStart := FALSE;
+			myState.enState := enState.STARTING;
+		END_IF
+		
+		IF CmdResetRT.Q THEN
+			myState.xCmdReset := FALSE;
+			myState.enState := enState.RESETTING;
+		END_IF		
+			
+	enState.STARTING:
+		Starting();
+		
+		IF myState.xCmdStop THEN
+			myState.xCmdStop := FALSE;
+			myState.enState := enState.STOPPING;
+		END_IF
+			
+		IF myState.xCmdStartDone THEN
+			myState.xCmdStartDone := FALSE;
+			myState.enState := enState.EXECUTING;
+		END_IF
+			
+	enState.EXECUTING: 
+		Executing();
+			
+		IF myState.xCmdStop THEN
+			myState.xCmdStop := FALSE;
+			myState.enState := enState.STOPPING;
+		END_IF
+			
+	enState.STOPPING:
+		Stopping();
+			
+		IF myState.xCmdStopDone THEN
+			myState.xCmdStopDone := FALSE;
+			myState.enState := enState.STOPPED;
+		END_IF
+			
+	enState.STOPPED:
+		_HandleMode(myState);
+		
+		Stopped();
+			
+		IF myState.xCmdStart THEN
+			myState.xCmdStart := FALSE;
+			myState.enState := enState.STARTING;
+		END_IF
+	
+		IF CmdResetRT.Q THEN
+			myState.xCmdReset := FALSE;
+			myState.enState := enState.RESETTING;
+		END_IF
+			
+	enState.ABORTING :
+		Aborting();
+			
+		IF myState.xCmdAbortDone THEN
+			myState.xCmdAbortDone := FALSE;
+			myState.enState := enState.ABORTED;
+		END_IF
+			
+	enState.ABORTED:
+		_HandleMode(myState);
+	
+		Aborted();
+			
+		IF CmdResetRT.Q THEN
+			myState.xCmdReset := FALSE;
+			myState.enState := enState.RESETTING;
+		END_IF
+END_CASE
+
+myState.xStsInit        := myState.enState = enState.INIT;
+myState.xStsResetting   := myState.enState = enState.RESETTING;
+myState.xStsIdle        := myState.enState = enState.IDLE;
+myState.xStsStarting    := myState.enState = enState.STARTING;
+StartingRT(CLK          := myState.xStsStarting);
+myState.xStsStartingRT  := StartingRT.Q;
+myState.xStsExecute     := myState.enState = enState.EXECUTING;
+myState.xStsStopping    := myState.enState = enState.STOPPING;
+myState.xStsStopped     := myState.enState = enState.STOPPED;
+myState.xStsAborting    := myState.enState = enState.ABORTING;
+myState.xStsAborted     := myState.enState = enState.ABORTED;
+
+myState.xCmdInit        := FALSE;
+myState.xCmdReset       := FALSE;
+myState.xCmdResetDone   := FALSE;
+myState.xCmdStart       := FALSE;
+myState.xCmdStartDone   := FALSE;
+myState.xCmdStop        := FALSE;
+myState.xCmdStopDone    := FALSE;
+myState.xCmdAbort       := FALSE;
+myState.xCmdAbortDone   := FALSE;
+
+myState.xStsModeAutomatic := myState.enMode = enMode.AUTOMATIC;
+myState.xStsModeManual    := myState.enMode = enMode.MANUAL;
+myState.xStsModeCleaning  := myState.enMode = enMode.CLEANING;
+
+myState.xStsActing := myState.xStsAborting OR myState.xStsExecute OR myState.xStsResetting OR myState.xStsStarting OR myState.xStsStopping;
+myState.xStsWaiting := NOT myState.xStsActing;
+
+myState.xStsModeChangeToCleaning := myState.xStsWaiting;
+myState.xStsModeChangeToAutomatic := myState.xStsWaiting;
+
+myState.xCmdModeAutomatic := FALSE;
+myState.xCmdModeManual    := FALSE;
+myState.xCmdModeCleaning  := FALSE;
+
+//
+// HMI
+//
+_HMI.wStatus.0 := myState.xStsActing;
+_HMI.wStatus.1 := myState.xStsWaiting;
+_HMI.wStatus.2 := myState.xStsInit;
+_HMI.wStatus.3 := myState.xStsResetting;
+_HMI.wStatus.4 := myState.xStsIdle;
+_HMI.wStatus.5 := myState.xStsStarting;
+_HMI.wStatus.6 := myState.xStsExecute;
+_HMI.wStatus.7 := myState.xStsStopping;
+_HMI.wStatus.8 := myState.xStsStopped;
+_HMI.wStatus.9 := myState.xStsAborting;
+_HMI.wStatus.10 := myState.xStsAborted;
+END_METHOD
+
+METHOD _HandleMode : BOOL
+VAR_INPUT
+END_VAR
+
+VAR_IN_OUT
+	myState: strState;
+END_VAR
+IF myState.xCmdModeAutomatic THEN myState.enMode := enMode.AUTOMATIC; END_IF
+IF myState.xCmdModeManual    THEN myState.enMode := enMode.MANUAL;    END_IF
+IF myState.xCmdModeCleaning  THEN myState.enMode := enMode.CLEANING;  END_IF
+END_METHOD
+
+ACTION Aborted
+//----------------------------------------------------------------------------------	 
+// Aborted
+//----------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Aborting
+//----------------------------------------------------------------------------------	 
+// Aborting
+//----------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Executing
+//-------------------------------------------------------------------------------------
+// Executing
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Idle
+//-------------------------------------------------------------------------------------
+// Idle
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Initialize
+//-------------------------------------------------------------------------------------
+// Initialize
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Resetting
+//-------------------------------------------------------------------------------------
+// Resetting
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Starting
+//-------------------------------------------------------------------------------------
+// Starting
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Stopped
+//-------------------------------------------------------------------------------------
+// Stopped
+//-------------------------------------------------------------------------------------
+END_ACTION
+
+ACTION Stopping
+//-------------------------------------------------------------------------------------
+// Stopping
+//-------------------------------------------------------------------------------------
+END_ACTION

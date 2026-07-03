@@ -1,0 +1,27 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'none'}
+VAR_GLOBAL
+	// Button to start the system
+	BTN01_Start: libDI;
+	// Button to stop the system
+	BTN02_Stop: libDI;	
+	// Button to reset the system
+	BTN03_Reset: libDI;
+	// Button Emergency Stop 
+	BTN04_EmergencyStop : libSafetyDI;	
+	
+	// Unit
+	UN01: UN01_Main;
+	
+	// Proces Cell
+	PC01: PC01_Main;	
+	
+	// Light On/Off
+	SIG01_Red: libSIG;
+	// Light On/Off
+	SIG02_Orange: libSIG;
+	// Light On/Off
+	SIG03_Green: libSIG;	
+	// Light On/Off
+	SIG04_Reset: libSIG;
+END_VAR

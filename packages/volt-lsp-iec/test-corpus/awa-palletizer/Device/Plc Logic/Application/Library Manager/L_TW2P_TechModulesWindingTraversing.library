@@ -1,0 +1,5 @@
+LIBRARY L_TW2P_TechModulesWindingTraversing
+NAMESPACE L_TW2P
+RESOLUTION L_TW2P_TechModulesWindingTraversing, 3.34.0.19 (Lenze)
+PLACEHOLDER true
+SYSTEM false

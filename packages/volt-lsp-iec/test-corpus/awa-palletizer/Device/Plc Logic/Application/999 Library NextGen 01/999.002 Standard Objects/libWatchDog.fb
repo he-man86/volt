@@ -1,0 +1,43 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libWatchDog
+VAR_INPUT
+	// Counter from the communication
+	uiCounter: UINT := 0;
+END_VAR
+VAR
+	// Previous value
+	uiPrevCounter: UINT := 0;
+END_VAR
+VAR_OUTPUT
+	// Counter does not change withing TIME
+	{attribute 'symbol' := 'read'}
+	xError: BOOL := FALSE;
+END_VAR
+VAR
+	// Timer
+	TimeOut_TON: TON;
+	// Time out time
+	TimeOut_TIME: TIME := T#5S;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function is a watchdog.
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+
+// Compare values. If equal start timer.....
+
+TimeOut_TON(IN := (uiCounter = uiPrevCounter), PT := TimeOut_TIME );
+
+// Save for next time...
+
+uiPrevCounter := uiCounter;
+
+// Value does not change withing specified time out....
+
+xError := TimeOut_TON.Q;
+
+END_FUNCTION_BLOCK

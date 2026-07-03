@@ -1,0 +1,15 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE dutRecipeSelect_HMI :
+STRUCT
+	iPalletPositionId 		: INT;
+
+	sSelectedRecipeName		:STRING;
+	sActiveRecipe			:STRING;
+	sRecipeNames			:STRING(GLOBAL_CONSTANTS.iSizeRecipesNames);	//Combined recipe names	
+	
+
+	xBtnLoad : BOOL := FALSE;
+	xBtnCancel : BOOL := FALSE;;
+	
+END_STRUCT
+END_TYPE

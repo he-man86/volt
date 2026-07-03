@@ -1,0 +1,9 @@
+TYPE dutHMI :
+STRUCT
+	// Name of the object
+	strName: STRING[30] := 'HMI OBJECT';	
+	
+	wCmd 	: WORD;
+	wStatus : WORD;		
+END_STRUCT
+END_TYPE

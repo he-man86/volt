@@ -1,0 +1,7 @@
+Name:         Controller Sync Device
+Vendor:       Lenze
+Type:         65
+ID:           3B_2000200000010000
+Version:      1.1.0.0
+Order number: Controller Sync Device
+Description:  Internal Slave for synchronization - only applicable on c500/c700 controller family

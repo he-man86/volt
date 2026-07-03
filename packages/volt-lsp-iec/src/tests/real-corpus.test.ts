@@ -90,6 +90,15 @@ const CORPORA: ReadonlyArray<{
 }> = [
 	{ name: "pro2193", dir: "pro2193", base: { files: 523, parseCleanFiles: 523, ingestFiles: 523, totalDiags: 35, excludedFiles: 14 } },
 	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 275, excludedFiles: 0 } },
+	// awa-palletizer (2026-07-03): the "AWA_Palletizer 09_1" project (54 source files) — a PackML/NextGen-library
+	// machine using `{attribute 'qualified_only'}` GVLs with deep qualified access (PC01_GVL.UN01.myState.…).
+	// Surfaced + fixed a REAL parser gap: a stray double semicolon (`x : T;;`) in a STRUCT or VAR block (CODESYS
+	// tolerates the empty declaration; we aborted the field/section) — 3 parse errors → 0, parse 94.4%→100%. Also
+	// hardened gvlNameFromUri to split on `\` as well as `/` (a Windows OS-path URI made a GVL's block name the
+	// full path, breaking qualified `GvlName.field` access — latent, not hit by the `/`-normalized coverage scan).
+	// Baseline 16 diagnostics, all unresolved-identifier: library-blind (L_IE1P/L_TB2P/MC_DIRECTION) + a small tail
+	// on `myState`/`iIndex` (a local FB var referenced via the `S=` set-assignment — a separate resolver follow-up).
+	{ name: "awa-palletizer", dir: "awa-palletizer", base: { files: 54, parseCleanFiles: 54, ingestFiles: 54, totalDiags: 16, excludedFiles: 0 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {

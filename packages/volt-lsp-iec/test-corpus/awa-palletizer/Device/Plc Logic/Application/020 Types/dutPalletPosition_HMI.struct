@@ -1,0 +1,12 @@
+TYPE dutPalletPosition_HMI :
+STRUCT
+	ActiveRecipe : dutRecipe;
+	
+	strName : STRING := 'Pos x';				// Pallet position name.
+	
+	iPalletPositionNr : INT;					// Identification.
+		
+
+	
+END_STRUCT
+END_TYPE

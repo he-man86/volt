@@ -81,6 +81,23 @@ describe("parser: FUNCTION_BLOCK shells", () => {
 		expect(fb.varSections[2]?.decls[0]?.init?.tokens[0]?.text).toBe("T#100ms");
 	});
 
+	it("tolerates a stray double semicolon in a VAR section (CODESYS accepts `x : T;;`)", () => {
+		// AWA_Palletizer libObject.fb has `myClassType: enClassType;;` — the empty declaration must not abort
+		// the section (it truncated the whole VAR block, losing every following local).
+		const { units, errors } = parseOne(`
+			FUNCTION_BLOCK FB_Y
+			VAR
+				a : INT;
+				b : INT;;
+				c : INT;
+			END_VAR
+			END_FUNCTION_BLOCK
+		`);
+		expect(errors).toEqual([]);
+		const fb = units[0] as FunctionBlock;
+		expect(fb.varSections[0]?.decls).toHaveLength(3);
+	});
+
 	it("FB with body captures opaque tokens", () => {
 		const { units, errors } = parseOne(`
 			FUNCTION_BLOCK FB_Counter
@@ -349,6 +366,23 @@ describe("parser: TYPE / DUT", () => {
 		expect(body.kind).toBe("struct");
 		expect(body.fields).toHaveLength(3);
 		expect(body.fields[2]?.init).toBeDefined();
+	});
+
+	it("tolerates a stray double semicolon between STRUCT fields (CODESYS accepts `x : T;;`)", () => {
+		// Real projects (AWA_Palletizer dutCoordSystemOffset_HMI) carry `xBtnCancel : BOOL := FALSE;;` — the
+		// empty declaration must not abort the field list.
+		const { units, errors } = parseOne(`
+			TYPE T_Coord :
+			STRUCT
+				x : REAL;
+				y : REAL;;
+				z : REAL;
+			END_STRUCT
+			END_TYPE
+		`);
+		expect(errors).toEqual([]);
+		const body = (units[0] as TypeDecl).body as StructBody;
+		expect(body.fields).toHaveLength(3);
 	});
 
 	it("STRUCT with EXTENDS", () => {

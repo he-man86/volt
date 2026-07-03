@@ -1,0 +1,15 @@
+TYPE dutPalletPositionActuals_HMI :
+STRUCT
+	strName : STRING[30] := 'Pos x';				// Pallet position name.
+
+	sRecipeName	: STRING := 'Recept';		// Name of the recipe.
+	
+	iPalletPositionNr : INT;					// Identification.
+
+	iActualNrOfBoxes : INT; 					// Nr of boxes on the pallet.
+	iActualStackRows : INT;						// Actual stack information.
+	iActualStackLayers : INT;
+	
+	xBtnRemove : BOOL := FALSE;					// Remove pallet.	
+END_STRUCT
+END_TYPE

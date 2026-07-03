@@ -523,7 +523,10 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, so
  */
 function gvlNameFromUri(uri: string): string | undefined {
 	if (uri.length === 0) return undefined;
-	const last = uri.split("/").pop() ?? "";
+	// Split on BOTH separators: a file:// URI uses "/", but a raw OS path (how the coverage scanner and some
+	// LSP hosts key documents on Windows) uses "\" — splitting on "/" alone left the whole backslash path as the
+	// GVL name, so `GvlName.field` qualified access never resolved on Windows.
+	const last = uri.split(/[\\/]/).pop() ?? "";
 	if (last.length === 0) return undefined;
 	const dot = last.lastIndexOf(".");
 	const name = dot > 0 ? last.slice(0, dot) : last;

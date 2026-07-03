@@ -104,6 +104,7 @@ function parseStructBody(c: Cursor): StructBody | undefined {
 
 	const fields: VarDecl[] = [];
 	while (!c.atEof()) {
+		if (c.eatPunct(";") !== undefined) continue; // stray/empty field — CODESYS accepts `x : T;;`
 		const endStruct = c.eatKeyword("END_STRUCT");
 		if (endStruct !== undefined) {
 			return {
@@ -135,6 +136,7 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
 	if (start === undefined) return undefined;
 	const fields: VarDecl[] = [];
 	while (!c.atEof()) {
+		if (c.eatPunct(";") !== undefined) continue; // stray/empty field — CODESYS accepts `x : T;;`
 		const endUnion = c.eatKeyword("END_UNION");
 		if (endUnion !== undefined) {
 			return {

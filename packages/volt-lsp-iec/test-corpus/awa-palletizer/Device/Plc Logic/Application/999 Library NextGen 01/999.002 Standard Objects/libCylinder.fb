@@ -1,0 +1,241 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libCylinder EXTENDS libModuleHandler
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutHMI;
+END_VAR
+VAR_INPUT
+	// Automatic out
+	xCmdGoOut : BOOL := FALSE;
+	// Automatic in
+	xCmdGoIn : BOOL := FALSE;
+	// Sensor cylinder is out
+	SenOut : libDI;
+	// Sensor out travel time before error
+	tErrTimeOutSensorOut : TIME := T#0MS;
+	// Sensor cylinder is in
+	SenIn : libDI;
+	// Sensor in travel time before error
+	tErrTimeOutSensorIn : TIME := T#0MS;
+	// Sensor simulation
+	xSensorSimulation: BOOL := FALSE;
+	tSimulationTravelTime: TIME := T#0S;
+	// Interlock in
+	xInterlIn: BOOL := FALSE;
+	// Interlock out
+	xInterlOut: BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+	// Cylinder is out
+	xCylIsOut : BOOL := FALSE;
+	// Cylinder is in
+	xCylIsIn : BOOL := FALSE;
+	// Move the Cylinder out
+	xGoOut: BOOL := FALSE;
+	// Move the Cylinder in
+	xGoIn: BOOL := FALSE;
+END_VAR
+VAR
+	// Timer on delay
+	fbTravelTimeIn : TON;
+	// Timer on delay
+	fbTravelTimeOut: TON;
+	// Timer simulation
+	fbSimulationIn: TON;
+	// Timer simulation
+	fbSimulationOut: TON;
+	// Sensor simulation
+	xSimGoOut: BOOL := FALSE;
+	// Sendor simulation
+	xSimGoIn: BOOL := FALSE;
+	
+	//Alarm
+	xErrTimeOut_GoOut : BOOL := FALSE;
+	// Alarm
+	xErrTimeOut_GoIn : BOOL := FALSE;	
+	// Condition out
+	xOutAllowed: BOOL := FALSE;
+	// Condition in
+	xInAllowed: BOOL := FALSE;
+	// Interlock causes no output
+	xInterlocked: BOOL := FALSE;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function controls a Cylinder object. 
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit             	:= FALSE;
+
+		_HMI.strName 		:= strName;			
+		_HMI.wCmd 			:= 0;	
+		_HMI.wStatus 		:= 0;
+	 
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.wCmd.1			:= FALSE; 	// Out.
+		_HMI.wCmd.2			:= FALSE;	// In.
+			 
+		xExecute		 	:= TRUE;	
+		xCmdReset			:= FALSE; 
+
+		xGoIn				:= FALSE;
+		xGoOut				:= FALSE;
+
+		xInterlIn			:= FALSE;
+		xInterlOut			:= FALSE;
+				  
+		xErrTimeOut_GoOut 	:= FALSE;			 
+		xErrTimeOut_GoIn  	:= FALSE;
+	
+		myClassType       	:= enClassType.ctCylinder;		 			 
+	END_IF
+
+	//
+	// Reset manual control after estop.
+	//
+	IF (xCmdEStopActive) THEN
+		_HMI.wCmd.1			:= FALSE; 	// Forward.
+		_HMI.wCmd.2			:= FALSE;	// Reverse.
+	END_IF		 
+			  
+	//
+	// Determine if output is allowed, without interlock.
+	//	
+	xOutAllowed := ((    _HMI.wCmd.0 AND xExecute AND xCmdGoOut  AND NOT xCmdGoIn ) OR 
+					(NOT _HMI.wCmd.0 AND _HMI.wCmd.1 AND NOT _HMI.wCmd.2 ))
+				   AND NOT xErrTimeOut_GoOut AND NOT xErrTimeOut_GoIn;
+						
+	xInAllowed  := ((    _HMI.wCmd.0 AND xExecute AND xCmdGoIn   AND NOT xCmdGoOut) OR 
+					(NOT _HMI.wCmd.0 AND _HMI.wCmd.2  AND NOT _HMI.wCmd.1 ))
+				   AND NOT xErrTimeOut_GoOut AND NOT xErrTimeOut_GoIn;
+	
+	//
+	// Determine if the output is interlocked for display status.
+	//		 
+	xInterlocked := (xOutAllowed AND xInterlOut) OR (xInAllowed  AND xInterlIn);	
+		
+	//
+	// Interlock the output if necessary....
+	//	  
+	xOutAllowed := xOutAllowed AND NOT xInterlOut;
+	xInAllowed  := xInAllowed  AND NOT xInterlIn;				   
+
+	xGoOut := xOutAllowed;
+	xGoIn  := xInAllowed;	
+	
+	// Remember the status of the cylinder in simulation mode. Or use
+	// use direct inputs in non-simulation. For cylinders with no input
+	// sensors this may be valuable. This only works for bi-stable 
+	// cylinders.
+		 
+	IF (xSensorSimulation) THEN
+		xSimGoOut S= xGoOut;
+		xSimGoOut R= xGoIn;
+			 
+		xSimGoIn  S= xGoIn;
+		xSimGoIn  R= xGoOut;
+			 
+		fbSimulationIn( IN := xSimGoIn, PT := tSimulationTravelTime);
+		fbSimulationOut(IN := xSimGoOut, PT := tSimulationTravelTime);
+			 
+		xCylIsIn := fbSimulationIn.Q;
+		xCylIsOut := fbSimulationOut.Q;	 
+	ELSE										 
+		xCylIsIn  := SenIn.xDI;
+		xCylIsOut := SenOut.xDI;
+	END_IF
+	
+	// Monitor the cylinder movement.
+	 
+	IF (tErrTimeOutSensorIn > T#0S) THEN
+		fbTravelTimeIn (IN := (xGoIn  AND NOT xCylIsIn ), PT := tErrTimeOutSensorIn );
+	END_IF
+	
+	IF (tErrTimeOutSensorOut > T#0S) THEN
+		fbTravelTimeOut(IN := (xGoOut AND NOT xCylIsOut), PT := tErrTimeOutSensorOut);
+	END_IF	 
+{endregion}
+
+
+// ### ALARM ###
+{region}
+	//ERROR: Timeout
+	xErrTimeOut_GoIn  := xErrTimeOut_GoIn  OR fbTravelTimeIn.Q;
+	xErrTimeOut_GoOut := xErrTimeOut_GoOut OR fbTravelTimeOut.Q;
+	
+	IF (xCmdReset) THEN
+		xErrTimeOut_GoOut 	  := FALSE;			 
+		xErrTimeOut_GoIn  	  := FALSE;		 	 
+	END_IF
+{endregion}
+
+// ### ERROR  ###
+{region}			 
+	xCMError := xCMError OR xErrTimeOut_GoOut OR xErrTimeOut_GoIn;
+{endregion}
+	 
+// ### VISUAL ###
+{region}
+	//Alarm
+	_HMI.wStatus.0 := _HMI.wCmd.0;			// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);		// Manual	
+	_HMI.wStatus.2 := xErrTimeOut_GoOut;	
+	_HMI.wStatus.3 := xErrTimeOut_GoIn;	
+	_HMI.wStatus.4 := xErrTimeOut_GoOut OR xErrTimeOut_GoIn;			 
+	_HMI.wStatus.5 := xInterlOut;
+	_HMI.wStatus.6 := xInterlIn;
+	_HMI.wStatus.7 := xInterlocked;
+	_HMI.wStatus.8 := xGoOut;
+	_HMI.wStatus.9 := xGoIn;
+	_HMI.wStatus.10 := xGoOut OR xGoIn;	 
+{endregion}	 	 
+
+{region}			 
+	//------------------------------------------------------------------------------------------------------
+	// Alarm and warning handling.
+	//------------------------------------------------------------------------------------------------------
+	
+	wErrorID := 16#0000;
+	wWarningID := 16#0000;
+
+	IF (xErrTimeOut_GoOut) THEN wErrorID := 16#0004; END_IF		 
+	IF (xErrTimeOut_GoIn) THEN wWarningID := 16#0005; END_IF	 
+
+	//Alarm 
+	ALM_Error(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wErrorID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Fault, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wErrorID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.NormalStop);
+		
+	//Warning
+	ALM_Warning(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wWarningID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Warning, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wWarningID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.No_Reaction);
+		
+	IF NOT xInitProgramAlarms THEN 
+		myModuleHandler.SetParent(ModuleHandlerParent:= IQ_ModuleHandler);
+		xInitProgramAlarms:= TRUE;
+	END_IF
+	
+	ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);
+{endregion}
+
+END_FUNCTION_BLOCK

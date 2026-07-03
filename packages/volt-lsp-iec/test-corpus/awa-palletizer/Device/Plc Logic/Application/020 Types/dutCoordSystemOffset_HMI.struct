@@ -1,0 +1,15 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE dutCoordSystemOffset_HMI :
+STRUCT
+	iCoordSystemId : INT;		// Id.
+	
+	lrXOffset : LREAL;			// Operator offset.
+	lrYOffset : LREAL;
+	lrZOffset : LREAL;
+	lrROffset : LREAL;	
+	
+	
+	xBtnSave : BOOL := FALSE;
+	xBtnCancel : BOOL := FALSE;;	
+END_STRUCT
+END_TYPE

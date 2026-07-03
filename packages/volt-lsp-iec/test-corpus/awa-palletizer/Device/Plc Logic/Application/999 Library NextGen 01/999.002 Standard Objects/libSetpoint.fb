@@ -1,0 +1,134 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libSetpoint EXTENDS libModuleHandler
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutSetpointHMI;
+END_VAR
+VAR_INPUT RETAIN PERSISTENT
+	// Scaled setpoint
+	rSetpoint_Auto: REAL := 50;
+END_VAR
+VAR_INPUT
+	// Scaled maximum
+	rMax: REAL := 100;
+	// Scaled high value
+	rHi: REAL := 100;
+	// Scaled low value
+	rLo: REAL := 0;
+	// Scaled minimum
+	rMin: REAL := 0;
+	// Unscaled maximum
+	uiAOMax: UINT := 4096;
+	// Unscaled minimum
+	uiAOMin: UINT := 0;
+END_VAR
+VAR_OUTPUT
+	// Analogue output
+	uiAO: UINT := 0;
+END_VAR
+VAR
+	rSetpoint: REAL := 0;
+	// Real values to calculate with
+	rScale: REAL := 0;
+	rAOMax: REAL := 0;
+	rAOMin: REAL := 0;
+	rAO: REAL := 0;
+	// Error
+	xSetpointError: BOOL := FALSE;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function scales a setpoint to analogue output value using a scaling factor.
+// The value is also limited to the uiHi and uiLo value. If the value of uiHi or uiLo
+// equals 0, the limit is ignored.
+//
+// 11-04-2022 RPo Initial version.
+//
+//------------------------------------------------------------------------------------------
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit          		:= FALSE;
+
+		_HMI.strName 		:= strName;				
+		_HMI.wCmd 			:= 0;
+		_HMI.wStatus 		:= 0;
+	 
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.rSetpoint_Manual := 30.0;
+	 
+		xExecute		 	:= TRUE;
+		xCmdReset			:= FALSE;	 
+			 
+		xSetpointError 		:= FALSE;
+	
+		myClassType    		:= enClassType.ctSetpoint;			 
+	END_IF
+	
+	// Determine which setpoint to use....
+	IF (_HMI.wCmd.0) THEN
+		rSetpoint := rSetpoint_Auto;
+	ELSE
+		rSetpoint := _HMI.rSetpoint_Manual;
+	END_IF
+	
+	// If not execute, setpoint drops to minimum...
+	IF (NOT xExecute) THEN
+		rSetpoint := rMin;
+	END_IF
+	
+	// Limit checks.
+	IF (rSetpoint > rMax) THEN 
+		rSetpoint := rMax;
+	END_IF
+		 
+	IF (rSetpoint < rMin) THEN 
+		rSetpoint := rMin; 		 
+	END_IF
+	
+	IF (rSetpoint > rHi) AND (rHi > 0) THEN 
+		rSetpoint       := rHi;
+	END_IF
+	
+	IF (rSetpoint < rLo) AND (rLo > 0) THEN 
+		rSetpoint       := rLo; 
+	END_IF
+	
+	uiAO := uiAOMin;
+	
+	IF (rMax - rMin > 0) AND (uiAOMax - uiAOMin >0)  THEN
+		rAOMax := UINT_TO_REAL(uiAOMax);
+		rAOMin := UINT_TO_REAL(uiAOMin);
+		
+		rScale := (rAOMax - rAOMin) / (rMax - rMin);
+		rAO := rScale * rSetpoint;
+		
+		uiAO := REAL_TO_UINT(rAO);
+	ELSE
+		xSetpointError := TRUE;
+	END_IF
+{endregion}	
+	 
+	 
+// ### ERROR  ###
+{region}		 
+	IF (xCmdReset) THEN
+		xSetpointError 		  := FALSE;	 
+	END_IF		
+
+	xCMError := xCMError OR xSetpointError;	  
+{endregion}	 
+	 
+// ### VISUAL ###
+{region}
+	_HMI.strName := strName;
+	
+	_HMI.wStatus.0 := _HMI.wCmd.0;			// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);		// Manual
+	_HMI.wStatus.2 := xSetpointError;
+	_HMI.rHi := rHi;
+	_HMI.rLo := rLo;		  
+{endregion}
+
+END_FUNCTION_BLOCK

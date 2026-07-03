@@ -1,0 +1,36 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+END_VAR
+VAR_GLOBAL	
+	// Hmi
+	{attribute 'symbol' := 'none'}
+	BTN01_Start: dutHMI;
+	// Hmi
+	{attribute 'symbol' := 'none'}
+	BTN02_Stop: dutHMI;
+	// Hmi
+	{attribute 'symbol' := 'none'}
+	BTN03_Reset: dutHMI;
+	// Hmi
+	{attribute 'symbol' := 'none'}
+	BTN04_EmergencyStop: dutHMI;
+	
+	// Button to start the system
+	xBTN01_HmiStart: BOOL := FALSE;
+	// Button to stop the system
+	xBTN02_HmiStop: BOOL := FALSE;	
+	// Button to reset the system	
+	xBTN03_HmiReset: BOOL := FALSE;
+	// Button Emergency Stop
+	xBTN04_HmiEmergencyStop : BOOL := FALSE;	
+	
+	// Light On/Off
+	SIG01_Red: dutHMI;
+	// Light On/Off
+	SIG02_Orange: dutHMI;
+	// Light On/Off
+	SIG03_Green: dutHMI;	
+	// Light On/Off
+	SIG04_Reset: dutHMI;
+END_VAR

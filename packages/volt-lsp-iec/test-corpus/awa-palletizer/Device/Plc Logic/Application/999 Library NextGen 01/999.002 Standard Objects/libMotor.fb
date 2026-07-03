@@ -1,0 +1,229 @@
+{attribute 'symbol' := 'none'}
+FUNCTION_BLOCK libMotor EXTENDS libModuleHandler
+VAR_IN_OUT
+	// Interface to HMI
+	_HMI: dutHMI;
+END_VAR
+VAR_INPUT
+	// Automatic forward
+	xCmdGoForw : BOOL := FALSE;
+	// Automatic backward
+	xCmdGoBackw : BOOL := FALSE;
+	// Switch delay from direction
+	tSwitchDelay : TIME := T#100MS;
+	// Interlock forward
+	xInterlForw : BOOL := FALSE;
+	// Interlock backward
+	xInterlBackw : BOOL := FALSE;
+	//Alarm
+	xThermFault : BOOL := FALSE;
+	// Start next timer
+	tStartNext : TIME := T#1S;
+	// Stop next timer
+	tStopNext: TIME := T#1S;
+END_VAR
+VAR_OUTPUT
+	// Output forward
+	xOutForw : BOOL := FALSE;
+	// Output backward
+	xOutBackw : BOOL := FALSE;
+	// Start next allowed.
+	xStartNext : BOOL;
+	// Stop next allowed.
+	xStopNext: BOOL;
+END_VAR
+VAR
+	// Timer switch direction
+	fbSwitchOk : TON;
+	// Switch direction allowed
+	xSwitchOk : BOOL := FALSE;
+	// Falling trigger forward output
+	fbFTrigForw : F_TRIG;
+	// Falling trigger backward output
+	fbFTrigBackw : F_TRIG;
+	// Timer start next allowed.
+	fbStartNext : TON;
+	// Timer stop next allowed.
+	fbStopNext: TOF;
+	
+	//Alarm
+	xErrThermFault : BOOL := FALSE;
+	// Condition forward
+	xForwAllowed: BOOL := FALSE;
+	// Condition backward
+	xBackwAllowed: BOOL := FALSE;
+	// Interlock causes no output
+	xInterlocked: BOOL := FALSE;
+END_VAR
+
+//------------------------------------------------------------------------------------------
+// This function controls a motor object.
+//------------------------------------------------------------------------------------------
+
+// ### LOGIC ###
+{region}
+	IF (xInit) THEN
+		xInit            	:= FALSE;
+
+		_HMI.strName 		:= strName;
+		_HMI.wCmd			:= 0;			
+		_HMI.wCmd.0 		:= TRUE;	// 0 = Manual, 1 = Auto 
+		_HMI.wCmd.1			:= FALSE; 	// Forward.
+		_HMI.wCmd.2			:= FALSE;	// Reverse.
+		_HMI.wStatus		:= 0;
+			 
+		xExecute		 	:= TRUE;
+		xCmdReset			:= FALSE;	 
+		xCmdGoBackw	  	 	:= FALSE;
+		xCmdGoForw		 	:= FALSE;
+			 
+		xInterlForw			:= FALSE;
+		xInterlBackw		:= FALSE;
+
+		xErrThermFault   	:= FALSE;
+		 
+		myClassType      	:= enClassType.ctMotor;
+	END_IF
+
+	//
+	// Reset manual control after estop.
+	//
+	IF (xCmdEStopActive) THEN
+		_HMI.wCmd.1			:= FALSE; 	// Forward.
+		_HMI.wCmd.2			:= FALSE;	// Reverse.
+	END_IF	
+
+		 
+	//
+	// Determine if output is allowed, without interlock.
+	//
+	xForwAllowed  := ( (    _HMI.wCmd.0 AND xExecute AND xCmdGoForw  AND NOT xCmdGoBackw) OR 
+					   (NOT _HMI.wCmd.0 AND _HMI.wCmd.1 AND NOT _HMI.wCmd.2)) 
+					 AND NOT xErrThermFault AND NOT xCmdEStopActive AND xSwitchOk;
+						  
+	xBackwAllowed := ( (    _HMI.wCmd.0 AND xExecute AND xCmdGoBackw AND NOT xCmdGoForw ) OR 
+					   (NOT _HMI.wCmd.0 AND _HMI.wCmd.2 AND NOT _HMI.wCmd.1 )) 
+					 AND NOT xErrThermFault AND NOT xCmdEStopActive AND xSwitchOk;		 
+
+	//
+	// Determine if the output is interlocked for display status.
+	//
+	xInterlocked  := (xForwAllowed  AND xInterlForw) OR (xBackwAllowed AND xInterlBackw);
+		 
+	//
+	// Interlock the output if necessary....
+	//
+	xForwAllowed  := xForwAllowed  AND NOT xInterlForw  AND NOT xCmdEStopActive;
+	xBackwAllowed := xBackwAllowed AND NOT xInterlBackw AND NOT xCmdEStopActive;
+		 	 			 				  
+	//
+	//Switch direction ok
+	//
+		 
+	fbSwitchOk(IN := NOT xOutForw AND NOT xOutBackw, PT := tSwitchDelay);
+		 
+	IF (fbSwitchOk.Q) THEN
+		xSwitchOk := TRUE;		 
+	END_IF
+			 
+	fbFTrigForw(CLK  := xOutForw );
+	fbFTrigBackw(CLK := xOutBackw);
+		 
+	IF (fbFTrigForw.Q OR fbFTrigBackw.Q) THEN
+		xSwitchOk := FALSE;	
+	END_IF
+	
+	//Output
+	xOutForw  := xForwAllowed;
+	xOutBackw := xBackwAllowed;
+		 
+	// Start next
+	fbStartNext(IN := xOutForw, PT := tStartNext);
+	xStartNext := fbStartNext.Q;
+	
+	// Stop next
+	fbStopNext(IN := xOutForw, PT := tStopNext);
+	xStopNext := fbStopNext.Q;
+	
+{endregion}
+	
+// ### ALARM ###
+{region}
+	IF (xCmdEStopActive) THEN
+		//
+		// In case of an emergency stop the termical fault can be ignored...
+		//
+		xThermFault    := FALSE;
+		xErrThermFault := FALSE;		 
+	END_IF
+		 
+	IF (xCmdReset) THEN
+		xErrThermFault 		  := FALSE;	 
+	END_IF
+		 
+	xErrThermFault := (xThermFault OR xErrThermFault);			  
+{endregion}	 
+
+// ### ERROR  ###
+{region}			 
+	xCMError := xCMError OR xErrThermFault;
+{endregion}
+	 
+// ### VISUAL ###
+{region}
+	_HMI.wStatus.0 := _HMI.wCmd.0;			// Automatic
+	_HMI.wStatus.1 := NOT(_HMI.wCmd.0);		// Manual	
+	_HMI.wStatus.2 := xErrThermFault;	
+	_HMI.wStatus.3 := xInterlForw;
+	_HMI.wStatus.4 := xInterlBackw;
+	_HMI.wStatus.5 := xInterlocked;
+	_HMI.wStatus.6 := xOutForw;
+	_HMI.wStatus.7 := xOutBackw;
+	_HMI.wStatus.8 := xOutForw OR xOutBackw;	 
+{endregion}	 
+	 
+
+{region}			 
+	//------------------------------------------------------------------------------------------------------
+	// Alarm and warning handling.
+	//------------------------------------------------------------------------------------------------------
+	
+	wErrorID := 16#0000;
+	wWarningID := 16#0000;
+
+	IF (xThermFault) THEN wErrorID := 16#0001; END_IF		 
+	IF (xInterlForw) THEN wWarningID := 16#0002; END_IF
+	IF (xInterlBackw) THEN wWarningID := 16#0003; END_IF		 
+
+	//Alarm 
+	ALM_Error(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wErrorID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Fault, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wErrorID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.NormalStop);
+		
+	//Warning
+	ALM_Warning(
+		ModuleHandler:= myModuleHandler, 
+		ErrorHandler:= , 
+		xSetError:= (wWarningID <> 0),
+		eSeverity:= L_IE1P.L_IE1P_SeverityLevel.Warning, 
+		wTextRefId:= lib_TextList, 
+		wErrorId:= wWarningID, 
+		eReaction:= L_IE1P.L_IE1P_Reaction.No_Reaction);
+		
+	IF NOT xInitProgramAlarms THEN 
+		myModuleHandler.SetParent(ModuleHandlerParent:= IQ_ModuleHandler);
+		xInitProgramAlarms:= TRUE;
+	END_IF
+	
+	ForwardAlarms(
+		xEnable:= TRUE, 
+		ModuleHandler:= myModuleHandler, 
+		xForwardFromChildModules:=TRUE);
+{endregion}
+
+END_FUNCTION_BLOCK
