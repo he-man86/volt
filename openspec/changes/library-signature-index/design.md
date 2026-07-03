@@ -6,18 +6,29 @@ aren't mirrored, so their symbols (`PACK_ML`, `L_MC4P`, `SER_*`, …) resolve no
 knowing the library symbol **names** is enough to clear them; the symbols' **contents** are only needed
 for hover/member-completion/go-to-def.
 
-**Spike findings (2026-07-02, two rounds, reverted):**
-- Build the project → `SystemInstances.LanguageModelMgr` (`LanguageModelManagerLegacy`) →
-  `GetCompileContext(appGuid) -> ICompileContext` → `ctx.GetAllSignaturesFlat()` returns the whole
-  resolved symbol table (16,424 on pro2193). Each item carries **`LibraryId`** (e.g.
-  `"l_mc1p_motioncontrolbasic * (lenze)"`) — non-empty ⇒ library-owned. So **names + kind + owning
-  library are extractable** (Phase 1). `GetAllMethods(ISignature2)` works.
-- BUT that flat model is **compiler-LOWERED**: FBs become structs with `__VFTABLEPOINTER` vars and
-  mangled names (`L_MC1P_IRETAINFUNCTION__UNION`). NOT clean source. `GetConverterToIEC` is a
-  value/literal converter (`GetInteger`/`GetBoolean`), NOT a declaration renderer. The source-level
-  precompile *app* context (`GetPrecompileContext`) is PROJECT-only (4219 sigs; `GetAllLocalLibraries`=0);
-  `GetLibraryPrecompileContext(resolutionGuid)` returned null. So **clean full declarations were NOT
-  reached** — that's Phase 2, pending its own spike.
+**Spike findings — RE-VERIFIED LIVE END-TO-END 2026-07-03 (Lenze MID-S100); supersedes the pessimistic
+2026-07-02 note.** Full recipe (see the `codesys-library-signature-extraction` memory):
+1. Build (`app.generate_code()` / `POST /build`) — models are EMPTY before a build.
+2. `SystemInstances.LanguageModelMgr` (`LanguageModelManagerLegacy`) via reflection (as the bridge reaches
+   `ObjectMgr`/`Engine`).
+3. `lmm.GetCompileContext(appGuid)` — **appGuid = `proj.active_application.guid`** (simpler than the old
+   `GetLanguageModel()` XML path).
+4. `ctx.GetAllSignaturesFlat()` → the resolved symbol table (11,694 on Lenze).
+5. Filter `sig.IsLibraryObject` → 7,760 library sigs (also `IsCompiledLibraryObject`/`IsSourceLibraryObject`).
+6. Organize: `sig.LibraryPath` = clean `"l_mc1p_motioncontrolbasic, 3.34.0.96 (lenze)"` → one folder per
+   library (110); `sig.POUType` (`FunctionBlock`/`Interface`/`Function`/`VarGlobal`/`Type`) → the kind.
+- **PHASE 2 IS NOW UNBLOCKED — full public declarations ARE reachable** (the earlier "not reached" was
+  from walking the wrong accessor): enums/GVLs via `sig.AllVariables` (clean members — `L_MC1P_AXIS_STATE`
+  → `ERRORSTOP, DISABLED, STANDSTILL, …`); FBs/functions via `sig.Inputs`/`Outputs`/`InOuts` (clean public
+  pins with real types — `XERROR : BOOL`, `ERRORHANDLE : POINTER TO BYTE`); `BaseSignature`/`Interfaces`
+  for the EXTENDS/IMPLEMENTS chain. Verified real `L_MC1P_*` + `MC_DIRECTION` signatures — exactly the floor.
+- **Two render gotchas:** (a) an FB's `AllVariables` still includes compiler internals (`__VFTABLEPOINTER`,
+  `__INTERFACEPOINTER__*`) — use `Inputs`/`Outputs` for the clean interface, or drop `__`-prefixed names.
+  (b) The official renderer `GetConverterToIEC(bool, bool, DisplayMode)` (3 args, not a value converter)
+  wasn't dumped; the manual variable walk is the confirmed path.
+- **Build-free alt for SOURCE libs only:** `librarymanager.get_file_path(ref.managed_library)` → open the
+  `.library` standalone → `obj.textual_declaration.text` (verified on OSCAT). Compiled `.compiled-library*`
+  return empty (protected), so the ISignature path above is the complete single solution (source + compiled).
 
 ## Goals / Non-Goals
 
@@ -28,7 +39,10 @@ for hover/member-completion/go-to-def.
 - Amortize the build+extract via per-library-version caching (a normal pull pays nothing).
 
 **Non-Goals:**
-- Full member signatures (struct fields, FB inputs/methods/properties, function params) — Phase 2.
+- Full member signatures (struct fields, FB inputs/methods/properties, function params) — Phase 2. NOTE
+  (2026-07-03): the extraction for this is now spiked/proven (see Spike findings — `sig.Inputs`/`Outputs`
+  /`AllVariables`), so Phase 2 is de-risked and could fold into Phase 1 (emit full signatures in one pass)
+  rather than minimal stubs; revisit the phase split when implementing.
 - Library implementation bodies, ever (signatures only; libraries are owned upstream).
 - Any push/edit of `libs/` (read-only). TwinCAT parity in v1 (Beckhoff returns none).
 
