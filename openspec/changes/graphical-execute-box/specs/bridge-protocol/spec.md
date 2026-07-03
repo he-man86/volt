@@ -23,11 +23,12 @@ round-trips byte-for-byte and the box is created/edited, not read-only.
 
 ### Requirement: The LSP analyzes an Execute box's body as Structured Text, not simplified VG
 
-The LSP's VG parser SHALL recognize the `EXECUTE … END_EXECUTE` block and SHALL NOT apply the simplified VG
-statement grammar to its body — which is full ST (nested `IF`, comments, multi-statement) and would produce
-spurious `VG_PARSE` diagnostics. The block's ST SHALL read as-is (no false diagnostics on valid code).
+The LSP SHALL analyze an `EXECUTE … END_EXECUTE` block's body as full Structured Text — NOT the simplified VG
+statement grammar (which would `VG_PARSE` on real ST: nested `IF`, comments, multi-statement). The block's ST
+identifiers SHALL be resolved against the POU scope (so an undeclared reference is flagged and a declared one
+is not) and SHALL be navigable (references / highlight / completion), rather than the block being opaque.
 
-#### Scenario: Complex ST inside an Execute box does not produce VG parse errors
+#### Scenario: Complex ST inside an Execute box is checked, not VG-parse-errored
 - **WHEN** the LSP analyzes an FBD body whose `EXECUTE` block contains multi-statement, commented ST
-- **THEN** it emits no `VG_PARSE` (or `vg-undeclared`) diagnostics for that block, and the surrounding VG
-  networks still analyze normally
+- **THEN** it emits no `VG_PARSE` for that block; a reference to a declared variable resolves, an undeclared
+  identifier is flagged, and the surrounding VG networks still analyze normally

@@ -99,9 +99,11 @@ item pushes cleanly with a matching version). It's harmless for a stable round-t
 would surface as a spurious conflict on an editable FBD/LD push. Not caused by this change — a candidate for
 its own investigation + regression test (per the bridge-gap-tests policy).
 
-## Non-goals / follow-up
+## Non-goals
 
-- **Follow-up:** full ST-ANALYSIS inside the `EXECUTE` block in the LSP (go-to-definition, references,
-  diagnostics on the box's ST). Today the block reads cleanly but its body isn't navigated/checked.
+- **Done (was the follow-up):** full ST-analysis inside the `EXECUTE` block — `parser.ts` captures the ST
+  token slice onto `VgNetwork.executes`, `body.ts` scans it with the ST identifier scanner and merges it into
+  the VG body model, so the box's code is checked (unresolved-identifier) and navigable
+  (references/highlight/completion). bakon's ST globals resolve, so the ratchet is unchanged.
 - Not touching CFC/SFC read-only bodies (already correct).
 - Not unifying vendor graphical handling — the reader/writer live in shared `Core`, so parity is automatic.

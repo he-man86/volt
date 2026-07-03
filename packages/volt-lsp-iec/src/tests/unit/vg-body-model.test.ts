@@ -134,3 +134,40 @@ END_FUNCTION_BLOCK`;
 		expect(names).not.toContain("field");
 	});
 });
+
+describe("vg body model: Execute box ST is analyzed as full ST", () => {
+	// A CODESYS Execute box (§ EXECUTE) holds real ST. The body model must scan that ST as ST — its
+	// identifiers navigable + checked — not treat the block as opaque.
+	const EXEC_FB = `FUNCTION_BLOCK FB_Exec
+VAR
+	en : BOOL;
+	known : INT;
+END_VAR
+NETWORK 0 FBD
+	LET en1 := en;
+	IF en1 THEN
+	EXECUTE
+	known := unknownXyz + 1;
+	END_EXECUTE
+	END_IF
+END_NETWORK
+END_FUNCTION_BLOCK`;
+
+	it("collects the Execute box's ST identifiers into the body model", () => {
+		const { parseResult, bodyModels } = setup(EXEC_FB);
+		const fb = parseResult.units[0] as FunctionBlock;
+		const model = bodyModels.get(fb.body)!;
+		const names = model.identifiers.map((i) => i.name);
+		expect(names).toContain("known"); // the box's ST assignment target is seen
+		expect(names).toContain("unknownXyz");
+	});
+
+	it("flags an undeclared identifier inside the box, resolves a declared one, and stays VG (no ST-grammar diag)", () => {
+		const { parseResult, bodyModels, diags } = setup(EXEC_FB);
+		const fb = parseResult.units[0] as FunctionBlock;
+		expect(bodyModels.get(fb.body)!.language).toBe("vg");
+		expect(diags.filter((d) => d.code === "vg-undeclared-identifier" && d.message.includes("unknownXyz"))).toHaveLength(1);
+		expect(diags.some((d) => d.message.includes("'known'"))).toBe(false); // declared → resolves
+		expect(diags.some((d) => d.code === "vg-undefined-label" || d.code === "assignment-type-mismatch")).toBe(false);
+	});
+});

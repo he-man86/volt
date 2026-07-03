@@ -223,6 +223,13 @@ export interface VgUnknownStmt {
 
 // ─── Networks & body ─────────────────────────────────────────────────
 
+/** An Execute box's inline ST body — the raw token slice between `EXECUTE` and `END_EXECUTE`, analyzed as
+ *  full Structured Text (not the simplified VG grammar). */
+export interface VgExecuteBody {
+	tokens: Token[];
+	span: Span;
+}
+
 export interface VgNetwork {
 	/** The verbatim network index (`NETWORK 3 FBD` → 3); undefined if omitted. */
 	index?: number;
@@ -235,6 +242,10 @@ export interface VgNetwork {
 	disabled: boolean;
 	comments: VgComment[];
 	statements: VgStatement[];
+	/** The Structured-Text bodies of any Execute boxes in this network — the raw ST token slice between each
+	 *  `EXECUTE` and `END_EXECUTE`. Analyzed as FULL ST (not simplified VG), so the box's code is navigable and
+	 *  checked. Empty for an ordinary network. */
+	executes: VgExecuteBody[];
 	/** Span of the `NETWORK …` header line. */
 	headerSpan: Span;
 	/** Span of the whole `NETWORK … END_NETWORK` block. */

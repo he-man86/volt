@@ -24,7 +24,13 @@ wire+IF) was built end-to-end:
 - [x] 2.5 `GraphicalCode`: guard removed — Execute-box bodies are editable (create + update), gated by the
   existing strict Validate round-trip.
 - [x] 2.6 LSP `src/vg/parser.ts`: recognize + consume the `EXECUTE` construct so its complex ST isn't fed to
-  the simplified VG grammar (no `VG_PARSE`). Full ST-analysis (nav/diagnostics inside the block) is a follow-up.
+  the simplified VG grammar (no `VG_PARSE`). Missing `END_EXECUTE`/`END_IF` now emits `VG_PARSE` (matches the
+  bridge) rather than swallowing the body.
+- [x] 2.7 **Full ST-analysis DONE** — the `EXECUTE` block's ST is now analyzed as real ST: `parser.ts` captures
+  the ST token slice onto `VgNetwork.executes` (`ast.ts` `VgExecuteBody`), and `body.ts` scans each with the
+  ST identifier scanner and merges the refs into the VG body model. So the box's code is checked
+  (unresolved-identifier) and navigable (references/highlight/completion), not opaque. bakon's ST globals
+  resolve → ratchet stays 275; an undeclared ref inside a box now flags (regression test in `vg-body-model.test.ts`).
 
 ## 3. Push still works after the fetch changes (user caution) — VERIFIED
 

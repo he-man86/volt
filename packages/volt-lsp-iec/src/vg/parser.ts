@@ -32,6 +32,7 @@ import type {
 	VgCore,
 	VgDiagnostic,
 	VgDiagnosticCode,
+	VgExecuteBody,
 	VgLValue,
 	VgMods,
 	VgName,
@@ -137,6 +138,11 @@ export function parseVgBody(tokens: Token[], source?: string): VgBody {
 				diagnostics.push(diag("VG_PARSE", "EXECUTE is not closed by END_EXECUTE", line.span));
 				li = lines.length;
 			} else {
+				// Capture the verbatim ST between EXECUTE and END_EXECUTE so it's analyzed as full ST (below).
+				const stLines = lines.slice(li + 1, j);
+				const stToks = stLines.flatMap((l) => l.toks);
+				if (stToks.length > 0)
+					cur.executes.push({ tokens: stToks, span: joinSpans(stLines[0]!.span, stLines[stLines.length - 1]!.span) });
 				li = j; // consume the ST body + END_EXECUTE
 				if (pendingEn !== undefined) {
 					const k = li + 1;
@@ -215,6 +221,7 @@ interface NetworkAcc {
 	comments: VgNetwork["comments"];
 	headerSpan: Span;
 	stmtLines: Line[];
+	executes: VgExecuteBody[];
 }
 
 function startNetwork(
@@ -271,6 +278,7 @@ function startNetwork(
 		comments: [],
 		headerSpan: header.span,
 		stmtLines: [],
+		executes: [],
 	};
 }
 
@@ -293,6 +301,7 @@ function buildNetwork(
 		disabled: acc.disabled,
 		comments: acc.comments,
 		statements,
+		executes: acc.executes,
 		headerSpan: acc.headerSpan,
 		span,
 	};

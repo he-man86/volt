@@ -107,6 +107,19 @@ function buildVgBodyModel(st: BodySpan, source?: string): BodyModel {
 		isNamedParam: r.isNamedParam,
 		qualifier: r.qualifier,
 	}));
+	// An Execute box holds FULL Structured Text — scan each box's ST as ST (not simplified VG) and merge its
+	// identifiers, so the box's code is navigable and checked (unresolved-identifier, references, …) like any
+	// ST body, rather than an opaque region.
+	for (const net of vg.networks)
+		for (const ex of net.executes)
+			for (const o of scanAllIdentifiersInBody({ kind: "body", tokens: ex.tokens, span: ex.span }))
+				identifiers.push({
+					name: o.token.text,
+					span: o.span,
+					isCall: o.isCall,
+					isMemberAccess: o.isMemberAccess,
+					isNamedParam: o.isNamedParam,
+				});
 	const calls: CallSite[] = identifiers.filter((i) => i.isCall).map((i) => ({ name: i.name, span: i.span }));
 	return { span: st.span, language: "vg", identifiers, calls, st, vg };
 }
