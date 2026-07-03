@@ -444,15 +444,33 @@ namespace Volt.Bridge.Core.Graphical.Vg
             {
                 ScanLetWires();                // pass 0: which names are LET-defined internal wires
                 var enWires = ScanEnWires();   // pass 1: which names are EN/ENO enable wires
+                // Pass 1b: an Execute box's EN is handled EXACTLY like any other EN/ENO enable — its `en` is an
+                // enable wire (its `LET en := src` is an EN SOURCE, held in _enSource) AND echoes the box's ENO
+                // (_eno) for downstream chaining (`IF en2 THEN … sourcing this box's ENO`). Mint the box ids and
+                // register both BEFORE pass 2, so a downstream statement that references the ENO resolves to a
+                // block output (which may fan out) rather than the EN-source leaf (which may not).
+                var executeIds = new long[_executes.Count];
+                for (int e = 0; e < _executes.Count; e++)
+                {
+                    executeIds[e] = _nextId++;
+                    var en = _executes[e].En;
+                    if (en != null) { enWires.Add(en); _eno[en] = executeIds[e]; }
+                }
                 foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
                     try { ParseStatement(stmt, enWires); }
                     catch (VgParseException ex) { ex.Line ??= line; throw; }
-                // pass 3: execute boxes — EN resolves to its wire (defined by a LET above), body is verbatim ST.
-                foreach (var (en, st) in _executes)
+                // pass 3: build the execute boxes — EN pin = the held enable source, body is the verbatim ST.
+                for (int e = 0; e < _executes.Count; e++)
                 {
+                    var (en, st) = _executes[e];
                     var pins = new List<Pin>();
-                    if (en != null) pins.Add(new Pin("EN", ParseCore(en), Mods.None));
-                    _nodes.Add(new Block(_nextId++, null, "EXECUTE", null, pins, new List<string> { "ENO" }, "execute", null, st));
+                    if (en != null)
+                    {
+                        if (!_enSource.TryGetValue(en, out var enSrc))
+                            throw new VgParseException($"'IF {en} THEN EXECUTE' has no preceding '{en} := …' enable assignment", "VG_BAD_EXPRESSION");
+                        pins.Add(new Pin("EN", enSrc.Conn, enSrc.Mods));
+                    }
+                    _nodes.Add(new Block(executeIds[e], null, "EXECUTE", null, pins, new List<string> { "ENO" }, "execute", null, st));
                 }
                 return new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
             }

@@ -127,6 +127,17 @@ public class GraphicalCodeTests
     }
 
     [Fact]
+    public void Execute_box_eno_chained_to_a_downstream_en_round_trips()
+    {
+        // Review finding #1: an Execute box's ENO gating a downstream EN/ENO block (a natural FBD sequencing
+        // pattern). The box's `en` must be a real ENO echo — a block output that CAN fan out — not the EN-source
+        // leaf; otherwise the pulled body fails the canonical/leaf-fanout gate and can't be pushed back.
+        var vg = "NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN\n  EXECUTE\n  x := 1;\n  END_EXECUTE\n  END_IF\n"
+            + "  LET en2 := en1;\n  IF en2 THEN out := (b AND c); END_IF\nEND_NETWORK\n";
+        GraphicalCode.Validate(vg);   // throws VG_NOT_CANONICAL / VG_LEAF_FANOUT if the round-trip breaks
+    }
+
+    [Fact]
     public void Write_reconstructs_an_execute_box_from_its_vg()
     {
         // Full write-path round-trip: read an execute-box body to canonical VG, then Write it back. The box is

@@ -132,13 +132,19 @@ export function parseVgBody(tokens: Token[], source?: string): VgBody {
 		if (cur !== undefined && line.toks.length === 1 && isWord(first, "EXECUTE")) {
 			let j = li + 1;
 			while (j < lines.length && !(lines[j]!.toks.length === 1 && isWord(lines[j]!.toks[0]!, "END_EXECUTE"))) j++;
-			li = j; // consume the ST body + END_EXECUTE
-			if (pendingEn !== undefined) {
-				let k = li + 1;
-				while (k < lines.length && lines[k]!.toks.length === 0) k++;
-				if (k < lines.length && lines[k]!.toks.length === 1 && isWord(lines[k]!.toks[0]!, "END_IF")) li = k;
-				pendingEn = undefined;
+			if (j >= lines.length) {
+				// Surface the same failure the bridge throws on push, rather than silently swallowing the rest.
+				diagnostics.push(diag("VG_PARSE", "EXECUTE is not closed by END_EXECUTE", line.span));
+				li = lines.length;
+			} else {
+				li = j; // consume the ST body + END_EXECUTE
+				if (pendingEn !== undefined) {
+					const k = li + 1;
+					if (k < lines.length && lines[k]!.toks.length === 1 && isWord(lines[k]!.toks[0]!, "END_IF")) li = k;
+					else diagnostics.push(diag("VG_PARSE", "EN-guarded EXECUTE is not closed by END_IF", pendingEn.span));
+				}
 			}
+			pendingEn = undefined;
 			continue;
 		}
 

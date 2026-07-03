@@ -114,12 +114,15 @@ network        = network-header , { statement } , "END_NETWORK" ;
 network-header = "NETWORK" , integer , language , [ string ] , [ "DISABLED" ] ;
 language       = "FBD" | "LD" ;
 
-statement      = wire-def | sink | fb-call | en-eno-if | control-flow | comment ;
+statement      = wire-def | sink | fb-call | en-eno-if | execute-box | control-flow | comment ;
 
 wire-def       = "LET" , name , ":=" , producer , [ ";" ] ;   (* an internal wire *)
 sink           = lvalue , ":=" , operand , [ ";" ] ;          (* an outVariable / coil *)
 fb-call        = name , "(" , [ fb-args ] , ")" , [ ";" ] ;   (* a bare FB instance invocation *)
 en-eno-if      = "IF" , name , "THEN" , ( wire-def | sink | fb-call ) , [ ";" ] , "END_IF" ;
+execute-box    = [ "IF" , name , "THEN" ] ,                   (* an Execute box: ST-in-FBD/LD (§6) *)
+                 "EXECUTE" , st-text , "END_EXECUTE" ,        (* st-text = verbatim ST, kept byte-for-byte *)
+                 [ "END_IF" ] ;                               (* the IF/END_IF present iff the box has a wired EN *)
 control-flow   = label | jump | return ;
 label          = name , ":" ;
 jump           = "JMP" , name , [ ";" ]
@@ -263,6 +266,26 @@ LET en3 := a;
 IF en3 THEN t1(IN := x, PT := pt); END_IF  -- gating an FB CALL; its outputs read via t1.Q elsewhere
 done := t1.Q;
 ```
+
+### Execute box — `EXECUTE … END_EXECUTE`
+A CODESYS **Execute box** (the standard "ST inside FBD/LD" element: PlcOpen `fbdcalltype=execute` + an
+`<STCode>` addData) is an EN/ENO block whose "call" is raw Structured Text. Its enable is NOT special — it
+reuses the ordinary EN/ENO wire+`IF` (above); the only new token pair is `EXECUTE … END_EXECUTE` around the
+**verbatim ST**, which may be arbitrarily complex (nested `IF`, comments, multiple statements):
+```
+LET en1 := bRun;
+IF en1 THEN
+EXECUTE
+IF bStart THEN                       -- the box's own ST, kept byte-for-byte
+	target := 40 + 2;   (* the answer *)
+END_IF
+END_EXECUTE
+END_IF
+```
+A box with no wired EN renders as a bare `EXECUTE … END_EXECUTE` (no `IF`). The explicit `END_EXECUTE`
+delimiter (not "until `END_IF`") disambiguates the ST's own nested `END_IF`s. The ST between the markers is
+carried opaquely — the bridge reconstructs `<block typeName="EXECUTE">` from it on push (a real, live-verified
+round-trip), and the LSP treats it as full ST rather than the simplified VG grammar.
 
 ### Modifiers — ride on the consumer
 `NOT` (negation, leading), `RISING`/`FALLING` (edge, trailing), `SET`/`RESET` (coil storage, trailing). A
