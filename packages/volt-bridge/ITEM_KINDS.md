@@ -35,7 +35,7 @@ arm); `CDS` = CODESYS-only. **Live**: ✅ seen/exercised on a live TwinCAT; ⚠�
 | 618 | `PLCITF` | `PlcItf` | `interface` | both | ✅ | ✅ | ✅ | accessors are bodiless stubs — never write text to them |
 | 619 | `PLCVISOBJ` | `PlcVisObj` | `visualization` | both | ✅ | opaque | ✅ | |
 | 620 | `PLCVISMAN` | `PlcVisMan` | `visualization_manager` | both | ✅ | opaque | ✅ | |
-| 621 | `PLCTASK` | `PlcTask` | `task` | both | ✅ | opaque | ✅ | |
+| 621 | `PLCTASK` | `PlcTask` | `task` | both | ✅ | read-only descriptor | ✅ | CODESYS `.task` body = scheduling descriptor (Type/Interval/Priority/Watchdog/called-POUs) via `ScriptTaskObject`; TC still emits `Name=/linked-task=` (parity gap) |
 | 623 | `PLCDUTALIAS` | `PlcDutAlias` | `alias` | both | ✅ | ✅ | ✅ | |
 | 625 | *(unconfirmed)* | `PlcTextList` | `text_list` | both | ✅ | opaque | ✅ | confirmed `text_list` on this build (was `PLCTMCDESCRIPTION` in the old enum; tmc → 653) |
 | 628 | *(unconfirmed)* | `PlcImagePool` | `image_pool` | both | ✅ | opaque | ✅ | RE'd number |

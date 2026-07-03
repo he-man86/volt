@@ -335,6 +335,43 @@ namespace Volt.Bridge.Codesys
             ("Auto start", "auto_start"), ("Trigger enabled", "trigger_enabled"),
             ("Trigger variable", "trigger_variable"), ("Comment", "comment"));
 
+        /// <summary>The read-only descriptor for a task (`.task`): its scheduling — task type, cycle interval,
+        /// priority, watchdog, and the POUs it calls each cycle. Read from the `ScriptTaskObject` facet (whose
+        /// `watchdog` is a nested object and `pous` yields the called-POU names). The `.task` file body; not
+        /// referenced by source, so the LSP carries it as project context ("PLC_PRG runs on MainTask @ t#20ms").</summary>
+        public string TaskDescriptor(object node)
+        {
+            var f = Facet(node, "ScriptTaskObject");
+            var sb = new System.Text.StringBuilder();
+            void Line(string label, string? value)
+            {
+                if (!string.IsNullOrWhiteSpace(value)) sb.Append((label + ":").PadRight(11)).Append(value!.Trim()).Append('\n');
+            }
+
+            Line("Type", System.Convert.ToString(GetMember(f, "kind_of_task")));
+            Line("Interval", System.Convert.ToString(GetMember(f, "interval")));
+            Line("Priority", System.Convert.ToString(GetMember(f, "priority")));
+            // Event-triggered tasks carry the triggering (external) event variable; empty for cyclic/freewheeling.
+            var ev = System.Convert.ToString(GetMember(f, "event"));
+            if (string.IsNullOrWhiteSpace(ev)) ev = System.Convert.ToString(GetMember(f, "external_event"));
+            Line("Event", ev);
+
+            var wd = GetMember(f, "watchdog");
+            if (wd != null && GetMember(wd, "enabled") is bool on && on)
+                Line("Watchdog", $"{System.Convert.ToString(GetMember(wd, "time"))?.Trim()} (sensitivity {System.Convert.ToString(GetMember(wd, "sensitivity"))?.Trim()})");
+            else
+                Line("Watchdog", "off");
+
+            // The POUs this task calls each cycle (ScriptPouObjectList yields the POU names, in call order).
+            if (GetMember(f, "pous") is IEnumerable pous)
+            {
+                var names = new List<string>();
+                foreach (var p in pous) { var n = System.Convert.ToString(p)?.Trim(); if (!string.IsNullOrEmpty(n)) names.Add(n!); }
+                if (names.Count > 0) Line("Calls", string.Join(", ", names));
+            }
+            return sb.ToString();
+        }
+
         /// <summary>The symbol-configuration flags (`.symbols`): which access features a project exposes
         /// (OPC UA, direct I/O, attribute filter). The resolved exposed-symbol LIST is compiled-model state,
         /// not in the scripting facet — this captures the configuration.</summary>

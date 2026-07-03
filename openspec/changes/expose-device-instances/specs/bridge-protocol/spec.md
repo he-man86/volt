@@ -31,7 +31,9 @@ emit no device items (a documented parity gap), keeping the wire contract identi
 The bridge SHALL emit each non-source project object that exposes readable content as a read-only descriptor,
 built without a project build: **Project Information** (`.projectinfo` — title/version/company/author/…),
 **Trace** configs (`.trace` — task/trigger/resolution/samples), **Recipe** definitions (`.recipe` — the
-variable list `var : type (column)`), and the **Symbol configuration** (`.symbols` — access flags). A project
+variable list `var : type (column)`), the **Symbol configuration** (`.symbols` — access flags), and each
+**Task** (`.task` — the scheduling: task type, cycle interval, priority, watchdog, and the POUs it calls each
+cycle). A project
 object the scripting API exposes NO readable content for (e.g. Project Settings), and an object CODESYS itself
 declares opaque because its plugin is absent (`IUnknownObject`), SHALL remain a documented known-skip rather
 than an Unknown — so every project node is either mirrored or a deliberate, documented skip with no
@@ -44,6 +46,10 @@ unrecognized-type warning.
 #### Scenario: Recipe definitions are mirrored with their variables
 - **WHEN** a project's Recipe Manager holds recipe definitions
 - **THEN** each is emitted as a read-only `.recipe` item nested under the manager, listing every recipe variable with its type
+
+#### Scenario: Tasks are mirrored with their scheduling and POU calls
+- **WHEN** a project's Task Configuration holds tasks (e.g. `MainTask`, cyclic at `t#20ms`, calling `PLC_PRG`)
+- **THEN** each is emitted as a read-only `.task` item nested under `…/Task Configuration/`, its body carrying the task type, cycle interval, priority, watchdog, and the called POU names (empty fields omitted)
 
 #### Scenario: An unreadable or plugin-opaque object is a documented skip
 - **WHEN** the project contains a config object with no readable content (Project Settings) or an object CODESYS declares opaque because its plugin is absent (`IUnknownObject`)

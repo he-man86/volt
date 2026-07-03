@@ -42,5 +42,6 @@ public sealed partial class CodesysDriver
         : kind == "trace" ? _om.TraceDescriptor(item.Native)
         : kind == "recipe" ? _om.RecipeDescriptor(item.Native)
         : kind == "symbol_config" ? _om.SymbolConfigDescriptor(item.Native)
+        : kind == "task" ? _om.TaskDescriptor(item.Native)
         : $"{kind}\n";
 }

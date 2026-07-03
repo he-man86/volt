@@ -53,6 +53,12 @@
 - [x] 6.5 `IWorkspaceObject` ("Project Settings") stays a deliberate known-skip — no readable content (only a
   `ScriptNoProjectInfoMarker`). `IUnknownObject` (`_Errors`, ×31) stays skipped — plugin-missing in the
   headless profile (environmental, not a code gap). Both documented.
+- [x] 6.6 **Task descriptor** — `.task`/`PlcTask=621` already existed but emitted an empty `task\n` stub.
+  `TaskDescriptor(node)` (bespoke, reads `ScriptTaskObject` + drills nested `watchdog` and the `pous` name
+  list) → `ReadManifest(item, "task")`. Emits Type/Interval/Priority/Watchdog/Calls (empty omitted). Facet +
+  property names confirmed live via a temporary `/debug` facet probe (since reverted); verified end-to-end on
+  the fixture: `MainTask.task` body = `Type: Cyclic / Interval: t#20ms / Priority: 1 / Watchdog: off / Calls:
+  PLC_PRG`. No new ItemKind/extension/tree/registry change (the kind already shipped read-only).
 
 ## 7. TwinCAT / Beckhoff — TODO (parity; see design.md "TwinCAT implementation")
 
@@ -74,3 +80,7 @@
 - [ ] 7.7 TwinCAT non-source descriptor parity: map the TwinCAT analogs onto the same kinds/extensions —
   project metadata → `PlcProjectInfo`/`.projectinfo`, and (where TwinCAT has them) recipes → `.recipe`,
   scope/trace → `.trace`, symbol config → `.symbols`. Same fields, same extensions.
+- [ ] 7.8 **Task descriptor parity**: Beckhoff already special-cases `.task` in `BeckhoffDriver.Code.cs`
+  (emits `Name=`/`linked-task=` from the PLCopen XML) — enrich it to the SAME body fields as CODESYS
+  (Type/Interval/Priority/Watchdog/Calls; TwinCAT's PlcTask exposes CycleTime/Priority). Until then the
+  `.task` body differs by vendor — a documented parity gap (kind/extension already identical).

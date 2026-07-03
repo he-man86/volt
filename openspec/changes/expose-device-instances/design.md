@@ -92,10 +92,20 @@ bespoke as it reads two facets):
 | Trace | `ITraceObject` | 697 `.trace` | Task/Record/Resolution/Samples/Trigger config (17 in pro2193) | `ScriptTraceObject` |
 | Recipe definition | `IRecipeDefinitionObject` | 698 `.recipe` | Full variable list: `var : type (column)` (3, under the Recipe Mgr) | `ScriptRecipeDefinitionObject.variables` |
 | Symbol config | `ISymbolConfigObject` | 699 `.symbols` | Access flags: OPC UA / direct-I/O / attribute filter | `ScriptSymbolConfigObject` |
+| Task | `ITaskObject` | **621 `.task`** (existing kind) | Type / Interval / Priority / Watchdog / called POUs (`MainTask`: Cyclic, t#20ms, prio 1, calls PLC_PRG) | `ScriptTaskObject` (+ nested `watchdog`, `pous` name list) |
 
 The Recipe Manager (already emitted) is now **recursed** (like the Library Manager) so its recipe-definition
 children materialize nested under it. Trace/Symbols were already reached by the walk (under the Application);
 only their classification changed. None are referenced by ST, so no LSP change — they ride along as context.
+
+**Tasks are the one that reuses an existing kind.** Unlike 696-699 (new kinds), `.task`/`PlcTask=621` already
+existed and already materialized on every pull — but with an empty `task\n` stub body. This change only adds
+the *body*: a bespoke `TaskDescriptor` (like Device/Recipe — it drills the nested `watchdog` object and the
+`pous` collection, so it isn't a plain `FacetDescriptor` one-liner). The `ScriptTaskObject` facet name +
+property names (`interval`/`interval_unit`/`kind_of_task`/`priority`/`event`/`watchdog.{enabled,time,
+time_unit,sensitivity}`/`pous`) were confirmed live against a headless build (2026-07, `MainTask`). The
+task-call reference copies (`ITransientObject` `PLCPROGREF`) stay a documented skip — their info is now folded
+INTO the task descriptor's `Calls:` line, which is the right home for it.
 
 ### Deliberate skips — what we do NOT mirror, and why (the frontier)
 
