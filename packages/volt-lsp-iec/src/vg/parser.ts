@@ -395,6 +395,18 @@ class NetworkParser {
 			return this.parseEnEnoIf(rest, span);
 		}
 
+		// Base/self call: `SUPER^(…)` / `THIS^(…)` — an opaque call to the parent/own body, seen in a graphical POU
+		// that EXTENDS another. Not a resolvable instance; keep the `^` in the (non-navigable) name and parse args.
+		if (
+			(isWord(rest[0], "SUPER") || isWord(rest[0], "THIS")) &&
+			isPunctTok(rest[1], "^") &&
+			isPunctTok(rest[2], "(") &&
+			isPunctTok(rest[rest.length - 1], ")")
+		) {
+			const instance: VgName = { text: `${rest[0]!.text}^`, span: joinSpans(rest[0]!.span, rest[1]!.span) };
+			return { kind: "fb_call", instance, members: [], args: this.parseArgs(rest.slice(3, rest.length - 1)), span };
+		}
+
 		const asg = splitAssignment(rest);
 		if (asg === undefined) {
 			// No top-level `:=` → an FB-instance call, else unknown.
@@ -493,12 +505,12 @@ class NetworkParser {
 			return { kind: "unknown_stmt", tokens: toks, span };
 		}
 		// The callee is a name path `a.b.c` — the ROOT `a` is the navigable instance variable; `b`/`c` are
-		// members of its (struct-of-FBs) type. Declare the FULL path as the network-unique instance identity.
+		// members of its (struct-of-FBs) type. An FB instance is deliberately NOT declared for the duplicate-name
+		// check: calling the same instance twice in a network is legal (shared state — an SR set here, reset
+		// there), unlike a repeated wire/result/label name.
 		const pathNames = call.path.filter((t) => !isPunctTok(t, ".")).map(nameOf);
 		const instance = pathNames[0]!;
 		const members = pathNames.slice(1);
-		const fullSpan = members.length > 0 ? joinSpans(instance.span, members[members.length - 1]!.span) : instance.span;
-		this.declare({ text: pathNames.map((n) => n.text).join("."), span: fullSpan });
 		const args = this.parseArgs(call.inner);
 		return { kind: "fb_call", instance, members, args, span };
 	}
@@ -521,15 +533,22 @@ class NetworkParser {
 		if (isCallShape(toks)) {
 			return this.parseFunctionCall(toks);
 		}
-		// Parens that form neither a single group nor a call → malformed.
+		// Parens that form neither a single group nor a call. A LEADING function call with balanced parens is valid
+		// opaque ST inlined as a leaf (a call inside arithmetic — `DINT_TO_LREAL(x)/10`), so don't flag it. A
+		// partial parenthesisation that is NOT a leading call (`(a AND b) OR c` — the missing outer wrap) IS
+		// malformed and stays flagged. (Seen on the Lenze MID project.)
 		if (toks.some((t) => isPunctTok(t, "(") || isPunctTok(t, ")"))) {
-			this.diagnostics.push(
-				diag(
-					"VG_BAD_EXPRESSION",
-					`malformed expression — unbalanced or partially-parenthesised: ${this.text(toks)}`,
-					spanOf(toks),
-				),
-			);
+			const open = calleePathEnd(toks);
+			const opaqueCall = open >= 1 && isPunctTok(toks[open], "(") && parensBalanced(toks);
+			if (!opaqueCall) {
+				this.diagnostics.push(
+					diag(
+						"VG_BAD_EXPRESSION",
+						`malformed expression — unbalanced or partially-parenthesised: ${this.text(toks)}`,
+						spanOf(toks),
+					),
+				);
+			}
 			return { kind: "leaf", text: this.text(toks), tokens: toks, isLiteral: false, span: spanOf(toks) };
 		}
 		// Member access `inst.Pin` — a single ident, then '.', then ident(s).
@@ -554,6 +573,10 @@ class NetworkParser {
 		const inner = toks.slice(1, toks.length - 1);
 		const span = spanOf(toks);
 		const words = mergeLeadingNot(splitWords(inner));
+
+		// Redundant parens around a SINGLE operand — `(x)`, `(inst.Q)`, `NOT(member)`, `(FN(a))`. Not an operator
+		// expression; unwrap to the inner core rather than demanding `a OP b`. (Seen on the Lenze MID project.)
+		if (words.length === 1) return this.parseCore(inner);
 
 		// A well-formed group is `operand OP operand [OP operand …]` —
 		// odd word count ≥ 3 (even=operand, odd=operator). Mirrors
@@ -615,7 +638,9 @@ class NetworkParser {
 			.filter((p) => p.length > 0)
 			.map((p) => {
 				const asg = splitAssignment(p);
-				if (asg !== undefined && asg.lhs.length === 1 && asg.lhs[0]!.kind === "identifier") {
+				// A pin name may be a CONTEXTUAL keyword (an SR flip-flop's `SET`/`RESET` pins lex as keywords, not
+				// identifiers) — accept any name token, else `SET := (expr)` mis-parses as a bare operand.
+				if (asg !== undefined && asg.lhs.length === 1 && isNameTok(asg.lhs[0]!)) {
 					const pin = nameOf(asg.lhs[0]!);
 					const value = this.parseOperand(asg.rhs);
 					return { pin, value, span: spanOf(p) };
@@ -736,6 +761,16 @@ function splitCall(toks: Token[]): { path: Token[]; inner: Token[] } | undefined
 }
 
 /** Is the whole token run a single balanced parenthesised group? */
+// Every `(` has a matching `)` and depth never goes negative — a valid (if complex) parenthesisation.
+function parensBalanced(toks: Token[]): boolean {
+	let depth = 0;
+	for (const t of toks) {
+		if (isPunctTok(t, "(")) depth++;
+		else if (isPunctTok(t, ")") && --depth < 0) return false;
+	}
+	return depth === 0;
+}
+
 function isSingleGroup(toks: Token[]): boolean {
 	if (toks.length < 2 || !isPunctTok(toks[0], "(") || !isPunctTok(toks[toks.length - 1], ")")) return false;
 	let depth = 0;

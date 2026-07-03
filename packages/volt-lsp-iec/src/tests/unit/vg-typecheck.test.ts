@@ -169,6 +169,52 @@ END_FUNCTION_BLOCK`;
 		expect(diags(src).filter((x) => x.code === "vg-unknown-pin")).toEqual([]);
 	});
 
+	it("does not flag pins on an FB that EXTENDS an unresolvable (library) base", () => {
+		// The pin may be inherited from the missing base (Lenze `Camming_SideCorrection EXTENDS Camming`) — don't
+		// guess, else every inherited/library pin false-flags.
+		const src = `FUNCTION_BLOCK FB_Derived EXTENDS SomeLibBase
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Use
+VAR
+	d : FB_Derived;
+END_VAR
+NETWORK 0 FBD
+	d(i_InheritedFromLib := TRUE);
+END_NETWORK
+END_FUNCTION_BLOCK`;
+		expect(diags(src).filter((x) => x.code === "vg-unknown-pin")).toEqual([]);
+	});
+
+	it("walks a RESOLVABLE EXTENDS chain: inherited pin ok, bogus pin still flagged", () => {
+		const base = `FUNCTION_BLOCK FB_Base
+VAR_INPUT
+	baseIn : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Derived EXTENDS FB_Base
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Use
+VAR
+	d : FB_Derived;
+END_VAR`;
+		// inherited pin resolves → no flag
+		expect(
+			diags(`${base}
+NETWORK 0 FBD
+	d(baseIn := TRUE);
+END_NETWORK
+END_FUNCTION_BLOCK`).filter((x) => x.code === "vg-unknown-pin"),
+		).toEqual([]);
+		// a genuinely bogus pin still flags (the base IS resolvable, so we know the full pin set)
+		expect(
+			diags(`${base}
+NETWORK 0 FBD
+	d(nope := TRUE);
+END_NETWORK
+END_FUNCTION_BLOCK`).filter((x) => x.code === "vg-unknown-pin"),
+		).toHaveLength(1);
+	});
+
 	it("MAX(a,b) function call parses and resolves cleanly", () => {
 		const src = `FUNCTION_BLOCK FB_X
 VAR

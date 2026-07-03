@@ -112,22 +112,33 @@ function checkPins(network: VgNetwork, project: Scope, scope: Scope, out: Diagno
 
 interface AstWithVarSections {
 	varSections?: ReadonlyArray<{ sectionKind: string; decls: ReadonlyArray<{ names: ReadonlyArray<{ text: string }> }> }>;
+	extends?: { text: string }; // an FB's base type — inherited pins count too
 }
 
-/** Lowercased set of an FB instance's input-pin names, or undefined when
- *  the instance / its type can't be resolved. */
+/** Lowercased set of an FB instance's input-pin names (INCLUDING those inherited via EXTENDS), or undefined when
+ *  the instance / its type / any base in the chain can't be resolved. */
 function inputPins(project: Scope, scope: Scope, instance: string): Set<string> | undefined {
 	const r = resolverLookup(scope, instance);
 	const typeExpr = r?.symbol.typeExpr;
 	if (typeExpr === undefined || typeExpr.kind !== "named_type") return undefined;
-	const ast = findTypeAst(project, typeExpr.name.text);
-	if (ast === undefined) return undefined;
 	const out = new Set<string>();
-	for (const section of ast.varSections ?? []) {
-		if (section.sectionKind !== "VAR_INPUT" && section.sectionKind !== "VAR_IN_OUT") continue;
-		for (const decl of section.decls) {
-			for (const n of decl.names) out.add(n.text.toLowerCase());
+	// Walk the EXTENDS chain: an FB inherits its base's input pins. If any base is unresolvable (a library base
+	// like the Lenze motion `Camming` FB), we don't know the full pin set — return undefined so the check stays
+	// conservative rather than false-flagging inherited/library pins as unknown.
+	const seen = new Set<string>();
+	let typeName: string | undefined = typeExpr.name.text;
+	while (typeName !== undefined) {
+		if (seen.has(typeName.toLowerCase())) break; // cycle guard
+		seen.add(typeName.toLowerCase());
+		const ast = findTypeAst(project, typeName);
+		if (ast === undefined) return undefined; // unresolvable (base) type → don't guess
+		for (const section of ast.varSections ?? []) {
+			if (section.sectionKind !== "VAR_INPUT" && section.sectionKind !== "VAR_IN_OUT") continue;
+			for (const decl of section.decls) {
+				for (const n of decl.names) out.add(n.text.toLowerCase());
+			}
 		}
+		typeName = ast.extends?.text;
 	}
 	return out;
 }

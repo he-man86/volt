@@ -337,3 +337,58 @@ END_NETWORK`);
 		expect(b.diagnostics.map((d) => d.code)).toContain("VG_PARSE");
 	});
 });
+
+describe("vg parser: Lenze MID-S100 real-project LD gaps", () => {
+	const clean = (src: string) => expect(parse(src).diagnostics.map((d) => d.code)).toEqual([]);
+
+	it("SET/RESET pin names (contextual keywords) with a parenthesised value", () => {
+		// `SET`/`RESET` lex as keywords, not identifiers — the arg parser must still read them as pin names.
+		const b = parse(`NETWORK 0 LD
+  sr(SET := ((a AND b) OR (c AND NOT d)), RESET1 := e);
+END_NETWORK`);
+		expect(b.diagnostics).toEqual([]);
+		const call = b.networks[0]!.statements[0] as VgFbCall;
+		expect(call.args[0]!.pin?.text).toBe("SET");
+	});
+
+	it("SUPER^() and THIS^() base/self calls parse (opaque, non-navigable)", () => {
+		clean(`NETWORK 0 LD
+  SUPER^();
+END_NETWORK`);
+		clean(`NETWORK 0 LD
+  THIS^(a := b);
+END_NETWORK`);
+	});
+
+	it("a repeated FB-instance call is NOT a duplicate name (shared state is legal)", () => {
+		// Same instance set here / reset there — legal in one network, unlike a repeated wire name.
+		clean(`NETWORK 0 LD
+  scaler(IN := x);
+  scaler(IN := y);
+  out := scaler.OUT;
+END_NETWORK`);
+	});
+
+	it("redundant parens around a single operand unwrap", () => {
+		clean(`NETWORK 0 LD
+  out := (inst.Q);
+END_NETWORK`);
+		clean(`NETWORK 0 LD
+  out := (a AND NOT(inst.Q));
+END_NETWORK`);
+	});
+
+	it("balanced parens in opaque arithmetic are not flagged as malformed", () => {
+		clean(`NETWORK 0 LD
+  LET i1 := DINT_TO_LREAL(a.b.c)/10;
+  out := i1;
+END_NETWORK`);
+	});
+
+	it("genuinely unbalanced parens are still flagged", () => {
+		const b = parse(`NETWORK 0 LD
+  out := (a AND b;
+END_NETWORK`);
+		expect(b.diagnostics.map((d) => d.code)).toContain("VG_BAD_EXPRESSION");
+	});
+});

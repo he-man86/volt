@@ -81,7 +81,9 @@ function emitStatement(stmt: VgStatement, local: Set<string>, out: VgIdentifierR
 			return;
 		}
 		case "fb_call":
-			if (!local.has(stmt.instance.text)) {
+			// A deref'd call target (`SUPER^`, `THIS^`) is a language keyword construct, not a scope variable —
+			// don't emit it as a navigable/checkable identifier.
+			if (!stmt.instance.text.endsWith("^") && !local.has(stmt.instance.text)) {
 				out.push({
 					name: stmt.instance.text,
 					span: stmt.instance.span,
