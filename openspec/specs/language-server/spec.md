@@ -83,7 +83,10 @@ LSP and bridge MUST agree on validity.
 
 ### Requirement: Diagnostics skip build-excluded objects
 
-The LSP SHALL NOT emit semantic diagnostics for an item whose `excludeFromBuild` flag is `true`. Such
+The LSP SHALL NOT emit semantic diagnostics for an item whose `excludeFromBuild` flag is `true`. Because
+the LSP analyzes files on disk with no live bridge, that flag reaches it as the in-file
+`(* @volt-exclude-from-build *)` marker written on pull (see workspace-file-extensions "Build-excluded
+source is marked in content, not a side manifest"), not a separate manifest. Such
 objects are never compiled by the IDE, so their references are never checked and have no ground truth;
 diagnosing them produces false positives against code the toolchain itself ignores. Excluded items
 SHALL still be parsed, indexed, and materialized — only diagnostics are gated. Consequently, the

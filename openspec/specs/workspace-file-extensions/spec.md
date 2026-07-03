@@ -56,6 +56,30 @@ from the extension. The kind-based naming SHALL NOT lose kind or access informat
 - **WHEN** a `.fb` file whose body begins with `READONLY` (a CFC/SFC body) is edited and a push is attempted
 - **THEN** the CLI refuses it up front from the marker, and the bridge refuses it as a backstop
 
+### Requirement: Build-excluded source is marked in content, not a side manifest
+
+A source item's exclude-from-build state SHALL be recorded IN the file, NOT in a separate excluded-paths
+manifest, because the LSP analyzes files on disk with no live bridge to read the per-item `excludeFromBuild`
+wire flag (see bridge-protocol "Exclude-from-build is a per-item wire flag"). On pull, a source item whose
+`excludeFromBuild` flag is `true` SHALL materialize with a leading `(* @volt-exclude-from-build *)` ST comment
+(idempotent — never duplicated). This marker is Volt-managed, not real IDE source: on push the CLI SHALL strip
+it before sending to the bridge, so it never reaches the IDE's stored source (and does not re-duplicate on the
+next pull). The LSP and coverage harness SHALL read the marker as the on-disk source of the flag — it is how an
+offline workspace or a committed corpus gates diagnostics on excluded objects. Only source-kind files carry it
+(reference kinds are never analyzed and stay read-only by their extension).
+
+#### Scenario: A build-excluded object materializes with the marker
+- **WHEN** the IDE reports an item with `excludeFromBuild: true` and a pull materializes it
+- **THEN** its source file begins with `(* @volt-exclude-from-build *)` — no side manifest records the exclusion
+
+#### Scenario: The marker is stripped on push
+- **WHEN** an excluded source file (leading `(* @volt-exclude-from-build *)`) is pushed back
+- **THEN** the CLI strips the marker so the IDE's stored source is unchanged, and the next pull does not duplicate it
+
+#### Scenario: The LSP reads the marker offline
+- **WHEN** the LSP analyzes an on-disk workspace (or the committed corpus) with no live bridge
+- **THEN** it skips diagnostics on files carrying the marker, exactly as if the wire flag were `true`
+
 ### Requirement: The scheme change re-materializes once
 
 Because the wire item name includes the extension, moving from `.st` to kind extensions SHALL change
