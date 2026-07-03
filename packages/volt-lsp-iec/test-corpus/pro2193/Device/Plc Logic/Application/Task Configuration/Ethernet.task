@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  20 ms
+Priority:  4
+Watchdog:  20 ms (sensitivity 1)
+Calls:     Server

@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  6 ms
+Priority:  7
+Watchdog:  6 ms (sensitivity 1)
+Calls:     EdgePcPrg

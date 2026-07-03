@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  1000 ms
+Priority:  14
+Watchdog:  1000 ms (sensitivity 1)
+Calls:     RecipeControl

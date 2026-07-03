@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  10 ms
+Priority:  13
+Watchdog:  10 ms (sensitivity 1)
+Calls:     JsonBuilder

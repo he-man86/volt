@@ -349,7 +349,7 @@ namespace Volt.Bridge.Codesys
             }
 
             Line("Type", System.Convert.ToString(GetMember(f, "kind_of_task")));
-            Line("Interval", System.Convert.ToString(GetMember(f, "interval")));
+            Line("Interval", Unitize(GetMember(f, "interval"), GetMember(f, "interval_unit")));
             Line("Priority", System.Convert.ToString(GetMember(f, "priority")));
             // Event-triggered tasks carry the triggering (external) event variable; empty for cyclic/freewheeling.
             var ev = System.Convert.ToString(GetMember(f, "event"));
@@ -358,11 +358,13 @@ namespace Volt.Bridge.Codesys
 
             var wd = GetMember(f, "watchdog");
             if (wd != null && GetMember(wd, "enabled") is bool on && on)
-                Line("Watchdog", $"{System.Convert.ToString(GetMember(wd, "time"))?.Trim()} (sensitivity {System.Convert.ToString(GetMember(wd, "sensitivity"))?.Trim()})");
+                Line("Watchdog", $"{Unitize(GetMember(wd, "time"), GetMember(wd, "time_unit"))} (sensitivity {System.Convert.ToString(GetMember(wd, "sensitivity"))?.Trim()})");
             else
                 Line("Watchdog", "off");
 
             // The POUs this task calls each cycle (ScriptPouObjectList yields the POU names, in call order).
+            // (helper below appends the unit only when the value is a bare number — an interval already
+            //  rendered as a TIME literal like `t#20ms` carries its own unit and is left untouched.)
             if (GetMember(f, "pous") is IEnumerable pous)
             {
                 var names = new List<string>();
@@ -370,6 +372,18 @@ namespace Volt.Bridge.Codesys
                 if (names.Count > 0) Line("Calls", string.Join(", ", names));
             }
             return sb.ToString();
+        }
+
+        /// <summary>Append a unit to a value ONLY when the value is a bare number (digits/sign/dot). A value
+        /// already rendered as a TIME literal (`t#20ms`) or otherwise carrying letters is returned unchanged,
+        /// so `interval`/`watchdog.time` read unambiguously whether the facet returns `t#20ms` or `3` + `ms`.</summary>
+        private static string Unitize(object? value, object? unit)
+        {
+            var v = (System.Convert.ToString(value) ?? "").Trim();
+            var u = (System.Convert.ToString(unit) ?? "").Trim();
+            if (v.Length == 0) return "";
+            var bare = v.All(c => char.IsDigit(c) || c == '.' || c == '-' || c == '+');
+            return bare && u.Length > 0 ? $"{v} {u}" : v;
         }
 
         /// <summary>The symbol-configuration flags (`.symbols`): which access features a project exposes

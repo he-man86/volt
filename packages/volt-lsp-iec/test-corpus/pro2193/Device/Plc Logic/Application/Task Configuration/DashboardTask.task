@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  3 ms
+Priority:  6
+Watchdog:  3 ms (sensitivity 1)
+Calls:     Dashboard

@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  3 ms
+Priority:  1
+Watchdog:  3000 µs (sensitivity 1)
+Calls:     Main
