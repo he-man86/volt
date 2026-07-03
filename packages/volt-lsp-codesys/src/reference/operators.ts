@@ -151,32 +151,57 @@ const ENTRIES: ReferenceEntry[] = [
 	op("__ISVALIDREF", "system", "Returns TRUE iff a REFERENCE TO is bound to a valid target.", {
 		examples: ["IF __ISVALIDREF(refVar) THEN refVar := newValue; END_IF"],
 	}),
+	// Present in TwinCAT too (Beckhoff InfoSys "Further operators") but with a DIFFERENT SIGNATURE — the
+	// CODESYS form doesn't compile there (live recording: `__QUERYINTERFACE(THIS^, ITF)` → "Cannot convert
+	// Unknown type … to BOOL"; `__VARINFO` → syntax error; `__TRY` → codegen error). Flagged for TwinCAT
+	// projects as "different signature", not "unsupported".
 	op("__QUERYINTERFACE", "system", "Runtime interface test on an FB instance. `__QUERYINTERFACE(fb, ITF#name)`.", {
 		vendor: "codesys",
-		equivalentIn: {
-			twincat: { name: "(TwinCAT.SystemBase)", note: "TC uses its own runtime-interface primitives" },
-		},
+		equivalentIn: { twincat: { name: "__QUERYINTERFACE", differentSignature: true, note: "TC's form takes two interface refs" } },
 	}),
-	op("__QUERYPOINTER", "system", "Runtime cast to POINTER TO.", { vendor: "codesys" }),
-	op("__TRY", "system", "Begin try block (CODESYS exception handling). Paired with __CATCH/__FINALLY/__ENDTRY.", {
+	op("__QUERYPOINTER", "system", "Runtime cast to POINTER TO.", {
 		vendor: "codesys",
-		equivalentIn: {
-			twincat: { name: "PLC_Exception", note: "TC uses error-flag patterns or PLC_Exception traps" },
-		},
+		equivalentIn: { twincat: { name: "__QUERYPOINTER", differentSignature: true } },
 	}),
-	op("__CATCH", "system", "Catch clause of __TRY.", { vendor: "codesys" }),
-	op("__FINALLY", "system", "Cleanup clause of __TRY.", { vendor: "codesys" }),
-	op("__ENDTRY", "system", "End of __TRY block.", { vendor: "codesys" }),
-	op("__VARINFO", "system", "Compile-time variable metadata access.", { vendor: "codesys" }),
+	op("__TRY", "system", "Begin try block (exception handling). Paired with __CATCH/__FINALLY/__ENDTRY.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__TRY", differentSignature: true, note: "TC has the __TRY block; the CODESYS usage may differ" } },
+	}),
+	op("__CATCH", "system", "Catch clause of __TRY.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__CATCH", differentSignature: true } },
+	}),
+	op("__FINALLY", "system", "Cleanup clause of __TRY.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__FINALLY", differentSignature: true } },
+	}),
+	op("__ENDTRY", "system", "End of __TRY block.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__ENDTRY", differentSignature: true } },
+	}),
+	op("__VARINFO", "system", "Compile-time variable metadata access.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__VARINFO", differentSignature: true } },
+	}),
+	op("__POSITION", "system", "Source call position. Used by {attribute 'implicit-parameter' := 'position'}.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__POSITION", differentSignature: true } },
+	}),
+	op("__POUNAME", "system", "Qualified caller POU name. Used by {attribute 'implicit-parameter' := 'pouname'}.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "__POUNAME", differentSignature: true } },
+	}),
+	// Genuinely CODESYS-only — NOT in TwinCAT's operator docs (verified 2026-07); TC has other mechanisms.
 	op("__CURRENTTASK", "system", "Returns a handle to the current IEC task.", {
 		vendor: "codesys",
 		equivalentIn: {
 			twincat: { name: "Tc2_System.GetCurTaskIndex", note: "TC exposes task context via the Tc2_System library" },
 		},
 	}),
-	op("__POSITION", "system", "Source call position. Used by {attribute 'implicit-parameter' := 'position'}.", { vendor: "codesys" }),
-	op("__POUNAME", "system", "Qualified caller POU name. Used by {attribute 'implicit-parameter' := 'pouname'}.", { vendor: "codesys" }),
-	op("__COMPARE_AND_SWAP", "system", "Atomic compare-and-swap primitive.", { vendor: "codesys" }),
+	op("__COMPARE_AND_SWAP", "system", "Atomic compare-and-swap primitive.", {
+		vendor: "codesys",
+		equivalentIn: { twincat: { name: "TestAndSet / FB_IecCriticalSection", note: "TC synchronizes via these instead" } },
+	}),
 	op("__XADD", "system", "Atomic exchange-and-add.", { vendor: "codesys" }),
 	op("__POOL", "system", "Disambiguator: forces lookup in the POUs view (vs Devices view). Use `__POOL.POU()`.", {
 		vendor: "codesys",

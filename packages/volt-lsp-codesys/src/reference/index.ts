@@ -93,7 +93,9 @@ export interface ReferenceEntry {
 	 */
 	equivalentIn?: {
 		codesys?: { name: string; note?: string };
-		twincat?: { name: string; note?: string };
+		/** `differentSignature` = TwinCAT HAS this operator (same name) but with a different signature, so the
+		 *  CODESYS form doesn't compile — distinct from "TC has no equivalent at all". */
+		twincat?: { name: string; note?: string; differentSignature?: boolean };
 	};
 }
 

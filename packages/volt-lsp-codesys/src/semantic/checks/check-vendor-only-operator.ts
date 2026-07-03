@@ -1,17 +1,21 @@
 /**
- * Vendor-only system-operator / type check — flag CODESYS-only
- * `__`-prefixed identifiers (`__VARINFO`, `__NEW`, `__TRY`,
- * `__QUERYINTERFACE`, `__VECTOR`, …) when the active vendor is
- * TwinCAT. TC's compiler rejects these as unknown tokens; mirroring
- * the rejection at LSP level lets users see the issue without waiting
- * for a build.
+ * Vendor-only system-operator / type check — flag CODESYS `__`-prefixed
+ * identifiers when the active vendor is TwinCAT, so users see the issue
+ * without waiting for a build.
  *
- * `__ISVALIDREF` is TC-compatible and stays silent (verified live
- * via conformance recording).
+ * Two cases, from the live TwinCAT conformance recording + Beckhoff docs:
+ *   - GENUINELY CODESYS-only (`__CURRENTTASK`, `__COMPARE_AND_SWAP`, `__XADD`,
+ *     `__POOL`, `__VECTOR`): TC has no such thing → "not supported".
+ *   - Present in TC with a DIFFERENT SIGNATURE (`__QUERYINTERFACE`, the __TRY
+ *     block, `__VARINFO`, …): TC documents the operator but the CODESYS form
+ *     doesn't compile (recording: `__QUERYINTERFACE(THIS^, ITF)` → "Cannot
+ *     convert Unknown type … to BOOL"). Still worth flagging, but "not
+ *     supported" would be wrong — the message says "different signature".
  *
- * Scans the full source (re-lexed) — not just POU bodies — because
- * type-position usages (`vec4 : __VECTOR[4] OF REAL;`) live inside
- * VAR sections, not in body tokens.
+ * `__ISVALIDREF` is fully TC-compatible and stays silent (shared, verified live).
+ *
+ * Scans the full source (re-lexed) — not just POU bodies — because type-position
+ * usages (`vec4 : __VECTOR[4] OF REAL;`) live inside VAR sections, not in body tokens.
  */
 import type { ParseResult } from "../../parser/ast.js";
 import { lex } from "../../lexer/lexer.js";
@@ -57,18 +61,18 @@ export function checkVendorOnlyOperators(
 
 		const opEntry = OPERATORS.get(key);
 		if (opEntry !== undefined && opEntry.vendor === "codesys") {
-			const eq =
-				opEntry.equivalentIn?.twincat !== undefined
-					? ` Equivalent in twincat: '${opEntry.equivalentIn.twincat.name}'` +
-					  (opEntry.equivalentIn.twincat.note !== undefined ? ` (${opEntry.equivalentIn.twincat.note})` : "") +
-					  "."
-					: "";
+			const tc = opEntry.equivalentIn?.twincat;
+			const note = tc?.note !== undefined ? ` (${tc.note})` : "";
+			const message = tc?.differentSignature
+				? `Operator '${tok.text}' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.${note}`
+				: `Operator '${tok.text}' is CODESYS-only and not supported by TwinCAT.` +
+				  (tc !== undefined ? ` Equivalent in twincat: '${tc.name}'${note}.` : "");
 			out.push({
 				severity: "error",
 				span: tok.span,
 				source: "volt-lsp-codesys",
 				code: "vendor-only-operator",
-				message: `Operator '${tok.text}' is CODESYS-only and not supported by TwinCAT.${eq}`,
+				message,
 			});
 			continue;
 		}

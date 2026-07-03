@@ -1711,7 +1711,7 @@ exports[`language conformance (LSP vs twincat recording) op_sys_varinfo LSP diag
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Operator '__VARINFO' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__VARINFO' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
   ],
   "lspWarnings": 0,
   "name": "op_sys_varinfo",
@@ -1750,10 +1750,10 @@ exports[`language conformance (LSP vs twincat recording) op_sys_try_catch LSP di
   "lspErrors": 4,
   "lspMessages": [
     "[warning] 'exc' is not defined in any reachable scope",
-    "[error] Operator '__TRY' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'PLC_Exception' (TC uses error-flag patterns or PLC_Exception traps).",
-    "[error] Operator '__CATCH' is CODESYS-only and not supported by TwinCAT.",
-    "[error] Operator '__FINALLY' is CODESYS-only and not supported by TwinCAT.",
-    "[error] Operator '__ENDTRY' is CODESYS-only and not supported by TwinCAT.",
+    "[error] Operator '__TRY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile. (TC has the __TRY block; the CODESYS usage may differ)",
+    "[error] Operator '__CATCH' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
+    "[error] Operator '__FINALLY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
+    "[error] Operator '__ENDTRY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
   ],
   "lspWarnings": 1,
   "name": "op_sys_try_catch",
@@ -1787,7 +1787,7 @@ exports[`language conformance (LSP vs twincat recording) op_sys_queryinterface L
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Operator '__QUERYINTERFACE' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: '(TwinCAT.SystemBase)' (TC uses its own runtime-interface primitives).",
+    "[error] Operator '__QUERYINTERFACE' exists in TwinCAT but with a different signature — the CODESYS form here won't compile. (TC's form takes two interface refs)",
   ],
   "lspWarnings": 0,
   "name": "op_sys_queryinterface",

@@ -26,10 +26,13 @@
   `__QUERYINTERFACE`/`__TRY`/`__VARINFO`/… (`buildSuccess:false`), so the tags are evidence-based. A
   docs-only retag was attempted and REVERTED (broke the conformance suite). See design.md "Findings".
 - [x] 3.3 Operators: no retag — the diff is real and recording-verified (not over-modeled).
-- [ ] 3.4 Message precision (worth doing): for operators TC has with a *different signature*
-  (`__QUERYINTERFACE`, `__QUERYPOINTER`), change the `wrong-vendor` text from "not supported by TwinCAT" to
-  "different signature in TwinCAT". Fix the over-strong `__NEW`/`__DELETE` hover notes (TC parses them; the
-  caveat is dynamic-memory runtime backing, not "unsupported").
+- [x] 3.4 **Message precision DONE (operators)** — added `equivalentIn.twincat.differentSignature` and split
+  the `vendor-only-operator` message: the 9 TC-documented ops (`__QUERYINTERFACE`/`__QUERYPOINTER`/the __TRY
+  block/`__VARINFO`/`__POSITION`/`__POUNAME`) now say *"exists in TwinCAT but with a different signature — the
+  CODESYS form here won't compile"*; the 4 genuinely-absent ones (`__CURRENTTASK`/`__COMPARE_AND_SWAP`/
+  `__XADD`/`__POOL`) keep *"CODESYS-only and not supported"*. Conformance snapshots updated. Still TODO:
+  soften the `__NEW`/`__DELETE` hover notes (TC compiles them per the `op_sys_new_delete` recording; the real
+  caveat is dynamic-memory config, not "TC doesn't support").
 - [x] 3.5 **Pragmas DONE** — 20 TwinCAT-only pragmas, all `Tc`-prefixed Beckhoff attributes (correctly
   tagged, each with a CODESYS-equivalent note); 0 CODESYS-only (right — TC3 is CODESYS-derived, accepts the
   CODESYS attribute set; `call_after_init`/`hide`/`pack_mode`/`monitoring` verified TC-supported via InfoSys).
