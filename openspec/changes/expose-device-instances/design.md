@@ -60,7 +60,7 @@ every `IDeviceObject`). The classifier is unchanged; the WALK decides which `Dev
 `FetchService`/`Materializer` are unchanged (non-source kinds already flow through `ReadManifest`).
 
 ### 4. LSP resolution
-`volt-lsp-codesys`: `device-catalog.ts` `loadDeviceInstances(root)` scans `.device` files and returns the
+`volt-lsp-iec`: `device-catalog.ts` `loadDeviceInstances(root)` scans `.device` files and returns the
 lowercased filename stems. `Workspace.deviceInstances` (parallel to `libraryNamespaces`, loaded at
 `initialize` in `dispatch.ts`), threaded through `computeSemanticDiagnostics` to
 `check-unresolved-identifier.ts`, which skips a bare identifier that is a known device name. A separate set

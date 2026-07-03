@@ -15,7 +15,7 @@ authoritative. It speaks LSP 3.17 JSON-RPC over stdio and SHALL be spawned only 
 
 ### Requirement: The server is vendor-keyed
 
-The server SHALL be named for the vendor ecosystem (`volt-lsp-codesys` covers CODESYS + the
+The server SHALL be named for the vendor ecosystem (`volt-lsp-iec` covers CODESYS + the
 CODESYS-derived TwinCAT). A structurally-different vendor (e.g. Siemens) SHALL be a sibling LSP, not
 a new language inside this one. The active dialect SHALL be selected by
 `initializationOptions.vendor` (`codesys | twincat | auto`), so a CODESYS project never suggests
@@ -57,7 +57,7 @@ The volt LSP SHALL be available to the AI agent when it edits Structured Text in
 project**, not only inside the Volt dev repo. The agent toolchain — LSP + `volt` tool + agent + theme
 + permissions — SHALL be handed to opencode as one read-only config dir via the **`OPENCODE_CONFIG_DIR`**
 env var (set by the desktop shell and the `volt` binary), with that config's bin dir prepended to
-`PATH` so its bare-name `volt-lsp-codesys` command resolves **outside the Volt repo** (published /
+`PATH` so its bare-name `volt-lsp-iec` command resolves **outside the Volt repo** (published /
 global / bundled — never a repo-relative path). `volt init` SHALL NOT write a per-project `.opencode/`;
 it only binds the IDE project and installs vendor skills. An agent editing `.st` in a bound PLC
 project MUST receive the LSP's diagnostics through its tool loop.
@@ -68,7 +68,7 @@ project MUST receive the LSP's diagnostics through its tool loop.
 
 #### Scenario: The command resolves by bare name, not a repo-relative path
 - **WHEN** opencode opens a PLC project whose directory is not the Volt repo
-- **THEN** the LSP command resolves via the `OPENCODE_CONFIG_DIR` bin on `PATH` (published/global/bundled), not via `./packages/volt-lsp-codesys/...`
+- **THEN** the LSP command resolves via the `OPENCODE_CONFIG_DIR` bin on `PATH` (published/global/bundled), not via `./packages/volt-lsp-iec/...`
 
 ### Requirement: LSP diagnostics cover what the bridge rejects
 

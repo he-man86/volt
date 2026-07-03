@@ -2,7 +2,7 @@
 
 - [x] 1.1 IP cleared (commit as-is, full project). Kind-based scheme (post `kind-based-file-extensions`), so the corpus is kind-named, not `.st`.
 - [x] 1.2 Materialized the pro2193 full-option project via the headless bridge; renamed `.st` POUs by kind (185 fb / 47 prg / 37 fun); DUT/itf/gvl already kind-named.
-- [x] 1.3 Committed the tree under `packages/volt-lsp-codesys/test-corpus/pro2193/` (424 kind source files + references).
+- [x] 1.3 Committed the tree under `packages/volt-lsp-iec/test-corpus/pro2193/` (424 kind source files + references).
 - [~] 1.4 `scripts/coverage-report.ts` regenerates the report; a `.st`→kind rename script exists (scratchpad). A one-shot regen script + README is still TODO.
 
 ## 2. Disk-sourced corpus harness
@@ -39,6 +39,6 @@
 
 ## 7. Land it
 
-- [ ] 7.1 `cd packages/volt-lsp-codesys && bun test` green (incl. new corpus tests) and `bun typecheck` clean.
+- [ ] 7.1 `cd packages/volt-lsp-iec && bun test` green (incl. new corpus tests) and `bun typecheck` clean.
 - [ ] 7.2 Ensure the corpus tests run in CI without a bridge/CODESYS (hermetic committed fixtures).
 - [ ] 7.3 `openspec validate harden-lsp-real-project`; sync the `language-server` delta + archive when done.

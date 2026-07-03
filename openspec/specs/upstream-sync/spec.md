@@ -59,7 +59,7 @@ for the custom tool.
 
 #### Scenario: The LSP is proven loaded
 - **WHEN** `verify-lsp` plants a known-bad `.st` file and queries diagnostics
-- **THEN** diagnostics with `source: "volt-lsp-codesys"` are returned
+- **THEN** diagnostics with `source: "volt-lsp-iec"` are returned
 
 ### Requirement: Upstream sync is one signal-flow command
 

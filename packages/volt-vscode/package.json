@@ -261,7 +261,7 @@
         "volt.structuredText.lspServer": {
           "type": "string",
           "default": "",
-          "description": "Override the path to the volt-lsp-codesys bin. When empty (default), the extension auto-discovers it via Node module resolution from the workspace."
+          "description": "Override the path to the volt-lsp-iec bin. When empty (default), the extension auto-discovers it via Node module resolution from the workspace."
         },
         "volt.structuredText.trace": {
           "type": "string",
@@ -587,7 +587,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-codesys/src/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs && bun build ../volt-git/src/bin.ts --outfile=dist/cli.js --target=node --format=cjs",
+    "build": "tsc --noEmit && bun build src/extension.ts --outfile=dist/extension.js --target=node --format=cjs --external=vscode && bun build ../volt-lsp-iec/src/bin.ts --outfile=dist/lsp-server.js --target=node --format=cjs && bun build ../volt-git/src/bin.ts --outfile=dist/cli.js --target=node --format=cjs",
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
     "test": "bun test",
@@ -595,7 +595,7 @@
   },
   "dependencies": {
     "@opencode-ai/volt-control": "workspace:*",
-    "@opencode-ai/volt-lsp-codesys": "workspace:*",
+    "@opencode-ai/volt-lsp-iec": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

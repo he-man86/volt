@@ -9,7 +9,7 @@
  *   - Config layer (.opencode/opencode.json) exists, parses, and registers the LSP
  *   - Agent persona (.opencode/agent/volt.md) + volt custom tool (.opencode/tool/volt.ts) present
  *   - LSP + CLI binaries are built (dist/ output present)
- *   - volt-lsp-codesys binary actually starts (runs --version)
+ *   - volt-lsp-iec binary actually starts (runs --version)
  *   - CODESYS reference corpus is present in the LSP package
  *
  * For end-to-end LOAD checks (LSP attaches, tool registers in opencode), run the
@@ -47,9 +47,9 @@ console.log("\nConfig files");
 check(".opencode/opencode.json exists (Volt config merge-layer)", () =>
 	existsSync(join(REPO_ROOT, ".opencode/opencode.json")) || "missing — Volt's LSP + permission config lives here"
 );
-check(".opencode/opencode.json parses + registers volt-lsp-codesys", () => {
+check(".opencode/opencode.json parses + registers volt-lsp-iec", () => {
 	const cfg = JSON.parse(readFileSync(join(REPO_ROOT, ".opencode/opencode.json"), "utf-8"));
-	return Boolean(cfg?.lsp?.["volt-lsp-codesys"]) || "no lsp.volt-lsp-codesys entry";
+	return Boolean(cfg?.lsp?.["volt-lsp-iec"]) || "no lsp.volt-lsp-iec entry";
 });
 check(".opencode/agent/volt.md exists", () =>
 	existsSync(join(REPO_ROOT, ".opencode/agent/volt.md")) || "agent persona missing"
@@ -58,17 +58,17 @@ check(".opencode/tool/volt.ts exists (volt CLI custom tool)", () =>
 	existsSync(join(REPO_ROOT, ".opencode/tool/volt.ts")) || "missing — volt CLI not exposed as a tool"
 );
 // The st-reference skill is GENERATED into a consumer project by `volt init`
-// (see packages/volt-lsp-codesys/src/init.ts) — it is not committed in this repo, so
+// (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
 // assert the installer that produces it is built rather than a committed file.
-check("volt-lsp-codesys skill installer built (dist/init.js)", () =>
-	existsSync(join(REPO_ROOT, "packages/volt-lsp-codesys/dist/init.js"))
-		|| "not built — run: bun run --cwd packages/volt-lsp-codesys build"
+check("volt-lsp-iec skill installer built (dist/init.js)", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/dist/init.js"))
+		|| "not built — run: bun run --cwd packages/volt-lsp-iec build"
 );
 
 console.log("\nBuilt binaries");
-check("volt-lsp-codesys dist/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-lsp-codesys/dist/bin.js");
-	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-codesys build";
+check("volt-lsp-iec dist/bin.js", () => {
+	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/bin.js");
+	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-iec build";
 });
 check("volt CLI dist/bin.js", () => {
 	const path = join(REPO_ROOT, "packages/volt-git/dist/bin.js");
@@ -104,8 +104,8 @@ check("volt-config dir is present (bare-name LSP + volt tool)", () => {
 	const cfg = join(dir, "opencode.json");
 	if (!existsSync(cfg)) return "packages/volt-git/volt-config/opencode.json missing";
 	if (!existsSync(join(dir, "tool", "volt.ts"))) return "volt-config/tool/volt.ts missing";
-	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-codesys"];
-	if (!lsp || lsp.command?.[0] !== "volt-lsp-codesys") return "volt-config LSP entry missing or not bare-name";
+	const lsp = JSON.parse(readFileSync(cfg, "utf-8")).lsp?.["volt-lsp-iec"];
+	if (!lsp || lsp.command?.[0] !== "volt-lsp-iec") return "volt-config LSP entry missing or not bare-name";
 	return true;
 });
 
@@ -125,8 +125,8 @@ check("shared .opencode/ ↔ volt-config/ files are in sync (no drift)", () => {
 });
 
 console.log("\nRuntime smoke test");
-check("volt-lsp-codesys --version exits 0", () => {
-	const binJs = join(REPO_ROOT, "packages/volt-lsp-codesys/dist/bin.js");
+check("volt-lsp-iec --version exits 0", () => {
+	const binJs = join(REPO_ROOT, "packages/volt-lsp-iec/dist/bin.js");
 	if (!existsSync(binJs)) return "dist not built";
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;
@@ -148,8 +148,8 @@ check("volt CLI wrapper runs (volt-scripts/volt[.cmd])", () => {
 
 console.log("\nDocumentation corpus");
 check("CODESYS reference corpus index", () =>
-	existsSync(join(REPO_ROOT, "packages/volt-lsp-codesys/docs/codesys-reference/00-index.md"))
-		|| "corpus missing in packages/volt-lsp-codesys/docs/"
+	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/docs/codesys-reference/00-index.md"))
+		|| "corpus missing in packages/volt-lsp-iec/docs/"
 );
 
 console.log("\nVS Code extension");
@@ -185,8 +185,8 @@ if (process.platform === "win32") {
 console.log("\nVerify loading (automated): bun volt-scripts/verify-lsp.ts  &&  bun volt-scripts/verify-volt-tool.ts");
 console.log("\nManual verification — opencode (this repo):");
 console.log("  1. From repo root: bun volt-scripts/dev.ts   # opencode TUI with the volt LSP loaded");
-console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-codesys' diagnostics.");
-console.log("     ('volt-lsp-codesys' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
+console.log("  2. Open a .fb (or other kind) file with a syntax error → expect red 'volt-lsp-iec' diagnostics.");
+console.log("     ('volt-lsp-iec' in the 'enabled LSP servers' log means registered, NOT running — spawn is lazy.)");
 console.log("  3. Press Tab to switch primary agents → 'volt' should be selectable.");
 console.log("  4. Ask: 'run volt status' → agent calls the `volt` tool (or bash); output appears inline.");
 console.log("     For mutating verbs (volt pull/push/init/merge) opencode prompts for approval per call.");

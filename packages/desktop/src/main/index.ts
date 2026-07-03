@@ -280,7 +280,7 @@ const main = Effect.gen(function* () {
     logger.log("volt ipc registration failed", { error: String(e) })
   }
   // Volt: hand opencode the bundled agent-config dir (LSP + `volt` tool + agent + theme + permissions) via
-  // OPENCODE_CONFIG_DIR, and prepend the bundled bin dir to PATH so the config's bare-name `volt-lsp-codesys`
+  // OPENCODE_CONFIG_DIR, and prepend the bundled bin dir to PATH so the config's bare-name `volt-lsp-iec`
   // / `volt` commands resolve even before the installer's PATH entry takes effect. The opencode sidecar
   // (createSidecarEnv) inherits this whole env. `volt init` now only binds the IDE project; VOLT_BIN lets
   // volt-control shell the CLI over IPC.

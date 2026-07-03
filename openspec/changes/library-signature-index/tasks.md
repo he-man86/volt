@@ -32,7 +32,7 @@
 
 ## 6. Verify — DONE
 
-- [x] 6.1 `bun test` (volt-lsp-codesys 5258 pass incl. new catalog unit test; volt-git sync incl. new
+- [x] 6.1 `bun test` (volt-lsp-iec 5258 pass incl. new catalog unit test; volt-git sync incl. new
   pull-emits-catalog test); `bun typecheck` clean on both.
 - [x] 6.2 Verified end-to-end against Pro2193: the catalog (62 namespaces) materializes and built-only
   precision drops 563→95. (Live `volt pull` on a real repo covered by the volt-git sync test.)

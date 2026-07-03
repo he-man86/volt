@@ -58,7 +58,7 @@ not cracked in the spike).
 - **Code:** `packages/volt-bridge` (catalog extraction via `LanguageModelMgr` + `GetCompileContext` +
   `GetAllSignaturesFlat`, filtered by `LibraryId`; a per-library-versioned wire endpoint; Beckhoff returns
   none), `packages/volt-git` + `packages/volt-control` (materialize `libs/` stubs + a library-version
-  manifest; incremental refresh), `packages/volt-lsp-codesys` (ingest the library scope; scan `libs/`
+  manifest; incremental refresh), `packages/volt-lsp-iec` (ingest the library scope; scan `libs/`
   read-only; reduce `standard-functions.ts`), `packages/volt-vscode` (mark `libs/` read-only).
 - **Repo:** a new read-only `libs/` tree (committed, versioned by a library manifest hash).
 - **Cost:** extraction needs a build (~25–35 s), amortized by per-library-version caching — paid only on

@@ -1,21 +1,20 @@
-## 1. Decide the name — TODO
+## 1. Decide the name — DONE
 
-- [ ] 1.1 Pick the vendor-neutral package name (recommend `volt-lsp-iec`; alt `volt-lsp-st`). One decision,
-  then the rest of §2 is mechanical.
+- [x] 1.1 Picked `volt-lsp-iec` (implements IEC 61131-3, the standard both vendors share).
 
-## 2. Rename `volt-lsp-codesys` → the neutral name — TODO
+## 2. Rename `volt-lsp-codesys` → `volt-lsp-iec` — DONE
 
-- [ ] 2.1 Rename the package folder `packages/volt-lsp-codesys/` → `packages/volt-lsp-<new>/`.
-- [ ] 2.2 `package.json`: `name` + the `bin` key (`volt-lsp-<new>`) + any self-references.
-- [ ] 2.3 `.opencode/opencode.json`: the LSP `command` / repo-root-relative path registration.
-- [ ] 2.4 Cross-package deps: `packages/volt-git/package.json`; the Volt string in the desktop/opencode
-  seams (`packages/desktop/src/main/index.ts`, `packages/opencode/src/cli/cmd/tui.ts`) — edit only the
-  Volt reference, these files are counted upstream seams.
-- [ ] 2.5 Docs: `CLAUDE.md` (package map + `bun` commands), the package `README.md`, `.opencode/agent/volt.md`.
-- [ ] 2.6 `volt-scripts/check-divergence.ts` + `check-volt-integration.ts`: update any hardcoded package
-  name; re-run both (they must stay green). Leave `openspec/changes/archive/**` untouched (historical).
-- [ ] 2.7 Full verify: `bun typecheck`, LSP `bun test`, `bun run dev` / the LSP launch, and the pre-push
-  hook (divergence + integration).
+- [x] 2.1 Renamed the package folder `packages/volt-lsp-codesys/` → `packages/volt-lsp-iec/`.
+- [x] 2.2 `package.json`: `name` + the `bin` key (`volt-lsp-iec`) + self-references; diagnostic `source`,
+  `serverInfo`, and the CLI banner all now read `volt-lsp-iec` (conformance `.snap` files updated to match).
+- [x] 2.3 `.opencode/opencode.json`: LSP registration key + `command` path now `volt-lsp-iec`.
+- [x] 2.4 Cross-package deps: `packages/volt-git/package.json` dep; the Volt string in the desktop/opencode
+  seams (`packages/desktop/src/main/index.ts`, `packages/opencode/src/cli/cmd/tui.ts`) — Volt reference only.
+- [x] 2.5 Docs: `CLAUDE.md` (package map + `bun` commands), the package `README.md`, `.opencode/agent/volt.md`,
+  plus `volt-scripts/{dev,dist,harvest-lsp-corpus,verify-lsp}.ts` + `tsconfig.json`.
+- [x] 2.6 `volt-scripts/check-divergence.ts` + `check-volt-integration.ts`: updated hardcoded name; both
+  re-run green. `openspec/changes/archive/**` left untouched (historical).
+- [x] 2.7 Full verify: `bun typecheck` (6/6), LSP `bun test` (5268 pass), divergence + integration green.
 
 ## 3. Audit + collapse the vendor divergence — TODO
 

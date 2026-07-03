@@ -1050,7 +1050,7 @@
         "volt": "./dist/bin.js",
       },
       "dependencies": {
-        "@opencode-ai/volt-lsp-codesys": "workspace:*",
+        "@opencode-ai/volt-lsp-iec": "workspace:*",
         "@opentui/solid": "catalog:",
         "opencode": "workspace:*",
         "opentui-spinner": "catalog:",
@@ -1064,11 +1064,11 @@
         "typescript": "catalog:",
       },
     },
-    "packages/volt-lsp-codesys": {
-      "name": "@opencode-ai/volt-lsp-codesys",
+    "packages/volt-lsp-iec": {
+      "name": "@opencode-ai/volt-lsp-iec",
       "version": "0.1.0",
       "bin": {
-        "volt-lsp-codesys": "./dist/bin.js",
+        "volt-lsp-iec": "./dist/bin.js",
       },
       "dependencies": {
         "vscode-languageserver-protocol": "^3.17.5",
@@ -1087,7 +1087,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@opencode-ai/volt-control": "workspace:*",
-        "@opencode-ai/volt-lsp-codesys": "workspace:*",
+        "@opencode-ai/volt-lsp-iec": "workspace:*",
         "vscode-languageclient": "^9.0.1",
       },
       "devDependencies": {
@@ -2103,7 +2103,7 @@
 
     "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 
-    "@opencode-ai/volt-lsp-codesys": ["@opencode-ai/volt-lsp-codesys@workspace:packages/volt-lsp-codesys"],
+    "@opencode-ai/volt-lsp-iec": ["@opencode-ai/volt-lsp-iec@workspace:packages/volt-lsp-iec"],
 
     "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
 

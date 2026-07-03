@@ -48,10 +48,10 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<Langua
 }
 
 function resolveServerModule(context: vscode.ExtensionContext): string {
-	const bundled = join(context.extensionPath, "node_modules", "@opencode-ai", "volt-lsp-codesys", "dist", "server.js")
+	const bundled = join(context.extensionPath, "node_modules", "@opencode-ai", "volt-lsp-iec", "dist", "server.js")
 	if (existsSync(bundled)) return bundled
 
-	const workspaceModule = join(dirname(context.extensionPath), "volt-lsp-codesys", "dist", "server.js")
+	const workspaceModule = join(dirname(context.extensionPath), "volt-lsp-iec", "dist", "server.js")
 	if (existsSync(workspaceModule)) return workspaceModule
 
 	throw new Error("Volt LSP server not found")

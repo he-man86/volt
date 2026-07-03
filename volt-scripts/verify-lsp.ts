@@ -11,14 +11,14 @@
  * opencode spawns the LSP *lazily* (on first matching-file open) with `cwd = the project dir`, and logs nothing
  * on spawn failure — so "is it actually working?" is otherwise invisible. Each phase drives opencode's own
  * `debug lsp diagnostics` against a deliberately-malformed `.fb`: a loaded LSP flags it (`source:
- * "volt-lsp-codesys"`); a missing one returns `{}` (the exact silent failure).
+ * "volt-lsp-iec"`); a missing one returns `{}` (the exact silent failure).
  *
  * Scope: this runs in DEV (bun, source), so it cannot reproduce the compiled binary's Bun-worker env-snapshot
  * bug (the terminal TUI worker losing OPENCODE_CONFIG_DIR — main-process checks like this one pass regardless).
  * That regression is guarded at the source in check-volt-integration.ts ("worker-env seam").
  *
  * Run from anywhere:  bun volt-scripts/verify-lsp.ts
- * See packages/volt-lsp-codesys/README.md ("Running inside opencode") for the cwd rule.
+ * See packages/volt-lsp-iec/README.md ("Running inside opencode") for the cwd rule.
  */
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
@@ -28,9 +28,9 @@ import { join, resolve } from "node:path"
 const repoRoot = resolve(import.meta.dirname, "..")
 const ocEntry = resolve(repoRoot, "packages/opencode/src/index.ts")
 
-const lspBin = resolve(repoRoot, "packages/volt-lsp-codesys/dist/bin.js")
+const lspBin = resolve(repoRoot, "packages/volt-lsp-iec/dist/bin.js")
 if (!existsSync(lspBin)) {
-  console.error(`✗ volt LSP not built: ${lspBin}\n  Run: bun --cwd packages/volt-lsp-codesys run build`)
+  console.error(`✗ volt LSP not built: ${lspBin}\n  Run: bun --cwd packages/volt-lsp-iec run build`)
   process.exit(1)
 }
 
@@ -39,7 +39,7 @@ if (!existsSync(lspBin)) {
 const MALFORMED_ST = "FUNCTION_BLOCK FB_Test\nVAR\n    x : INT\nEND_VAR\nx := y + 1;\nEND_FUNCTION_BLOCK\n"
 
 // `debug lsp` has no --directory flag; it derives the project dir from process.cwd(). Returns whether
-// volt-lsp-codesys produced diagnostics (i.e. the LSP loaded + spawned + analyzed the file).
+// volt-lsp-iec produced diagnostics (i.e. the LSP loaded + spawned + analyzed the file).
 function lspLoads(sampleFile: string, cwd: string, env: NodeJS.ProcessEnv): { ok: boolean; out: string } {
   const r = spawnSync("bun", ["--conditions=browser", ocEntry, "debug", "lsp", "diagnostics", sampleFile], {
     cwd,
@@ -47,7 +47,7 @@ function lspLoads(sampleFile: string, cwd: string, env: NodeJS.ProcessEnv): { ok
     encoding: "utf8",
   })
   const out = (r.stdout ?? "") + (r.stderr ?? "")
-  return { ok: out.includes('"source": "volt-lsp-codesys"'), out }
+  return { ok: out.includes('"source": "volt-lsp-iec"'), out }
 }
 
 let failed = false
@@ -64,7 +64,7 @@ let failed = false
     else {
       failed = true
       console.error("✗ FAIL — LSP did not load via dev .opencode auto-discovery")
-      console.error("  Likely cause: cwd isn't the repo root, or packages/volt-lsp-codesys/dist is stale.")
+      console.error("  Likely cause: cwd isn't the repo root, or packages/volt-lsp-iec/dist is stale.")
       console.error(out.trim().slice(0, 800))
     }
   } finally {
@@ -82,7 +82,7 @@ let failed = false
     // volt-config supplies the LSP via OPENCODE_CONFIG_DIR — except the project itself carries no .opencode.
     writeFileSync(
       join(cfgDir, "opencode.json"),
-      JSON.stringify({ lsp: { "volt-lsp-codesys": { command: ["node", lspBin, "--stdio"], extensions: [".fb"] } } }),
+      JSON.stringify({ lsp: { "volt-lsp-iec": { command: ["node", lspBin, "--stdio"], extensions: [".fb"] } } }),
     )
     writeFileSync(sample, MALFORMED_ST)
     const { ok, out } = lspLoads(sample, projDir, { ...process.env, OPENCODE_CONFIG_DIR: cfgDir })

@@ -9,7 +9,7 @@
  *
  * Output:
  *   dist/volt/bin/volt[.exe]              the CLI: bare `volt` opens the agent, `volt <verb>` syncs
- *   dist/volt/bin/volt-lsp-codesys[.exe]  the Structured Text LSP (no node needed)
+ *   dist/volt/bin/volt-lsp-iec[.exe]  the Structured Text LSP (no node needed)
  *   dist/volt/bridge/                     the C# IDE connectors (best-effort; needs dotnet)
  */
 import { Glob } from "bun"
@@ -44,14 +44,14 @@ if (!run("bun", ["volt-scripts/build.ts"])) {
   process.exit(1)
 }
 
-console.log("• volt-lsp-codesys")
-compile("packages/volt-lsp-codesys/src/bin.ts", "volt-lsp-codesys")
+console.log("• volt-lsp-iec")
+compile("packages/volt-lsp-iec/src/bin.ts", "volt-lsp-iec")
 
 // Ship the language-reference corpus beside the binaries. `bun --compile` only embeds imported JS, not this
 // fs-read docs tree, so `volt init`'s installCorpus reads it from `resources/volt/docs` (init.ts resolves
 // `dirname(process.execPath)/../docs` when the package layout isn't present). Without this, `volt init` warns
 // "Source corpus not found at B:\~BUN\docs\codesys-reference" and skips the ST language-reference skill.
-cpSync(resolve(repo, "packages/volt-lsp-codesys/docs"), resolve(out, "docs"), { recursive: true })
+cpSync(resolve(repo, "packages/volt-lsp-iec/docs"), resolve(out, "docs"), { recursive: true })
 console.log("  ✓ docs corpus → dist/volt/docs")
 
 // PATH helper bundled with the binaries — the installer's NSIS (connector.nsh) uses it to add/remove `volt`
@@ -118,7 +118,7 @@ if (!skipBridge) {
 }
 
 // Self-check: the two binaries are the non-negotiable release artifacts.
-for (const name of ["volt", "volt-lsp-codesys"]) {
+for (const name of ["volt", "volt-lsp-iec"]) {
   if (!existsSync(resolve(bin, name + ext))) {
     console.error(`✗ missing expected artifact: ${name}${ext}`)
     process.exit(1)

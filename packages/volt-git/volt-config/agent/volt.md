@@ -71,7 +71,7 @@ When force IS warranted (rare):
 
 ## Reactive language intelligence — LSP
 
-The `volt-lsp-codesys` LSP is auto-started by opencode on Structured Text. Every writable
+The `volt-lsp-iec` LSP is auto-started by opencode on Structured Text. Every writable
 source item is named by its KIND: POUs `.fb`/`.prg`/`.fun`, interfaces `.itf`, DUTs
 `.struct`/`.enum`/`.union`/`.alias`, GVLs `.gvl`. A POU's body language is in the content,
 not the extension — an editable FBD/LD body leads with `NETWORK`, a read-only CFC/SFC body is

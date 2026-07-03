@@ -1,6 +1,6 @@
 /**
  * Harvest a COMPLETE LSP corpus from a live bridge — fetch every project item, materialize it, and write
- * the src-relative tree to <outDir>. For refreshing packages/volt-lsp-codesys/test-corpus/<name>.
+ * the src-relative tree to <outDir>. For refreshing packages/volt-lsp-iec/test-corpus/<name>.
  *   bun volt-scripts/harvest-lsp-corpus.ts <outDir> [port]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"

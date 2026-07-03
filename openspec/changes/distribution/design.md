@@ -56,7 +56,7 @@ uninstalling one broke the other). One installer is simpler **and** clearer.
 | Artifact            | Built like               | Role                                                              |
 |---------------------|--------------------------|-------------------------------------------------------------------|
 | `volt` binary       | opencode `build.ts`      | **our opencode build + the PLC dispatcher** — one binary: agent commands run opencode, `volt <verb>` runs PLC |
-| `volt-lsp-codesys`  | `bun --compile`          | ST/FBD LSP — registered, never invoked by the user                |
+| `volt-lsp-iec`  | `bun --compile`          | ST/FBD LSP — registered, never invoked by the user                |
 | `bridge/`           | `dotnet build:all`       | C# IDE connectors                                                  |
 | Volt desktop        | electron-builder         | opencode's app + branding + embedded LSP                          |
 
@@ -113,7 +113,7 @@ on `anomalyco/opencode`). Beta is unused — not split into a separate repo (ope
 ## Volt-specific, unavoidable (kept minimal, ride inside opencode's shapes)
 
 - PLC dispatcher (volt-git) — compiled into the `volt` binary.
-- `volt-lsp-codesys` — registered by postinstall (CLI) / startup (desktop), shipped alongside the binary.
+- `volt-lsp-iec` — registered by postinstall (CLI) / startup (desktop), shipped alongside the binary.
 - bridge connector — IDE-side install (Beckhoff exe / CODESYS scripting dir).
 
 ## Branding (additive)
@@ -127,6 +127,6 @@ non-additive → out of scope; the binary name `volt` + the logo carry the brand
   TUI worker entrypoints, tree-sitter/version/models defines) with `volt.ts` as the entry. Runs from
   `packages/opencode` so opencode's relative paths resolve; re-port when opencode's `build.ts` changes.
   *(Web-UI embed skipped for now → `volt web` not wired; the TUI + commands work.)*
-- `volt-scripts/dist.ts` — orchestrates a local bundle: calls `build.ts` (volt) + compiles `volt-lsp-codesys`
+- `volt-scripts/dist.ts` — orchestrates a local bundle: calls `build.ts` (volt) + compiles `volt-lsp-iec`
   + the bridges into `dist/volt/`. Dev convenience; the **release** path is the mirrored `publish.ts` over
   `build.ts`'s per-platform output.
