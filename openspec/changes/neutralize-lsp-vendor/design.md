@@ -74,7 +74,24 @@ lesson:
 conformance suite and would silence a warning real TwinCAT users need. For the operator surface, the
 suspicion "the diff is smaller than modeled" does **not** hold: the diff is real and recording-verified.
 
-Net: **operators — no change.** Remaining audit scope narrows to:
+### Pragmas (DONE — no over-modeling)
+
+The vendor-differentiated pragmas are **20 TwinCAT-only entries, all `Tc`-prefixed Beckhoff attributes**
+(`TcRetain`, `TcPersistent`, `TcRpcEnable`, `TcSwapWord`, `TcLinkTo`, `TcNcAxis`, …), each already noting its
+CODESYS equivalent (`PERSISTENT`/`RETAIN`/`hide` appear only *inside* those `equivalentIn` notes, not as
+mis-tagged pragmas). **0 CODESYS-only** pragmas — correct, because TwinCAT 3 *is* a CODESYS-3-derived
+compiler, so it accepts the CODESYS attribute set. Spot-verified against Beckhoff InfoSys "Attribute
+pragmas": `call_after_init`, `hide`, `pack_mode`, `monitoring` (our `shared` tags) are all TC-supported.
+So the pragma differentiation is real and correctly tagged — the `wrong-vendor-pragma` check only fires
+(rightly) when a CODESYS user pastes a `Tc`-attribute.
+
+**Caveat vs operators:** there are NO pragma conformance recordings, so the pragma tags are doc+structure
+verified, not recording-verified. Lower risk than operators (attributes are compile hints, not operators
+with signatures TC can implement differently), but the clean way to close it is to capture pragma-acceptance
+recordings via the Beckhoff bridge (a `Tc`-attribute in a CODESYS project and vice-versa).
+
+Net: **operators + pragmas — no retag.** The user's "diff smaller than modeled" does not hold for either;
+the vendor layer is real and (for operators) recording-verified. Remaining scope narrows to:
 - **Message precision (worth doing):** for operators that exist in TC with a *different signature*
   (`__QUERYINTERFACE`, `__QUERYPOINTER`), the `wrong-vendor` text "CODESYS-only and not supported by
   TwinCAT" is imprecise — better: "different signature in TwinCAT (see …)". The tag/behavior stays; only

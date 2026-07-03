@@ -30,5 +30,10 @@
   (`__QUERYINTERFACE`, `__QUERYPOINTER`), change the `wrong-vendor` text from "not supported by TwinCAT" to
   "different signature in TwinCAT". Fix the over-strong `__NEW`/`__DELETE` hover notes (TC parses them; the
   caveat is dynamic-memory runtime backing, not "unsupported").
-- [ ] 3.5 Audit the PRAGMA side (1 `twincat`-tagged entry + any `wrong-vendor` pragma cases) — the remaining
-  unaudited surface — same recording-first method. Then update the `language-server` spec.
+- [x] 3.5 **Pragmas DONE** — 20 TwinCAT-only pragmas, all `Tc`-prefixed Beckhoff attributes (correctly
+  tagged, each with a CODESYS-equivalent note); 0 CODESYS-only (right — TC3 is CODESYS-derived, accepts the
+  CODESYS attribute set; `call_after_init`/`hide`/`pack_mode`/`monitoring` verified TC-supported via InfoSys).
+  No over-modeling, no retag. See design.md "Findings → Pragmas".
+- [ ] 3.6 (opt) Capture pragma-acceptance conformance recordings via the Beckhoff bridge to make the pragma
+  tags recording-verified like the operators (currently doc+structure verified only). Then update the
+  `language-server` spec.
