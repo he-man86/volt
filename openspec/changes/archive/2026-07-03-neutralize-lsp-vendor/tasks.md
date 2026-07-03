@@ -18,8 +18,11 @@
 
 ## 3. Audit + collapse the vendor divergence — TODO
 
-- [ ] 3.1 Enumerate every vendor-tagged reference entry (the 13 `codesys` + 1 `twincat` in `src/reference/*`)
-  and the two vendor-gated checks (`check-pragmas` wrong-vendor set, `check-vendor-only-operator` list).
+- [x] 3.1 Enumerated: the **13 `codesys`** tags are all `__`-operators in `operators.ts` (`__QUERYINTERFACE`,
+  `__QUERYPOINTER`, `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY`, `__VARINFO`, `__POSITION`, `__POUNAME`,
+  `__CURRENTTASK`, `__COMPARE_AND_SWAP`, `__XADD`, `__POOL`) → audited in 3.2–3.4. The **1 `twincat`** tag is
+  the `Tc`-pragma factory in `pragmas.ts` (all 20 `Tc*` attributes) → audited in 3.5. The two vendor-gated
+  checks — `check-vendor-only-operator` (the operator list) and `check-pragmas` (wrong-vendor set) — both audited.
 - [x] 3.2 **Operators DONE** — probed InfoSys (lists them) vs the live TwinCAT conformance recording
   (`recordings/expected-tc.json`, real TC builds). The recording wins: TC rejects the CODESYS usage of
   `__QUERYINTERFACE`/`__TRY`/`__VARINFO`/… (`buildSuccess:false`), so the tags are evidence-based. A
