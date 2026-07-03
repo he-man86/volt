@@ -1,16 +1,16 @@
 /**
- * Record TwinCAT ground truth for the `Tc*` vendor pragmas (conformance task 3.6).
+ * Record a live IDE's reaction to the `Tc*` vendor pragmas (conformance task 3.6), EITHER vendor.
  *
  * The full `record:language` recorder (which batches all ~220 fixtures) was removed with volt-agent.
  * This is a TARGETED, isolated recorder for just the `PRAGMA_TC_TESTS` catalog: each fixture is a
- * self-contained POU that is expected to COMPILE CLEAN, so it can be pushed one-at-a-time to a live
- * TwinCAT bridge, built, and recorded — no PLC_PRG mutation, no per-test diagnostic attribution.
- * Results merge into `expected-tc.json`; the replay test (`language.test.ts`) then asserts each
- * `buildSuccess === expectTcAccepts`, upgrading the pragma tags from doc-verified to recording-verified.
+ * self-contained POU pushed one-at-a-time to a live bridge, built, and recorded — no PLC_PRG mutation,
+ * no per-test diagnostic attribution. Which recording file it updates is chosen from the bridge's
+ * reported `platform`: beckhoff → `expected-tc.json`, codesys → `expected-codesys.json`.
  *
- * Requires a live Beckhoff bridge attached to a TwinCAT project:
- *   pwsh volt-scripts/bridge.ps1 -Port 8555        # (XAE must be open on a project first)
- *   bun volt-scripts/record-tc-pragmas.ts          # capture; --dry-run to preview without pushing
+ *   pwsh volt-scripts/bridge.ps1 -Port 8555               # TwinCAT (XAE must be open on a project first)
+ *   pwsh volt-scripts/codesys-bridge.ps1 up               # CODESYS headless (port 8556)
+ *   VOLT_BRIDGE_PORT=8555 bun volt-scripts/record-vendor-pragmas.ts   # capture; --dry-run to preview
+ *   VOLT_BRIDGE_PORT=8556 bun volt-scripts/record-vendor-pragmas.ts
  *
  * Every POU it creates is `FB_LANG_`/`DUT_LANG_`/`GVL_LANG_`-prefixed and DELETED after its build,
  * so the connected project is left as it was found (modulo the transient build).
@@ -23,10 +23,8 @@ import { PRAGMA_TC_TESTS } from "../packages/volt-lsp-iec/src/tests/conformance/
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8555"
 const BASE = `http://127.0.0.1:${PORT}`
 const DRY = process.argv.includes("--dry-run")
-const OUT = join(
-	dirname(fileURLToPath(import.meta.url)),
-	"../packages/volt-lsp-iec/src/tests/conformance/recordings/expected-tc.json",
-)
+const RECORDINGS = join(dirname(fileURLToPath(import.meta.url)), "../packages/volt-lsp-iec/src/tests/conformance/recordings")
+const RECORDING_FILE: Record<string, string> = { beckhoff: "expected-tc.json", codesys: "expected-codesys.json" }
 
 type BridgeDiag = { severity: string; message: string; line: number; column: number }
 type BuildRes = { success: boolean; duration: number; diagnostics: BridgeDiag[] }
@@ -54,8 +52,14 @@ async function main() {
 		console.error(`No connected bridge on ${BASE}. Start it: pwsh volt-scripts/bridge.ps1 -Port ${PORT} (XAE open first).`)
 		process.exit(1)
 	}
+	const outName = RECORDING_FILE[health.platform]
+	if (!outName) {
+		console.error(`unknown bridge platform "${health.platform}" — expected beckhoff or codesys`)
+		process.exit(1)
+	}
+	const OUT = join(RECORDINGS, outName)
 	console.log(`bridge: ${health.platform} / ${health.ideName} ${health.ideVersion} / project "${health.projectName}"`)
-	console.log(`recording ${PRAGMA_TC_TESTS.length} Tc* pragma fixtures${DRY ? " (DRY RUN — no push)" : ""}\n`)
+	console.log(`recording ${PRAGMA_TC_TESTS.length} Tc* pragma fixtures into ${outName}${DRY ? " (DRY RUN — no push)" : ""}\n`)
 
 	const doc = JSON.parse(readFileSync(OUT, "utf-8")) as {
 		recorded: { at: string; bridgeVersion: string; testCount: number }

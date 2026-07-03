@@ -85,13 +85,18 @@ pragmas": `call_after_init`, `hide`, `pack_mode`, `monitoring` (our `shared` tag
 So the pragma differentiation is real and correctly tagged — the `wrong-vendor-pragma` check only fires
 (rightly) when a CODESYS user pastes a `Tc`-attribute.
 
-**Caveat vs operators — CLOSED (2026-07):** the pragma tags are now recording-verified too. The
-`pragma-tc` fixture category (all 20 `Tc*` attributes) was captured against a live TwinCAT build via
-`volt-scripts/record-tc-pragmas.ts`; real TC accepts all 20 (`buildSuccess: true`) and the LSP raises no
-false `wrong-vendor` flag on them (replay cross-check, 20 snapshots). So the vendor-differentiated pragma
-set is evidence-backed, matching the operators. (Remaining nicety: record the CODESYS *compiler*'s reaction
-to a `Tc*` attribute once the 8556 bridge is up — likely silent-ignore rather than a hard reject, since
-attributes are lenient; the LSP warning is the right UX regardless.)
+**Caveat vs operators — CLOSED (2026-07), BOTH vendors:** the pragma tags are now recording-verified on
+both sides. The `pragma-tc` fixture category (all 20 `Tc*` attributes) was captured via
+`volt-scripts/record-vendor-pragmas.ts` against **both** a live TwinCAT build (TcXaeShell 15.0) and a live
+CODESYS build (V3.5 SP21, headless):
+- **TwinCAT** accepts all 20 (`buildSuccess: true`) — its own attributes.
+- **CODESYS** *silently* accepts all 20 too (`buildSuccess: true`, zero diagnostics) — it ignores unknown
+  attributes rather than rejecting them. This is the key finding that VALIDATES the design: the
+  `wrong-vendor-pragma` check is a **warning, not an error**, precisely because neither compiler errors on a
+  cross-vendor attribute — the LSP is the only layer that flags the portability risk. (Opt-in, default off;
+  fires under codesys with an equivalent suggestion — unit-tested `TcRpcEnable`/`TcPersistent`.)
+The replay cross-check passes for both vendors (both compiler + LSP silent by default → no divergence). The
+vendor-differentiated pragma set is now fully evidence-backed, matching the operators.
 
 Net: **operators + pragmas — no retag.** The user's "diff smaller than modeled" does not hold for either;
 the vendor layer is real and (for operators) recording-verified. Remaining scope narrows to:
