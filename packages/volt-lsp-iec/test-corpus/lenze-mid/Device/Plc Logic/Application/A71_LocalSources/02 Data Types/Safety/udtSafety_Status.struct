@@ -1,0 +1,138 @@
+TYPE udtSafety_Status :
+STRUCT
+	//SafetyStatus_00 : 
+EmergencyStopOK : BOOL;
+//SafetyStatus_00 : 
+EmergencyStopDelayed : BOOL;
+//SafetyStatus_00 : 
+DoorsOK : BOOL;
+//SafetyStatus_00 : 
+DoorsDelayed : BOOL;
+//SafetyStatus_00 : 
+ServiceMode : BOOL;
+//SafetyStatus_00 : 
+SafetyAutoSpeed : BOOL;
+//SafetyStatus_00 : 
+SafetyManSpeed : BOOL;
+//SafetyStatus_00 : 
+STO_OK : BOOL;
+//SafetyStatus_00 : 
+HoldDrive : BOOL;
+//SafetyStatus_00 : 
+AllDoorsActuallyClosed : BOOL;
+//SafetyStatus_00 : 
+CustomError2 : BOOL;
+//SafetyStatus_00 : 
+CustomError3 : BOOL;
+//SafetyStatus_00 : 
+Service_ButtonCD : BOOL;
+//SafetyStatus_00 : 
+Service_ButtonAB : BOOL;
+//SafetyStatus_00 : 
+EnableServiceMuting : BOOL;
+//SafetyStatus_00 : 
+EnableMuting : BOOL;
+
+//SafetyStatus_01 : 
+ServiceButtonHasResetFunction : BOOL;
+//SafetyStatus_01 : 
+FeedbackEstop : BOOL;
+//SafetyStatus_01 : 
+FeedbackDoors : BOOL;
+//SafetyStatus_01 : 
+FeedbackSTO : BOOL;
+//SafetyStatus_01 : 
+ErrorInInputModule : BOOL;
+//SafetyStatus_01 : 
+ErrorInOutputModule : BOOL;
+//SafetyStatus_01 : 
+Emergency_button01 : BOOL;
+//SafetyStatus_01 : 
+Emergency_button02 : BOOL;
+//SafetyStatus_01 : 
+Emergency_button03 : BOOL;
+//SafetyStatus_01 : 
+Emergency_button04 : BOOL;
+//SafetyStatus_01 : 
+Emergency_button05 : BOOL;
+//SafetyStatus_01 : 
+Emergency_button06 : BOOL;
+//SafetyStatus_01 : 
+Emergency_input_upstream : BOOL;
+//SafetyStatus_01 : 
+Emergency_input_downstream : BOOL;
+//SafetyStatus_01 : 
+Emergency_output_upstream : BOOL;
+//SafetyStatus_01 : 
+Emergency_output_downstream : BOOL;
+
+//SafetyStatus_02 : 
+Door_switch01 : BOOL;
+//SafetyStatus_02 : 
+Door_switch02 : BOOL;
+//SafetyStatus_02 : 
+Door_switch03 : BOOL;
+//SafetyStatus_02 : 
+Door_switch04 : BOOL;
+//SafetyStatus_02 : 
+Door_switch05 : BOOL;
+//SafetyStatus_02 : 
+Door_switch06 : BOOL;
+//SafetyStatus_02 : 
+Door_switch07 : BOOL;
+//SafetyStatus_02 : 
+Door_switch08 : BOOL;
+//SafetyStatus_02 : 
+Door_switch09 : BOOL;
+//SafetyStatus_02 : 
+Door_switch10 : BOOL;
+//SafetyStatus_02 : 
+Door_switch11 : BOOL;
+//SafetyStatus_02 : 
+Door_switch12 : BOOL;
+//SafetyStatus_02 : 
+Door_switch13 : BOOL;
+//SafetyStatus_02 : 
+Door_switch14 : BOOL;
+//SafetyStatus_02 : 
+Door_switch15 : BOOL;
+//SafetyStatus_02 : 
+Door_switch16 : BOOL;
+
+//SafetyStatus_03 : 
+Door_switch17 : BOOL;
+//SafetyStatus_03 : 
+Door_switch18 : BOOL;
+//SafetyStatus_03 : 
+Door_switch19 : BOOL;
+//SafetyStatus_03 : 
+Door_switch20 : BOOL;
+//SafetyStatus_03 : 
+Door_switch21 : BOOL;
+//SafetyStatus_03 : 
+Door_switch22 : BOOL;
+//SafetyStatus_03 : 
+Door_switch23 : BOOL;
+//SafetyStatus_03 : 
+Door_switch24 : BOOL;
+//SafetyStatus_03 : 
+Door_switch25 : BOOL;
+//SafetyStatus_03 : 
+Door_switch26 : BOOL;
+//SafetyStatus_03 : 
+Door_switch27 : BOOL;
+//SafetyStatus_03 : 
+Door_switch28 : BOOL;
+//SafetyStatus_03 : 
+Door_switch29 : BOOL;
+//SafetyStatus_03 : 
+Door_switch30 : BOOL;
+//SafetyStatus_03 : 
+Door_switch31 : BOOL;
+Custom_ATF_Disabled: BOOL;
+
+
+
+
+END_STRUCT
+END_TYPE

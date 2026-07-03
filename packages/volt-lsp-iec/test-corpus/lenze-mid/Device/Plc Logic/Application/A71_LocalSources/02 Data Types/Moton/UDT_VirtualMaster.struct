@@ -1,0 +1,6 @@
+TYPE UDT_VirtualMaster :
+STRUCT
+	Control: 	sUDT_VirtualMaster_Control;
+	Status: 	sUDT_VirtualMaster_Status;
+END_STRUCT
+END_TYPE

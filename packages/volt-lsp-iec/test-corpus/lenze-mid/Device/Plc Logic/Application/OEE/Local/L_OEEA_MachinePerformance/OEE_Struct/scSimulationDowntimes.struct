@@ -1,0 +1,47 @@
+TYPE scSimulationDowntimes :
+STRUCT
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  S I M U L A T I O N  I N P U T  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+	uiMaxSimulationEvents	: UINT := 13;			// Value range 1 to 20	 	
+//***********************************************************************************
+// Assign Standard Simulation Events 0..19 - here based on PackML Specification
+// Note: Inital values can be adapted based on the customer machine type !!!
+//***********************************************************************************
+
+	scRT : L_OEEA_Lib.RT_Downtime :=		// Max. of 20 Events can be setup	
+	// Overview sample
+	(para:= 
+	[(DowntimeCode := 5,ProductionMode :=2, ReasonCode := 16#3C00_0001 ,sReasonCodeStr := 'Stopping for long'),	// Event 1
+	(DowntimeCode := 6,ProductionMode :=9, ReasonCode := 16#3C00_0002 ,sReasonCodeStr := 'Drive-24V Supply'),	// Event 2
+	(DowntimeCode := 7,ProductionMode :=9, ReasonCode := 16#3C00_0008 ,sReasonCodeStr := 'Power supply error'),	// Event 3
+	(DowntimeCode := 3,ProductionMode :=9, ReasonCode := 16#3C00_0004 ,sReasonCodeStr := 'Emergency Stop'),		// Event 4
+	(DowntimeCode := 5,ProductionMode :=2, ReasonCode := 16#3C00_0005 ,sReasonCodeStr := 'Line Speed 0'),		// Event 5
+	(DowntimeCode := 5,ProductionMode :=6, ReasonCode := 16#3C00_0006 ,sReasonCodeStr := 'Line Speed < 100'),	// Event 6
+	(DowntimeCode := 1,ProductionMode :=5, ReasonCode := 16#3C00_000C ,sReasonCodeStr := 'No Parts'),			// Event 7
+	(DowntimeCode := 3,ProductionMode :=9, ReasonCode := 16#3C00_0007 ,sReasonCodeStr := 'Safety light curtain interrupted'),	// Event 8
+	(DowntimeCode := 6,ProductionMode :=9, ReasonCode := 16#3C00_000D ,sReasonCodeStr := 'Drive over-temperature'),				// Event 9
+	(DowntimeCode := 11,ProductionMode :=6, ReasonCode := 16#3C00_000A ,sReasonCodeStr := 'Rotation Limit detected'),			// Event 10
+	(DowntimeCode := 12,ProductionMode :=10, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 11	
+	(DowntimeCode := 12,ProductionMode :=10, ReasonCode := 16#3C00_000F ,sReasonCodeStr := 'Time exceeded'),	// Event 12	
+	(DowntimeCode := 5,ProductionMode :=6, ReasonCode := 16#3C00_000E ,sReasonCodeStr := 'Recipe change'),		// Event 13	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 14		
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 15	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 16	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 17	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 18	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := ''),	// Event 19	
+	(DowntimeCode := 0,ProductionMode :=0, ReasonCode := 16#0000_0000 ,sReasonCodeStr := '')]	// Event 20	 
+	 );
+
+//***********************************************************************************
+// Assign Standard Simulation Recipe 0..1 
+// Note: Inital values can be adapted based on the customer machine type !!!
+//***********************************************************************************
+	 
+	 scRecipe : ARRAY[0..1] OF L_OEEA_Lib.scProduct_base := [(rTechnicalCycleTime:=1.5, rProductTarget:=15480, diTypeID:=1, sTypeName:='Biscuit Box',
+														iUnitProductID:=1,sUnitProduct:='Boxes',iUnitSpeedID:=1,sUnitSpeed:='Boxes/min.'),
+													(rTechnicalCycleTime:=1.25, rProductTarget:=18576, diTypeID:=2, sTypeName:='Chocolate Box',
+														iUnitProductID:=1,sUnitProduct:='Boxes',iUnitSpeedID:=1,sUnitSpeed:='Boxes/min.')]; 
+END_STRUCT
+END_TYPE

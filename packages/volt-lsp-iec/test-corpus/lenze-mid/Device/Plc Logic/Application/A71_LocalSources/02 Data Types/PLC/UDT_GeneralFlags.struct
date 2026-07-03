@@ -1,0 +1,45 @@
+TYPE UDT_GeneralFlags :
+STRUCT
+	DelayAfterEmergStop:BOOL;
+	EnableControl:BOOL;
+	EnableAuxDrive:BOOL;
+	EnableMainDrive:BOOL;
+	EnablePneumPressurised:BOOL;
+	EnablePneumSafetyGuard:BOOL;
+	EnablePneumEStop:BOOL;
+	DelayAfterSTO:BOOL;
+	ControlService:BOOL;
+	ControlMan1:BOOL;
+	ControlMan2:BOOL;
+	ControlMan3:BOOL;
+	ControlAuto:BOOL;
+	RunMan:BOOL;
+	RunAuto:BOOL;
+	ResetFlag:BOOL;
+	StartFlag:BOOL;
+	StopFlag:BOOL;
+	OneShotStart1:BOOL;
+	OneShotStart2:BOOL;
+	Res24:BOOL;
+	Res25:BOOL;
+	DisengageDoors:BOOL;
+	DummyWarning:BOOL;
+	Warning:BOOL;
+	MinorAlarm:BOOL;
+	MajorAlarm:BOOL;
+	WarningActive:BOOL;
+	MinorAlarmActive:BOOL;
+	MajorAlarmActive:BOOL;
+	Res36:BOOL;
+	DisableControl:BOOL;
+	DriveIsRunning:BOOL;
+	DriveAtSpeed:BOOL;
+	StopDriveDirect:BOOL;
+	Rotflag:BOOL;
+	AuxDrivesStarted:BOOL;
+	StopDrivePosition:BOOL;
+	RestartAuxDrives:BOOL;
+	ConditionsReadyForOperation:BOOL;
+
+END_STRUCT
+END_TYPE

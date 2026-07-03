@@ -1,0 +1,8 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE UDT_ServoDrive :
+STRUCT
+	Control	: sUDT_ServoDrive_Control;
+	Status	: sUDT_ServoDrive_Status;
+	CAM		: sUDT_ServoDrive_CAM;
+END_STRUCT
+END_TYPE

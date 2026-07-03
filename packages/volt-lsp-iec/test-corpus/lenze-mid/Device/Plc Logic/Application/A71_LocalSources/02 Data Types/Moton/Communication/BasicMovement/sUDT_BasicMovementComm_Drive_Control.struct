@@ -1,0 +1,22 @@
+TYPE sUDT_BasicMovementComm_Drive_Control :
+STRUCT
+	Enable 					: BOOL;
+	ResetError 				: BOOL;
+	ReleaseBrake 			: BOOL;
+	ActivateHoming 			: BOOL;
+	ResetHomePos 			: BOOL;	
+	StartVelocity 			: BOOL;
+	StartRelPos 			: BOOL;
+	StartAbsPos 			: BOOL;
+	StartTouchprobePos 		: BOOL;
+	StartTorqueMode 		: BOOL;
+	
+	PosUnit 				: LREAL; //0.1 unit
+	VelUnit 				: LREAL;
+	AccUnit 				: LREAL:=100;
+	DecUnit 				: LREAL:=100;
+	TorqueMode_SetTorque	: LREAL:=0.1;// unit
+	TorqueLimit				: LREAL:=1;
+	
+END_STRUCT
+END_TYPE

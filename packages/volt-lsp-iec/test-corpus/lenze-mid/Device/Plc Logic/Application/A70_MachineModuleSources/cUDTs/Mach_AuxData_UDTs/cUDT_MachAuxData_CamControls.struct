@@ -1,0 +1,7 @@
+TYPE cUDT_MachAuxData_CamControls :
+STRUCT
+	TakeOverCycleStopPulse_CP : UDT_CamPulse;
+
+
+END_STRUCT
+END_TYPE

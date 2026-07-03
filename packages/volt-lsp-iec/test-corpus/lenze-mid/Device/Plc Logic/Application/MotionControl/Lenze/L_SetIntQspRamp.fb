@@ -1,0 +1,152 @@
+FUNCTION_BLOCK L_SetIntQspRamp
+VAR_IN_OUT
+	Axis: AXIS_REF;
+END_VAR
+VAR_INPUT
+	xExecute: BOOL;
+	lrQspRamp: LREAL;
+	lrQspTime: LREAL;
+	xUseQspTime: BOOL;
+END_VAR
+VAR_OUTPUT
+	xBusy: BOOL;
+	xDone: BOOL;
+	xError: BOOL;
+	eErrorID: L_IE1P_Error;
+END_VAR
+VAR
+	L_MC1P_ReadMachineData_Axis: L_MC1P_ReadMachineData;
+	MC_WriteParameter_QspRamp: MC_WriteParameter;
+	lrQspRamp_PosUnit: LREAL;
+	RatedVel: LREAL;
+	iStep: INT;
+	uiIndexQspRamp: UINT;
+	iSlotAxis: INT;
+END_VAR
+
+//'L_SetIntQspRamp_i700'
+//
+//04.2016
+//Lenze Vertrieb GmbH, Mirco Guddat		
+
+//Check if this is a i700 axis and witch slot
+iSlotAxis:= L_GetSlot_i700(Axis:= Axis);
+
+CASE iStep OF
+	0: //Start
+		xDone:= FALSE;
+		xBusy:= FALSE;
+		MC_WriteParameter_QspRamp.Execute:= FALSE;
+		L_MC1P_ReadMachineData_Axis.xEnable:= FALSE;
+		xError:= FALSE;
+		eErrorID:= L_IE1P_Error.NoError;
+
+		IF xExecute THEN
+			iStep:= 10;
+		END_IF	
+
+	10: //Read machine data
+		xBusy:= TRUE;
+		L_MC1P_ReadMachineData_Axis.xEnable:= TRUE;
+		
+		IF L_MC1P_ReadMachineData_Axis.xValid THEN
+			iStep:= 20;
+			ELSIF L_MC1P_ReadMachineData_Axis.xError THEN
+				xError:= TRUE;
+				eErrorID:= L_MC1P_ReadMachineData_Axis.eErrorID;
+				iStep:= 40;
+		END_IF
+		
+	20: //Calculate the internal quickstop ramp in Pos.Units/s2
+		IF xUseQspTime THEN 
+
+			IF lrQspTime> 0 THEN
+				IF (L_MC1P_ReadMachineData_Axis.lrFeedconstant= 0) OR (L_MC1P_ReadMachineData_Axis.dwGearDenominator= 0) THEN
+					//Division by zero
+					xError:= TRUE;
+					lrQspRamp_PosUnit:= 16#7FFFFFFF;
+
+					ELSE
+						//The QSP-Time is calculated from rated velocity to standstill
+						lrQspRamp_PosUnit:= ((L_MC1P_GetRatedVelocityAxis(Axis:= Axis)/ L_MC1P_ReadMachineData_Axis.lrFeedconstant) * (TO_LREAL(L_MC1P_ReadMachineData_Axis.dwGearNumerator) / TO_LREAL(L_MC1P_ReadMachineData_Axis.dwGearDenominator)) / lrQspTime) * 65536;
+				END_IF
+
+				ELSE
+					//Zero dont work as QSP time, so we use the max. deceleration
+					lrQspRamp_PosUnit:= 16#7FFFFFFF;
+			END_IF
+
+			ELSE
+				IF lrQspRamp> 0.0 THEN
+					IF (L_MC1P_ReadMachineData_Axis.lrFeedconstant= 0) OR (L_MC1P_ReadMachineData_Axis.dwGearDenominator= 0) THEN
+						//Division by zero
+						xError:= TRUE;
+						lrQspRamp_PosUnit:= 16#7FFFFFFF;
+
+						ELSE
+							//Calculate QSP ramp
+							lrQspRamp_PosUnit:= (lrQspRamp/ L_MC1P_ReadMachineData_Axis.lrFeedconstant) * (TO_LREAL(L_MC1P_ReadMachineData_Axis.dwGearNumerator) / TO_LREAL(L_MC1P_ReadMachineData_Axis.dwGearDenominator)) * 65536;
+					END_IF
+
+					ELSE
+						//Zero dont work as QSP ramp, so we use the max. deceleration
+						lrQspRamp_PosUnit:= 16#7FFFFFFF;
+				END_IF
+		END_IF
+
+		iStep:= 30;
+	
+	30: //Write the parameter
+		IF (iSlotAxis= 1) THEN 
+			uiIndexQspRamp:= 16#6085; //Index for slot 1
+			ELSIF (iSlotAxis= 2) THEN
+				uiIndexQspRamp:= 16#6885; //Index for slot 2
+		END_IF
+		
+		MC_WriteParameter_QspRamp.Execute:= TRUE;
+
+		IF MC_WriteParameter_QspRamp.Done THEN
+			iStep:= 40;
+			ELSIF MC_WriteParameter_QspRamp.Error THEN
+				xError:= TRUE;
+				eErrorID:= MC_WriteParameter_QspRamp.ErrorID;
+		END_IF
+		
+	40: //finish
+		xDone:= TRUE;
+		xBusy:= FALSE;
+		IF NOT xExecute THEN
+			iStep:= 0;
+		END_IF	
+		
+END_CASE
+
+ 
+L_MC1P_ReadMachineData_Axis(
+	Axis:= Axis, 
+	xEnable:= , 
+	xValid=> , 
+	xBusy=> , 
+	xError=> , 
+	eErrorID=> , 
+	lrFeedconstant=> , 
+	dwGearDenominator=> , 
+	dwGearNumerator=> , 
+	dwPosResolution=> , 
+	xOrientation=> , 
+	eTraversingRange=> , 
+	lrCycleLength=> , 
+	xVirtual=> );
+
+MC_WriteParameter_QspRamp(
+	Axis:= Axis, 
+	Execute:= , 
+	ParameterNumber:= L_MC1P_IndexToParameter(uiIndex:= uiIndexQspRamp, usiSubIndex:= 0, uiByteLength:= 4), 
+	Value:= lrQspRamp_PosUnit, 
+	ExecutionMode:= , 
+	Done=> , 
+	Busy=> , 
+	Error=> , 
+	ErrorID=> );
+
+END_FUNCTION_BLOCK

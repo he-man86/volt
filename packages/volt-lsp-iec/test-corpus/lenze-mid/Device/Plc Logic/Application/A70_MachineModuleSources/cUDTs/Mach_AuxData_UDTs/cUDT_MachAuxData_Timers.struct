@@ -1,0 +1,27 @@
+TYPE cUDT_MachAuxData_Timers :
+STRUCT
+	
+TON_MainDriveBlocked : TON;
+TON_MainDriveAtProductionSpeed : TON;
+TOFF_MainDriveAtProductionSpeed : tof;
+TON_DelayAfterDoorsClosed : TON;
+TON_DelayIdling : TON;
+TON_DryerSwitchedOff : TON;
+TON_StopContGluePumping : TON;
+TON_StartFastWinding : TON;
+PulseBuzzer : TON;
+DelayContiniousGluePumping : TON;
+WaterReceptacleFull : TON;
+RuntimeGuardFeedforwardDryer : TON;
+RuntimeguardInpusher : TON;
+RuntimeGuardFeedforwardTrayfiller : TON;
+RuntimeGuardElevator : TON;
+RuntimeGuardInfeedConveyor : TON;
+RuntimeGuardOutfeedConveyor : TON;
+TON_BunchLevelWarning : TON;
+TON_BunchLevelAlarm : TON;
+OffDelayLockDrives : TOf;
+
+
+END_STRUCT
+END_TYPE

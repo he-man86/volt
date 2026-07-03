@@ -1,0 +1,35 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+//SafetyStatus_03 : 
+Door_switch17 : BOOL;
+//SafetyStatus_03 : 
+Door_switch18 : BOOL;
+//SafetyStatus_03 : 
+Door_switch19 : BOOL;
+//SafetyStatus_03 : 
+Door_switch20 : BOOL;
+//SafetyStatus_03 : 
+Door_switch21 : BOOL;
+//SafetyStatus_03 : 
+Door_switch22 : BOOL;
+//SafetyStatus_03 : 
+Door_switch23 : BOOL;
+//SafetyStatus_03 : 
+Door_switch24 : BOOL;
+//SafetyStatus_03 : 
+Door_switch25 : BOOL;
+//SafetyStatus_03 : 
+Door_switch26 : BOOL;
+//SafetyStatus_03 : 
+Door_switch27 : BOOL;
+//SafetyStatus_03 : 
+Door_switch28 : BOOL;
+//SafetyStatus_03 : 
+Door_switch29 : BOOL;
+//SafetyStatus_03 : 
+Door_switch30 : BOOL;
+//SafetyStatus_03 : 
+Door_switch31 : BOOL;
+//SafetyStatus_03 : 
+Custom_ATF_Disabled : BOOL;
+END_VAR

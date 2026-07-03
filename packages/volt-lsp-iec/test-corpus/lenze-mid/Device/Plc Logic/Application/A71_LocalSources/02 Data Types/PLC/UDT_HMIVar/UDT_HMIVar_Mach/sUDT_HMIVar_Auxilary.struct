@@ -1,0 +1,24 @@
+TYPE sUDT_HMIVar_Auxilary :
+STRUCT
+ManualControl1 : BOOL;
+ManualControl2 : Bool;
+Aux3 : Bool;
+Aux4 : Bool;
+Aux5 : Bool;
+Aux6 : Bool;
+Aux7 : Bool;
+Aux8 : Bool;
+Aux9 : Bool;
+Aux10 : Bool;
+Aux11 : Bool;
+Aux12 : Bool;
+Aux13 : Bool;
+Aux14 : Bool;
+Aux15 : Bool;
+Aux16 : Bool;
+
+
+	
+
+END_STRUCT
+END_TYPE

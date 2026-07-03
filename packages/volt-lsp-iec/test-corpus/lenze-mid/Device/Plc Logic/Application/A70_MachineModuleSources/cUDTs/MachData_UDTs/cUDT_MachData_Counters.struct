@@ -1,0 +1,10 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Counters :
+STRUCT
+	MaxRepetitionNoBunch		: UDT_Int_WithLimits;
+	MaxRepetitionNoCigars		: UDT_Int_WithLimits;
+	MaxRepetitionNoCigarsDryer	: UDT_Int_WithLimits;
+	BunchesFillBunchFeeder		: UDT_Int_WithLimits;
+
+END_STRUCT
+END_TYPE

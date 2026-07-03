@@ -1,0 +1,102 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL PERSISTENT RETAIN
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  O U T P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+		
+	//************************************************************************************************************************************************		
+	// Persistent OEE Downtime Tracking structure
+	//************************************************************************************************************************************************
+	scDowntime 			: L_OEEA_Lib.scDowntime;								// Downtime Output structure
+
+	//************************************************************************************************************************************************		
+	// Persistent OEE Internal use structure
+	//************************************************************************************************************************************************
+	scPDinternal 		: L_OEEA_Lib.scInternalVar ;
+	scPDinternalDowntime: L_OEEA_Lib.scInternalDownVar; 
+	scPDProductionData	: L_OEEA_Lib.scInternalProductionData;	
+	scPDShiftDayIndex	: L_OEEA_Lib.scPDShiftData; 		//Active and Previous Shift/Day/Week Index, used for historical data storage array index
+
+	//************************************************************************************************************************************************
+	//OEE and Downtime Historical 3 shift/day data		
+	//Should be persitent, based on the controller persitent possibilities
+	//************************************************************************************************************************************************
+	scShiftHistory 			: L_OEEA_Lib.scVisuShiftHistory_base;
+	scShiftDowntimeHistory	: ARRAY[1..3] OF L_OEEA_Lib.scDowntime_base; 
+	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// H M I  I N P U T  A N D  O U T P U T  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//***********************************************************************************************************************************************************
+	// Persistent HMI Shift and Target Variable	
+	//***********************************************************************************************************************************************************
+	//!! rProdutcionTarget is used for Actual (Progressive) Target !! here can be the OEE Target beed based as an factor e.g. (Planned Production time/min. x parts per min x 90%)
+	// e.g. (60 (sec)/1.5 = 40Parts/min.) * 430 (min. planned production time) * 0.9 (90% OEE Target) = 15480 parts per shift
+	scOEE_VisuPD 	: L_OEEA_Lib.scOEE_VisuPD := 	(ascVisu_OUT_ShiftTargets := [(rOEETarget:=90, rOEELowerLimit:=75,rOEECrucial:=65),
+																	  (rOEETarget:=90, rOEELowerLimit:=75,rOEECrucial:=65),
+																	  (rOEETarget:=90, rOEELowerLimit:=75,rOEECrucial:=65)]);
+		
+	// Active Product Recipe, HMI Load & Activate Product recipe
+	{attribute 'symbol':='readwrite'}
+	scSelectedProductRecipeHMI 	: L_OEEA_Lib.scProduct_base ;
+	// Active Product Recipe, HMI Load & Activate Product recipe
+	{attribute 'symbol':='readwrite'}
+	sActiveProductRecipe: STRING;
+	
+	//************************************************************************************************************************************************		
+	// Persistent Active Recipe structure as well as Input for scMachineData
+	//************************************************************************************************************************************************		
+	{attribute 'symbol':='readwrite'}
+	scActiveProductRecipe : L_OEEA_Lib.scProduct_base := (rTechnicalCycleTime:=1.5, rProductTarget:=15480, diTypeID:=1, sTypeName:='Sigar',
+														iUnitProductID:=1,sUnitProduct:='Sigars',iUnitSpeedID:=1,sUnitSpeed:='Sigars/min.',
+														 rChangeOverTime:= 60); 
+	//************************************************************************************************************************************************		
+
+	//***********************************************************************************************************************************************************
+	//Machine Day Scheduler example
+	//***********************************************************************************************************************************************************	
+	(*
+		ascDaySchedules		:	ARRAY [1..L_OEEA_lib.uiDaySchedule] OF L_OEEA_Lib.scDaySchedule	
+				:= [7((iNumberofShifts := UINT_TO_INT(L_OEEA_Lib.uiNoOfShifts), iNumberofBreaks := UINT_TO_INT(L_OEEA_Lib.uiNoOfBreaks),
+				ascShiftSchedule := [(sShiftName:='24 hour',uiStartHour:=6, uiStartMinute:=0,uiEndHour:=6,uiEndMinute:=0, uiShiftNo:=1,xActive:=TRUE)]))];									
+	*)
+	//************************************************************************************************************************************************************		
+	
+	//*********************************************************************************************************************************************
+	//Machine Shift Scheduler example
+	//*********************************************************************************************************************************************	
+	//Array containing shift schedules of all seven days of a week
+	ascDaySchedules		:	ARRAY [1..L_OEEA_lib.uiDaySchedule] OF L_OEEA_Lib.scDaySchedule	
+			:= [7((iNumberofShifts := UINT_TO_INT(L_OEEA_Lib.uiNoOfShifts), iNumberofBreaks := UINT_TO_INT(L_OEEA_lib.uiNoOfBreaks),
+				ascShiftSchedule := [(sShiftName:='Morning',uiStartHour:=6, uiStartMinute:=30,uiEndHour:=14,uiEndMinute:=30, uiShiftNo:=1,xActive:=TRUE),
+									 (sShiftName:='Afternoon',uiStartHour:=14, uiStartMinute:=30,uiEndHour:=22,uiEndMinute:=30, uiShiftNo:=2,xActive:=TRUE), 
+									 (sShiftName:='Night',uiStartHour:=22, uiStartMinute:=30,uiEndHour:=06,uiEndMinute:=30, uiShiftNo:=3,xActive:=TRUE)],
+				ascSBreakSchedule := [(sBreakName:='Breakfast',uiStartHour:=9, uiStartMinute:=0,uiEndHour:=9,uiEndMinute:=10, uiShiftNo:=1,xActive:=TRUE),
+									  (sBreakName:='Lunch',uiStartHour:=11, uiStartMinute:=0,uiEndHour:=11,uiEndMinute:=30, uiShiftNo:=1,xActive:=TRUE),
+									  (sBreakName:='Tea Break',uiStartHour:=13, uiStartMinute:=0,uiEndHour:=13,uiEndMinute:=10, uiShiftNo:=1,xActive:=TRUE),
+	 								  (sBreakName:='Tea Break 1',uiStartHour:=16, uiStartMinute:=0,uiEndHour:=16,uiEndMinute:=10, uiShiftNo:=2,xActive:=TRUE),
+									  (sBreakName:='Dinner',uiStartHour:=18, uiStartMinute:=45,uiEndHour:=19,uiEndMinute:=15, uiShiftNo:=2,xActive:=TRUE),
+									  (sBreakName:='Tea Break 2',uiStartHour:=20, uiStartMinute:=45,uiEndHour:=20,uiEndMinute:=55, uiShiftNo:=2,xActive:=TRUE),
+									  (sBreakName:='Tea Break 1',uiStartHour:=23, uiStartMinute:=30,uiEndHour:=23,uiEndMinute:=40, uiShiftNo:=3,xActive:=TRUE),
+									  (sBreakName:='Dinner',uiStartHour:=1, uiStartMinute:=45,uiEndHour:=2,uiEndMinute:=12, uiShiftNo:=3,xActive:=TRUE),
+									  (sBreakName:='Tea Break 2',uiStartHour:=4, uiStartMinute:=30,uiEndHour:=4,uiEndMinute:=40, uiShiftNo:=3,xActive:=TRUE)]))];				
+	//************************************************************************************************************************************************		
+
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// L O C A L  V A R I A B L E  A N D  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//************************************************************************************************************************************************		
+	// Here are all OEE Input based global variable
+	//************************************************************************************************************************************************
+
+	//*********************************************************************************************************************************************
+	//Machine Part Counter
+	//*********************************************************************************************************************************************			
+	lrCountOK			: ARRAY[1..L_OEEA_Lib.uiNoOfPartCounter] OF LREAL;		// Actual Partcounter	
+	lrCountNOK			: ARRAY[1..L_OEEA_Lib.uiNoOfPartCounter] OF LREAL;		// Actual Scrap/Bad Partcounter		
+	
+END_VAR

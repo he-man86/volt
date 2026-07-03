@@ -1,0 +1,12 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE UDT_CamControlLS :
+STRUCT
+HighSpeed 		: sUDT_CamControlLS_HighSpeed;
+LowSpeed 		: sUDT_CamControlLS_LowSpeed;
+{attribute 'symbol' := 'none'}
+Output 			: sUDT_CamControlLS_Output;
+{attribute 'symbol' := 'none'}
+Calculation 	: sUDT_CamControlLS_Calculation;
+MachinePos_HMI	: INT;
+END_STRUCT
+END_TYPE

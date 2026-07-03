@@ -1,0 +1,21 @@
+TYPE sUDT_ServoComm_Drive_Control :
+STRUCT
+
+	Enable 				: BOOL;
+	ResetError 			: BOOL;
+	SelectBypassCAM 	: BOOL;
+	ReleaseBrake 		: BOOL;
+	SetHomePos 			: BOOL;
+	ActivateCamming 	: BOOL;
+	ResetHomePos 		: BOOL;
+
+	XOffset				: 	LREAL;									//output to plc
+	YScale				: 	LREAL:=1;								//output to plc
+	YOffset				:	LREAL;									//output to plc
+	TorqueLimit			: 	LREAL:=1;
+	Spare1: BOOL;
+	Spare2: BOOL;
+
+
+END_STRUCT
+END_TYPE

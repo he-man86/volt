@@ -1,0 +1,20 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL PERSISTENT
+	CopyMeasuredToLight: BOOL;
+	CopyMeasuredToDark: BOOL;
+	MeasuredValue		: INT;
+	MeasuredValueReal	: REAL;
+	Percentage			: REAL;
+	Percentage10		: INT ;
+	Setpoint			: INT;
+	CopiedValueReal		: REAL;
+	CopiedValueInt		: INT;
+	LightValue			: INT:=100;
+	DarkValue			: INT:=5;
+	NoWrapperValue		: INT;
+	DeviationNoWrapper	: INT;
+	NoWrapperPercentage	: INT;
+	SpareInt_2			: INT;
+
+END_VAR

@@ -1,0 +1,7 @@
+(* This code ist generated automatically *)
+(* Don't change the content! *)
+
+VAR_GLOBAL
+	(* #7f7557b4-196d-4a0c-9db7-167ec53980dd# *)
+	ATD_Errorlist : WORD:= 15360;
+END_VAR

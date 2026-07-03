@@ -1,0 +1,7 @@
+TYPE UDT_Alarm_OBSOLETE :
+STRUCT
+	AlmActive		: BOOL;
+	AlmCount		: INT;
+	AlmTime			: INT;
+END_STRUCT
+END_TYPE

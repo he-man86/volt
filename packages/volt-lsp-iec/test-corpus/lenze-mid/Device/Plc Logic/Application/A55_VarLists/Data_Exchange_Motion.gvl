@@ -1,0 +1,17 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+Servo_VirtualMaster: sUDT_VirtualMasterComm_Drive;
+	
+Servo_MainDrive: sUDT_ServoComm_Drive;
+Servo_WrappingDevice: sUDT_ServoComm_Drive;
+Servo_SideCorrection: sUDT_ServoComm_Drive;
+
+FQI_FeedforwardADS : sUDT_FQIComm_Drive;
+FQI_FeedforwardATF : sUDT_FQIComm_Drive;
+FQI_ElevatorATF : sUDT_FQIComm_Drive;
+FQI_Fan : sUDT_FQIComm_Drive;
+FQI_Bobbin : sUDT_FQIComm_Drive;
+BobbinTorque: DINT;
+
+FeedForwardWrapper : sUDT_BasicMovementComm_Drive ;
+END_VAR

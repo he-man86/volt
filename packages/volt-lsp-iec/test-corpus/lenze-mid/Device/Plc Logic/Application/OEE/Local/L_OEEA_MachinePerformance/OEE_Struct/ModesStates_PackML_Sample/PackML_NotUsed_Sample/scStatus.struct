@@ -1,0 +1,6 @@
+TYPE scStatus :
+	STRUCT
+			StateCurrent					: eStates;
+			UnitModeCurrent					: eModes;
+	END_STRUCT
+END_TYPE

@@ -1,0 +1,11 @@
+TYPE sUDT_FQI_Drive_Control :
+STRUCT
+StartAuto : BOOL;
+StartJog : Bool;
+QuickStop : Bool;
+AutoSpeed : Int;
+ResetError : Bool;
+Enable : Bool;
+Reverse : Bool;
+END_STRUCT
+END_TYPE

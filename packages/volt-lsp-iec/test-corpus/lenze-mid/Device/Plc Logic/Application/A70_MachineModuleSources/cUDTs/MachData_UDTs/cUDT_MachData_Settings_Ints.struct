@@ -1,0 +1,13 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Settings_Ints :
+STRUCT
+	ActualNumberOfGluePulses	:	INT;
+	MaxNumberOfGluePulses		: INT;
+	RollingDeviceSpeedFactor	: INT;
+	TorqueControlBobbin		: INT;
+	MaxNumberOfSprayPulses	: INT;
+	ActualNumberOfSprayPulses	: 	INT;
+	SideCorrectionScaleFactor: INT;
+	
+END_STRUCT
+END_TYPE

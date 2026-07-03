@@ -1,0 +1,157 @@
+FUNCTION_BLOCK WSM
+VAR_INPUT
+	EN: BOOL;
+	iGenflags : UDT_GeneralFlags;	
+	iInit: BOOL;
+	iTest_Prod: BOOL;
+	iCleaning: BOOL;
+	iBunchPresent: BOOL;
+	iWrapperPresentForLeafCarrier: BOOL;
+	iPhotocellWrapper: BOOL;
+	iWaterLevelSensor: BOOL;	
+	iTakeOverCycle: BOOL;
+	iTimeOutSupplyWrapper: TIME;
+	iSprayTime: TIME;
+	iDelayContSpraying: TIME;
+	iScreenForOperatorSettingsActivated: BOOL;
+	iManualSprayCycleReset: BOOL;
+	iManualSprayCycleStart: BOOL;
+	iManualSprayCycleStop: BOOL;
+	iMaxNumberOfSprayPulses: INT;
+
+END_VAR
+VAR_OUTPUT
+	ENO: BOOL;
+	oVentilationMotor: BOOL;	
+	oPositionMotor: BOOL;
+	oWindingMotor: BOOL;	
+	oSprayingValve: BOOL;	
+	oWaterLevelValve: BOOL;	
+	oFaultWaitingForWrapper: BOOL;
+	oFaultNoWrapper: BOOL;
+	oFaultPhotocellWrapper : BOOL;
+END_VAR
+VAR
+	stOSN_TakeOverCycle: F_TRIG;
+	TMR_TimeOutSupply: TON;
+	TMR_TimeOutPhotocell: TON;
+	stRePositionMotor: R_TRIG;
+	stSprayCycleActive: BOOL;
+	TMR_DelayContinuousSpraying: TON;
+	TMR_SprayTime: TON;
+	stManualSprayCycleStarted: BOOL;
+	
+	TMR_ManualSprayCycleIdle: TON;
+
+END_VAR
+
+VAR_IN_OUT
+	ioEnableSpraying: BOOL;
+	ioManualSprayCycleActualCount: INT;
+	ioManualStartSupply: BOOL;
+END_VAR
+VAR RETAIN PERSISTENT
+	stRestposition: BOOL;
+	stSupplyWrapper: BOOL;
+	stWrapperPresent: BOOL;
+	stNoWrapper: BOOL;
+	stPhotocellWrapperFault: BOOL;
+	stFeedForward: BOOL;
+END_VAR
+
+NETWORK 0 LD
+  stRestposition := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply) SET;
+  stSupplyWrapper := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply) RESET;
+  stWrapperPresent := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply) RESET;
+  stNoWrapper := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply) RESET;
+  stPhotocellWrapperFault := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply) RESET;
+END_NETWORK
+NETWORK 1 LD
+  stOSN_TakeOverCycle(CLK := iTakeOverCycle);
+  LET g1 := (stOSN_TakeOverCycle.Q AND stWrapperPresent);
+  stRestposition := g1 SET;
+  stWrapperPresent := g1 RESET;
+END_NETWORK
+NETWORK 2 LD
+  LET g1 := ((((stRestposition AND iTest_Prod) AND NOT iCleaning) AND iBunchPresent) AND NOT iTakeOverCycle);
+  LET g2 := (g1 AND iGenFlags.RunMan);
+  LET g3 := (g1 AND iGenFlags.RunAuto);
+  LET g4 := (stRestposition AND ioManualStartSupply);
+  LET g5 := (stNoWrapper AND iGenFlags.StartFlag);
+  LET g6 := (stPhotocellWrapperFault AND iGenFlags.StartFlag);
+  stSupplyWrapper := (g2 OR g3 OR g4 OR g5 OR g6) SET;
+  stRestposition := (g2 OR g3 OR g4 OR g5 OR g6) RESET;
+  stNoWrapper := (g2 OR g3 OR g4 OR g5 OR g6) RESET;
+  stPhotocellWrapperFault := (g2 OR g3 OR g4 OR g5 OR g6) RESET;
+  ioManualStartSupply := (g2 OR g3 OR g4 OR g5 OR g6) RESET;
+END_NETWORK
+NETWORK 3 LD
+  LET g1 := (iWrapperPresentForLeafCarrier AND stSupplyWrapper);
+  LET en1 := g1;
+  IF en1 THEN HMI_Var.Mach1.PRDWrapCurrentCntr := (1 + HMI_Var.Mach1.PRDWrapCurrentCntr); END_IF
+  LET en2 := g1;
+  IF en2 THEN HMI_Var.Mach1.PRDWrapDayCounter := (1 + HMI_Var.Mach1.PRDWrapDayCounter); END_IF
+  stWrapperPresent := g1 SET;
+  stSupplyWrapper := g1 RESET;
+END_NETWORK
+NETWORK 4 LD
+  TMR_TimeOutSupply(IN := (stSupplyWrapper AND stFeedForward), PT := iTimeOutSupplyWrapper);
+  stNoWrapper := TMR_TimeOutSupply.Q SET;
+  stSupplyWrapper := TMR_TimeOutSupply.Q RESET;
+END_NETWORK
+NETWORK 5 LD
+  TMR_TimeOutPhotocell(IN := ((stSupplyWrapper AND stFeedForward) AND iPhotocellWrapper), PT := T#10S);
+  stPhotocellWrapperFault := TMR_TimeOutPhotocell.Q SET;
+  stSupplyWrapper := TMR_TimeOutPhotocell.Q RESET;
+END_NETWORK
+NETWORK 6 LD
+  oFaultWaitingForWrapper := ((True AND stSupplyWrapper) AND iTakeOverCycle);
+  oFaultNoWrapper := (True AND stNoWrapper);
+  oFaultPhotocellWrapper := (True AND stPhotocellWrapperFault);
+END_NETWORK
+NETWORK 7 LD
+  oVentilationMotor := ((iGenFlags.EnableAuxDrive AND iTest_Prod) AND NOT iCleaning);
+END_NETWORK
+NETWORK 8 LD
+  LET g1 := ((iGenFlags.EnableAuxDrive AND stSupplyWrapper) AND NOT iGenFlags.StopFlag);
+  stFeedForward := g1;
+  oPositionMotor := g1;
+END_NETWORK
+NETWORK 9 LD
+  oWindingMotor := (((iGenFlags.EnableAuxDrive AND NOT iGenFlags.StopFlag) AND iTest_Prod) AND NOT iCleaning);
+END_NETWORK
+NETWORK 10 LD
+  stRePositionMotor(CLK := stFeedForward);
+  TMR_DelayContinuousSpraying(IN := stFeedForward, PT := iDelayContSpraying);
+  stSprayCycleActive := stRePositionMotor.Q SET;
+  stSprayCycleActive := TMR_DelayContinuousSpraying.Q SET;
+END_NETWORK
+NETWORK 11 LD
+  TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime);
+  stSprayCycleActive := (TMR_SprayTime.Q AND NOT TMR_DelayContinuousSpraying.Q) RESET;
+END_NETWORK
+NETWORK 12 LD
+  oSprayingValve := (ioEnableSpraying AND stSprayCycleActive);
+END_NETWORK
+NETWORK 13 LD
+  ioEnableSpraying := ((((FALSE AND iGenFlags.EnablePneumEStop) AND iWrapperPresentForLeafCarrier) AND iTest_Prod) AND NOT iCleaning) SET;
+END_NETWORK
+NETWORK 14 LD
+  oWaterLevelValve := (ioEnableSpraying AND iWaterLevelSensor);
+END_NETWORK
+NETWORK 15 LD
+  LET en1 := (iScreenForOperatorSettingsActivated AND iManualSprayCycleReset);
+  IF en1 THEN ioManualSprayCycleActualCount := MOVE(0); END_IF
+  LET g1 := (iScreenForOperatorSettingsActivated AND iGenFlags.EnablePneumEStop);
+  LET en2 := ((((g1 AND iManualSprayCycleStart) OR (g1 AND stManualSprayCycleStarted)) AND NOT iManualSprayCycleStop) AND NOT iManualSprayCycleReset);
+  IF en2 THEN stManualSprayCycleStarted := (ioManualSprayCycleActualCount < iMaxNumberOfSprayPulses); END_IF
+  TMR_ManualSprayCycleIdle(IN := ((iScreenForOperatorSettingsActivated AND stManualSprayCycleStarted) AND NOT stSprayCycleActive), PT := T#300MS);
+  LET en3 := TMR_ManualSprayCycleIdle.Q;
+  IF en3 THEN ioManualSprayCycleActualCount := (ioManualSprayCycleActualCount + 1); END_IF
+  stSprayCycleActive := en3 SET;
+END_NETWORK
+NETWORK 16 LD
+  ENO := EN;
+END_NETWORK
+
+END_FUNCTION_BLOCK

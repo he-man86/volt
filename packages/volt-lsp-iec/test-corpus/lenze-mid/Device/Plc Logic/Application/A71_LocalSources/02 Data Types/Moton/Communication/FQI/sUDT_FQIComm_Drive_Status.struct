@@ -1,0 +1,24 @@
+TYPE sUDT_FQIComm_Drive_Status :
+STRUCT
+
+
+Bit0_ReadyForOperation : Bool;
+Bit1_NotConnected : Bool;
+Bit2_InverterEnable : Bool;
+Bit3_Fault : Bool;
+Bit4_NotConnected : Bool;
+Bit5_QuickStopActive : Bool;
+Bit6_Running : Bool;
+Bit7_DeviceWarning : BOOL;
+
+Bit8_NotConnected : BOOL;
+Bit9_NotConnected : Bool;
+Bit10_SetpointSpeedReached : Bool;
+Bit11_AtCurrentLimit : Bool;
+Bit12_ActualSpeedIs0 : BOOL;
+Bit13_InvertRotation : Bool;
+Bit14_HoldingBrakeRelease : Bool;
+Bit15_SafeTorqueOff : BOOL;
+
+END_STRUCT
+END_TYPE

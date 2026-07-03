@@ -1,0 +1,6 @@
+TYPE cUDT_ShiftRegister_Positie :
+STRUCT
+	Infeed		: cUDT_ShiftRegister_Infeed;
+	Outfeed		: cUDT_ShiftRegister_Outfeed;	
+END_STRUCT
+END_TYPE

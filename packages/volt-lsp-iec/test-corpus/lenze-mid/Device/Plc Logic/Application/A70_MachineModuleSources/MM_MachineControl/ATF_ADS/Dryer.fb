@@ -1,0 +1,125 @@
+FUNCTION_BLOCK Dryer
+VAR_INPUT
+	iGenFlags : UDT_GeneralFlags;
+iMachineStarted : Bool;
+iSwitchDryer : Bool;
+iDryerClosed : Bool;
+iStartFeedForward : Bool;
+iStopFeedForward : Bool;
+iPermissionDownstream : Bool;
+iSetPowerHeater1 : Int;
+iSetPowerHeater2 : Int;
+iSetPowerHeater3 : Int;
+iPowerOrAnalog : Bool;
+iSpeedForEmptying : INT;
+
+
+END_VAR
+VAR_OUTPUT
+	ENO: BOOL;
+	oFeedForward : BOOL;
+oEnableHeaters : Bool;
+oPowerHeater1 : Word;
+oPowerHeater2 : Word;
+oPowerHeater3 : Word;
+oFaultDryerOpened : Bool;
+
+
+END_VAR
+VAR
+	tEmptyingCycleInterval : DINT;
+	
+	stAuxFeedForward: rs;
+	tConditionHeaterTimeOut: BOOL;
+	tEnableHeaters: BOOL;
+	stActPowerHeater1: INT;
+	stActPowerHeater2: INT;
+	stActPowerHeater3: INT;
+	TMR_DryerOpened: TON;
+END_VAR
+
+VAR RETAIN PERSISTENT
+	stReFeedForward: R_TRIG;
+	TMR_IntervalTimerEmptying: TON;
+	stFaultDryerOpened: sr;
+	stReStopFeedForward: R_TRIG;
+	TMR_HeaterTimeOut: TON;
+END_VAR
+
+NETWORK 0 LD
+  // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
+END_NETWORK
+NETWORK 1 LD
+  LET i1 := DINT_TO_TIME(tEmptyingCycleInterval);
+  stReFeedForward(CLK := stAuxFeedForward.Q1);
+  LET g1 := NOT(stReFeedForward.Q);
+  TMR_IntervalTimerEmptying(IN := g1, PT := i1);
+  stReStopFeedForward(CLK := iStopFeedForward);
+  stAuxFeedForward(SET := (iStartFeedForward OR (((((TMR_IntervalTimerEmptying.Q AND iMachineStarted) AND NOT stFaultDryerOpened.Q1) AND Mach1.GenFlags.DelayAfterSTO) AND NOT iGenFlags.DriveIsRunning) AND iPermissionDownstream)), RESET1 := stReStopFeedForward.Q);
+  tConditionHeaterTimeOut := g1;
+  oFeedForward := stAuxFeedForward.Q1;
+END_NETWORK
+NETWORK 2 LD
+  TMR_HeaterTimeOut(IN := (TRUE AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS), PT := T#7S);
+  LET g1 := ((((TRUE AND iGenFlags.EnableAuxDrive) AND iPermissionDownstream) AND NOT TMR_HeaterTimeOut.Q) AND iSwitchDryer);
+  oEnableHeaters := g1;
+  tEnableHeaters := g1;
+END_NETWORK
+NETWORK 3 LD
+  LET i1 := INT_TO_WORD(stActPowerHeater1);
+  LET en1 := (True AND NOT tEnableHeaters);
+  IF en1 THEN stActPowerHeater1 := MOVE(0); END_IF
+  LET g1 := (True AND tEnableHeaters);
+  LET en2 := (g1 AND LST_General.Imp100ms);
+  IF en2 THEN stActPowerHeater1 := (stActPowerHeater1 + 10); END_IF
+  LET en3 := g1;
+  IF en3 THEN LET g2 := (stActPowerHeater1 > iSetPowerHeater1); END_IF
+  LET en4 := g2;
+  IF en4 THEN stActPowerHeater1 := MOVE(iSetPowerHeater1); END_IF
+  LET en5 := (True AND NOT iPowerOrAnalog);
+  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  LET en6 := (True AND iPowerOrAnalog);
+  IF en6 THEN oPowerHeater1 := MOVE(i1); END_IF
+END_NETWORK
+NETWORK 4 LD
+  LET i1 := INT_TO_WORD(stActPowerHeater2);
+  LET en1 := (True AND NOT tEnableHeaters);
+  IF en1 THEN stActPowerHeater2 := MOVE(0); END_IF
+  LET g1 := (True AND tEnableHeaters);
+  LET en2 := (g1 AND LST_General.Imp100ms);
+  IF en2 THEN stActPowerHeater2 := (stActPowerHeater2 + 10); END_IF
+  LET en3 := g1;
+  IF en3 THEN LET g2 := (stActPowerHeater2 > iSetPowerHeater2); END_IF
+  LET en4 := g2;
+  IF en4 THEN stActPowerHeater2 := MOVE(iSetPowerHeater2); END_IF
+  LET en5 := (True AND NOT iPowerOrAnalog);
+  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  LET en6 := (True AND iPowerOrAnalog);
+  IF en6 THEN oPowerHeater2 := MOVE(i1); END_IF
+END_NETWORK
+NETWORK 5 LD
+  LET i1 := INT_TO_WORD(stActPowerHeater3);
+  LET en1 := (True AND NOT tEnableHeaters);
+  IF en1 THEN stActPowerHeater3 := MOVE(0); END_IF
+  LET g1 := (True AND tEnableHeaters);
+  LET en2 := (g1 AND LST_General.Imp100ms);
+  IF en2 THEN stActPowerHeater3 := (stActPowerHeater3 + 10); END_IF
+  LET en3 := g1;
+  IF en3 THEN LET g2 := (stActPowerHeater3 > iSetPowerHeater3); END_IF
+  LET en4 := g2;
+  IF en4 THEN stActPowerHeater3 := MOVE(iSetPowerHeater3); END_IF
+  LET en5 := (True AND NOT iPowerOrAnalog);
+  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  LET en6 := (True AND iPowerOrAnalog);
+  IF en6 THEN oPowerHeater3 := MOVE(i1); END_IF
+END_NETWORK
+NETWORK 6 LD
+  TMR_DryerOpened(IN := (((iMachineStarted AND iSwitchDryer) AND NOT iDryerClosed) AND NOT stFaultDryerOpened.Q1), PT := T#5S);
+  stFaultDryerOpened(SET1 := TMR_DryerOpened.Q, RESET := iGenFlags.StartFlag);
+  oFaultDryerOpened := stFaultDryerOpened.Q1;
+END_NETWORK
+NETWORK 7 LD
+  ENO := ;
+END_NETWORK
+
+END_FUNCTION_BLOCK

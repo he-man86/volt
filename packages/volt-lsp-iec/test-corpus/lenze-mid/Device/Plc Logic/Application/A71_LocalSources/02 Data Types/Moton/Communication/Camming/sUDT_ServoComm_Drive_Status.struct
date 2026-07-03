@@ -1,0 +1,17 @@
+TYPE sUDT_ServoComm_Drive_Status :
+STRUCT	
+	DriveCommAlive 		: BOOL;
+	ReadyForOperation 	: BOOL;
+	ReadyForMotion		: BOOL;
+	HomingPosOK 		: BOOL;
+	
+	InSync 				: BOOL;
+	
+	TorqueLimit 		: BOOL;
+
+	ActPos				: LREAL;									//input to plc
+	ActSpeed			: LREAL;									//input to plc
+	Spare1: BOOL;
+	Spare2: BOOL;
+END_STRUCT
+END_TYPE

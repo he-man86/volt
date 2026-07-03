@@ -1,0 +1,76 @@
+(************************************************************************************************
+*
+* Program  : 	L_GetErrorTextFromFunc
+*
+* Summary : 	This function block find a error/reason code string from user and internal functions 
+*                  
+* History :
+*
+*   Date        Author          Version    Changes
+*  ---------------------------------------------------------------------------------------------------------------------------------------
+*   2023-02-24  Michael May    			1.1		Added function GetDriveErrorString to receive drive errors/warnings
+*   2023-01-31  Michael May    			1.0		Initially created
+*)
+
+FUNCTION_BLOCK L_GetErrorTextFromFunction
+VAR_INPUT
+	xEnabled : BOOL;							// Enable function block
+	xErrorActive : BOOL;						// New Error Active
+	xUpdateError : BOOL;						// Update Error text ; Bit is on for 1 PLC Cycle
+	scFirstErrorData	: L_FECA.scErrorData;	//
+END_VAR
+
+VAR_IN_OUT
+
+END_VAR
+
+VAR_OUTPUT
+	scFirstErrorDataOut	: L_FECA.scErrorData;	// Data of the first error captured
+	sErrorText		: STRING(255);				// Error text string of requested textrefi id and error code if found
+	xErrorTextFromFun : BOOL;					// IF TRUE Error text comes from function if FALSE Error text comes from Input  scFirstErrorData.sErrDesc
+END_VAR
+
+VAR
+	rTrig_xErrorActive : R_TRIG;	
+	wTextRefId, wErrorId : WORD;
+END_VAR
+
+IF xEnabled THEN
+	
+	// Reset output if no active error is on
+	IF NOT xErrorActive OR xUpdateError THEN
+		sErrorText := '';
+		xErrorTextFromFun := FALSE;
+		scFirstErrorDataOut := scFirstErrorData;
+	END_IF
+	
+	rTrig_xErrorActive(CLK:=xErrorActive );
+	
+	scFirstErrorDataOut.xFirstErrorActive:=xErrorActive;
+	
+	// If a new error is active search for the error text
+	IF rTrig_xErrorActive.Q OR xUpdateError THEN
+		// Search for errorid and error text, if found exist
+		scFirstErrorDataOut := scFirstErrorData;
+		wErrorId := MEM.LowWord(scFirstErrorData.dwErrorNumber);
+		wTextRefId := MEM.HighWord(scFirstErrorData.dwErrorNumber);
+		
+		IF wTextRefId = 16#2C00  THEN
+			// L_IE1P_Application Errors (L_MC1P / L_MC2P /L_MC4P / L_TT1P)
+			scFirstErrorDataOut.sErrDesc := L_FECA.GetFastErrorString(wTextRefId:=wTextRefId, wErrorID:= wErrorId,dwErrorNumber:=scFirstErrorData.dwErrorNumber);
+			xErrorTextFromFun:= TRUE;
+		ELSIF wTextRefId >= 16#3C00 AND wTextRefId <=  16#3FF0 THEN
+			IF scFirstErrorDataOut.sErrDesc = '' THEN
+				scFirstErrorDataOut.sErrDesc := GetApplicationtErrorString(wTextRefId:=wTextRefId, wErrorID:= wErrorId, dwErrorNumber:=scFirstErrorData.dwErrorNumber);
+				xErrorTextFromFun:= TRUE;
+			END_IF;
+		ELSIF wTextRefId >= 16#2009  THEN
+			// iSerie Drive and warnings
+			scFirstErrorDataOut.sErrDesc := L_FECA.GetDriveErrorString(wTextRefId:=wTextRefId, wErrorID:= wErrorId,dwErrorNumber:=scFirstErrorData.dwErrorNumber);
+			xErrorTextFromFun:= TRUE;
+		END_IF
+		sErrorText := scFirstErrorDataOut.sErrDesc;
+	END_IF
+END_IF
+
+END_FUNCTION_BLOCK

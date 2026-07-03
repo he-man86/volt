@@ -1,0 +1,52 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	AllDriveReferencingDone : BOOL;
+SetDrivesInSync : Bool;
+SetDrivesInLock : Bool;
+AllDrivesInLock : Bool;
+StartpulseDryer : Bool;
+SetBuzzer : Bool;
+MemContinuousGluePumping : Bool;
+MemStopLeafCarrier : Bool;
+MemStopCleaning : Bool;
+DelayAfterDoorsActuallyClosed : Bool;
+PhotocellBunchHasBeenOff : BOOL;
+PhotocellCigarHasBeenOff : BOOL;
+ScreenForOperatorSettingsActivated : Bool;
+GlueWeighingCycleStarted : Bool;
+NumberOfMutingCyclesReached : Bool;
+MemLowerSpeedBecauseOfNoWrapper : Bool;
+MemWrapperPresentForLeafCarrier : Bool;
+MemWrapperPassedUnderTheSensor : Bool;
+MemWrapperDetected_ResetLimitedSpeed : Bool;
+BlockBunchInfeed : Bool;
+MainDriveHomed : Bool;
+RollingDeviceHomed : Bool;
+DTA_Homed : Bool;
+AllDrivesHomed : Bool;
+CurrentCycleHasOutfeedError : Bool;
+PreviousCycleHasOutfeedError : Bool;
+MemCigarAtCrossOver : Bool;
+ADS_StopOnZeroPulse : BOOL;
+{attribute 'symbol' := 'readwrite'}
+TorqueCalibrationValue : DInt;
+TrayfillerActive : BOOL;
+CounterHighSpeedATF_ADS: INT;
+{attribute 'symbol' := 'readwrite'}
+MIDS_Active : BOOL;
+{attribute 'symbol' := 'readwrite'}
+VelWrapperTransp : DINT;
+{attribute 'symbol' := 'readwrite'}
+EnableGlueSprayCalibration: BOOL:=FALSE;
+
+{attribute 'symbol' := 'readwrite'}
+EnableManualHomeSetting: BOOL:=FALSE;
+
+
+IEC_TIMERS: cUDT_MachAuxData_Timers;
+Edge: cUDT_MachAuxData_Edge;
+COUNTERS: cUDT_MachAuxData_Counters;
+ShiftRegister: cUDT_MachAuxData_Shiftregister;
+CamControls : cUDT_MachAuxData_CamControls;
+
+END_VAR

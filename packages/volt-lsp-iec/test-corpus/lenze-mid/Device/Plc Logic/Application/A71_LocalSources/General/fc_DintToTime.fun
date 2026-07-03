@@ -1,0 +1,11 @@
+FUNCTION fc_DintToTime : time
+VAR_INPUT
+	DintTime: DINT;
+	DecShift: DINT :=0;
+END_VAR
+VAR
+END_VAR
+
+fc_DintToTime:=DINT_TO_TIME(DintTime*1000/REAL_TO_DINT(EXPT(10,DecShift)));
+
+END_FUNCTION

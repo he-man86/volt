@@ -1,0 +1,9 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE UDT_CamControl :
+STRUCT
+Start : INT;
+Stop : Int;
+IsActive : Bool;
+MachinePos_HMI : Int;
+END_STRUCT
+END_TYPE

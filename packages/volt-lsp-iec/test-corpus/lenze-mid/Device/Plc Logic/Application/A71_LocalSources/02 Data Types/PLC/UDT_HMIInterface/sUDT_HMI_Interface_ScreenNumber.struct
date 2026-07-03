@@ -1,0 +1,6 @@
+TYPE sUDT_HMI_Interface_ScreenNumber :
+STRUCT
+	CurrentScreenNumber		: INT;
+	
+END_STRUCT
+END_TYPE

@@ -1,0 +1,310 @@
+FUNCTION_BLOCK BasicMovement
+//Dataexchange CONTROL ===========
+VAR_IN_OUT
+	ioDataExchange					:  sUDT_BasicMovementComm_Drive;
+END_VAR
+VAR_INPUT
+	TouchProbeSensor				: BOOL;
+	i_lrWindowStandstill			: LREAL;	
+	i_lrJogVel						: LREAL;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	//ControlWord
+	internalControl					:	BOOL;
+	Control_Local			 		:	sUDT_BasicMovementComm_Drive_Control;			//output to plc
+	
+	//StatusWord 
+
+	//instance 
+	AxisControl						: L_TB2P_BasicMotionBase;	
+	SetTorqueError					: L_IE1P_SetErrorSingle;		
+END_VAR
+VAR_IN_OUT
+	ioSlaveAxis						: AXIS_REF; 
+END_VAR
+
+ReadInputs();
+BasicMotionParameters();
+BasicMotion();
+SetTorqueLimits();
+BrakeLogic();
+WriteOutputs();
+
+END_FUNCTION_BLOCK
+
+METHOD BasicMotion
+VAR_INPUT
+END_VAR
+VAR_INST
+	intPositioningState		: INT;
+	R_TRIG_TP				: R_TRIG;
+	SetIntQspRamp			: L_SetIntQspRamp;
+	lrDecErrorStopOld		: LREAL;
+END_VAR
+VAR
+	
+END_VAR
+R_TRIG_TP(CLK:=TouchProbeSensor , Q=> );
+
+CASE intPositioningState OF
+	0:	(* Wait for synchronisation *)
+		AxisControl.scCtrlBasicMotion.xMoveAbsExecute := FALSE;
+		AxisControl.scCtrlBasicMotion.xMoveRelExecute := FALSE;
+		AxisControl.scCtrlBasicMotion.xMoveVelExecute := FALSE;
+		AxisControl.scCtrlBasicMotion.xHalt := FALSE;
+		
+		IF Control_Local.StartAbsPos THEN
+			intPositioningState:=10;
+		ELSIF Control_Local.StartRelPos THEN
+			intPositioningState:=20;
+		ELSIF Control_Local.StartVelocity THEN
+			intPositioningState:=30;
+		ELSIF Control_Local.StartTouchprobePos THEN
+			intPositioningState:=40;
+		ELSIF Control_Local.StartTorqueMode THEN
+			intPositioningState:=50;
+		END_IF
+		
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////Move absolute///////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+
+	10:	(*Move absolute to position*)
+		AxisControl.scPar.lrAcc := Control_Local.AccUnit;
+		AxisControl.scPar.lrDec := Control_Local.DecUnit;
+		AxisControl.scPar.lrVel  := Control_Local.VelUnit;
+		AxisControl.scCtrlBasicMotion.lrPos_Dist := Control_Local.PosUnit;	
+	
+		AxisControl.scCtrlBasicMotion.xMoveAbsExecute := TRUE;
+		
+		IF AxisControl.scStatusBasicMotion.xFunDone THEN
+			ioDataExchange.Status.InPosition:=TRUE;
+			intPositioningState:=15;
+		ELSIF NOT Control_Local.StartAbsPos THEN
+			intPositioningState:=100;
+		END_IF
+		
+	15:	IF NOT Control_Local.StartAbsPos THEN
+			ioDataExchange.Status.InPosition:=FALSE;
+			intPositioningState:=0;
+		END_IF
+	
+///////////////////////////////////////////////////////////////////////////
+/////////////////////////////Move Touchprobe///////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+	40:	(*Move Touchprobe*)
+		AxisControl.scPar.lrAcc := Control_Local.AccUnit;
+		AxisControl.scPar.lrDec := Control_Local.DecUnit;
+		AxisControl.scPar.lrVel := Control_Local.VelUnit;
+	
+		AxisControl.scCtrlBasicMotion.xMoveVelExecute := TRUE;
+		
+		IF R_TRIG_TP.Q THEN
+			AxisControl.scCtrlBasicMotion.lrPos_Dist := Control_Local.PosUnit;			
+			AxisControl.scCtrlBasicMotion.xMoveRelExecute := TRUE;
+			intPositioningState:=41;
+		ELSIF NOT Control_Local.StartTouchprobePos THEN
+			intPositioningState:=100;
+		END_IF
+		
+	41://wait for positioning done
+		IF AxisControl.scStatusBasicMotion.xFunDone THEN
+			ioDataExchange.Status.InPosition:=TRUE;
+			intPositioningState:=45;
+		ELSIF NOT Control_Local.StartTouchprobePos THEN
+			intPositioningState:=100;			
+		END_IF	
+	
+	45:	IF NOT Control_Local.StartTouchprobePos THEN
+			ioDataExchange.Status.InPosition:=FALSE;
+			intPositioningState:=0;
+		END_IF
+	
+///////////////////////////////////////////////////////////////////////////
+///////////////////////////////Stop movement///////////////////////////////
+///////////////////////////////////////////////////////////////////////////
+	100:(*Stop absolute movement*)
+		AxisControl.scCtrlBasicMotion.xHalt := TRUE;
+		
+		IF AxisControl.scStatusBasicMotion.xStandstillSetVelocity THEN
+			intPositioningState:=0;
+		END_IF
+	
+END_CASE; 
+
+
+//R_TRIG_TP(CLK:=TouchProbeSensor , Q=> );
+
+AxisControl.scCtrlBasicMotion.xResetHomePosition:=Control_Local.ResetHomePos;
+
+AxisControl(
+	xEnable:= TRUE, 
+	xEnableOperation:=Control_Local.Enable , 
+	xResetError:=Control_Local.ResetError , 
+	xQSPApplication:= , 
+	xAbort:= , 
+	xJogPos:= , 
+	xJogNeg:= , 
+	xHomeExecute:= Control_Local.ActivateHoming, 
+	lrOverride:= , 
+	scCtrlBasicMotion:= , 
+	scPar:= , 
+	Axis:=ioSlaveAxis , 
+	xReadyForOperation=> , 
+	xOperationEnabled=> , 
+	xReadyForMotion=> , 
+	xError=> , 
+	xWarning=> , 
+	eErrorID=> , 
+	xSTOActive=> , 
+	xQSPActive=> , 
+	xAbortBusy=> , 
+	xAbortDone=> , 
+	xJoggingBusy=> , 
+	xHomingBusy=> , 
+	xHomingDone=> , 
+	xIsHomed=> , 
+	eTMState=> , 
+	scStatusBasicMotion=> , 
+	lrActVel=> , 
+	lrSetVelOut=> , 
+	lrActPos=> , 
+	lrSetPosOut=> , 
+	lrActFollowingError=> );
+	
+SetIntQspRamp(
+	Axis:=ioSlaveAxis , 
+	xExecute:=ioSlaveAxis.xAxisAvailable AND NOT ioSlaveAxis.xVirtual AND (lrDecErrorStopOld=ioSlaveAxis.lrDecErrorStop) , 
+	lrQspRamp:=ioSlaveAxis.lrDecErrorStop , 
+	lrQspTime:= , 
+	xUseQspTime:= , 
+	xBusy=> , 
+	xDone=> , 
+	xError=> , 
+	eErrorID=> );
+lrDecErrorStopOld:=ioSlaveAxis.lrDecErrorStop;
+END_METHOD
+
+METHOD BasicMotionParameters
+VAR_INPUT
+END_VAR
+//General
+//ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
+//ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
+//ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
+//ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
+//ioSlaveAxis.scPar.JoggingSetJerk:=0;
+END_METHOD
+
+METHOD BrakeLogic 
+VAR_INPUT
+	
+END_VAR
+VAR_INST
+	BrakeInterface			: L_MC1P_BrakeInterface; 
+END_VAR
+
+VAR
+
+END_VAR
+BrakeInterface(
+	Axis:= ioSlaveAxis, 
+	xEnable:= NOT ioSlaveAxis.xVirtual , 
+	xReleaseBrake:= Control_Local.ReleaseBrake, 
+	lrTorqueAdd:= , 
+	xBrakeModeActivate:= , 
+	eBrakeMode:= , 
+	xValid=> , 
+	xBusy=> , 
+	xError=> , 
+	eErrorID=> , 
+	xBrakeReleaseOut=> , 
+	xBrakeReleased=> , 
+	lrActTorque=> , 
+	lrStartingTorqueSaved=> , 
+	lrStartingTorqueEffective=> , 
+	eBrakeModeActive=> );
+END_METHOD
+
+METHOD ReadInputs 
+VAR_INPUT
+END_VAR
+//activate internal control
+IF NOT internalControl THEN
+	Control_Local	:= ioDataExchange.Control;
+END_IF
+END_METHOD
+
+METHOD SetTorqueLimits 
+VAR_INPUT
+	
+END_VAR
+VAR_INST
+	TorqueLimit						: L_MC1P_SetTorqueLimit;
+	lrRefTorqueAxis					: LREAL;
+	lrActTorqueProcent				: LREAL;
+	ResetError						: L_IE1P_ResetError;
+END_VAR
+
+VAR
+
+END_VAR
+//Max torque on the axis. If the machine doesn't stop due to a programming error, this part ensures that the torque never gets too high. 
+TorqueLimit(											
+	Axis:= ioSlaveAxis, 
+	xEnable:= NOT ioSlaveAxis.xVirtual ,  
+	xSetTorqueLimitPos:= TRUE, 
+	lrTorqueLimitPos:= (Control_Local.TorqueLimit/100)*1.1, 				//The max torque allowed on the axis is 10% higher then the alarm value. 
+	xSetTorqueLimitNeg:= TRUE, 
+	lrTorqueLimitNeg:= (Control_Local.TorqueLimit/100)*1.1, 				//The max torque allowed on the axis is 10% higher then the alarm value. 
+	xTorqueInputAsPercent:= TRUE,
+	xBusy=> , 
+	xError=> , 
+	eErrorID=> );
+
+lrRefTorqueAxis := L_MC1P_GetRatedTorqueAxis(Axis:=ioSlaveAxis); 
+//Torque limit error 
+IF lrRefTorqueAxis > 0 THEN 
+	lrActTorqueProcent := ABS(ioSlaveAxis.lrActTorque/lrRefTorqueAxis); 
+END_IF
+
+SetTorqueError(
+	ModuleHandler:= , 
+	ErrorHandler:=ioSlaveAxis , 
+	xSetError:=lrActTorqueProcent > (Control_Local.TorqueLimit/100) , 
+	eSeverity:=L_IE1P_SeverityLevel.Fault_QspAppl , 
+	wTextRefId:= ATD_Errorlist, 
+	wErrorId:= 1, 
+	eReaction:= , 
+	eGroup:= , 
+	xError=> , 
+	eErrorID=> , 
+	scErrorInformation=> );
+	
+ResetError(
+	ModuleHandler:= , 
+	ErrorHandler:=ioSlaveAxis , 
+	xResetError:=AxisControl.xResetError , 
+	xError=> , 
+	eErrorID=> , 
+	xErrorResetActive=> , 
+	xResetActive=> );
+END_METHOD
+
+METHOD WriteOutputs
+VAR_INPUT
+END_VAR
+VAR_INST
+
+END_VAR
+ioDataExchange.Status.DriveCommAlive				:= ioSlaveAxis.xCommunicationOK;
+ioDataExchange.Status.ReadyForOperation				:= AxisControl.xReadyForOperation;
+ioDataExchange.Status.ReadyForMotion				:= AxisControl.xReadyForMotion;
+ioDataExchange.Status.HomingPosOK					:= AxisControl.xIsHomed;
+ioDataExchange.Status.InPosition					;//writen in statemachine
+ioDataExchange.Status.VelocitySetpointReached		;//writen in statemachine
+ioDataExchange.Status.ActSpeed						:= AxisControl.lrActVel;
+ioDataExchange.Status.ActPos						:= AxisControl.lrActPos;
+END_METHOD

@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL CONSTANT
+	//TODO
+	posCigarPresentOutfeed	: INT:=88;
+	ct_ArraySizeCheckRegister : INT:=150;
+	
+END_VAR

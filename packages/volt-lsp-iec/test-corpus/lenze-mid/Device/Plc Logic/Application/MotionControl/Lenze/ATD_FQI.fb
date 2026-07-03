@@ -1,0 +1,28 @@
+FUNCTION_BLOCK ATD_FQI
+VAR_INPUT
+	lrAcc: LREAL:=1600;
+	lrDec: LREAL:=1600;
+	
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	BasicSpeed: L_MC1P_BasicActuatingSpeed;
+	OffDelay: TOF;
+END_VAR
+VAR_IN_OUT
+	ioAxis: AXIS_REF;
+	DataIO: sUDT_FQIComm_Drive;;
+END_VAR
+
+NETWORK 0 LD
+  IF ioAxis.xVirtual THEN RETURN; END_IF
+END_NETWORK
+NETWORK 1 LD
+  OffDelay(IN := DataIO.Controlword.Bit4_RunForward, PT := T#1S);
+  BasicSpeed(xEnableInternalControl := TRUE, xRegulatorOn := OffDelay.Q, xResetError := DataIO.Controlword.Bit7_ResetFault, xSetDriveQsp := DataIO.Controlword.Bit2_QuickStop, xEnableSetVel := DataIO.Controlword.Bit4_RunForward, xInvertDirection := DataIO.Controlword.Bit12_ReverseDirection, lrSetVel := DataIO.RefSpeed, lrSetAcc := lrAcc, lrSetDec := lrDec);
+  DataIO.Status.Bit0_ReadyForOperation := BasicSpeed.xAxisReady;
+  DataIO.Status.Bit3_Fault := BasicSpeed.xDriveError;
+END_NETWORK
+
+END_FUNCTION_BLOCK

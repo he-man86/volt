@@ -1,0 +1,7 @@
+TYPE sUDT_CamControlLS_LowSpeed :
+STRUCT
+Start : INT;
+Stop : Int;
+SetSpeed : Int;
+END_STRUCT
+END_TYPE

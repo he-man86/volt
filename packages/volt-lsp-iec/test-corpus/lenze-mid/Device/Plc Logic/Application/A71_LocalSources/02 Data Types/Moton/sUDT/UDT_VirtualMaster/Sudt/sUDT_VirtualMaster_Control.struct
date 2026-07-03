@@ -1,0 +1,9 @@
+TYPE sUDT_VirtualMaster_Control :
+STRUCT
+	SetDriveEnable: BOOL;
+	StartMovement : BOOL;
+	ResetError	: BOOL;
+	SetZeroPosition	: BOOL;
+	DriveMasterSpeed: INT;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,8 @@
+TYPE scAlarm :
+STRUCT
+	ID : DINT;		// Alarm or warning identification number
+	Value : DINT;
+	Category: DINT; // Identification number associated to alarm type or severity
+	MODULE : DINT;	// Not part of standatd PackML OPC-UA definition
+END_STRUCT
+END_TYPE

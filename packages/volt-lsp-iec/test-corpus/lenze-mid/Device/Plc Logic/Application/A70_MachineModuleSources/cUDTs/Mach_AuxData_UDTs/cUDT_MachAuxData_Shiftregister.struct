@@ -1,0 +1,8 @@
+TYPE cUDT_MachAuxData_Shiftregister :
+STRUCT
+	SR_bunch_present_position_1_JL				: BOOL;
+	SR_bunch_present_position_2_wrapping_device	: BOOL;
+	SR_bunch_present_position_3_outfeed			: BOOL;
+	
+END_STRUCT
+END_TYPE

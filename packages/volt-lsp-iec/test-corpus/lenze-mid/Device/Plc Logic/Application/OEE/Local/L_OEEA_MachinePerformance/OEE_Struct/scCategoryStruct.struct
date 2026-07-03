@@ -1,0 +1,57 @@
+TYPE scCategoryStruct :
+STRUCT
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  I N P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+//***********************************************************************************
+// Assign Standard Machine Categories 0..20 - here based on a Sample Specification
+//***********************************************************************************	
+	asStr	 	: ARRAY [0..L_OEEA_Lib.uiNoOfDowntimeCategories] 	OF  STRING(55)	:=	 // Array of Category Descriptions
+						['No Production', 				// Category = 0
+						 'No Products',					// Category = 1		
+						 'No Material',					// Category = 2		
+						 'Safety circuit',				// Category = 3		
+						 'Not Ready for production',	// Category = 4
+						 'Operator Intervention',		// Category = 5		
+						 'Drive Fault',					// Category = 6		
+						 'Electrical Fault',			// Category = 7		
+						 'Fuse drop',					// Category = 8
+						 'Motor fault',					// Category = 9
+						 'E-STOP',						// Category = 10	
+						 'Maintenance Schedule',		// Category = 11	
+						 'Product Change Over',			// Category = 12
+						 'Reserve 13',					// Category = 13
+						 'Reserve 14',					// Category = 14
+						 'Demo App',					// Category = 15
+						 'Reserve 16',					// Category = 16
+						 'Reserve 17',					// Category = 17
+						 'Reserve 18',					// Category = 18
+						 'FAST TM,FB',	  			    // Category = 19
+						 'Operator Break'];		  		// Category = 20	// Category = 20 -  one Category has to be fixed assigned to a break ; 
+																			// Note: Category Break has to have the same index as Production Mode Break
+
+	axError		: ARRAY [0..L_OEEA_Lib.uiNoOfDowntimeCategories] 	OF  BOOL	:=	 	// Array of Warning/Info = False or Error = True
+						[FALSE,		 					// Category = 0
+						 FALSE,							// Category = 1
+						 FALSE,							// Category = 2
+						 TRUE,							// Category = 3
+						 TRUE,							// Category = 4
+						 FALSE,							// Category = 5
+						 TRUE,							// Category = 6
+						 TRUE,							// Category = 7
+						 TRUE,							// Category = 8
+						 TRUE,							// Category = 9
+						 TRUE,							// Category = 10
+						 FALSE,							// Category = 11
+						 FALSE,							// Category = 12
+						 FALSE,							// Category = 13
+						 FALSE,							// Category = 14
+						 TRUE,							// Category = 15
+						 FALSE,							// Category = 16
+						 FALSE,							// Category = 17
+						 FALSE,							// Category = 18
+						 TRUE,	  			    		// Category = 19
+						 FALSE];		  				// Category = 20
+END_STRUCT
+END_TYPE

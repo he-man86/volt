@@ -1,0 +1,26 @@
+FUNCTION_BLOCK Byte_To_Bools
+VAR
+start1: POINTER TO BOOL;
+
+i: USINT;
+len: USINT;
+tempByte: BYTE;
+END_VAR
+VAR_INPUT
+	adr_bit0_Of_Byte: POINTER TO BOOL;
+END_VAR
+VAR_OUTPUT
+	oByte: BYTE;
+END_VAR
+
+len:=7;
+oByte:=0;
+
+start1:= adr_bit0_Of_Byte;
+
+FOR i := 0 TO len DO
+	tempByte:=REAL_TO_BYTE(EXPT(2,i));
+    start1^:= BYTE_TO_BOOL((oByte AND tempByte)/tempByte);
+END_FOR
+
+END_FUNCTION_BLOCK

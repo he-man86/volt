@@ -1,0 +1,6 @@
+TYPE cUDT_Trafiller_Data_Interface :
+STRUCT
+	Permission: BOOL;
+	HoldFeedFwd : BOOL;
+END_STRUCT
+END_TYPE

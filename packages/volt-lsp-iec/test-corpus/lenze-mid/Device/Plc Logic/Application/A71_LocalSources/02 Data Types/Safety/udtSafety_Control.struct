@@ -1,0 +1,69 @@
+TYPE udtSafety_Control :
+STRUCT
+	ResetSafetyGuard : BOOL;
+//SafetyControl_00 : 
+ExternalReset : BOOL;
+//SafetyControl_00 : 
+ExternalRequestResetSafetyModule : BOOL;
+//SafetyControl_00 : 
+RequestManSpeed : BOOL;
+//SafetyControl_00 : 
+RequestAutoSpeed : BOOL;
+//SafetyControl_00 : 
+Muting_zone1 : BOOL;
+//SafetyControl_00 : 
+Muting_zone2 : BOOL;
+//SafetyControl_00 : 
+Muting_zone3 : BOOL;
+//SafetyControl_00 : 
+PartialMuting1 : BOOL;
+//SafetyControl_00 : 
+PartialMuting2 : BOOL;
+//SafetyControl_00 : 
+PartialMuting3 : BOOL;
+//SafetyControl_00 : 
+ResetCustomError1 : BOOL;
+//SafetyControl_00 : 
+ResetCustomError2 : BOOL;
+//SafetyControl_00 : 
+ResetCustomError3 : BOOL;
+//SafetyControl_00 : 
+ForceOutputs : BOOL;
+//SafetyControl_00 : 
+Set_Global_EstopError : BOOL;
+
+//SafetyControl_01 : 
+Set_Local_EstopError : BOOL;
+//SafetyControl_01 : 
+Set_Local_DoorsError : BOOL;
+//SafetyControl_01 : 
+Set_Local_STOError : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare01 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare02 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare03 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare04 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare05 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare06 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare07 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare08 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare09 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare10 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare11 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare12 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare13 : BOOL;
+	
+END_STRUCT
+END_TYPE

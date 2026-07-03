@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  t#4ms
+Priority:  1
+Watchdog:  3200 µs (sensitivity 2)
+Calls:     Simulation, General, Mach1_MotionControl, MachineStateSetting, FirstErrorCapture

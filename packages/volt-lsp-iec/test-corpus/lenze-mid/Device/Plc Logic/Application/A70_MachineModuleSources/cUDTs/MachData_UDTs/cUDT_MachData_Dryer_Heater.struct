@@ -1,0 +1,9 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Dryer_Heater :
+STRUCT
+PowerRowMax	:INT;
+SetHeaterPower:	INT;
+
+
+END_STRUCT
+END_TYPE

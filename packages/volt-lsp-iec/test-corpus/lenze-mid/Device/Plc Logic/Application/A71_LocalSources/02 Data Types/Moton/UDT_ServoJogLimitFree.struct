@@ -1,0 +1,6 @@
+TYPE UDT_ServoJogLimitFree :
+STRUCT
+	Status: sUDT_ServoJogLimitFree_Status;
+	Control: sUDT_ServoJogLimitFree_Control;
+END_STRUCT
+END_TYPE

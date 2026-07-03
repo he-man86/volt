@@ -1,0 +1,13 @@
+TYPE cUDT_Trayfiller_Data_Alarms :
+STRUCT
+	AlmInpusherBlocked : BOOL;
+	AlmTrayPosition: BOOL;
+	AlmTrayInfeeding:BOOL;
+	AlmLightCurtainInpusher: BOOL;
+	WrnChangeTray:BOOL;
+	AlmOutfeedFull:BOOL;
+	AlmOutfeeding:BOOL;
+	AlmLightCurtainElevator:BOOL;
+	
+END_STRUCT
+END_TYPE

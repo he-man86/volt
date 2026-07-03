@@ -1,0 +1,8 @@
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	Mach1_Alarms	: scAlarmsDB;
+	dwErrorWord1	: DWORD;
+	dwErrorWord2	: DWORD;
+	dwErrorWord3	: DWORD;
+	dwErrorWord4	: DWORD;
+END_VAR

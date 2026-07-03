@@ -1,0 +1,17 @@
+TYPE cUDT_MachAuxData_Edge :
+STRUCT
+	
+OSP_zeroPulseADS : BOOL;
+OSP_PtrigOpHours : Bool;
+OSP_Emptying_Cleaning : R_Trig;
+OSP_ForceOutput : Bool;
+Osr_SetCounter : F_TRIG;
+OSPushbuttonGlue : r_trig;
+OSN_Gluepump : f_trig;
+OSP_LimitDTA_Reached : R_TRIG;
+OSP_DryerZeroPoint : R_Trig;
+OSP_StopFlag : R_trig;
+
+
+END_STRUCT
+END_TYPE

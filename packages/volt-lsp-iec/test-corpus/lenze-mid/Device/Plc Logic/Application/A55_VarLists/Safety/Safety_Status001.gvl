@@ -1,0 +1,35 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+//SafetyStatus_00 : 
+EmergencyStopOK : BOOL;
+//SafetyStatus_00 : 
+EmergencyStopDelayed : BOOL;
+//SafetyStatus_00 : 
+DoorsOK : BOOL;
+//SafetyStatus_00 : 
+DoorsDelayed : BOOL;
+//SafetyStatus_00 : 
+ServiceMode : BOOL;
+//SafetyStatus_00 : 
+SafetyAutoSpeed : BOOL;
+//SafetyStatus_00 : 
+SafetyManSpeed : BOOL;
+//SafetyStatus_00 : 
+STO_OK : BOOL;
+//SafetyStatus_00 : 
+HoldDrive : BOOL;
+//SafetyStatus_00 : 
+AllDoorsActuallyClosed : BOOL;
+//SafetyStatus_00 : 
+CustomError2 : BOOL;
+//SafetyStatus_00 : 
+CustomError3 : BOOL;
+//SafetyStatus_00 : 
+Service_ButtonCD : BOOL;
+//SafetyStatus_00 : 
+Service_ButtonAB : BOOL;
+//SafetyStatus_00 : 
+EnableServiceMuting : BOOL;
+//SafetyStatus_00 : 
+EnableMuting : BOOL;
+END_VAR

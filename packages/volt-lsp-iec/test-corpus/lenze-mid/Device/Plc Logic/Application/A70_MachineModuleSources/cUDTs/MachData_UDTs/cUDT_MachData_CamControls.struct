@@ -1,0 +1,27 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_CamControls :
+STRUCT
+	
+
+//Cam controls
+SmallGripper_CLS					: UDT_CamControlLS;
+BigGripper_CLS						: UDT_CamControlLS;
+BunchPositioner_CLS					: UDT_CamControlLS;
+InserNeedle_CLS						: UDT_CamControlLS;
+GluePump123_C						: UDT_CamControl;
+GluePump4_C							: UDT_CamControl;
+GluePump5_C							: UDT_CamControl;
+BlowOffWrapper_C					: UDT_CamControl;
+BlowOffBobine_C						: UDT_CamControl;
+BunchDetection_CP					: UDT_CamPulse;
+CigarDetection_CP					: UDT_CamPulse;
+FeedforwardDryer_CP					: UDT_CamPulse;
+TakeOverCycle_C						: UDT_CamControl;
+StopPostionLeafCarrier_CP			: UDT_CamPulse;
+StopPostionCleaning_CP				: UDT_CamPulse;
+BlockBunchInfeed_CP					: UDT_CamPulse;
+MeasurementForSidecorrection_CP		: UDT_CamPulse;
+
+
+END_STRUCT
+END_TYPE

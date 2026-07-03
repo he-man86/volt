@@ -1,0 +1,9 @@
+PROGRAM POU_systemStart
+VAR
+END_VAR
+
+NETWORK 0 LD
+  LST_General.FirstCycle :=  SET;
+END_NETWORK
+
+END_PROGRAM

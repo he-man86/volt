@@ -1,0 +1,7 @@
+Task:                 MainTask
+Record:               MainDrive
+Resolution:           MilliSeconds
+Post-trigger samples: 51
+Every N cycles:       1
+Auto start:           False
+Trigger enabled:      False

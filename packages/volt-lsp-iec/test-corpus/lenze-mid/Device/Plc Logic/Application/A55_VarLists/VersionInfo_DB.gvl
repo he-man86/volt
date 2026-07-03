@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL PERSISTENT RETAIN
+	PLC_version: STRING:='ghjhggj';
+	PLC_Version_Date: STRING:='ghjhggj';
+	
+END_VAR

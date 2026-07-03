@@ -1,0 +1,118 @@
+{attribute 'pack_mode' := 2 } 
+TYPE scAlarmsDB :
+STRUCT
+	Alm001		:BOOL;	// Emergency stop
+	Alm002		:BOOL;	// Safety doors opened
+	Alm003		:BOOL;	// Thermal overload MID-S
+	Alm004		:BOOL;	// Low air pressure
+	Alm005		:BOOL;	// Thermal failure trayfiller
+	Alm006		:BOOL;	// 
+	Alm007		:BOOL;	// 
+	Alm008		:BOOL;	// 
+	Alm009		:BOOL;	// Error in safety system
+	
+	Alm010		:BOOL;	// Fault FQI bobbin
+	Alm011		:BOOL;	// Network fault
+	Alm012		:BOOL;	// 
+	Alm013		:BOOL;	// 
+	Alm014		:BOOL;	// Fault inverter Elevator ATF
+	Alm015		:BOOL;	// Fault inverter feed forward ADS
+	Alm016		:BOOL;	// Fault inverter feed forward ATF
+	Alm017		:BOOL;	// Fault inverter fan
+	Alm018		:BOOL;	// Selector Manual/Auto MID-S
+	Alm019		:BOOL;	// Selector Manual/Auto ATF
+	
+	Alm020		:BOOL;	// Servo Main drive: not ready
+	Alm021		:BOOL;	// Servo Main drive: Overload
+	Alm022		:BOOL;	// Servo Main Drive: Not homed
+	Alm023		:BOOL;	// Servo Wrapping device: not ready
+	Alm024		:BOOL;	// Servo Wrapping device: Overload
+	Alm025		:BOOL;	// Servo Wrapping device: Not homed
+	Alm026		:BOOL;	// Servo Side correction: not ready
+	Alm027		:BOOL;	// Servo Side correction: Overload
+	Alm028		:BOOL;	// Servo Side correction: Not homed
+	Alm029		:BOOL;	// 
+	
+	Alm030		:BOOL;	// 
+	Alm031		:BOOL;	// 
+	Alm032		:BOOL;	// 
+	Alm033		:BOOL;	// Service-screen active: manual homing enabled
+	Alm034		:BOOL;	// Fan not at full speed
+	Alm035		:BOOL;	// 
+	Alm036		:BOOL; 	// Bunch magazine empty  	
+	Alm037		:BOOL;	// Stop position cleaning
+	Alm038		:BOOL;	// Stopped because of emptying mode ????
+	Alm039		:BOOL;	// 
+	
+	Alm040		:BOOL;	// Main drive blocked
+	Alm041		:BOOL;	// No bunch
+	Alm042		:BOOL;	// Photocell bunch fault
+	Alm043		:BOOL;	// No wrapper
+	Alm044		:BOOL;	// 
+	Alm045		:BOOL;	// Fault photocell wrapper
+	Alm046		:BOOL;	// No cigar
+	Alm047		:BOOL;	// Photocell cigar fault
+	Alm048		:BOOL;	// Runtime error feed forward dryer
+	Alm049		:BOOL;	// Dryer opened
+
+	Alm050		:BOOL;	// Runtime error inpusher tray filler
+	Alm051		:BOOL;	// Runtime error feed forward tray filler
+	Alm052		:BOOL;	// Runtime error elevator tray filler
+	Alm053		:BOOL;	// Jam dryer
+	Alm054		:BOOL;	// Stop position leaf carrier
+	Alm055		:BOOL;	// Water receptacle full
+	Alm056		:BOOL;	// Fault drive vacuum conveyor
+	Alm057		:BOOL;	// WSM: Side limit reached
+	Alm058		:BOOL;	// Dryer switched off
+	Alm059		:BOOL;	// Inpusher trayfiller blocked
+	
+	Alm060		:BOOL;	// Position fault tray
+	Alm061		:BOOL;	// Light curtain interrupted
+	Alm062		:BOOL;	// Outfeed conveyor full
+	Alm063		:BOOL;	// Tray fault outfeeding
+	Alm064		:BOOL;	// Light curtain elevator interrupted
+	Alm065		:BOOL;	// Runtime error Infeed conveyor tray filler
+	Alm066		:BOOL;  // Runtime error outfeed conveyor tray filler
+	Alm067		:BOOL;	// Runtime error greasing system
+	Alm068		:BOOL;	// 
+	Alm069		:BOOL;	// 
+	
+	Alm070		:BOOL;	// Door 11
+	Alm071		:BOOL;	// Door 12
+	Alm072		:BOOL;	// Door 13
+	Alm073		:BOOL;	// Warning bunch magazine almost empty
+	Alm074		:BOOL;	// WSM: Warning Side limit reached
+	Alm075		:BOOL;	// Change tray
+	Alm076		:BOOL;	// Waiting for wrapper
+	Alm077		:BOOL;	// Referencing requesterd
+	Alm078		:BOOL;	// Greasing system empty
+	Alm079		:BOOL;	// 
+	
+	Alm080		:BOOL;	// Emergency stop 1
+	Alm081		:BOOL;	// Emergency stop 2
+	Alm082		:BOOL;	// Emergency stop 3
+	Alm083		:BOOL;	// Door 1
+	Alm084		:BOOL;	// Door 2
+	Alm085		:BOOL;	// Door 3
+	Alm086		:BOOL;  // Door 4
+	Alm087		:BOOL;	// Door 5
+	Alm088		:BOOL;	// Door 6
+	Alm089		:BOOL;	// Door 7
+	
+	Alm090		:BOOL;	// Door 8
+	Alm091		:BOOL;	// Door 9
+	Alm092		:BOOL;	// Door 10
+	Alm093		:BOOL;	// ATF Door 1
+	Alm094		:BOOL;	// ATF Door 2
+	Alm095		:BOOL;	// ATF Door 3
+	Alm096		:BOOL;	// 
+	Alm097		:BOOL;	// 
+	Alm098		:BOOL;	// 
+	Alm099		:BOOL;	// 
+	Alm100		:BOOL;	// 
+	
+	Ackn		: ARRAY[0..100] OF BOOL; //Alarm acknowledge
+	AlmCount	: ARRAY[0..100] OF WORD; //Alarm counter
+	AlmTime		: ARRAY[0..100] OF WORD; //Alarm timer
+END_STRUCT
+END_TYPE

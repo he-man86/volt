@@ -1,0 +1,34 @@
+FUNCTION_BLOCK Servo_LimitJog
+VAR_INPUT
+	iServoStatus 	: sUDT_ServoComm_Drive_Status;
+	iServoControl 		: sUDT_ServoComm_Drive_Control;
+END_VAR
+VAR_OUTPUT
+	oServoControl 		: sUDT_ServoComm_Drive_Control;
+END_VAR
+VAR
+END_VAR
+VAR_IN_OUT
+	ioUDT_ServoDrive			: UDT_ServoDrive;
+	ioUDT_JogLimitFree			: UDT_ServoJogLimitFree;
+END_VAR
+
+NETWORK 0 LD
+  ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
+END_NETWORK
+NETWORK 1 LD
+  ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
+END_NETWORK
+NETWORK 2 LD
+  EXECUTE
+oServoControl:=iServoControl;
+  END_EXECUTE
+END_NETWORK
+NETWORK 3 LD
+  oServoControl.Spare1 := (ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft);
+END_NETWORK
+NETWORK 4 LD
+  oServoControl.Spare2 := (ioUDT_JogLimitFree.Status.Limit_Right_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToRight);
+END_NETWORK
+
+END_FUNCTION_BLOCK

@@ -1,0 +1,394 @@
+FUNCTION_BLOCK identPolePosition
+VAR_INPUT
+	execute				: BOOL;
+END_VAR
+VAR_OUTPUT
+	busy				: BOOL;
+	done				: BOOL;
+	doneOnce			: BOOL;
+	error				: BOOL;
+	polePositionOld		: LREAL;
+	polePositionNew		: LREAL;
+END_VAR
+VAR
+	iStep: INT;
+	MC_ReadParameter	: MC_ReadParameter;
+	MC_WriteParameter	: MC_WriteParameter;
+	TON:TON;
+END_VAR
+VAR_IN_OUT
+	ioAxis				: AXIS_REF; 
+END_VAR
+
+CASE iStep OF
+	
+	0:	MC_ReadParameter.Enable:=FALSE;
+		MC_WriteParameter.Execute:=FALSE;
+		done:=FALSE;
+		busy:=FALSE;
+		error:=FALSE;
+		
+		IF execute THEN
+			busy:=true;
+			iStep:=2;
+		END_IF
+	
+	2:	//Read	0x3024:0	Device control via PDO: Activation	Activate [1]
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3024 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			//IF MC_ReadParameter.Value = 1 THEN
+				MC_ReadParameter.Enable:=FALSE;
+				iStep:=4;
+			//ELSE
+			//	error:=TRUE;
+			//END_IF
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+		
+	4:	//Write	0x3024:0	Device control via PDO: Activation	Off [0]
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3024 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=0;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=6;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+		
+	6:	//Read	0x3025:0	Mode: Selection	CiA402 mode active [0]
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3025 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			//IF MC_ReadParameter.Value = 0 THEN
+				MC_ReadParameter.Enable:=FALSE;
+				iStep:=8;
+			//ELSE
+			//	error:=TRUE;
+			//END_IF
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	8:	//Write	0x3025:0	Mode: Selection	Pole position identification PPI (without movement) [7]
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3025 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=7;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=10;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+		
+	10:	//Read	0x3403:4	Motor (SM): Pole position encoder	49,5	°
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3403 , 
+				usiSubIndex:=4 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			polePositionOld:=MC_ReadParameter.Value;
+			MC_ReadParameter.Enable:=FALSE;
+			iStep:=12;		
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	12://Write	0x6840:0	Controlword	0x0006
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6840 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=16#0006;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=14;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	14://Read	0x6841:0	Statusword	0x0021
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6841 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			//IF MC_ReadParameter.Value = 16#0021 THEN
+				MC_ReadParameter.Enable:=FALSE;
+				iStep:=16;
+			//ELSE
+			//	error:=TRUE;
+			//END_IF
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+
+	16://Write	0x6840:0	Controlword	0x0007
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6840 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=16#0007;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=18;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	18://Read	0x6841:0	Statusword	0x0023
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6841 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			//IF MC_ReadParameter.Value = 16#0023 THEN
+				MC_ReadParameter.Enable:=FALSE;
+				iStep:=20;
+			//ELSE
+			//	error:=TRUE;
+			//END_IF
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	20://Write	0x6840:0	Controlword	0x000F
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6840 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=16#000F;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			TON(IN:=FALSE);
+			iStep:=22;		
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+		
+	22://Check for finished
+		TON(IN:=TRUE , PT:= T#5S, Q=> , ET=> );
+		
+		IF TON.Q THEN
+			iStep:=24;
+		ELSIF NOT execute THEN
+			iStep:=0;
+		END_IF	
+		
+	24://Write	0x6840:0	Controlword	0x0000
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#6840 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=16#0000;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=26;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF
+
+	26:	//Read	0x3403:4	Motor (SM): Pole position encoder	49,5	°
+		MC_ReadParameter.Enable:=TRUE;
+		MC_ReadParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3403 , 
+				usiSubIndex:=4 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+				
+		IF MC_ReadParameter.Valid THEN
+			polePositionNew:=MC_ReadParameter.Value;
+			MC_ReadParameter.Enable:=FALSE;
+			iStep:=28;
+		ELSIF NOT execute THEN
+			iStep:=0;				
+		ELSIF MC_ReadParameter.Error THEN
+			error:=TRUE;
+		END_IF
+	
+	28://Save	0x3403:4	Motor (SM): Pole position encoder	51,7	°
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3403 , 
+				usiSubIndex:=4 , 
+				uiByteLength:=2 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=polePositionNew;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=30;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;
+		END_IF	
+
+	30:	//Write	0x3025:0	Mode: Selection	CiA402 mode active [0]
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3025 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=0;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=32;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;			
+		END_IF
+	
+	32:	//Write	0x3024:0	Device control via PDO: Activation	Off [0]
+		MC_WriteParameter.Execute:=TRUE;
+		MC_WriteParameter.ParameterNumber:=L_MC1P_IndexToParameter2(
+				uiIndex:=16#3024 , 
+				usiSubIndex:=0 , 
+				uiByteLength:=1 , 
+				xUnsigned:=TRUE );
+		MC_WriteParameter.Value:=1;
+		
+		IF MC_WriteParameter.Done THEN
+			MC_WriteParameter.Execute:=FALSE;
+			iStep:=100;
+		ELSIF NOT execute THEN
+			iStep:=0;			
+		ELSIF MC_WriteParameter.Error THEN
+			error:=TRUE;			
+		END_IF
+		
+	100://Pole ident done
+		done:=TRUE;
+		doneOnce:=TRUE;
+		busy:=FALSE;
+		IF NOT execute THEN
+			done:=FALSE;
+			iStep:=0;
+		END_IF
+END_CASE
+
+
+MC_WriteParameter(
+	Axis:=ioAxis , 
+	Execute:= , 
+	ParameterNumber:= , 
+	Value:= , 
+	ExecutionMode:= , 
+	Done=> , 
+	Busy=> , 
+	Error=> , 
+	ErrorID=> );
+	
+MC_ReadParameter(
+	Axis:=ioAxis , 
+	Enable:= , 
+	ParameterNumber:= , 
+	Valid=> , 
+	Busy=> , 
+	Error=> , 
+	ErrorID=> , 
+	Value=> );
+	
+	(*
+L_ETC_CoE_SdoRead4(
+	xExecute:= , 
+	xAbort:= , 
+	usiCom:= , 
+	uiDevice:=uiDevice , 
+	wIndex:= , 
+	bySubindex:= , 
+	udiTimeOut:=100 , 
+	xDone=> , 
+	xBusy=> , 
+	xError=> , 
+	eErrorCode=> , 
+	udiSdoAbort=> , 
+	abyData=> , 
+	szDataRead=> );
+	
+L_ETC_CoE_SdoWrite4(
+	xExecute:= , 
+	xAbort:= , 
+	usiCom:= , 
+	uiDevice:=uiDevice , 
+	wIndex:= , 
+	bySubindex:= , 
+	udiTimeOut:=100 , 
+	abyData:= , 
+	usiDataLength:= , 
+	xDone=> , 
+	xBusy=> , 
+	xError=> , 
+	eErrorCode=> , 
+	udiSdoAbort=> );
+*)
+
+END_FUNCTION_BLOCK

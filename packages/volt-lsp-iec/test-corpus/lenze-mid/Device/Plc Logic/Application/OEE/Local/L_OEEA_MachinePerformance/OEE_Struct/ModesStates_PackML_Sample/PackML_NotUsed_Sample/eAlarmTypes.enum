@@ -1,0 +1,11 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE eAlarmTypes :
+(
+	NoError			:= 0,
+	Information		:= 1,
+	Warning 		:= 2,
+	Trouble			:= 3,	//Error No action by Master
+	Error			:= 4	//
+);
+END_TYPE

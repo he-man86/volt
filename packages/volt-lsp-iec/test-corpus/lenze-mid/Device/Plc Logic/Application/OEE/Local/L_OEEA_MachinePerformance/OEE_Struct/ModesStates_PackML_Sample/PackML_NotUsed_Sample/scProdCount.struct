@@ -1,0 +1,9 @@
+TYPE scProdCount :
+STRUCT
+	ID : DINT;
+	Name : STRING;
+	Units : STRING[5];
+	Count : DINT;
+	AccCount : DINT;
+END_STRUCT
+END_TYPE

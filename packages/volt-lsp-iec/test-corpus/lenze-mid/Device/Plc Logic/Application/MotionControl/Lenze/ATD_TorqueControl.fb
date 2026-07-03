@@ -1,0 +1,18 @@
+FUNCTION_BLOCK ATD_TorqueControl EXTENDS ATD_FQI
+VAR_INPUT
+	lrTorque	: LREAL;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	L_MC1P_CyclicParameterAccessWrite_0: L_MC1P_CyclicParameterAccessWrite;
+END_VAR
+
+NETWORK 0 LD
+  SUPER^();
+END_NETWORK
+NETWORK 1 LD
+  L_MC1P_CyclicParameterAccessWrite_0(xEnable := TRUE, wIndex := 16#4008, usiSubIndex := 5, usiSize := 2, xSigned := 1, lrScaleFactor := 1, lrData := lrTorque);
+END_NETWORK
+
+END_FUNCTION_BLOCK

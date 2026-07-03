@@ -1,0 +1,15 @@
+TYPE sUDT_VirtualMasterComm_Drive_Status :
+STRUCT	
+	DriveCommAlive 				: BOOL;
+	ReadyForOperation 			: BOOL;
+	ReadyForMotion				: BOOL;
+	HomingPosOK 				: BOOL;
+	
+	VelocitySetpointReached		: BOOL;
+	InPosition					: BOOL;
+
+	ActPos						: LREAL;									//input to plc
+	ActSpeed					: LREAL;									//input to plc
+	
+END_STRUCT
+END_TYPE

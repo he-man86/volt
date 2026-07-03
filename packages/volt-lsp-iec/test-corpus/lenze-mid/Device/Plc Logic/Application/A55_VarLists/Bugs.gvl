@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	checkconnection: BOOL;
+	reportConnectionAlive:BOOL;
+	restart: BOOL;
+END_VAR

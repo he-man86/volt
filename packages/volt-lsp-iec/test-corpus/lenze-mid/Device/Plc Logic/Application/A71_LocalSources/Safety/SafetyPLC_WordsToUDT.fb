@@ -1,0 +1,85 @@
+FUNCTION_BLOCK SafetyPLC_WordsToUDT
+VAR
+start1: POINTER TO BOOL;
+
+i: USINT;
+len: USINT;
+startUDT: POINTER TO BOOL;
+
+END_VAR
+VAR_INPUT
+	adr_StatusWord0_bit0: POINTER TO BOOL;
+	adr_StatusWord1_bit0: POINTER TO BOOL;
+	adr_StatusWord2_bit0: POINTER TO BOOL;
+	adr_StatusWord3_bit0: POINTER TO BOOL;
+END_VAR
+VAR_IN_OUT
+	
+	SafetyStatusUDT_Location: UDTSafety_Status;
+END_VAR
+VAR_INPUT
+	adr_ControlWord0_bit0: POINTER TO BOOL;
+	adr_ControlWord1_bit0: POINTER TO BOOL;
+END_VAR
+VAR_IN_OUT
+	SafetyControlUDT_Location: UDTSafety_Control;
+END_VAR
+
+
+VAR_INPUT
+	adr_StatusWord10_bit0: POINTER TO BOOL;
+	adr_StatusWord11_bit0: POINTER TO BOOL;
+	adr_StatusWord12_bit0: POINTER TO BOOL;
+	adr_StatusWord13_bit0: POINTER TO BOOL;
+END_VAR
+
+len:=15;
+startUDT:=ADR(SafetyStatusUDT_Location);
+
+start1:= adr_StatusWord0_bit0;
+FOR i := 0 TO len DO
+    startUDT^ := start1^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+start1:= adr_StatusWord1_bit0;
+FOR i := 0 TO len DO
+    startUDT^ := start1^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+start1:= adr_StatusWord2_bit0;
+FOR i := 0 TO len DO
+    startUDT^ := start1^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+start1:= adr_StatusWord3_bit0;
+FOR i := 0 TO len DO
+    startUDT^ := start1^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+
+len:=15;
+startUDT:=ADR(SafetyControlUDT_Location);
+
+start1:= adr_ControlWord0_bit0;
+FOR i := 0 TO len DO
+    start1^ :=startUDT^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+start1:= adr_ControlWord1_bit0;
+FOR i := 0 TO len DO
+    start1^ :=startUDT^;
+    startUDT :=startUDT+1;
+	start1:=start1+1;
+END_FOR
+
+END_FUNCTION_BLOCK

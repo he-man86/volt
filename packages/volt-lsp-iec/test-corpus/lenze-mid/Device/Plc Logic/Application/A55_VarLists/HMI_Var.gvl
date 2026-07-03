@@ -1,0 +1,33 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL PERSISTENT RETAIN
+SpareRecipe : ARRAY[0..19] OF BYTE;
+RecipeNumber : Int;
+DataRecordNumber : Int;
+DataRecordName : String;
+DownloadStatus : Int;
+ResetAlarmLogging : Bool;
+ForceOutputs : Bool;
+RE_ForceOutputs : Bool;
+Test_Prod : Bool;
+Btn_Spraying : Bool;
+Btn_BunchSupply : Bool;
+Btn_StopLeafCarrier : Bool;
+ReleaseBrake : Bool;
+ManControl_1 : Bool;
+ManControl_2 : Bool;
+ManControl_3 : Bool;
+TrayfillerActive : Bool;
+Btn_DryerOn : Bool;
+Btn_Cleaning : Bool;
+Btn_SetIP : Bool;
+HMI_AHWF_fast_winding : Bool;
+SpareBool21_7 : Bool;
+Led_K_Buttons : Word;
+Password : Int;
+HMI_AHWF_positioningType : Bool;
+HMI_AHWF_StartPos : Bool;
+CMD_DateTime : Bool;
+Mach1: sUDT_HMIVar_Mach1;
+
+END_VAR

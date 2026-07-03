@@ -1,0 +1,5 @@
+LIBRARY L_MC2P_MotionControlCam
+NAMESPACE L_MC2P
+RESOLUTION L_MC2P_MotionControlCam, 3.34.0.27 (Lenze)
+PLACEHOLDER true
+SYSTEM false

@@ -1,0 +1,17 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL PERSISTENT RETAIN
+MachineName : STRING;
+
+AutoSpeed					: INT:=20;
+ManualSpeed					: INT:=10;
+CamControls					: cUDT_MachData_CamControls;
+Timers						: cUDT_MachData_Timers;
+Drives						: cUDT_MachData_Drives;
+Counters					: cUDT_MachData_Counters;
+Settings					: cUDT_MachData_Settings;
+Dryer						: cUDT_MachData_Dryer;
+TrayFiller					: cUDT_MachData_Trayfiller;
+
+
+END_VAR

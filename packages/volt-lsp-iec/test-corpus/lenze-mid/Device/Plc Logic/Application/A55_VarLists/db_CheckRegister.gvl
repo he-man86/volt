@@ -1,0 +1,8 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	//Positie		: ARRAY[0..CTE.ct_ArraySizeCheckRegister] OF cUDT_ShiftRegister_Positie;
+	Positie		: ARRAY[0..CTE.ct_ArraySizeCheckRegister] OF cUDT_ShiftRegister_Positie;
+	EmptyCheckRegister : cUDT_ShiftRegister_Positie;
+	CheckRegisterError	: BOOL;
+END_VAR

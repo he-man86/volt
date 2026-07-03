@@ -1,0 +1,20 @@
+//{attribute 'qualified_only'}
+VAR_GLOBAL
+	AlwaysOn							: BOOL :=1;
+	AlwaysOff							: BOOL :=0;
+	FirstCycle							: BOOL:=1;
+	
+	FF50ms								: BOOL;
+	Imp100ms							: BOOL;
+
+	FF100ms								: BOOL;
+	Imp200ms							: BOOL;
+	
+	FF500ms								: BOOL;
+	Imp1s								: BOOL;
+	
+	FF1s								: BOOL;
+	
+	StartUpDelayPLC						: BOOL;
+	
+END_VAR

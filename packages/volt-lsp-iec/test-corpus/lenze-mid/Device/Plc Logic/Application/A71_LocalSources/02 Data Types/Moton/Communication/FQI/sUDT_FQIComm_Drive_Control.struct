@@ -1,0 +1,24 @@
+TYPE sUDT_FQIComm_Drive_Control :
+STRUCT
+Bit0_NotConnected : BOOL;
+Bit1_NotConnected : Bool;
+Bit2_QuickStop : Bool;
+Bit3_NotConnected : Bool;
+Bit4_RunForward : Bool;
+Bit5_Preset_bit0_selection : BOOL;
+Bit6_Preset_bit1_selection : BOOL;
+Bit7_ResetFault : BOOL;
+
+Bit8_NotConnected : BOOL;
+Bit9_DCBrake : BOOL;
+Bit10_NotConnected : Bool;
+Bit11_NotConnected : Bool;
+Bit12_ReverseDirection : Bool;
+Bit13_NotConnected : Bool;
+Bit14_NotConnected : Bool;
+Bit15_NotConnected : Bool;
+
+
+
+END_STRUCT
+END_TYPE

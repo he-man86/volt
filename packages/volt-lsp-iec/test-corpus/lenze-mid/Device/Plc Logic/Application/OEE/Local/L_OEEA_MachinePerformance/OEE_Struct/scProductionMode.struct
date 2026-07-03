@@ -1,0 +1,63 @@
+TYPE scProductionMode : // Production mode table sample of PackML	
+STRUCT
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  I N P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+//***********************************************************************************
+// Assign Standard Production sModes 0..20 - here based on PackML Specification
+// Note: Should not be changed and for all project the same values !!!
+//***********************************************************************************
+// The Array 0 state will not be used for the Top3 Production Status & Performance losses states
+
+asMode	: ARRAY [0..L_OEEA_Lib.uiNoOfProductionModes] OF STRING := ['Machine ON',	// Production sMode = 0	 / Power or Machine off state	
+																					// This state will not be used for the Top3 Production Status & Performance losses states
+														  'Clearing',	// Production sMode = 1
+														  'Stopped',	// Production sMode = 2
+														  'Starting',	// Production sMode = 3
+														  'Idle',		// Production sMode = 4
+														  'Suspended',	// Production sMode = 5
+														  'Execute',	// Production sMode = 6
+														  'Stopping',	// Production sMode = 7
+														  'Aborting',	// Production sMode = 8
+														  'Aborted',	// Production sMode = 9
+														  'Holding',	// Production sMode = 10
+														  'Held',		// Production sMode = 11
+														  'Unholding',	// Production sMode = 12
+														  'Suspending',	// Production sMode = 13
+														  'Unsuspending',// Production sMode = 14
+														  'Resetting',	// Production sMode = 15
+														  'Completing',	// Production sMode = 16
+														  'Complete',	// Production sMode = 17
+														  'Reserved_1',	// Production sMode = 18
+														  'Reserved_2',	// Production sMode = 19
+														  'Break-Stop']  ;	// Production Mode = 20 -  one mode has to be fixed assigned to break 
+																			//; Note: category Break has to have the same index
+
+// Six char RGB hexadecimal Colour code of the assigned mode 
+sModeColourCode : ARRAY [0..L_OEEA_Lib.uiNoOfProductionModes] OF STRING(6) := ['666666',	// Production sMode = 0	/ Power or Machine off state	
+																							// This state will not be used for the Top3 Production Status & Performance losses states
+														  '7E4B8F',	// Production sMode = 1
+														  'FEED56',	// Production sMode = 2
+														  '47AF64',	// Production sMode = 3
+														  'F49800',	// Production sMode = 4
+														  'FCCF4C',	// Production sMode = 5
+														  '47AF64',	// Production sMode = 6
+														  'FEED56',	// Production sMode = 7
+														  'E20F32',	// Production sMode = 8
+														  'E20F32',	// Production sMode = 9
+														  '4DC9F1',	// Production sMode = 10
+														  '4DC9F1',	// Production sMode = 11
+														  '4DC9F1',	// Production sMode = 12
+														  'FCCF4C',	// Production sMode = 13
+														  'FCCF4C', // Production sMode = 14
+														  '209CDF',	// Production sMode = 15
+														  '00A4B7',	// Production sMode = 16
+														  '00A4B7',	// Production sMode = 17
+														  'FFFFFF',	// Production sMode = 18
+														  'FFFFFF',	// Production sMode = 19
+														  'C8D400']  ;	// Production Mode = 20
+
+END_STRUCT
+END_TYPE

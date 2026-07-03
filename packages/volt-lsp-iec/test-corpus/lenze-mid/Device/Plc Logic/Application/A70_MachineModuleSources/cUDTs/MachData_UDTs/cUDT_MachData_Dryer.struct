@@ -1,0 +1,8 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Dryer :
+STRUCT
+	Heater1: cUDT_MachData_Dryer_Heater;
+	Heater2: cUDT_MachData_Dryer_Heater;
+	Heater3: cUDT_MachData_Dryer_Heater;
+END_STRUCT
+END_TYPE

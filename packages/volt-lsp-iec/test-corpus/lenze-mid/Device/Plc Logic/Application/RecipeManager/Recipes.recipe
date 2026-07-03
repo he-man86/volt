@@ -1,0 +1,3 @@
+Mach1_Data.CamControls.BigGripper_CLS.HighSpeed.Start : INT
+Mach1_Data.CamControls.BigGripper_CLS.HighSpeed.Stop : INT
+Mach1_Data.CamControls.BigGripper_CLS.HighSpeed.SetSpeed : INT

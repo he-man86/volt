@@ -1,0 +1,24 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE sUDT_ServoDrive_CAM :
+STRUCT
+	{attribute 'symbol' := 'none'}
+	CamType : INT;
+	X_Offset_Base : Int;
+	X_Offset_Recipe : INT;
+	{attribute 'symbol' := 'none'}
+	X_Offset_FromMaster : INT;
+	{attribute 'symbol' := 'none'}
+	X_Offset_ToSlave : Int;
+	Y_Scale_Base : Int;
+	Y_Scale_Recipe : Int;
+	Y_Offset_Base : Int;
+	Y_Offset_Recipe : INT;
+	{attribute 'symbol' := 'none'}
+	ActualXPos : INT;
+	{attribute 'symbol' := 'none'}
+	ActualXSpeed : Int;
+	ActualYPos : INT;
+	{attribute 'symbol' := 'none'}
+	ActualYSpeed : Int;
+END_STRUCT
+END_TYPE

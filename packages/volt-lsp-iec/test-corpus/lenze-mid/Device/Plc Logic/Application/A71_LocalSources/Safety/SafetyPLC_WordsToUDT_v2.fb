@@ -1,0 +1,9 @@
+FUNCTION_BLOCK SafetyPLC_WordsToUDT_v2
+VAR_IN_OUT
+	ioSafetyStatusUDT: udtSafety_Status;
+	ioSafetyControlUDT: udtSafety_Control;
+END_VAR
+
+;
+
+END_FUNCTION_BLOCK

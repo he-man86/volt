@@ -1,0 +1,7 @@
+TYPE sUDT_FQIComm_Drive :
+STRUCT
+	Status 			:	sUDT_FQIComm_Drive_Status;			//input to plc
+	Controlword 	:	sUDT_FQIComm_Drive_Control	;		//output to plc
+	RefSpeed:	WORD;
+END_STRUCT
+END_TYPE

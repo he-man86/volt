@@ -1,0 +1,5 @@
+LIBRARY L_PLCLoggingAccess
+NAMESPACE L_LA
+RESOLUTION L_PLCLoggingAccess, 3.32.0.2 (Lenze)
+PLACEHOLDER true
+SYSTEM false

@@ -1,0 +1,8 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE UDT_Int_WithLimits :
+STRUCT
+	SetValue		: INT;
+	LowLimit		: INT;
+	HighLimit		: INT;
+END_STRUCT
+END_TYPE

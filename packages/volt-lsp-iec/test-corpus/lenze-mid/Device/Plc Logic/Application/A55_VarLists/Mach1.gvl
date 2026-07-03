@@ -1,0 +1,5 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	Genflags				: UDT_GeneralFlags;
+END_VAR

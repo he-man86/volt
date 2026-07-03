@@ -1,0 +1,167 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	
+	
+	
+	
+	//inputs
+I100_0_AirpressureOK : BOOL;
+I100_1_Pushbutton_start_OP0a : BOOL;
+I100_2_Pushbutton_stop_OP0a : BOOL;
+I100_3_Selector_switch_auto_manual_OP0a : BOOL;
+I100_4_Pushbutton_request_glue_OP0a : BOOL;
+I100_5_ConfigSelectionRightMachine : BOOL;
+I100_6_Greasing_system_empty : BOOL;
+I100_7_Spare : BOOL;
+
+I101_0_Wrapper_present : BOOL;
+I101_1_FC_Bunch_present : BOOL;
+I101_2_Cigar_present : BOOL;
+I101_3_Water_level_control : BOOL;
+I101_4_Level_bunch_magazine : BOOL;
+I101_5_Spare : BOOL;
+I101_6_Toggle_greasing_cycle : BOOL;
+I101_7_Spare : BOOL;
+
+I132_0_Thermal_guards_OK : BOOL;
+I132_1_PB_Start_OP2a : BOOL;
+I132_2_PB_Stop_OP2a : BOOL;
+I132_3_SW_Auto_Man : BOOL;
+I132_4_Spare : BOOL;
+I132_5_Spare : BOOL;
+I132_6_Tray_down : BOOL;
+I132_7_Tray_up : BOOL;
+
+I133_0_PROX_Dryer_closed : BOOL;
+I133_1_PROX_zero_position_transport_ADS : BOOL;
+I133_2_Cigar_detected_at_cross_over : BOOL;
+I133_3_PROX_zero_position_transport_ATF : BOOL;
+I133_4_Cigar_detected_at_inpusher : BOOL;
+I133_5_Spare : BOOL;
+I133_6_PROX_inpusher_retracted : BOOL;
+I133_7_PROX_inpusher_at_tray : BOOL;
+
+
+I136_0_PROX_Elevator_above : BOOL;
+I136_1_PROX_Elevator_below : BOOL;
+I136_2_PROX_pulse_counter_elevator : BOOL;
+I136_3_FC_Position_tray_OK : BOOL;
+I136_4_PROX_Infeed_conveyor_initial_position : BOOL;
+I136_5_PROX_Infeed_conveyor_at_elevator : BOOL;
+I136_6_FC_Guard_tray_from_elevator : BOOL;
+I136_7_FC_Outfeed_conveyor_full : BOOL;
+
+I137_0_Spare : BOOL;
+I137_1_Spare : BOOL;
+I137_2_Spare : BOOL;
+I137_3_Spare : BOOL;
+I137_4_Spare : BOOL;
+I137_5_Spare : BOOL;
+I137_6_Spare : BOOL;
+I137_7_Spare : BOOL;
+
+
+
+Q100_0_Pilot_light_Alarm_green_ : BOOL;
+Q100_1_Pilot_light_Alarm_orange_ : BOOL;
+Q100_2_Pilot_light_Alarm_red_ : BOOL;
+Q100_3_Pilot_light_Alarm_buzzer_ : BOOL;
+Q100_4_Spare : BOOL;
+Q100_5_Signal_lamp_Start : BOOL;
+Q100_6_Signal_lamp_Stop : BOOL;
+Q100_7_Activate_greasing_system : BOOL;
+
+Q101_0_REL_release_brake : BOOL;
+Q101_1_PNV_Waterlevel_control : BOOL;
+Q101_2_Enable_GluePump : BOOL;
+Q101_3_Spare : BOOL;
+Q101_4_Spare : BOOL;
+Q101_5_Spare : BOOL;
+Q101_6_Spare : BOOL;
+Q101_7_Spare : BOOL;
+
+Q132_0_SL_Start_OP2a : BOOL;
+Q132_1_SL_Stop_OP2a : BOOL;
+Q132_2_Enable_power_controllers : BOOL;
+Q132_3_Spare : BOOL;
+Q132_4_CT_Fan_dryer : BOOL;
+Q132_5_Spare : BOOL;
+Q132_6_PNV_Inpusher : BOOL;
+Q132_7_PNV_tilting_inpusher : BOOL;
+
+Q133_0_Spare : BOOL;
+Q133_1_Spare : BOOL;
+Q133_2_Spare : BOOL;
+Q133_3_Spare : BOOL;
+Q133_4_Spare : BOOL;
+Q133_5_InfeedConv_Fwd : BOOL;
+Q133_6_InfeedConv_Rev : BOOL;
+Q133_7_OutfeedConv_Fwd : BOOL;
+
+Q136_0_Spare : BOOL;
+Q136_1_Spare : BOOL;
+Q136_2_Spare : BOOL;
+Q136_3_Spare : BOOL;
+Q136_4_Spare : BOOL;
+Q136_5_Spare : BOOL;
+Q136_6_Spare : BOOL;
+Q136_7_Spare : BOOL;
+
+Q137_0_Spare : BOOL;
+Q137_1_Spare : BOOL;
+Q137_2_Spare : BOOL;
+Q137_3_Spare : BOOL;
+Q137_4_Spare : BOOL;
+Q137_5_Spare : BOOL;
+Q137_6_Spare : BOOL;
+Q137_7_Spare : BOOL;
+
+{attribute 'symbol' := 'readwrite'}
+IW340_LeafCoverageSensor			: INT;
+{attribute 'symbol' := 'readwrite'}
+Serv_QW320 : BOOL;
+{attribute 'symbol' := 'readwrite'}
+Serv_QW322 : BOOL;
+{attribute 'symbol' := 'readwrite'}
+Serv_QW324 : BOOL;
+
+
+{attribute 'symbol' := 'readwrite'}
+Serv_IB100 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_IB101 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_IB132 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_IB133 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_IB136 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_IB137 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB100 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB101 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB132 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB133 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB136 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+Serv_QB137 : BYTE;
+{attribute 'symbol' := 'readwrite'}
+IW342_Spare : BOOL;
+IW344_Spare : BOOL;
+IW346_Spare : BOOL;
+
+{attribute 'symbol' := 'readwrite'}
+SMC_B0: BYTE;
+{attribute 'symbol' := 'readwrite'}
+SMC_B1: BYTE;
+{attribute 'symbol' := 'readwrite'}
+SMC_B2: BYTE;
+{attribute 'symbol' := 'readwrite'}
+SMC_B3: BYTE;
+
+END_VAR

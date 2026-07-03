@@ -1,0 +1,10 @@
+TYPE sUDT_CamControlLS_Calculation :
+STRUCT
+OSStart : BOOL;
+OSStop : Bool;
+FFStarted : Bool;
+
+
+
+END_STRUCT
+END_TYPE

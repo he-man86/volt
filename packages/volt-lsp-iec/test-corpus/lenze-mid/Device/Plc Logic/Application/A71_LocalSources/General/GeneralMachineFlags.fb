@@ -1,0 +1,247 @@
+FUNCTION_BLOCK GeneralMachineFlags
+VAR_INPUT
+	iStartResetSeparate:BOOL;
+	iServiceButtonHasResetFunction:BOOL;
+	iFirstCycle:BOOL;
+	iSignalPulse:BOOL;
+	iAirPressureDoorsSeparate:BOOL;
+	iEmergencyUnitOK:BOOL;
+	iDoorUnitOK:BOOL;
+	iSTO_Enabled:BOOL;
+	iAirPressureOK:BOOL;
+	iSwitchService:BOOL;
+	iButtonService:BOOL;
+	iStart1:BOOL;
+	iStop1:BOOL;
+	iReset1:BOOL;
+	iAutoManual1:BOOL;
+	iStart2:BOOL;
+	iStop2:BOOL;
+	iReset2:BOOL;
+	iAutoManual2:BOOL;
+	iStart3:BOOL;
+	iStop3:BOOL;
+	iReset3:BOOL;
+	iAutoManual3:BOOL;
+	iPreDelayAfterEmergStop: TIME;
+	iPreStartDelayAuxDrives: TIME;
+	iPreStopDelayAuxDrives: TIME;
+	iPreDelayAfterSTOEnabled: TIME;
+
+END_VAR
+VAR_OUTPUT
+	oResetEmergencyUnit:BOOL;
+	oResetDoorUnit:BOOL;
+	oStart1:BOOL;
+	oStop1:BOOL;
+	oReset1:BOOL;
+	oCrossingDoorCircuit1:BOOL;
+	oStart2:BOOL;
+	oStop2:BOOL;
+	oReset2:BOOL;
+	oCrossingDoorCircuit2:BOOL;
+	oStart3:BOOL;
+	oStop3:BOOL;
+	oReset3:BOOL;
+	oCrossingDoorCircuit3:BOOL;
+	oAlarm:BOOL;
+
+END_VAR
+VAR_IN_OUT
+	GenFlags	: UDT_GeneralFlags;
+END_VAR
+VAR
+	OneShotStart1: R_TRIG;
+	OneShotStart2: R_TRIG;
+	OneShotReset1: R_TRIG;
+	OneShotReset2: BOOL;
+	DnStartDelayAuxDrives: BOOL;
+	DnStopDelayAuxDrives: BOOL;
+	DnManualStopAuxDrives: BOOL;
+	
+	OffDelayPneumPressurised: TOF;
+	OffDelayPneumSafetyGuard: TOF;
+	OffDelayPneumEStop: TOF;
+	
+	OnDelayAfterEmergencyStop: TON;
+	OnDelayStopAuxDrives: TON;
+	OnDelayAfterSTOEnabled: TON;
+	OnDelayManStopAuxDrives: TON;
+	OnDelayStartAuxDrives: TON;
+
+	RunAuto: SR;
+
+END_VAR
+
+NETWORK 0 LD
+  OnDelayAfterEmergencyStop(IN := (NOT iFirstCycle AND iEmergencyUnitOK), PT := iPreDelayAfterEmergStop);
+  GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop.Q;
+END_NETWORK
+NETWORK 1 LD
+  OnDelayAfterSTOEnabled(IN := (GenFlags.DelayAfterEmergStop AND iSTO_Enabled), PT := iPreDelayAfterSTOEnabled);
+  GenFlags.DelayAfterSTO := OnDelayAfterSTOEnabled.Q;
+END_NETWORK
+NETWORK 2 LD
+  LET g1 := ((((GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag) AND DnStartDelayAuxDrives) AND NOT GenFlags.DriveIsRunning) AND NOT GenFlags.Rotflag);
+  OnDelayStopAuxDrives(IN := g1, PT := iPreStopDelayAuxDrives);
+  LET en1 := g1;
+  IF en1 THEN LET g2 := (iPreStopDelayAuxDrives = T#0MS); END_IF
+  DnStopDelayAuxDrives := OnDelayStopAuxDrives.Q;
+  DnStopDelayAuxDrives := (g2 OR (g1 AND DnStopDelayAuxDrives));
+END_NETWORK
+NETWORK 3 LD
+  OnDelayManStopAuxDrives(IN := ((GenFlags.EnableAuxDrive AND NOT iStop1) OR (GenFlags.EnableAuxDrive AND NOT iStop2) OR (GenFlags.EnableAuxDrive AND NOT iStop3)), PT := T#2S);
+  DnManualStopAuxDrives := OnDelayManStopAuxDrives.Q;
+END_NETWORK
+NETWORK 4 LD
+  LET g1 := ((True AND GenFlags.EnableAuxDrive) AND NOT GenFlags.AuxDrivesStarted);
+  OnDelayStartAuxDrives(IN := g1, PT := iPreStartDelayAuxDrives);
+  LET en1 := g1;
+  IF en1 THEN LET g2 := (iPreStartDelayAuxDrives = T#0MS); END_IF
+  DnStartDelayAuxDrives := OnDelayStartAuxDrives.Q;
+  DnStartDelayAuxDrives := (g2 OR (g1 AND DnStartDelayAuxDrives));
+  GenFlags.AuxDrivesStarted := True RESET;
+END_NETWORK
+NETWORK 5 LD
+  LET g1 := (GenFlags.DelayAfterEmergStop AND NOT GenFlags.MajorAlarm);
+  LET g2 := (g1 AND iDoorUnitOK);
+  GenFlags.EnableControl := (g2 AND NOT GenFlags.DisableControl);
+  GenFlags.EnableMainDrive := (((g2 AND GenFlags.EnableAuxDrive) AND NOT GenFlags.AuxDrivesStarted) AND DnStartDelayAuxDrives);
+  GenFlags.EnableAuxDrive := ((g1 AND GenFlags.StartFlag) OR ((g1 AND GenFlags.RunAuto) AND GenFlags.RestartAuxDrives) OR (((g1 AND GenFlags.EnableAuxDrive) AND NOT DnStopDelayAuxDrives) AND NOT DnManualStopAuxDrives));
+END_NETWORK
+NETWORK 6 LD
+  OffDelayPneumEStop(IN := iEmergencyUnitOK, PT := T#1S);
+  LET g1 := (iEmergencyUnitOK AND iSTO_Enabled);
+  LET g2 := (iEmergencyUnitOK AND NOT iAirPressureDoorsSeparate);
+  OffDelayPneumSafetyGuard(IN := (g1 OR g2), PT := T#1S);
+  OffDelayPneumPressurised(IN := ((g1 OR g2) AND iAirPressureOK), PT := T#1S);
+  GenFlags.EnablePneumEStop := OffDelayPneumEStop.Q;
+  GenFlags.EnablePneumSafetyGuard := OffDelayPneumSafetyGuard.Q;
+  GenFlags.EnablePneumPressurised := OffDelayPneumPressurised.Q;
+END_NETWORK
+NETWORK 7 LD
+  LET g1 := (True AND NOT iSwitchService);
+  LET g2 := (g1 AND NOT iAutoManual1);
+  LET g3 := (g2 AND NOT iAutoManual2);
+  GenFlags.ControlService := (True AND iSwitchService);
+  GenFlags.ControlMan1 := (((g1 AND iAutoManual1) AND NOT iAutoManual2) AND NOT iAutoManual3);
+  GenFlags.ControlMan2 := ((g2 AND iAutoManual2) AND NOT iAutoManual3);
+  GenFlags.ControlMan3 := (g3 AND iAutoManual3);
+  GenFlags.ControlAuto := (g3 AND NOT iAutoManual3);
+END_NETWORK
+NETWORK 8 LD
+  GenFlags.RunMan := ((((((GenFlags.EnableControl AND GenFlags.ControlService) AND iButtonService) OR ((GenFlags.EnableControl AND GenFlags.ControlMan1) AND iStart1) OR ((GenFlags.EnableControl AND GenFlags.ControlMan2) AND iStart2) OR ((GenFlags.EnableControl AND GenFlags.ControlMan3) AND iStart3)) AND iStop1) AND iStop2) AND iStop3);
+END_NETWORK
+NETWORK 9 LD
+  LET g1 := (GenFlags.EnableControl AND GenFlags.ControlAuto);
+  LET g2 := (GenFlags.RunAuto AND NOT GenFlags.DriveIsRunning);
+  RunAuto(SET1 := (((((g1 AND iStart1) OR (g1 AND iStart2) OR (g1 AND iStart3)) AND iStop1) AND iStop2) AND iStop3), RESET := ((GenFlags.RunAuto AND NOT GenFlags.EnableControl) OR (GenFlags.RunAuto AND NOT GenFlags.ControlAuto) OR (GenFlags.RunAuto AND NOT iStop1) OR (GenFlags.RunAuto AND NOT iStop2) OR (GenFlags.RunAuto AND NOT iStop3) OR (g2 AND GenFlags.MinorAlarm) OR (g2 AND GenFlags.MajorAlarm)));
+  GenFlags.RunAuto := RunAuto.Q1;
+END_NETWORK
+NETWORK 10 LD
+  OneShotStart1(CLK := ((GenFlags.ControlService AND iButtonService) OR (GenFlags.ControlMan1 AND iStart1) OR (GenFlags.ControlMan2 AND iStart2) OR (GenFlags.ControlMan3 AND iStart3) OR (GenFlags.ControlAuto AND iStart1) OR (GenFlags.ControlAuto AND iStart2) OR (GenFlags.ControlAuto AND iStart3) OR OneShotStart2.Q));
+  OneShotStart2(CLK := (GenFlags.RunMan OR GenFlags.RunAuto));
+  GenFlags.StartFlag := ((((OneShotStart1.Q AND iStop1) AND iStop2) AND iStop3) OR OneShotStart2.Q);
+END_NETWORK
+NETWORK 11 LD
+  OneShotReset1(CLK := (((GenFlags.ControlService AND iServiceButtonHasResetFunction) AND iButtonService) OR (GenFlags.ControlService AND iReset1) OR (GenFlags.ControlService AND iReset2) OR (GenFlags.ControlService AND iReset3) OR ((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND iReset1) OR ((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND iReset2) OR ((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND iReset3)));
+  GenFlags.ResetFlag := ((((OneShotReset1.Q AND iStop1) AND iStop2) AND iStop3) OR (NOT iStartResetSeparate AND GenFlags.StartFlag));
+END_NETWORK
+NETWORK 12 LD
+  GenFlags.StopFlag := (NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR (GenFlags.StopFlag AND NOT GenFlags.StartFlag));
+END_NETWORK
+NETWORK 13 LD
+  LET g1 := (iEmergencyUnitOK AND NOT iDoorUnitOK);
+  LET g2 := ((NOT iEmergencyUnitOK OR g1) AND iStartResetSeparate);
+  LET g3 := (g2 AND GenFlags.ControlMan1);
+  LET g4 := (g2 AND GenFlags.ControlMan2);
+  LET g5 := (g2 AND GenFlags.ControlMan3);
+  LET g6 := (g2 AND GenFlags.ControlAuto);
+  LET g7 := (g2 AND GenFlags.ControlService);
+  LET g8 := ((NOT iEmergencyUnitOK OR g1) AND NOT iStartResetSeparate);
+  oResetEmergencyUnit := (((g3 OR g4 OR g5 OR g6) AND iReset1) OR ((g3 OR g4 OR g5 OR g6) AND iReset2) OR ((g3 OR g4 OR g5 OR g6) AND iReset3) OR ((g7 AND iServiceButtonHasResetFunction) AND iButtonService) OR (g7 AND iReset1) OR (g7 AND iReset2) OR (g7 AND iReset3) OR (((((((g8 AND GenFlags.ControlMan1) OR (g8 AND GenFlags.ControlAuto)) AND iStart1) OR (((g8 AND GenFlags.ControlMan2) OR (g8 AND GenFlags.ControlAuto)) AND iStart2) OR (((g8 AND GenFlags.ControlMan3) OR (g8 AND GenFlags.ControlAuto)) AND iStart3) OR ((g8 AND GenFlags.ControlService) AND iButtonService)) AND iStop1) AND iStop2) AND iStop3));
+END_NETWORK
+NETWORK 14 LD
+  LET g1 := (iEmergencyUnitOK AND NOT iDoorUnitOK);
+  LET g2 := (g1 AND iStartResetSeparate);
+  LET g3 := (g2 AND GenFlags.ControlMan1);
+  LET g4 := (g2 AND GenFlags.ControlMan2);
+  LET g5 := (g2 AND GenFlags.ControlMan3);
+  LET g6 := (g2 AND GenFlags.ControlAuto);
+  LET g7 := (g2 AND GenFlags.ControlService);
+  LET g8 := (g1 AND NOT iStartResetSeparate);
+  oResetDoorUnit := (((g3 OR g4 OR g5 OR g6) AND iReset1) OR ((g3 OR g4 OR g5 OR g6) AND iReset2) OR ((g3 OR g4 OR g5 OR g6) AND iReset3) OR ((g7 AND iServiceButtonHasResetFunction) AND iButtonService) OR (g7 AND iReset1) OR (g7 AND iReset2) OR (g7 AND iReset3) OR (((((((g8 AND GenFlags.ControlMan1) OR (g8 AND GenFlags.ControlAuto)) AND iStart1) OR (((g8 AND GenFlags.ControlMan2) OR (g8 AND GenFlags.ControlAuto)) AND iStart2) OR (((g8 AND GenFlags.ControlMan3) OR (g8 AND GenFlags.ControlAuto)) AND iStart3) OR ((g8 AND GenFlags.ControlService) AND iButtonService)) AND iStop1) AND iStop2) AND iStop3));
+END_NETWORK
+NETWORK 15 LD
+  oCrossingDoorCircuit1 := GenFlags.ControlMan1;
+END_NETWORK
+NETWORK 16 LD
+  oCrossingDoorCircuit2 := GenFlags.ControlMan2;
+END_NETWORK
+NETWORK 17 LD
+  oCrossingDoorCircuit3 := GenFlags.ControlMan3;
+END_NETWORK
+NETWORK 18 LD
+  LET g1 := (True AND GenFlags.ControlMan1);
+  LET g2 := (True AND GenFlags.ControlAuto);
+  LET g3 := ((g1 OR g2) AND NOT iStartResetSeparate);
+  LET g4 := ((((g1 OR g2) AND GenFlags.EnableControl) OR (g3 AND GenFlags.MinorAlarm) OR (g3 AND GenFlags.MajorAlarm)) AND iSignalPulse);
+  LET g5 := (True AND iEmergencyUnitOK);
+  LET g6 := (True AND GenFlags.ControlMan1);
+  LET g7 := (True AND GenFlags.ControlMan2);
+  LET g8 := (True AND GenFlags.ControlMan3);
+  LET g9 := (True AND GenFlags.ControlAuto);
+  LET g10 := (True AND GenFlags.ControlService);
+  oStart1 := ((((((g1 OR g2) AND GenFlags.RunMan) OR ((g1 OR g2) AND GenFlags.RunAuto)) AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR ((g4 AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR (g4 AND NOT iStartResetSeparate));
+  oStop1 := (((g5 AND NOT GenFlags.RunMan) OR (g5 AND NOT GenFlags.ControlMan1)) AND NOT GenFlags.RunAuto);
+  oReset1 := ((((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MinorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MajorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND NOT iDoorUnitOK)) AND iSignalPulse);
+END_NETWORK
+NETWORK 19 LD
+  LET g1 := (True AND GenFlags.ControlMan2);
+  LET g2 := (True AND GenFlags.ControlAuto);
+  LET g3 := ((g1 OR g2) AND NOT iStartResetSeparate);
+  LET g4 := ((((g1 OR g2) AND GenFlags.EnableControl) OR (g3 AND GenFlags.MinorAlarm) OR (g3 AND GenFlags.MajorAlarm)) AND iSignalPulse);
+  LET g5 := (True AND iEmergencyUnitOK);
+  LET g6 := (True AND GenFlags.ControlMan1);
+  LET g7 := (True AND GenFlags.ControlMan2);
+  LET g8 := (True AND GenFlags.ControlMan3);
+  LET g9 := (True AND GenFlags.ControlAuto);
+  LET g10 := (True AND GenFlags.ControlService);
+  oStart2 := ((((((g1 OR g2) AND GenFlags.RunMan) OR ((g1 OR g2) AND GenFlags.RunAuto)) AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR ((g4 AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR (g4 AND NOT iStartResetSeparate));
+  oStop2 := (((g5 AND NOT GenFlags.RunMan) OR (g5 AND NOT GenFlags.ControlMan1)) AND NOT GenFlags.RunAuto);
+  oReset2 := ((((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MinorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MajorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND NOT iDoorUnitOK)) AND iSignalPulse);
+END_NETWORK
+NETWORK 20 LD
+  LET g1 := (True AND GenFlags.ControlMan3);
+  LET g2 := (True AND GenFlags.ControlAuto);
+  LET g3 := ((g1 OR g2) AND NOT iStartResetSeparate);
+  LET g4 := ((((g1 OR g2) AND GenFlags.EnableControl) OR (g3 AND GenFlags.MinorAlarm) OR (g3 AND GenFlags.MajorAlarm)) AND iSignalPulse);
+  LET g5 := (True AND iEmergencyUnitOK);
+  LET g6 := (True AND GenFlags.ControlMan1);
+  LET g7 := (True AND GenFlags.ControlMan2);
+  LET g8 := (True AND GenFlags.ControlMan3);
+  LET g9 := (True AND GenFlags.ControlAuto);
+  LET g10 := (True AND GenFlags.ControlService);
+  oStart3 := ((((((g1 OR g2) AND GenFlags.RunMan) OR ((g1 OR g2) AND GenFlags.RunAuto)) AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR ((g4 AND NOT GenFlags.MinorAlarm) AND NOT GenFlags.MajorAlarm) OR (g4 AND NOT iStartResetSeparate));
+  oStop3 := (((g5 AND NOT GenFlags.RunMan) OR (g5 AND NOT GenFlags.ControlMan1)) AND NOT GenFlags.RunAuto);
+  oReset3 := ((((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MinorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND GenFlags.MajorAlarm) OR ((g6 OR g7 OR g8 OR g9 OR g10) AND NOT iDoorUnitOK)) AND iSignalPulse);
+END_NETWORK
+NETWORK 21 LD
+  oAlarm := ((GenFlags.Warning OR GenFlags.MinorAlarm OR GenFlags.MajorAlarm) AND iSignalPulse);
+END_NETWORK
+NETWORK 22 LD
+  GenFlags.WarningActive := (True AND GenFlags.Warning);
+  GenFlags.MinorAlarmActive := (True AND GenFlags.MinorAlarm);
+  GenFlags.MajorAlarmActive := (True AND GenFlags.MajorAlarm);
+END_NETWORK
+NETWORK 23 LD
+  GenFlags.Warning := True RESET;
+  GenFlags.MinorAlarm := True RESET;
+  GenFlags.MajorAlarm := True RESET;
+  GenFlags.DummyWarning := True RESET;
+  GenFlags.DisableControl := True RESET;
+END_NETWORK
+NETWORK 24 LD
+END_NETWORK
+
+END_FUNCTION_BLOCK

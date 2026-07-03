@@ -1,0 +1,38 @@
+FUNCTION_BLOCK FB_Lenze_i550
+VAR_INPUT
+	iStatusWord : sUDT_FQIComm_Drive_Status;
+	iGearRatioNumerator : REAL;
+	iGearRatioDenominator : REAL;
+	iNominalMotorSpeedwoSlipComp_RPM : REAL;
+	iNominalMotorFrequency_Hz : REAL;
+	iAxisJogSpeed_RPM : REAL;
+
+END_VAR
+VAR_OUTPUT
+	oControlWord : sUDT_FQIComm_Drive_Control;
+	oRefSpeed : WORD;
+
+END_VAR
+VAR
+END_VAR
+VAR_IN_OUT
+	ioUDT			: UDT_FQI_Drive;
+END_VAR
+
+NETWORK 0 LD
+  LET i1 := UINT_TO_WORD(ioUDT.Control.AutoSpeed);
+  oRefSpeed := MOVE(i1);
+END_NETWORK
+NETWORK 1 LD
+  ioUDT.Status.Error := (TRUE AND iStatusWord.Bit3_Fault);
+  ioUDT.Status.DriveReady := ((TRUE AND NOT iStatusWord.Bit3_Fault) AND iStatusWord.Bit0_ReadyForOperation);
+END_NETWORK
+NETWORK 2 LD
+  LET g1 := (TRUE AND ioUDT.Control.ResetError);
+  oControlWord.Bit4_RunForward := ((TRUE AND ioUDT.Control.Enable) AND ioUDT.Control.StartAuto);
+  oControlWord.Bit7_ResetFault := g1;
+  ioUDT.Control.ResetError := g1 RESET;
+  oControlWord.Bit12_ReverseDirection := (TRUE AND ioUDT.Control.Reverse);
+END_NETWORK
+
+END_FUNCTION_BLOCK

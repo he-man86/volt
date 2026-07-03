@@ -1,0 +1,8 @@
+TYPE sUDT_ServoJogLimitFree_Control :
+STRUCT
+	Jog_LimitToLeft		: BOOL;
+	Jog_LimitToRight	: BOOL;
+
+
+END_STRUCT
+END_TYPE

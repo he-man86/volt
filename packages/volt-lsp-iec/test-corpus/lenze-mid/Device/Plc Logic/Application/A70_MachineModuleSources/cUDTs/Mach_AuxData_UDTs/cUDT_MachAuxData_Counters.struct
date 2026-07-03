@@ -1,0 +1,13 @@
+TYPE cUDT_MachAuxData_Counters :
+STRUCT
+	
+RepetitionMuteNuBunch	: CTD;
+RepetitionNoBunch		: CTD;
+RepetitionNoCigar		: CTD;
+EmptyingCycles			: CTD;
+
+
+
+
+END_STRUCT
+END_TYPE

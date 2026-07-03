@@ -1,0 +1,37 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	Pos1A: BOOL;
+	Pos1B: BOOL;
+	
+	Pos2A: BOOL;
+	Pos2B: BOOL;
+	Pos3A: BOOL;
+	Pos3B: BOOL;
+	Pos4A: BOOL;
+	Pos4B: BOOL;
+	Pos5A: BOOL;
+	Pos5B: BOOL;
+	Pos6A: BOOL;
+	Pos6B: BOOL;
+	
+	Pos7A: BOOL;
+	Pos7B: BOOL;
+	Pos8A: BOOL;
+	Pos8B: BOOL;
+	Pos9A: BOOL;
+	Pos9B: BOOL;
+	
+	Pos10A: BOOL;
+	Pos10B: BOOL;
+	Pos11A: BOOL;
+	Pos11B: BOOL;
+	Pos12A: BOOL;
+	Pos12B: BOOL;
+	
+	Serv_QB202: BYTE;
+	Serv_QB203: BYTE;
+	Serv_QB204: BYTE;
+	
+	
+END_VAR

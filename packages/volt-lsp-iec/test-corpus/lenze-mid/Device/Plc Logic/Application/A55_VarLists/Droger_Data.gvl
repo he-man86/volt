@@ -1,0 +1,7 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	Cor_denumerator: INT:=1;
+	Cor_numerator: INT:=1;
+	Act_sync_pos: INT:=1;
+	Set_sync_pos: INT:=1;
+END_VAR

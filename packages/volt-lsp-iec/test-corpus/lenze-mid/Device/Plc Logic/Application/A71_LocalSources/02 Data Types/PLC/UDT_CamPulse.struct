@@ -1,0 +1,10 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE UDT_CamPulse :
+STRUCT
+	Start			: INT;
+	{attribute 'symbol' := 'none'}
+	OSP				: BOOL;
+	MachinePos_HMI	: INT;	
+	Active			: BOOL;
+END_STRUCT
+END_TYPE

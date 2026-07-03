@@ -1,0 +1,23 @@
+TYPE sUDT_HMIVar_EmergencyStop :
+STRUCT
+EmergStop1 : BOOL;
+EmergStop2 : Bool;
+EmergStop3 : Bool;
+EmergStop4 : Bool;
+EmergStop5 : Bool;
+EmergStop6 : Bool;
+EmergStop7 : Bool;
+EmergStop8 : Bool;
+EmergStop9 : Bool;
+EmergStop10 : Bool;
+EmergStop11 : Bool;
+EmergStop12 : Bool;
+EmergStop13 : Bool;
+EmergStop14 : Bool;
+EmergStop15 : Bool;
+EmergStop16 : Bool;
+
+	
+
+END_STRUCT
+END_TYPE

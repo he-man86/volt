@@ -1,0 +1,5 @@
+TYPE cUDT_Shiftregister_Outfeed :
+STRUCT
+		Cigar_Present_Outfeed	: BOOL;
+END_STRUCT
+END_TYPE

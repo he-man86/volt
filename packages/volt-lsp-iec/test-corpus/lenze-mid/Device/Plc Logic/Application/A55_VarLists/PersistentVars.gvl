@@ -1,0 +1,209 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL PERSISTENT RETAIN
+// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoMainDrive.STATE_Prehoming: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoWrappingDevice.STATE_Prehoming: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoSideCorrection.STATE_Prehoming: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoMainDrive.STATE_HomePosNOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoWrappingDevice.STATE_HomePosNOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoSideCorrection.STATE_HomePosNOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoMainDrive.STATE_HomePOSOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoWrappingDevice.STATE_HomePOSOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoSideCorrection.STATE_HomePOSOK: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoMainDrive.STATE_WaitingForEnable: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoWrappingDevice.STATE_WaitingForEnable: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoSideCorrection.STATE_WaitingForEnable: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoMainDrive.STATE_Synchronising: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoWrappingDevice.STATE_Synchronising: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.Mach1_Drives_DB.ServoSideCorrection.STATE_Synchronising: BOOL;
+	// Generated instance path of persistent variable
+
+	// Generated instance path of persistent variable
+	Mach1_MIDS.IDB_Dryer.stReFeedForward: R_TRIG;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.IDB_Dryer.TMR_IntervalTimerEmptying: TON;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.IDB_Dryer.stFaultDryerOpened: sr;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.IDB_Dryer.stReStopFeedForward: R_TRIG;
+	// Generated instance path of persistent variable
+	Mach1_MIDS.IDB_Dryer.TMR_HeaterTimeOut: TON;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stRestposition: BOOL;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stSupplyWrapper: BOOL;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stWrapperPresent: BOOL;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stNoWrapper: BOOL;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stPhotocellWrapperFault: BOOL;
+	// Generated instance path of persistent variable
+	AHWF.IDB_WSM.stFeedForward: BOOL;
+	// Generated instance path of persistent variable
+	Mach1_Data.AutoSpeed: INT;
+	// Generated instance path of persistent variable
+	Mach1_Data.ManualSpeed: INT;
+	// Generated instance path of persistent variable
+	Mach1_Data.CamControls: cUDT_MachData_CamControls;
+	// Generated instance path of persistent variable
+	Mach1_Data.Timers: cUDT_MachData_Timers;
+	// Generated instance path of persistent variable
+	Mach1_Data.Drives: cUDT_MachData_Drives;
+	// Generated instance path of persistent variable
+	Mach1_Data.Counters: cUDT_MachData_Counters;
+	// Generated instance path of persistent variable
+	Mach1_Data.Settings: cUDT_MachData_Settings;
+	// Generated instance path of persistent variable
+	Mach1_Data.Dryer: cUDT_MachData_Dryer;
+	// Generated instance path of persistent variable
+	Mach1_Data.TrayFiller: cUDT_MachData_Trayfiller;
+	// Generated instance path of persistent variable
+	db_MeanValuesSideCorrectionSensor.MeasurementValues: ARRAY [0..50] OF INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.MeasuredValue: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.MeasuredValueReal: REAL;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.Percentage: REAL;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.Percentage10: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.Setpoint: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.CopiedValueReal: REAL;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.CopiedValueInt: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.LightValue: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.DarkValue: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.NoWrapperValue: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.DeviationNoWrapper: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.NoWrapperPercentage: INT;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.SpareInt_2: INT;
+	
+	
+	
+	
+	//manual added values
+	//AxisPosMaindrive: SMC3_PersistPosition_Data;
+	//AxisPosSidecorrection: SMC3_PersistPosition_Data;
+	//AxisPosWrapper: SMC3_PersistPosition_Data;
+	
+	
+	// Generated instance path of persistent variable
+	Mach1_Data.MachineName: STRING;
+	// Generated instance path of persistent variable
+	Mach1_MotionControl.VirtualMaster_0.lrRetainPosition: LREAL;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.CopyMeasuredToLight: BOOL;
+	// Generated instance path of persistent variable
+	DB_Kantcorrectie.CopyMeasuredToDark: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.SpareRecipe: ARRAY [0..19] OF BYTE;
+	// Generated instance path of persistent variable
+	HMI_Var.RecipeNumber: INT;
+	// Generated instance path of persistent variable
+	HMI_Var.DataRecordNumber: INT;
+	// Generated instance path of persistent variable
+	HMI_Var.DataRecordName: STRING;
+	// Generated instance path of persistent variable
+	HMI_Var.DownloadStatus: INT;
+	// Generated instance path of persistent variable
+	HMI_Var.ResetAlarmLogging: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.ForceOutputs: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.RE_ForceOutputs: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Test_Prod: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_Spraying: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_BunchSupply: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_StopLeafCarrier: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.ReleaseBrake: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.ManControl_1: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.ManControl_2: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.ManControl_3: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.TrayfillerActive: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_DryerOn: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_Cleaning: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Btn_SetIP: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.HMI_AHWF_fast_winding: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.SpareBool21_7: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Led_K_Buttons: WORD;
+	// Generated instance path of persistent variable
+	HMI_Var.Password: INT;
+	// Generated instance path of persistent variable
+	HMI_Var.HMI_AHWF_positioningType: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.HMI_AHWF_StartPos: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.CMD_DateTime: BOOL;
+	// Generated instance path of persistent variable
+	HMI_Var.Mach1: sUDT_HMIVar_Mach1;
+	// Generated instance path of persistent variable
+	VersionInfo_DB.PLC_version: STRING := 'ghjhggj';
+	// Generated instance path of persistent variable
+	VersionInfo_DB.PLC_Version_Date: STRING := 'ghjhggj';
+	// Generated instance path of persistent variable
+	MM_PD.scDowntime: L_OEEA_Lib.scDowntime;
+	// Generated instance path of persistent variable
+	MM_PD.scPDinternal: L_OEEA_Lib.scInternalVar;
+	// Generated instance path of persistent variable
+	MM_PD.scPDinternalDowntime: L_OEEA_Lib.scInternalDownVar;
+	// Generated instance path of persistent variable
+	MM_PD.scPDProductionData: L_OEEA_Lib.scInternalProductionData;
+	// Generated instance path of persistent variable
+	MM_PD.scPDShiftDayIndex: L_OEEA_Lib.scPDShiftData;
+	// Generated instance path of persistent variable
+	MM_PD.scShiftHistory: L_OEEA_Lib.scVisuShiftHistory_base;
+	// Generated instance path of persistent variable
+	MM_PD.scShiftDowntimeHistory: ARRAY [1..3] OF L_OEEA_Lib.scDowntime_base;
+	// Generated instance path of persistent variable
+	MM_PD.scOEE_VisuPD: L_OEEA_Lib.scOEE_VisuPD := STRUCT(ascVisu_OUT_ShiftTargets := [STRUCT(rOEETarget := 90.0, rOEELowerLimit := 75.0, rOEECrucial := 65.0), STRUCT(rOEETarget := 90.0, rOEELowerLimit := 75.0, rOEECrucial := 65.0), STRUCT(rOEETarget := 90.0, rOEELowerLimit := 75.0, rOEECrucial := 65.0)]);
+	// Generated instance path of persistent variable
+	MM_PD.scSelectedProductRecipeHMI: L_OEEA_Lib.scProduct_base;
+	// Generated instance path of persistent variable
+	MM_PD.sActiveProductRecipe: STRING;
+	// Generated instance path of persistent variable
+	MM_PD.scActiveProductRecipe: L_OEEA_Lib.scProduct_base := STRUCT(rTechnicalCycleTime := REAL#1.5, rProductTarget := 15480.0, diTypeID := DINT#1, sTypeName := 'Sigar', iUnitProductID := INT#1, sUnitProduct := 'Sigars', iUnitSpeedID := INT#1, sUnitSpeed := 'Sigars/min.', rChangeOverTime := 60.0);
+	// Generated instance path of persistent variable
+	MM_PD.ascDaySchedules: ARRAY [1..L_OEEA_lib.uiDaySchedule] OF L_OEEA_Lib.scDaySchedule := [7(STRUCT(iNumberofShifts := UINT_TO_INT(L_OEEA_Lib.uiNoOfShifts), iNumberofBreaks := UINT_TO_INT(L_OEEA_lib.uiNoOfBreaks), ascShiftSchedule := [STRUCT(sShiftName := 'Morning', uiStartHour := UINT#6, uiStartMinute := UINT#30, uiEndHour := UINT#14, uiEndMinute := UINT#30, uiShiftNo := UINT#1, xActive := TRUE), STRUCT(sShiftName := 'Afternoon', uiStartHour := UINT#14, uiStartMinute := UINT#30, uiEndHour := UINT#22, uiEndMinute := UINT#30, uiShiftNo := UINT#2, xActive := TRUE), STRUCT(sShiftName := 'Night', uiStartHour := UINT#22, uiStartMinute := UINT#30, uiEndHour := UINT#6, uiEndMinute := UINT#30, uiShiftNo := UINT#3, xActive := TRUE)], ascSBreakSchedule := [STRUCT(sBreakName := 'Breakfast', uiStartHour := UINT#9, uiStartMinute := UINT#0, uiEndHour := UINT#9, uiEndMinute := UINT#10, uiShiftNo := UINT#1, xActive := TRUE), STRUCT(sBreakName := 'Lunch', uiStartHour := UINT#11, uiStartMinute := UINT#0, uiEndHour := UINT#11, uiEndMinute := UINT#30, uiShiftNo := UINT#1, xActive := TRUE), STRUCT(sBreakName := 'Tea Break', uiStartHour := UINT#13, uiStartMinute := UINT#0, uiEndHour := UINT#13, uiEndMinute := UINT#10, uiShiftNo := UINT#1, xActive := TRUE), STRUCT(sBreakName := 'Tea Break 1', uiStartHour := UINT#16, uiStartMinute := UINT#0, uiEndHour := UINT#16, uiEndMinute := UINT#10, uiShiftNo := UINT#2, xActive := TRUE), STRUCT(sBreakName := 'Dinner', uiStartHour := UINT#18, uiStartMinute := UINT#45, uiEndHour := UINT#19, uiEndMinute := UINT#15, uiShiftNo := UINT#2, xActive := TRUE), STRUCT(sBreakName := 'Tea Break 2', uiStartHour := UINT#20, uiStartMinute := UINT#45, uiEndHour := UINT#20, uiEndMinute := UINT#55, uiShiftNo := UINT#2, xActive := TRUE), STRUCT(sBreakName := 'Tea Break 1', uiStartHour := UINT#23, uiStartMinute := UINT#30, uiEndHour := UINT#23, uiEndMinute := UINT#40, uiShiftNo := UINT#3, xActive := TRUE), STRUCT(sBreakName := 'Dinner', uiStartHour := UINT#1, uiStartMinute := UINT#45, uiEndHour := UINT#2, uiEndMinute := UINT#12, uiShiftNo := UINT#3, xActive := TRUE), STRUCT(sBreakName := 'Tea Break 2', uiStartHour := UINT#4, uiStartMinute := UINT#30, uiEndHour := UINT#4, uiEndMinute := UINT#40, uiShiftNo := UINT#3, xActive := TRUE)]))];
+	// Generated instance path of persistent variable
+	MM_PD.lrCountOK: ARRAY [1..L_OEEA_Lib.uiNoOfPartCounter] OF LREAL;
+	// Generated instance path of persistent variable
+	MM_PD.lrCountNOK: ARRAY [1..L_OEEA_Lib.uiNoOfPartCounter] OF LREAL;
+END_VAR

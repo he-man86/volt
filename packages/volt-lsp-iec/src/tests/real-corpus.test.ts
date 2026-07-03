@@ -99,6 +99,16 @@ const CORPORA: ReadonlyArray<{
 	// Baseline 16 diagnostics, all unresolved-identifier: library-blind (L_IE1P/L_TB2P/MC_DIRECTION) + a small tail
 	// on `myState`/`iIndex` (a local FB var referenced via the `S=` set-assignment — a separate resolver follow-up).
 	{ name: "awa-palletizer", dir: "awa-palletizer", base: { files: 54, parseCleanFiles: 54, ingestFiles: 54, totalDiags: 16, excludedFiles: 0 } },
+	// lenze-mid (2026-07-03): the "Lenze_MID-S100_V5_00_602_T51" project (180 source files) — the first LD-HEAVY
+	// corpus, a stress test for the bridge's PlcOpen⇄VG round-trip AND the LSP's VG analyzer. Every ambiguous case
+	// was triaged against the bridge /debug endpoint (raw PlcOpen) before fixing. Surfaced ONE bridge bug — an
+	// unconnected EN pin rendered a broken `LET en := ; IF en THEN…` (fixed by dropping the dangling pin at read) —
+	// plus a batch of LSP VG-parser gaps: nested-instance call `a.b.c(…)`, SET/RESET keyword pin names,
+	// SUPER^()/THIS^(), repeated-instance de-dup (VG_DUPLICATE_NAME), single-operand-paren unwrap, opaque-arithmetic
+	// leaf vs malformed group, and EXTENDS-chain pin resolution. VG_PARSE / VG_BAD_EXPRESSION / VG_DUPLICATE_NAME /
+	// vg-unknown-pin all → 0; the 79 baseline is the library-blind floor (24 vg-undeclared in VG bodies + 55 ST
+	// unresolved, external Lenze/CODESYS libs not mirrored). 1 excluded-from-build object.
+	{ name: "lenze-mid", dir: "lenze-mid", base: { files: 180, parseCleanFiles: 180, ingestFiles: 180, totalDiags: 79, excludedFiles: 1 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {

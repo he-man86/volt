@@ -1,0 +1,16 @@
+FUNCTION RPM_To_DriveSpeed : bool
+VAR_INPUT
+	iEN: BOOL;
+	iRPM: INT;
+END_VAR
+VAR
+END_VAR
+VAR_OUTPUT
+	oDriveSpeed: INT;
+END_VAR
+
+NETWORK 0 LD
+  oDriveSpeed := (iRPM * 6);
+END_NETWORK
+
+END_FUNCTION

@@ -1,0 +1,19 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	//Mach1_Stop1: BOOL;
+	//Mach1_Stop2: BOOL;
+	//Mach1_Stop3: BOOL;
+	CounterCigarAtEnd: BOOL;
+	TODO_bool: BOOL;
+	//stopdrive_test1:BOOL;
+	//stopdrive_test2:BOOL;
+	//stopdrive_test3:BOOL;
+	//stopdrive_test4:BOOL;
+	//stopdrive_test5:BOOL;
+	//stopdrive_test6:BOOL;
+	//stopdrive_test7:BOOL;
+	//stopdrive_test8:BOOL;
+	//stopdrive_test9:BOOL;
+	
+	
+END_VAR

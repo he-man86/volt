@@ -1,0 +1,9 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Trayfiller :
+STRUCT
+	RowHeight : INT;
+	SetNumberOfRows : INT;
+	InitialDescentValue : INT;
+	
+END_STRUCT
+END_TYPE

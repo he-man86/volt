@@ -1,0 +1,265 @@
+(************************************************************************************************
+*
+* Module  : 	L_OEE_Input_IF
+*
+* Summary : 	This function block call the Main local OEE FB L_OEEA_FBs and receive all relevant machine program input structer
+*				This FB has to be called up from the machine program and all inputs has to be assigned within this machine program
+*                  
+* History :
+*
+*   Date        Author          Version    Changes
+*  ---------------------------------------------------------------------------------------------------------------------------------------
+*	2023-11-25  Michael May    			1.8		Add provide calendar week if shift mode is 7day/week
+*	2023-06-01  Michael May    			1.7		Add action act_Assign_OEE_Properties and move property calls to that action
+*	2023-05-25  Michael May    			1.6		ADD sReasonTextPowerOn as Input to fbOEE_FBs
+*	2023-05-21  Michael May    			1.5		ADD xLaterShiftStartEnabled and xShiftProductionActive as Input to fbOEE_FBs
+*	2023-05-15  Michael May    			1.4		Insert property xManualShiftReset and Input to fbOEE_FBs
+*	2023-03-17  Michael May    			1.3		Insert property xTriggerUpdateJsonOEEKPI and Input to fbOEE_FBs
+*	2022-11-14  Michael May    			1.2		Insert Set ShiftName if Production Scheduler has been used
+*	2022-10-07  Michael May    			1.1		Update I/O and add properties
+*   2022-08-09  Michael May    			1.0		Initially created
+*)
+FUNCTION_BLOCK L_OEE_Input_IF 
+VAR_INPUT
+	xEnabled : BOOL;								// Enable OEE Funtionality
+	xResetActualData: BOOL ;						// Reset all actual data such as Part Counter, Production log e.g.
+	xResetHistoryData: BOOL ;						// Reset all history data
+	xProdSimultionEnabled  : BOOL; 					// IF TRUE OEE and Downtime data will be simulated				
+	xHMIActive	: BOOL;								// If TRUE Shift data coming from the HMI; If FALSE Shift data coming from the PLC structure scShiftBreakSchedule
+	eSchedulerMode		: L_OEEA_Lib.enumShiftMode;	// Possible Shift Modes shift := 0; hours24	:= 1; noSchedule := 2 (use Production scheduler); Shift7Days := 3; Hours24_7Days:= 4
+	eSetWeekday			: L_OEEA_Lib.RTCLK.WEEKDAY;	// Weekenday sunday to saturday	if eSchedulerMode Shift7Days or Hours24_7Days has been used
+	xUseReasonCodeString	: BOOL;					// FALSE = Production log send TextRef ID and Reasoncode, TRUE = Production log send Reasoncode string  
+END_VAR
+VAR_IN_OUT
+	scMachineData 			: L_OEEA_Lib.scMachineData; 		// Required Machine data such as Part Counter, Producct information, Best Machine speed	
+	scProductionMode 		: scProductionMode;					// Standard Production sModes 0..20 - here based on PackML Specification
+	ascDaySchedules			: ARRAY [1..L_OEEA_lib.uiDaySchedule] OF L_OEEA_Lib.scDaySchedule;	//Array containing shift schedules of all seven days of a week
+	asErrorCategory 		: scCategoryStruct;					// 	Category strings
+	scFirstErrorData  		: L_OEEA_Lib.scErrorData;			// First Fault Error information			
+END_VAR
+VAR_OUTPUT
+	xBusy		: BOOL;	// FB is enabled and execute program
+	xError		: BOOL;	//Monitoring the input value of scMachineData.iModeProduction & scMachineData.iModeBreak within the range, if TRUE then one of this value is out of range !
+END_VAR
+VAR
+	fbOEE_FBs: L_OEEA_Lib.L_OEEA_FBs ;		//OEE and Downtime FB
+	xProdSimEventOccurrence : BOOL := TRUE;				// FALSE = Normal Production situation (e.g. for fairs), TRUE = Higher ccurrence frequence (e.f. for test)
+	xProdSimMaterialProduction : BOOL;					// Material production instead of part production is active
+	xDeactiveShiftContiniousUpdate : BOOL;
+	scSimulationDowntimes :  scSimulationDowntimes;		// Setup of Simulation Downtimes
+	
+	scProductionModeLib 		: L_OEEA_Lib.scProductionMode;			// Internal Standard Production sModes 0..20 - here based on PackML Specification
+	asErrorCategoryLib	 		: L_OEEA_Lib.scCategoryStruct;			// Internal Category strings
+	scSimulationDowntimesLib 	: L_OEEA_Lib.scSimulationDowntimes;		// Internal Setup of Simulation Downtimes
+	scTrigger					: L_OEEA_Lib.scTrigger;					// Trigger structure
+	
+	xStructError1,xStructError2, xStructError3	: BOOL;	// if TRUE Error: source and target structure has different size
+	xFirstCycleDone				: BOOL;
+	
+	// Extention for Production Scheduler
+	SetShiftName :  L_OEEA_Lib.scShiftName;
+	rt_ProductionActive	: R_TRIG;
+	uiProductionRuns : UINT;
+	sReasonCode		: STRING(255);			// Actual localized reason code string from the HMI/LEM list
+	xUpdateJsonOEEKPI : BOOL;				// // IF True update json OEE Shift KPI's
+	iCalcThroughputMode : INT := 0;			// 0= calculate from actual all time, 1= Calculation for actual planned production time without Breaks, 2= Calculation for actual runtime time without Breaks and availability downtimes 
+	scSimulationModes :  L_OEEA_Lib.scSimulationModes;		// Define modes for technical and organisational downtime
+	xManualShiftReset : BOOL;				// IF True perform a shift reset
+	xLaterShiftStartEnable : BOOL; 		// Shift calculation of planned production time starts with xShiftProductionActive = TRUE
+	uiCalWeek				: UINT;		// Actual calendar week
+END_VAR
+
+//********************************************************************************
+// Set ShiftName if Production Scheduler has been used
+// Run ID needs to be manage persistant in use rprogram if required 
+//********************************************************************************
+IF eSchedulerMode = L_OEEA_Lib.enumShiftMode.noSchedule THEN
+	
+	rt_ProductionActive(CLK:=scMachineData.scProduction.xProductionActive);
+	IF rt_ProductionActive.Q THEN
+		uiProductionRuns := uiProductionRuns +1;
+	END_IF;
+		
+	SetShiftName.eSetWeekday :=fbOEE_FBs.scShiftValues.eActualWeekday;
+	SetShiftName.xUseWeekDay := TRUE;
+	
+	IF uiProductionRuns = 0 THEN 
+		SetShiftName.sSetShiftName := CONCAT( ': Run ','1');
+	ELSE
+		SetShiftName.sSetShiftName := CONCAT( ': Run ',UINT_TO_STRING(uiProductionRuns));
+	END_IF
+	
+	fbOEE_FBs.SetShiftName := SetShiftName;
+	
+END_IF;
+
+//********************************************************************************
+// Set Calendar week if 7days Shift Mode has been used
+//********************************************************************************
+IF eSchedulerMode = L_OEEA_Lib.enumShiftMode.Hours24_7Days OR 
+	eSchedulerMode = L_OEEA_Lib.enumShiftMode.Shift7Days THEN
+	
+	uiCalWeek := L_OEEA_Lib.Calendar_Week(dtExtDT:=GVL_OEE_Var.scShiftValues.dtDateAndTime);
+	IF uiCalWeek > 0 THEN
+		ascDaySchedules[1].ascShiftSchedule[1].sShiftName := 'KW ';
+		ascDaySchedules[1].ascShiftSchedule[1].sShiftName := Concat(ascDaySchedules[1].ascShiftSchedule[1].sShiftName,UINT_TO_STRING(uiCalWeek));
+	END_IF
+
+END_IF
+
+
+//****************************************************************************
+// Dummy assignement for symbol file warning and future use 
+//****************************************************************************
+sReasonCode := GVL_OEE_Var.sVisu_OUT_ReasonCode;
+//****************************************************************************
+
+
+Call_AssignStructures();
+act_Call_Properties();
+call_OEE_FB();
+
+xFirstCycleDone	:= TRUE;
+
+END_FUNCTION_BLOCK
+
+ACTION Call_AssignStructures
+//***********************************************************************************************************************
+// Overwriting intern used scProduction and scErrorCategory with actual machine program 
+//***********************************************************************************************************************
+
+IF NOT xFirstCycleDone THEN
+
+	//Assignment of scProductionModeLib := scProductionMode;
+	xStructError1 := L_OEEA_Customizable_CopyStruct(pbySource:= ADR(scProductionMode),pbyTarget:=ADR(scProductionModeLib),
+					uiSizeSource:=SIZEOF(scProductionMode),uiSizeTarget:=SIZEOF(scProductionModeLib));
+	
+	//Assignment of asErrorCategoryLib := asErrorCategory;
+	xStructError2 := L_OEEA_Customizable_CopyStruct(pbySource:= ADR(asErrorCategory),pbyTarget:=ADR(asErrorCategoryLib),
+					uiSizeSource:=SIZEOF(asErrorCategory),uiSizeTarget:=SIZEOF(asErrorCategoryLib));
+
+	//Assignment of scSimulationDowntimesLib := scSimulationDowntimes;
+	xStructError3 := L_OEEA_Customizable_CopyStruct(pbySource:= ADR(scSimulationDowntimes),pbyTarget:=ADR(scSimulationDowntimesLib),
+					uiSizeSource:=SIZEOF(scSimulationDowntimes),uiSizeTarget:=SIZEOF(scSimulationDowntimesLib));
+
+
+
+//***********************************************************************************************************************
+// Set all Trigger Timer
+//***********************************************************************************************************************
+
+// Assign Trigger prolong duration e.g. stores OEE KPI and buffer for 5 sec. before reset
+scTrigger.tTrigger_duration := T#5S;
+
+// Assign Trigger prolong for OEE KPI data edge or cloud storage
+scTrigger.tTrigger_OEEKPI := T#1M;
+
+// Assign Trigger prolong duration for powerup cacle
+scTrigger.tTrigger_PowerOnDelay := T#1M;
+
+// Assign Trigger to update json string scPerformance for Product and Shift 
+scTrigger.tTrigger_Settings := T#5M;
+
+
+
+//***********************************************************************************************************************
+// Simulation mode assignement
+//***********************************************************************************************************************
+
+// Mode assignment for Simulation mode to control the bits scMachineData.xDownTimeActive and scMachineData.xOrgDownTimeActive
+// Can be changed if program use different machine modes and want use the production simulation mode 
+scSimulationModes.DownTimeActive1 := 9;		// Abortes
+scSimulationModes.DownTimeActive2 := 0; 	// Not used
+scSimulationModes.OrgDownTimeActive1 := 2;	// Stopping			
+scSimulationModes.OrgDownTimeActive2 := 5;	// Suspended			
+scSimulationModes.OrgDownTimeActive3 := 10;	// Holding need for product change	
+
+
+// ---- If Set the production Material Transfer is used for part count, 
+xProdSimMaterialProduction := FALSE;
+							
+
+END_IF;
+END_ACTION
+
+ACTION act_Call_Properties
+//*********************************************************************************************************
+// Calculation option for part Throughput/hour
+//  0= calculate from actual all time, 1= Calculation for actual planned production time without Breaks,
+//  2= Calculation for actual runtime time without Breaks and availability downtimes 
+//**********************************************************************************************************
+fbOEE_FBs.iSetCalcThroughput := iCalcThroughputMode;
+
+// Set XYGraph store time, T#=0s means no X/Y Graph data will be stored
+fbOEE_FBs.tSetTimeXYGraph := T#1M;	
+
+// Production Simulation event update TRUE = Fast event changes 8test Mode) , FALSE = Low event changes during one shift (Fair Mode)
+xSetProdSimEventOccurrence := TRUE;
+ 
+//IF SET TRUE then deactive Shift will calculate OEE KPI's
+xSetDeactiveShiftContiniousUpdate := FALSE;
+END_ACTION
+
+ACTION call_OEE_FB
+NETWORK 1 FBD
+  // //**********************************************************************************************************************************************************
+  // // Call up L_OEE_FBs for OEE KPI calculation, Downtime & Production state Tracking
+  // // With the Bit xSimultionEnabled the FB will go in simulation mode and generate Part count, state changes and donwtimes
+  // // With the Bit xHMIShiftDataActive the FB will take the Shift data from the HMI datastructure if TRUE 
+  // //**********************************************************************************************************************************************************
+  LET i1 := scSimulationDowntimes .uiMaxSimulationEvents;
+  fbOEE_FBs(xEnabled := xEnabled, xResetActualData := xResetActualData, xResetHistoryData := xResetHistoryData, xProdSimultionEnabled := xProdSimultionEnabled, xProdSimEventOccurrence := xProdSimEventOccurrence, xProdSimMaterialProduction := xProdSimMaterialProduction, xHMIActive := xHMIActive, eSchedulerMode := eSchedulerMode, eSetWeekday := eSetWeekday, xDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate, uiMaxSimulationEvents := i1, scTrigger := scTrigger, xUseResonCodeString := xUseReasonCodeString, xUpdateJsonOEEKPI := xUpdateJsonOEEKPI, xManualShiftReset := xManualShiftReset, xShiftProductionActive := scMachineData.scProduction.xProductionActive, xLaterShiftStartEnabled := xLaterShiftStartEnable, scSimulationModes := scSimulationModes, sReasonTextPowerOn := GVL_FirstErrCapture.sReasonTextPowerOn);
+  xError := fbOEE_FBs.xError;
+  GVL_OEE_Var.scShiftValues := fbOEE_FBs.scShiftValues;
+END_NETWORK
+END_ACTION
+
+PROPERTY xLaterShiftStartEnableDisable : BOOL
+%FOLDER Properties
+GET
+xLaterShiftStartEnableDisable := xLaterShiftStartEnable;
+END_GET
+SET
+xLaterShiftStartEnable := xLaterShiftStartEnableDisable;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC xSetDeactiveShiftContiniousUpdate : BOOL
+%FOLDER Properties
+GET
+xSetDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate;
+END_GET
+SET
+xDeactiveShiftContiniousUpdate := xSetDeactiveShiftContiniousUpdate;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC xSetProdSimEventOccurrence : BOOL
+%FOLDER Properties
+GET
+xSetProdSimEventOccurrence := xProdSimEventOccurrence;
+END_GET
+SET
+xProdSimEventOccurrence :=  xSetProdSimEventOccurrence ;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC xTriggerManualShiftReset : BOOL
+%FOLDER Properties
+GET
+xTriggerManualShiftReset := xManualShiftReset;
+END_GET
+SET
+xManualShiftReset := xTriggerManualShiftReset;
+END_SET
+END_PROPERTY
+
+PROPERTY PUBLIC xTriggerUpdateJsonOEEKPI : BOOL
+%FOLDER Properties
+GET
+xTriggerUpdateJsonOEEKPI := xUpdateJsonOEEKPI;
+END_GET
+SET
+xUpdateJsonOEEKPI := xTriggerUpdateJsonOEEKPI;
+END_SET
+END_PROPERTY

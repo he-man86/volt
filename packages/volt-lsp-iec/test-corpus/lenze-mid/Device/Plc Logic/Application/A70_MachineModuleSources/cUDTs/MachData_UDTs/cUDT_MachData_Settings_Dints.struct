@@ -1,0 +1,11 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Settings_Dints :
+STRUCT
+	minTorqueValue	:	DINT;
+	maxTorqueValue	: DINT;
+	FeedForwardDistance : DINT;
+	WrapperStopPosition: DINT;
+	
+
+END_STRUCT
+END_TYPE

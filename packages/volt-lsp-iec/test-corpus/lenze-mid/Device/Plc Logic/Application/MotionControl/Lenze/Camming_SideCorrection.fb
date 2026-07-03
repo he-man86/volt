@@ -1,0 +1,187 @@
+FUNCTION_BLOCK Camming_SideCorrection EXTENDS Camming
+VAR_INPUT
+	i_NormalCamRefTableNeg				: MC_CAM_REF; 
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+
+SUPER^( ioDataExchange:=ioDataExchange, ioMasterAxis:=ioMasterAxis,ioSlaveAxis:=ioSlaveAxis);
+
+END_FUNCTION_BLOCK
+
+METHOD FlexCam
+VAR_INPUT
+END_VAR
+
+VAR_INST
+	lrMasterPos				: LREAL;
+	lrSlavePos				: LREAL;
+	lrDifferenceCalc		: LREAL;
+	intSyncState			: INT;
+	
+	uiSetCamTable			: UINT;
+	itfActiveCamTable		: MC_CAM_REF; 
+	CamGetSlavePosition		: L_MC2P_CamGetSlavePosition; 	
+	xSyncCam				: BOOL;
+
+END_VAR
+VAR
+	
+END_VAR
+//Selection of the cam. 
+IF Control_Local.SelectBypassCAM THEN 
+	uiSetCamTable := 2;					//Camtable 2 is a zero curve. 
+ELSE 
+	IF Control_Local.YScale<0 THEN
+		uiSetCamTable := 3;					//Camtable 1 is the normal curve.		
+	ELSE
+		uiSetCamTable := 1;					//Camtable 1 is the normal curve.	
+	END_IF
+END_IF
+
+//Settings for only positive synchronisation direction 
+IF i_xOnlyPositiveDirectionSync = TRUE AND i_SlaveAbsolute THEN 
+	
+	//Get master position 
+	lrMasterPos := ((ioMasterAxis.lrSetPosition * AxisControl.lrSetScalingX) + AxisControl.lrSetOffsetPosX);	
+	IF ioMasterAxis.eTraversingRange = L_MC1P_TRAVERSINGRANGE.Modulo THEN
+		lrMasterPos := L_MC1P_ModuloCycle(lrMasterPos, ioMasterAxis.lrCycleLength);
+	END_IF
+	
+	//Get slave position 
+	CamGetSlavePosition(
+		xExecute:= Control_Local.ActivateCamming, 
+		lrMasterPosition:= lrMasterPos, 
+		itfCamTable:= itfActiveCamTable, 
+		xDone=> , 
+		xBusy=> , 
+		xError=> , 
+		eErrorID=> , 
+		lrSlavePosition=> );
+	lrSlavePos := ((CamGetSlavePosition.lrSlavePosition * AxisControl.lrSetScalingY) + AxisControl.lrSetOffsetPosY);	
+	IF ioSlaveAxis.eTraversingRange = L_MC1P_TRAVERSINGRANGE.Modulo THEN
+		lrSlavePos := L_MC1P_ModuloCycle(lrSlavePos, ioSlaveAxis.lrCycleLength);
+	END_IF
+	
+	//Calculate position difference between master and slave 
+	lrDifferenceCalc := L_MC1P_HlpModuloDiff(
+					lrDiff:= (ioSlaveAxis.lrSetPosition - lrSlavePos), 
+					lrLen := ioSlaveAxis.lrCycleLength);
+
+	//Start synchronisation				
+	IF ABS(lrDifferenceCalc) < 0.2 THEN
+		AxisControl.scPar.eDirection := MC_DIRECTION.mcShortestWay;
+	ELSE
+		AxisControl.scPar.eDirection := MC_DIRECTION.mcPositiveDirection;
+	END_IF
+	
+	IF NOT AxisControl.xReadyForMotion AND intSyncState>0 THEN
+		intSyncState:=0;
+	END_IF	
+	
+	CASE intSyncState OF
+		0:	(* Wait for synchronisation *)
+			xSyncCam := FALSE;
+			AxisControl.scCtrlBasicMotion.xMoveAbsExecute := FALSE;
+			AxisControl.scCtrlBasicMotion.xHalt:=FALSE;
+			
+			IF Control_Local.ActivateCamming AND AxisControl.xReadyForMotion THEN 
+				intSyncState := 1; 
+			END_IF
+			
+		1:	(*Move absolute to position*)
+			AxisControl.scCtrlBasicMotion.lrPos_Dist := lrSlavePos;
+			AxisControl.scPar.lrAcc := AxisControl.scPar.lrSyncAcc;
+			AxisControl.scPar.lrDec := AxisControl.scPar.lrSyncDec;
+			AxisControl.scPar.lrVel  := AxisControl.scPar.lrSyncVel;
+			
+			AxisControl.scCtrlBasicMotion.xMoveAbsExecute := Control_Local.ActivateCamming AND CamGetSlavePosition.xDone;
+			
+			IF Control_Local.ActivateCamming = FALSE THEN 
+				intSyncState := 2;
+			ELSIF AxisControl.scStatusBasicMotion.xFunDone = TRUE THEN 
+				intSyncState := 3; 			
+			END_IF
+			
+		2:	(*Stop absolute movement*)
+			AxisControl.scCtrlBasicMotion.xMoveAbsExecute := FALSE;
+			AxisControl.scCtrlBasicMotion.xHalt:=TRUE;
+			
+			IF AxisControl.scStatusBasicMotion.xFunDone = TRUE THEN 
+				intSyncState := 0; 
+			END_IF
+			
+		3:	(*Synchronise drive*)
+			xSyncCam := TRUE; 
+			
+			IF Control_Local.ActivateCamming = FALSE THEN 
+				intSyncState := 0;
+			END_IF
+		
+	END_CASE; 
+ELSE 
+	xSyncCam := Control_Local.ActivateCamming; 
+END_IF
+
+AxisControl.scCtrlBasicMotion.xResetHomePosition:=Control_Local.ResetHomePos;
+
+AxisControl(
+	xEnable:=TRUE , 
+	xEnableOperation:= Control_Local.Enable, 
+	xResetError:= Control_Local.ResetError, 
+	xQSPApplication:= , 
+	xAbort:= , 
+	xJogPos:= Control_Local.Spare2, 
+	xJogNeg:= Control_Local.Spare1, 
+	xHomeExecute:= Control_Local.SetHomePos, 
+	lrOverride:= , 
+	scCtrlBasicMotion:= , 
+	scPar:= , 
+	Axis:= ioSlaveAxis, 
+	scAccessPoints:= , 
+	MasterValues:= ioMasterAxis, 
+	xSyncIn:= xSyncCam, 
+	xCamChangeInstant:= , 
+	lrSetOffsetPosX:= Control_Local.XOffset, 
+	lrSetOffsetPosY:= Control_Local.YOffset, 
+	lrSetScalingX:= , 
+	lrSetScalingY:= ABS(Control_Local.YScale/1000), 
+	CamTable1:= i_NormalCamRefTable, 
+	CamTable2:= i_ByPassCamRefTable, 
+	CamTable3:= i_NormalCamRefTableNeg , 
+	CamTable4:= , 
+	wSetCamTable:= uiSetCamTable, 
+	xCamSequencer:= , 
+	xReadyForOperation=> , 
+	xOperationEnabled=> , 
+	xReadyForMotion=> , 
+	xError=> , 
+	xWarning=> , 
+	eErrorID=>  , 
+	xSTOActive=> , 
+	xQSPActive=> , 
+	xAbortBusy=> , 
+	xAbortDone=> , 
+	xJoggingBusy=> , 
+	xHomingBusy=> , 
+	xHomingDone=> , 
+	xIsHomed=> , 
+	eTMState=> , 
+	scStatusBasicMotion=> , 
+	lrActVel=> , 
+	lrSetVelOut=> , 
+	lrActPos=> , 
+	lrSetPosOut=> , 
+	lrActFollowingError=> , 
+	scSignalFlow=> , 
+	xSynchronised=> , 
+	xAccDecSync=> , 
+	xCammingBusy=> , 
+	xEndOfProfile=> , 
+	lrOffsetPosX=> , 
+	lrOffsetPosY=> , 
+	wActiveCamTable=> , 
+	xCamSequencerActive=> );
+END_METHOD

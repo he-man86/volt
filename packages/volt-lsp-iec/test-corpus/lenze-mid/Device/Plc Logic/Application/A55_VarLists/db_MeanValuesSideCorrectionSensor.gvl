@@ -1,0 +1,4 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL PERSISTENT
+	MeasurementValues	: ARRAY[0..50] OF INT ;
+END_VAR

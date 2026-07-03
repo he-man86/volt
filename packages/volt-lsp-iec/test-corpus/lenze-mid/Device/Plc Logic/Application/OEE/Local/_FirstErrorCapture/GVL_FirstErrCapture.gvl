@@ -1,0 +1,28 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  I N P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+	asErrorCategory 	: scCategoryStruct;			// Category strings		
+	scFirstErrorData	: L_FECA.scErrorData;		// Data of the first error captured
+	
+	scErrorAccess : scErrorAccess;					// This structue is required using the the previous Application Template use ErrorAccess FB
+	
+ 	sReasonTextPowerOn	: STRING := 'Machine switched off/on cycle';	// Text string for Mode=0 and Category=0 Power/Machine off/on cycle	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// L O C A L  V A R I A B L E  A N D  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+	ascErrorInfo 		: ARRAY[0..GVL_ErrCapt.iErrorQty] OF  L_IE1P_ErrorInfo;			// Global strcuture for all scErrorInfo of L_IE1P_SetErrorSingle
+	ascAddErrorInfo 	: ARRAY[0..GVL_ErrCapt.iErrorQty] OF  L_FECA.scErrorData_base;	// Global strcuture for all additional scErrorInfo of L_IE1P_SetErrorSingle	
+
+	scFastErrorInfo 		:  L_IE1P_ErrorInfo;		 // Global strcuture for all scErrorInfo of L_IE1P_SetErrorSingle
+	scFastAddErrorInfo 		:  L_FECA.scErrorData_base;	 // Global strcuture for all additional scErrorInfo of L_IE1P_SetErrorSingle	
+
+	scOverwriteErrorInfo 		:  L_IE1P_ErrorInfo;		 // Global strcuture for one overwrite scErrorInfo of L_IE1P_SetErrorSingle
+	scOverwriteAddErrorInfo 	:  L_FECA.scErrorData_base;	 // Global strcuture for one overwrite additional scErrorInfo of L_IE1P_SetErrorSingle		
+	
+	xFirstErrorBit		: BOOL;
+	xResetFirstError	: BOOL;
+	
+END_VAR

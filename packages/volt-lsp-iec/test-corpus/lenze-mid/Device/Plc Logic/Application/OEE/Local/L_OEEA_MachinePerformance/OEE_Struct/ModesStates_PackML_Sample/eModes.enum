@@ -1,0 +1,14 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE eModes :
+(	(* states according to PackTags v3.0 *)
+	Undefined 		:= 0,
+	Production		:= 1,
+	Maintenance		:= 2,
+	Manual	    	:= 3,	
+    ChangeOver     	:= 4,
+    Clean		  	:= 5,
+    SetUp	     	:= 6,
+    EmptyOut    	:= 7
+);
+END_TYPE

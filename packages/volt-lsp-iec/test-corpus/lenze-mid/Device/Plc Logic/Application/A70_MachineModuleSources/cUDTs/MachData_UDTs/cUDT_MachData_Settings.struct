@@ -1,0 +1,8 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE cUDT_MachData_Settings :
+STRUCT
+	Ints: cUDT_MachData_Settings_Ints;
+	Dints: cUDT_MachData_Settings_Dints;
+	
+END_STRUCT
+END_TYPE

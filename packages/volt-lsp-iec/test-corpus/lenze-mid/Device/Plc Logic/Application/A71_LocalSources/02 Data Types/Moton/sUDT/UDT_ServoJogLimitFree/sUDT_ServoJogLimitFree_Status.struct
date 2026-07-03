@@ -1,0 +1,8 @@
+TYPE sUDT_ServoJogLimitFree_Status :
+STRUCT
+	Limit_Left_OK	: BOOL;
+	Limit_Right_OK	: BOOL;
+		Spare1: BOOL;
+	Spare2: BOOL;
+END_STRUCT
+END_TYPE

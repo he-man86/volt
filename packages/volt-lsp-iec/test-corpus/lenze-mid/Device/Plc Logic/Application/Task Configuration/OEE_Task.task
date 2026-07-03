@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  20 ms
+Priority:  5
+Watchdog:  16 ms (sensitivity 2)
+Calls:     ProductionDataInputs

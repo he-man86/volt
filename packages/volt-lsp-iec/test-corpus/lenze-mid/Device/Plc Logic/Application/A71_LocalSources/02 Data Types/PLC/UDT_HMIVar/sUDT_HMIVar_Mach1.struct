@@ -1,0 +1,63 @@
+TYPE sUDT_HMIVar_Mach1 :
+STRUCT
+	
+Status : WORD;
+Doors : sUDT_HMIVar_Doors;
+EmergencyStopButtons : sUDT_HMIVar_EmergencyStop;
+Auxilary : sUDT_HMIVar_Auxilary;
+PRDDayCounterReset : Bool;
+CalibrateTorqueValues : Bool;
+setMinTorqueValue : Bool;
+setMaxTorqueValue : Bool;
+PRDDayCounterReset_01 : Bool;
+PRDCounterIncr : Bool;
+HourCounterRunning : Bool;
+GlueStart : Bool;
+GlueStop : Bool;
+GlueReset : Bool;
+SprayStart : Bool;
+SprayStop : Bool;
+SprayReset : Bool;
+DTA_PositioningLeft : Bool;
+DTA_PositioningRight : Bool;
+MuteNoBunchAlarm : BOOL;
+HeatersActive : Bool;
+SpareBool13 : Bool;
+Emptying : Bool;
+MachineType_L_or_R : Bool;
+HourCounter : Int;
+ActualSpeed : Int;
+Position : Int;
+PRDTotalCounter : DInt;
+PRDCigCurrentCntr : DInt;
+PRDWrapDayCounter : DInt;
+PRDCigDayCounter : DInt;
+PRDSecondsCounter : Int;
+PRDMinutesCounter : Int;
+PRDHoursCounter : Int;
+ActualSpeedDryer : DInt;
+PRDWrapCurrentCntr : DInt;
+SpareDInt4 : DInt;
+PositionCopy : Int;
+ActSpeedQuickResp : Int;
+AuxActSpeedQuick : Int;
+ProductCycleCounter : Int;
+ActNumberOfRows : Int;
+ActualGlueLevel : Int;
+ActHeater1 : Int;
+ActHeater2 : Int;
+ActHeater3 : Int;
+SpareInt9 : Int;
+SpareInt10 : Int;
+SpareInt11 : Int;
+SpareInt12 : Int;
+SpareInt13 : Int;
+SetSysTime : Bool;
+//SP_DT : UDT_DateTime;
+//Date_Time : DTL;
+SpareByte : ARRAY[64..99] OF BYTE;
+
+
+
+END_STRUCT
+END_TYPE

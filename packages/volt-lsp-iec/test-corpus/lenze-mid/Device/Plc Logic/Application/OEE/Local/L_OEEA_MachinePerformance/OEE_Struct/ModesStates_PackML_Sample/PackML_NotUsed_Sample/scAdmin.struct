@@ -1,0 +1,16 @@
+{attribute 'qualified_only'}
+{attribute 'strict'}
+TYPE scAdmin :
+STRUCT
+	ModeCumulativeTime : ARRAY[0..10] OF DINT;
+	StateCumulativeTime : ARRAY[0..10,0..20] OF DINT;
+	ProdProcessedCount : ARRAY[0..10] OF scProdCount;
+	ProdDefectiveCount : ARRAY[0..10] OF scProdCount;
+	MachDesignSpeed : REAL;
+	PlannedProductionTime : UDINT;
+	OperatingTime : UDINT;
+	StopReasonID : INT; 		// Event and stop reason
+	StopReasonValue : INT;		// Detailed Error Information
+	Alarm		: ARRAY[1..30] OF scAlarm;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,12 @@
+TYPE cUDT_MachData_Timers :
+STRUCT
+StartDelayAuxDrives : DINT:= 10;//TIME := T#8S;
+StopDelayAuxDrives : DINT:= 1000;;//TIME := T#1M40S;
+TimeOutSupplyWrapper : DINT;//Time := T#1M;
+SprayPulseWidth : DINT;//Time := T#200MS;
+DelayContSpraying : DINT;//Time := T#1S;
+BunchMagazineEmptyTime : DINT;//Time := T#1M;
+
+
+END_STRUCT
+END_TYPE

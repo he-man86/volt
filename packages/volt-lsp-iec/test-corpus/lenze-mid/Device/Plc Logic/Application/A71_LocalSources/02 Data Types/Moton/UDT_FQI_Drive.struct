@@ -1,0 +1,7 @@
+TYPE UDT_FQI_Drive :
+STRUCT
+Control: sUDT_FQI_Drive_Control;
+Status: sUDT_FQI_Drive_Status;
+
+END_STRUCT
+END_TYPE

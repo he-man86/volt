@@ -1,0 +1,22 @@
+TYPE sUDT_HMIVar_Doors :
+STRUCT
+Door1 : BOOL;
+Door2 : Bool;
+Door3 : Bool;
+Door4 : Bool;
+Door5 : Bool;
+Door6 : Bool;
+Door7 : Bool;
+Door8 : Bool;
+Door9 : Bool;
+Door10 : Bool;
+Door11 : Bool;
+Door12 : Bool;
+Door13 : Bool;
+Door14 : Bool;
+Door15 : Bool;
+Door16 : Bool;
+	
+
+END_STRUCT
+END_TYPE

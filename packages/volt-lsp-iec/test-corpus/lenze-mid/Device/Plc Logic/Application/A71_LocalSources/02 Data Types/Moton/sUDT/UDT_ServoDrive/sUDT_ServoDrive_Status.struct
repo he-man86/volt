@@ -1,0 +1,17 @@
+{attribute 'symbol' := 'readwrite'}
+TYPE sUDT_ServoDrive_Status :
+STRUCT
+DriveIsHomed : BOOL;
+DriveIsReady : BOOL;
+{attribute 'symbol' := 'none'}
+DriveTorqueError : BOOL;
+{attribute 'symbol' := 'none'}
+RotationPulse : Bool;
+InSync : Bool;
+InLock : BOOL;
+{attribute 'symbol' := 'none'}
+CommunicationReady : BOOL;
+{attribute 'symbol' := 'none'}
+CAN_Operational : Bool;
+END_STRUCT
+END_TYPE

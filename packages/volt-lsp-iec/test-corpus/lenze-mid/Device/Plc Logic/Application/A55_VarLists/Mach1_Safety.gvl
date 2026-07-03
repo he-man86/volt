@@ -1,0 +1,6 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+	Control	:	udtSafety_Control;
+	Status :	udtSafety_Status;
+END_VAR

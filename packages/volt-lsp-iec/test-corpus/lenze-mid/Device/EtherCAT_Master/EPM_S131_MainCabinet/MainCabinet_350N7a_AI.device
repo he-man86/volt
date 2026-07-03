@@ -1,0 +1,6 @@
+Name:         EPM-S401: AI4 12Bit, DC 0...10V
+Vendor:       Lenze
+Type:         68
+ID:           3B_040415C4_0
+Version:      1.0.0.5
+Description:  Ethercat Module imported from Slave XML: Lenze_IOSystem100_EPM_S130_Modules_V11.xml Device: EPM-S401 AI4 12Bit, DC 0...10V

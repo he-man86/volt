@@ -1,0 +1,91 @@
+{attribute 'qualified_only'}
+{attribute 'symbol' := 'readwrite'}
+VAR_GLOBAL
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  I N P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//************************************************************************************************************************************************		
+	// Here are all global Machine Variable declared, which are as Input for the OEE FB's
+	//************************************************************************************************************************************************
+	scMachineData : L_OEEA_Lib.scMachineData; 				// Required Machine data such as Part Counter, Producct information, Best Machine speed
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// O E E  O U T P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//************************************************************************************************************************************************		
+	// Here are all global OEE Variable declared, apart of persistence HMI variable	
+	//************************************************************************************************************************************************
+	scShiftValues			: L_OEEA_Lib.scCurrentShiftValues;			// Output actual shift strcuture Production and Shiftscheduler
+	scPerformance 			: L_OEEA_Lib.scPerformance;					// Output all OEE KPI’s data such as OEE,  Availability, Performance e.g.
+	scActualStateDuration 	: L_OEEA_Lib.scVisuProductionStatus_base;	// Output of the actual Production Mode/State durations from FB L_OEEA_Downtime
+	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// H M I  I N P U T  A N D  O U T P U T  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//************************************************************************************************************************************************		
+	// Not Persistent HMI Trend data
+	//************************************************************************************************************************************************
+	scVisu_IN_X_Trend:  L_OEEA_Lib.scXAxis_Trend;	// X-Data 
+	scVisu_IN_Y_Trend:  L_OEEA_Lib.scYAxis_Trend;	// Y-Data 
+	scVisu_Trend_Y_Limits :  L_OEEA_Lib.scTrend_Limits;
+		
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// H M I  O U T P U T   S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+	
+	//************************************************************************************************************************************************		
+	// Here are all OEE HMI Variable declared, apart of persistence HMI variable	
+	//************************************************************************************************************************************************
+	scVisu_OUT_PartCorrection 	: L_OEEA_Lib.scPartCorrectionInput;			   	// Part Count Correction Inputs e.g. Rework Parts, Quality check Parts....
+	scVisu_OUT_Buttons 			: L_OEEA_Lib.scVisuButtons;						// Visu Buttons such as Call for Service
+	sVisu_OUT_ReasonCode		: STRING(255);									// Actual localized reason code string from the HMI/LEM list
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+	sPLC_OUT_ReasonCode			: STRING(255);									// Actual localized reason code string from the HMI/LEM list
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+// L O C A L  V A R I A B L E  A N D  S T R U C T U R E	
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+
+	//************************************************************************************************************************************************		
+	// Here are all OEE Input based global variable
+	//************************************************************************************************************************************************
+	xHMIDataActive : BOOL; 			// Machine HMI operation for Recipe Management and Shit Schedule & Taregt is used (based on OEE Standard HMI)	
+	xProductionActive : BOOL;		// If TRUE then Production is active and planned to run (used only for not shift based production)
+	xProductionHold : BOOL;			// Hold/Pause/Stop production becuase of planned downtime
+	diUniquePartID : INT;			// Unique Product ID
+	rLastMachineCycleTime : REAL;	// last Machine Cycle Time
+	rSetSpeedValue : REAL;			// SET Machine/Line Speed
+	rSetSpeedPercent : REAL := 100;	// SET Speed in % of Target speed
+	
+	xResetActualOEEData: BOOL ;		// Reset all actual data such as Part Counter, Production log e.g.
+	xResetHistoryOEEData: BOOL ;	// Reset all history data
+	
+	
+	//************************************************************************************************************************************************		
+	// Here are all OEE Input based global variable if no HMI Recipe and Shift Target setting is used !!!!!!!!!!!!!!!!!!!!!!
+	//************************************************************************************************************************************************
+	scShiftOEETargets : L_OEEA_Lib.scShiftTargetsInput_base := (rOEETarget:=90, rOEELowerLimit:=75, rOEECrucial:=65); // OEE Shift Targets
+	scProductionMode : scProductionMode; // Standard Production sModes 0..20 - here based on PackML Specification
+	
+	//************************************************************************************************************************************************		
+	// Here are all application recipe based global variable
+	//************************************************************************************************************************************************
+	xExecuteCmd		: BOOL;							//Recipe Command executed
+	eLastRecipeCmd	: L_RPMA.enumRecipeCmd;		//Recipe command enumerations
+	xError 			: BOOL;							//Created Recipe already exist, please choice an different recipe name
+ 	dwReturnValue	: DWORD;						//Recipe File Handler return code
+	 
+	//************************************************************************************************************************************************		
+	// Here are all application based global variable
+	//************************************************************************************************************************************************
+	eStatus_States: eStates := 6;
+	eStatus_Modes : eModes;
+	iProductionMode : INT;	//Machine Production Mode based on scProductionMode
+	
+	
+			
+END_VAR

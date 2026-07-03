@@ -1,0 +1,35 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+//SafetyStatus_02 : 
+Door_switch01 : BOOL;
+//SafetyStatus_02 : 
+Door_switch02 : BOOL;
+//SafetyStatus_02 : 
+Door_switch03 : BOOL;
+//SafetyStatus_02 : 
+Door_switch04 : BOOL;
+//SafetyStatus_02 : 
+Door_switch05 : BOOL;
+//SafetyStatus_02 : 
+Door_switch06 : BOOL;
+//SafetyStatus_02 : 
+Door_switch07 : BOOL;
+//SafetyStatus_02 : 
+Door_switch08 : BOOL;
+//SafetyStatus_02 : 
+Door_switch09 : BOOL;
+//SafetyStatus_02 : 
+Door_switch10 : BOOL;
+//SafetyStatus_02 : 
+Door_switch11 : BOOL;
+//SafetyStatus_02 : 
+Door_switch12 : BOOL;
+//SafetyStatus_02 : 
+Door_switch13 : BOOL;
+//SafetyStatus_02 : 
+Door_switch14 : BOOL;
+//SafetyStatus_02 : 
+Door_switch15 : BOOL;
+//SafetyStatus_02 : 
+Door_switch16 : BOOL;
+END_VAR

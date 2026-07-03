@@ -1,0 +1,6 @@
+TYPE sUDT_VirtualMasterComm_Drive :
+STRUCT
+	Status 		:	sUDT_VirtualMasterComm_Drive_Status;			//input to plc
+	Control 	:	sUDT_VirtualMasterComm_Drive_Control;			//output to plc
+END_STRUCT
+END_TYPE

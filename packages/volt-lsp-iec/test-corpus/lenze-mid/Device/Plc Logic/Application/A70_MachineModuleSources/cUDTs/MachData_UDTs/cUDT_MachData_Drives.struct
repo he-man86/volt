@@ -1,0 +1,17 @@
+TYPE cUDT_MachData_Drives :
+STRUCT
+MainDrive_VM 				: UDT_VirtualMaster;
+MainDrive					: UDT_ServoDrive;
+WrappingDevice				: UDT_ServoDrive;
+SideCorrection				: UDT_ServoDrive;
+SideCorrection_FreeLimit 	: UDT_ServoJogLimitFree;
+FeedForwardADS				: UDT_FQI_Drive;
+FeedForwardATF				: UDT_FQI_Drive;
+Fan							: UDT_FQI_Drive;
+ElevatorATF					: UDT_FQI_Drive;
+
+Bobbine						: UDT_FQI_Drive;
+
+
+END_STRUCT
+END_TYPE

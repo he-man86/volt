@@ -1,0 +1,35 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+//SafetyControl_01 : 
+Set_Local_EstopError : BOOL;
+//SafetyControl_01 : 
+Set_Local_DoorsError : BOOL;
+//SafetyControl_01 : 
+Set_Local_STOError : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare01 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare02 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare03 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare04 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare05 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare06 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare07 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare08 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare09 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare10 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare11 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare12 : BOOL;
+//SafetyControl_01 : 
+CTRL_Spare13 : BOOL;
+END_VAR

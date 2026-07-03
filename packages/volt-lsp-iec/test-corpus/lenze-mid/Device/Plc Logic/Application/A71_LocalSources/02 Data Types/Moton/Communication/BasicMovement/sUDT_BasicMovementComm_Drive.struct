@@ -1,0 +1,8 @@
+TYPE sUDT_BasicMovementComm_Drive :
+STRUCT
+	Control: sUDT_BasicMovementComm_Drive_Control;
+	Status: sUDT_BasicMovementComm_Drive_Status;
+
+	
+END_STRUCT
+END_TYPE

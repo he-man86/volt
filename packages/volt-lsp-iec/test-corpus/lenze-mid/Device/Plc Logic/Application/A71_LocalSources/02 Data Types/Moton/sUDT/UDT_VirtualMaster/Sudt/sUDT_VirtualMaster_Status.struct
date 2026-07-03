@@ -1,0 +1,9 @@
+TYPE sUDT_VirtualMaster_Status :
+STRUCT
+	DriveIsReady: BOOL;
+	RotationPulse: BOOL;
+	ActXPos: INT;
+	ActSpeed: INT;
+	
+END_STRUCT
+END_TYPE
