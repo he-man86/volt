@@ -30,9 +30,10 @@
   the `vendor-only-operator` message: the 9 TC-documented ops (`__QUERYINTERFACE`/`__QUERYPOINTER`/the __TRY
   block/`__VARINFO`/`__POSITION`/`__POUNAME`) now say *"exists in TwinCAT but with a different signature — the
   CODESYS form here won't compile"*; the 4 genuinely-absent ones (`__CURRENTTASK`/`__COMPARE_AND_SWAP`/
-  `__XADD`/`__POOL`) keep *"CODESYS-only and not supported"*. Conformance snapshots updated. Still TODO:
-  soften the `__NEW`/`__DELETE` hover notes (TC compiles them per the `op_sys_new_delete` recording; the real
-  caveat is dynamic-memory config, not "TC doesn't support").
+  `__XADD`/`__POOL`) keep *"CODESYS-only and not supported"*. Conformance snapshots updated. Also fixed the
+  `__NEW`/`__DELETE` hover notes: they're SHARED (TC compiles them — `op_sys_new_delete` recording + InfoSys:
+  TC allocates from router memory), so dropped the wrong "TC doesn't support / no runtime" notes and made the
+  gotchas apply to both vendors (enable_dynamic_creation + router-memory/0-on-failure).
 - [x] 3.5 **Pragmas DONE** — 20 TwinCAT-only pragmas, all `Tc`-prefixed Beckhoff attributes (correctly
   tagged, each with a CODESYS-equivalent note); 0 CODESYS-only (right — TC3 is CODESYS-derived, accepts the
   CODESYS attribute set; `call_after_init`/`hide`/`pack_mode`/`monitoring` verified TC-supported via InfoSys).

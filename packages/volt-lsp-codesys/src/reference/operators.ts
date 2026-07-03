@@ -124,29 +124,19 @@ const ENTRIES: ReferenceEntry[] = [
 	// LSP's TC-incompatible-operator check flags these when activeVendor
 	// is "twincat" so users see a red squiggle instead of waiting for the
 	// compiler. __ISVALIDREF is the exception — TC accepts it cleanly.
-	op("__NEW", "system", "Dynamic FB instantiation. `__NEW(FB_Name)` returns a POINTER TO FB_Name.", {
-		// vendor tag intentionally omitted: TC parses __NEW without
-		// rejecting (verified by `op_sys_new_delete` recording → TC 0 errors).
-		// It's CODESYS-specific in spirit (TC has no runtime to back the
-		// dynamic-allocation semantic), but flagging it as syntactically
-		// vendor-rejected produces false positives. The `gotchas` text
-		// still surfaces in hover so users get the portability heads-up.
+	// Shared — TwinCAT supports __NEW/__DELETE at runtime too (op_sys_new_delete recording: TC 0 build errors;
+	// Beckhoff InfoSys: TC allocates from ROUTER memory). Not vendor-tagged, so no diagnostic — the gotchas
+	// are the portability heads-up, and they apply to BOTH vendors (the old "TC has no runtime" note was wrong).
+	op("__NEW", "system", "Dynamic FB/type instantiation. `__NEW(FB_Name)` returns a POINTER TO it (0 on failure).", {
 		gotchas: [
-			"Requires {attribute 'enable_dynamic_creation'} on the FB.",
-			"TC parses without errors but lacks the runtime — call has no effect on TwinCAT.",
+			"Requires {attribute 'enable_dynamic_creation'} on the FB/DUT (both vendors; library components exempt).",
+			"TwinCAT allocates from router memory and returns 0 if none is free. Always pair with __DELETE.",
 		],
-		equivalentIn: {
-			twincat: { name: "(no direct equivalent)", note: "TC programs use static instances or pre-allocated pools" },
-		},
 	}),
-	op("__DELETE", "system", "Dispose a dynamically-allocated FB. `__DELETE(pInst)`.", {
-		// See __NEW above — TC parses cleanly, gotcha lives in hover only.
+	op("__DELETE", "system", "Release memory allocated by __NEW. `__DELETE(pInst)` — calls FB_exit, then frees.", {
 		gotchas: [
-			"TC parses without errors but the matching __NEW has no runtime backing.",
+			"Both vendors call the instance's FB_exit before freeing; every __NEW must be matched or you leak memory.",
 		],
-		equivalentIn: {
-			twincat: { name: "(no direct equivalent)", note: "Pair of __NEW; TC doesn't support either" },
-		},
 	}),
 	op("__ISVALIDREF", "system", "Returns TRUE iff a REFERENCE TO is bound to a valid target.", {
 		examples: ["IF __ISVALIDREF(refVar) THEN refVar := newValue; END_IF"],
