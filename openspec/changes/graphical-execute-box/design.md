@@ -74,6 +74,29 @@ gap:
 So this change closes the complete set of bakon bridge gaps. (A reusable raw-vs-materialized fidelity sweep
 would guard future gaps, but it needs a live bridge — a diagnostic script, not a hermetic CI test.)
 
+## Round-trip verification (2026-07-03 — live, against the Bakon project)
+
+Confirmed the read-only-first behavior end-to-end through the real bridge (bakon copy, headless), not just
+the offline unit tests:
+- **Pull:** `Recipes.prg` materializes as the `(* @volt-graphical: FBD *)` marker — no phantom `EXECUTE()`.
+- **Push (fetch version):** refused. Note it is refused by a *version conflict*, because a graphical body's
+  version differs between the fetch path (`c002…`) and the push-side `WalkItems` recompute (`b025…`) — a
+  pre-existing graphical read/checkout non-determinism (a normal ST item pushes cleanly with a matching
+  version). Harmless here: for a read-only body, push-always-refused is the desired outcome.
+- **Push (matching version):** reaches `GraphicalCode.Write` and my explicit guard fires with the clear
+  message *"this body contains an Execute box (inline ST) and is read-only — edit it in the IDE, not via
+  push."* So the guard is a real, live-exercised backstop, not just unit-tested.
+
+**Separate observation (out of scope, worth a look):** the graphical fetch-vs-push version discrepancy
+violates the Versioning "all three agree on a version" invariant *for graphical bodies* (ST is fine). It's
+harmless for read-only bodies, but would break legitimate pushes of an EDITABLE FBD/LD body — a candidate
+for its own investigation + regression test (per the bridge-gap-tests policy). Not caused by this change
+(the non-determinism is in the CODESYS graphical read, which predates it).
+
+**On a committed live fixture:** `CodesysTestProject` (the headless fixture) has no Execute box and one
+can't be added via push (VG cannot express it), so an Execute-box *round-trip* e2e test would need an
+IDE-authored fixture project. The offline `GraphicalCodeTests` (red→green) are the durable guard for now.
+
 ## Non-goals
 
 - Not touching the CFC/SFC read-only bodies (already correct).
