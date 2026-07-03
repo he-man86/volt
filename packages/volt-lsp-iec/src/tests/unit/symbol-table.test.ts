@@ -162,6 +162,16 @@ describe("symbol table: GVL", () => {
 		expect(lookupLocal(project, "gFoo")[0]?.kind).toBe("gvl_var");
 		expect(lookupLocal(project, "gBar")[0]?.kind).toBe("gvl_var");
 	});
+
+	it("names the GVL block by basename even for a Windows backslash URI", () => {
+		// The GVL block's name is what `GvlName.field` qualified access resolves against. A host that keys
+		// documents by OS path (backslash on Windows) must still yield the bare basename — regression:
+		// gvlNameFromUri split on `/` only, so the block name became the whole path and qualified access failed.
+		const project = buildSymbolTable([
+			{ uri: "C:\\proj\\010 PC01\\PC01_GVL.gvl", parseResult: parseSource(`VAR_GLOBAL\n\tgFoo : INT;\nEND_VAR\n`) },
+		]);
+		expect(lookupLocal(project, "PC01_GVL")[0]?.kind).toBe("gvl_block");
+	});
 });
 
 describe("symbol table: standalone METHOD/ACTION (materialized child file)", () => {
