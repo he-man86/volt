@@ -1,0 +1,56 @@
+TYPE sMACH_RCP_Parameters :
+STRUCT
+	sRecipeName							: STRING;
+	nProductType						: INT:=6;			(* ProductType = 0 = Slab Square *)
+															(* ProductType = 1 = Slab triangle *)
+															(* ProductType = 2 = Slab diagonal *)
+															(* ProductType = 3 = Round Cake *)
+															(* ProductType = 4 = Tray Square Small *)
+															(* ProductType = 5 = Tray Square Large *)
+
+	rStartHeightKnife					: REAL := 60;		(* Starthoogte, gemeten vanaf onderzijde mes tot aan de tafel *)
+	rStopHeightKnife					: REAL := 0;		(* Stophoogte, gemeten vanaf onderzijde mes tot aan de tafel *)
+	nPartsRound						: INT := 12;			(*aantal stukken ronde taart *)
+	nPartsRoundRight				: INT := 12;			(*aantal stukken ronde taart op rechter positie*)
+	nPartsX							: INT := 5;			(*aantal stukken in X richting*)
+	nPartsY							: INT := 5;			(*aantal stukken in Y richting*)
+	rAngleInDegrees					: REAL := 40;		(* Angle in degrees when producttype is diagonal *)
+	rProdLength_InX					: REAL:=600;
+	rProdLength_InY					: REAL:=400;
+	rUSHeightStart					: REAL := 60;		(* Start height ultrasonic generator (position Z-axis) *)
+	rUSHeightStop					: REAL := 60;		(* Stop height ultrasonic generator (position Z-axis) *)
+	dwUltrasonicPower1				: DWORD:=50;
+	rCutSpeedZ_Down1				:REAL:=50;			(* neergaande snelheid boven product in %*)
+	rCutSpeedZ_Down2				:REAL:=50;			(* neergaande snelheid in het product in %*)
+	rCutSpeedZ_Up1					:REAL:=50;			(* opgaande snelheid in het product in %*)
+	rSizeTrimRight					:REAL:=60;		(*grootte van de afvalrand in de X richting aan de voorzijde*)
+	rSizeTrimLeft						:REAL:=60;		(*grootte van de afvalrand in de X richting aan de achterzijde*)
+	rSizeTrimRear						:REAL:=60;		(*grootte van de afvalrand in de Y richting aan de linkerzijde*)
+	rSizeTrimFront					:REAL:=60;		(*grootte van de afvalrand in de Y richting aan de rechterzijde*)
+	rDiameterRound					:REAL:=24;
+	rMidPosOffsetRound1X			: REAL := 0;		(* For round products *)
+	rMidPosOffsetRound1Y			: REAL := 0;		(* For round products *)
+	rMidPosOffsetRound2X			: REAL := 0;		(* For round products *)
+	rMidPosOffsetRound2Y			: REAL := 0;		(* For round products *)
+	bTrianglesInTray					: BOOL := FALSE;	(* For tray product *)
+	bUseRectanglesForTriangles		: BOOL := FALSE;	(* For triangles only*)
+	bUseRectanglesInEight			: BOOL := FALSE;	(* For triangles in tray only*)
+	bCutRoundInSequence				: BOOL := TRUE;
+	bCutWasteFirst					: BOOL := FALSE;	(* Option to cut the waste cuts first*)
+	rPartSizeX							: REAL	:= 50;	(* For triangles only *)
+	rPartSizeY							: REAL	:= 50;	(* For triangles only *)
+	rShiftCompensation				: REAL	:= 0;		(* For slab square only, compensation due to product shoved away during cutting (e.g. when product is slippery or frozen) *)
+	rSpeedTableXY						: REAL := 100;	(* in % *)
+	rCleaningTimeUltrasonic			: REAL := 5;		(* in sec *)
+	rCleaningTimeWater				: REAL := 5;		(* in sec *)
+	rCleaningTimeAir				: REAL := 5;		(* in sec *)
+	nCleanAfterNProd				: INT;
+	nCleanProdOrCuts				: INT := 0;			(* Cleaning after number of products or after number of cuts. 0 = product, 1 = cuts *)
+	nCleanWithScraper				: INT := 1;			(* V10.01 Cleaning cycle with the use of *)
+														(*        0 = Water and scraper *)
+														(*        1 = Scraper only *)
+														(*        2 = Water only *)
+														
+	bMirrorDiagonals				: BOOL := FALSE;
+END_STRUCT
+END_TYPE

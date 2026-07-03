@@ -1,0 +1,64 @@
+FUNCTION_BLOCK SetRef_Axis
+VAR_INPUT
+	I_AxisStatus	: KC_AxisBasicsStatus;
+	I_lrHomeTarget	: LREAL;
+END_VAR
+VAR_OUTPUT
+	Q_bRefDone		: BOOL;
+	Q_bError		: BOOL;
+END_VAR
+VAR_IN_OUT
+	IQ_CmdSetRef	: BOOL;
+	IQ_Axis			: AXIS_REF;
+	IQ_uControl_Axis	: KC_AxisBasicsControl;
+END_VAR
+VAR
+	byStepper: BYTE;
+	//LenzeECSWriteParameter1: L_DCO_ReadDriveParameter;
+	bDone: BOOL;
+	bError: BOOL;
+	tWait: TON;
+	//TestMultiturn: L_SMC_Multiturn;
+	SetHomePosition : MC_SetPosition;
+END_VAR
+
+CASE byStepper OF (*VERVALLEN, KAN NU VIA HOMING IN AXISBASICS: SET HOME -> SM3_Multiturn eronder aanroepen*)
+
+	0:	Q_bRefDone							:=FALSE;
+		Q_bError							:=FALSE;
+			
+		IF IQ_CmdSetRef
+		THEN
+			tWait(IN:= FALSE);
+			IQ_uControl_Axis.bEnableDrive		:=FALSE;
+			bDone								:=FALSE;
+			bError								:=FALSE;
+			IF NOT I_AxisStatus.bDriveEnabled THEN
+				byStepper:=2;
+			END_IF
+		END_IF
+		
+	2:	SetHomePosition.Execute := TRUE;
+		IF SetHomePosition.Done OR SetHomePosition.Error THEN
+			byStepper := 4;
+		END_IF
+
+	4: Q_bRefDone := SetHomePosition.Done;
+		Q_bError := SetHomePosition.Error;
+		IF NOT IQ_CmdSetRef THEN
+			byStepper := 0;
+			SetHomePosition.Execute := FALSE;
+		END_IF
+END_CASE
+
+SetHomePosition(
+			Axis	:= IQ_Axis, 
+			Execute := , 
+			Position:= I_lrHomeTarget, 
+			Relative	:= FALSE, 
+			Done=> , 
+			Busy=> , 
+			Error=> , 
+			ErrorID=> );
+
+END_FUNCTION_BLOCK

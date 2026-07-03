@@ -1,0 +1,74 @@
+VAR_GLOBAL PERSISTENT RETAIN
+	(* recipe variables *)
+	g_HMI_sRecipeName 						:STRING :=  'new recipe';
+
+	g_HMI_RCP_Parameters					: sMACH_RCP_Parameters;
+
+(******************************************************************************************************************)
+(*machine parameters*)
+	g_HMI_MCH_dnBlockCounter			: DINT := 0;
+
+	g_HMI_nDefaultLanguage				: INT := 1031;
+	g_HMI_nSecondLanguage				: INT := 1043;
+
+	g_HMI_MCH_Parameters				: sMACH_MACH_Parameters;
+
+	g_HMI_dnLastMaintenance				: DINT;
+
+(* Counters *)
+	g_sHMI_CountersInfinite					: sCounters;		(* all infinite counters *)
+
+(* Machine settings *)
+	g_HMI_dwMachineConfig		: DWORD := 16#0000;	(* 0000.0000 *)
+	(*	Bit 0 = PneumaticAxis in machine 		//Not used anymore
+		Bit 1 = Cleaning installation
+		Bit 2 = Nano machine, mutually exlusive with XL		//Not used anymore
+		Bit 3 = XL machine, mutually exlusive with Nano
+		Bit 4 = RedCase enabled *)
+
+	g_HMI_dwProductOptions		: DWORD := 16#0000;	(* 0000.0000 *)
+	(*	
+		Prod_SlabSquare				:= 0,		(* ProductType = 0 = Slab Square *)
+		Prod_SlabTriangle			:= 1,		(* ProductType = 1 = Slab triangle *)
+		Prod_SlabDiagonal			:= 2,		(* ProductType = 2 = Slab diagonal *)
+		Prod_Round					:= 3,		(* ProductType = 3 = Round Cake *)
+		Prod_TraySquareSmall		:= 4,		(* ProductType = 4 = Tray Square Small *)
+		Prod_TraySquareLarge		:= 5,		(* ProductType = 5 = Tray Square Large *)
+		Prod_TraySquareTriple		:= 6,		(* ProductType = 6 = Tray Square 4 on a table *)
+		Prod_SlabSquareClamp		:= 7,		(* ProductType = 7 = Slab Square op tafel met opklemvingers (V04.01) *)
+		Prod_TraySquareDouble		:= 8,		(* ProductType = 8 = Tray square 2 side by side*)
+		Prod_RoundQuatro			:= 9,		(* ProductType = 9 = Round cake 4 off*)
+		Prod_SlabDouble				:= 10		(* productType = 10 = Slab double, alleen door te snijden in 90 graden*)
+
+		Triangles In Tray			:= 15		(* Part of producttype 4 and 5 *)
+	*)
+	
+(* Memory bits for Set ref axis *)
+	g_bAxis_RSet			: BOOL;
+	g_bAxis_FrontSet		: BOOL;
+	g_bAxis_RearSet		: BOOL;
+
+	(*Bits for redcase retry*)
+	g_bContactRedCase : BOOL; 
+	g_bScanDataPending	: BOOL;
+	g_bRedCaseTried		: BOOL;
+	g_nRedCaseLastTime: DATE_AND_TIME;
+	
+	(* Bits for new visualisation *)
+	//Operation menu
+	g_bShowCurrRecipeName			: BOOL;
+	g_bShowNumberOfProdTotal		: BOOL;
+	g_bShowNumberOfProdDay			: BOOL;
+	g_bShowNumberOfProdHour			: BOOL;
+	g_bShowMachineState				: BOOL;
+	
+	//Quick Menu
+	g_bShowCleaningMode				: BOOL;
+	g_bShowRecipes					: BOOL;
+	g_bShowManual					: BOOL;
+	g_bShowSettings					: BOOL;
+	g_bShowAlarms					: BOOL;
+	g_bShowCleanKnifeBtn			: BOOL;
+	g_bShowProdCount				: BOOL;
+	
+END_VAR

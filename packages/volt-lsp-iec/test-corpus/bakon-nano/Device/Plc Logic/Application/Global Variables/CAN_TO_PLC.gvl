@@ -1,0 +1,12 @@
+//This gobal variable list is received via the network.
+//Sender: Imported from file '\\SRV2012\Home$\pieter\Documents\Projecten\P10037 Hert nano met wasbak\21000149 Software\CAN Bridge\CAN_TO_PLC.gvl'
+//Protocol: UDP
+
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	dwAGM1_PowerLoss			: DWORD;
+	rAGM1_Frequency				: REAL;
+	bAGM1_CommFailure			: BOOL;
+	dwErrorDetailsAGM1			: DWORD;
+	bUltrasonic1				: BOOL;
+END_VAR

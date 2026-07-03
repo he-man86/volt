@@ -1,0 +1,14 @@
+VAR_GLOBAL
+	g_uControl_X_Axis		:KC_AxisBasicsControl;	(* VIRTUAL AXIS *)
+	g_uStatus_X_Axis			:KC_AxisBasicsStatus;	(* VIRTUAL AXIS *)
+	g_uControl_Y_Axis		:KC_AxisBasicsControl;	(* VIRTUAL AXIS *)
+	g_uStatus_Y_Axis			:KC_AxisBasicsStatus;	(* VIRTUAL AXIS *)
+	g_uControl_Front_Axis	:KC_AxisBasicsControl;
+	g_uStatus_Front_Axis	:KC_AxisBasicsStatus;
+	g_uControl_Rear_Axis	:KC_AxisBasicsControl;
+	g_uStatus_Rear_Axis		:KC_AxisBasicsStatus;
+	g_uControl_Z_Axis		:KC_AxisBasicsControl;
+	g_uStatus_Z_Axis			:KC_AxisBasicsStatus;
+	g_uControl_R_Axis		:KC_AxisBasicsControl;
+	g_uStatus_R_Axis		:KC_AxisBasicsStatus;
+END_VAR

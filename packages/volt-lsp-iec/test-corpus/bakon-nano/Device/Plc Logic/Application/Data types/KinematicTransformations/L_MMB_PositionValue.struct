@@ -1,0 +1,21 @@
+TYPE L_MMB_PositionValue :
+STRUCT
+	lrX:	LREAL:=0;	(*X-Position*)
+	lrY:	LREAL:=0; 	(*Y-Position*)
+(*	lrZ:	LREAL:=0;	(*Z-Position*)
+	lrU:	LREAL:=0;	(*U-Position*)
+	lrV:	LREAL:=0;	(*V-Position*)
+	lrW:	LREAL:=0;	(*W-Position*)
+	lrA:	LREAL:=0;	(*A-Position*)
+	lrB:	LREAL:=0;	(*B-Position*)
+	lrC:	LREAL:=0;	(*C-Position*)
+*)	lrA1:	LREAL:=0;	(*A1-Position*)
+	lrA2:	LREAL:=0;	(*A2-Position*)
+(*	lrA3:	LREAL:=0;	(*A3-Position*)
+	lrA4:	LREAL:=0;	(*A4-Position*)
+	lrA5:	LREAL:=0;	(*A5-Position*)
+	lrA6:	LREAL:=0;	(*A6-Position*)
+	lrA7:	LREAL:=0;	(*A7-Position*)
+*)
+END_STRUCT
+END_TYPE

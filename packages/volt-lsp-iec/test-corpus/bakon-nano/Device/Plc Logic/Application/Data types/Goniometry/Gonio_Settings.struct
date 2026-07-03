@@ -1,0 +1,20 @@
+TYPE Gonio_Settings :
+	//This structure should only be used with the goniometric functions!
+	//It has to be initialized.
+STRUCT	
+	knifeLength		: REAL;					//The lengtht of the knife
+	knifeAxis		: REAL;					//This is the distance between the center of the axis tot the 0 point of the knife.
+	
+	marginYMax		: REAL;					//Margin to bottom of table
+	marginYMin		: REAL;					//Margin to top of table
+	marginXMax		: REAL;					//Margin to left of table
+	marginXMin		: REAL;					//Margin to right of table
+	
+	adjustYMax		: BOOL := FALSE;		//When true, the bottom margin will be adjusted acording to the angle and length of the knife.
+	adjustYMin		: BOOL := FALSE;		//When true, the top margin will be adjusted acording to the angle and length of the knife.
+	adjustXMax		: BOOL := FALSE;		//When true, the left margin will be adjusted acording to the angle and length of the knife.
+	adjustXMin		: BOOL := FALSE;		//When true, the right margin will be adjusted acording to the angle and length of the knife.
+
+	precision		: REAL := 0.1;			//Corrections will be rounded tot this number.
+END_STRUCT
+END_TYPE

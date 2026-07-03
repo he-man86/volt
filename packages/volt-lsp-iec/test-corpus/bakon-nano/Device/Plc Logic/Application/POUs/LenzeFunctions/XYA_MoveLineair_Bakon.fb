@@ -1,0 +1,342 @@
+(***********************************************************************************
+Creation: LENL 		Datum: march 2008		Version: 1.0.0
+ ***********************************************************************************
+ FUNCTION:					
+
+FB for moving XYA in gear mode with a dummy axis. The dummy axis can be positioned or control external
+
+ ***********************************************************************************
+Name							Datum				Changes
+Kling 							24.03.2009		Implementation
+
+************************************************************************************
+NOTE:	
+
+***********************************************************************************)
+
+
+FUNCTION_BLOCK  XYA_MoveLineair_Bakon
+
+VAR
+	byStepper: BYTE;
+	rMoveX: REAL;
+	rMoveY: REAL;
+	rMoveA: REAL;
+	MC_GearIn_X: MC_GearIn;
+	MC_GearIn_Y: MC_GearIn;
+	MC_GearIn_A: MC_GearIn;
+	MC_GearOut_X: MC_GearOut;
+	MC_GearOut_Y: MC_GearOut;
+	MC_GearOut_A: MC_GearOut;
+	MC_MoveAbsolute_X: MC_MoveAbsolute;
+	MC_MoveAbsolute_Y: MC_MoveAbsolute;
+	MC_MoveAbsolute_A: MC_MoveAbsolute;
+	CalcGearingRatio_X: CalcGearingRatio;
+	CalcGearingRatio_Y: CalcGearingRatio;
+	CalcGearingRatio_A: CalcGearingRatio;
+	CalcGearingRatio_F: CalcGearingRatio;
+	CalcGearingRatio_R: CalcGearingRatio;
+	MC_MoveAbsolute_Mst: MC_MoveAbsolute;
+	MC_SetPosition_Mst: MC_SetPosition;
+	CalcMasterSpeedAcc_X: CalcMasterSpeedAcc;
+	CalcMasterSpeedAcc_Y: CalcMasterSpeedAcc;
+	CalcMasterSpeedAcc_A: CalcMasterSpeedAcc;
+	CalcMasterSpeedAcc_F: CalcMasterSpeedAcc;
+	CalcMasterSpeedAcc_R: CalcMasterSpeedAcc;
+	//MC_Power_Mst: MC_Power;
+	rSpeedOverrideOld: REAL;
+	MC_Stop_Mst: MC_Stop;
+	MC_Halt_X: MC_Halt;
+	MC_Halt_Y: MC_Halt;
+	MC_Halt_A: MC_Halt;
+	rMoveFront: LREAL;
+	rMoveRear: LREAL;
+END_VAR
+
+VAR_INPUT
+	bEnable			: BOOL;
+	bPause			: BOOL;
+	rMoveMaster		: REAL;
+	strTarget			: XYA_Target;
+	rSpeedOverride	: REAL:=0.5;
+	rAccOverride		: REAL:=0.5;
+	bPositionMaster: BOOL;
+END_VAR
+
+VAR_IN_OUT
+	AxisX		: AXIS_REF;
+	AxisY		: AXIS_REF;
+	AxisA		: AXIS_REF;
+	Master		: AXIS_REF;
+END_VAR
+
+VAR_OUTPUT
+	bReady		:BOOL;
+	bBusy			:BOOL;
+	bError			:BOOL;
+	nStatus		:INT;
+	bAxisAreGearedIn: BOOL;
+	bErrorTargetPosInSWLimits: BOOL;
+END_VAR
+
+MC_GearIn_X(			Execute:= , 	RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisX.scPar.MaxAcceleration , 	Deceleration:=AxisX.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisX , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_GearIn_Y(			Execute:=, 		RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisY.scPar.MaxAcceleration , 	Deceleration:=AxisY.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisY , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_GearIn_A(			Execute:=, 		RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisA.scPar.MaxAcceleration , 	Deceleration:=AxisA.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisA , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_GearOut_X(			Execute:= , 	Slave:=AxisX , 	Done=> , 	Error=> , 	ErrorID=> );
+	MC_GearOut_Y(			Execute:= , 	Slave:=AxisY , 	Done=> , 	Error=> , 	ErrorID=> );
+	MC_GearOut_A(			Execute:= , 	Slave:=AxisA , 	Done=> , 	Error=> , 	ErrorID=> );
+	MC_MoveAbsolute_X(		Execute:= , 	Position:= , 	Velocity:= , 	Acceleration:= ,	Deceleration:= ,	Direction:= , 	Axis:=AxisX , 	Done=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_MoveAbsolute_Y(		Execute:= , 	Position:= , 	Velocity:= , 	Acceleration:= ,	Deceleration:= ,	Direction:= , 	Axis:=AxisY , 	Done=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_MoveAbsolute_A(		Execute:= , 	Position:= , 	Velocity:= , 	Acceleration:= ,	Deceleration:= ,	Direction:= , 	Axis:=AxisA , 	Done=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_MoveAbsolute_Mst(	Execute:= , 	Position:= , 	Velocity:= , 	Acceleration:= ,	Deceleration:= ,	Direction:=MC_DIRECTION.mcPositiveDirection , 	Axis:=Master , 	Done=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
+	MC_SetPosition_Mst(		Execute:= ,		Position:=0 , 	Relative:=FALSE , 	Axis:=Master, 	Done=> , 	Error=> , 	ErrorID=> );
+	(*MC_Power_Mst(			Enable:=TRUE ,	bRegulatorOn:=TRUE , 	bDriveStart:=TRUE , 	Axis:=Master , 	Status=> ,	Error=> ,	ErrorID=> );*)
+	MC_Stop_Mst(			Execute:= ,		Deceleration:=MC_MoveAbsolute_Mst.Deceleration  , 	Axis:=Master , 	Done=> , 	Error=> , 	ErrorID=> );
+
+
+(*Limiting speed and acc override*)
+rSpeedOverride		:=LIMIT(0.01,rSpeedOverride,1);
+rAccOverride		:=LIMIT(0.01,rAccOverride,1);
+
+IF NOT bEnable THEN
+	byStepper:=0;
+	MC_GearIn_X.Execute :=FALSE;
+	MC_GearIn_Y.Execute :=FALSE;
+	MC_GearIn_A.Execute :=FALSE;
+	MC_GearOut_X.Execute:=FALSE;
+	MC_GearOut_Y.Execute:=FALSE;
+	MC_GearOut_A.Execute:=FALSE;
+	MC_MoveAbsolute_X.Execute:=FALSE;
+	MC_MoveAbsolute_Y.Execute:=FALSE;
+	MC_MoveAbsolute_A.Execute:=FALSE;
+	MC_MoveAbsolute_Mst.Execute:=FALSE;
+	MC_SetPosition_Mst.Execute:=FALSE;
+	MC_Halt_X.Execute:=FALSE;	(* V00.02 *)
+	MC_Halt_Y.Execute:=FALSE;	(* V00.02 *)
+	MC_Halt_A.Execute:=FALSE;	(* V00.02 *)
+	bReady:=FALSE;
+	bBusy:=FALSE;
+	bError:=FALSE;
+	nStatus:=0;
+	MC_Stop_Mst.Execute:=FALSE;
+	bAxisAreGearedIn		:=FALSE;
+	bErrorTargetPosInSWLimits:=FALSE;(*Software-limit error*)
+ELSE
+
+CASE byStepper OF
+0:		bBusy:=TRUE;
+
+		IF CalcCheckSWLimit_XYA(strTarget, AxisX, AxisY, AxisA) THEN
+			byStepper:=200;
+		ELSE
+			rMoveX:=strTarget.X_Target - AxisX.lrSetPosition ;
+			rMoveY:=strTarget.Y_Target - AxisY.lrSetPosition;
+			rMoveA:=strTarget.A_Target - AxisA.lrSetPosition;
+			
+			
+			rMoveFront := ( strTarget.X_Target + strTarget.Y_Target) - (AxisX.lrSetPosition + AxisY.lrSetPosition ); 
+			rMoveRear := ( strTarget.X_Target - strTarget.Y_Target) - (AxisX.lrSetPosition - AxisY.lrSetPosition ); 
+			
+
+			IF bPositionMaster THEN
+			byStepper:=2;
+			ELSE
+			byStepper:=10;
+			END_IF
+		END_IF
+
+2:		MC_SetPosition_Mst.Execute:=TRUE;
+		MC_Halt_X.Execute:=TRUE;
+		MC_Halt_Y.Execute:=TRUE;
+		MC_Halt_A.Execute:=TRUE;
+
+		IF MC_SetPosition_Mst.Done AND MC_Halt_X.Done AND MC_Halt_Y.Done AND MC_Halt_A.Done THEN
+		MC_Halt_X.Execute:=FALSE;
+		MC_Halt_Y.Execute:=FALSE;
+		MC_Halt_A.Execute:=FALSE;
+			byStepper:=10;
+		END_IF
+
+10:		(*Dummy-axis is the master*)
+		CalcGearingRatio_X(	rMoveMaster:=rMoveMaster ,
+								rMoveSlave:=rMoveX ,
+								nGearNum=> ,
+								nGearDenum=>,
+								rGearingFactor=> );
+
+		CalcGearingRatio_Y(	rMoveMaster:=rMoveMaster ,
+								rMoveSlave:=rMoveY ,
+								nGearNum=> ,
+								nGearDenum=>,
+								rGearingFactor=> );
+
+		CalcGearingRatio_A(	rMoveMaster:=rMoveMaster ,
+								rMoveSlave:=rMoveA ,
+								nGearNum=> ,
+								nGearDenum=>,
+								rGearingFactor=> );
+								
+		CalcGearingRatio_F(	rMoveMaster:=rMoveMaster ,
+								rMoveSlave:=rMoveFront ,
+								nGearNum=> ,
+								nGearDenum=>,
+								rGearingFactor=> );
+		
+		CalcGearingRatio_R(	rMoveMaster:=rMoveMaster ,
+								rMoveSlave:=rMoveRear ,
+								nGearNum=> ,
+								nGearDenum=>,
+								rGearingFactor=> );
+								
+
+		MC_GearIn_X.RatioNumerator:=CalcGearingRatio_X.nGearNum;
+		MC_GearIn_X.RatioDenominator:=INT_TO_UINT( CalcGearingRatio_X.nGearDenum);
+		MC_GearIn_X.Execute:=TRUE;
+
+		MC_GearIn_Y.RatioNumerator:=CalcGearingRatio_Y.nGearNum;
+		MC_GearIn_Y.RatioDenominator:=INT_TO_UINT( CalcGearingRatio_Y.nGearDenum);
+		MC_GearIn_Y.Execute:=TRUE;
+
+		MC_GearIn_A.RatioNumerator:=CalcGearingRatio_A.nGearNum;
+		MC_GearIn_A.RatioDenominator:=INT_TO_UINT( CalcGearingRatio_A.nGearDenum);
+		MC_GearIn_A.Execute:=TRUE;
+
+		IF MC_GearIn_X.InGear AND MC_GearIn_Y.InGear AND MC_GearIn_A.InGear  THEN
+			bAxisAreGearedIn			:=TRUE;
+			IF bPositionMaster THEN
+			byStepper:=11;
+			ELSE
+			byStepper:=30;
+			END_IF
+			rSpeedOverrideOld:=rSpeedOverride;
+		END_IF
+
+11:		(*Calculate max-speed and acceleration*)
+		CalcMasterSpeedAcc_X(	rGearingRatio:=CalcGearingRatio_X.rGearingFactor  ,	Axis:=AxisX ,	rVelocity=> ,	rAcceleration=> );
+		CalcMasterSpeedAcc_Y(	rGearingRatio:=CalcGearingRatio_Y.rGearingFactor  ,	Axis:=AxisY ,	rVelocity=> ,	rAcceleration=> );
+		CalcMasterSpeedAcc_A(	rGearingRatio:=CalcGearingRatio_A.rGearingFactor  ,	Axis:=AxisA ,	rVelocity=> ,	rAcceleration=> );
+		CalcMasterSpeedAcc_F(	rGearingRatio:=CalcGearingRatio_F.rGearingFactor , Axis := Front_Axis, rVelocity=>, rAcceleration=>);
+		CalcMasterSpeedAcc_R(	rGearingRatio:=CalcGearingRatio_R.rGearingFactor , Axis := Rear_Axis, rVelocity=>, rAcceleration=>);  	
+		(*Move X to target*)
+		MC_MoveAbsolute_Mst.Position:=rMoveMaster;
+		MC_MoveAbsolute_Mst.Velocity:=MIN(CalcMasterSpeedAcc_F.rVelocity,MIN(CalcMasterSpeedAcc_R.rVelocity, MIN(MIN(CalcMasterSpeedAcc_X.rVelocity, CalcMasterSpeedAcc_Y.rVelocity), CalcMasterSpeedAcc_A.rVelocity))) * rSpeedOverride;
+		MC_MoveAbsolute_Mst.Acceleration:=MIN(CalcMasterSpeedAcc_F.rAcceleration,MIN(CalcMasterSpeedAcc_R.rAcceleration,MIN(MIN(CalcMasterSpeedAcc_X.rAcceleration, CalcMasterSpeedAcc_Y.rAcceleration), CalcMasterSpeedAcc_A.rAcceleration))) * rAccOverride ;
+		MC_MoveAbsolute_Mst.Deceleration:=MC_MoveAbsolute_Mst.Acceleration;
+		MC_MoveAbsolute_Mst.Execute:=TRUE;
+
+		IF MC_MoveAbsolute_Mst.Done THEN
+			MC_MoveAbsolute_Mst.Execute:=FALSE;
+			byStepper:=80;
+		END_IF
+
+		(*Restart positioning if SpeedOverride  changes*)
+		IF rSpeedOverride <> rSpeedOverrideOld THEN
+					MC_MoveAbsolute_Mst.Execute:=FALSE;
+					rSpeedOverrideOld:=rSpeedOverride;
+					byStepper:=13;
+		END_IF
+
+		(*Pause*)
+		IF bPause THEN
+			byStepper:=20;
+			MC_Stop_Mst.Execute:=TRUE;
+			MC_MoveAbsolute_Mst.Execute:=FALSE;
+		END_IF
+
+13:		(*Restart*)
+		byStepper:=11;
+
+20:		(*Restart after pause*)
+		IF NOT bPause THEN
+			MC_Stop_Mst.Execute:=FALSE;
+			byStepper:=11;
+		END_IF
+
+
+30:		IF Master.lrActPosition >= (rMoveMaster - 0.1) THEN	(*This is important! Axes are currently geared in, so will follow the movement of the Master axis! gear at when the master made a complete move!*)
+			byStepper:=80;
+		END_IF
+
+80:		(*Gear-out*)
+		MC_GearOut_X.Execute:=TRUE;
+		MC_GearOut_Y.Execute:=TRUE;
+		MC_GearOut_A.Execute:=TRUE;
+
+		IF MC_GearOut_X.Done AND  MC_GearOut_Y.Done AND  MC_GearOut_A.Done THEN
+			MC_GearOut_X.Execute:=FALSE;
+			MC_GearOut_Y.Execute:=FALSE;
+			MC_GearOut_A.Execute:=FALSE;
+			MC_GearIn_X.Execute:=FALSE;
+			MC_GearIn_Y.Execute:=FALSE;
+			MC_GearIn_A.Execute:=FALSE;
+			bAxisAreGearedIn		:=FALSE;
+			byStepper:=90;
+		END_IF
+
+90:		(*single axis-movement*)
+			MC_MoveAbsolute_X.Position:=strTarget.X_Target;
+			MC_MoveAbsolute_X.Velocity:=AxisX.scPar.MaxVelocity;
+			MC_MoveAbsolute_X.Acceleration:=AxisX.scPar.MaxAcceleration;
+			MC_MoveAbsolute_X.Deceleration:=AxisX.scPar.MaxAcceleration;	//Was fSWMaxDeceleration in old motion
+			MC_MoveAbsolute_X.Direction:=MC_DIRECTION.mcShortestWay;
+			MC_MoveAbsolute_X.Execute:=TRUE;
+
+			MC_MoveAbsolute_Y.Position:=strTarget.Y_Target;
+			MC_MoveAbsolute_Y.Velocity:=AxisY.scPar.MaxVelocity;
+			MC_MoveAbsolute_Y.Acceleration:=AxisY.scPar.MaxAcceleration;
+			MC_MoveAbsolute_Y.Deceleration:=AxisY.scPar.MaxAcceleration;	//Was fSWMaxDeceleration in old motion
+			MC_MoveAbsolute_Y.Direction:=MC_DIRECTION.mcShortestWay;
+			MC_MoveAbsolute_Y.Execute:=TRUE;
+
+			MC_MoveAbsolute_A.Position:=strTarget.A_Target;
+			MC_MoveAbsolute_A.Velocity:=AxisA.scPar.MaxVelocity;
+			MC_MoveAbsolute_A.Acceleration:=AxisA.scPar.MaxAcceleration;
+			MC_MoveAbsolute_A.Deceleration:=AxisA.scPar.MaxAcceleration;	//Was fSWMaxDeceleration in old motion
+			MC_MoveAbsolute_A.Direction:=MC_DIRECTION.mcShortestWay;
+			MC_MoveAbsolute_A.Execute:=TRUE;
+
+			IF MC_MoveAbsolute_X.Done AND MC_MoveAbsolute_Y.Done AND MC_MoveAbsolute_A.Done THEN
+				byStepper:=100;
+			END_IF
+
+100:		(*Ready*)
+			bBusy:=FALSE;
+			bReady:=TRUE;
+
+200:		bErrorTargetPosInSWLimits:=TRUE;(*Software-limit error*)
+			;
+END_CASE
+
+MC_Halt_X(
+	Execute:= ,
+	Deceleration:= 100,
+	Axis:=AxisX ,
+	Done=> ,
+	CommandAborted=> , 
+	Error=> , 
+	ErrorID=> );
+
+MC_Halt_Y(
+	Execute:= , 
+	Deceleration:= 100,
+	Axis:=AxisY ,
+	Done=> ,
+	CommandAborted=> , 
+	Error=> , 
+	ErrorID=> );
+
+MC_Halt_A(
+	Execute:= ,
+	Deceleration:= 100,
+	Axis:=AxisA ,
+	Done=> ,
+	CommandAborted=> , 
+	Error=> ,
+	ErrorID=> );
+END_IF
+
+
+bError:=		MC_GearIn_X.Error OR MC_GearIn_Y.Error OR MC_GearIn_A.Error OR MC_GearOut_X.Error OR MC_GearOut_Y.Error OR MC_GearOut_A.Error OR
+				MC_MoveAbsolute_X.Error OR MC_MoveAbsolute_Y.Error OR MC_MoveAbsolute_A.Error OR MC_MoveAbsolute_Mst.Error OR MC_SetPosition_Mst.Error (*OR MC_Power_Mst.Error TODO: AxisBasics Status*) OR (byStepper =200);
+
+END_FUNCTION_BLOCK

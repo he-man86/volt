@@ -1,0 +1,164 @@
+FUNCTION_BLOCK KC_AxisBasics
+VAR_INPUT
+	AxisControl						:KC_AxisBasicsControl;					
+	strHomingParameters				:L_MC1P_HomeParameter;
+	bEnableSWLimits					:BOOL;
+	bEnableHWLimits					:BOOL;
+	xIgnorePosLimit					:BOOL;
+	I_bVirtual						:BOOL;
+	lrHomePosition					:LREAL;
+	I_lrTorqueLimitPos_Value		:LREAL;
+	I_lrTorqueLimitNeg_Value		:LREAL;
+END_VAR
+
+
+VAR_IN_OUT
+	AxisName						:AXIS_REF;
+	//AxisEncoder					: AXIS_REF_ETC_DS402_CS_LENZE;
+                                    
+END_VAR                             
+                                    
+VAR_OUTPUT                          
+	AxisStatus						:KC_AxisBasicsStatus;
+END_VAR
+
+
+VAR
+	dInputs : DWORD;
+	AxisBasic1: L_MC1P_AxisBasicControl;
+	AxisTorquelimit	: L_MC1P_SetTorqueLimit;
+	AxisHWLimits : L_MC1P_HWLimitSwitchInterface;
+	AxisCInh : L_MC1P_CinhHandling;
+	bRegulatorOn : BOOL;
+	bPowerHold : BOOL;
+	timeReg : TOF;
+	timeReg2 : TOF;
+END_VAR
+
+(* Torque settings *)
+AxisTorquelimit(
+	Axis:= AxisName, 
+	xEnable:= AxisName.xCommunicationOK, 
+	xSetTorqueLimitPos:= TRUE, 
+	lrTorqueLimitPos:= I_lrTorqueLimitPos_Value, 
+	xSetTorqueLimitNeg:= TRUE, 
+	lrTorqueLimitNeg:= I_lrTorqueLimitNeg_Value, 
+	xTorqueInputAsPercent:= TRUE, 
+	xBusy=> , 
+	xError=> , 
+	eErrorID=> );
+
+(*Hardware limits*)
+dInputs := L_MC1P_GetDigInputsFromDrive(Axis:= AxisName); //Bit 16 en 17 zijn de Inputs
+(*Falling Trigger van Start signaal als stop signaal*)
+
+AxisHWLimits(
+	Axis:= AxisName,
+	xEnable:= bEnableHWLimits,
+	xLimitSwitchPos:= NOT dInputs.16 AND NOT xIgnorePosLimit,
+	xLimitSwitchNeg:= NOT dInputs.17,
+	xOverwriteOtherSources:= , 
+	xBusy=> , 
+	xError=> , 
+	eErrorID=> );
+	
+//Emergency stop handling
+AxisCInh(
+	Axis:= AxisName, 
+	xEnable:= TRUE, 
+	xStayInLastState:= TRUE, 
+);
+	
+AxisBasic1(
+	Axis:= AxisName, 
+	xEnableInternalControl:= TRUE, 
+	xRegulatorOn:= (AxisControl.bEnableDrive AND g_bDI_ES_DirectOK) OR timereg.Q,// OR (bRegulatorOn), , 
+	xResetError:= AxisControl.bResetError,// OR (AxisBasic1.xResetError AND NOT AxisBasic1.xFunDone), , 
+	xEnablePositive:= TRUE, 
+	xEnableNegative:= TRUE, 
+	xDisableSWLimit:= , 
+	lrOverride:= , 
+	lrOverrideAcc:= , 
+	lrOverrideJerk:= , 
+	xStop:= NOT g_bDI_ES_DirectOK AND timeReg.Q AND NOT I_bVirtual,(*Todo True = Ga in Quickstop*) 
+	lrStopDec:= AxisControl.lrQuickStopDec,	// 20000, 
+	lrStopJerk:= , 
+	xJoggingPos:= AxisControl.bManualJogPos, 
+	xJoggingNeg:= AxisControl.bManualJogNeg, 
+	lrJoggingSetVel:= AxisControl.lrVelocity, 
+	lrJoggingSetAcc:= AxisControl.lrAcceleration, 
+	lrJoggingSetDec:= AxisControl.lrDeceleration, 
+	lrJoggingSetJerk:= , 
+	xContinuousUpdate:= , 
+	xMoveVelExecute:= , 
+	xMoveAbsExecute:= AxisControl.bPosABSPosition, 
+	xMoveRelExecute:= AxisControl.bPosRelPosition, 
+	xHalt:= , 
+	lrSetPos_Dist:= AxisControl.lrPosition, 
+	lrSetVel:= AxisControl.lrVelocity, 
+	lrSetAcc:= AxisControl.lrAcceleration, 
+	lrSetDec:= AxisControl.lrDeceleration, 
+	lrSetJerk:= , 
+	eSetDirection:= , 
+	xHomeExecute:= AxisControl.bStartHoming, 
+	lrHomePosition:= lrHomePosition, 
+	xUseHomeExtParameter:= TRUE, 
+	scHomeExtParameter:= strHomingParameters,  
+	scHomeExtTP:= , 
+	xHomeAbsSwitch:= , 
+	xInternalControlActive=> , 
+	xError=> AxisStatus.xError, 
+	eErrorID=> AxisStatus.eErrorID, 
+	xFunBusy=> , 
+	xFunDone=> , 
+	xFunCommandAborted=> , 
+	eFunStateAct=> , 
+	eControlMode=> , 
+	xIsHomed=> AxisStatus.bHomePositionAvailable, 
+	xHwLimitSwitchNeg=> AxisStatus.bLimitNeg, 
+	xHwLimitSwitchPos=> AxisStatus.bLimitPos, 
+	xSwLimitEnabled=> , 
+	xSwLimitSwitchNeg=> , 
+	xSwLimitSwitchPos=> , 
+	eAxisType=> , 
+	eAxisState=> AxisStatus.eStateAxis, 
+	xAxisReady=> AxisStatus.bDriveReady, 
+	xAxisEnabled=> , 
+	xAxisWarning=> , 
+	xAxisError=> AxisStatus.xAxisError, 
+	eAxisErrorID=> AxisStatus.eAxisErrorID, 
+	xDriveWarning=> AxisStatus.bDriveWarning,
+	xDriveError=> AxisStatus.xDriveError, 
+	dwDriveErrorID=> AxisStatus.dwDriveErrorID, 
+	lrActPos=> AxisStatus.lrActPosition, 
+	lrActVel=> AxisStatus.lrActVelocity,
+	lrSetPosOut=> , 
+	lrSetVelOut=> , 
+	lrActFollowingError=> AxisStatus.lrActFollowError, 
+	xConstantVelocity=> , 
+	xAccelerating=> , 
+	xDecelerating=> , 
+	xDirectionPositive=> , 
+	xDirectionNegative=> , 
+	xInPosition=> , 
+	xAxisAvailable=> , 
+	xStandstillSetVelocity=> , 
+	xStandstillActVelocity=> , 
+	xAxisReadyToSwitchOn=> , 
+	xAxisReadyForMotion=> );
+	
+	AxisStatus.bDriveEnabled := AxisBasic1.xAxisEnabled AND AxisBasic1.xAxisReadyForMotion;
+	AxisStatus.bHomingDone := AxisControl.bStartHoming AND AxisBasic1.xFunDone;
+	AxisStatus.bHomingBusy := AxisControl.bStartHoming AND AxisBasic1.xFunBusy;
+	AxisStatus.bManualBusy := (AxisControl.bManualJogPos OR AxisControl.bManualJogNeg) AND AxisBasic1.xFunBusy;
+	AxisStatus.bMoveAbsDone := AxisControl.bPosAbsPosition AND AxisBasic1.xFunDone;
+	AxisStatus.bMoveRelDone := AxisControl.bPosRelPosition AND AxisBasic1.xFunDone;
+	AxisStatus.bDigIn1 :=  dInputs.16;
+	AxisStatus.bDigIn2 :=  dInputs.17;
+	
+	bRegulatorOn := AxisBasic1.xRegulatorOn AND (AxisBasic1.eAxisState > L_MC1P_AXIS_STATE.StandStill);
+	bPowerHold := AxisBasic1.xRegulatorOn AND AxisBasic1.eAxisState > L_MC1P_AXIS_STATE.Stopping;
+	timeReg(IN:= AxisControl.bEnableDrive AND g_bDI_ES_DirectOK, PT:=T#100MS);
+	timeReg2(IN:= AxisControl.bEnableDrive AND g_bDI_ES_DirectOK, PT:=T#160MS);
+
+END_FUNCTION_BLOCK

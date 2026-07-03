@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  T#4ms
+Priority:  1
+Watchdog:  T#4ms (sensitivity 1)
+Calls:     Program_MotionTask1

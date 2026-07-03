@@ -1,0 +1,73 @@
+(***********************************************************************************
+Creation: LENL			 		Datum: March 2009			Version: 1.0.0
+ ***********************************************************************************
+ FUNCTION:					
+
+Calculating the gear ratio 
+
+ ***********************************************************************************
+Name							Datum				Changes					Version
+Kling 							24.03.2009		Implementation
+
+
+************************************************************************************
+NOTE:	
+
+***********************************************************************************)
+
+
+FUNCTION_BLOCK CalcGearingRatio
+VAR_INPUT
+	rMoveMaster:REAL;
+	rMoveSlave:REAL;
+END_VAR
+VAR_OUTPUT
+	nGearNum:INT;
+	nGearDenum:INT;
+	rGearingFactor: REAL;
+END_VAR
+VAR
+	rGearNum: REAL;
+	rGearDenum: REAL;
+	rGearingFactorABS: REAL;
+	bySelect: BYTE;
+	rGearNumDir: REAL;
+END_VAR
+
+(*Calc gearing-factor*)
+IF (rMoveMaster <> 0)  THEN
+	rGearingFactor:=rMoveSlave / rMoveMaster;
+ELSE
+	rGearingFactor:=0;
+END_IF
+
+rGearingFactorABS:=ABS(rGearingFactor);
+
+IF rGearingFactorABS <> 0 THEN
+	IF rGearingFactorABS > 1 THEN
+		rGearNum:=16384;
+		rGearDenum:=rGearNum / rGearingFactorABS;
+		bySelect:=1;
+	ELSE
+		rGearDenum:=16384;
+		rGearNum:=rGearDenum * rGearingFactorABS;
+		bySelect:=2;
+	END_IF
+ELSE
+	rGearNum:=0;
+	rGearDenum:=16384;
+	bySelect:=3;
+END_IF
+
+(*Direction selection*)
+IF rGearingFactor < 0 THEN
+	rGearNumDir:=-rGearNum;
+ELSE
+	rGearNumDir:=rGearNum;
+END_IF
+
+(*Write to output*)
+nGearNum		:=REAL_TO_INT(rGearNumDir);
+nGearDenum		:=REAL_TO_INT(rGearDenum);
+
+END_FUNCTION_BLOCK

@@ -1,0 +1,161 @@
+FUNCTION_BLOCK ReadParametersFromAGM
+VAR
+	byStepper: BYTE;
+	R_TRIG1: R_TRIG;
+	bStartRead: BOOL;
+	R_TRIG2: R_TRIG;
+	LenzeParRead_LDC1: CIA405.SDO_READ4; (*TODO aanroep fixen CAA_Cia_405 en dan SDO_READ4*)
+	Device : CIA405.DEVICE := 21;
+	BLINK1: BLINK;
+	TON1 :TON;
+	byMasterNumber:BYTE:= 1;
+	ptrByteArray : POINTER TO ARRAY[0..3] OF BYTE;
+END_VAR
+VAR_INPUT
+	I_bEnable:BOOL;
+END_VAR
+VAR_OUTPUT
+	bReady: BOOL;
+END_VAR
+VAR_IN_OUT
+	Q_dwAGM_Status			: DWORD;
+	Q_dwAGM_PowerLoss	: DWORD;
+	Q_dwAGM_Frequency	: REAL;
+	Q_dwAGM_ID				: DWORD;
+END_VAR
+
+(*Create toggle for reading the parameters*)
+BLINK1		(ENABLE:=I_bEnable ,
+				 TIMELOW:=t#6s ,
+				TIMEHIGH:=t#100ms,
+				OUT=> );
+R_TRIG1(CLK:=BLINK1.OUT);
+
+IF R_TRIG1.Q THEN
+	bStartRead:=TRUE;
+END_IF
+
+R_TRIG2(CLK:=LenzeParRead_LDC1.ERROR <> CIA405.CANOPEN_KERNEL_ERROR.CANOPEN_KERNEL_NO_ERROR);// OR LenzeParRead_LDC1.xTimeOut);(*TODO*)
+
+IF NOT bStartRead OR R_TRIG2.Q OR NOT I_bEnable THEN
+	byStepper:=0;
+	bReady:=FALSE;
+	bStartRead:=FALSE;
+	LenzeParRead_LDC1(ENABLE:=FALSE);
+	Q_dwAGM_ID := 0;
+ELSE
+	(*Alleen tijdens opstarten uitlezen*)
+	CASE byStepper OF
+	0:	(*Reset write FB*)
+		bReady:=FALSE;
+		TON1(IN:= FALSE);
+		byStepper:=1;
+
+	(*index 2003, generator status*)
+	1:	LenzeParRead_LDC1(
+		ENABLE:= FALSE,
+		NETWORK :=byMasterNumber,
+		Device:= Device,		 (* Adresse des Reglers *)
+		Index:=8195,					(* Code *)
+		SUBIndex:=0);				(* SubCode *)
+		byStepper:=2;
+
+	2:	LenzeParRead_LDC1(ENABLE:=TRUE,
+								NETWORK:=ByMasterNumber);
+		IF LenzeParRead_LDC1.CONFIRM THEN
+			ptrByteArray := ADR(Q_dwAGM_Status);
+			ptrByteArray^[0] := LenzeParRead_LDC1.DATA[1];
+			ptrByteArray^[1] := LenzeParRead_LDC1.DATA[2];
+			ptrByteArray^[2] := LenzeParRead_LDC1.DATA[3];
+			ptrByteArray^[3] := LenzeParRead_LDC1.DATA[4];
+			//Q_dwAGM_Status := SHL(SHL(SHL(LenzeParRead_LDC1.DATA[4],8) OR LenzeParRead_LDC1.DATA[3],8) OR LenzeParRead_LDC1.DATA[2],8) OR LenzeParRead_LDC1.DATA[1];	(* Codestelle wird gelesen *)
+			LenzeParRead_LDC1(ENABLE:=FALSE);
+			byStepper:=6;
+		END_IF
+
+	(*index 2008, Power loss*)
+	6:	LenzeParRead_LDC1(
+		ENABLE:= FALSE,
+		Device:= Device,			(* Adresse des Reglers *)
+		Index:=8200,						(* Code *)
+		SubIndex:=0);					(* SubCode *)
+		TON1(IN:=TRUE, PT:= t#1000ms);
+		IF TON1.Q THEN
+			byStepper:=8;
+			TON1(IN:= FALSE);
+		END_IF
+
+	8:	LenzeParRead_LDC1(ENABLE:=TRUE,
+								NETWORK:=1 );
+		IF LenzeParRead_LDC1.CONFIRM THEN
+			ptrByteArray := ADR(Q_dwAGM_PowerLoss);
+			ptrByteArray^[0] := LenzeParRead_LDC1.DATA[1];
+			ptrByteArray^[1] := LenzeParRead_LDC1.DATA[2];
+			ptrByteArray^[2] := LenzeParRead_LDC1.DATA[3];
+			ptrByteArray^[3] := LenzeParRead_LDC1.DATA[4];
+			//Q_dwAGM_PowerLoss :=SHL(SHL(SHL(LenzeParRead_LDC1.DATA[4],8) OR LenzeParRead_LDC1.DATA[3],8) OR LenzeParRead_LDC1.DATA[2],8) OR LenzeParRead_LDC1.DATA[1];	(* Codestelle wird gelesen *)
+			LenzeParRead_LDC1(ENABLE:=FALSE);
+			byStepper:=12;
+		END_IF
+
+	(*index 2009, weld frequency*)
+	12:	LenzeParRead_LDC1(
+		Enable:= FALSE,
+		NETWORK:=1,
+		DEVICE:= Device,		(* Adresse des Reglers *)
+		INDEX:=8201,					(* Code *)
+		SUBINDEX:=0);				(* SubCode *)
+		TON1(IN:=TRUE, PT:= t#1000ms);
+		IF TON1.Q THEN
+			byStepper:=14;
+			TON1(IN:= FALSE);
+		END_IF
+
+	14:LenzeParRead_LDC1(ENABLE:=TRUE,
+								NETWORK:=1);
+		IF LenzeParRead_LDC1.CONFIRM THEN
+			ptrByteArray := ADR(Q_dwAGM_Frequency);
+			ptrByteArray^[0] := LenzeParRead_LDC1.DATA[1];
+			ptrByteArray^[1] := LenzeParRead_LDC1.DATA[2];
+			ptrByteArray^[2] := LenzeParRead_LDC1.DATA[3];
+			ptrByteArray^[3] := LenzeParRead_LDC1.DATA[4];
+			//Q_dwAGM_Frequency :=SHL(SHL(SHL(LenzeParRead_LDC1.DATA[4],8) OR LenzeParRead_LDC1.DATA[3],8) OR LenzeParRead_LDC1.DATA[2],8) OR LenzeParRead_LDC1.DATA[1];	(* Codestelle wird gelesen *)
+			LenzeParRead_LDC1(ENABLE:=FALSE);
+			byStepper:=20;
+		END_IF
+
+	(* Inlezen code 1018 (Vendor ID) Als deze 0 dan is er dus geen communicatie *)
+	(*index 1018, Vendor ID *)
+	20:	LenzeParRead_LDC1(
+		Enable:= FALSE,
+		NETWORK:=1,
+		DEVICE:= Device,		(* Adresse des Reglers *)
+		INDEX:=4120,						(* Code *)
+		SUBINDEX:=1);					(* SubCode *)
+		TON1(IN:=TRUE, PT:= t#1000ms);
+		IF TON1.Q THEN
+			byStepper:=22;
+			TON1(IN:= FALSE);
+		END_IF
+
+	22:	LenzeParRead_LDC1(ENABLE:=TRUE,
+								NETWORK:=1 );
+		IF LenzeParRead_LDC1.CONFIRM THEN
+			ptrByteArray := ADR(Q_dwAGM_ID);
+			ptrByteArray^[0] := LenzeParRead_LDC1.DATA[1];
+			ptrByteArray^[1] := LenzeParRead_LDC1.DATA[2];
+			ptrByteArray^[2] := LenzeParRead_LDC1.DATA[3];
+			ptrByteArray^[3] := LenzeParRead_LDC1.DATA[4];
+			//Q_dwAGM_ID :=SHL(SHL(SHL(LenzeParRead_LDC1.DATA[4],8) OR LenzeParRead_LDC1.DATA[3],8) OR LenzeParRead_LDC1.DATA[2],8) OR LenzeParRead_LDC1.DATA[1];	(* Codestelle wird gelesen *)
+			LenzeParRead_LDC1(ENABLE:=FALSE);
+			byStepper:=30;
+		END_IF
+
+	30:	bReady:=TRUE;
+		bStartRead:=FALSE;
+
+	END_CASE
+
+END_IF
+
+END_FUNCTION_BLOCK

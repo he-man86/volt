@@ -1,0 +1,7 @@
+TYPE ClmnChoices :
+STRUCT
+	clmn1 	: sRcpClmn1;
+	clmn2	: sRcpClmn2;
+	clmn3	: sRcpClmn3;
+END_STRUCT
+END_TYPE

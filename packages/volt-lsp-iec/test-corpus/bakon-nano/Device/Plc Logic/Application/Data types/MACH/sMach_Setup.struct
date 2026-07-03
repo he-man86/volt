@@ -1,0 +1,11 @@
+TYPE sMach_Setup :
+STRUCT
+	(* Machine configuration *)
+	//bPneumaticRaxis		: BOOL; (* bit 0, pneumatic axis for R rotation *)								//Not used anymore!!
+	bCleaningUnit		: BOOL;
+	//bNano				: BOOL;	(* Nano machine, with lower speeds because of vibrating doors *)		//Not used anymore!!
+	bXL					: BOOL; (* XL Machine, more range on X/Y*)
+	bRedCase			: BOOL; 
+	bCrashDetection		: BOOL;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,15 @@
+TYPE sState :(
+	StateWaitForMains       		:= -1,
+     	StateMainSwitchedOn   		:= 0,
+      	StateWaitForInit        	:= 1,
+      	StateInit               	:= 2,
+      	StateWaitForRecipe       	:= 3,
+      	StateWaitForConditioning 	:= 4,
+      	StateConditioning        	:= 5,		(* for visualisation only *)
+      	StateWaitForAutomatic   	:= 6,
+      	StateAutomatic          	:= 7,
+      	StateManual             	:= 8,
+      	StateCleaning           	:= 9,
+      	StateError               	:= 10
+);
+END_TYPE

@@ -1,0 +1,14 @@
+TYPE sModusRondVierkant :
+STRUCT
+	(* Inputs of the ModusRondVierkant program *)
+	bEnable						: BOOL;
+	bStartXYA					: BOOL;
+	bStartZ						: BOOL;
+
+	(* Outputs of the ModusRondVierkant program *)
+	bReady						: BOOL;
+	bLastCutReadyZOutOfProduct	: BOOL;
+	nActLineNumber				: INT;
+
+END_STRUCT
+END_TYPE

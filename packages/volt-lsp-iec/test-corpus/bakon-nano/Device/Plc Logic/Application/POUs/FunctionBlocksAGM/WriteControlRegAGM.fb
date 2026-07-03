@@ -1,0 +1,75 @@
+FUNCTION_BLOCK WriteControlRegAGM
+VAR
+	byStepper: BYTE;
+	bStartWrite: BOOL;
+	R_TRIG1: R_TRIG;
+	byControlRegAGM: BYTE;
+	LenzeParWrite_LDC1: CIA405.SDO_WRITE4;
+	dSendData : DWORD;
+	DataArray : ARRAY[1..4] OF BYTE;
+	ptrByteArray : POINTER TO ARRAY[0..3] OF BYTE;
+END_VAR
+
+VAR_INPUT
+	byNodeID: BYTE;
+	bStartAGM: BOOL;
+	bStopAGM: BOOL;
+	bTestAGM: BOOL;
+END_VAR
+
+(*de index 2000 het control register wordt beschreven*)
+
+R_TRIG1(CLK:=bStartAGM OR bStopAGM OR bTestAGM);
+
+(*convert digital inputs to byte for control word*)
+IF bStartAGM AND NOT bStopAGM AND NOT bTestAGM THEN
+	byControlRegAGM:=1;
+ELSIF NOT bStartAGM AND NOT bStopAGM AND bTestAGM THEN
+	byControlRegAGM:=4;
+ELSE			(*IF NOT bStartAGM AND bStopAGM AND NOT bTestAGM THEN*)
+	byControlRegAGM:=2;
+END_IF
+
+IF R_TRIG1.Q THEN
+	bStartWrite:=TRUE;
+END_IF
+
+IF NOT bStartWrite  THEN
+	byStepper:=0;
+ELSE
+
+	CASE byStepper OF
+	0:	(*Reset write FB*)
+		LenzeParWrite_LDC1(ENABLE:=FALSE);
+		byStepper:=1;
+
+	(*index 2000 control register*)
+	1:	dSendData := BYTE_TO_DWORD(byControlRegAGM);
+		ptrByteArray := ADR(dSendData);
+		DataArray[1] := ptrByteArray^[0];
+		DataArray[2] := ptrByteArray^[1];
+		DataArray[3] := ptrByteArray^[2];
+		DataArray[4] := ptrByteArray^[3];
+		LenzeParWrite_LDC1(
+		ENABLE:=FALSE ,
+		DEVICE:=byNodeID ,					(* Adresse des Reglers *)
+		NETWORK:=1,
+		INDEX:=8192 ,
+		SUBINDEX:=0 ,					(* SubCode *)
+		
+		DATA:= DataArray,//BYTE_TO_DWORD(byControlRegAGM),
+		DataLength:=1);
+		byStepper:=2;
+
+	2:	LenzeParWrite_LDC1(ENABLE:=TRUE, NETWORK:=1);
+		IF LenzeParWrite_LDC1.CONFIRM OR (LenzeParWrite_LDC1.ERROR <> CIA405.CANOPEN_KERNEL_ERROR.CANOPEN_KERNEL_NO_ERROR)THEN
+			LenzeParWrite_LDC1(ENABLE:=FALSE);
+			bStartWrite:=FALSE;
+			byStepper:=0;
+		END_IF
+
+	END_CASE
+
+END_IF
+
+END_FUNCTION_BLOCK

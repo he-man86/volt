@@ -1,0 +1,7 @@
+TYPE sMACH_Calculated :
+STRUCT
+	rBottomZPos			: REAL;
+	rAboveProductPos	: REAL;
+	rCrashCheckHeight	: REAL;
+END_STRUCT
+END_TYPE

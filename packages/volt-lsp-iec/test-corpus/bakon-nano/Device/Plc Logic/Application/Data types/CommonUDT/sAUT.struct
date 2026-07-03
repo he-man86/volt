@@ -1,0 +1,19 @@
+TYPE sAUT :
+STRUCT
+	bActAutomatic					: BOOL;
+	bAutomaticReady					: BOOL;
+	bAutomaticBusy					: BOOL;
+	bAutomaticHold					: BOOL;
+	bProcessReady					: BOOL;
+	bProcessBusy					: BOOL;
+	bAutomaticStop					: BOOL;
+	bAutomaticWaitingForTrig		: BOOL;
+	bAlmError						: BOOL;
+	rWatchdogTime					: REAL;
+	rStepTime						: REAL;
+	nStepCounter					: INT;
+	nOldStepCounter					: INT;
+	(*Extra, application dependant data can be declared below this point*)
+
+END_STRUCT
+END_TYPE

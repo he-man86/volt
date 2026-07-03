@@ -348,6 +348,46 @@ exports[`completion corpus (member access — POU + PLC_PRG) pragma_unknown_dire
 
 exports[`completion corpus (member access — POU + PLC_PRG) pragma_conflicting_pair 1`] = `[]`;
 
+exports[`completion corpus (member access — POU + PLC_PRG) tc_retain 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_persistent 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_ignore_persistent 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_init_on_reset 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_no_symbol 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_encoding 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_display_scale 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_swap_word 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_swap_dword 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_context_id 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_context_name 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_init_symbol 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_link_to 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_link_to_oso 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_nc_axis 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_rpc_enable 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_call_after_output_update 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
+
+exports[`completion corpus (member access — POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;
+
 exports[`completion corpus (member access — POU + PLC_PRG) fb_init_canonical 1`] = `[]`;
 
 exports[`completion corpus (member access — POU + PLC_PRG) fb_reinit_canonical 1`] = `
@@ -1387,6 +1427,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) shadowing_method_lo
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -2395,6 +2436,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) shadowing_method_lo
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -4116,6 +4158,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) op_sys_varinfo 1`] 
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -5461,6 +5504,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) oop_extends_with_su
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -7117,6 +7161,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) keyword_this_derefe
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -8125,6 +8170,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) keyword_this_derefe
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -9404,6 +9450,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) use_this_member_in_
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -10412,6 +10459,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) use_this_member_in_
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -11436,6 +11484,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) use_array_indexed_m
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "arr_uai",
       "call_after_global_init_slot",
       "call_after_init",
@@ -12465,6 +12514,7 @@ exports[`completion corpus (member access — POU + PLC_PRG) use_self_method_cal
       "__VECTOR",
       "__XINT",
       "__XWORD",
+      "analysis",
       "call_after_global_init_slot",
       "call_after_init",
       "call_after_online_change_slot",
@@ -12554,43 +12604,3 @@ exports[`completion corpus (member access — POU + PLC_PRG) use_method_array_pa
   },
 ]
 `;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_retain 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_persistent 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_ignore_persistent 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_init_on_reset 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_no_symbol 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_encoding 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_display_scale 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_swap_word 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_swap_dword 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_context_id 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_context_name 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_init_symbol 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_link_to 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_link_to_oso 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_nc_axis 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_rpc_enable 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_call_after_output_update 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
-
-exports[`completion corpus (member access — POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;

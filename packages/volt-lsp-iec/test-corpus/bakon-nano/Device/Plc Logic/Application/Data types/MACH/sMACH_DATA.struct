@@ -1,0 +1,21 @@
+TYPE sMACH_DATA :
+STRUCT
+	MCL  	  					: sMCL;  (* Mode control *)
+
+	uINI    					: sINI;  (* Initialising *)
+	AUT    						: sAUT;  (* Automatic *)
+	SUBClean					: sSUB; (* Sub sequence, cleaning *)
+	SUBInit						: sSUB; (* Sub sequence, init *)
+	MAN    						: sMAN;  (* Manual *)
+	CLN    						: sCLN;  (* Cleaning *)
+
+	ERH    						: sERH;  (* Error Handler *)
+
+	(* Module dependable data*)
+	ERR    						: sMACH_ERR;	     (* Errors *)
+
+	sCleaningContainerControl	: sCYL_Control;
+	sCleaningContainerStatus	: sCYL_Status;
+	
+END_STRUCT
+END_TYPE

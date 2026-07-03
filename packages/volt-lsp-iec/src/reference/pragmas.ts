@@ -569,6 +569,17 @@ const ENTRIES: PragmaEntry[] = [
 		insertLocation: "any",
 	}),
 	pr({
+		name: "analysis",
+		kind: "pragma",
+		category: "attribute",
+		source: SOURCE,
+		vendor: "shared",
+		oneLiner: "Suppress or enable specific Static Analysis rules for the annotated POU/variable/scope.",
+		syntax: "{attribute 'analysis' := '${1:-33}'}",
+		insertLocation: "any",
+		gotchas: ["Rule numbers are prefixed '-' to disable (e.g. '-33') or '+' to re-enable; comma-separate several ('-33, -170'). Applies to the following declaration/POU."],
+	}),
+	pr({
 		name: "monitoring_encoding",
 		kind: "pragma",
 		category: "attribute",

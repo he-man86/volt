@@ -1,0 +1,272 @@
+FUNCTION_BLOCK Transform_XY_FrontRear
+VAR_INPUT
+	xEnable							: BOOL;
+	xSetRealPosToVirtualAxis		: BOOL;
+	scParamRobot					:L_TK1A_ParamRobotRoller45;
+	scLimitRobot					:L_TK1A_LimitsRobotRoller45;
+END_VAR
+VAR_IN_OUT
+	Drive_X							: AXIS_REF;
+	Drive_Y							: AXIS_REF;
+	Drive_A1						: AXIS_REF;
+	Drive_A2						: AXIS_REF;
+END_VAR
+VAR_OUTPUT
+	xBusy							: BOOL;
+	xError							: BOOL;
+	xVirtualAxisPositionsSetOK		: BOOL;
+	lrActPosX						: LREAL;
+	lrActPosY						: LREAL;
+END_VAR
+VAR
+	xInit							: BOOL;
+		
+	(*AxisControll*)
+	MC_SetPosition_X_FB				: MC_SetPosition;
+	MC_SetPosition_Y_FB				: MC_SetPosition;
+	SMC_ControlAxisByPos_A1_FB 		: L_MC1P_FollowSetValues;
+	SMC_ControlAxisByPos_A2_FB 		: L_MC1P_FollowSetValues;
+
+	(*ROBOT_FB*)
+	L_MKT_DirectKinematic_FB		: L_TK1A_DirectKinematicRoller45;
+	L_MKT_InverseKinematic_FB		: L_TK1A_InverseKinematicRoller45;
+(*	FB_Visu							: FB_VisuRoller45;*)
+	L_MKT_StopErrorKinematic_FB		: L_MKT_StopErrorKinematic;
+	MC_Halt_A1						: MC_Halt;
+	MC_Halt_A2						: MC_Halt;
+
+	xDriveA1Enabled					: BOOL;
+	xDriveA2Enabled					: BOOL;
+END_VAR
+
+(****************************************************************************************************************)
+(* INITIALISIRUNG FB																							*)
+(****************************************************************************************************************)
+(****************************************************************************************************************)
+
+	(********************************************)
+	(* DirectKinematic							*)
+	(********************************************)
+		L_MKT_DirectKinematic_FB.scActPositionIn.lrA1:=Drive_A1.lrActPosition;
+		L_MKT_DirectKinematic_FB.scActPositionIn.lrA2:=Drive_A2.lrActPosition;
+
+		L_MKT_DirectKinematic_FB(
+			scActPositionIn:= ,
+			scParamRobot:=scParamRobot ,
+			scLimitRobot:=scLimitRobot ,
+			scActPositionOut=> ,
+			xError=> );
+
+		lrActPosX := L_MKT_DirectKinematic_FB.scActPositionOut.lrX;
+		lrActPosY := L_MKT_DirectKinematic_FB.scActPositionOut.lrY;
+
+	(********************************************)
+	(* InverseKinematic							*)
+	(********************************************)
+		L_MKT_InverseKinematic_FB.scActPositionIn.lrX := Drive_X.lrSetPosition;
+		L_MKT_InverseKinematic_FB.scActPositionIn.lrY := Drive_Y.lrSetPosition;
+
+		L_MKT_InverseKinematic_FB(
+			scActPositionIn:= ,
+			scParamRobot:=scParamRobot ,
+			scLimitRobot:=scLimitRobot ,
+			scActPositionOut=> ,
+			xError=> );
+
+	(****************************************************************************)
+	(*Control_AxisByPos	A1,A2,A3	xBusy:=TRUE THEN Enable Control A1,1,2,3   *)
+	(***************************************************************************)
+	(********************************************)
+	(* SETPositon Virtual Axis					*)
+	(********************************************)
+		(* MC_SetPosition_X_FB(Position:= -L_MKT_DirectKinematic_FB.scActPositionOut.lrX,  Mode:= FALSE, 	Axis:= Drive_X );*)			
+		MC_SetPosition_X_FB(
+			Axis:= Drive_X, 
+			Execute:= , 
+			Position:= L_MKT_DirectKinematic_FB.scActPositionOut.lrX, 
+			Relative:= FALSE, 
+			ExecutionMode:= , 
+			RestartPositioning:= , 
+			UseSettingsFromHomingMode:= , 
+			Done=> , 
+			Busy=> , 
+			Error=> , 
+			ErrorID=> );
+
+		(* MC_SetPosition_Y_FB(Position:= -L_MKT_DirectKinematic_FB.scActPositionOut.lrY, Mode:= FALSE,		Axis:= Drive_Y );	*)		
+		MC_SetPosition_Y_FB(
+			Axis:= Drive_Y, 
+			Execute:= , 
+			Position:= L_MKT_DirectKinematic_FB.scActPositionOut.lrY, 
+			Relative:= FALSE, 
+			ExecutionMode:= , 
+			RestartPositioning:= , 
+			UseSettingsFromHomingMode:= , 
+			Done=> , 
+			Busy=> , 
+			Error=> , 
+			ErrorID=> );
+
+		MC_Halt_A1(
+			Execute:= ,
+			Deceleration:= ,	//SET IN CODE 41 > Was fSWMaxDeceleration in old motion
+			Jerk:= ,			//SET IN CODE 43
+			Axis:= Drive_A1,
+			Done=> ,
+			CommandAborted=> ,
+			Error=> ,
+			ErrorID=> );
+
+		MC_Halt_A2(
+			Execute:= ,
+			Deceleration:= ,	//SET IN CODE 41 > Was fSWMaxDeceleration in old motion
+			Jerk:= ,			//SET IN CODE 43
+			Axis:= Drive_A2, 
+			Done=> , 
+			CommandAborted=> ,
+			Error=> , 
+			ErrorID=> );
+			
+		SMC_ControlAxisByPos_A1_FB(
+			Axis:= Drive_A1, 
+			xExecute:= xBusy, 
+			xContinuousUpdate:= TRUE, 
+			lrPosition:= L_MKT_InverseKinematic_FB.scActPositionOut.lrA1, 
+			lrVelocity:= Drive_A1.scPar.MaxVelocity, 
+			lrAcceleration:= Drive_A1.scPar.MaxAcceleration, 
+			eSetValueMode:= L_MC1P_SetValueMode.Pos, 
+			xBusy=> , 
+			xCommandAborted=> , 
+			xError=> , 
+			eErrorID=> );
+			
+		SMC_ControlAxisByPos_A2_FB(
+			Axis:= Drive_A2, 
+			xExecute:= xBusy, 
+			xContinuousUpdate:= TRUE, 
+			lrPosition:= L_MKT_InverseKinematic_FB.scActPositionOut.lrA2, 
+			lrVelocity:= Drive_A2.scPar.MaxVelocity, 
+			lrAcceleration:= Drive_A2.scPar.MaxAcceleration, 
+			eSetValueMode:= L_MC1P_SetValueMode.Pos, 
+			xBusy=> , 
+			xCommandAborted=> , 
+			xError=> , 
+			eErrorID=> );	
+
+	(********************************************)
+	(* ERROR_STOP					*)
+	(********************************************)
+		L_MKT_StopErrorKinematic_FB(
+			xEnable:= xBusy,
+			scPosition_InverseKinematic:= L_MKT_InverseKinematic_FB.scActPositionOut,
+			xError_InverseKinematic:= L_MKT_InverseKinematic_FB.xError,
+			wErrorID_InverseKinematic:=L_MKT_InverseKinematic_FB.wErrorID ,
+			lfStopDeceleration:= 500, 
+			Axis_VIRTUAL_X:= Drive_X ,
+			Axis_VIRTUAL_Y:= Drive_Y, 
+			xError=> ,
+			xMC_Stop=> ,
+			xMC_StopDone=> );
+	
+		IF L_MKT_StopErrorKinematic_FB.xAborted THEN
+			xBusy:= FALSE;
+		END_IF
+
+
+(************************************************************************************)
+(* 										INIT										*)
+(************************************************************************************)
+(************************************************************************************)
+	xDriveA1Enabled					:=Drive_A1.xAxisAvailable AND Drive_A1.xDriveEnabled;
+	xDriveA2Enabled					:=Drive_A1.xAxisAvailable AND Drive_A1.xDriveEnabled;
+
+	IF NOT xEnable THEN
+		xInit 						:= FALSE;
+		xVirtualAxisPositionsSetOK	:= FALSE;
+		xBusy						:= FALSE;
+		MC_Halt_A1.Execute			:= xDriveA1Enabled;
+		MC_Halt_A2.Execute			:= xDriveA2Enabled;
+		MC_SetPosition_X_FB.Execute	:= FALSE;
+		MC_SetPosition_Y_FB.Execute	:= FALSE;
+	ELSE
+		IF xError THEN
+		MC_Halt_A1.Execute			:= xDriveA1Enabled;
+		MC_Halt_A2.Execute			:= xDriveA2Enabled;
+		ELSE
+		MC_Halt_A1.Execute			:= FALSE;
+		MC_Halt_A2.Execute			:= FALSE;
+		END_IF
+
+		IF NOT xInit OR xSetRealPosToVirtualAxis THEN
+			xInit 						:= TRUE;
+			xSetRealPosToVirtualAxis 	:= FALSE;
+			xVirtualAxisPositionsSetOK	:= FALSE;
+			(********************************************)
+			(* SET X,Y,Z								*)
+			(********************************************)
+			MC_SetPosition_X_FB.Execute:= TRUE;
+			MC_SetPosition_Y_FB.Execute:= TRUE;
+		END_IF
+	END_IF
+
+(************************************************************************************)
+(*  	bBusy:=True (X,Y,Z are set AND NOT DirectKinematic_FB.bError)				*)
+(************************************************************************************)
+(************************************************************************************)
+	IF MC_SetPosition_X_FB.Done AND
+		MC_SetPosition_Y_FB.Done THEN
+
+		MC_SetPosition_X_FB.Execute:= FALSE;
+		MC_SetPosition_Y_FB.Execute:= FALSE;
+
+		xVirtualAxisPositionsSetOK  := TRUE;
+
+		IF NOT L_MKT_DirectKinematic_FB.xError THEN
+			xBusy 					:=TRUE;
+		END_IF
+	END_IF
+
+(************************************************************************************)
+(************************************************************************************)
+(* 								Error 												*)
+(************************************************************************************)
+(************************************************************************************)
+	IF L_MKT_InverseKinematic_FB.xError OR
+		L_MKT_DirectKinematic_FB.xError OR
+		SMC_ControlAxisByPos_A1_FB.xError OR
+		SMC_ControlAxisByPos_A2_FB.xError OR
+		SMC_ControlAxisByPos_A1_FB.xCommandAborted OR
+		SMC_ControlAxisByPos_A2_FB.xCommandAborted THEN
+		xError						:=TRUE;
+	ELSE
+		xError						:=FALSE;
+	END_IF
+
+(************************************************************************************)
+(************************************************************************************)
+(* 								Visu												*)
+(************************************************************************************)
+(************************************************************************************)
+(*
+(*// Error from Direct and Invers Kinematic*)
+IF L_MKT_DirectKinematic_FB.xError AND NOT(xBusy) THEN
+	FB_Visu.xError:=TRUE;
+	FB_Visu.wErrorID:= L_MKT_DirectKinematic_FB.wErrorID;
+	ELSIF L_MKT_InverseKinematic_FB.xError AND xBusy THEN
+	FB_Visu.xError:=TRUE;
+	FB_Visu.wErrorID:= L_MKT_InverseKinematic_FB.wErrorID;
+	ELSE
+	FB_Visu.xError:=FALSE;
+END_IF
+
+	FB_Visu.scActPositionIn.lrA1:=Drive_A1.lrSetPosition;
+	FB_Visu.scActPositionIn.lrA2:=Drive_A2.lrSetPosition;
+		
+	(*Virtual axes*)
+	FB_Visu.scActPositionIn.lrX:=Drive_X.lrSetPosition;
+	FB_Visu.scActPositionIn.lrY:=Drive_Y.lrSetPosition;
+	FB_Visu.scActPositionIn.lrZ:=Drive_Z.lrSetPosition;
+	FB_Visu(scActPositionIn:= , scParamRobot:= scParamRobot);
+*)
+
+END_FUNCTION_BLOCK

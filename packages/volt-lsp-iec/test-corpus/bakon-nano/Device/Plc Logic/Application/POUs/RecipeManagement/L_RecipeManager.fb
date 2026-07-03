@@ -1,0 +1,112 @@
+FUNCTION_BLOCK L_RecipeManager
+VAR_INPUT               	
+	xEnable					: BOOL;				//Enable functions
+	sDatabaseName			: STRING;			//Database of recipe manager (name)
+	sRecipeName				: STRING;			//Selected recipe (name)
+END_VAR
+VAR_IN_OUT
+	xRecipe_Delete			: BOOL;				//Delete definition (DeleteRecipeFile)
+	xRecipe_Load			: BOOL;				//Load recipe (LoadAndWriteRecipe)
+	xRecipe_Save			: BOOL;				//Save recipe (ReadAndSaveRecipe)
+	xRecipe_SaveAs			: BOOL;				//Save recipe (ReadAndSaveRecipe)
+	sActiveRecipe			: STRING;			//Active machine recipe	
+END_VAR
+VAR_OUTPUT
+	xEnabled				: BOOL;				//Function enabled
+	iNumberOfRecipes		: INT;				//Counted recipes in database
+	sRecipeNames			: STRING(gc_iSizeRecipesNames);	//Combined recipe names
+	dwReturnValue			: DWORD;			//Return value of recipe manager
+END_VAR
+
+VAR
+	RecipeHandler			: RecipeManCommands;//Function to access PLC recipes
+	sRecipeLocal			: STRING;			//Used to concat
+	psNames					: POINTER TO STRING(gc_iSizeRecipesNames);	
+	psLocal					: POINTER TO STRING;
+	iLoopNames				: INT;				//Loop recipe names
+	strSearchChar			: STRING;
+	iResult					: INT;
+END_VAR
+VAR CONSTANT
+	gc_iSizeRecipesNames 	: INT := 5000;
+	//gc_iMaxResultsFinder	: INT := 10;
+END_VAR
+
+IF xEnable THEN
+	xEnabled := xEnable;
+	//************************************************************************Refresh data
+	//Get data addresses
+	psNames := ADR(sRecipeNames);
+	psLocal := ADR(sRecipeLocal);
+	//Refresh file buffer
+	RecipeHandler.ReloadRecipes(sDatabaseName);
+	//Get recipe count
+	iNumberOfRecipes := RecipeHandler.GetRecipeCount(sDatabaseName);			
+	//Get saved recipe informations
+	sRecipeNames:='';	
+	FOR iLoopNames:=0 TO iNumberOfRecipes-1 BY 1 DO
+		//Get recipe name
+		sRecipeLocal := '';
+		RecipeHandler.GetRecipeNames(sDatabaseName, ADR(sRecipeLocal) , 1, iLoopNames);
+				
+		//Add recipe name to end of string
+		StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+		
+		//Add seperator to end
+		sRecipeLocal := ';';
+		StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+	END_FOR
+	
+	//************************************************************************Load recipe to HMI
+	IF xRecipe_Load THEN
+		dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sRecipeName);//Load to handler recipe
+		IF dwReturnValue = 0 THEN
+			sActiveRecipe := sRecipeName;
+		END_IF
+		xRecipe_Load:=FALSE;		
+	END_IF
+	//************************************************************************Save recipe to database
+	IF xRecipe_Save THEN
+		dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, sActiveRecipe);		//Save to file
+		xRecipe_Save := FALSE;
+	END_IF
+	//************************************************************************Delete recipe
+	//More than 0 recipes left
+	IF xRecipe_Delete THEN
+		dwReturnValue:=RecipeHandler.DeleteRecipe(sDatabaseName, sRecipeName);	//Remove database link
+		IF sActiveRecipe = sRecipeName THEN
+			sActiveRecipe:='';
+		END_IF
+		xRecipe_Delete := FALSE;		
+	END_IF
+	//************************************************************************Save recipe as
+	IF xRecipe_SaveAs THEN
+		strSearchChar:='.';
+		iResult:=StrFindA(pst1:=ADR(sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0);
+		IF iResult <> 0 THEN
+			dwReturnValue:=16#7000;
+			RETURN;
+		END_IF
+
+		dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, sRecipeName);		//Create new file and save	
+		
+		//New recipe OR when recipe already existed
+		IF dwReturnValue = 16#4005 OR dwReturnValue = 0 THEN
+			dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, sRecipeName);	//Create new file and save
+		END_IF	
+		IF dwReturnValue = 0 THEN
+			dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sRecipeName);//Load to handler recipe
+			dwReturnValue:=SEL(dwReturnValue <> 0, 0, 16#7001);		
+		END_IF
+		IF dwReturnValue = 0 THEN
+			sActiveRecipe := sRecipeName;
+		END_IF				
+		xRecipe_SaveAs := FALSE;	
+	END_IF
+	
+ELSE
+	sActiveRecipe := '';
+	dwReturnValue:=0;
+END_IF
+
+END_FUNCTION_BLOCK

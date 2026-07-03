@@ -1,0 +1,6 @@
+TYPE Gonio_Point :
+STRUCT
+	X		: REAL;
+	Y 		: REAL;
+END_STRUCT
+END_TYPE

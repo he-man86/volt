@@ -1,0 +1,88 @@
+TYPE sMACH_MACH_Parameters :
+STRUCT
+	rSizeOfKnife					: REAL := 180;
+	rTimeOutAirvalve				: REAL := 6;	(* 6 seconds *)
+	rTimeSwitchOffAirvalve			: REAL := 2;	(* 2 minutes *)
+	rProdHeightTrayMinimum			: REAL := 60;
+	rProdLengthTrayLarge_InX		: REAL := 565;
+	rProdLengthTrayLarge_InY		: REAL := 396;
+	rProdLengthTraySmall_InX		: REAL := 565;
+	rProdLengthTraySmall_InY		: REAL := 196;
+	rProdLengthTrayDouble_InX		: REAL := 300;
+	rProdLengthTrayDouble_InY		: REAL := 400;
+	rProdLengthTrayTriple_InX		: REAL := 565;
+	rProdLengthTrayTriple_InY		: REAL := 95;
+	rProdLengthSlabDouble_InX		: REAL := 170;
+	rProdLengthSlabDouble_InY		: REAL := 300;
+	rStartPointTrayLarge_X			: REAL := 36;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTrayLarge_Y			: REAL := 36;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTraySmall_X			: REAL := 36;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife in mm (for both small trays) *)
+	rStartPointTraySmall1_Y			: REAL := 37;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTraySmall2_Y			: REAL := 247;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+ 	rStartPointTrayDouble1_X		: REAL := 0;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife  mm (for both small trays) *)
+ 	rStartPointTrayDouble2_X		: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+ 	rStartPointTrayDouble_Y			: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointSlab_X				: REAL := 34;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointSlab_Y				: REAL := 34;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTrayTriple_X			: REAL := 0;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife in mm (for both small trays) *)
+	rStartPointTrayTriple1_Y		: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTrayTriple2_Y		: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTrayTriple3_Y		: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointTrayTriple4_Y		: REAL := 0;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointSlabDouble1_X		: REAL := 80;		(*offset between Zero of the X-axis and the cutting startingpoint of the knife in mm (for both small trays) *)
+	rStartPointSlabDouble2_X		: REAL := 400;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rStartPointSlabDouble_Y			: REAL := 90;		(*offset between Zero of the Y-axis and the cutting startingpoint of the knife in mm *)
+	rMidPosRoundCake1_X				: REAL := 507;
+	rMidPosRoundCake1_Y				: REAL := 249;
+	rMidPosRoundCake2_X				: REAL := 182;
+	rMidPosRoundCake2_Y				: REAL := 249;
+	rMidPosRoundCake13_X			: REAL := 507;
+	rMidPosRoundCake24_X			: REAL := 182;
+	rMidPosRoundCake12_Y			: REAL := 249;
+	rMidPosRoundCake34_Y			: REAL := 449;
+	rInfeedPosition_X				: REAL := 130;
+	rInfeedPosition_Y				: REAL := 2;
+	rManualSpeed					: REAL := 50;		(*Snelheid in mm/sec*)
+	rMinimumTrimSizeTrayLarge		: REAL := 8;		(* Minimum trim size inside tray This is for safety reasons*)
+	rMinimumTrimSizeTraySmall		: REAL := 8;		(* Minimum trim size inside tray This is for safety reasons*)
+	rMinimumTrimSizeTrayDouble		: REAL := 8;		(* Minimum trim size inside tray This is for safety reasons*)
+	rMinimumTrimSizeTrayTriple		: REAL := 8;		(* Minimum trim size inside tray This is for safety reasons *)
+	rMinimumTrimSizeSlab			: REAL := 8;		(* Minimum afvalrand voor slab indien tafel met opklemvingers *)
+	dnMaintenanceInterval			: DINT := 500;
+	bUltrasonicEnable1				: BOOL := TRUE;
+	bSkipImpossiblePositions 		: BOOL;
+	rBottomZPosTrayLarge			: REAL := 215.5;			(* Gemeten vanaf onderzijde mes in Z-as nulpunt tot aan bodem blik *)
+	rBottomZPosTraySmall			: REAL := 215.5;
+	rBottomZPosTrayDouble			: REAL := 215.5;
+	rBottomZPosTrayTriple			: REAL := 215.5;			(* Gemeten vanaf onderzijde mes in Z-as nulpunt tot aan bodem blik *)
+	rBottomZPosSlab					: REAL := 215.5;			(* Gemeten vanaf onderzijde mes in Z-as nulpunt tot aan bodem mal *)
+	rBottomZPosRound				: REAL := 215.5;
+	rBottomZPosRoundQuatro			: REAL := 217;
+	rBottomZPosSlabDouble			: REAL := 217;
+
+	rCleanXPosStart					: REAL := 10;
+	rCleanYPosStart					: REAL := 20;
+	rCleanYPosStop					: REAL := 500;
+	rCleanZPosFlap					: REAL := 190;
+	rCleanZPosWaterContainer		: REAL := 190;
+	rCleanContainerTimeOut			: REAL := 3;
+	rCleaningSpeed					: REAL := 200;
+	
+	(*Variabelen voor FTP Werking*)	// Only used in screen!
+	{attribute 'analysis' := '-33'}
+	sFTPMachineDesignation			: STRING := '2xxxx'; //is the username for FTP
+	{attribute 'analysis' := '-33'}
+	sFTPAdress						: STRING := '185.66.248.206';//Default naar de KC server
+	{attribute 'analysis' := '-33'}
+	sFTPUser						: STRING := 'alex';
+	{attribute 'analysis' := '-33'}
+	sFTPPassword					: STRING := 'redcase';
+	{attribute 'analysis' := '-33'}
+	dFTPPort						: DINT	:= 21;
+
+	rSpeedZ_CrashDetect				: REAL := 8;
+	
+	//For new recipe handling
+	sParName						: STRING;
+END_STRUCT
+END_TYPE

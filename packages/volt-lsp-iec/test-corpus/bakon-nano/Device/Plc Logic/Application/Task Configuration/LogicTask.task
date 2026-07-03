@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  T#15ms
+Priority:  2
+Watchdog:  T#15ms (sensitivity 1)
+Calls:     CyclicTask

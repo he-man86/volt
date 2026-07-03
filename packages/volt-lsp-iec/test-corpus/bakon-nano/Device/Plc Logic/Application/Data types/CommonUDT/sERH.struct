@@ -1,0 +1,16 @@
+TYPE sERH :
+STRUCT
+	RT_ErrorCategory1					: R_TRIG;
+	RT_ErrorCategory2					: R_TRIG;
+	RT_ErrorCategory3					: R_TRIG;
+	RT_ErrorCategory4					: R_TRIG;
+	RT_ResetErrorERH					: R_TRIG;
+	bErrorCategory1						: BOOL;
+	bErrorCategory2						: BOOL;
+	bErrorCategory3						: BOOL;
+	bErrorCategory4						: BOOL;
+	bError234Active						: BOOL;
+	bSoundSignalOn						: BOOL;
+
+END_STRUCT
+END_TYPE

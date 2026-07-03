@@ -1,0 +1,10 @@
+TYPE ArrayInfo :
+STRUCT
+	index		: INT;	//Points to the first empty spot in the array.
+	lowerBound	: INT;	
+	upperbound 	: INT;
+
+	TEMPISWASTE : BOOL; //Function added to test the new overshoot correction. Ones this the test is OKE, this must be removed!
+	
+END_STRUCT
+END_TYPE

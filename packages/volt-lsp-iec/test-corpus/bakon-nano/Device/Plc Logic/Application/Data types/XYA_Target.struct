@@ -1,0 +1,14 @@
+TYPE XYA_Target :
+STRUCT
+	X_Target			: REAL;
+	Y_Target			: REAL;
+	A_Target			: REAL;
+	K_Target			: REAL;
+	(*0 = retracted       
+	1 = extended*)        
+	rPushAwayDistance	: REAL;
+	bPushAwayProduct	: BOOL;
+	bCutPosPossible 	: BOOL;
+	bCrashDetectCheck	: BOOL;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,113 @@
+FUNCTION_BLOCK L_RecipeManager_Rcp
+VAR_INPUT               	
+	xEnable						: BOOL;				//Enable functions
+	sDatabaseName				: STRING;			//Database of recipe manager (name)	
+END_VAR                     	
+VAR_IN_OUT       
+	sSelectedRecipeName			: STRING;           			
+	xRecipe_Load				: BOOL;		
+	xRecipe_New					: BOOL;		
+	xRecipe_Edit				: BOOL;		
+	xRecipe_Save				: BOOL;			
+	xRecipe_Copy				: BOOL;		
+	xRecipe_Delete				: BOOL;			
+	xRecipe_Update				: BOOL;
+	scRecipeVisu				: sMACH_RCP_Parameters;
+	scRecipePLC					: sMACH_RCP_Parameters;	
+END_VAR                     	
+VAR_OUTPUT                  	
+	xEnabled					: BOOL;				//Function enabled
+	iNumberOfRecipes			: INT;				//Counted recipes in database
+	sRecipeNames				: STRING(gc_iSizeRecipesNames);	//Combined recipe names
+	dwReturnValue				: DWORD;			//Return value of recipe manager
+END_VAR                     	                       	
+VAR                         	
+	RecipeHandler				: RecipeManCommands;//Function to access PLC recipes
+	sRecipeLocal				: STRING;			//Used to concat
+	psNames						: POINTER TO STRING(gc_iSizeRecipesNames);	
+	psLocal						: POINTER TO STRING;
+	iLoopNames					: INT;				//Loop recipe names
+	strSearchChar				: STRING;
+	iResult						: INT;
+	sRecipNameTemp: STRING;
+END_VAR                     	
+VAR CONSTANT                	
+	gc_iSizeRecipesNames 		: INT := 16384;
+END_VAR
+
+IF xEnable THEN
+	xEnabled := xEnable;
+	//************************************************************************Refresh data
+	//Get data addresses
+	psNames := ADR(sRecipeNames);
+	psLocal := ADR(sRecipeLocal);
+	//Refresh file buffer
+	RecipeHandler.ReloadRecipes(sDatabaseName);
+	//Get recipe count
+	iNumberOfRecipes := RecipeHandler.GetRecipeCount(sDatabaseName);			
+	//Get saved recipe informations
+	sRecipeNames:='';	
+	FOR iLoopNames:=0 TO iNumberOfRecipes-1 BY 1 DO
+		//Get recipe name
+		sRecipeLocal := '';
+		RecipeHandler.GetRecipeNames(sDatabaseName, ADR(sRecipeLocal) , 1, iLoopNames);
+				
+		//Add recipe name to end of string
+		StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+		
+		//Add seperator to end
+		sRecipeLocal := ';';
+		StrConcatA(pstFrom:= psLocal, pstTo:= psNames, iBufferSize:= gc_iSizeRecipesNames);
+	END_FOR
+	IF xRecipe_Load THEN
+		dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sSelectedRecipeName);//Load to handler recipe
+		IF dwReturnValue = 0 THEN
+			scRecipePLC:=scRecipeVisu;
+		END_IF
+		xRecipe_Load:=FALSE;		
+	END_IF
+	IF xRecipe_New THEN
+		strSearchChar:='.';
+		dwReturnValue:=INT_TO_DWORD(StrFindA(pst1:=ADR(scRecipeVisu.sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0));
+		IF dwReturnValue = 0 THEN
+			dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, scRecipeVisu.sRecipeName);
+		ELSE	
+			dwReturnValue:=16#7000;
+		END_IF	
+		xRecipe_New := FALSE;	
+	END_IF
+	IF xRecipe_Edit THEN
+		dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sSelectedRecipeName);//Load to handler recipe
+		xRecipe_Edit:=FALSE;		
+	END_IF
+	IF xRecipe_Save THEN
+		dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, scRecipeVisu.sRecipeName);	//Create new file and save
+		xRecipe_Save := FALSE;	
+	END_IF
+	IF xRecipe_Copy THEN
+		sRecipNameTemp:=scRecipeVisu.sRecipeName;
+		dwReturnValue:=RecipeHandler.LoadAndWriteRecipe(sDatabaseName, sSelectedRecipeName);
+		scRecipeVisu.sRecipeName:=sRecipNameTemp;
+		strSearchChar:='.';
+		dwReturnValue:=INT_TO_DWORD(StrFindA(pst1:=ADR(scRecipeVisu.sRecipeName) , pst2:= ADR(strSearchChar), uiSearchStart:= 0));
+		IF dwReturnValue = 0 THEN
+			dwReturnValue:=RecipeHandler.CreateRecipe(sDatabaseName, scRecipeVisu.sRecipeName);	
+		ELSE	
+			dwReturnValue:=16#7000;
+		END_IF
+		xRecipe_Copy := FALSE;	
+	END_IF	
+	IF xRecipe_Delete THEN
+		dwReturnValue:=RecipeHandler.DeleteRecipe(sDatabaseName, sSelectedRecipeName);	//Remove database link
+		xRecipe_Delete := FALSE;		
+	END_IF
+	IF xRecipe_Update THEN
+		scRecipeVisu:=scRecipePLC;
+		dwReturnValue:=RecipeHandler.ReadAndSaveRecipe(sDatabaseName, scRecipeVisu.sRecipeName);	//Create new file and save
+		xRecipe_Update := FALSE;	
+	END_IF
+ELSE
+	dwReturnValue:=0;
+END_IF
+
+END_FUNCTION_BLOCK

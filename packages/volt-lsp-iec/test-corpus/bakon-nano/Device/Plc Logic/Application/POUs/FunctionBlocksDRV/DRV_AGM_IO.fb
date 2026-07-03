@@ -1,0 +1,47 @@
+FUNCTION_BLOCK DRV_AGM_IO		(* Depending on ProductType start AGM *)
+VAR
+	TP_Test: TP;
+	TP_Reset: TP;
+END_VAR
+
+VAR_INPUT
+	I_bCMD_Enable			: BOOL;
+	I_bCMD_Start				: BOOL;
+	I_bCMD_Test				: BOOL;	(* Manual command *)
+	I_bCMD_Reset			: BOOL;	(* Manual command *)
+END_VAR
+
+VAR_IN_OUT
+	Q_bStart_AGM			: BOOL;
+	Q_bTest_AGM				: BOOL;
+END_VAR
+
+IF NOT I_bCMD_Enable THEN
+	Q_bStart_AGM		:=FALSE;
+ELSE
+
+	(* Reset errors *)
+	TP_Reset(IN:=I_bCMD_REset , PT:=T#200ms);
+
+(**************************************************************************************************************************)
+	(* Create test pulse *)
+	TP_Test(IN:=I_bCMD_Test , PT:=T#800ms);
+
+(**************************************************************************************************************************)
+	(* Execute command  *)
+	IF	I_bCMD_Start  OR TP_Reset.Q
+	OR TP_Test.Q //Added because of I/O control of AGM
+	THEN
+		Q_bStart_AGM		:= TRUE;
+	ELSE
+		Q_bStart_AGM		:= FALSE;
+	END_IF
+
+	IF TP_Test.Q THEN
+		Q_bTest_AGM := TRUE;
+	ELSE
+		Q_bTest_AGM := FALSE;
+	END_IF
+END_IF
+
+END_FUNCTION_BLOCK

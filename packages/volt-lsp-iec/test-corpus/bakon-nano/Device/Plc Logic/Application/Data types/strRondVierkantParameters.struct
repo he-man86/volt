@@ -1,0 +1,8 @@
+TYPE strRondVierkantParameters :
+STRUCT
+	strZasParameters				: strZasParameters;
+	rTrimAcceleration				: REAL;		(*acc wegschuiven*)
+	rTrimDeceleration				: REAL;		(*decc wegschuiven*)
+	rTrimVelocity					: REAL;		(*snelheid wegschuiven*)
+END_STRUCT
+END_TYPE

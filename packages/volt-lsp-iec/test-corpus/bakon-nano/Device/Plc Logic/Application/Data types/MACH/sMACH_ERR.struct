@@ -1,0 +1,97 @@
+TYPE sMACH_ERR :
+STRUCT
+	dwCat1_Error							: DWORD;
+	dwCat2_Error							: DWORD;
+	dwCat3_Error							: DWORD;
+	dwCat4_Error_a							: DWORD;
+	dwCat4_Error_b							: DWORD;
+	dwCat4_Error_c							: DWORD;
+	(* Errors are machine dependant *)  	
+	(*Insert Error Booleans Here*)      	
+	bEmergencyCircuitNotOK					: BOOL;		(*Emergency stop active*)
+	bPressure								: BOOL;
+	bUltrasonic1							: BOOL;
+	ModusRV_AccDeccZ						: BOOL;
+	ModusRV_SpeedZToHigh					: BOOL;
+	ModusRV_TargetPosInSWLimits				: BOOL;
+	bErrorSetRef_R_Axis						: BOOL;
+	bErrorSetRef_Front_Axis					: BOOL;
+	bErrorSetRef_Rear_Axis					: BOOL;
+	bTrayTooSmall							: BOOL;
+	bMaintenanceNecessary					: BOOL;
+	bAGM1_CommFailure						: BOOL;
+	bErrorComIOStation						: BOOL;
+	bR_AxisPositionError					: BOOL;
+	bPieceTooLarge							: BOOL;
+	bLanguageValueInvalid					: BOOL;		(* only occurs when retain variables get corrupted! *)
+	bAxisFrontNotSet						: BOOL;
+	bAxisRearNotSet							: BOOL;
+	bAxisRNotSet							: BOOL;
+	bWrongTable								: BOOL;
+	bPressStartToInit						: BOOL;
+	bPressStartToCut						: BOOL;
+	bPressStartForManual					: BOOL;
+	bPressStartToCleanInit					: BOOL;
+	bZStrokeKnifeToBottomSlab				: BOOL;
+	bZStrokeKnifeToBottomRound				: BOOL;
+	bZStrokeKnifeToBottomTraySmall			: BOOL;
+	bZStrokeKnifeToBottomTrayLarge			: BOOL;
+	bZStrokeKnifeToBottomTrayDouble			: BOOL;		(* V07.01 *)
+	bRoundCakeTooLarge						: BOOL;
+	bLengthExceededWithShiftComp			: BOOL;
+	bSlabTooSmall							: BOOL;		(* V04.01 *)
+	bXYNotEnabled							: BOOL;
+	bRNotEnabled							: BOOL;
+	bZNotEnabled							: BOOL;
+	Z_AxisLimitNeg							: BOOL;
+	bServoPowerNOK							: BOOL;
+	bMessagePosNotPossible					: BOOL;
+	                                		
+	bCleaningContainerEndPos				: BOOL;
+	bCleaningContainerZeroPos				: BOOL;
+	bCleaningContainerEndZero				: BOOL;
+	bCleaningContainerNotSafeToMove			: BOOL;
+	                                		
+	bTableMovementNotAllowed				: BOOL;
+	bRAxisMovementNotAllowed				: BOOL;
+	bZAxisMovementNotAllowed				: BOOL;
+	                                		
+	bZHomeSensorTimeout						: BOOL;
+	                                		
+	bCrashDetected							: BOOL;
+	bCrashDetectFault						: BOOL;
+	                                		
+	bErrorPosNotPossible					: BOOL;
+	
+	bStackIsFull							: BOOL; //Tried to push item to stack but stack was full
+	bStackIsEmpty							: BOOL; //Tried to pop item from stack but stack was empty
+	bMarginsInOvershootCorrectionInvalid	: BOOL;	//Occurs when marginMax is smaller than marginMin
+	bKnifeSettingsIncorrect					: BOOL;	//Occurs when the knifecenter is bigger than the knife length
+	bIntersectionNotFound					: BOOL; //Overshoot detected a collision, but the intersection coulnt be determained
+	bOvershootCorrectionImpossible			: BOOL; //Overshoot coulnt be corrected.
+	bOldOvershootCorrectionDiffers			: BOOL; //The old overshoot correction still changed the target after the new correction was executed.
+	bIndexOutOfBoundsWhileCopyingCuts		: BOOL; //Index out of boundaries of array while copying cuts
+	bRoundProductsOverlap					: BOOL; //Occurs when round products are to close to eachother, space between them is negative.
+	bCalcVerError							: BOOL; //Calc_Ver returned an error. 
+	bCalcHorError							: BOOL; //Calc_Hor returned an error.
+	bCalcDia1Error							: BOOL; //Calc_Dia1 returned an error.
+	bCalcDia2Error							: BOOL; //Calc_Dia2 returned an error.
+	bXYA_K_WasNotZero						: BOOL; //The current overshoot correction does'nt take "k" of the xya target into account, therefore it throws an error if not 0
+	
+	
+//bCutNotPossible							: BOOL; 
+	
+	//bErrorWhileCopyingTray			: BOOL;
+	//bErrorReservedForTesting 		: BOOL;
+	//
+	//bErrorArrayTooSmallDia1		: BOOL;		(* The number of calculated positions is too largel *)
+	//bErrorArrayTooSmallDia2		: BOOL;		(* The number of calculated positions is too largel *)
+	//bErrorArrayTooSmallVer			: BOOL;
+	//bErrorArrayTooSmallHor			: BOOL;
+	//bErrorPosHor						: BOOL;
+	//bErrorPosVer						: BOOL;
+	//bErrorPosDia1					: BOOL;		(* calculated position not possible *)
+	//bErrorPosDia2					: BOOL;		(* calculated position not possible *)
+	
+END_STRUCT
+END_TYPE

@@ -1,0 +1,65 @@
+(****************************************************************************************************)
+(*	 L_TK1A_InverseKinematicRoller45																	*)
+(****************************************************************************************************)
+(*	LENZE CbA																					*)
+(****************************************************************************************************)
+(*	Inverse Kinematic Roller-Picker Robot (2D)														*)
+(*																									*)
+(*	Note:																							*)
+(* #1 q=g(x_E) : q roller-axes (A1,A2), x_E endeffectorpositions (X,Y)                         		*)
+(* #2 Input: Taskspace (X, Y)																		*)
+(* #3 Output: Jointspace (A1,A2,(A3=Q3),(A4=Q4))													*)
+(****************************************************************************************************)
+(*	Historie:																						*)
+
+(****************************************************************************************************)
+
+FUNCTION_BLOCK L_TK1A_InverseKinematicRoller45
+VAR_INPUT
+	scActPositionIn:		L_MMB_PositionValue;
+	scParamRobot:			L_TK1A_ParamRobotRoller45;
+	scLimitRobot:			L_TK1A_LimitsRobotRoller45;
+END_VAR
+VAR_OUTPUT
+	scActPositionOut:		L_MMB_PositionValue;
+	xError:					BOOL;
+	wErrorID:				WORD;
+END_VAR
+VAR
+	lrS1							: LREAL; 
+	lrS2							: LREAL; 
+	bNew: BOOL:=TRUE;
+END_VAR
+
+(************************************************)
+(* basic configuration of the robot:			*) 
+(* see picture 1								*)
+(* A1/A2-coordinate-system is rotated 45° ccw	*)
+(* coordinate-system rotation:					*)
+(* A2 = X-part of rotated system				*)
+(* A1 = Y-part of rotated system				*)
+(* A2 =  X*cos45° + Y*sin45°					*)
+(* A1 = -X*sin45° + Y*cos45						*) 
+(************************************************)
+IF NOT bNew THEN
+lrS1	:=		  scActPositionIn.lrX +   scActPositionIn.lrY;
+lrS2	:=		 scActPositionIn.lrX -  scActPositionIn.lrY;
+
+scActPositionOut.lrA1:=lrS1*360/scParamRobot.lrFeedConstantA1;
+scActPositionOut.lrA2:=lrS2*360/scParamRobot.lrFeedConstantA2;
+ELSE
+lrS1	:=		  scActPositionIn.lrX +   scActPositionIn.lrY;
+lrS2	:=		 scActPositionIn.lrX -  scActPositionIn.lrY;
+
+scActPositionOut.lrA1:=lrS1;
+scActPositionOut.lrA2:=lrS2;
+END_IF
+(************************************************)
+(************************************************)
+(**  										   **)
+(**  				ERRORCHEcK				   **)
+(**  										   **)
+(************************************************)
+(************************************************)
+
+END_FUNCTION_BLOCK

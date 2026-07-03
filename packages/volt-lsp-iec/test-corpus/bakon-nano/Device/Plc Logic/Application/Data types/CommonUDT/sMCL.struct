@@ -1,0 +1,20 @@
+TYPE sMCL :
+STRUCT
+	bActInitialise				: BOOL; (* Activate Initialisation *)
+	bActConditioning			: BOOL; (* Activate Conditioning *)
+	bActAutomatic				: BOOL; (* Activate Automatic mode *)
+	bActManual					: BOOL; (* Activate Manual mode *)
+	bActCleaning				: BOOL; (* Activate Cleaning mode *)
+	bHoldOnRequest				: BOOL;
+	bHoldOnErrorCat3			: BOOL;
+	bStopEndOfCycle				: BOOL;
+	bStopOnErrorCat2			: BOOL;
+	(*bInitialiseReady			: BOOL;
+	bAutomaticReady				: BOOL;
+	bManualReady				: BOOL;
+	bCleaningReady				: BOOL;*)
+	bRecipeExecuted				: BOOL; (*Memory Bit*)
+	nStepCounter				: INT;
+	nOldStepCounter				: INT;
+END_STRUCT
+END_TYPE

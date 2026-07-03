@@ -1,0 +1,69 @@
+	VAR_GLOBAL
+	g_sMACH							: sMACH_DATA;
+
+	g_bCMD_US_Start1				: BOOL;
+	g_bCMD_US_Test1					: BOOL;
+	g_bUS_EnableRV					: BOOL;		(* Enable US generator when knife is in product *)
+	g_bUS_EnableCleaning			: BOOL;		(* Enable US generator during cleaning *)
+	
+	g_bSaveMachPar					: BOOL;		(* Save Mach par aan einde van automaat *)
+
+	ModusRV							: sModusRondVierkant;
+
+	g_uParRondVierkant				: strRondVierkantParameters;
+
+	g_bFirstCycle					: BOOL;
+	g_bOnDelayed					: BOOL;
+
+	g_bCalculationStart				: BOOL;
+	g_bCalculationDone				: BOOL;
+	g_bSUB_CleanKnifeStart			: BOOL;
+	g_bSUB_CleanKnifeDone			: BOOL;
+	g_bCleanRequest					: BOOL;
+	
+	g_bSUB_InitStart				: BOOL;
+	g_bSUB_InitDone					: BOOL;
+
+	g_bProductNotFinished			: BOOL;	(* cuts on product not completed *)
+
+	g_bHomingDone					: BOOL;
+
+	g_bTestAGM1						: BOOL;
+	g_bResetMaster					: BOOL;
+	(* Machine configuration bits *)
+	gMachConfig						: sMach_Setup;
+	gProductOption					: sProd_Setup;
+	
+	(* Ultrasonic variables *)
+	//g_dwAGM1_Status					: DWORD;
+	g_dwAGM1_PowerLoss				: DWORD;
+	g_rAGM1_Frequency				: REAL;
+
+	g_sCalculated					: sMACH_Calculated;
+	g_aCuttingPositions				: ARRAY [1..C_wNumberOfMotionObjects] OF XYA_Target;
+	g_sCuttingPositionsInfo			: ArrayInfo;
+	g_aWastePositions				: ARRAY [1..100] OF XYA_Target;
+	g_sWastePositionsInfo			: ArrayInfo;
+
+	g_bTrimFront					: BOOL;	(* Variable used in calculation functions*)
+	g_bTrimRear						: BOOL;	(* Variable used in calculation functions*)
+	g_bTrimLeft						: BOOL;	(* Variable used in calculation functions*)
+	g_bTrimRight					: BOOL;	(* Variable used in calculation functions*)
+	g_rDistanceBetweenCuts_InX		: REAL;	(* Variable used in calculation functions*)
+	g_rDistanceBetweenCuts_InY		: REAL;	(* Variable used in calculation functions*)
+	g_rHoekInRad					: REAL;	(* Variable used in calculation functions*)
+	g_rHoekInRad2					: REAL;	(* Variable used in calculation functions*)
+	g_rEndTargetX					: REAL;	(* Variable used for saving end target*)
+	g_rEndTargetY					: REAL;	(* Variable used for saving end target*)
+	g_rEndTargetA					: REAL;	(* Variable used for saving end target*)
+	g_rEndTargetK					: REAL;	(* Variable used for saving end target*)
+	
+	g_bCurrentTableUniversal10		: BOOL := FALSE;
+	
+	g_sMCHCopyMade					: BOOL := FALSE;
+	g_sMCHParCopy					: sMACH_MACH_Parameters;
+	g_sRCPCopyMade					: BOOL := FALSE;
+	g_sRCPParCopy					: sMACH_RCP_Parameters;
+	{warning 'Disabled for compatibility - SVE'}
+	//g_Logger						: PLC_Logger;
+END_VAR

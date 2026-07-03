@@ -1,0 +1,16 @@
+TYPE KC_AxisBasicsControl :
+STRUCT
+	bEnableDrive				: BOOL;
+	bManualJogPos				: BOOL;
+	bManualJogNeg				: BOOL;
+	bResetError					: BOOL;
+	bStartHoming				: BOOL;
+	bPosAbsPosition				: BOOL;
+	bPosRelPosition				: BOOL;
+	lrAcceleration				: LREAL:=100;
+	lrDeceleration				: LREAL:=100;
+	lrVelocity					: LREAL:=50;
+	lrPosition					: LREAL:=0;
+	lrQuickStopDec				: LREAL:=20000;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,28 @@
+TYPE sMACH_HMI_UnitCmd :
+STRUCT
+	CMD					: sCMD;
+(*	arSetVelocity					: ARRAY[0..9] OF REAL:=50,100,25,25,25,25,25,25,25;
+	arTargetPosition				: ARRAY[0..9] OF REAL:=5000000,1000000,2000000; *)
+	bMan_XaxisPos				: BOOL;	(* Manual *)
+	bMan_XaxisNeg				: BOOL;	(* Manual *)
+	bMan_YaxisPos				: BOOL;	(* Manual *)
+	bMan_YaxisNeg				: BOOL;	(* Manual *)
+	bMan_FrontaxisPos			: BOOL;	(* Manual *)
+	bMan_FrontaxisNeg			: BOOL;	(* Manual *)
+	bMan_RearaxisPos			: BOOL;	(* Manual *)
+	bMan_RearaxisNeg			: BOOL;	(* Manual *)
+	bMan_ZaxisPos				: BOOL;	(* Manual *)
+	bMan_ZaxisNeg				: BOOL;	(* Manual *)
+	bMan_RaxisPos				: BOOL;	(* Manual *)
+	bMan_RaxisNeg				: BOOL;	(* Manual *)
+	bMan_CleaningContPos		: BOOL;	(* Manual *)
+	bMan_CleaningContNeg		: BOOL;	(* Manual *)
+	bMan_CleaningWaterPos		: BOOL;	(* Manual *)
+	bTestUltrasonic1				: BOOL;	(* Manual *)
+	bTestMode					: BOOL;
+	bSetOffsetFront				: BOOL := FALSE;	(* Pulse *)
+	bSetOffsetRear				: BOOL := FALSE;	(* Pulse *)
+	bSetOffsetR					: BOOL := FALSE;	(* Pulse *)
+	bScanMode					: BOOL;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,217 @@
+FUNCTION_BLOCK Check_Table_V2
+VAR_INPUT
+	I_bStartCheck				: BOOL;
+	I_bSensor					: BOOL;	(* Sensor table check *)
+	I_bTestModus				: BOOL;
+	I_nProdTypeSelection	: INT;		(* Product type selected in recipe *)
+	I_rActualPositionY			: REAL;
+	I_nPartsRoundLeft		: INT;
+	I_nPartsRoundRight		: INT;
+END_VAR
+VAR_OUTPUT
+	Q_TabelCheckOK			: BOOL;
+	Q_nTableNumber			: INT;
+	Q_bCrashDetectionOK		: BOOL;
+END_VAR
+VAR
+	rtSensor: R_TRIG;
+	rPos: ARRAY [0..4] OF BOOL;
+	nTableNumber : INT;
+	bFirstCam: BOOL;
+	rPosFirstCam: REAL;
+END_VAR
+
+rtSensor(CLK := I_bSensor);
+
+IF	I_bStartCheck
+THEN
+	(*q_tabelCheckOK := TRUE;*)
+	IF	rtSensor.Q AND NOT bFirstCam			(* referentie nok *)
+	THEN
+		rPosFirstCam	:= I_rActualPositionY;
+		bFirstCam		:= TRUE;
+	END_IF
+	IF			I_rActualPositionY > rPosFirstCam + 35	(* First distance 5mm more because of rising trigger first cam *)
+		AND	I_rActualPositionY < rPosFirstCam + 45
+	THEN
+		IF	I_bSensor
+		THEN
+			rPos[1]		:= TRUE;
+		END_IF
+	ELSIF		I_rActualPositionY > rPosFirstCam + 70
+		AND	I_rActualPositionY < rPosFirstCam + 80
+	THEN
+		IF	I_bSensor
+		THEN
+			rPos[2]		:= TRUE;
+		END_IF
+	ELSIF		I_rActualPositionY > rPosFirstCam + 105
+		AND	I_rActualPositionY < rPosFirstCam + 115
+	THEN
+		IF	I_bSensor
+		THEN
+			rPos[3]		:= TRUE;
+		END_IF
+	ELSIF		I_rActualPositionY > rPosFirstCam + 140
+		AND	I_rActualPositionY < rPosFirstCam + 150
+	THEN
+		IF	I_bSensor
+		THEN
+			rPos[4]		:= TRUE;
+		END_IF
+	ELSIF		I_rActualPositionY > rPosFirstCam + 155					(* Check finished *)
+	THEN
+		nTableNumber := (BOOL_TO_INT(rPos[1]) * 1) + (BOOL_TO_INT(rPos[2]) * 2) + (BOOL_TO_INT(rPos[3]) * 4) + (BOOL_TO_INT(rPos[4]) * 8);
+
+		CASE nTableNumber OF
+
+			0:	(*4x klein blik of testmodus zonder tafel*)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Tray_Rectangle_1x4) OR (I_bTestModus AND NOT bFirstCam);
+
+			1:	(*Enkel blik*)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Tray_Rectangle_1x1);
+
+			2:	(*Dubbel blik*)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Tray_Rectangle_1x2);
+
+			3:	(*Alle vormen van slab*)
+				Q_TabelCheckOK	:= 		(I_nProdTypeSelection = Prod_Slab_Rectangle_1x1)
+										OR	(I_nProdTypeSelection =  Prod_Slab_Triangle_1x1)
+										OR	(I_nProdTypeSelection =  Prod_Slab_Diagonal_1x1)
+ 										OR	(I_nProdTypeSelection = Prod_Slab_Rectangle_1x1_Clamp)		(* V04.01 *)
+										OR  (I_nProdTypeSelection = Prod_Round_POC_2x1)				(* V11.03 uitbreiding rond op plaat*)
+										OR  (I_nProdTypeSelection = Prod_Round_POC_2x2);	    // Test 2x2 
+										
+			4:	(*ROND: 8 punten - 8 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,4,8:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,4,8:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			5:	(*ROND: 10 punten - 10 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,10:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,10:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			6:	(*ROND: 12 punten - 12 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,4,6,12:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,4,6,12:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			7:	(*ROND: 14 punten - 14 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,14:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,14:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			8:	(*Tray Square Double*)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Slab_Rectangle_2x1);
+
+			9:	(*ROND: 12 punten - 16 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,4,6,12:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,4,8,16:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			10:(*Tafel voor 4 ronde taarten*)
+				Q_TabelCheckOK	:= I_nProdTypeSelection = Prod_Round_POC_2x2;
+
+			11:	(*Nog niet benut*)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Tray_Rectangle_2x1);
+
+			12:	(*ROND: 16 punten - 16 punten*)
+				CASE I_nPartsRoundLeft OF
+					0,2,4,8,16:	(*Mogelijk*)
+						CASE I_nPartsRoundRight OF
+							0,2,4,8,16:	(*Mogelijk*)
+								Q_TabelCheckOK := I_nProdTypeSelection = Prod_Round_POC_2x1;	(* TRUE *)
+							ELSE
+								Q_TabelCheckOK	:= FALSE;
+						END_CASE
+					ELSE
+						Q_TabelCheckOK	:= FALSE;
+				END_CASE
+
+			13:	(* Slab snijden op tafel met vinger opkelmming *)
+				Q_TabelCheckOK	:= (I_nProdTypeSelection = Prod_Slab_Rectangle_1x1_Clamp);		(* V04.01 *)
+
+			14:	(*Nog niet benut*)
+				Q_TabelCheckOK	:= FALSE;
+
+			15:	(*Nog niet benut*)
+				Q_TabelCheckOK	:= FALSE;
+
+			ELSE	(*Zou niet moeten kunnen!*)
+				Q_TabelCheckOK	:= FALSE;
+		END_CASE
+		
+	END_IF
+	
+	IF I_nProdTypeSelection = Prod_Tray_Rectangle_1x2
+				OR I_nProdTypeSelection = Prod_Tray_Rectangle_1x1
+				OR I_nProdTypeSelection = Prod_Tray_Rectangle_1x4
+		OR I_nProdTypeSelection = Prod_Tray_Rectangle_2x1
+	THEN
+		IF 	NOT gMachConfig.bCrashDetection OR NOT g_uStatus_Z_Axis.bDigIn1 THEN
+			Q_bCrashDetectionOK := TRUE;
+		END_IF
+	ELSE
+		Q_bCrashDetectionOK := TRUE;
+	END_IF
+	
+	//Hier moet Q_bCrashDetectionOK als de crashdetectie niet gebruikt wordt !!!!
+	
+	IF NOT g_HMI_RCP_Parameters.bCutWasteFirst THEN	//Dit is gekozen om te zorgen dat als de crashdetectie defect is (draad tussen tafel & kastje) er toch nog gesneden kan worden.
+		Q_bCrashDetectionOK := TRUE;
+	END_IF
+		
+	Q_nTableNumber	:= nTableNumber;		(* laatst gedecteerde tafel blijft behouden *)
+ELSE
+	Q_TabelCheckOK		:= FALSE;
+	Q_bCrashDetectionOK	:= FALSE;
+	bFirstCam			:= FALSE;
+	rPos[0]				:= FALSE;
+	rPos[1]				:= FALSE;
+	rPos[2]				:= FALSE;
+	rPos[3]				:= FALSE;
+	rPos[4]				:= FALSE;
+END_IF
+
+END_FUNCTION_BLOCK

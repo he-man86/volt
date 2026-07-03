@@ -1,0 +1,28 @@
+TYPE KC_AxisBasicsStatus :
+STRUCT
+	bDriveReady							: BOOL;
+	bDriveEnabled						: BOOL;
+	xAxisError							: BOOL;
+	xDriveError							: BOOL;
+	bDriveWarning						: BOOL;
+	bLuMessage							: BOOL;
+	xError								: BOOL;
+	bHomePositionAvailable				: BOOL;                                                   
+	bHomingBusy							: BOOL;
+	bHomingDone							: BOOL;
+	bMoveRelDone						: BOOL;
+	bMoveAbsDone						: BOOL;
+	bManualBusy							: BOOL;
+	bLimitPos							: BOOL;
+	bLimitNeg							: BOOL;
+	eStateAxis							: L_MC1P_AXIS_STATE;
+	lrActPosition						: LREAL;
+	lrActVelocity						: LREAL;
+	lrActFollowError					: LREAL;
+	eErrorID							: L_IE1P_Error;				//FB
+	eAxisErrorID						: L_IE1P_Error;  //DWORD	//Axis
+	dwDriveErrorID						: DWORD;
+	bDigIn1								: BOOL; (* V2 *)
+	bDigIn2								: BOOL; (* V2 *)
+END_STRUCT
+END_TYPE

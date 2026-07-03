@@ -1,0 +1,111 @@
+FUNCTION_BLOCK L_MKT_StopErrorKinematic
+VAR_INPUT
+	xEnable						: BOOL;
+	scPosition_InverseKinematic : L_MMB_PositionValue;	
+	xError_InverseKinematic		: BOOL;					(* xError OutPut inverse Kinematik									*)
+	wErrorID_InverseKinematic	: WORD;					(* wErrorId Output inverse Kinematik								*)
+	lfStopDeceleration			: LREAL;				(* MC_Stop:		Deceleration										*)
+END_VAR
+VAR_OUTPUT
+	xError						: BOOL;
+	xAborted					: BOOL;
+	xMC_Stop					: BOOL;
+	xMC_StopDone				: BOOL;
+END_VAR
+VAR_IN_OUT
+	Axis_VIRTUAL_X				: AXIS_REF;
+	Axis_VIRTUAL_Y				: AXIS_REF;
+END_VAR
+
+VAR
+	sToDo					: STRING;
+	sErrorID				: STRING;
+	MC_Stop_X_FB			: MC_Stop;
+	MC_Stop_Y_FB			: MC_Stop;
+	scPositionError			: L_MMB_PositionValue;
+	R_TRIG_xEnable			: R_TRIG;
+	
+	byStepper				: BYTE:=0;
+END_VAR
+
+(****************************************************************************************************************)
+(* INITIALISIRUNG FB																							*)
+(****************************************************************************************************************)
+	R_TRIG_xEnable(CLK:=xEnable , Q=> );
+	(********************************************)
+	(* MC_stop									*)
+	(********************************************)
+	MC_Stop_X_FB(Execute:=xMC_Stop, Deceleration:= lfStopDeceleration, Axis:=Axis_VIRTUAL_X );
+	MC_Stop_Y_FB(Execute:=xMC_Stop, Deceleration:= lfStopDeceleration, Axis:=Axis_VIRTUAL_Y );
+
+	IF (Axis_VIRTUAL_X.eAxisState=L_MC1P_AXIS_STATE.Disabled OR MC_Stop_x_FB.Done) AND			//SMC_State was compared with 0 > power off
+		(Axis_VIRTUAL_Y.eAxisState=L_MC1P_AXIS_STATE.Disabled OR MC_Stop_Y_FB.Done)  THEN
+		xMC_StopDone:= TRUE;
+	ELSE
+		xMC_StopDone:= FALSE;
+	END_IF
+
+(********************************************)
+(* INIT										*)
+(********************************************)
+	IF R_TRIG_xEnable.Q THEN
+		xAborted:=FALSE;
+		xError := FALSE;
+		xMC_Stop:= FALSE;
+		byStepper:=1;
+	END_IF
+	IF NOT(xEnable) THEN
+		byStepper:=0;
+	END_IF
+
+
+(********************************************)
+(* StateMaschine							*)
+(********************************************)	
+
+	CASE byStepper OF
+		0: (* Not ENABLE *)
+			;
+			
+		1:(* NoError *)
+			sErrorID:='NoError';
+			sToDo:='Position is Ok';
+			xError:=FALSE;
+			(* Check the Errors *)
+			IF xError_InverseKinematic THEN
+				byStepper:=10;
+			END_IF
+			(* Check the real Axis A1,2,3 and A4 position *)
+			(* EndersR: Überwachung der Riemenlänge*)
+			IF scPosition_InverseKinematic.lrA1 < -100000 OR scPosition_InverseKinematic.lrA1 > 100000 THEN
+				byStepper:=10;			
+			ELSIF scPosition_InverseKinematic.lrA2 < -100000 OR scPosition_InverseKinematic.lrA2 > 100000 THEN
+				byStepper:=10;			
+					
+			END_IF
+			
+		10:	xMC_Stop:=TRUE;
+			xError:=TRUE;
+			byStepper:=12;	
+			
+		12: (* ErrorInput *)
+			sErrorID:='ErrorInput';
+			IF xMC_StopDone THEN
+				scPositionError	:= scPosition_InverseKinematic;
+				scPositionError.lrX	:= Axis_VIRTUAL_X.lrSetPosition;
+				scPositionError.lrY	:= Axis_VIRTUAL_Y.lrSetPosition;
+				xMC_Stop:=FALSE;
+				byStepper:=14;				
+			END_IF
+		14: (* ErrorID *)
+			CASE wErrorID_InverseKinematic OF
+				1000:   byStepper:=16; 	(*NoEROOR*)
+				1001: 	byStepper:=70; 	(*A1-Limited*)
+				
+			END_CASE
+		16:(* Check the real Axis A1,2,3 and A4 position whis Safety of Deltapos*)
+				
+				byStepper:=1;
+	END_CASE
+
+END_FUNCTION_BLOCK

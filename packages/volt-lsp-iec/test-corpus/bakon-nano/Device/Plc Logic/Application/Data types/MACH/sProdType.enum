@@ -1,0 +1,23 @@
+TYPE sProdType :(
+	Prod_Slab_Rectangle_1x1				:= 0,		(* ProductType = 0 = Slab Square *)
+	Prod_Slab_Triangle_1x1				:= 1,		(* ProductType = 1 = Slab triangle *)
+	Prod_Slab_Diagonal_1x1				:= 2,		(* ProductType = 2 = Slab diagonal *)
+	Prod_Round_POC_2x1					:= 3,		(* ProductType = 3 = Round Cake *)
+	Prod_Tray_Rectangle_1x2				:= 4,		(* ProductType = 4 = Tray Square Small *)
+	Prod_Tray_Rectangle_1x1				:= 5,		(* ProductType = 5 = Tray Square Large *)
+	Prod_Tray_Rectangle_1x4				:= 6,		(* ProductType = 6 = Tray Square 4 on a table *)
+	Prod_Slab_Rectangle_1x1_Clamp		:= 7,		(* ProductType = 7 = Slab Square op tafel met opklemvingers (V04.01) *)
+	Prod_Tray_Rectangle_2x1				:= 8,		(* ProductType = 8 = Tray square 2 side by side*)
+	Prod_Round_POC_2x2					:= 9,		(* ProductType = 9 = Round cake 4 off*)
+	Prod_Slab_Rectangle_2x1				:= 10		(* productType = 10 = Slab double, alleen door te snijden in 90 graden*)
+);
+END_TYPE
+
+
+
+(*		Naming convention
+
+Prod_[Type]_[EndProduct]_[number of products in X direction]x[number of products in Y direction]_[Optional information]
+
+(POC stands for piece of cake due to the lack of a better name...)
+*)

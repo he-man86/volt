@@ -1,0 +1,13 @@
+TYPE sCLN :
+STRUCT
+	bCleaningReady					: BOOL;
+	bCleaningBusy					: BOOL;
+	bAlmError						: BOOL;
+	rWatchdogTime					: REAL;
+	rStepTime						: REAL;
+	nStepCounter					: INT;
+	nOldStepCounter					: INT;
+	(*Extra, application dependant data can be declared below this point*)
+
+END_STRUCT
+END_TYPE

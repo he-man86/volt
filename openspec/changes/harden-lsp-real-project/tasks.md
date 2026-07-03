@@ -4,16 +4,32 @@
 - [x] 1.2 Materialized the pro2193 full-option project via the headless bridge; renamed `.st` POUs by kind (185 fb / 47 prg / 37 fun); DUT/itf/gvl already kind-named.
 - [x] 1.3 Committed the tree under `packages/volt-lsp-iec/test-corpus/pro2193/` (424 kind source files + references).
 - [~] 1.4 `scripts/coverage-report.ts` regenerates the report; a `.st`→kind rename script exists (scratchpad). A one-shot regen script + README is still TODO.
+- [x] 1.5 **Second corpus** — materialized + committed a SECOND full-option project, `test-corpus/bakon-nano/`
+  ("Bakon Nano new VISU v00_90", 130 kind source files: 41 struct / 37 prg / 21 fun / 18 fb / 10 gvl / 3 enum,
+  + library/device/task references). Harvested via `volt-scripts/harvest-lsp-corpus.ts` off the headless
+  bridge (had to close the interactive IDE first — the project was lock-held). Widens the regression surface
+  beyond pro2193 with different library mix + graphical bodies.
 
 ## 2. Disk-sourced corpus harness
 
 - [x] 2.1 Built `computeCoverage(dir)` in `scripts/coverage-report.ts` (walks the kind set, builds the project scope) — the disk-sourced harness (equivalent to `buildCorpusWorkspaceFromDisk`, purpose-built for coverage metrics).
 - [~] 2.2 Per-query snapshot tests over the real corpus — deferred (heavy/churny); the aggregate coverage metrics cover the signal for now.
-- [x] 2.3 Whole-corpus **coverage/precision sweep** as a hermetic ratchet test (`src/tests/real-corpus.test.ts`, vendor=codesys) — asserts the baseline never regresses (goal: 0 diagnostics). 3.1s, no bridge.
+- [x] 2.3 Whole-corpus **coverage/precision sweep** as a hermetic ratchet test (`src/tests/real-corpus.test.ts`, vendor=codesys) — asserts the baseline never regresses (goal: 0 diagnostics). 3.1s, no bridge. **Now parametrized over BOTH corpora** (pro2193 baseline 35, bakon-nano baseline 280); each guards parse/ingest/precision floors independently.
 
 ## 3. Precision — zero false positives
 
-- [ ] 3.1 Survey the baseline: `bun run scripts/run-diagnostics.ts <corpus-dir>` (all checks on) — record every diagnostic code + count to triage FP vs. real.
+- [~] 3.1 Survey baselines. **pro2193**: 35 diags (all `unresolved-identifier`, library-blind). **bakon-nano**
+  (all checks on, 2026-07-03): 359 → `unresolved-identifier` 348, `message-pragma-warning` 6, `unknown-pragma`
+  6, `vg-undeclared-identifier` 5. Triage: the `message-pragma-warning` 6 are CORRECT (the LSP mirrors the
+  author's `{warning 'Disabled for compatibility - SVE'}` pragmas — they match the project's real compile
+  warnings). `unknown-pragma` 6 were a FP → FIXED (see below). Under the default (production) config the
+  ratchet counts 280 (`unresolved-identifier` 275 + `vg-undeclared-identifier` 5).
+- [x] 3.1a **`analysis` pragma FP fixed** — `{attribute 'analysis' := '-33'}` (CODESYS Static-Analysis
+  rule suppression) was flagged `unknown-pragma`. Added it to the shared pragma catalog (`reference/pragmas.ts`).
+  Completion snapshots updated (it now offers as a valid attribute). Full LSP suite 5689 pass.
+- [ ] 3.1b `vg-undeclared-identifier` on `EXECUTE`/`DELETE`/`REPLACE` (5, bakon-nano) — the VG (graphical)
+  analyzer flags these as undeclared, but `DELETE`/`REPLACE` are standard IEC string functions the ST
+  analyzer already knows via `standard-functions.ts`. The VG check should consult the same table. NEXT.
 - [ ] 3.2 Fix `unresolved-identifier` library-blindness (`check-unresolved-identifier.ts`): implement strategy (b) — don't flag bare references absent from the whole project scope (extend the existing member-access fall-through); re-survey.
 - [ ] 3.3 Confirm `unknownPragma` / `wrongVendorPragma` / `initSlotCollision` stay OFF by default and don't need to be forced on for real projects; verify the CODESYS vendor mask (`rule-vendor-applicability.ts`) hides the twincat-only checks.
 - [ ] 3.4 Triage every remaining diagnostic: each must be a genuine defect or get a tuned check + a regression fixture. Drive the sweep (2.3) to green.
@@ -21,7 +37,9 @@
 
 ## 4. Coverage — no parse gaps
 
-- [ ] 4.1 Assert every corpus file parses with no parse-error diagnostic on valid code (part of 2.3); investigate any parser failure and add a minimal fixture for it.
+- [x] 4.1 Every corpus file parses with no parse-error diagnostic (asserted in 2.3 for BOTH corpora — pro2193
+  524/524 + bakon-nano 130/130, 100% parse-clean). The parser/lexer handled the full-option bakon-nano
+  project with ZERO parse errors on first contact — no new parser gaps surfaced by the second project.
 - [ ] 4.2 Confirm every construct kind in the corpus is ingested by `buildSymbolTable` (`symbol-table-build.ts` `ingestTopLevel`) — no silently-skipped items (methods/properties/actions/transitions parented correctly, GVLs, interfaces, DUTs).
 - [ ] 4.3 Confirm editable FBD/LD bodies in the corpus are recognized as VG (NETWORK marker) and analyzed by the VG checks, not mis-flagged as ST.
 

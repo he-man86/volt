@@ -1,0 +1,37 @@
+VAR_GLOBAL CONSTANT
+
+(*********************** AFHANKELIJK VAN MACHINE!! ***********************)
+
+	C_LimitKnifeStrokeMax		: REAL := 225;		(* Controle of machine parameter tussen de limieten valt *)
+	C_LimitKnifeStrokeMin		: REAL := 60;		(* (controle of mach par goed opgeslagen zijn) *)
+
+	C_rTargetX_TableCheck		: REAL := 2.1;		(* x positie voor de tafel sensor controle *)
+	C_rXAxis_SafeCleaningPos	: REAL := 3;		(* x positie voor de tafel veilig om waterbakje omhoog te sturen *)
+
+	C_rExtraMarginKnifeHeight	: REAL := 8;		(* extra starthoogte van het mes bovenop de gewenste producthoogte *)
+
+	C_rMinOvershootX			: REAL	:= 3;		(* minimaal 1 meer dan de negatieve sw limit *)
+	C_rMaxOvershootX			: REAL	:= 683;//688	(* minimaal 1 minder dan de positieve sw limit *)
+	C_rMaxOvershootX_XL			: REAL  := 898;		(* voor XL Machine*)
+	C_rMinOvershootY			: REAL	:= 3;		(* minimaal 1 meer dan de negatieve sw limit *)
+	C_rMaxOvershootY			: REAL	:= 488;		(* minimaal 1 minder dan de positieve sw limit *)
+	C_rMaxOvershootY_XL			: REAL  := 658;
+
+	C_rMinimumTrimSlab		: REAL	:= 0;
+	C_rMaxPowerUS1			: REAL	:= 100;		(* value from 50 to 100 % *)
+
+
+	(********************************************* Other  Constantes *********************************************)
+	C_rPi								: REAL	:= 3.14159265358979;
+
+	C_wNumberOfMotionObjects	: INT := 1600;
+
+	C_NOT_ACTIVE  				:INT	:=  -1;
+	C_INITIAL      					:INT	:=   0;
+	C_WAIT_EXEC  	  			:INT	:=	995;
+	C_INITIALISE   				:INT 	:=	996;
+	C_STOPPED      				:INT	:=	997;
+	C_READY        				:INT	:=	998;
+	C_LAST       	  				:INT	:=	999;
+
+END_VAR

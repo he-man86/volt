@@ -1,0 +1,12 @@
+TYPE sRcpClmn2 :
+STRUCT
+	Slab				: BOOL;
+	Round				: BOOL;
+	SlabFingers			: BOOL;
+	RoundFingers		: BOOL;
+	TrayLarge			: BOOL;
+	TraySmall			: BOOL;
+	TrayDouble			: BOOL;
+	TrayQuadruple		: BOOL;
+END_STRUCT
+END_TYPE

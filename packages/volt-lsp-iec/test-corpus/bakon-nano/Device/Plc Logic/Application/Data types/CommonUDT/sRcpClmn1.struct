@@ -1,0 +1,7 @@
+TYPE sRcpClmn1 :
+STRUCT
+	SlabRound		: BOOL;
+	SlabRoundFngrs	: BOOL;
+	Tray			: BOOL;
+END_STRUCT
+END_TYPE

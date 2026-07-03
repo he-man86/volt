@@ -1,0 +1,9 @@
+TYPE VisuCut :
+STRUCT
+	xPos	: STRING;
+	yPos	: STRING;
+	visible	: BOOL;
+	rotation: REAL;
+	length: STRING;
+END_STRUCT
+END_TYPE

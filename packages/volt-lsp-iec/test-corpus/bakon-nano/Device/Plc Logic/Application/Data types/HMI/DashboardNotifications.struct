@@ -1,0 +1,15 @@
+TYPE DashboardNotifications :
+STRUCT
+	bUltrasonicWarning		: BOOL;
+	bUltrasonicError		: BOOL;
+	bCabinetError			: BOOL;
+	bRmotorError			: BOOL;
+	bFrontRearmotorError	: BOOL;
+	bCleaningCilTimout		: BOOL;
+	bSafetyScreen			: BOOL;
+	bNSpanel				: BOOL;
+	bHeightCilTimout		: BOOL;
+	bMainAirError			: BOOL;
+	bHeightMotorError		: BOOL;
+END_STRUCT
+END_TYPE

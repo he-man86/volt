@@ -1,0 +1,10 @@
+{attribute 'qualified_only'}
+VAR_GLOBAL
+	g_bOnDelayed 			: BOOL;
+	g_bDQ_Ultrasonic1 		: BOOL;
+	g_bTestAGM1 			: BOOL;
+	g_HMI_MCH_Parameters	: sMACH_MACH_Parameters;
+	g_HMI_RCP_Parameters	: sMACH_RCP_Parameters;
+	g_HMI_MachCommand		: sMACH_HMI_UnitCmd;
+	C_rMaxPowerUS1			: REAL;
+END_VAR

@@ -1,0 +1,14 @@
+TYPE L_TK1A_ParamRobotRoller45 :
+STRUCT
+	lrFeedConstantA1: LREAL:=22.4; 		(* Vorschubkonstante A1 [mm pro Umdrehung]*)
+	lrFeedConstantA2: LREAL:=22.4;		(* Vorschubkonstante A2 [mm pro Umdrehung]*)
+(*	lrOffsetA1:		LREAL:=	0;		(*Offset of roller-axis A1*)
+	lrOffsetA2:		LREAL:=	0;		(*Offset of roller-axis A2*)
+	
+	lrLengthX:		LREAL:= 0;
+	lrLengthY:		LREAL:=0;
+	lrOffsetX:		LREAL:=	0;		(*Offset of virtual carthesian X-axis*)
+	lrOffsetY:		LREAL:=	0;		(*Offset of virtual carthesian Y-axis*)
+*)
+END_STRUCT
+END_TYPE

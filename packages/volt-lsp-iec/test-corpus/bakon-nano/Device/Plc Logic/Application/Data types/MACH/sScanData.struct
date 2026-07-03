@@ -1,0 +1,17 @@
+TYPE sScanData :
+STRUCT
+	rMaxFrontTorque 		: LREAL;
+	rMaxRearTorque 			: LREAL;
+	rMaxZTorque				: LREAL;
+	rMaxRTorque				: LREAL;
+	
+	rMaxFrontFollowError	: LREAL;
+	rMaxRearFollowError		: LREAL;
+	rMaxZFollowError		: LREAL;
+	rMaxRFollowError		: LREAL;
+	
+	rMaxFrequency			: LREAL;
+	rMaxPowerLoss			: LREAL;
+	
+END_STRUCT
+END_TYPE

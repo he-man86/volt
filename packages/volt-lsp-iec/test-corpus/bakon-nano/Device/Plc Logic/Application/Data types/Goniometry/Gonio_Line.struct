@@ -1,0 +1,6 @@
+TYPE Gonio_Line :
+STRUCT
+	p1	: Gonio_Point;
+	p2 	: Gonio_Point;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,42 @@
+(***********************************************************************************
+Creation: LENL			 		Datum: March 2009			Version: 1.0.0
+ ***********************************************************************************
+ FUNCTION:					
+
+calc max speed of an axis, depending on a variable gear ratio
+
+ ***********************************************************************************
+Name							Datum				Changes					Version
+Kling 							24.03.2009		Implementation
+
+
+************************************************************************************
+NOTE:	
+
+***********************************************************************************)
+
+
+FUNCTION_BLOCK CalcMasterSpeedAcc
+VAR_INPUT
+	rGearingRatio:REAL;
+END_VAR
+VAR_OUTPUT
+	rVelocity:REAL;
+	rAcceleration:REAL;
+END_VAR
+VAR
+END_VAR
+
+VAR_IN_OUT
+	Axis:AXIS_REF;
+END_VAR
+
+IF rGearingRatio <> 0 THEN
+	rVelocity:=Axis.scPar.MaxVelocity / ABS(rGearingRatio);
+	rAcceleration:=Axis.scPar.MaxAcceleration   / ABS(rGearingRatio);
+ELSE
+	rVelocity:=100000;
+	rAcceleration:=10000000;
+END_IF
+
+END_FUNCTION_BLOCK

@@ -1,0 +1,6 @@
+TYPE StopPositions :
+STRUCT
+	CutPos	:BOOL;
+	Outfeed	:BOOL;
+END_STRUCT
+END_TYPE

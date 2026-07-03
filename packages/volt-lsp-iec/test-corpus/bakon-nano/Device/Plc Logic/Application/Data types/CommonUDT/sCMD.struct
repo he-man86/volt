@@ -1,0 +1,58 @@
+TYPE sCMD :
+STRUCT
+	bStartCycle				: BOOL;  (* Command for Init and Autocycle *)
+	bPauseCycle				: BOOL;
+	bStopCycle				: BOOL;  (* Command *)
+	bStartManual			: BOOL;  (* Command *)
+	bStopManual				: BOOL;  (* Command *)
+	bStartCleaning			: BOOL;  (* Command *)
+	bStopCleaning			: BOOL;  (* Command *)
+	bResetErrorPulse		: BOOL;  (* Command *)
+	bResetDayCounter		: BOOL;
+	bMaintenanceDone		: BOOL;
+	bResetRecipe			: BOOL;  (* Command, reset recipe values to default *)
+	bConfirm				: BOOL;
+	bDeny					: BOOL;
+	bCleanKnifeRequest		: BOOL;
+	bTableToCleanPos		: BOOL;	(* Command, send table to the left in order to be able to clean the water container by hand *)
+	bResetEmergencyStop		: BOOL; (* Command, reset emergency stop *)
+	
+	/// Recipe handling bits
+	bLoadRecipe				: BOOL;
+	bDeleteRecipe			: BOOL;
+	bSaveRecipe				: BOOL;
+	bCopyRecipe				: BOOL;
+	bUpdateRecipe			: BOOL;
+	bNewRecipe				: BOOL;
+	bEditRecipe				: BOOL;
+	//Machine parameter handling bits
+	bLoadMachPar			: BOOL;
+	bDeleteMachPar			: BOOL;
+	bSaveMachPar			: BOOL;
+	bSaveAsMachPar			: BOOL;
+	bSaveMachParGo			: BOOL;
+	//Commandbits for new visu:
+	bPlusPartsY				: BOOL;
+	bMinPartsY				: BOOL;
+	bPlusPartsX				: BOOL;
+	bMinPartsX				: BOOL;
+	bPlusProdHeight			: BOOL;
+	bMinProdHeight			: BOOL;
+	bPlusKnifeStopHeight	: BOOL;
+	bMinKnifeStopHeight		: BOOL;
+	bPlusTrimFront			: BOOL;
+	bMinTrimFront			: BOOL;
+	bPlusTrimRear			: BOOL;
+	bMinTrimRear			: BOOL;
+	bPlusTrimLeft			: BOOL;
+	bMinTrimLeft			: BOOL;
+	bPlusTrimRight			: BOOL;
+	bMinTrimRight			: BOOL;
+	bPlusKnifeSpeedAbove	: BOOL;
+	bMinKnifeSpeedAbove		: BOOL;
+	bPlusKnifeSpeedIn		: BOOL;
+	bMinKnifeSpeedIn		: BOOL;
+	bPlusKnifeSpeedOut		: BOOL;
+	bMinKnifeSpeedOut		: BOOL;
+END_STRUCT
+END_TYPE

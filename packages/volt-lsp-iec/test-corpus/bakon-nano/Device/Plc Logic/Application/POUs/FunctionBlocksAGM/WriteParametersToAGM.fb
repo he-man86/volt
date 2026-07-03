@@ -1,0 +1,64 @@
+FUNCTION_BLOCK WriteParametersToAGM
+VAR
+	byStepper: BYTE;
+	bStartWrite: BOOL;
+	R_TRIG1: R_TRIG;
+	R_TRIG2: R_TRIG;
+	LenzeParWrite_LDC1: CIA405.SDO_WRITE4; (*TODO -> Hoe Axis ref hiervoor maken?*)
+	Device : CIA405.DEVICE := 21; 
+	DataArray : ARRAY[1..4] OF BYTE;
+	ptrByteArray : POINTER TO ARRAY[0..3] OF BYTE;
+END_VAR
+VAR_INPUT
+	I_bEnable		: BOOL;
+	I_dwAGM_Amplitude	: DWORD;
+END_VAR
+
+(*de index 2000 control register en index 2010 de amplitude worden beschreven*)
+
+R_TRIG1(CLK:=I_bEnable);
+
+IF R_TRIG1.Q THEN
+	bStartWrite:=TRUE;
+END_IF
+
+R_TRIG2(CLK:=LenzeParWrite_LDC1.ERROR <> CIA405.CANOPEN_KERNEL_ERROR.CANOPEN_KERNEL_NO_ERROR);
+
+IF NOT bStartWrite OR R_TRIG2.Q THEN
+	bStartWrite:=FALSE;
+	byStepper:=0;
+	//LenzeParWrite_LDC1(ENABLE := FALSE);
+ELSE
+
+	CASE byStepper OF
+	0:	(*Reset write FB*)
+		LenzeParWrite_LDC1(ENABLE:=FALSE);
+		byStepper:=1;
+
+	(*index 2010 weld amplitude*)
+	1:	ptrByteArray := ADR(I_dwAGM_Amplitude);
+		DataArray[4] := ptrByteArray^[3];
+		DataArray[3] := ptrByteArray^[2];
+		DataArray[2] := ptrByteArray^[1];
+		DataArray[1] := ptrByteArray^[0];
+		LenzeParWrite_LDC1(
+		ENABLE	:=FALSE ,
+		DEVICE	:= Device,			(* Adresse des Reglers *)
+		NETWORK:=1,
+		INDEX		:=8208 ,
+		SUBINDEX:=0 ,					(* SubCode *)
+		DATA:=DataArray,
+		DATALENGTH:=1 );
+		byStepper:=2;
+
+	2:	LenzeParWrite_LDC1(ENABLE:=TRUE,
+		NETWORK:=1);
+		IF LenzeParWrite_LDC1.CONFIRM THEN
+			bStartWrite:=FALSE;
+			byStepper:=0;
+		END_IF
+	END_CASE
+
+END_IF
+
+END_FUNCTION_BLOCK

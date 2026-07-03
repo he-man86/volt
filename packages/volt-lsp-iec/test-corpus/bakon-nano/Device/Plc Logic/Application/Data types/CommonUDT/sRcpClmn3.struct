@@ -1,0 +1,7 @@
+TYPE sRcpClmn3 :
+STRUCT
+	Square		: BOOL;
+	Triangle	: BOOL;
+	Diagonal	: BOOL;
+END_STRUCT
+END_TYPE

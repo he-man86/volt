@@ -1,0 +1,11 @@
+TYPE strZasParameters :
+STRUCT
+	rCuttingSpeedDown		: REAL:=25;
+	rCuttingSpeedUp			: REAL:=100;
+	rAboveProductPos		: REAL:=100;
+	rTopZPos				: REAL:=0;
+	rBottomZPos				: REAL:=0;
+	rCrashCheckHeight		: REAL := 100;
+	rSpeedOutProduct		: REAL:=200;
+END_STRUCT
+END_TYPE

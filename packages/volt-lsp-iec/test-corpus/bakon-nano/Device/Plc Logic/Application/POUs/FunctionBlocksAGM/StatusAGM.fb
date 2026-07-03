@@ -1,0 +1,100 @@
+FUNCTION_BLOCK StatusAGM
+VAR_INPUT
+	I_dwAGM_Status: DWORD;
+END_VAR
+VAR_OUTPUT
+	Q_dwErrorDetailsAGM	: DWORD;
+	Q_bError					: BOOL;
+END_VAR
+
+(*************************************************************************
+ *
+ * Application name			: Snijmachine met ultrasoon generator
+ * Module name				: StatusAGM
+ * Version number module	: 1.10
+ *
+ *
+ *                  Copyright (c) Bakon 2009
+ *                  Goes, The Netherlands
+ *
+ *
+ * All rights are reserved. Reproduction in whole or in part is prohibited 
+ * without the written consent of the copyright owner.
+ *
+ *************************************************************************)
+
+(*************************************************************************
+ * HISTORY                                                                
+ *************************************************************************
+ * Update  :  1.1                                                            
+ * Author  :    K. Kole                                                          
+ * Changes : Q_bError bit added
+ *************************************************************************)
+
+(* Status ultrasoon generator *)
+Q_bError	:= FALSE;
+IF I_dwAGM_Status <> 0 THEN
+	IF I_dwAGM_Status.0 THEN		(* SupplyVoltagetoLow *)
+		Q_dwErrorDetailsAGM		:= 1;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.1 THEN	(* Internal12VoltError *)
+		Q_dwErrorDetailsAGM		:= 2;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.2 THEN	(* Minimal PWM level reached *)
+		Q_dwErrorDetailsAGM		:= 3;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.3 THEN	(* Temperaure too high *)
+		Q_dwErrorDetailsAGM		:= 4;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.8 THEN	(* Frequency too low *)
+		Q_dwErrorDetailsAGM		:= 5;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.9 THEN	(* Frequency too high *)
+		Q_dwErrorDetailsAGM		:= 6;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.10 THEN	(* Maximum converter voltage reached *)
+		Q_dwErrorDetailsAGM		:= 7;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.11 THEN	(* Power overload *)
+		Q_dwErrorDetailsAGM		:= 8;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.12 THEN	(* Maximum PWM level reached *)
+		Q_dwErrorDetailsAGM		:= 9;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.13 THEN	(* No converter connected *)
+		Q_dwErrorDetailsAGM		:= 10;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.16 THEN	(* Minimum energy limit error *)
+		Q_dwErrorDetailsAGM		:= 11;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.17 THEN	(* Maximum energy limit error *)
+		Q_dwErrorDetailsAGM		:= 12;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.18 THEN	(* Minimum time limit error *)
+		Q_dwErrorDetailsAGM		:= 13;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.19 THEN	(* Maximum time limit error *)
+		Q_dwErrorDetailsAGM		:= 14;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.20 THEN	(* Minimum power limit error *)
+		Q_dwErrorDetailsAGM		:= 15;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.21 THEN	(* Maximum power limit error *)
+		Q_dwErrorDetailsAGM		:= 16;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.22 THEN	(* External analog amplitude too low *)
+		Q_dwErrorDetailsAGM		:= 17;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.30 THEN	(* Ultrasonic was stopped irregularly *)
+		Q_dwErrorDetailsAGM		:= 18;
+		Q_bError	:= TRUE;
+	ELSIF I_dwAGM_Status.31 THEN	(* Ultrasonic active *)
+		Q_dwErrorDetailsAGM		:= 19;
+	ELSE
+		Q_dwErrorDetailsAGM		:= 0;
+	END_IF
+ELSE
+		Q_dwErrorDetailsAGM		:= 0;
+END_IF
+
+END_FUNCTION_BLOCK

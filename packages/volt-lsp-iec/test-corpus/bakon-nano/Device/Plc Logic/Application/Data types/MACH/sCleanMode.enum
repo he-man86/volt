@@ -1,0 +1,6 @@
+TYPE sCleanMode :
+(
+	nCleanAfterProducts	:= 0,
+	nCleanAfterCuts		:= 1
+);
+END_TYPE

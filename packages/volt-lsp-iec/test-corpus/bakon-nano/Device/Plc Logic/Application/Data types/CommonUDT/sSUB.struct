@@ -1,0 +1,14 @@
+TYPE sSUB :
+STRUCT
+	bSubReady				: BOOL;
+	bSubBusy				: BOOL;
+	bAlmError				: BOOL;
+	bPreventAction			: BOOL;
+	rWatchdogTime			: REAL;
+	rStepTime				: REAL;
+	nStepCounter			: INT;
+	nOldStepCounter			: INT;
+	(*Extra, application dependant data can be declared below this point*)
+	bSubProcessBusy1		: BOOL;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,84 @@
+TYPE sMACH_HMI_UnitStatus :
+STRUCT
+ 	nActState						: sState;
+	byStatusInit					: BYTE;			(* 0=not initialised, 1=init busy, 2=init ready *)
+	wButtonStatus					: WORD;
+	dwCat1_Error					: DWORD;
+	dwCat2_Error					: DWORD;
+	dwCat3_Error					: DWORD;
+	dwCat4_Error_a					: DWORD;
+	dwCat4_Error_b					: DWORD;
+	dwCat4_Error_c					: DWORD;
+
+	bEmergencyStop					: BOOL;
+	bHomingDone						: BOOL;
+	bProcessBusy					: BOOL;		(* Process during automatic busy *)
+	bScanModeBusy					: BOOL;
+	bErrorActiv						: BOOL;
+	bWarningActiv					: BOOL;
+	bStateAutomatic					: BOOL;
+	bProcessAgain					: BOOL;
+	bKnifeCleaningBusy				: BOOL;
+	bCleaningTableBusy				: BOOL;
+                                      
+	dwErrorDetailsAGM1				: DWORD;		(* Details ultrasonic generator 1 *)
+                                      
+	eErrorIDXaxis					: WORD;		(* X axis *)
+	eErrorIDYaxis					: WORD;		(* Y axis *)
+	eErrorIDFrontaxis				: WORD;		(* Front axis *)
+	eErrorIDRearaxis				: WORD;		(* Rear axis *)
+	eErrorIDZaxis					: WORD;		(* Z axis *)
+	eErrorIDRaxis					: WORD;		(* R axis *)
+	                            	  
+	eAxisErrorIDXaxis				: WORD;		(* X axis *)
+	eAxisErrorIDYaxis				: WORD;		(* Y axis *)
+	eAxisErrorIDFrontaxis			: WORD;		(* Front axis *)
+	eAxisErrorIDRearaxis			: WORD;		(* Rear axis *)
+	eAxisErrorIDZaxis				: WORD;		(* Z axis *)
+	eAxisErrorIDRaxis				: WORD;		(* R axis *)
+                                	  
+	dwDriveErrorIDXaxis				: DWORD;		(* X axis *)
+	dwDriveErrorIDYaxis				: DWORD;		(* Y axis *)
+	dwDriveErrorIDFrontaxis			: DWORD;		(* Front axis *)
+	dwDriveErrorIDRearaxis			: DWORD;		(* Rear axis *)
+	dwDriveErrorIDZaxis				: DWORD;		(* Z axis *)
+	dwDriveErrorIDRaxis				: DWORD;		(* R axis *)
+	//dwErrorDetailsDriveSupply		: DWORD;		(* Supply unit *)
+
+	wInputs_Modul0_1				: WORD;
+	wInputs_Modul2_3				: WORD;
+	wInputs_Modul4_5				: WORD;
+	wOutputs_Modul0_1				: WORD;
+                            		
+	dnActualPosDrive_X				: DINT;			(* Actual position of the selected drive *)
+	dnActualPosDrive_Y				: DINT;			(* Actual position of the selected drive *)
+	dnActualPosDrive_Front			: DINT;			(* Actual position of the selected drive *)
+	dnActualPosDrive_Rear			: DINT;			(* Actual position of the selected drive *)
+	dnActualPosDrive_Z				: DINT;			(* Actual position of the selected drive *)
+	dnActualPosDrive_R				: REAL;		(* Actual position of the selected drive *)
+
+(* status variables AGM drives*)
+	dwAGM1_PowerLoss				: DWORD;
+	rAGM1_Frequency					: REAL;
+
+(* limits for waste strips*)
+	rWasteFrontMax					: REAL;
+	rWasteRearMax					: REAL;
+	rWasteLeftMax					: REAL;
+	rWasteRightMax					: REAL;
+	                        		
+	rWasteFrontMin					: REAL; (* added 06-09-2016 V5.02 PG *)
+	rWasteRearMin					: REAL;	(* added 06-09-2016 V5.02 PG *)
+	rWasteLeftMin					: REAL;	(* added 06-09-2016 V5.02 PG *)
+	rWasteRightMin					: REAL;	(* added 06-09-2016 V5.02 PG *)
+	
+(*Keuze visualisatie*)
+	nTrianglesChoice				: INT;	
+	
+	bScanFinished 					: BOOL;
+	nScanProgress 					: INT;
+	
+	bPopupRemoveProduct				: BOOL;
+	
+END_STRUCT
+END_TYPE

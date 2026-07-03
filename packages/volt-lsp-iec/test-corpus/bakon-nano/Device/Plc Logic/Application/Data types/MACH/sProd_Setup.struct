@@ -1,0 +1,19 @@
+TYPE sProd_Setup :
+STRUCT
+	(* Product setup *)
+	Prod_SlabSquare				: BOOL; (* bit 0 *)
+	Prod_SlabTriangle			: BOOL; (* bit 1 *)
+	Prod_SlabDiagonal			: BOOL; (* bit 2 *)
+	Prod_Round					: BOOL; (* bit 3 *)
+	Prod_TraySquareSmall		: BOOL; (* bit 4 *)
+	Prod_TraySquareLarge		: BOOL; (* bit 5 *)
+	Prod_TraySquareTriple		: BOOL; (* bit 6 *)
+	Prod_SlabSquareClamp		: BOOL; (* bit 7 *)
+	Prod_TraySquareDouble		: BOOL; (* bit 8 *)
+	Prod_RoundQuatro			: BOOL; (* bit 9 *)
+	Prod_SlabDouble				: BOOL; (* bit 10 *)
+
+	TrianglesInTray				: BOOL; (* bit 15, Part of producttype 4 and 5 *)
+
+END_STRUCT
+END_TYPE

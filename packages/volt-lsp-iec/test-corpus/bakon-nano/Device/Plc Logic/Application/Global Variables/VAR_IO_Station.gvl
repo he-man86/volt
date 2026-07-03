@@ -1,0 +1,69 @@
+VAR_GLOBAL
+
+	g_byInputs_Module_00						: BYTE;
+	g_byInputs_Module_01						: BYTE;
+	g_byInputs_Module_02						: BYTE;//Spare
+	g_byInputs_Module_03						: BYTE;//Spare
+	g_byInputs_Module_04						: BYTE;//Spare
+	g_byInputs_Module_05						: BYTE;//Spare
+	g_byOutputs_Module_00						: BYTE;
+	g_byOutputs_Module_01						: BYTE;
+	g_wInputs_Module_00							: WORD;
+	g_wInputs_Module_01							: WORD;
+	g_wOutputs_Module_00						: WORD;
+	g_wOutputs_Module_01						: WORD;
+
+(*digital inputs from CAN remote IO *)
+(*first module *)
+	g_bDI_ES_DirectOK							: BOOL;
+	g_bDI_CircuitBreaker_i700					: BOOL;		(*Laag wanneer de automaat voor de voedingsunit getript is *)
+	g_bDI_CircuitBreaker_Ultrasonic				: BOOL;		(*Laag wanneer de automaat voor de ultrasoongenerator eruit ligt*)
+	g_bDI_PressureSwitchOK						: BOOL;
+	g_bDI_StartButton							: BOOL;
+	g_bDI_LightCurtainOK						: BOOL;
+	g_bDI_MachineInSafePosition					: BOOL;		(* Feedback from Pilz, table in infeed position and knife up *)
+	g_bDI_TableCheck							: BOOL;		(* Sensor for checking if the table correspondents with the recipe *)
+
+(*second module *)
+	g_bDI_Servo_Power_OK						: BOOL;		
+	g_bDI_CleaningContainerUp					: BOOL;		//Spare	
+	g_bDI_CleaningContainerDown					: BOOL;		//Spare
+	g_bDI_UltraSonic_Error						: BOOL;
+	g_bDI_UltraSonic_ErrorCode_1				: BOOL;
+	g_bDI_UltraSonic_ErrorCode_2				: BOOL;
+	g_bDI_Spare16								: BOOL;
+	g_bDI_Spare17								: BOOL;
+
+(* Digital outputs *)
+(* Third module *)
+	g_bDQ_ResetSafety							: BOOL;
+	g_bDQ_LightCurtainActive					: BOOL;
+	g_bDQ_MainValve								: BOOL;		(* activate airvalve *)
+	g_bDQ_Ultrasonic1							: BOOL;
+	g_bDQ_LampStart								: BOOL;
+	g_bDQ_Servo_Power_Reset						: BOOL;
+	g_bDQ_Buzzer								: BOOL;
+	g_bDQ_Spare_17								: BOOL;
+
+(* Fourth module *)
+	g_bDQ_CleaningContainerUp					: BOOL;
+	g_bDQ_CleaningContainerDown					: BOOL;
+	g_bDQ_CleaningAirValve						: BOOL;
+	g_bDQ_CleaningWaterValve					: BOOL;
+	g_bDQ_Spare_24								: BOOL;
+	g_bDQ_Spare_25								: BOOL;
+	g_bDQ_Spare_26								: BOOL;
+	g_bDQ_Spare_27								: BOOL;
+
+
+(* Analog inputs *)
+(* Fifth module *)
+	g_iAI_UltrasonicPower						: INT;
+	g_iAI_Spare_01								: INT;
+
+(* Analog outputs *)
+(* Sixth module *)
+	g_iAQ_UltrasonicPower						: INT;
+	g_iAQ_Spare_01								: INT;
+
+END_VAR

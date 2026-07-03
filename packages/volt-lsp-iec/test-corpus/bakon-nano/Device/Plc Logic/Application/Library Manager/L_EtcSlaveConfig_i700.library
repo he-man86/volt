@@ -1,0 +1,5 @@
+LIBRARY L_EtcSlaveConfig_i700
+NAMESPACE L_ECC_i700
+RESOLUTION L_EtcSlaveConfig_i700, 3.32.0.16 (Lenze)
+PLACEHOLDER true
+SYSTEM true

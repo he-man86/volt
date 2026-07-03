@@ -1,0 +1,46 @@
+VAR_GLOBAL
+	(* Communicatie met VisiwinNet Visualisatie Professional V6.3 *)
+	g_HMI_MachCommand					: sMACH_HMI_UnitCmd;
+
+	g_HMI_bRecipeIsReset		: BOOL;
+
+	(*status variables *)
+	g_sHMI_Mach_UnitStatus				:sMACH_HMI_UnitStatus;				(*module status variables*)
+
+	(* Counters *)
+	g_sHMI_CountersDay					: sCounters;		(* all day counters *)
+
+	g_sHMI_ScanData					: sScanData;	(*Data for max follow/torque scan of machine*)
+	
+	(* Data for new visu *)
+	g_sHMI_VisuCutsArray	: ARRAY[1..150] OF VisuCut;
+	g_sHMI_NewRecipeName			: STRING;
+	g_bHMI_UseExistingRecipe		:BOOL;
+	g_sHMI_FromCecipeName			: STRING;
+	g_sHMI_MachParName				: STRING;
+	g_sHMI_RcpClmns					: ClmnChoices;
+	g_sHMI_Recipe_Clmn1_Choice	: INT; // SlabRound = 1, SlabRound with fingers = 2, Tray = 3
+	g_sHMI_Recipe_Clmn2_Choice	: INT; //
+	g_sHMI_Recipe_Clmn3_Choice	: INT;
+	g_sHMI_Recipe_Clmn1_SlabRound_Choices: INT;
+	g_sHMI_Recipe_Clmn1_SlabRoundF_Choices: INT;
+	g_sHMI_Recipe_Clmn1_Tray_Choices: INT;
+	g_sHMI_Recipe_Clmn2_Slab_Choices: INT;
+	g_sHMI_Recipe_Clmn2_Round_Choices: INT;
+	g_sHMI_Recipe_Clmn2_SlabF_Choices: INT;
+	g_sHMI_Recipe_Clmn2_RoundF_Choices: INT;
+	g_sHMI_DashboardNotifications : DashboardNotifications;
+	g_HMI_RCP_Parameters_Visu					: sMACH_RCP_Parameters;
+	g_HMI_RCP_ShowRCPwastesettings		: BOOL;
+	g_HMI_RCP_ShowCleaningsettings		: BOOL;
+	g_HMI_RCP_ShowCrashDetectionSettings		: BOOL;
+	g_HMI_RCP_ActPartSize	: STRING;
+	g_HMI_RCP_UseWasteFront : BOOL;
+	g_HMI_RCP_UseWasteRear : BOOL;
+	g_HMI_RCP_UseWasteLeft : BOOL;
+	g_HMI_RCP_UseWasteRight : BOOL;
+	g_HMI_OnDashboard		: BOOL;
+	g_HMI_bShowOverlay			: BOOL;
+	g_HMI_bCloseOverlay			: BOOL;
+	g_HMI_bNewRecipe			: BOOL;
+END_VAR

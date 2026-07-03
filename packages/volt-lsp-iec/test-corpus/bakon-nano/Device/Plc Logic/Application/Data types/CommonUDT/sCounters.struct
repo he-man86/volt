@@ -1,0 +1,17 @@
+TYPE sCounters :
+STRUCT
+	nMinuteCount					: INT;
+	dnHourCount 					: DINT;
+	{attribute 'analysis' := '-33'}
+	dnLastMaintanance				: DINT;	//only used in visu!
+	dnProductCountTotal				: DINT;
+	dnProductCountTrayLarge			: DINT;
+	dnProductCountTraySmall			: DINT;
+	dnProductCountSlabSquare		: DINT;
+	dnProductCountSlabDiagonal		: DINT;
+	dnProductCountSlabTriangle		: DINT;
+	dnProductCountRound				: DINT;
+	dnProductCountTrayTriple		: DINT;
+
+END_STRUCT
+END_TYPE

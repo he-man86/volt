@@ -1,0 +1,116 @@
+FUNCTION_BLOCK DRV_CYL1C2D_SafeEnd
+VAR_INPUT
+	I_bCylEndPos					: BOOL;	(* Sensor cylinder is at end position *)
+	I_bCylZeroPos				: BOOL;	(* Sensor cylinder is at zero position *)
+	I_bSafeEndOK					: BOOL;	(* Safety sensor from Pilz, used to block the alarm and to block the output *)
+	I_sControl						: sCYL_Control;
+	I_rTimeOut					: REAL;	(* Time in seconds *)
+END_VAR
+VAR_IN_OUT
+	DRV_ERR_CylEndPos		: BOOL;
+	DRV_ERR_CylZeroPos		: BOOL;
+	DRV_ERR_CylMultiple		: BOOL;
+	DRV_ERR_SafetyNOK		: BOOL;
+END_VAR
+VAR_OUTPUT
+	Q_sStatus						: sCYL_Status;
+	Q_bCylToEndPos				: BOOL;
+	Q_bCylToZeroPos				: BOOL;
+END_VAR
+VAR
+	DRV_TON1					: TON;
+	bCylToEndPos				: BOOL;	(* Memory bit *)
+	bCylToZeroPos				: BOOL;	(* Memory bit *)
+END_VAR
+
+(*************************************************************************
+ * HISTORY																					 
+ *************************************************************************
+ * Update  : 0.00 																			  
+ * Author  :	 
+ * Changes :
+ *************************************************************************)
+
+(* Reset errors *)
+IF I_sControl.bErrorReset THEN
+	DRV_ERR_CylEndPos		:= FALSE;
+	DRV_ERR_CylZeroPos		:= FALSE;
+	DRV_ERR_CylMultiple		:= FALSE;
+	DRV_ERR_SafetyNOK		:= FALSE;
+	DRV_TON1(IN:=FALSE);
+END_IF
+
+(* In target bit *)
+Q_sStatus.bPosInTarget	:= 		(bCylToEndPos AND I_bCylEndPos AND NOT I_bCylZeroPos)
+								OR	(NOT bCylToEndPos AND I_bCylZeroPos AND NOT I_bCylEndPos);
+
+(* Actual position *)
+IF I_bCylEndPos THEN
+	Q_sStatus.rActualPosition := 1;
+ELSIF I_bCylZeroPos THEN
+	Q_sStatus.rActualPosition := 0;
+ELSE
+	Q_sStatus.rActualPosition := -1;
+END_IF
+
+IF		NOT I_sControl.bPosExecute
+	AND NOT I_sControl.bManual
+THEN
+	DRV_TON1(IN:=FALSE);
+	Q_sStatus.bPosDone := FALSE;
+	IF	I_bCylEndPos THEN
+		bCylToEndPos := TRUE;
+	ELSIF	I_bCylZeroPos THEN
+		bCylToEndPos := FALSE;
+	END_IF
+	//DRV_ERR_SafetyNOK := FALSE;
+ELSE
+
+	(* Execute command *)
+	IF		(I_sControl.bPosExecute AND I_sControl.rTargetPosition = 1)
+		OR	(I_sControl.bManual AND I_sControl.bManualPos AND NOT I_sControl.bManualNeg AND I_bSafeEndOK)
+	THEN
+		bCylToZeroPos	:= FALSE;
+		bCylToEndPos		:= I_bSafeEndOK;
+		DRV_ERR_SafetyNOK := NOT I_bSafeEndOK;
+	END_IF
+
+	IF		(I_sControl.bPosExecute AND I_sControl.rTargetPosition = 0)
+		OR	(I_sControl.bManual AND I_sControl.bManualNeg AND NOT I_sControl.bManualPos)
+	THEN
+		bCylToEndPos		:= FALSE;
+		bCylToZeroPos		:= TRUE;
+		//DRV_ERR_SafetyNOK := NOT I_bSafeEndOK;
+	END_IF
+
+	(* Generate errors *)
+	// changed OR	(NOT bCylToEndPos AND NOT I_bCylZeroPos), because of otherwise not working error when sent down
+	DRV_TON1(	IN:=		(bCylToEndPos AND NOT I_bCylEndPos AND I_bSafeEndOK)
+						OR	(bCylToZeroPos AND NOT I_bCylZeroPos),
+				PT:=	REAL_TO_TIME(1000 * I_rTimeOut));	(* time in seconds *)
+
+	(* TimeOut cylinder to end position *)
+	IF DRV_TON1.Q AND bCylToEndPos AND NOT I_bCylEndPos THEN
+		DRV_ERR_CylEndPos	:= TRUE;
+	END_IF
+
+	(* TimeOut cylinder to Zero position *)
+	IF DRV_TON1.Q AND bCylToZeroPos AND NOT I_bCylZeroPos THEN
+		DRV_ERR_CylZeroPos	:= TRUE;
+	END_IF
+
+	Q_sStatus.bPosDone :=	((I_sControl.rTargetPosition = 1) AND I_bCylEndPos AND NOT(I_bCylZeroPos))
+							OR	((I_sControl.rTargetPosition = 0) AND I_bCylZeroPos AND NOT(I_bCylEndPos));
+
+END_IF
+
+(* Detection error *)
+IF I_bCylEndPos AND I_bCylZeroPos THEN
+	DRV_ERR_CylMultiple	:= TRUE;
+END_IF
+
+(* Cylinder control *)
+Q_bCylToEndPos := bCylToEndPos AND (I_bSafeEndOK OR I_bCylEndPos);
+Q_bCylToZeroPos := bCylToZeroPos AND (I_bSafeEndOK OR I_bCylZeroPos);
+
+END_FUNCTION_BLOCK
