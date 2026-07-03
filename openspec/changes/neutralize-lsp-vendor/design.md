@@ -57,6 +57,33 @@ the source for each decision in the retag so it's auditable — matching how `__
 would flip — and confirm the `wrong-vendor` / vendor-only-operator diagnostics only fire on genuinely
 dialect-specific code. Expect the tagged set to shrink.
 
+## Findings (2026-07 — operator probe DONE)
+
+Probed the CODESYS-tagged `__`-operators against **both** sources and they disagreed, which is the whole
+lesson:
+
+- **Beckhoff InfoSys "Further operators"** *lists* `__QUERYINTERFACE`, `__QUERYPOINTER`, `__TRY`/`__CATCH`/
+  `__FINALLY`/`__ENDTRY`, `__VARINFO`, `__POUNAME`, `__POSITION` — suggesting they're shared.
+- **The live TwinCAT conformance recording** (`recordings/expected-tc.json`) shows real TC **fails to
+  build** the CODESYS usage of them (`op_sys_queryinterface`: *"Cannot convert 'Unknown type:
+  __QUERYINTERFACE(THIS^, ITF)' to BOOL"* — TC's `__QUERYINTERFACE` has a different signature;
+  `op_sys_varinfo`: syntax error; `op_sys_try_catch`: codegen error; all `buildSuccess:false`).
+
+**The recording wins** (real compiler behavior > doc listing). So the existing CODESYS operator tags are
+**evidence-based, not over-modeled** — a docs-only retag (which was attempted and reverted) breaks the
+conformance suite and would silence a warning real TwinCAT users need. For the operator surface, the
+suspicion "the diff is smaller than modeled" does **not** hold: the diff is real and recording-verified.
+
+Net: **operators — no change.** Remaining audit scope narrows to:
+- **Message precision (worth doing):** for operators that exist in TC with a *different signature*
+  (`__QUERYINTERFACE`, `__QUERYPOINTER`), the `wrong-vendor` text "CODESYS-only and not supported by
+  TwinCAT" is imprecise — better: "different signature in TwinCAT (see …)". The tag/behavior stays; only
+  the message improves.
+- **The pragma side** (1 `twincat`-tagged entry + any `wrong-vendor` pragma cases) is still unaudited —
+  smaller surface, same recording-first method.
+- **`__NEW`/`__DELETE`** carry hover notes ("TC doesn't support") that are too strong (TC parses them; the
+  real caveat is "no dynamic-memory runtime backing unless configured") — a hover-text fix, not a tag.
+
 ## Why one change, not two
 
 The rename and the audit are the same realization from two angles — *this is one IEC engine, not a

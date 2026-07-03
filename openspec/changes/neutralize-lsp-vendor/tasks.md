@@ -21,11 +21,14 @@
 
 - [ ] 3.1 Enumerate every vendor-tagged reference entry (the 13 `codesys` + 1 `twincat` in `src/reference/*`)
   and the two vendor-gated checks (`check-pragmas` wrong-vendor set, `check-vendor-only-operator` list).
-- [ ] 3.2 For each, establish ground truth (TwinCAT/Beckhoff InfoSys + CODESYS Help; a live TwinCAT
-  conformance recording via `http-recorder` where doc behavior is ambiguous). Record the source per item.
-- [ ] 3.3 Retag anything both vendors accept as `shared` (add a per-vendor `name` alias if the spelling
-  differs); keep only genuinely dialect-specific items vendor-tagged.
-- [ ] 3.4 Re-verify the `__`-operator rejection list against a TwinCAT build — drop any that are actually
-  TC-supported (as `__ISVALIDREF` already was).
-- [ ] 3.5 Confirm no `wrong-vendor` / vendor-only-operator false-positives remain on shared IEC code; expect
-  the tagged set to shrink. Update the `language-server` spec's vendor-divergence requirement.
+- [x] 3.2 **Operators DONE** — probed InfoSys (lists them) vs the live TwinCAT conformance recording
+  (`recordings/expected-tc.json`, real TC builds). The recording wins: TC rejects the CODESYS usage of
+  `__QUERYINTERFACE`/`__TRY`/`__VARINFO`/… (`buildSuccess:false`), so the tags are evidence-based. A
+  docs-only retag was attempted and REVERTED (broke the conformance suite). See design.md "Findings".
+- [x] 3.3 Operators: no retag — the diff is real and recording-verified (not over-modeled).
+- [ ] 3.4 Message precision (worth doing): for operators TC has with a *different signature*
+  (`__QUERYINTERFACE`, `__QUERYPOINTER`), change the `wrong-vendor` text from "not supported by TwinCAT" to
+  "different signature in TwinCAT". Fix the over-strong `__NEW`/`__DELETE` hover notes (TC parses them; the
+  caveat is dynamic-memory runtime backing, not "unsupported").
+- [ ] 3.5 Audit the PRAGMA side (1 `twincat`-tagged entry + any `wrong-vendor` pragma cases) — the remaining
+  unaudited surface — same recording-first method. Then update the `language-server` spec.
