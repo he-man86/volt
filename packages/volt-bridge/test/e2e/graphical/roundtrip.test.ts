@@ -105,6 +105,31 @@ END_PROGRAM
 `
 }
 
+// An FBD program with a CODESYS Execute box — the standard "ST inside FBD/LD" element. EN-guarded (EN via the
+// ordinary wire+IF), holding real multi-statement, commented ST. Exercises the full round-trip: VgParser
+// detects `EXECUTE … END_EXECUTE`, PlcOpenWriter reconstructs `<block typeName="EXECUTE"> + <STCode>`, and a
+// re-push is byte-identical (the ST is carried verbatim).
+function executeProgram(name: string) {
+	return `PROGRAM ${name}
+VAR
+\tbRun : BOOL := TRUE;
+\tiResult : INT;
+END_VAR
+
+NETWORK 0 FBD
+  LET en1 := bRun;
+  IF en1 THEN
+  EXECUTE
+  IF bRun THEN
+\tiResult := 40 + 2;   (* the answer *)
+  END_IF
+  END_EXECUTE
+  END_IF
+END_NETWORK
+END_PROGRAM
+`
+}
+
 // A graphical FUNCTION_BLOCK (not a PROGRAM) — instantiable, so it can be REFERENCED from PLC_PRG and TwinCAT
 // will actually compile its body (TC skips unreferenced POUs; an instance declaration forces compilation).
 function ldFb(name: string) {
@@ -152,12 +177,39 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			// Round-trip: push the same source back, should be accepted and unchanged
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
 			expect(r2.accepted).toBe(true)
 			const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after2.sourceText).toBe(after.sourceText)
 		})
 	}
+
+	it("creates an FBD program with an Execute box (ST-in-FBD) and round-trips it byte-identical", async () => {
+		const name = id("vg_execute")
+		const fullName = fid("vg_execute", "prg")
+
+		const refs = await bridge.refs()
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: executeProgram(name), ifVersion: null }] })
+		expect(r.accepted).toBe(true)
+
+		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
+		expect(after).toBeDefined()
+		expect(after.sourceText).toMatch(/NETWORK\s+\d+\s+FBD\b/)              // stayed FBD, not flattened to ST
+		// The Execute box materialized as a real CODESYS Execute box and read back with its inline ST intact.
+		expect(after.sourceText).toContain("EXECUTE")
+		expect(after.sourceText).toContain("END_EXECUTE")
+		expect(after.sourceText).toContain("iResult := 40 + 2")               // the box's ST survived verbatim…
+		expect(after.sourceText).toContain("the answer")                      // …comments and all
+
+		// Fixed point: re-pushing the fetched body is byte-identical (the round-trip is stable). An UPDATE omits
+		// toFolder (folder unchanged) — matching how `volt push` builds an update; a `toFolder: ""` here would
+		// read as "move to root" against the Device/Plc Logic/Application structure and be refused as a move.
+		const refs2 = await bridge.refs()
+		const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: after.sourceText, ifVersion: refs2.items[fullName] }] })
+		expect(r2.accepted).toBe(true)
+		const after2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
+		expect(after2.sourceText).toBe(after.sourceText)
+	})
 
 	for (const [label, buildSrc] of [["negated", ldNegated], ["series3", ldSeries3], ["multicoil", ldMultiCoil], ["setcoil", ldSetCoil]] as [string, (n: string) => string][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
@@ -174,7 +226,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			// Fixed point: pushing the fetched VG back leaves the body byte-identical.
 			const refs2 = await bridge.refs()
-			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
+			const r2 = await bridge.push({ expectedProjectVersion: refs2.projectVersion, ops: [{ op: "set", name: fullName, sourceText: v1.sourceText, ifVersion: refs2.items[v1.name] }] })
 			expect(r2.accepted).toBe(true)
 			const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === v1.name)
 			expect(v2.sourceText).toBe(v1.sourceText)
@@ -209,7 +261,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(s1).toContain("NETWORK")
 
 		const refs = await bridge.refs()
-		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: s1, ifVersion: refs.items[g.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, sourceText: s1, ifVersion: refs.items[g.name] }] })
 		expect(r.accepted).toBe(true)
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === g.name)
 		expect(after.sourceText).toBe(s1)
@@ -228,7 +280,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const r1 = await bridge.refs()
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: stSrc, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("graphical")   // clear, actionable reason
 
@@ -246,7 +298,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const r1 = await bridge.refs()
 		const malformed = fbdProgram(name).replace("END_NETWORK\n", "")   // a valid FBD body with END_NETWORK removed
-		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: malformed, ifVersion: r1.items[before.name] }] })
+		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: malformed, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		expect(JSON.stringify(r.conflicts)).toContain("END_NETWORK")
 
