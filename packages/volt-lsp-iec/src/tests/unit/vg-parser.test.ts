@@ -141,6 +141,21 @@ END_NETWORK`);
 		expect(done.value.core.kind).toBe("member");
 	});
 
+	it("7b. nested-instance FB call `a.b.c(…)` parses (root + member path)", () => {
+		// Common in LD: an FB nested in a struct-of-FBs (a Lenze timer bank). The instance is a MEMBER PATH; the
+		// parser must accept it, not reject it as VG_PARSE (found on the Lenze MID-S100 project).
+		const b = parse(`NETWORK 0 LD
+  Mach1_AuxData.IEC_TIMERS.TON_X(IN := g1, PT := T#5S);
+  done := Mach1_AuxData.IEC_TIMERS.TON_X.Q;
+END_NETWORK`);
+		expect(b.diagnostics).toEqual([]);
+		const call = b.networks[0]!.statements[0] as VgFbCall;
+		expect(call.kind).toBe("fb_call");
+		expect(call.instance.text).toBe("Mach1_AuxData"); // the navigable ROOT
+		expect(call.members.map((m) => m.text)).toEqual(["IEC_TIMERS", "TON_X"]);
+		expect(call.args).toHaveLength(2);
+	});
+
 	it("8. EN-gated FB call", () => {
 		const b = parse(`NETWORK 0 FBD
   LET en1 := enable;

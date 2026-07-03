@@ -167,10 +167,14 @@ export interface VgLValue {
 	span: Span;
 }
 
-/** `inst(PIN := arg, …)` — a bare FB-instance invocation (§6). */
+/** `inst(PIN := arg, …)` — an FB-instance invocation (§6). The instance can be a member path
+ *  (`a.b.c(…)` — an FB nested in a struct-of-FBs, common in LD): `instance` is the navigable ROOT
+ *  (`a`) and `members` are the trailing field names (`b`, `c`), which are type-members resolved
+ *  against the type, not scope variables. `members` is empty for a plain `inst(…)`. */
 export interface VgFbCall {
 	kind: "fb_call";
 	instance: VgName;
+	members: VgName[];
 	args: VgArg[];
 	span: Span;
 }

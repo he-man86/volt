@@ -89,7 +89,10 @@ function checkPins(network: VgNetwork, project: Scope, scope: Scope, out: Diagno
 			return;
 		}
 		if (stmt.kind !== "fb_call") return;
-		const pins = inputPins(project, scope, stmt.instance.text);
+		// The full instance path (`a.b.c`); resolving a member path to its FB type isn't supported yet, so
+		// inputPins returns undefined and pin-checking is (correctly) skipped for nested instances.
+		const instancePath = [stmt.instance, ...stmt.members].map((n) => n.text).join(".");
+		const pins = inputPins(project, scope, instancePath);
 		if (pins === undefined) return; // FB type unresolved → don't guess
 		for (const arg of stmt.args) {
 			if (arg.pin === undefined) continue;
@@ -99,7 +102,7 @@ function checkPins(network: VgNetwork, project: Scope, scope: Scope, out: Diagno
 					span: arg.pin.span,
 					source: "volt-lsp-iec",
 					code: "vg-unknown-pin",
-					message: `'${arg.pin.text}' is not an input pin of '${stmt.instance.text}'`,
+					message: `'${arg.pin.text}' is not an input pin of '${instancePath}'`,
 				});
 			}
 		}

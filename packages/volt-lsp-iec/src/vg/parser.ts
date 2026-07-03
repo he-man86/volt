@@ -492,10 +492,15 @@ class NetworkParser {
 			this.diagnostics.push(diag("VG_PARSE", "expected an FB call 'inst(pin := value, …)'", span));
 			return { kind: "unknown_stmt", tokens: toks, span };
 		}
-		const instance = nameOf(call.callee);
-		this.declare(instance);
+		// The callee is a name path `a.b.c` — the ROOT `a` is the navigable instance variable; `b`/`c` are
+		// members of its (struct-of-FBs) type. Declare the FULL path as the network-unique instance identity.
+		const pathNames = call.path.filter((t) => !isPunctTok(t, ".")).map(nameOf);
+		const instance = pathNames[0]!;
+		const members = pathNames.slice(1);
+		const fullSpan = members.length > 0 ? joinSpans(instance.span, members[members.length - 1]!.span) : instance.span;
+		this.declare({ text: pathNames.map((n) => n.text).join("."), span: fullSpan });
 		const args = this.parseArgs(call.inner);
-		return { kind: "fb_call", instance, args, span };
+		return { kind: "fb_call", instance, members, args, span };
 	}
 
 	// ── operand / expression engine ──────────────────────────────────
@@ -594,7 +599,14 @@ class NetworkParser {
 
 	private parseFunctionCall(toks: Token[]): VgCore {
 		const call = splitCall(toks)!;
-		return { kind: "call", callee: nameOf(call.callee), args: this.parseArgs(call.inner), span: spanOf(toks) };
+		// Single name → the callee as-is (the common case); a member path (`a.b.Fn(…)`) → the joined text so the
+		// writer preserves it (navigation resolves the whole path, conservatively skipped when it doesn't).
+		const names = call.path.filter((t) => !isPunctTok(t, ".")).map(nameOf);
+		const callee: VgName =
+			names.length === 1
+				? names[0]!
+				: { text: names.map((n) => n.text).join("."), span: joinSpans(names[0]!.span, names[names.length - 1]!.span) };
+		return { kind: "call", callee, args: this.parseArgs(call.inner), span: spanOf(toks) };
 	}
 
 	private parseArgs(inner: Token[]): VgArg[] {
@@ -690,14 +702,23 @@ function isNameTok(t: Token | undefined): boolean {
 }
 
 /** A call shape: `name ( … )` with the opening paren matching the final token. */
+// The end of a (possibly dotted) callee path: `name ('.' name)*`, returning the index of the token AFTER the
+// path. -1 if `toks` does not start with a name. Lets an FB-instance call target a member path (`a.b.c(…)`).
+function calleePathEnd(toks: Token[]): number {
+	if (!isNameTok(toks[0])) return -1;
+	let i = 1;
+	while (isPunctTok(toks[i], ".") && isNameTok(toks[i + 1])) i += 2;
+	return i;
+}
+
 function isCallShape(toks: Token[]): boolean {
 	if (toks.length < 3) return false;
-	if (!isNameTok(toks[0])) return false;
-	if (!isPunctTok(toks[1], "(")) return false;
+	const open = calleePathEnd(toks);
+	if (open < 1 || !isPunctTok(toks[open], "(")) return false;
 	if (!isPunctTok(toks[toks.length - 1], ")")) return false;
-	// The paren at [1] must close only at the very end.
+	// The paren at `open` must close only at the very end.
 	let depth = 0;
-	for (let i = 1; i < toks.length; i++) {
+	for (let i = open; i < toks.length; i++) {
 		if (isPunctTok(toks[i], "(")) depth++;
 		else if (isPunctTok(toks[i], ")")) {
 			depth--;
@@ -707,10 +728,11 @@ function isCallShape(toks: Token[]): boolean {
 	return depth === 0;
 }
 
-function splitCall(toks: Token[]): { callee: Token; inner: Token[] } | undefined {
-	if (toks.length < 3 || !isNameTok(toks[0]) || !isPunctTok(toks[1], "(")) return undefined;
-	if (!isPunctTok(toks[toks.length - 1], ")")) return undefined;
-	return { callee: toks[0]!, inner: toks.slice(2, toks.length - 1) };
+function splitCall(toks: Token[]): { path: Token[]; inner: Token[] } | undefined {
+	if (toks.length < 3) return undefined;
+	const open = calleePathEnd(toks);
+	if (open < 1 || !isPunctTok(toks[open], "(") || !isPunctTok(toks[toks.length - 1], ")")) return undefined;
+	return { path: toks.slice(0, open), inner: toks.slice(open + 1, toks.length - 1) };
 }
 
 /** Is the whole token run a single balanced parenthesised group? */

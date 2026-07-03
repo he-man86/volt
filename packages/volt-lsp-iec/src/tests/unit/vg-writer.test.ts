@@ -63,6 +63,11 @@ END_NETWORK`,
   myLabel:
   JMP myLabel;
 END_NETWORK`,
+	// A nested-instance FB call (`a.b.c(…)`) must round-trip byte-exact — the writer preserves the member path.
+	`NETWORK 0 LD
+  a.b.c(IN := x, PT := y);
+  done := a.b.c.Q;
+END_NETWORK`,
 ];
 
 describe("vg writer: round-trips canonical §12 examples", () => {

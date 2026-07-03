@@ -68,7 +68,7 @@ function writeStatementCore(stmt: VgStatement): string {
 		case "sink":
 			return `${stmt.target.text} := ${writeOperand(stmt.value)}`;
 		case "fb_call":
-			return `${stmt.instance.text}(${stmt.args.map(writeArg).join(", ")})`;
+			return `${[stmt.instance, ...stmt.members].map((n) => n.text).join(".")}(${stmt.args.map(writeArg).join(", ")})`;
 		case "en_eno_if":
 			return `IF ${stmt.en.text} THEN ${writeStatementCore(stmt.body)}${needsSemicolon(stmt.body) ? ";" : ""} END_IF`;
 		case "label":
