@@ -177,6 +177,24 @@ END_FUNCTION_BLOCK`,
 		);
 		expect(diags.filter((d) => d.code === "unresolved-identifier")).toHaveLength(0);
 	});
+
+	// Real-project regression (pro2193): CODESYS standard functions consulted via the reference table must not
+	// flag as unresolved even though the project never declares them.
+	it("does NOT warn on CODESYS standard functions (LEN / CONCAT / UPPER_BOUND / MOVE)", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	s : STRING;
+	n : INT;
+	arr : ARRAY[0..9] OF INT;
+END_VAR
+n := LEN(s);
+n := UPPER_BOUND(arr, 1);
+s := CONCAT(s, s);
+n := MOVE(n);
+END_FUNCTION_BLOCK`);
+		for (const fn of ["LEN", "CONCAT", "UPPER_BOUND", "MOVE"])
+			expect(diags.filter((d) => d.code === "unresolved-identifier" && d.message.includes(`'${fn}'`))).toHaveLength(0);
+	});
 });
 
 describe("diagnostics: unknown pragma", () => {
@@ -213,6 +231,19 @@ END_VAR
 {text 'compile message'}
 x := 1;
 END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "unknown-pragma")).toHaveLength(0);
+	});
+
+	// Real-project regression (bakon-nano): the Static Analysis attribute `{attribute 'analysis' := '-33'}`
+	// (disable/enable specific SA rules) was mis-flagged as an unknown pragma.
+	it("does NOT warn on the `analysis` static-analysis attribute", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+{attribute 'analysis' := '-33, -170'}
+VAR
+	x : INT;
+END_VAR
+x := 1;
+END_FUNCTION_BLOCK`, { unknownPragma: true });
 		expect(diags.filter((d) => d.code === "unknown-pragma")).toHaveLength(0);
 	});
 });

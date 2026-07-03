@@ -81,6 +81,32 @@ describe("parser: FUNCTION_BLOCK shells", () => {
 		expect(fb.varSections[2]?.decls[0]?.init?.tokens[0]?.text).toBe("T#100ms");
 	});
 
+	it("parses a variable-length array dimension `ARRAY[*] OF T` (real-project: pro2193 VAR_IN_OUT/interface params)", () => {
+		const { units, errors } = parseOne(`
+			FUNCTION_BLOCK FB_X
+			VAR_IN_OUT
+				vec : ARRAY[*] OF INT;
+				mat : ARRAY[*, *] OF REAL;
+			END_VAR
+			END_FUNCTION_BLOCK
+		`);
+		expect(errors).toEqual([]);
+		const fb = units[0] as FunctionBlock;
+		expect(fb.varSections[0]?.decls).toHaveLength(2);
+	});
+
+	it("skips a `%FOLDER` directive between top-level items (bridge folder marker) (real-project: pro2193)", () => {
+		const { units, errors } = parseOne(`
+			FUNCTION_BLOCK FB_A
+			END_FUNCTION_BLOCK
+			%FOLDER POUs/Sub
+			FUNCTION_BLOCK FB_B
+			END_FUNCTION_BLOCK
+		`);
+		expect(errors).toEqual([]);
+		expect(units).toHaveLength(2);
+	});
+
 	it("tolerates a stray double semicolon in a VAR section (CODESYS accepts `x : T;;`)", () => {
 		// AWA_Palletizer libObject.fb has `myClassType: enClassType;;` — the empty declaration must not abort
 		// the section (it truncated the whole VAR block, losing every following local).
