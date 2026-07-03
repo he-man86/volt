@@ -63,3 +63,16 @@
 - [ ] 7.1 `cd packages/volt-lsp-iec && bun test` green (incl. new corpus tests) and `bun typecheck` clean.
 - [ ] 7.2 Ensure the corpus tests run in CI without a bridge/CODESYS (hermetic committed fixtures).
 - [ ] 7.3 `openspec validate harden-lsp-real-project`; sync the `language-server` delta + archive when done.
+
+## 8. Precision follow-ups (deferred — surfaced by the AWA_Palletizer corpus + the LSP-vs-compiler ground-truth diff)
+
+Third corpus `test-corpus/awa-palletizer/` (AWA_Palletizer 09_1, 54 kind source files) added 2026-07-03; fixed a
+stray-`;;` parse gap (94.4%->100%) + a GVL block-name-on-Windows-`\`-paths bug. New tool
+`scripts/lsp-vs-compiler.ts` builds the live project (compiler = oracle) and diffs vs the LSP — proved AWA
+(0 err / 0 warn) + bakon (0 err) compile clean, so their LSP diags are all false positives. Two real gaps it
+surfaced, both deferred:
+
+- [ ] 8.1 **Narrowing-conversion diagnostic** — the CODESYS compiler warns `Implicit conversion from 'LREAL' to 'REAL': possible loss of information` (bakon: 27 warnings); the LSP does not. Add an opt-in narrowing / loss-of-precision check to match. This is the one concrete diagnostic the compiler runs that the LSP misses.
+- [ ] 8.2 **`S=` set-assignment resolution** — a local FB var referenced via the `S=` set-assignment (SFC-style, e.g. `myState.xCmdInit S= (FALSE);`) is flagged unresolved-identifier (AWA `myState`/`iIndex`, ~14 occ) — a false positive. Resolver/body follow-up.
+- [ ] 8.3 The remaining corpus library-blind unresolved floor (bakon 275, pro2193 35, most of AWA 16) is cleared by the separate `library-signature-index` change, not this one — cross-reference, do not duplicate.
+- Note: the text-list->enum classification fix has no self-contained test (net48 `CodesysTypeMap`, net8 test suite refs only Core); it is a harvest-time bridge behavior the LSP corpus never guarded, so it does not block corpus removability. Needs a live-bridge fixture if ever tested.
