@@ -1,25 +1,33 @@
 ## ADDED Requirements
 
-### Requirement: Graphical Execute boxes are never materialized as a lossy phantom call
+### Requirement: Graphical Execute boxes round-trip as a first-class VG construct
 
-The bridge SHALL NOT render a CODESYS **Execute box** (a PlcOpen block whose `fbdcalltype` addData is
-`execute`, carrying inline ST in an `STCode` addData) as a bare `EXECUTE()` call in a materialized FBD/CFC
-body — doing so drops the box's ST and produces a phantom a push would write back over the real code. A body
-the bridge cannot yet round-trip losslessly (one containing an Execute box) SHALL be materialized **read-only**
-— an empty body plus the `@volt-graphical` marker, the same treatment as CFC/SFC — so the inline ST is edited
-in the IDE and a `push` of the body is refused rather than silently overwriting it. A body SHALL NEVER be both
-writable and lossy.
+The bridge SHALL materialize a CODESYS **Execute box** — the standard "ST inside FBD/LD" element (a PlcOpen
+block whose `fbdcalltype` addData is `execute`, carrying its statements in an `STCode` addData) — as a
+first-class VG `EXECUTE … END_EXECUTE` block holding the box's Structured Text VERBATIM, never as a bare
+`EXECUTE()` call that drops the ST. The box's enable SHALL use the ORDINARY VG EN machinery (a wire + `IF en
+THEN … END_IF`), not a special form. On push, the bridge SHALL reconstruct the CODESYS Execute box from that
+VG construct — `<block typeName="EXECUTE">` + `fbdcalltype=execute` + the verbatim `STCode` — so the ST
+round-trips byte-for-byte and the box is created/edited, not read-only.
 
-(Follow-up, not required by this change: materialize the Execute box's ST inline so the LSP analyzes it —
-that needs the VG language + parser to represent inline-ST-in-a-network. Until then the ST lives in the IDE,
-as CFC/SFC bodies already do.)
+#### Scenario: An Execute box renders its inline ST, not a call
+- **WHEN** a client fetches an FBD program whose network contains an Execute box holding
+  `IF cmd THEN target := 0; END_IF`
+- **THEN** the materialized body contains `EXECUTE` … `END_EXECUTE` with that ST verbatim (its comments and
+  nested `IF` preserved), EN-guarded by the box's enable wire, and no bare `EXECUTE()` call
 
-#### Scenario: An Execute box materializes read-only, never as a phantom call
-- **WHEN** a client fetches an FBD program whose network contains an Execute box (`fbdcalltype = execute`)
-- **THEN** the materialized body is read-only (the `@volt-graphical` marker, empty otherwise) and contains no
-  phantom `EXECUTE()` call and no editable VG networks
+#### Scenario: Pushing the EXECUTE construct recreates the CODESYS Execute box
+- **WHEN** a client pushes an FBD body containing `IF en THEN EXECUTE <st> END_EXECUTE END_IF`
+- **THEN** the bridge creates a CODESYS Execute box (`<block typeName="EXECUTE">` + `fbdcalltype=execute` +
+  `<STCode>`) wired to `en`, and fetching it back yields the same ST verbatim (a stable round-trip)
 
-#### Scenario: A push over an Execute-box body is refused
-- **WHEN** a client pushes a body whose current IDE export contains an Execute box
-- **THEN** the write is refused with a clear "read-only — edit it in the IDE" message, so the box's inline ST
-  is never silently overwritten
+### Requirement: The LSP analyzes an Execute box's body as Structured Text, not simplified VG
+
+The LSP's VG parser SHALL recognize the `EXECUTE … END_EXECUTE` block and SHALL NOT apply the simplified VG
+statement grammar to its body — which is full ST (nested `IF`, comments, multi-statement) and would produce
+spurious `VG_PARSE` diagnostics. The block's ST SHALL read as-is (no false diagnostics on valid code).
+
+#### Scenario: Complex ST inside an Execute box does not produce VG parse errors
+- **WHEN** the LSP analyzes an FBD body whose `EXECUTE` block contains multi-statement, commented ST
+- **THEN** it emits no `VG_PARSE` (or `vg-undeclared`) diagnostics for that block, and the surrounding VG
+  networks still analyze normally

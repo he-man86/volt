@@ -292,7 +292,18 @@ namespace Volt.Bridge.Core.Graphical
                 .ToList();
             return new Block(id, order, (string?)el.Attribute("typeName") ?? "",
                 (string?)el.Attribute("instanceName"), inputs, outs, ReadCallType(el, ns),
-                outTypes.Count > 0 ? outTypes : null);
+                outTypes.Count > 0 ? outTypes : null, ReadStCode(el, ns));
+        }
+
+        /// <summary>The inline Structured Text of a CODESYS "Execute" box — the <c>stcode</c> addData that
+        /// rides alongside <c>fbdcalltype=execute</c>. A standard FBD/LD feature (ST embedded in a graphical
+        /// network); null for every ordinary block. Carried verbatim so it renders as real ST, not a call.</summary>
+        private static string? ReadStCode(XElement el, XNamespace ns)
+        {
+            foreach (var d in el.Element(ns + "addData")?.Elements(ns + "data") ?? Enumerable.Empty<XElement>())
+                if (((string?)d.Attribute("name"))?.EndsWith("stcode") == true)
+                    return d.Descendants().FirstOrDefault(x => x.Name.LocalName == "STCode")?.Value;
+            return null;
         }
 
         private static Conn? ReadSource(XElement el, XNamespace ns)

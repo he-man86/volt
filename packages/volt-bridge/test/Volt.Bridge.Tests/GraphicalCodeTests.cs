@@ -92,30 +92,53 @@ public class GraphicalCodeTests
     }
 
     [Fact]
-    public void Fbd_body_with_an_execute_box_reads_as_read_only_not_a_phantom_call()
+    public void Fbd_body_with_an_execute_box_renders_its_inline_st_not_a_call()
     {
-        // REGRESSION (graphical-execute-box): a CODESYS Execute box embeds inline ST the bridge cannot
-        // round-trip through VG yet. Rendering it as a call drops the ST and yields a phantom `EXECUTE()`
-        // a push would write back (data loss). So a body containing one materializes READ-ONLY — empty body
-        // + the @volt-graphical marker, exactly like CFC/SFC — leaving the ST editable in the IDE, never a phantom.
+        // REGRESSION (graphical-execute-box): a CODESYS Execute box is the standard "ST inside FBD/LD"
+        // element — it carries inline ST in an <STCode> addData. The bridge must render that ST (readable,
+        // analyzable), NOT collapse it into a bare `EXECUTE()` call that drops the code. The body stays a
+        // normal, readable VG body.
         var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
         var gb = GraphicalCode.Read(s, Item);
         Assert.Equal("FBD", gb!.Language);
-        Assert.Equal("", gb.Body);                    // read-only — not transpiled
-        Assert.DoesNotContain("EXECUTE", gb.Body);    // NEVER the phantom call
-        Assert.DoesNotContain("NETWORK", gb.Body);    // not an editable VG body
-        Assert.Equal("PROGRAM P\nVAR\nEND_VAR", gb.Declaration);
+        Assert.Contains("NETWORK", gb.Body);          // a normal, readable VG body
+        Assert.Contains("target := 42;", gb.Body);    // the box's real inline ST is materialized
+        Assert.DoesNotContain("EXECUTE()", gb.Body);  // never the lossy call rendering
     }
 
     [Fact]
-    public void Write_refuses_a_body_that_currently_holds_an_execute_box()
+    public void Execute_box_round_trips_through_vg_preserving_its_st_and_en()
     {
-        // Guard the write path too: even if a client turns the read-only marker into VG and pushes, writing
-        // would overwrite the IDE's Execute box and drop its inline ST. Refuse it with a clear message.
-        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false) };
-        var ex = Assert.Throws<BridgeException>(() => GraphicalCode.Write(
-            s, Item, "NETWORK 0 FBD\n  x := a;\nEND_NETWORK\n", "PROGRAM P\nVAR\n\tx : BOOL;\n\ta : BOOL;\nEND_VAR"));
-        Assert.Contains("Execute box", ex.Message);
+        // Full round-trip: PLCopen XML → VG → graph → PLCopen XML. The Execute box renders as
+        // `IF en THEN EXECUTE … END_EXECUTE END_IF` (EN handled like any block), and reconstructs as
+        // <block typeName="EXECUTE"> + fbdcalltype=execute + <STCode> — so its inline ST survives verbatim.
+        var s = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var vg = GraphicalCode.Read(s, Item)!.Body;
+        Assert.Contains("EXECUTE", vg);
+        Assert.Contains("END_EXECUTE", vg);
+        Assert.Contains("target := 42;", vg);          // the ST is rendered verbatim
+        Assert.Contains("IF en", vg);                  // EN via the ordinary wire+IF guard, not special-cased
+
+        var graph = VgParser.Parse(vg);                // VG → graph (bridge parser detects the EXECUTE marker)
+        var xml = PlcOpenWriter.WriteBody(graph).ToString();
+        Assert.Contains("typeName=\"EXECUTE\"", xml);  // reconstructed as a CODESYS Execute box
+        Assert.Contains("target := 42;", xml);         // …carrying its STCode
+        Assert.Contains("STCode", xml);
+    }
+
+    [Fact]
+    public void Write_reconstructs_an_execute_box_from_its_vg()
+    {
+        // Full write-path round-trip: read an execute-box body to canonical VG, then Write it back. The box is
+        // REBUILT into the POU export (<block typeName="EXECUTE"> + <STCode>), passing the strict Validate gate —
+        // not refused. So an Execute box is editable, not read-only.
+        var read = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: false), Decl = "PROGRAM P\nVAR\nEND_VAR" };
+        var vg = GraphicalCode.Read(read, Item)!.Body;
+        var write = new FakeCodeStore { Lang = "FBD", Xml = Pou(ExecuteBoxBody, withIface: true) };
+        GraphicalCode.Write(write, Item, vg, "PROGRAM P\nVAR\nEND_VAR");
+        Assert.NotNull(write.WrittenXml);
+        Assert.Contains("typeName=\"EXECUTE\"", write.WrittenXml!);   // the box is reconstructed
+        Assert.Contains("target := 42;", write.WrittenXml!);         // …with its STCode
     }
 
     [Fact]

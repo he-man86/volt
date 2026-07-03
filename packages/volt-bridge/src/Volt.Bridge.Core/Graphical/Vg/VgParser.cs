@@ -34,13 +34,14 @@ namespace Volt.Bridge.Core.Graphical.Vg
             var seenIndices = new HashSet<int>();   // network indices must be unique — duplicates collide localIds
             void Flush() { if (cur != null) { networks.Add(cur.Build()); cur = null; } }
 
-            int lineNum = 0;
-            foreach (var raw in text.Replace("\r", "").Split('\n'))
+            var rawLines = text.Replace("\r", "").Split('\n');
+            string? pendingEn = null;   // set by a multi-line `IF <en> THEN` that guards an EXECUTE block
+            for (int i = 0; i < rawLines.Length; i++)
             {
-                lineNum++;
+                int lineNum = i + 1;
                 try
                 {
-                var line = raw.Trim();
+                var line = rawLines[i].Trim();
                 if (line.Length == 0) continue;
                 if (line.Equals("END_NETWORK", StringComparison.OrdinalIgnoreCase))
                 {
@@ -70,6 +71,36 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
                 if (cur == null) throw new VgParseException("statement before any NETWORK: " + line);
                 if (line.StartsWith("//")) { cur.AddComment(line.Substring(2).Trim()); continue; }
+
+                // Execute box (standard CODESYS ST-in-FBD/LD): a multi-line `IF <en> THEN` guard (EN handled
+                // like every other block) wrapping `EXECUTE … END_EXECUTE` around VERBATIM ST. Captured whole
+                // here, not line-by-line, so the ST (with its own IF/END_IF, comments, multi-statement) is
+                // preserved byte-for-byte and reconstructed as a CODESYS Execute box on push.
+                var enGuard = Regex.Match(line, @"^IF\s+(\w+)\s+THEN$", RegexOptions.IgnoreCase);
+                if (enGuard.Success) { pendingEn = enGuard.Groups[1].Value; continue; }
+                if (line.Equals("EXECUTE", StringComparison.OrdinalIgnoreCase))
+                {
+                    var stLines = new List<string>();
+                    int j = i + 1;
+                    for (; j < rawLines.Length && !rawLines[j].Trim().Equals("END_EXECUTE", StringComparison.OrdinalIgnoreCase); j++)
+                        stLines.Add(rawLines[j]);
+                    if (j >= rawLines.Length) throw new VgParseException("EXECUTE without a closing END_EXECUTE", "VG_PARSE") { Line = lineNum };
+                    cur.AddExecute(pendingEn, string.Join("\n", stLines), lineNum);
+                    i = j;   // consume through END_EXECUTE
+                    if (pendingEn != null)   // an EN-guarded execute: consume its matching END_IF
+                    {
+                        int k = i + 1;
+                        while (k < rawLines.Length && rawLines[k].Trim().Length == 0) k++;
+                        if (k >= rawLines.Length || !rawLines[k].Trim().Equals("END_IF", StringComparison.OrdinalIgnoreCase))
+                            throw new VgParseException("EN-guarded EXECUTE is not closed by END_IF", "VG_PARSE") { Line = lineNum };
+                        i = k;
+                        pendingEn = null;
+                    }
+                    continue;
+                }
+                if (pendingEn != null)
+                    throw new VgParseException($"'IF {pendingEn} THEN' spanning lines is only valid guarding an EXECUTE block", "VG_PARSE") { Line = lineNum };
+
                 // A `LET <name> := …` introduces an internal wire (the synthetic i*/g*/en* names); a bare
                 // `<name> := …` writes a sink. Both buffer as statements — ScanLetWires (in Build) records the
                 // LET names so the parser can tell a named producer from an outVariable sink.
@@ -77,7 +108,7 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 }
                 catch (VgParseException ex) { ex.Line ??= lineNum; throw; }
             }
-            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED") { Line = lineNum };
+            if (cur != null) throw new VgParseException($"network {cur.Order} is not closed by END_NETWORK", "VG_NETWORK_NOT_CLOSED") { Line = rawLines.Length };
             return new GraphBody(lang, networks);
         }
 
@@ -124,6 +155,11 @@ namespace Volt.Bridge.Core.Graphical.Vg
             }
 
             public void AddStatement(string stmt, int line) => _stmts.Add((stmt, line));
+
+            // Execute boxes (ST-in-FBD/LD): buffered separately (their ST is verbatim, not VG statements) and
+            // built after the regular statements so a preceding `LET en := …` wire is already resolvable.
+            private readonly List<(string? En, string StCode)> _executes = new();
+            public void AddExecute(string? en, string stCode, int line) => _executes.Add((en, stCode));
 
             /// <summary>Names used as an <c>IF &lt;name&gt; THEN … := …</c> guard — the EN/ENO enable wires. A
             /// pre-scan finds them so a preceding <c>&lt;name&gt; := src</c> is read as an EN binding (the box's
@@ -411,6 +447,13 @@ namespace Volt.Bridge.Core.Graphical.Vg
                 foreach (var (stmt, line) in _stmts)   // pass 2: parse, attaching the source line to any throw
                     try { ParseStatement(stmt, enWires); }
                     catch (VgParseException ex) { ex.Line ??= line; throw; }
+                // pass 3: execute boxes — EN resolves to its wire (defined by a LET above), body is verbatim ST.
+                foreach (var (en, st) in _executes)
+                {
+                    var pins = new List<Pin>();
+                    if (en != null) pins.Add(new Pin("EN", ParseCore(en), Mods.None));
+                    _nodes.Add(new Block(_nextId++, null, "EXECUTE", null, pins, new List<string> { "ENO" }, "execute", null, st));
+                }
                 return new(_order, _label, _comments.Count > 0 ? string.Join("\n", _comments) : null, _disabled, _nodes);
             }
 

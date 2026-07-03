@@ -108,9 +108,39 @@ export function parseVgBody(tokens: Token[], source?: string): VgBody {
 		cur = undefined;
 	};
 
-	for (const line of lines) {
+	let pendingEn: Line | undefined; // a multi-line `IF <en> THEN` awaiting its EXECUTE block
+	for (let li = 0; li < lines.length; li++) {
+		const line = lines[li]!;
 		const first = line.toks[0];
 		if (first === undefined) continue;
+
+		// A pending `IF en THEN` is an EXECUTE guard ONLY if this line is EXECUTE; otherwise it was an
+		// ordinary statement — replay it before handling the current line.
+		if (pendingEn !== undefined && !(line.toks.length === 1 && isWord(first, "EXECUTE"))) {
+			if (cur !== undefined) cur.stmtLines.push(stripTrailingSemicolons(pendingEn));
+			pendingEn = undefined;
+		}
+
+		// Execute box (standard CODESYS ST-in-FBD/LD): a multi-line `IF <en> THEN` guard wrapping
+		// `EXECUTE … END_EXECUTE` around VERBATIM, possibly-complex ST. Recognized and CONSUMED here (its
+		// markers + guard), not fed to the simplified VG statement grammar — which VG_PARSEs on real ST
+		// (nested IF, comments, multi-statement). The ST reads as-is; analyzing it as full ST is a follow-up.
+		if (cur !== undefined && line.toks.length === 3 && isWord(first, "IF") && isWord(line.toks[2], "THEN")) {
+			pendingEn = line;
+			continue;
+		}
+		if (cur !== undefined && line.toks.length === 1 && isWord(first, "EXECUTE")) {
+			let j = li + 1;
+			while (j < lines.length && !(lines[j]!.toks.length === 1 && isWord(lines[j]!.toks[0]!, "END_EXECUTE"))) j++;
+			li = j; // consume the ST body + END_EXECUTE
+			if (pendingEn !== undefined) {
+				let k = li + 1;
+				while (k < lines.length && lines[k]!.toks.length === 0) k++;
+				if (k < lines.length && lines[k]!.toks.length === 1 && isWord(lines[k]!.toks[0]!, "END_IF")) li = k;
+				pendingEn = undefined;
+			}
+			continue;
+		}
 
 		// A stray POU ender (END_PROGRAM …) can appear if the body slice
 		// includes it — ignore it silently.
@@ -154,6 +184,7 @@ export function parseVgBody(tokens: Token[], source?: string): VgBody {
 
 		cur.stmtLines.push(stripTrailingSemicolons(line));
 	}
+	if (pendingEn !== undefined && cur !== undefined) cur.stmtLines.push(stripTrailingSemicolons(pendingEn)); // dangling `IF en THEN`
 
 	if (cur !== undefined) {
 		diagnostics.push(

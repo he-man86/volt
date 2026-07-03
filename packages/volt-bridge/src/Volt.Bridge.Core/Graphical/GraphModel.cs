@@ -58,7 +58,7 @@ namespace Volt.Bridge.Core.Graphical
     /// to declare the result temp (the result type is <c>OutputTypes[0]</c>); not load-bearing for round-trip.</summary>
     public sealed record Block(long LocalId, int? ExecOrder, string TypeName, string? InstanceName,
         IReadOnlyList<Pin> Inputs, IReadOnlyList<string> OutputPins, string? CallType,
-        IReadOnlyList<string>? OutputTypes = null)
+        IReadOnlyList<string>? OutputTypes = null, string? StCode = null)
         : GraphNode(LocalId, ExecOrder);
 
     /// <summary>A jump target — PLCopen <c>&lt;label&gt;</c>. Renders as the ST label <c>name:</c>.</summary>

@@ -32,6 +32,56 @@ boxes, ~60 lines of ST each).
    `IF <en> THEN <stcode> END_IF` (or the raw `<stcode>` when EN is the constant TRUE / unwired). The
    statements are the box's own — no phantom `EXECUTE()`.
 
+## Revised direction (2026-07-03, after review): a first-class VG `EXECUTE` block
+
+Read-only / marker was wrong — an FBD/LD body IS readable, and the Execute box (ST embedded in FBD/LD) is a
+**standard CODESYS feature**, not an edge case. Collapsing the whole body (throwing away the good networks)
+or rendering a lossy `EXECUTE()` call are both unacceptable. The box's ST must render as the real (possibly
+COMPLEX — nested `IF`, comments, multi-statement) ST it is, be analyzed as such, and round-trip back to a
+CODESYS Execute box. That needs a dedicated, DETECTABLE VG construct:
+
+```
+NETWORK 1 FBD
+  EXECUTE
+    IF g_HMI_MachCommand.CMD.bNewRecipe THEN
+      g_HMI_RCP_Parameters_Visu.nProductType := 0;   (* … *)
+    END_IF
+  END_EXECUTE
+END_NETWORK
+```
+
+**EN is NOT special.** An Execute box is an EN/ENO block whose "call" is raw ST, so its enable reuses the
+EXISTING VG EN machinery — a normal wire + `IF en THEN … END_IF`, identical to every other EnEno block — and
+the ONLY new token pair is `EXECUTE … END_EXECUTE` around the verbatim ST:
+
+```
+NETWORK 1 FBD
+  LET en1 := TRUE;              -- enable: a normal VG wire, same as any other block's EN
+  IF en1 THEN
+    EXECUTE                     -- marker: the guarded body is a raw-ST execute box
+      IF g_HMI_MachCommand.CMD.bNewRecipe THEN
+        g_HMI_RCP_Parameters_Visu.nProductType := 0;   (* … *)
+      END_IF
+    END_EXECUTE
+  END_IF
+END_NETWORK
+```
+
+(A box with no EN gets a bare `EXECUTE … END_EXECUTE`.) The explicit `END_EXECUTE` delimiter — not "until
+END_IF" — disambiguates the ST's own nested `END_IF`s.
+
+Load-bearing across three layers:
+1. **Bridge write (VgWriter):** reuse the EN wire+IF; wrap the `<STCode>` verbatim in `EXECUTE … END_EXECUTE`.
+2. **LSP (`src/vg/parser.ts`):** recognize the block and treat its content as **full ST** — parse it with the
+   real ST parser, not the simplified VG statement grammar (which errors on it: 8 `VG_PARSE` on Recipes). So
+   the ST is analyzed/navigable as complex ST, and no spurious VG diagnostics.
+3. **Bridge round-trip (VgParser → PlcOpenWriter):** detect `EXECUTE … END_EXECUTE`, capture the ST verbatim,
+   reconstruct `<block typeName="EXECUTE">` + `fbdcalltype=execute` + `<STCode>` — so a push RECREATES the
+   CODESYS Execute box. Once this converges through the Validate gate, the push guard is removed.
+
+Staging: (1)+(2) deliver readable + LSP-clean + analyzed NOW (push stays guarded); (3) enables the editable
+round-trip. EN wiring is preserved best-effort (unconditional `EXECUTE` for the common EN=TRUE case first).
+
 ## The round-trip decision (pick one in tasks)
 
 VG is a **round-trip** language (edit → `push` → PlcOpen). Two options:

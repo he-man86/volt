@@ -138,7 +138,9 @@ namespace Volt.Bridge.Core.Graphical
                         el.Add(new XElement(Ns + "addData",
                             VendorData("fbdcalltype", "CallType", b.CallType),
                             VendorData("inputparamtypes", "InputParamTypes", JoinTypes(b.Inputs.Select(p => p.Type))),
-                            VendorData("outputparamtypes", "OutputParamTypes", JoinTypes(b.OutputTypes))));
+                            VendorData("outputparamtypes", "OutputParamTypes", JoinTypes(b.OutputTypes)),
+                            // An Execute box carries its inline ST — re-emit the <STCode> so the IDE rebuilds the box.
+                            b.StCode != null ? VendorData("stcode", "STCode", b.StCode) : null));
                     return el;
 
                 case Label lb:

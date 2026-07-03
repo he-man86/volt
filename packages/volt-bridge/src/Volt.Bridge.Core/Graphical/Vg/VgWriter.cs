@@ -164,6 +164,31 @@ namespace Volt.Bridge.Core.Graphical.Vg
 
             foreach (var b in ordered)
             {
+                if (b.StCode is { } stcode)
+                {
+                    // An Execute box — the standard CODESYS "ST inside FBD/LD" element — is just an EN/ENO block
+                    // whose "call" is raw ST. EN is handled EXACTLY like every other block (a normal wire +
+                    // `IF en THEN … END_IF`, below); the only new thing is the `EXECUTE … END_EXECUTE` marker
+                    // delimiting the VERBATIM ST. So (a) it reads/analyzes as the real (possibly complex) ST it
+                    // is — the LSP hands the marked region to the full ST parser, not the simplified VG one — and
+                    // (b) the reader detects the marker to reconstruct the CODESYS Execute box on push.
+                    // The ST is emitted VERBATIM (its own indentation preserved) between the markers, so it
+                    // round-trips byte-for-byte — the parser captures exactly these lines back into <STCode>.
+                    var st = stcode.Replace("\r", "").TrimEnd('\n');
+                    if (IsEnEno(b) && enNames.TryGetValue(b.LocalId, out var enName))
+                    {
+                        var enPin = b.Inputs.First(p => p.FormalParameter == "EN");
+                        sb.Append("  LET ").Append(enName).Append(" := ").Append(ApplyMods(Render(enPin.Source), enPin.Mods)).Append(";\n");
+                        sb.Append("  IF ").Append(enName).Append(" THEN\n");
+                        sb.Append("  EXECUTE\n").Append(st).Append("\n  END_EXECUTE\n");
+                        sb.Append("  END_IF\n");
+                    }
+                    else
+                    {
+                        sb.Append("  EXECUTE\n").Append(st).Append("\n  END_EXECUTE\n");
+                    }
+                    continue;
+                }
                 if (IsEnEno(b))
                 {
                     var enPin = b.Inputs.First(p => p.FormalParameter == "EN");

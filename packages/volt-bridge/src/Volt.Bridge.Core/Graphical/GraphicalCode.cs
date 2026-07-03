@@ -37,21 +37,11 @@ public static class GraphicalCode
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body element");
         var body = PlcOpenReader.ReadBody(fbd) with { Language = lang };
-        // An Execute box (a graphical element holding inline ST in an <STCode> addData) is not VG-round-trippable
-        // yet: VgWriter would render it as a phantom `EXECUTE()` call and DROP the ST, and a push would write that
-        // phantom back over the real code. So a body containing one materializes READ-ONLY — an empty body + the
-        // @volt-graphical marker, exactly like CFC/SFC — leaving the inline ST editable in the IDE and safe from a
-        // lossy push. (Full inline-ST materialization/round-trip is a follow-up; see graphical-execute-box.)
-        if (HasExecuteBox(body)) return new GraphicalBody(lang, "", decl);
+        // The body — including any Execute box (the standard CODESYS ST-in-FBD/LD element) — renders as
+        // readable VG; VgWriter emits an Execute box's inline ST as `EXECUTE … END_EXECUTE`, and Write
+        // reconstructs the box from that on push (full round-trip), so it needs no special-casing here.
         return new GraphicalBody(lang, VgWriter.Write(body), decl);
     }
-
-    /// <summary>True if an FBD/LD body contains a CODESYS Execute box — a block whose CODESYS
-    /// <c>fbdcalltype</c> is <c>execute</c> (it carries inline ST, not a call). Such a body is not
-    /// VG-round-trippable, so it is materialized read-only rather than as lossy VG.</summary>
-    internal static bool HasExecuteBox(GraphBody body) =>
-        body.Networks.SelectMany(n => n.Nodes).OfType<Block>()
-            .Any(b => string.Equals(b.CallType, "execute", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Write an editable VG body back through the PLCopen transport: splice the new FBD/LD body
     /// into the item's current export and re-import. FB instance types (absent from VG) come from
@@ -135,12 +125,6 @@ public static class GraphicalCode
         var newBody = PlcOpenWriter.WriteBody(graph, inst => types.TryGetValue(inst, out var t) ? t : null);
 
         var exported = code.ReadXml(item);                                   // current full POU PLCopen
-        // Refuse to overwrite a body that currently holds an Execute box: it materialized read-only (a marker),
-        // so any "edit" is against a stub, and writing VG would drop the IDE's inline ST. Edit it in the IDE.
-        var exportedFbd = PlcOpenDocument.FindFbdLdBody(exported);
-        if (exportedFbd != null && HasExecuteBox(PlcOpenReader.ReadBody(exportedFbd)))
-            throw new BridgeException(400, "UNSUPPORTED",
-                "this body contains an Execute box (inline ST) and is read-only — edit it in the IDE, not via push.");
         var spliced = PlcOpenDocument.SpliceFbdLdBody(exported, newBody);    // throws if no FBD/LD body
         code.WriteXml(item, spliced);                                        // import (vendor restores on failure)
     }
