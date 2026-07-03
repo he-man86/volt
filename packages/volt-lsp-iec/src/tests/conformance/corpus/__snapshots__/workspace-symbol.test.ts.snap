@@ -2219,3 +2219,203 @@ exports[`workspaceSymbol corpus (search by pouName) use_method_array_param 1`] =
   },
 ]
 `;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_retain 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_retain.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_retain",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_persistent 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_persistent.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_persistent",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_ignore_persistent 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_ignore_persistent.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_ignore_persistent",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_init_on_reset 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_init_on_reset.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_init_on_reset",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_no_symbol 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_no_symbol.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_no_symbol",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_encoding 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_encoding.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_encoding",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_display_scale 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_display_scale.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_display_scale",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_swap_word 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_swap_word.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_swap_word",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_swap_dword 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_swap_dword.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_swap_dword",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_context_id 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_context_id.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_context_id",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_context_name 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_context_name.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_context_name",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_init_symbol 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_init_symbol.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_init_symbol",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_link_to 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_link_to.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_link_to",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_link_to_oso 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_link_to_oso.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_link_to_oso",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_nc_axis 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_nc_axis.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_nc_axis",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_rpc_enable 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_rpc_enable.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_rpc_enable",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_call_after_output_update 1`] = `
+[
+  {
+    "file": "FB_LANG_tc_call_after_output_update.fb",
+    "kind": 5,
+    "name": "FB_LANG_tc_call_after_output_update",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_global_data_type 1`] = `
+[
+  {
+    "file": "DUT_LANG_tc_global_data_type.struct",
+    "kind": 23,
+    "name": "DUT_LANG_tc_global_data_type",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc_hide_sub_items 1`] = `
+[
+  {
+    "file": "DUT_LANG_tc_hide_sub_items.struct",
+    "kind": 23,
+    "name": "DUT_LANG_tc_hide_sub_items",
+  },
+]
+`;
+
+exports[`workspaceSymbol corpus (search by pouName) tc2_gvl_var_names 1`] = `
+[
+  {
+    "file": "GVL_LANG_tc2_gvl_var_names.gvl",
+    "kind": 2,
+    "name": "GVL_LANG_tc2_gvl_var_names",
+  },
+]
+`;

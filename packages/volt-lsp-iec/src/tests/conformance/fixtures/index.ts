@@ -21,6 +21,7 @@ import { OOP_TESTS } from "./oop.js";
 import { OPERANDS_TESTS } from "./operands.js";
 import { OPERATOR_TESTS } from "./operator.js";
 import { PRAGMA_TESTS } from "./pragma.js";
+import { PRAGMA_TC_TESTS } from "./pragma-tc.js";
 import { SEMANTIC_TESTS } from "./semantic.js";
 import { SHADOWING_TESTS } from "./shadowing.js";
 import { USAGE_PATTERN_TESTS } from "./usage-pattern.js";
@@ -33,6 +34,7 @@ export interface CategoryGroup {
 
 export const CATEGORIES: readonly CategoryGroup[] = [
 	{ name: "pragma", tests: PRAGMA_TESTS },
+	{ name: "pragma-tc", tests: PRAGMA_TC_TESTS },
 	{ name: "lifecycle", tests: LIFECYCLE_TESTS },
 	{ name: "identifier", tests: IDENTIFIER_TESTS },
 	{ name: "init-slot", tests: INIT_SLOT_TESTS },

@@ -19078,3 +19078,1170 @@ exports[`documentSymbol corpus (every conformance test) use_method_array_param 1
   },
 ]
 `;
+
+exports[`documentSymbol corpus (every conformance test) tc_retain 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "rData",
+        "range": {
+          "end": {
+            "character": 13,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_retain",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 32,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_persistent 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "pData",
+        "range": {
+          "end": {
+            "character": 13,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_persistent",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 36,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_ignore_persistent 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iVal",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_ignore_persistent",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 43,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_init_on_reset 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iVal",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_init_on_reset",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 39,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_no_symbol 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iHidden",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_no_symbol",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 35,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_encoding 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "sText",
+        "range": {
+          "end": {
+            "character": 16,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_encoding",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 34,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_display_scale 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "rScaled",
+        "range": {
+          "end": {
+            "character": 16,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_display_scale",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 39,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_swap_word 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "wVal",
+        "range": {
+          "end": {
+            "character": 13,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_swap_word",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 35,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_swap_dword 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "dwVal",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 6,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_swap_dword",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 36,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_context_id 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iShared",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_context_id",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 36,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_context_name 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iShared",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 8,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_context_name",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 38,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_init_symbol 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "iVal",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_init_symbol",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 37,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_link_to 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "bIn",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_link_to",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 33,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_link_to_oso 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "bIn",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 4,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_link_to_oso",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 37,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_nc_axis 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "axis",
+        "range": {
+          "end": {
+            "character": 17,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+    ],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_nc_axis",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 33,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_rpc_enable 1`] = `
+[
+  {
+    "children": [],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_rpc_enable",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 4,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 36,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "DoRpc",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 11,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 12,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_call_after_output_update 1`] = `
+[
+  {
+    "children": [],
+    "detail": undefined,
+    "kind": 5,
+    "name": "FB_LANG_tc_call_after_output_update",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 4,
+      },
+      "start": {
+        "character": 0,
+        "line": 0,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 50,
+        "line": 0,
+      },
+      "start": {
+        "character": 15,
+        "line": 0,
+      },
+    },
+  },
+  {
+    "children": [],
+    "kind": 6,
+    "name": "DoRpc",
+    "range": {
+      "end": {
+        "character": 0,
+        "line": 11,
+      },
+      "start": {
+        "character": 0,
+        "line": 7,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 12,
+        "line": 7,
+      },
+      "start": {
+        "character": 7,
+        "line": 7,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_global_data_type 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 8,
+        "name": "a",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 2,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+      {
+        "kind": 8,
+        "name": "b",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 4,
+          },
+          "start": {
+            "character": 1,
+            "line": 4,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 2,
+            "line": 4,
+          },
+          "start": {
+            "character": 1,
+            "line": 4,
+          },
+        },
+      },
+    ],
+    "detail": "STRUCT",
+    "kind": 23,
+    "name": "DUT_LANG_tc_global_data_type",
+    "range": {
+      "end": {
+        "character": 8,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 33,
+        "line": 1,
+      },
+      "start": {
+        "character": 5,
+        "line": 1,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc_hide_sub_items 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 8,
+        "name": "a",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 2,
+            "line": 3,
+          },
+          "start": {
+            "character": 1,
+            "line": 3,
+          },
+        },
+      },
+      {
+        "kind": 8,
+        "name": "b",
+        "range": {
+          "end": {
+            "character": 9,
+            "line": 4,
+          },
+          "start": {
+            "character": 1,
+            "line": 4,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 2,
+            "line": 4,
+          },
+          "start": {
+            "character": 1,
+            "line": 4,
+          },
+        },
+      },
+    ],
+    "detail": "STRUCT",
+    "kind": 23,
+    "name": "DUT_LANG_tc_hide_sub_items",
+    "range": {
+      "end": {
+        "character": 8,
+        "line": 6,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 31,
+        "line": 1,
+      },
+      "start": {
+        "character": 5,
+        "line": 1,
+      },
+    },
+  },
+]
+`;
+
+exports[`documentSymbol corpus (every conformance test) tc2_gvl_var_names 1`] = `
+[
+  {
+    "children": [
+      {
+        "kind": 13,
+        "name": "gVal",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+        "selectionRange": {
+          "end": {
+            "character": 5,
+            "line": 2,
+          },
+          "start": {
+            "character": 1,
+            "line": 2,
+          },
+        },
+      },
+    ],
+    "kind": 3,
+    "name": "VAR_GLOBAL",
+    "range": {
+      "end": {
+        "character": 7,
+        "line": 3,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+    "selectionRange": {
+      "end": {
+        "character": 7,
+        "line": 3,
+      },
+      "start": {
+        "character": 0,
+        "line": 1,
+      },
+    },
+  },
+]
+`;

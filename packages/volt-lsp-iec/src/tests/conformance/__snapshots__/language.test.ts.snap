@@ -6462,3 +6462,283 @@ exports[`language conformance (LSP vs codesys recording) use_method_array_param 
   "vendor": "codesys",
 }
 `;
+
+exports[`language conformance (LSP vs twincat recording) tc_retain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_retain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_persistent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_persistent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_ignore_persistent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_ignore_persistent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_init_on_reset LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_on_reset",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_no_symbol LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_no_symbol",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_encoding LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_encoding",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_display_scale LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_display_scale",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_swap_word LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_word",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_swap_dword LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_dword",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_context_id LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_id",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_context_name LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_name",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_init_symbol LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_symbol",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_link_to LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_link_to_oso LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to_oso",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_nc_axis LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_nc_axis",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_rpc_enable LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_rpc_enable",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_call_after_output_update LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_call_after_output_update",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_global_data_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_global_data_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_hide_sub_items LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_hide_sub_items",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc2_gvl_var_names LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc2_gvl_var_names",
+  "vendor": "twincat",
+}
+`;

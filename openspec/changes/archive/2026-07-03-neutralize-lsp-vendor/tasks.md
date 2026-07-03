@@ -40,6 +40,11 @@
   tagged, each with a CODESYS-equivalent note); 0 CODESYS-only (right — TC3 is CODESYS-derived, accepts the
   CODESYS attribute set; `call_after_init`/`hide`/`pack_mode`/`monitoring` verified TC-supported via InfoSys).
   No over-modeling, no retag. See design.md "Findings → Pragmas".
-- [ ] 3.6 (opt) Capture pragma-acceptance conformance recordings via the Beckhoff bridge to make the pragma
-  tags recording-verified like the operators (currently doc+structure verified only). Then update the
-  `language-server` spec.
+- [x] 3.6 **DONE** — captured pragma-acceptance recordings via the live Beckhoff bridge. Added the
+  `pragma-tc` fixture category (`fixtures/pragma-tc.ts`, all 20 `Tc*` attributes) + a targeted isolated
+  recorder (`volt-scripts/record-tc-pragmas.ts`, since the batch `record:language` was removed with
+  volt-agent). Real TwinCAT (TcXaeShell 15.0) accepts all 20 (`buildSuccess: true` = `expectTcAccepts`),
+  and the replay cross-check confirms the LSP raises no false `wrong-vendor` flag on them (20 snapshots
+  added; `language.test.ts` 1392 pass). The `Tc*` pragma tags are now recording-verified like the operators.
+  (Inverse direction — CODESYS *compiler* reaction to a `Tc*` attribute — left for when the 8556 bridge is
+  up; the LSP `wrong-vendor-pragma` warning itself is already unit-covered and vendor-tag driven.)

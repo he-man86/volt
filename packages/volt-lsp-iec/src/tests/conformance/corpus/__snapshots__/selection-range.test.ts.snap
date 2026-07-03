@@ -60569,3 +60569,2067 @@ exports[`selectionRange corpus (POU + PLC_PRG) use_method_array_param 1`] = `
   ],
 }
 `;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_retain 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 32,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 9,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_persistent 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 36,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 9,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_ignore_persistent 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 43,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_init_on_reset 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 39,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_no_symbol 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 35,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 3,
+          "startChar": 11,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_encoding 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 34,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 16,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_display_scale 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 39,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 16,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 11,
+          "startLine": 3,
+        },
+        {
+          "endChar": 16,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_swap_word 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 35,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 13,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_swap_dword 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 36,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 3,
+          "startChar": 9,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_context_id 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 36,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 3,
+          "startChar": 11,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_context_name 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 38,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 3,
+          "startChar": 11,
+          "startLine": 3,
+        },
+        {
+          "endChar": 15,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_init_symbol 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 37,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_link_to 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 7,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_link_to_oso 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 37,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 3,
+          "startChar": 7,
+          "startLine": 3,
+        },
+        {
+          "endChar": 12,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_nc_axis 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 17,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 16,
+          "endLine": 3,
+          "startChar": 8,
+          "startLine": 3,
+        },
+        {
+          "endChar": 17,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_rpc_enable 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 36,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 15,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 19,
+          "endLine": 7,
+          "startChar": 15,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 10,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 10,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_call_after_output_update 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 50,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 15,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 19,
+          "endLine": 7,
+          "startChar": 15,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 10,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 10,
+        },
+        {
+          "endChar": 0,
+          "endLine": 11,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_global_data_type 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 5,
+      "line": 1,
+      "ranges": [
+        {
+          "endChar": 33,
+          "endLine": 1,
+          "startChar": 5,
+          "startLine": 1,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 5,
+          "startLine": 3,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 4,
+          "startChar": 1,
+          "startLine": 4,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 4,
+          "startChar": 5,
+          "startLine": 4,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc_hide_sub_items 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 5,
+      "line": 1,
+      "ranges": [
+        {
+          "endChar": 31,
+          "endLine": 1,
+          "startChar": 5,
+          "startLine": 1,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 3,
+          "startChar": 5,
+          "startLine": 3,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 2,
+          "endLine": 4,
+          "startChar": 1,
+          "startLine": 4,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 4,
+          "startChar": 5,
+          "startLine": 4,
+        },
+        {
+          "endChar": 8,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) tc2_gvl_var_names 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 2,
+          "startChar": 8,
+          "startLine": 2,
+        },
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+      ],
+    },
+  ],
+}
+`;

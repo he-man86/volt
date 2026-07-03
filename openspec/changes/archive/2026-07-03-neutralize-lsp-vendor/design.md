@@ -85,10 +85,13 @@ pragmas": `call_after_init`, `hide`, `pack_mode`, `monitoring` (our `shared` tag
 So the pragma differentiation is real and correctly tagged — the `wrong-vendor-pragma` check only fires
 (rightly) when a CODESYS user pastes a `Tc`-attribute.
 
-**Caveat vs operators:** there are NO pragma conformance recordings, so the pragma tags are doc+structure
-verified, not recording-verified. Lower risk than operators (attributes are compile hints, not operators
-with signatures TC can implement differently), but the clean way to close it is to capture pragma-acceptance
-recordings via the Beckhoff bridge (a `Tc`-attribute in a CODESYS project and vice-versa).
+**Caveat vs operators — CLOSED (2026-07):** the pragma tags are now recording-verified too. The
+`pragma-tc` fixture category (all 20 `Tc*` attributes) was captured against a live TwinCAT build via
+`volt-scripts/record-tc-pragmas.ts`; real TC accepts all 20 (`buildSuccess: true`) and the LSP raises no
+false `wrong-vendor` flag on them (replay cross-check, 20 snapshots). So the vendor-differentiated pragma
+set is evidence-backed, matching the operators. (Remaining nicety: record the CODESYS *compiler*'s reaction
+to a `Tc*` attribute once the 8556 bridge is up — likely silent-ignore rather than a hard reject, since
+attributes are lenient; the LSP warning is the right UX regardless.)
 
 Net: **operators + pragmas — no retag.** The user's "diff smaller than modeled" does not hold for either;
 the vendor layer is real and (for operators) recording-verified. Remaining scope narrows to:

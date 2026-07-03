@@ -533,3 +533,43 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_pointer_deref
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_call 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_method_array_param 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_retain 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_persistent 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_ignore_persistent 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_on_reset 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_no_symbol 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_encoding 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_display_scale 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_word 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_dword 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_id 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_name 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_symbol 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to_oso 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_nc_axis 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_rpc_enable 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_call_after_output_update 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;

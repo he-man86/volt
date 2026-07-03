@@ -19799,3 +19799,1135 @@ exports[`semanticTokens corpus (every conformance test) use_method_array_param 1
   },
 ]
 `;
+
+exports[`semanticTokens corpus (every conformance test) tc_retain 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 17,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 22,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_persistent 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 21,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 26,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_ignore_persistent 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 28,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 32,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_init_on_reset 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 24,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 27,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_no_symbol 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 20,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 24,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_encoding 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 19,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 35,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 6,
+    "line": 3,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_display_scale 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 24,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 37,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 4,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_swap_word 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 20,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 24,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 4,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_swap_dword 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 21,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 25,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 5,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 9,
+    "length": 5,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_context_id 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 21,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 32,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_context_name 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 23,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 40,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 7,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 11,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_init_symbol 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 22,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 39,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_link_to 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 18,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 45,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_link_to_oso 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 22,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 48,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 3,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 7,
+    "length": 4,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_nc_axis 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 18,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 29,
+    "line": 2,
+    "type": "macro",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 3,
+    "type": "variable",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_rpc_enable 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 21,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 25,
+    "line": 6,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 5,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 15,
+    "length": 4,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 5,
+    "line": 10,
+    "type": "method",
+  },
+  {
+    "char": 9,
+    "length": 4,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_call_after_output_update 1`] = `
+[
+  {
+    "char": 0,
+    "length": 14,
+    "line": 0,
+    "type": "keyword",
+  },
+  {
+    "char": 15,
+    "length": 35,
+    "line": 0,
+    "type": "class",
+  },
+  {
+    "char": 0,
+    "length": 3,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 18,
+    "line": 4,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 37,
+    "line": 6,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 7,
+    "type": "keyword",
+  },
+  {
+    "char": 7,
+    "length": 5,
+    "line": 7,
+    "type": "method",
+  },
+  {
+    "char": 15,
+    "length": 4,
+    "line": 7,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 9,
+    "line": 8,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 9,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 5,
+    "line": 10,
+    "type": "method",
+  },
+  {
+    "char": 9,
+    "length": 4,
+    "line": 10,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 11,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_global_data_type 1`] = `
+[
+  {
+    "char": 0,
+    "length": 30,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 28,
+    "line": 1,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 3,
+    "type": "property",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 4,
+    "type": "property",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 4,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc_hide_sub_items 1`] = `
+[
+  {
+    "char": 0,
+    "length": 28,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 4,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 5,
+    "length": 26,
+    "line": 1,
+    "type": "struct",
+  },
+  {
+    "char": 0,
+    "length": 6,
+    "line": 2,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 3,
+    "type": "property",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 3,
+    "type": "type",
+  },
+  {
+    "char": 1,
+    "length": 1,
+    "line": 4,
+    "type": "property",
+  },
+  {
+    "char": 5,
+    "length": 3,
+    "line": 4,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 5,
+    "type": "keyword",
+  },
+  {
+    "char": 0,
+    "length": 8,
+    "line": 6,
+    "type": "keyword",
+  },
+]
+`;
+
+exports[`semanticTokens corpus (every conformance test) tc2_gvl_var_names 1`] = `
+[
+  {
+    "char": 0,
+    "length": 28,
+    "line": 0,
+    "type": "macro",
+  },
+  {
+    "char": 0,
+    "length": 10,
+    "line": 1,
+    "type": "keyword",
+  },
+  {
+    "char": 1,
+    "length": 4,
+    "line": 2,
+    "type": "variable",
+  },
+  {
+    "char": 8,
+    "length": 3,
+    "line": 2,
+    "type": "type",
+  },
+  {
+    "char": 0,
+    "length": 7,
+    "line": 3,
+    "type": "keyword",
+  },
+]
+`;

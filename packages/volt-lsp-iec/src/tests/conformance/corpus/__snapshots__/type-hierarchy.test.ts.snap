@@ -6168,3 +6168,315 @@ exports[`typeHierarchy corpus (POU + PLC_PRG) use_method_array_param 1`] = `
   },
 ]
 `;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_retain 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_retain",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_retain",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_persistent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_persistent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_persistent",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_ignore_persistent 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_ignore_persistent",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_ignore_persistent",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_init_on_reset 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_init_on_reset",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_init_on_reset",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_no_symbol 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_no_symbol",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_no_symbol",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_encoding 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_encoding",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_encoding",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_display_scale 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_display_scale",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_display_scale",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_swap_word 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_swap_word",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_swap_word",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_swap_dword 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_swap_dword",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_swap_dword",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_context_id 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_context_id",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_context_id",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_context_name 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_context_name",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_context_name",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_init_symbol 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_init_symbol",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_init_symbol",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_link_to 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_link_to",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_link_to",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_link_to_oso 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_link_to_oso",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_link_to_oso",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_nc_axis 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_nc_axis",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_nc_axis",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_rpc_enable 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_rpc_enable",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_rpc_enable",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_call_after_output_update 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "line": 0,
+    "prepared": [
+      {
+        "name": "FB_LANG_tc_call_after_output_update",
+        "subtypes": [],
+        "supertypes": [],
+      },
+    ],
+    "text": "FB_LANG_tc_call_after_output_update",
+  },
+]
+`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
+
+exports[`typeHierarchy corpus (POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;
