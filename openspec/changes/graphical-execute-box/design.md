@@ -54,6 +54,26 @@ the fix, re-harvest: the ST returns, the 2 `vg-undeclared-identifier` clear, and
 surface *honest* new diagnostics (real references in the recipe dispatch) — re-baseline the ratchet then.
 Until fixed, the corpus documents the bug (a useful regression witness).
 
+## Sweep result (2026-07-03 — bakon-nano, raw bridge vs materialized corpus)
+
+Swept the whole project for OTHER bridge gaps before fixing, via a live raw-vs-materialized diff (`/debug`
+tree + `/debug?xml=1` all POU bodies, against the harvested corpus). Findings — the Execute box is the **only**
+gap:
+- **Classification: correct.** The 9 items the coarse `/debug` `ide.KindCode` calls `function_block` are
+  materialized by `/fetch` per their real declaration keyword (`FUNCTION`→`.fun`, `PROGRAM`→`.prg`) — the
+  fetch path refines by declaration; no mis-classification in the corpus.
+- **No dropped items.** 76 raw POU bodies = 76 corpus POU files (37 prg + 21 fun + 18 fb). The 7 harvest
+  "skips" are all legit non-source (2 visualizations + 1 visualization manager + 4 unclassifiable/hidden).
+- **Graphical surface is tiny.** 75 of 76 bodies are ST (lossless ST→ST); **Recipes.fbd is the only graphical
+  body**, and its 2 Execute boxes are the entire gap. `CallType` values seen project-wide: execute×2,
+  functionblock×3, function×3, operator×1 — all in Recipes, all other block types materialize fine.
+- **No whole-network drop.** All 9 Recipes blocks materialize as networks; the "missing NETWORK 9" is a
+  CODESYS label gap (non-contiguous network numbering preserved faithfully), not a bridge drop.
+- **No methods/actions to drop.** The project has 0 (its 27 FBs are method-less) — corpus and live tree agree.
+
+So this change closes the complete set of bakon bridge gaps. (A reusable raw-vs-materialized fidelity sweep
+would guard future gaps, but it needs a live bridge — a diagnostic script, not a hermetic CI test.)
+
 ## Non-goals
 
 - Not touching the CFC/SFC read-only bodies (already correct).
