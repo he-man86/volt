@@ -45,6 +45,58 @@ public class EnEnoTests
     }
 
     [Fact]
+    public void Unconnected_EN_is_dropped_so_the_box_renders_as_a_plain_call()
+    {
+        // A function box whose EN input is UNCONNECTED (PLCopen `refLocalId=0`) is unconditionally enabled — it
+        // must render as a plain call, NOT `LET en := ; IF en THEN …` (an empty producer = malformed VG). Verified
+        // live on the Lenze LD project (Alarms_V5_1_100 with EN → refLocalId 0).
+        var doc =
+            "<project xmlns=\"http://www.plcopen.org/xml/tc6_0200\"><types><pous><pou name=\"p\" pouType=\"program\"><body><FBD>" +
+            "<inVariable localId=\"1\"><connectionPointOut/><expression>x</expression></inVariable>" +
+            "<block localId=\"2\" typeName=\"FC_Do\"><inputVariables>" +
+            "<variable formalParameter=\"EN\"><connectionPointIn><connection refLocalId=\"0\"/></connectionPointIn></variable>" +
+            "<variable formalParameter=\"IN\"><connectionPointIn><connection refLocalId=\"1\"/></connectionPointIn></variable>" +
+            "</inputVariables><inOutVariables/>" +
+            "<outputVariables><variable formalParameter=\"OUT\"><connectionPointOut/></variable></outputVariables>" +
+            "<addData><data name=\"http://www.3s-software.com/plcopenxml/fbdcalltype\"><CallType>function</CallType></data></addData>" +
+            "</block>" +
+            "<outVariable localId=\"3\"><connectionPointIn><connection refLocalId=\"2\" formalParameter=\"OUT\"/></connectionPointIn><expression>y</expression></outVariable>" +
+            "</FBD></body></pou></pous></types></project>";
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        File.WriteAllText(Path.Combine(Path.GetTempPath(), "unconnected_en.txt"), vg);
+        Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
+        Assert.DoesNotContain("IF en", vg);    // not EN-guarded
+        Assert.Contains("FC_Do(", vg);         // rendered as a plain call
+        Assert.Equal(vg, VgWriter.Write(VgParser.Parse(vg)));            // VG-text fixed point
+        Assert.Equal(vg, GraphicalRoundTrip.ToVg(VgParser.Parse(vg)));   // PLCopen convergence
+    }
+
+    [Fact]
+    public void Unconnected_EN_in_an_LD_body_is_dropped_too()
+    {
+        // The LD read path (contact/coil lowering via CombineIn) resolves an unconnected EN to a NULL source
+        // (vs the FBD path's `refLocalId=0` Conn) — the same drop must apply, else an LD box renders
+        // `LET en := ; IF en THEN …`. This is the form the Lenze project actually hit (LD networks).
+        var doc =
+            "<project xmlns=\"http://www.plcopen.org/xml/tc6_0200\"><types><pous><pou name=\"p\" pouType=\"program\"><body><LD>" +
+            "<leftPowerRail localId=\"1\"><connectionPointOut formalParameter=\"none\"/></leftPowerRail>" +
+            "<inVariable localId=\"2\"><connectionPointOut/><expression>x</expression></inVariable>" +
+            "<block localId=\"3\" typeName=\"FC_Do\"><inputVariables>" +
+            "<variable formalParameter=\"EN\"><connectionPointIn><connection refLocalId=\"0\"/></connectionPointIn></variable>" +
+            "<variable formalParameter=\"IN\"><connectionPointIn><connection refLocalId=\"2\"/></connectionPointIn></variable>" +
+            "</inputVariables><inOutVariables/>" +
+            "<outputVariables><variable formalParameter=\"OUT\"><connectionPointOut/></variable></outputVariables>" +
+            "<addData><data name=\"http://www.3s-software.com/plcopenxml/fbdcalltype\"><CallType>function</CallType></data></addData>" +
+            "</block>" +
+            "<coil localId=\"4\"><connectionPointIn><connection refLocalId=\"3\" formalParameter=\"OUT\"/></connectionPointIn><variable>y</variable></coil>" +
+            "</LD></body></pou></pous></types></project>";
+        var vg = VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(doc)!));
+        Assert.DoesNotContain("LET en", vg);   // no empty/broken EN wire
+        Assert.DoesNotContain("IF en", vg);    // not EN-guarded
+        Assert.Equal(vg, VgWriter.Write(VgParser.Parse(vg)));   // VG-text fixed point
+    }
+
+    [Fact]
     public void EnEno_on_a_function_block_round_trips()
     {
         // An EN-gated FB call: `IF en THEN inst(IN := x); END_IF`, its value outputs read separately via inst.Pin.

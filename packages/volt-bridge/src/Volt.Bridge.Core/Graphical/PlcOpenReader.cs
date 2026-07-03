@@ -163,11 +163,10 @@ namespace Volt.Bridge.Core.Graphical
                     {
                         var inTypes = ReadParamTypes(el, ns, "inputparamtypes");
                         var outTypes = ReadParamTypes(el, ns, "outputparamtypes");
-                        var ins = (el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
+                        var ins = DropUnconnectedEn((el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                             .Select((v, k) => { var s = CombineIn(v);
                                 return new Pin((string?)v.Attribute("formalParameter") ?? "", s.Conn, Merge(s.Mods, ReadMods(v)),
-                                    k < inTypes.Count ? inTypes[k] : null); })
-                            .ToList();
+                                    k < inTypes.Count ? inTypes[k] : null); }));
                         var outs = (el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                             .Select(v => (string?)v.Attribute("formalParameter") ?? "").ToList();
                         var blk = new Block(next++, null, (string?)el.Attribute("typeName") ?? "",
@@ -283,10 +282,9 @@ namespace Volt.Bridge.Core.Graphical
         {
             var inTypes = ReadParamTypes(el, ns, "inputparamtypes");
             var outTypes = ReadParamTypes(el, ns, "outputparamtypes");
-            var inputs = (el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
+            var inputs = DropUnconnectedEn((el.Element(ns + "inputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                 .Select((v, k) => new Pin((string?)v.Attribute("formalParameter") ?? "", ReadSource(v, ns), ReadMods(v),
-                    k < inTypes.Count ? inTypes[k] : null))
-                .ToList();
+                    k < inTypes.Count ? inTypes[k] : null)));
             var outs = (el.Element(ns + "outputVariables")?.Elements(ns + "variable") ?? Enumerable.Empty<XElement>())
                 .Select(v => (string?)v.Attribute("formalParameter") ?? "")
                 .ToList();
@@ -305,6 +303,14 @@ namespace Volt.Bridge.Core.Graphical
                     return d.Descendants().FirstOrDefault(x => x.Name.LocalName == "STCode")?.Value;
             return null;
         }
+
+        // An UNCONNECTED EN (no producer, or the PLCopen `refLocalId=0` sentinel) means the box is unconditionally
+        // enabled — it is not a guard. Drop it so the box renders as a plain call, not a broken
+        // `LET en := ; IF en THEN …` (the empty producer was malformed VG). The round-trip stays faithful: with no
+        // EN pin, VgParser rebuilds the box without one and the IDE defaults EN to TRUE. Applied in BOTH block-read
+        // paths (the LD-lowering `Value` case and the FBD `ReadBlock`), which resolve inputs differently.
+        private static List<Pin> DropUnconnectedEn(IEnumerable<Pin> pins) =>
+            pins.Where(p => !(p.FormalParameter == "EN" && (p.Source == null || p.Source.RefLocalId == 0))).ToList();
 
         private static Conn? ReadSource(XElement el, XNamespace ns)
         {
