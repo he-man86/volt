@@ -1,0 +1,5 @@
+Type:      Cyclic
+Interval:  t#20ms
+Priority:  1
+Watchdog:  off
+Calls:     PLC_PRG

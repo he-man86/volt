@@ -28,7 +28,7 @@ rmSync(outDir, { recursive: true, force: true })
 // + `.device` files (their filename = a device-tree instance name the LSP registers as a known global).
 // Bridge-encoded filenames are Windows-safe. Bodies (.cfc/.sfc) and other reference kinds are skipped.
 const KIND = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
-const WRITE = new Set([...KIND, ".library", ".device", ".projectinfo", ".trace", ".recipe", ".symbols"])
+const WRITE = new Set([...KIND, ".library", ".device", ".projectinfo", ".trace", ".recipe", ".symbols", ".task"])
 let written = 0, kind = 0, lib = 0, dev = 0, info = 0, misc = 0, skipped = 0
 for (const item of fetched.changed) {
 	let files
@@ -50,4 +50,4 @@ for (const item of fetched.changed) {
 		else misc++
 	}
 }
-console.log(`wrote ${written} files (${kind} KIND source, ${lib} .library, ${dev} .device, ${info} .projectinfo, ${misc} .trace/.recipe/.symbols), skipped ${skipped}`)
+console.log(`wrote ${written} files (${kind} KIND source, ${lib} .library, ${dev} .device, ${info} .projectinfo, ${misc} .trace/.recipe/.symbols/.task), skipped ${skipped}`)
