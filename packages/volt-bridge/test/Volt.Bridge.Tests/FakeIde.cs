@@ -49,7 +49,13 @@ public sealed class FakeIde : IIdeDriver
     public int ChildCount(ItemRef item) => FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) => Find(item).Name;
     public ItemRef? Lookup(string name) => _items.Any(i => i.Name == name) ? new ItemRef(name) : (ItemRef?)null;
-    public ItemRef GetPlcProjectRoot() => new ItemRef("<root>");
+    // Both default to the same synthetic root, so the whole tree is flat. A test that models a spine (the tree
+    // root ABOVE the PLC-project root, e.g. CODESYS Device/Plc Logic/Application) sets these apart to prove push
+    // descends the full path from the tree root instead of re-creating the spine under the PLC-project root.
+    public string PlcRootName { get; init; } = "<root>";
+    public string TreeRootName { get; init; } = "<root>";
+    public ItemRef GetPlcProjectRoot() => new ItemRef(PlcRootName);
+    public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }

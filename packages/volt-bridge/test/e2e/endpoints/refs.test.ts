@@ -1,6 +1,6 @@
 /** /refs — determinism and the parallel items/kinds/folders maps. */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / refs (${BASE})`, () => {
@@ -27,11 +27,11 @@ describe(`endpoints / refs (${BASE})`, () => {
 
 	it("the parallel maps are consistent for a created item", async () => {
 		const name = id("r_maps")
-		await createItem(fid("r_maps"), fb(name), "POUs/Sub")
+		await createItem(fid("r_maps"), fb(name), await plcFolder("POUs/Sub"))
 		await ensureCompiles(name)
 		const r = await bridge.refs()
 		const fullName = name + ".fb"
 		expect(r.items[fullName]).toBeDefined()
-		expect(r.folders[fullName]).toBe("POUs/Sub")
+		expect(r.folders[fullName]).toBe(await plcFolder("POUs/Sub"))
 	})
 })

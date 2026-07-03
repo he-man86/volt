@@ -1,7 +1,7 @@
 /** Top-level kinds the lifecycle doesn't fully cover: function/alias type fidelity, interface, folders.
  *  (The CRUD lifecycle already asserts kind for fb/prog/gvl/struct/enum/union/alias.) */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, fetchItem, fetchSource, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, plcFolder, BASE } from "../harness"
 import { func, aliasDut, iface, fb } from "../fixtures"
 
 describe(`kinds / top-level (${BASE})`, () => {
@@ -45,9 +45,9 @@ describe(`kinds / top-level (${BASE})`, () => {
 		const rootWire = fid("k_root"), nestedWire = fid("k_nested")
 		await createItem(rootWire, fb(root), "")
 		await ensureCompiles(root)
-		await createItem(nestedWire, fb(nested), "POUs/Sub/Deep")
+		await createItem(nestedWire, fb(nested), await plcFolder("POUs/Sub/Deep"))
 		await ensureCompiles(nested)
-		expect((await fetchItem(rootWire)).folder ?? "").toBe("")
-		expect((await fetchItem(nestedWire)).folder).toBe("POUs/Sub/Deep")
+		expect((await fetchItem(rootWire)).folder ?? "").toBe(await plcFolder(""))
+		expect((await fetchItem(nestedWire)).folder).toBe(await plcFolder("POUs/Sub/Deep"))
 	})
 })

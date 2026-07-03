@@ -11,7 +11,7 @@
  *   delete → assert {item:gone, project:Δ, structure:Δ}     (delete)
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, FOLDER, BASE } from "../harness"
+import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, plcFolder, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 // Each writable source kind is named by its KIND: function_block→fb, program→prg, gvl→gvl, DUTs→struct/…
@@ -46,7 +46,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			// 3. FETCH — kind + version + folder consistent with /refs
 			const fetched = await fetchItem(wire)
 			expect(fetched.version).toBe(snapshotItem(s1, wire))
-			expect(fetched.folder ?? "").toBe(FOLDER)
+			expect(fetched.folder ?? "").toBe(await plcFolder("POUs"))
 
 			// 4. RE-PUSH the bridge's own canonical output → FIXED POINT (nothing moves)
 			await updateItem(wire, fetched.sourceText)
@@ -71,13 +71,14 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 			expect(s4.project).not.toBe(s3.project)
 
 			// 7. MOVE → item version changes (folder is in the hash), names unchanged ⇒ structure same
-			const mv = await pushOps([{ op: "set", name: newWire, toFolder: "POUs/Moved", ifVersion: snapshotItem(s4, newWire) }])
+			const movedFolder = await plcFolder("POUs/Moved")
+			const mv = await pushOps([{ op: "set", name: newWire, toFolder: movedFolder, ifVersion: snapshotItem(s4, newWire) }])
 			expect(mv.accepted).toBe(true)
 			const s5 = await snapshot()
 			expect(snapshotItem(s5, newWire)).not.toBe(snapshotItem(s4, newWire))
 			expect(s5.structure).toBe(s4.structure)
 			expect(s5.project).not.toBe(s4.project)
-			expect((await fetchItem(newWire)).folder).toBe("POUs/Moved")
+			expect((await fetchItem(newWire)).folder).toBe(movedFolder)
 
 			// 8. DELETE
 			const del = await pushOps([{ op: "deleteItem", name: newWire, ifVersion: snapshotItem(s5, newWire) }])

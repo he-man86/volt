@@ -70,16 +70,45 @@ export async function pushOps(ops: unknown[]): Promise<any> {
 	if (!r.accepted) console.warn("push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
 	return r
 }
-/** Create a NEW item — `name` is the FULL wire name (e.g. `fid("x")`, or `fid("x","ld")`). */
-export async function createItem(name: string, src: string, folder = FOLDER): Promise<any> {
-	const r = await pushOps([{ op: "set", name, toFolder: folder, sourceText: src, ifVersion: null }])
+// ── PLC-project folder prefix (vendor-neutral) ────────────────────────────────
+// The wire folder is the FULL tree path from the project root, so it carries each vendor's structural spine:
+// CODESYS "Device/Plc Logic/Application", TwinCAT "" (its walk starts at the PLC project). Tests never hardcode
+// that spine — they derive it from the main program (which lives at the PLC-project root) and build paths under
+// it, so the SAME assertion holds on either bridge.
+let _plcRoot: string | null = null
+export async function plcRoot(): Promise<string> {
+	if (_plcRoot !== null) return _plcRoot
+	const main = await mainProgram()
+	if (main) return (_plcRoot = (await fetchItem(main)).folder ?? "")
+	// No standard main program (a library project): probe by creating a throwaway at the root, reading its
+	// resolved folder, then deleting it.
+	const probe = fid("__plcroot_probe__")
+	await pushOps([{ op: "set", name: probe, toFolder: "", sourceText: "FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK", ifVersion: null }])
+	const root = (await fetchItem(probe)).folder ?? ""
+	await pushOps([{ op: "deleteItem", name: probe, ifVersion: (await bridge.refs()).items[probe] }])
+	return (_plcRoot = root)
+}
+/** A full wire folder path under the PLC-project root: `plcFolder("POUs/Sub")` → e.g. "Device/Plc Logic/Application/POUs/Sub". */
+export async function plcFolder(sub = ""): Promise<string> {
+	const root = await plcRoot()
+	return sub ? (root ? `${root}/${sub}` : sub) : root
+}
+
+/** Create a NEW item — `name` is the FULL wire name. `folder` is a FULL wire path (default: the `POUs` folder
+ *  under the PLC-project root); pass `""` to place at the PLC-project root. */
+export async function createItem(name: string, src: string, folder?: string): Promise<any> {
+	const toFolder = folder === undefined ? await plcFolder(FOLDER) : folder
+	const r = await pushOps([{ op: "set", name, toFolder, sourceText: src, ifVersion: null }])
 	expect(r.accepted).toBe(true)
 	return r
 }
-/** Update an existing item by its FULL wire name, guarded with its current version. */
-export async function updateItem(name: string, src: string, folder = FOLDER): Promise<any> {
+/** Update an existing item's content in place (no move) by its FULL wire name, guarded with its current version.
+ *  Pass `folder` (a full wire path) only to MOVE it. */
+export async function updateItem(name: string, src: string, folder?: string): Promise<any> {
 	const v = (await bridge.refs()).items[name] ?? null
-	const r = await pushOps([{ op: "set", name, toFolder: folder, sourceText: src, ifVersion: v }])
+	const op: Record<string, unknown> = { op: "set", name, sourceText: src, ifVersion: v }
+	if (folder !== undefined) op.toFolder = folder
+	const r = await pushOps([op])
 	expect(r.accepted).toBe(true)
 	return r
 }

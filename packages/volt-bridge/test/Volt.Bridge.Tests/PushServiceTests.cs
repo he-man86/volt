@@ -58,6 +58,38 @@ public class PushServiceTests
     }
 
     [Fact]
+    public void Create_with_the_full_tree_path_descends_the_spine_instead_of_doubling_it()
+    {
+        // The wire folder is the FULL path from the TREE ROOT (CODESYS "Device/Plc Logic/Application/…"), but new
+        // items default into the PLC-PROJECT ROOT (the Application) which sits BELOW the tree root. Resolving
+        // toFolder from the plc-project root re-created the spine under itself ("App" landing at "App/App" — the
+        // doubling bug); it must descend from the TREE root and REUSE the existing spine node. (Old code recorded
+        // "create:App" here; the fix does not.)
+        var ide = new FakeIde(
+            new FakeIde.Item("<root>", ItemKind.PlcFolder, "", false, null, null, null, null, Children: new[] { "App" }),
+            new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
+        { PlcRootName = "App", TreeRootName = "<root>" };
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var resp = Push(ide, pv, new SetItemOp { Name = "New.prg", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\nEND_PROGRAM\n" });
+        Assert.True(resp.Accepted);
+        Assert.Contains("create:New", ide.Recorded);
+        Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
+    }
+
+    [Fact]
+    public void Set_update_in_place_with_empty_toFolder_does_not_move()
+    {
+        // An in-place content edit that doesn't restate the full tree path (empty toFolder) must NOT be read as a
+        // move to the root — no delete/recreate, just a write.
+        var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "", SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\n\nn := n + 9;\n\nEND_PROGRAM\n" });
+        Assert.True(resp.Accepted);
+        Assert.Contains("write:PLC_PRG", ide.Recorded);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
+    }
+
+    [Fact]
     public void Set_rename_plus_edit_renames_then_writes_content()
     {
         var ide = OneProgram();

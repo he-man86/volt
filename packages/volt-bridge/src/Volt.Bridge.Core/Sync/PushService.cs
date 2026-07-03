@@ -177,7 +177,10 @@ public static class PushService
             item = ide.Lookup(currentName) ?? item;    // refresh the (possibly staled) handle
         }
 
-        if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
+        // A non-empty toFolder that differs from the item's current folder is a MOVE; empty (or omitted) means
+        // "keep the current folder" — never a move to the root — so an in-place edit that doesn't restate the
+        // full tree path isn't misread as a move (and a graphical item isn't spuriously refused).
+        if (op.ToFolder is { Length: > 0 } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
             MoveItem(ide, parent, currentName, item, toFolder, op.SourceText);       // recreate in the new folder
         else if (op.SourceText is { } src)
             WriteItemFromSource(ide, parent, currentName, item, src, currentFolder); // content update in place
@@ -215,7 +218,6 @@ public static class PushService
         var decl = split.PouDeclaration ?? "";
         var impl = split.PouImplementation ?? "";
         var itemType = PouKindToCode(split.PouKind);
-        var targetParent = ResolveFolder(ide, parent, folder);
 
         // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
@@ -228,6 +230,9 @@ public static class PushService
         ItemRef pou;
         if (existing is not { } existingPou)
         {
+            // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
+            // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
+            var targetParent = ResolveTopLevelFolder(ide, parent, folder);
             if (pouVg)
             {
                 // The language comes from the VG NETWORK header (FBD/LD). TC's CreateChild uses this
@@ -370,6 +375,37 @@ public static class PushService
         if (FindChild(ide, parent, name) is not null) ide.Delete(parent, name);
     }
 
+    /// <summary>Resolve a TOP-LEVEL item's placement folder. A non-empty <paramref name="folder"/> is the FULL
+    /// tree path exactly as <see cref="IProjectTree.WalkItems"/> emits it (e.g. CODESYS
+    /// "Device/Plc Logic/Application/POUs/Sub"), so push placement is symmetric with fetch: descend from the same
+    /// tree root the walk measures from, MATCHING each existing container (structural node OR user folder) by name
+    /// and only CREATING a user folder for a segment that does not yet exist. Empty ⇒ the default PLC-project root
+    /// (<paramref name="defaultParent"/>) so a bare create still lands in the Application / PLC project.</summary>
+    private static ItemRef ResolveTopLevelFolder(IIdeDriver ide, ItemRef defaultParent, string? folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return defaultParent;
+        var node = ide.GetTreeRoot();
+        foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
+            node = DescendOrCreateFolder(ide, node, part);
+        return node;
+    }
+
+    /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
+    /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
+    /// through and create a user folder beside it.</summary>
+    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name)
+    {
+        int count = ide.ChildCount(parent);
+        for (int i = 1; i <= count; i++)
+        {
+            var child = ide.ChildAt(parent, i);
+            if (string.Equals(ide.Name(child), name, StringComparison.OrdinalIgnoreCase) && !ItemKind.IsTopLevelCrud(ide.KindCode(child)))
+                return child;
+        }
+        return ide.CreateChild(parent, name, ItemKind.PlcFolder);
+    }
+
+    // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
     private static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder)
     {
         if (string.IsNullOrEmpty(folder)) return parent;
