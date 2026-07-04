@@ -100,5 +100,3 @@ export const LIFECYCLE_METHODS = new Map<string, ReferenceEntry>(
 export function getLifecycle(name: string): LifecycleEntry | undefined {
 	return ENTRIES.find((e) => e.name.toLowerCase() === name.toLowerCase());
 }
-
-export const ALL_LIFECYCLE_METHODS: readonly LifecycleEntry[] = ENTRIES;

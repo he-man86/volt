@@ -33,11 +33,6 @@ export function inferWireType(network: VgNetwork, wireName: string, env: VgTypeE
 	return inferWire(network, wireName, env, new Set());
 }
 
-/** Infer the type of an operand expression (§8). */
-export function inferOperandType(operand: VgOperand, network: VgNetwork, env: VgTypeEnv): string | undefined {
-	return inferOperand(operand, network, env, new Set());
-}
-
 function inferWire(network: VgNetwork, wireName: string, env: VgTypeEnv, seen: Set<string>): string | undefined {
 	if (seen.has(wireName)) return undefined; // guard cyclic references
 	seen.add(wireName);

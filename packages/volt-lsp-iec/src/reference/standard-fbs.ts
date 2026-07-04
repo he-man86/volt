@@ -124,5 +124,3 @@ const ENTRIES: ReferenceEntry[] = [
 export const STANDARD_FBS = new Map<string, ReferenceEntry>(
 	ENTRIES.map((e) => [e.name.toLowerCase(), e]),
 );
-
-export const ALL_STANDARD_FBS: readonly ReferenceEntry[] = ENTRIES;

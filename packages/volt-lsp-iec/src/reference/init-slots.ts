@@ -77,9 +77,6 @@ export const RESERVED_INIT_SLOTS: ReadonlyArray<InitSlot> = [
 	{ slot: 200000, owner: "Library: VisuElemBase", pou: "GVL_ShutdownCheck", purpose: "Visu shutdown handling" },
 ];
 
-export const GVL_DEFAULT_SLOT = 49990;
-export const POU_DEFAULT_SLOT = 50000;
-
 /**
  * Look up *vendor-reserved* slots overlapping with a user-provided slot
  * value. Returns an empty array when the slot is a user-default (49990
@@ -95,9 +92,3 @@ export function getReservationsAtSlot(slot: number): readonly InitSlot[] {
 	if (all.some((s) => s.isUserDefault === true)) return [];
 	return all;
 }
-
-export const INIT_SLOTS_SOURCE = {
-	url: "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_global_init_slots.html",
-	localFile: "docs/codesys-reference/12-global-init-slots.md",
-	retrievedAt: "2026-05-26",
-};

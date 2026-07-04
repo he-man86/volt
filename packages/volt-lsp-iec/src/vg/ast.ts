@@ -61,10 +61,6 @@ export interface VgMods {
 	tokens: Token[];
 }
 
-export function modsAreNone(m: VgMods): boolean {
-	return !m.negated && m.edge === undefined && m.storage === undefined;
-}
-
 // ─── Expression tree ─────────────────────────────────────────────────
 
 /** A producer-side core expression (the thing a wire carries). */
