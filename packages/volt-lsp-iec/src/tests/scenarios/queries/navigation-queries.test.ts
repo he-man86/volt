@@ -3,7 +3,7 @@
  * call hierarchy, type hierarchy, implementation.
  *
  * Each query also has corpus snapshot coverage (see
- * `conformance/tests/corpus/*-corpus.test.ts`). These unit tests
+ * `conformance/corpus/*.test.ts`). These unit tests
  * complement that with assertion-based checks on specific behavior
  * (e.g. "hover on FB name returns the kind string") that are easier
  * to read and faster to fail-localize than snapshot diffs.

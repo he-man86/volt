@@ -20,7 +20,7 @@ volt-lsp-iec/src/tests/
 └── README.md          (this file)
 ```
 
-The `src/conformance/` directory next to this one carries the PUBLIC
+The `src/tests/conformance/` directory carries the PUBLIC
 `./conformance` package export — `fixtures/`, `types.ts`, `index.ts`,
 `recordings/`. Tests live here; the catalog they consume lives there.
 
@@ -68,7 +68,7 @@ When a new test belongs here:
 ### L3 — Conformance (`tests/conformance/`)
 
 Snapshot-replay tests that pin every LSP query's output across the
-full language-test corpus (`src/conformance/fixtures/`). The catalog
+full language-test corpus (`src/tests/conformance/fixtures/`). The catalog
 is fed through each query once per test file; the response is
 snapshotted and any future drift surfaces as a snapshot diff. The
 `language.test.ts` test goes further and compares the LSP's
