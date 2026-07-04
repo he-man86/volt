@@ -119,6 +119,8 @@ The server SHALL cross-index the whole workspace so that types declared in unope
 
 The language server SHALL parse the body of every Structured Text POU (function block, program, function, method, action, property accessor) into a statement/expression abstract syntax tree, in addition to the existing token stream. The tree SHALL cover the ST statement forms (`IF`/`ELSIF`/`ELSE`, `CASE`, `FOR`, `WHILE`, `REPEAT`, assignment, `RETURN`/`EXIT`/`CONTINUE`, and bare call statements) and the ST expression forms (binary and unary operators with IEC precedence, member access `a.b`, indexing `a[i]`, dereference `p^`, address-of, function/method calls with positional and named `param := value` arguments, parenthesised sub-expressions, identifiers, and typed/untyped literals). Every node SHALL carry the source span of its tokens so LSP queries can map a node back to document coordinates.
 
+The tree SHALL also cover the CODESYS/IEC constructs the real-project corpus exercises: the set/reset/reference assignment operators (`S=`, `R=`, `REF=`), chained assignment (`a := b := c`), inline assignment used as an expression (`(x := v)`, `IF x := f() THEN`), bit access (`x.0`), unconnected call arguments (`in := ,` / `out => ,`), the `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY` exception block, and a bare-expression statement. An accessor's own access modifier (`SET PRIVATE …`) SHALL NOT leak into its body.
+
 The parsed tree SHALL be exposed on the body model for `language: "st"` bodies. VG (graphical) bodies SHALL retain their existing dedicated model and SHALL NOT be given an ST statement tree.
 
 #### Scenario: Member-chain expression is structured, not flattened
@@ -144,6 +146,10 @@ Parsing a body into the statement/expression AST SHALL NOT raise any new diagnos
 #### Scenario: Corpus ratchet holds
 - **WHEN** the corpus coverage test runs after the AST is introduced
 - **THEN** each corpus reports parse-clean, ingest, and total-diagnostic counts no worse than its committed baseline
+
+#### Scenario: The tree covers every body on the real-project corpus
+- **WHEN** the corpus coverage test measures body-AST-clean (bodies that parse fully into the statement tree) across all four corpora
+- **THEN** it reports 100% (pro2193, bakon-nano, awa-palletizer, lenze-mid) with zero identifier-set mismatches, so the token-scan fallback is exercised only by genuinely malformed input, never by real code
 
 <!-- ══════════ C. Analyzer — diagnostics (LSP-owned) ══════════ -->
 

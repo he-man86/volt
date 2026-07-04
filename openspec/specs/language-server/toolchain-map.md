@@ -36,7 +36,7 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 | Component | Status | Owning phase | Goal it serves |
 |---|---|---|---|
 | Lexer · declaration AST · symbol table · type resolver | ✅ have | — | foundation |
-| **Body AST** (statement/expression tree) | ✅ have | 0 `st-body-ast` | the treewalker — 81–86% body-parse-clean, 0 mismatches |
+| **Body AST** (statement/expression tree) | ✅ have | 0 `st-body-ast` | the treewalker — **100% body-parse-clean on all 4 corpora**, 0 mismatches (incl. CODESYS `S=`/`R=`/`REF=`, `__TRY`, inline/chained assignment, bit access) |
 | Expression type inference | ✅ `semantic/type-infer.ts` | 1 `st-type-inference` | the shared engine (inferExprType + resolveMemberChain) |
 | Diagnostics (assignment/binary/conversion) | ✅ deepened onto tree + inference | 1 `st-type-inference` | member/index/deref/call operands typed (no more bail-on-`.`) |
 | Call-argument checking (count/type/name) | 🟡 built, default-off, FP-validated | 1 `st-type-inference` | enable after live oracle |
