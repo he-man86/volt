@@ -33,14 +33,3 @@ to a genuine defect, not to a gap in the LSP's model of real projects.
 #### Scenario: The corpus diagnostics sweep is clean
 - **WHEN** the diagnostics sweep runs over the whole valid corpus
 - **THEN** it reports no diagnostics — a regression that introduces a false positive fails the sweep
-
-### Requirement: Interactive queries meet a performance budget on a large project
-
-The LSP SHALL keep cross-file indexing and interactive queries (go-to-definition, references, hover,
-completion, document/workspace symbols) responsive on the large multi-file corpus, within a measured
-budget asserted by the test suite. The whole-project index SHALL build once and be reused across
-queries rather than re-parsing the project per request.
-
-#### Scenario: Nav queries stay within budget on the corpus
-- **WHEN** definition/references/hover/completion run against the fully-indexed real-project corpus
-- **THEN** each query returns within the asserted budget, and the project index is built once rather than per query

@@ -12,6 +12,15 @@ It covers three concerns that were previously separate capabilities:
 
 Ownership note: sections A–D are LSP requirements. Sections E–F are **bridge/CLI-owned** — included because the LSP depends on them, but changes to VG format/round-trip or file materialization are implemented in `volt-bridge` / `volt-git`, not the language server. See also the sibling specs `bridge-protocol` (the HTTP wire) and the roadmap in `toolchain-map.md`.
 
+### Direction (north star)
+
+This spec states what is true *today*; the end-state we build toward is:
+
+1. **Compiler-parity diagnostics** — accurate, type-aware analysis driven by the ST body AST (the treewalker) and an expression type-inference engine, so the LSP catches what the CODESYS/TwinCAT compiler catches (e.g. narrowing conversions, argument-type mismatches) without a build. *In flight:* change `st-type-inference`.
+2. **Structural formatting** — a pretty-printer that formats from the AST (spacing, alignment, line-breaking), not keyword-indent heuristics. *Planned:* change `st-format`.
+3. **Headless ST test execution** — let users unit-test their Structured Text in CI with no IDE/hardware: a scan-cycle **interpreter** over the same AST (`set inputs → run N scans → assert outputs`), so `bun test` can drive PLC logic. A JS/C **transpiler** is a deferred alternative, considered only if large/fast simulation is later needed. *Scoped:* change `st-interpreter`.
+
+Each becomes a requirement here **only when it lands** (as the body-AST requirements did). Until then the goal lives in `toolchain-map.md` and the named change proposals — the spec stays a contract, not a wishlist.
 ## Requirements
 
 <!-- ══════════ A. Analyzer — scope & boundaries (LSP-owned) ══════════ -->
@@ -19,12 +28,19 @@ Ownership note: sections A–D are LSP requirements. Sections E–F are **bridge
 ### Requirement: Navigation and diagnostics, never type-checking
 
 The language server SHALL provide navigation, hover, completion, signature help, semantic tokens,
-and diagnostics, but SHALL NOT type-check or generate code — the CODESYS/TwinCAT compiler remains
-authoritative. It speaks LSP 3.17 JSON-RPC over stdio and SHALL be spawned only with `--stdio`.
+and diagnostics. It MAY infer types to make its diagnostics accurate (e.g. narrowing conversions,
+argument-type mismatches), but SHALL NOT be the authoritative type-checker or generate code — the
+CODESYS/TwinCAT compiler remains the source of truth for final type-checking and codegen, and every
+LSP type diagnostic SHALL be conservative (skip on any unresolved type rather than risk a false
+positive). It speaks LSP 3.17 JSON-RPC over stdio and SHALL be spawned only with `--stdio`.
 
 #### Scenario: The IDE compiler stays authoritative
 - **WHEN** the LSP analyzes a project
-- **THEN** it surfaces navigation + diagnostics but defers final type-checking/codegen to the IDE
+- **THEN** it surfaces navigation + type-aware diagnostics but defers final, authoritative type-checking/codegen to the IDE
+
+#### Scenario: Type-aware diagnostics are conservative
+- **WHEN** the LSP cannot fully resolve the type of an expression
+- **THEN** it emits no type diagnostic for it (unknown types skip), never a guess
 
 ### Requirement: The server is vendor-keyed
 
@@ -410,3 +426,38 @@ added, removed, or version-bumped.
 #### Scenario: Library signatures are never pushed
 - **WHEN** a push is computed
 - **THEN** no library signature file is included — they are a read-only library mirror, not project source
+
+### Requirement: The LSP is verified against a real-project conformance corpus
+
+The LSP SHALL be tested against a committed conformance corpus materialized from a real, full-option
+CODESYS project (the project's items rendered as `.st` files on disk). Every language construct the
+corpus contains — POUs, DUTs, GVLs, interfaces, methods/properties/actions/transitions, pragmas, and
+editable graphical FBD/LD bodies surfaced as VG — SHALL parse and analyze with **no spurious parse
+errors and no analysis gaps**. The corpus SHALL be loadable from disk by the test harness and
+regenerable via a documented step, so it is a durable regression guard, not a one-off.
+
+#### Scenario: The whole corpus parses without spurious errors
+- **WHEN** the LSP loads every `.st` file in the real-project corpus
+- **THEN** each file parses into a usable model with no parse-error diagnostic on valid code, and every construct kind present is recognized (not silently skipped)
+
+#### Scenario: The corpus is a committed, regenerable fixture
+- **WHEN** the corpus tests run in CI (no live bridge, no CODESYS)
+- **THEN** they read the committed `.st` fixtures from disk and pass deterministically, and the corpus can be regenerated from the source project by the documented materialization step
+
+### Requirement: Diagnostics are false-positive-free on valid real code
+
+On the valid, library-heavy code in the real-project corpus the LSP SHALL raise **zero
+false-positive diagnostics**. The false-positive-prone semantic checks (unresolved identifier,
+unknown pragma, wrong-vendor pragma, and their peers) and their config defaults SHALL be tuned so
+that a symbol imported from a library, a vendor-legitimate pragma, or any construct the project
+actually compiles is not flagged. Any diagnostic the LSP does raise on the corpus SHALL correspond
+to a genuine defect, not to a gap in the LSP's model of real projects.
+
+#### Scenario: A library-imported symbol is not flagged unresolved
+- **WHEN** the corpus references a symbol declared in an imported library (not in the workspace `.st` files)
+- **THEN** the LSP does not raise an unresolved-identifier diagnostic for it
+
+#### Scenario: The corpus diagnostics sweep is clean
+- **WHEN** the diagnostics sweep runs over the whole valid corpus
+- **THEN** it reports no diagnostics — a regression that introduces a false positive fails the sweep
+

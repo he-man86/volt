@@ -128,3 +128,36 @@ parity gap); TwinCAT returns none.
 - **WHEN** the vendor bridge (TwinCAT) cannot extract library signatures
 - **THEN** a verbose fetch returns an empty library-signature set, keeping the wire shape identical
 
+### Requirement: Graphical Execute boxes round-trip as a first-class VG construct
+
+The bridge SHALL materialize a CODESYS **Execute box** — the standard "ST inside FBD/LD" element (a PlcOpen
+block whose `fbdcalltype` addData is `execute`, carrying its statements in an `STCode` addData) — as a
+first-class VG `EXECUTE … END_EXECUTE` block holding the box's Structured Text VERBATIM, never as a bare
+`EXECUTE()` call that drops the ST. The box's enable SHALL use the ORDINARY VG EN machinery (a wire + `IF en
+THEN … END_IF`), not a special form. On push, the bridge SHALL reconstruct the CODESYS Execute box from that
+VG construct — `<block typeName="EXECUTE">` + `fbdcalltype=execute` + the verbatim `STCode` — so the ST
+round-trips byte-for-byte and the box is created/edited, not read-only.
+
+#### Scenario: An Execute box renders its inline ST, not a call
+- **WHEN** a client fetches an FBD program whose network contains an Execute box holding
+  `IF cmd THEN target := 0; END_IF`
+- **THEN** the materialized body contains `EXECUTE` … `END_EXECUTE` with that ST verbatim (its comments and
+  nested `IF` preserved), EN-guarded by the box's enable wire, and no bare `EXECUTE()` call
+
+#### Scenario: Pushing the EXECUTE construct recreates the CODESYS Execute box
+- **WHEN** a client pushes an FBD body containing `IF en THEN EXECUTE <st> END_EXECUTE END_IF`
+- **THEN** the bridge creates a CODESYS Execute box (`<block typeName="EXECUTE">` + `fbdcalltype=execute` +
+  `<STCode>`) wired to `en`, and fetching it back yields the same ST verbatim (a stable round-trip)
+
+### Requirement: The LSP analyzes an Execute box's body as Structured Text, not simplified VG
+
+The LSP SHALL analyze an `EXECUTE … END_EXECUTE` block's body as full Structured Text — NOT the simplified VG
+statement grammar (which would `VG_PARSE` on real ST: nested `IF`, comments, multi-statement). The block's ST
+identifiers SHALL be resolved against the POU scope (so an undeclared reference is flagged and a declared one
+is not) and SHALL be navigable (references / highlight / completion), rather than the block being opaque.
+
+#### Scenario: Complex ST inside an Execute box is checked, not VG-parse-errored
+- **WHEN** the LSP analyzes an FBD body whose `EXECUTE` block contains multi-statement, commented ST
+- **THEN** it emits no `VG_PARSE` for that block; a reference to a declared variable resolves, an undeclared
+  identifier is flagged, and the surrounding VG networks still analyze normally
+

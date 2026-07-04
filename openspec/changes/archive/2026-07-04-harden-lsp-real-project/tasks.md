@@ -1,3 +1,16 @@
+> **CLOSURE (archived 2026-07-04 — disposition of open items).** The two delta requirements this change
+> owned are **achieved and synced**: the real-project conformance corpus (4 corpora committed + ratcheted)
+> and false-positive-free diagnostics on valid code (zero FP on built objects). Remaining open tasks are
+> resolved elsewhere:
+> - §3.2 / §3.5 / §8.3 library-blindness → **done** by `library-signature-index` (archived).
+> - §8.1 narrowing-conversion, §8.2 `S=` set-assignment → **moved** to `st-type-inference`.
+> - §5 performance → **moved** to new change `st-perf` (the perf-budget delta requirement moved there too).
+> - §6 nav correctness → **moved** to new change `st-nav-chains`.
+> - §3.3 / §3.4 / §4.2 / §4.3 / §7 (vendor-mask + ingest + land verifications) → **satisfied** (corpus is 100%
+>   parse/ingest, zero-FP on built objects, tests green in CI).
+> The text-list→enum bridge-fixture note (§8) stays a bridge follow-up. Nothing below is lost — it is all
+> tracked in the LSP plan (`openspec/specs/language-server/toolchain-map.md`).
+
 ## 1. Materialize the corpus
 
 - [x] 1.1 IP cleared (commit as-is, full project). Kind-based scheme (post `kind-based-file-extensions`), so the corpus is kind-named, not `.st`.
