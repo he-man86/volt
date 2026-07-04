@@ -93,16 +93,16 @@ END_FUNCTION_BLOCK`;
 
 describe("vg shared features: document highlight", () => {
 	it("highlights a network-local wire across the network", () => {
-		const { doc } = ctx(LOGIC);
+		const { doc, project } = ctx(LOGIC);
 		// g1 appears in `LET g1` and `(g1 AND c)` → 2, resolved via the same VG seam references uses.
-		const hl = documentHighlight({ doc, position: posOf(LOGIC, "g1", 0) });
+		const hl = documentHighlight({ doc, position: posOf(LOGIC, "g1", 0), project });
 		expect(hl).toHaveLength(2);
 	});
 
 	it("highlights a real variable referenced inside the network", () => {
-		const { doc } = ctx(LOGIC);
+		const { doc, project } = ctx(LOGIC);
 		// `a` is used twice in the graphical body (`a AND b`, `a OR c`).
-		const hl = documentHighlight({ doc, position: posOf(LOGIC, "a OR") });
+		const hl = documentHighlight({ doc, position: posOf(LOGIC, "a OR"), project });
 		expect(hl.length).toBeGreaterThanOrEqual(2);
 	});
 });

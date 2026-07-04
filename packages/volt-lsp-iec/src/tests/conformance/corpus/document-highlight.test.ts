@@ -23,6 +23,7 @@ interface HighlightProbe {
 function probe(
 	source: string,
 	doc: Parameters<typeof documentHighlight>[0]["doc"],
+	project: Parameters<typeof documentHighlight>[0]["project"],
 	tag: "pou" | "plc_prg",
 ): HighlightProbe[] {
 	const out: HighlightProbe[] = [];
@@ -32,7 +33,7 @@ function probe(
 			line: tok.span.startLine - 1,
 			character: tok.span.startCol,
 		};
-		const highlights = documentHighlight({ doc, position });
+		const highlights = documentHighlight({ doc, position, project });
 		out.push({
 			file: tag,
 			text: tok.text,
@@ -51,10 +52,11 @@ function probe(
 describe("documentHighlight corpus (POU + PLC_PRG)", () => {
 	for (const t of ALL_TESTS) {
 		it(t.name, () => {
-			const { pouDoc, pouSource, plcPrgDoc, plcPrgSource } = buildCorpusWorkspace(t);
+			const { ws, pouDoc, pouSource, plcPrgDoc, plcPrgSource } = buildCorpusWorkspace(t);
+			const project = ws.getProjectScope();
 			const probes = [
-				...probe(pouSource, pouDoc, "pou"),
-				...probe(plcPrgSource, plcPrgDoc, "plc_prg"),
+				...probe(pouSource, pouDoc, project, "pou"),
+				...probe(plcPrgSource, plcPrgDoc, project, "plc_prg"),
 			];
 			expect(probes).toMatchSnapshot();
 		});

@@ -83,6 +83,69 @@ END_FUNCTION_BLOCK
 		expect(checkOffset).toBeGreaterThan(0);
 	});
 
+	it("narrows a member field to its own type (st-nav-chains §2.1)", () => {
+		// Two structs each with a `value` field. `a.value` references must bind only to A.value —
+		// name-based matching would wrongly include B.value's usage.
+		const src = `TYPE T_A : STRUCT
+	value : INT;
+END_STRUCT END_TYPE
+TYPE T_B : STRUCT
+	value : INT;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_X
+VAR
+	a : T_A;
+	b : T_B;
+END_VAR
+	a.value := 1;
+	b.value := 2;
+	a.value := a.value + 1;
+END_FUNCTION_BLOCK
+`;
+		const ws = new Workspace();
+		ws.openDocument("file:///x.st", src, 1);
+		// Cursor on the FIRST `a.value` usage's `value`.
+		const pos = positionOf(src, "value := 1");
+		const result = references({
+			workspace: ws,
+			doc: ws.getDocument("file:///x.st")!,
+			position: pos,
+			project: ws.getProjectScope(),
+			includeDeclaration: false,
+		});
+		// 3 usages of A.value (`a.value := 1`, `a.value := …`, `… a.value + 1`) — NOT b.value.
+		expect(result).toHaveLength(3);
+	});
+
+	it("separates same-named locals in different POUs (st-nav-chains §2.1)", () => {
+		// Each FB has its own local `count`. References from FB_A must not leak into FB_B.
+		const src = `FUNCTION_BLOCK FB_A
+VAR
+	count : INT;
+END_VAR
+	count := count + 1;
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_B
+VAR
+	count : INT;
+END_VAR
+	count := 0;
+END_FUNCTION_BLOCK
+`;
+		const ws = new Workspace();
+		ws.openDocument("file:///x.st", src, 1);
+		const pos = positionOf(src, "count := count");
+		const result = references({
+			workspace: ws,
+			doc: ws.getDocument("file:///x.st")!,
+			position: pos,
+			project: ws.getProjectScope(),
+			includeDeclaration: false,
+		});
+		// Only FB_A's two `count` usages — FB_B's `count := 0` is a different symbol.
+		expect(result).toHaveLength(2);
+	});
+
 	it("case-insensitive matching across files", () => {
 		const src = `
 FUNCTION_BLOCK FB_X

@@ -16,14 +16,12 @@
  *     project-global "count" is usually what the user wants to see.
  */
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
-import { lookup } from "../../semantic/resolver.js";
 import type { Scope } from "../../semantic/symbol-table.js";
 import type { Location, Position } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
-import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { findIdentifiersByName } from "../../semantic/body.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
 import { vgLocalRefAt } from "./vg/shared.js";
+import { findReferences, symbolAtOffset } from "../symbol-refs.js";
 
 export interface ReferencesArgs {
 	workspace: Workspace;
@@ -47,40 +45,17 @@ export function references(args: ReferencesArgs): Location[] {
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 
-	const targetName = idToken.text;
-	const sym = lookup(project, targetName)?.symbol;
+	// Type-aware: resolve the target symbol (through a member chain if the cursor is on `a.b`), then narrow
+	// to occurrences that bind to it. Falls back to name-based when the target can't be resolved.
+	const target = symbolAtOffset(doc, project, offset);
+	const locations: Location[] = findReferences(workspace.allDocuments(), idToken.text, target, project).map(
+		(r) => ({ uri: r.uri, range: rangeFromSpan(r.span) }),
+	);
 
-	const locations: Location[] = [];
-
-	for (const d of workspace.allDocuments()) {
-		for (const unit of d.parseResult.units) {
-			const body = getBody(unit);
-			if (body === undefined) continue;
-			const model = d.bodyModels.get(body);
-			if (model === undefined) continue;
-			for (const ref of findIdentifiersByName(model, targetName)) {
-				locations.push({ uri: d.uri, range: rangeFromSpan(ref.span) });
-			}
-		}
-	}
-
-	if (includeDeclaration && sym !== undefined) {
-		const declUri = sym.uri.length > 0 ? sym.uri : doc.uri;
-		locations.push({ uri: declUri, range: rangeFromSpan(sym.span) });
+	if (includeDeclaration && target !== undefined) {
+		const declUri = target.uri.length > 0 ? target.uri : doc.uri;
+		locations.push({ uri: declUri, range: rangeFromSpan(target.span) });
 	}
 
 	return locations;
-}
-
-function getBody(unit: TopLevel): BodySpan | undefined {
-	switch (unit.kind) {
-		case "function_block":
-		case "program":
-		case "function":
-		case "method":
-		case "action":
-			return unit.body;
-		default:
-			return undefined;
-	}
 }

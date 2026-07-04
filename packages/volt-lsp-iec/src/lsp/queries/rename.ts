@@ -16,15 +16,12 @@
  * the user for the new name.
  */
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
-import { lookup } from "../../semantic/resolver.js";
 import type { Scope } from "../../semantic/symbol-table.js";
 import type { Position, Range } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
-import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { findIdentifiersByName } from "../../semantic/body.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
-import { scopeAtOffset } from "../scope-at.js";
 import { vgLocalRefAt } from "./vg/shared.js";
+import { findReferences, symbolAtOffset } from "../symbol-refs.js";
 
 /** Minimal WorkspaceEdit shape — the LSP spec's `changes` map keyed
  *  by URI. The full WorkspaceEdit also supports `documentChanges` for
@@ -78,12 +75,10 @@ export function rename(args: RenameArgs): WorkspaceEdit | null {
 	const oldName = idToken.text;
 	if (oldName === trimmed) return null;
 
-	// Look up the symbol from the LOCAL scope at the cursor, not from
-	// the project root. A VAR declared inside a PROGRAM lives in the
-	// program's scope, not at project level — `lookup(project, …)`
-	// would miss it and the declaration site wouldn't be renamed.
-	const startScope = scopeAtOffset(project, doc, offset);
-	const sym = lookup(startScope, oldName)?.symbol;
+	// Resolve the target symbol at the cursor (through a member chain for `a.b`, else the LOCAL scope +
+	// bare enums). Type-aware: rename only occurrences that bind to THIS symbol — a `motor.Start` rename no
+	// longer touches an unrelated `Start`. Falls back to name-based when the target can't be resolved.
+	const target = symbolAtOffset(doc, project, offset);
 	const changes: Record<string, TextEdit[]> = {};
 
 	function push(uri: string, range: Range): void {
@@ -92,27 +87,18 @@ export function rename(args: RenameArgs): WorkspaceEdit | null {
 		changes[uri] = list;
 	}
 
-	// Pass 1: every body usage across the workspace. `findIdentifiersByName`
-	// is the same path `references` uses, so coverage is identical —
-	// every body-token usage of the name lands here.
-	for (const d of workspace.allDocuments()) {
-		for (const unit of d.parseResult.units) {
-			const body = getBody(unit);
-			if (body === undefined) continue;
-			const model = d.bodyModels.get(body);
-			if (model === undefined) continue;
-			for (const ref of findIdentifiersByName(model, oldName)) {
-				push(d.uri, rangeFromSpan(ref.span));
-			}
-		}
+	// Pass 1: every body usage across the workspace that binds to the target — the same shared path
+	// `references` uses, so coverage is identical and the narrowing is identical.
+	for (const r of findReferences(workspace.allDocuments(), oldName, target, project)) {
+		push(r.uri, rangeFromSpan(r.span));
 	}
 
 	// Pass 2: the declaration. Only included when the symbol resolved
 	// — typing on an unknown name (e.g. a typo) still produces edits
 	// for all matching usages but doesn't fabricate a declaration.
-	if (sym !== undefined) {
-		const declUri = sym.uri.length > 0 ? sym.uri : doc.uri;
-		push(declUri, rangeFromSpan(sym.span));
+	if (target !== undefined) {
+		const declUri = target.uri.length > 0 ? target.uri : doc.uri;
+		push(declUri, rangeFromSpan(target.span));
 	}
 
 	return { changes };
@@ -133,17 +119,4 @@ export function prepareRename(args: PrepareRenameArgs): Range | null {
 	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return null;
 	return rangeFromSpan(idToken.span);
-}
-
-function getBody(unit: TopLevel): BodySpan | undefined {
-	switch (unit.kind) {
-		case "function_block":
-		case "program":
-		case "function":
-		case "method":
-		case "action":
-			return unit.body;
-		default:
-			return undefined;
-	}
 }

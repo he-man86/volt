@@ -6,83 +6,48 @@
  *   - Single-file (current document only)
  *   - Returns DocumentHighlight[] (ranges + optional kind) instead of
  *     Location[] (uri + range)
- *   - Cheap — no project-wide scan
  *
- * Implementation: find the identifier at the cursor, then scan every
- * body in the same document for matching occurrences. We also include
- * the declaration site if it's in this document.
+ * Shares the type-aware core with references/rename: resolve the target symbol at
+ * the cursor, then keep only occurrences that bind to it (a `motor.Start` highlight
+ * no longer lights up every `Start`). Scoped to the single document by passing just
+ * this doc to `findReferences`. Falls back to name-based when the target can't resolve.
  */
 import type {
 	DocumentHighlight,
 	Position,
 } from "vscode-languageserver-protocol";
 import { DocumentHighlightKind } from "vscode-languageserver-protocol";
-import type { BodySpan, TopLevel } from "../../parser/ast.js";
-import { findIdentifiersByName } from "../../semantic/body.js";
+import type { Scope } from "../../semantic/symbol-table.js";
 import { offsetFromPosition, rangeFromSpan } from "../position.js";
 import type { Document } from "../workspace.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
 import { vgLocalRefAt } from "./vg/shared.js";
+import { findReferences, symbolAtOffset } from "../symbol-refs.js";
 
 export interface DocumentHighlightArgs {
 	doc: Document;
 	position: Position;
+	project: Scope;
 }
 
 export function documentHighlight(args: DocumentHighlightArgs): DocumentHighlight[] {
-	const offset = offsetFromPosition(args.doc.source, args.position);
+	const { doc, project } = args;
+	const offset = offsetFromPosition(doc.source, args.position);
 	if (offset < 0) return [];
 
 	// VG network-local names (LET wires / labels): occurrences confined to the enclosing
 	// network, resolved via the same seam references/rename use — so a wire highlights too.
-	const vgLocal = vgLocalRefAt(args.doc.bodyModels, offset);
+	const vgLocal = vgLocalRefAt(doc.bodyModels, offset);
 	if (vgLocal !== undefined) {
 		return vgLocal.occurrences.map((span) => ({ range: rangeFromSpan(span), kind: DocumentHighlightKind.Text }));
 	}
 
-	const idToken = findIdentifierAtOffset(args.doc.parseResult, offset, args.doc.bodyModels);
+	const idToken = findIdentifierAtOffset(doc.parseResult, offset, doc.bodyModels);
 	if (idToken === undefined) return [];
 
-	const target = idToken.text;
-	const out: DocumentHighlight[] = [];
-	for (const unit of args.doc.parseResult.units) {
-		collectFromUnit(args.doc, unit, target, out);
-	}
-	return out;
-}
-
-function collectFromUnit(
-	doc: Document,
-	unit: TopLevel,
-	target: string,
-	out: DocumentHighlight[],
-): void {
-	const body = getBody(unit);
-	if (body !== undefined) {
-		const model = doc.bodyModels.get(body);
-		if (model !== undefined) {
-			for (const ref of findIdentifiersByName(model, target)) {
-				out.push({ range: rangeFromSpan(ref.span), kind: DocumentHighlightKind.Read });
-			}
-		}
-	}
-	// Recurse into namespace's inner units.
-	if (unit.kind === "namespace") {
-		for (const inner of unit.units) {
-			collectFromUnit(doc, inner, target, out);
-		}
-	}
-}
-
-function getBody(unit: TopLevel): BodySpan | undefined {
-	switch (unit.kind) {
-		case "function_block":
-		case "program":
-		case "function":
-		case "method":
-		case "action":
-			return unit.body;
-		default:
-			return undefined;
-	}
+	const target = symbolAtOffset(doc, project, offset);
+	return findReferences([doc], idToken.text, target, project).map((r) => ({
+		range: rangeFromSpan(r.span),
+		kind: DocumentHighlightKind.Read,
+	}));
 }

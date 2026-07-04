@@ -62,6 +62,47 @@ END_PROGRAM
 	});
 });
 
+describe("rename — type-aware narrowing (st-nav-chains §2.1)", () => {
+	test("renaming a struct field leaves a same-named field on another type untouched", () => {
+		const ws = makeWorkspace();
+		ws.openDocument(
+			"file:///x.st",
+			`TYPE T_A : STRUCT
+	value : INT;
+END_STRUCT END_TYPE
+TYPE T_B : STRUCT
+	value : INT;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_X
+VAR
+	a : T_A;
+	b : T_B;
+END_VAR
+	a.value := 1;
+	b.value := 2;
+END_FUNCTION_BLOCK
+`,
+			1,
+			"structured-text",
+		);
+		const doc = ws.getDocument("file:///x.st")!;
+		const src = doc.source;
+		const declOffset = src.indexOf("value"); // T_A.value declaration
+		const result = rename({
+			workspace: ws,
+			doc,
+			position: doc.textDocument.positionAt(declOffset),
+			project: ws.getProjectScope(),
+			newName: "amount",
+		});
+		expect(result).not.toBeNull();
+		const edits = result!.changes["file:///x.st"] ?? [];
+		// T_A.value declaration + the `a.value` usage = 2 edits. T_B.value + `b.value` are NOT renamed.
+		expect(edits.length).toBe(2);
+		expect(edits.every((e) => e.newText === "amount")).toBe(true);
+	});
+});
+
 describe("prepareRename", () => {
 	test("returns the identifier range at a renameable position", () => {
 		const ws = makeWorkspace();

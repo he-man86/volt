@@ -369,7 +369,7 @@ export function handleRequest(req: JsonRpcRequest, ctx: DispatchContext): void {
 				const p = req.params as TextDocumentPositionParams;
 				const doc = ctx.workspace.getDocument(p.textDocument.uri);
 				if (doc === undefined) { ctx.reply(req.id, []); return; }
-				ctx.reply(req.id, runDocumentHighlight({ doc, position: p.position }));
+				ctx.reply(req.id, runDocumentHighlight({ doc, position: p.position, project: ctx.workspace.getProjectScope() }));
 				return;
 			}
 			case "textDocument/selectionRange": {

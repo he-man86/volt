@@ -11,7 +11,7 @@
 
 ## 2. Type-aware references
 
-- [ ] 2.1 References/rename/document-highlight (`references.ts`, `rename.ts`, `document-highlight.ts`): narrow a member reference by its owning type; fall back to name-based on unresolved.
+- [x] 2.1 References/rename/document-highlight now share `lsp/symbol-refs.ts` (`symbolAtOffset` + `findReferences`): resolve the target symbol at the cursor, then keep only occurrences that bind to it by SYMBOL IDENTITY — a `motor.Start` no longer matches every `Start`; a method-local shadowing an FB member no longer bleeds into the member's highlights. Falls back to name-based when the target can't resolve (no worse than before). Inference gained `THIS^`, static bases (`GVL.field`, `E_State.Idle`), so those occurrences resolve instead of dropping. Scenario tests: member field narrowed by type, same-named locals across POUs separated, rename leaves a same-named field on another type untouched. Corpus highlight snapshots re-baselined (narrower = correct). Full suite green.
 - [x] 2.2 Call-hierarchy now includes `fb.method()` member calls — resolved through the base's type via `resolveMemberChain` (with the containing unit's scope), instead of dropping every `isMemberAccess` call. Additive; scenario test: `m.Start()` → outgoing call to `Start`.
 
 ## 3. Bare enum-member full nav

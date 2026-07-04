@@ -167,14 +167,49 @@ export function typeExprToInferred(t: TypeExpr, project: Scope): InferredType {
 	}
 }
 
+/** The enclosing POU scope (walking out through method/accessor scopes) — the home of `THIS`. */
+function enclosingPou(scope: Scope): Scope | undefined {
+	let s: Scope | undefined = scope;
+	while (s !== undefined) {
+		if (s.kind === "pou") return s;
+		s = s.parent;
+	}
+	return undefined;
+}
+
+/** The InferredType for `THIS` — the enclosing FB carrying its member scope. */
+function thisType(scope: Scope): InferredType {
+	const pou = enclosingPou(scope);
+	return pou !== undefined ? { kind: "function_block", scope: pou } : UNKNOWN_TYPE;
+}
+
+/** A bare name that names a GVL/enum/namespace/POU/struct scope (a static member base like `GVL.x`). */
+function staticScopeType(project: Scope, name: string): InferredType | undefined {
+	const target = name.toLowerCase();
+	for (const child of project.children) {
+		if (child.name.toLowerCase() !== target) continue;
+		if (child.kind === "gvl" || child.kind === "enum" || child.kind === "namespace" || child.kind === "pou" || child.kind === "struct" || child.kind === "interface") {
+			return { kind: child.kind === "enum" ? "enum" : "struct", scope: child };
+		}
+	}
+	return undefined;
+}
+
 /** Infer the type of an ST expression. Bottom-up, total, `unknown` on any unresolved sub-part. */
 export function inferExprType(expr: Expr, scope: Scope, project: Scope): InferredType {
 	switch (expr.kind) {
 		case "literal":
 			return literalType(expr);
 		case "ident_expr": {
+			// THIS / THIS^ denote the enclosing FB instance — resolve to its member scope so
+			// `THIS^.field` navigates. (THIS is a pointer-to-FB in IEC; we model it already-deref'd
+			// and let the `deref` arm treat `^` on a scoped value as identity.)
+			if (expr.name.toUpperCase() === "THIS") return thisType(scope);
 			const sym = resolverLookup(scope, expr.name)?.symbol;
-			return sym?.typeExpr !== undefined ? typeExprToInferred(sym.typeExpr, project) : UNKNOWN_TYPE;
+			if (sym?.typeExpr !== undefined) return typeExprToInferred(sym.typeExpr, project);
+			// Static base: the name itself denotes a GVL / enum / namespace / POU scope (`GVL.field`,
+			// `E_State.Idle`), not a typed variable — resolve to that scope so the chain descends.
+			return staticScopeType(project, expr.name) ?? UNKNOWN_TYPE;
 		}
 		case "member": {
 			const sym = resolveMemberChain(expr, scope, project);
@@ -187,7 +222,10 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Inferre
 		case "deref": {
 			const base = inferExprType(expr.base, scope, project);
 			const t = base.typeExpr;
-			return t?.kind === "pointer_type" || t?.kind === "reference_type" ? typeExprToInferred(t.target, project) : UNKNOWN_TYPE;
+			if (t?.kind === "pointer_type" || t?.kind === "reference_type") return typeExprToInferred(t.target, project);
+			// `THIS^` (and refs already resolved to their target): dereffing a value that already
+			// carries a member scope is identity.
+			return base.scope !== undefined ? base : UNKNOWN_TYPE;
 		}
 		case "call":
 			return callReturnType(expr, scope, project);
@@ -210,6 +248,10 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
 		case "ident_expr":
 			return resolverLookup(scope, expr.name)?.symbol;
 		case "member": {
+			// Static GVL member: `GVL.field`. GVL vars live flat at project scope (not in a child
+			// scope), each tagged with the block's uri — resolve the block, then its sibling var.
+			const gvlMember = resolveGvlMember(expr, scope, project);
+			if (gvlMember !== undefined) return gvlMember;
 			const base = inferExprType(expr.base, scope, project);
 			return base.scope !== undefined ? lookupLocal(base.scope, expr.member.name)[0] : undefined;
 		}
@@ -220,6 +262,18 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
 		default:
 			return undefined;
 	}
+}
+
+/** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined when the base
+ *  isn't a GVL block. GVL contents aren't in a child scope, so the generic member arm can't reach them. */
+function resolveGvlMember(expr: { base: Expr; member: { name: string } }, scope: Scope, project: Scope): Symbol | undefined {
+	if (expr.base.kind !== "ident_expr") return undefined;
+	const block = resolverLookup(scope, expr.base.name)?.symbol;
+	if (block?.kind !== "gvl_block") return undefined;
+	for (const sym of lookupLocal(project, expr.member.name)) {
+		if (sym.kind === "gvl_var" && sym.uri === block.uri) return sym;
+	}
+	return undefined;
 }
 
 function literalType(lit: Literal): InferredType {
