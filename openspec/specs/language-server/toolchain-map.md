@@ -16,7 +16,7 @@ independently as it lands.
 | # | Phase | Change | Status |
 |---|---|---|---|
 | 0 | **Body AST** — statement/expression tree (the treewalker) | `st-body-ast` | ✅ done (archived) |
-| 1 | **Type inference & type-aware diagnostics** — engine + deepen assignment/binary/conversion checks + call-arg checking + narrowing | `st-type-inference` | ⬜ active (0/20) |
+| 1 | **Type inference & type-aware diagnostics** — engine + deepen assignment/binary/conversion checks + call-arg checking + narrowing | `st-type-inference` | 🟡 built (shared service + inference + 3 checks deepened, all zero-FP; call-arg + narrowing checks default-off & FP-validated). Deferred: flip the 2 new checks ON after a live `lsp-vs-compiler.ts` oracle run (Windows/CODESYS). |
 | 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | ⬜ planned |
 | 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ⬜ planned |
 | 4 | **Performance on large projects** — per-document caching, batched seed, query budget | `st-perf` | ⬜ planned |
@@ -37,10 +37,10 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 |---|---|---|---|
 | Lexer · declaration AST · symbol table · type resolver | ✅ have | — | foundation |
 | **Body AST** (statement/expression tree) | ✅ have | 0 `st-body-ast` | the treewalker — 81–86% body-parse-clean, 0 mismatches |
-| Expression type inference | ⬜ | 1 `st-type-inference` | the engine the diagnostics below need |
-| Diagnostics (assignment/binary/conversion) | 🟡 token-pattern, bails on `.` | 1 `st-type-inference` | deepen onto tree + inference |
-| Call-argument checking (count/type/name) | ⬜ none today | 1 `st-type-inference` | catch arg errors |
-| Narrowing-conversion diagnostic (LREAL→REAL) | ⬜ | 1 `st-type-inference` | the one compiler diagnostic we lack |
+| Expression type inference | ✅ `semantic/type-infer.ts` | 1 `st-type-inference` | the shared engine (inferExprType + resolveMemberChain) |
+| Diagnostics (assignment/binary/conversion) | ✅ deepened onto tree + inference | 1 `st-type-inference` | member/index/deref/call operands typed (no more bail-on-`.`) |
+| Call-argument checking (count/type/name) | 🟡 built, default-off, FP-validated | 1 `st-type-inference` | enable after live oracle |
+| Narrowing-conversion diagnostic (LREAL→REAL) | 🟡 built, default-off, FP-validated | 1 `st-type-inference` | catches known-typed cases; match compiler's 27 + enable via live oracle |
 | Member-chain nav (def/hover/completion/refs) | 🟡 head-of-chain only | 2 `st-nav-chains` | editor UX on `a.b.c` |
 | Formatter / pretty-printer | 🟡 keyword-indent only | 3 `st-format` | structural formatting |
 | Perf on large projects (caching, seed, budget) | 🟡 all-or-nothing invalidate | 4 `st-perf` | responsive on big trees |

@@ -39,7 +39,7 @@ Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `l
 
 ## 6. Land it
 
-- [ ] 6.1 `cd packages/volt-lsp-iec && bun test` green (unit + corpus) and `bun typecheck` clean; the §1 dedup left behavior unchanged (full suite green after each collapse).
-- [ ] 6.2 Corpus precision floors hold for the always-on checks; new opt-in checks have their own oracle-proven floors. Zero new false positives on built objects.
-- [ ] 6.3 Remove the token-fallback path from a migrated check only if body-parse-clean is high enough to justify it (else keep + note); update the toolchain map.
+- [x] 6.1 `cd packages/volt-lsp-iec && bun test` green (unit + corpus) and `bun typecheck` clean; the §1 dedup left behavior unchanged (full suite green after each collapse).
+- [x] 6.2 Corpus precision floors hold for the always-on checks; new opt-in checks have their own oracle-proven floors. Zero new false positives on built objects.
+- [x] 6.3 Token-fallback path **KEPT** — body-parse-clean is 81–86% (< the ~95% bar), so unparsed bodies still need it. Toolchain map updated.
 - [ ] 6.4 `openspec validate st-type-inference`; sync the `language-server` delta + archive.
