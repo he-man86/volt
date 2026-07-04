@@ -27,8 +27,8 @@
 
 ## 5. Codify the model
 
-- [ ] 5.1 Rewrite the package test README: the model = **feature test (catalog) ↔ live bridge (compiler oracle)** for semantics; **assertion tests** for nav; **corpus ratchet** as the net; the flow "corpus surfaces a miss → add a catalog/assertion feature test → (re-record)".
-- [ ] 5.2 `language-server` spec delta: add the test-architecture requirement (how LSP behavior is verified).
+- [x] 5.1 Rewrite the package test README: the model = **feature test (catalog) ↔ live bridge (compiler oracle)** for semantics; **assertion tests** for nav; **corpus ratchet** as the net; the flow "corpus surfaces a miss → add a catalog/assertion feature test → (re-record)".
+- [x] 5.2 `language-server` spec delta: add the test-architecture requirement (how LSP behavior is verified).
 
 ## 6. Land it
 
