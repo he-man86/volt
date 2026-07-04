@@ -573,3 +573,9 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_global_data_ty
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_base 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_inner 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_inner 1`] = `[]`;

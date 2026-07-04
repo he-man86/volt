@@ -34,26 +34,59 @@ END_TYPE
 `,
 	},
 
+	// STRUCT EXTENDS and nested STRUCT are modeled as SEPARATE DUT items (base/inner get their own
+	// fixture) — CODESYS is one-DUT-per-item: two `TYPE…END_TYPE` blocks in one item is "Unexpected
+	// statement". The derived/outer references the base/inner by name; the recorder's dep scan pushes
+	// each as its own item, and the replay resolves the reference via the cross-test decl set.
 	{
-		name: "type_dut_struct_extends",
-		pouName: "DUT_LANG_struct_extends",
+		name: "type_dut_struct_base",
+		pouName: "DUT_LANG_struct_base",
 		kind: "structure",
-		feature: "STRUCT EXTENDS — base + derived record",
+		feature: "STRUCT base record — extended by type_dut_struct_extends",
 		fromDoc: "06-data-types.md",
 		expectTcAccepts: true,
-		note: "Pure DUT inheritance — no FB involved. TC supports `EXTENDS DUT_Base` on struct DUTs.",
-		plcPrgVar: "dut_ext : DUT_LANG_struct_extends;",
-		plcPrgBody: "dut_ext.id := 1;\ndut_ext.label := 'hi';",
 		source:
 `TYPE DUT_LANG_struct_base :
 STRUCT
 	id : INT;
+	code : INT;
 END_STRUCT
 END_TYPE
+`,
+	},
 
-TYPE DUT_LANG_struct_extends EXTENDS DUT_LANG_struct_base :
+	{
+		name: "type_dut_struct_extends",
+		pouName: "DUT_LANG_struct_extends",
+		kind: "structure",
+		feature: "STRUCT EXTENDS — derived record over a separate base DUT item",
+		fromDoc: "06-data-types.md",
+		expectTcAccepts: true,
+		note: "Pure DUT inheritance — no FB involved. Both CODESYS (doc 06 L299) and TC support `EXTENDS DUT_Base`. Base is a separate item (DUT_LANG_struct_base).",
+		plcPrgVar: "dut_ext : DUT_LANG_struct_extends;",
+		plcPrgBody: "dut_ext.id := 1;\ndut_ext.label := 'hi';",
+		source:
+`TYPE DUT_LANG_struct_extends EXTENDS DUT_LANG_struct_base :
 STRUCT
 	label : STRING;
+	seq : INT;
+END_STRUCT
+END_TYPE
+`,
+	},
+
+	{
+		name: "type_dut_struct_inner",
+		pouName: "DUT_LANG_struct_inner",
+		kind: "structure",
+		feature: "STRUCT inner record — nested inside type_dut_struct_nested",
+		fromDoc: "06-data-types.md",
+		expectTcAccepts: true,
+		source:
+`TYPE DUT_LANG_struct_inner :
+STRUCT
+	x : INT;
+	y : INT;
 END_STRUCT
 END_TYPE
 `,
@@ -63,20 +96,13 @@ END_TYPE
 		name: "type_dut_struct_nested",
 		pouName: "DUT_LANG_struct_nested",
 		kind: "structure",
-		feature: "STRUCT with a nested STRUCT field",
+		feature: "STRUCT with a nested STRUCT field (separate inner DUT item)",
 		fromDoc: "06-data-types.md",
 		expectTcAccepts: true,
 		plcPrgVar: "dut_nest : DUT_LANG_struct_nested;",
 		plcPrgBody: "dut_nest.position.x := 10;",
 		source:
-`TYPE DUT_LANG_struct_inner :
-STRUCT
-	x : INT;
-	y : INT;
-END_STRUCT
-END_TYPE
-
-TYPE DUT_LANG_struct_nested :
+`TYPE DUT_LANG_struct_nested :
 STRUCT
 	position : DUT_LANG_struct_inner;
 	speed : REAL;

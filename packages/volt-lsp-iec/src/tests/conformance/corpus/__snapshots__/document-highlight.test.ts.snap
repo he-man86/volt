@@ -19639,7 +19639,7 @@ exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_simple 1`] = `
 ]
 `;
 
-exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
+exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_base 1`] = `
 [
   {
     "char": 5,
@@ -19663,25 +19663,65 @@ exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = 
     "text": "INT",
   },
   {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "code",
+  },
+  {
+    "char": 8,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = `
+[
+  {
     "char": 5,
     "file": "pou",
     "highlights": [],
-    "line": 6,
+    "line": 0,
     "text": "DUT_LANG_struct_extends",
   },
   {
     "char": 37,
     "file": "pou",
     "highlights": [],
-    "line": 6,
+    "line": 0,
     "text": "DUT_LANG_struct_base",
   },
   {
     "char": 1,
     "file": "pou",
     "highlights": [],
-    "line": 8,
+    "line": 2,
     "text": "label",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "seq",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
   },
   {
     "char": 8,
@@ -19780,7 +19820,7 @@ exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_extends 1`] = 
 ]
 `;
 
-exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
+exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_inner 1`] = `
 [
   {
     "char": 5,
@@ -19818,38 +19858,50 @@ exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
     "text": "INT",
   },
   {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) type_dut_struct_nested 1`] = `
+[
+  {
     "char": 5,
     "file": "pou",
     "highlights": [],
-    "line": 7,
+    "line": 0,
     "text": "DUT_LANG_struct_nested",
   },
   {
     "char": 1,
     "file": "pou",
     "highlights": [],
-    "line": 9,
+    "line": 2,
     "text": "position",
   },
   {
     "char": 12,
     "file": "pou",
     "highlights": [],
-    "line": 9,
+    "line": 2,
     "text": "DUT_LANG_struct_inner",
   },
   {
     "char": 1,
     "file": "pou",
     "highlights": [],
-    "line": 10,
+    "line": 3,
     "text": "speed",
   },
   {
     "char": 9,
     "file": "pou",
     "highlights": [],
-    "line": 10,
+    "line": 3,
     "text": "REAL",
   },
   {
@@ -27454,7 +27506,7 @@ exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_member_access 1`] =
 ]
 `;
 
-exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
+exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_inner 1`] = `
 [
   {
     "char": 5,
@@ -27478,25 +27530,65 @@ exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_nested_member 1`] =
     "text": "INT",
   },
   {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "iFlag",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+]
+`;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) use_struct_nested_member 1`] = `
+[
+  {
     "char": 5,
     "file": "pou",
     "highlights": [],
-    "line": 6,
+    "line": 0,
     "text": "DUT_LANG_use_struct_outer",
   },
   {
     "char": 1,
     "file": "pou",
     "highlights": [],
-    "line": 8,
+    "line": 2,
     "text": "inner",
   },
   {
     "char": 9,
     "file": "pou",
     "highlights": [],
-    "line": 8,
+    "line": 2,
     "text": "DUT_LANG_use_struct_inner",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "count",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "INT",
   },
   {
     "char": 8,

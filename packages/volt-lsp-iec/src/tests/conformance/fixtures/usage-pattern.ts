@@ -209,25 +209,38 @@ END_TYPE
 `,
 	},
 
+	// Inner/outer are SEPARATE DUT items (CODESYS is one-DUT-per-item — see type_dut_struct_nested).
+	{
+		name: "use_struct_inner",
+		pouName: "DUT_LANG_use_struct_inner",
+		kind: "structure",
+		feature: "STRUCT inner record — nested inside use_struct_nested_member",
+		fromDoc: "usage-pattern",
+		expectTcAccepts: true,
+		source:
+`TYPE DUT_LANG_use_struct_inner :
+STRUCT
+	iValue : INT;
+	iFlag : INT;
+END_STRUCT
+END_TYPE
+`,
+	},
+
 	{
 		name: "use_struct_nested_member",
 		pouName: "DUT_LANG_use_struct_outer",
 		kind: "structure",
-		feature: "Nested STRUCT field access (outer.inner.field)",
+		feature: "Nested STRUCT field access (outer.inner.field), separate inner DUT item",
 		fromDoc: "usage-pattern",
 		expectTcAccepts: true,
 		plcPrgVar: "dut_uso : DUT_LANG_use_struct_outer;",
 		plcPrgBody: "dut_uso.inner.iValue := 1;",
 		source:
-`TYPE DUT_LANG_use_struct_inner :
-STRUCT
-	iValue : INT;
-END_STRUCT
-END_TYPE
-
-TYPE DUT_LANG_use_struct_outer :
+`TYPE DUT_LANG_use_struct_outer :
 STRUCT
 	inner : DUT_LANG_use_struct_inner;
+	count : INT;
 END_STRUCT
 END_TYPE
 `,

@@ -60,11 +60,12 @@ is its own, and some severities legitimately differ (see unresolved-identifier b
 
 ## Active triage — replay hard-failures (trusted recordings, presence mismatch)
 
-**Progress: 28 → 24 → 9.** Closed at root: `duplicateDeclaration` (scoping), `doubleUnderscore` +
+**Progress: 28 → 24 → 9 → 6.** Closed at root: `duplicateDeclaration` (scoping), `doubleUnderscore` +
 `consecutiveUnderscores` (vendor-applicability, zero-FP), `messagePragmas` + the info-severity comparison
-symmetry, **and Bucket A (14 external-write tests) via the PLC_PRG harness fix + a CODESYS-only check.**
-Remaining 9: interface/property (2), struct-parser (3), abstract-instantiation, var_persistent,
-var_external_consumer, pragma_conflicting_pair.
+symmetry, **Bucket A (14 external-write tests) via the PLC_PRG harness fix + a CODESYS-only check,** and
+**Bucket E (3 struct tests) via the one-DUT-per-item fixture split + re-record.**
+Remaining 6: interface/property (2), abstract-instantiation, var_persistent, var_external_consumer,
+pragma_conflicting_pair.
 
 ### Harness fix — replay now analyzes PLC_PRG (closed Bucket A)
 
@@ -130,9 +131,13 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
   `pragma_conflicting_pair`. CODESYS warns (unknown attribute / invalid value / conflicting pingroup). LSP has
   `unknownPragma` (off) + pragma checks → enable/extend, verify.
 
-- **Bucket E — parser divergence, struct (3):** `type_dut_struct_extends`, `type_dut_struct_nested`,
-  `use_struct_nested_member`. CODESYS: "Unexpected statement" — our parser accepts a struct form CODESYS
-  rejects. Investigate the exact syntax (fix parser or document).
+- **Bucket E — struct (3):** ✅ **root-fixed — was a FIXTURE artifact, not a parser bug.** The 3 fixtures
+  crammed TWO `TYPE…END_TYPE` DUTs into one item; CODESYS is one-DUT-per-item, so the second block is
+  "Unexpected statement" (cascading into "Unknown type"). TwinCAT tolerated it; the LSP correctly parses
+  multi-unit `.st`. Both STRUCT `EXTENDS` (doc 06 L299) and nested STRUCT (L298) are valid CODESYS when the
+  base/inner is its OWN item. Fix: split base/inner into separate fixtures (padded to 2 members to sidestep
+  the doc's <2-member rule); the recorder's dep scan pushes each as its own item; re-recorded → all 6 build
+  clean; the LSP was already clean (resolves inherited + nested members) → agree.
 
 - **Bucket F — genuine new checks (2):** `oop_abstract_instantiated` (instantiating an ABSTRACT FB),
   `var_external_consumer` / `var_persistent` (VAR_EXTERNAL w/o global). New checks or documented divergence.
