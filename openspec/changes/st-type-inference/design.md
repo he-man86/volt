@@ -13,13 +13,17 @@ The dominant constraint, again: **zero false positives on four real corpora** (p
 ## Goals / Non-Goals
 
 **Goals**
-- `inferExprType(expr, scope, project) → InferredType` over the `Expr` tree — the reusable engine.
+- Build the **shared semantic-query service** `semantic/type-infer.ts`, consumed by BOTH `checks/**` and `lsp/queries/**`, exporting three primitives (see D6):
+  - `inferExprType(expr, scope, project) → InferredType` — the type engine.
+  - `resolveMemberChain(expr, scope, project) → { symbol, type } | unknown` — the recursive "name → its type → member scope → member symbol" hop for `a.b.c`.
+  - a shared `Expr`/`Statement` **walker** (one traversal skeleton).
+- Collapse the pre-existing duplication into this service: the 5 hand-rolled scope-walks (`completion.ts findSymbol`, `signature-help.ts findCallable`, `vg/calls.ts findCallableType`, `vg/type-env.ts findTypeAst`, `_shared.ts findScopeByName`) and the 4 `renderType` copies.
 - Deepen assignment/binary/conversion checks onto it (remove bail-on-`.`), behavior-preserving-or-better, zero new FP.
 - New call-argument checking (count / types / named names).
 - New opt-in narrowing-conversion diagnostic (the one compiler-parity gap), oracle-validated.
 
 **Non-Goals**
-- Member-chain *navigation* (go-to-def/hover/completion) — separate `st-nav-chains` (it reuses this walker but is a different surface).
+- Member-chain *navigation behavior* (wiring `resolveMemberChain` into go-to-def/hover/completion/references) — that's `st-nav-chains` (Phase 2). **But the `resolveMemberChain` primitive it needs is a shared export of THIS change** (used here by the checks; reused there by the queries), so Phase 2 consumes it rather than growing a 6th copy.
 - The structural formatter — separate `st-format`.
 - Full IEC generic/overload resolution beyond corpus need; SFC `S=`/`R=` grammar (harden 8.2); the interpreter.
 - Turning any new diagnostic ON by default before it is oracle-proven and corpus-clean.
@@ -41,6 +45,9 @@ Call-argument checks and narrowing-conversion are added behind config, default o
 ### D5: Reuse, don't rebuild, the compatibility table
 Assignability (INT→DINT ok, LREAL→REAL narrowing, enum→base, etc.) already lives in `reference/type-conversion.ts`. The checks call it with `InferredType`s rather than re-encoding IEC rules. Narrowing is "assignable-with-loss" — a classification the table can express.
 
+### D6: `type-infer.ts` is a shared SERVICE (both layers consume it), not a diagnostics-private helper
+An architecture survey found the "name → its type → member scope → member symbol" hop is currently copy-pasted **5 times** and `renderType` **4 times**, and there is **no shared `Expr`/`Statement` walker** (the first hand-rolled copy is in `scripts/coverage-report.ts`). All four upcoming phases (this one, nav, formatter, interpreter) need exactly these. So `type-infer.ts` SHALL be built as a shared service **extending `type-resolver.ts`** (not replacing it — `resolveNamedType`/`resolveTypeExpr` stay the lookup foundation, mapped `ResolvedType → InferredType` at the boundary), exporting `inferExprType`, `resolveMemberChain`, one `renderType`, and a tree walker. The existing 5 scope-walks + 4 renderType copies are collapsed into it as the first step (pure dedup, behavior-preserving, corpus + full-suite green). This is the deliberate "one step back": build the shared machinery once so Phases 2–4 inherit it instead of each adding another copy. **Alternative:** keep inference diagnostics-private and let nav/formatter/interpreter each grow their own chain-resolution + walker — rejected; the survey shows that path adds copies 6, 7, 8. The layering is unchanged: `type-infer.ts` sits in `semantic/`, which both `checks/**` and `lsp/queries/**` already import.
+
 ## Risks / Trade-offs
 
 - **A subtly-wrong inference rule flips a corpus body to a false positive** → the whole zero-FP invariant. **Mitigation:** `unknown`-skips-everything (D2); migrate one check at a time under the ratchet (D3); new diagnostics default-off until oracle-proven (D4). Per-rule unit tests.
@@ -50,7 +57,7 @@ Assignability (INT→DINT ok, LREAL→REAL narrowing, enum→base, etc.) already
 
 ## Migration Plan
 
-1. Build `src/semantic/type-infer.ts`: `InferredType` + `inferExprType` (+ `ResolvedType → InferredType` boundary). Unit-test the inference rules.
+1. **Shared service first (D6):** add the tree walker + `resolveMemberChain` + one `renderType`, collapsing the 5 scope-walk copies + 4 renderType copies (pure dedup, full suite + ratchet green). Then build `InferredType` + `inferExprType` on top. Unit-test the inference rules.
 2. Migrate `check-assignment-types` onto the walker; run the ratchet (must stay `<=` baseline). Then `check-binary-operators`, then `check-conversion`, each ratchet-verified.
 3. Add `check-call-arguments` (count → named-names → types), default off; oracle-validate; enable + set floor.
 4. Add `check-narrowing-conversion`, default off; validate against the compiler's bakon warnings; enable + set floor.
@@ -61,5 +68,5 @@ Assignability (INT→DINT ok, LREAL→REAL narrowing, enum→base, etc.) already
 ## Open Questions
 
 - Do the migrated checks keep the token fallback permanently, or is body-parse-clean high enough soon to drop it? (Lean: keep until parse-clean > ~95% on all corpora, then delete the dead path.)
-- Should `InferredType` live beside `type-resolver.ts` or fully absorb it later? (Lean: separate now; consider merging once the interpreter also needs a value/type model, to avoid two.)
+- ~~Should `InferredType` live beside `type-resolver.ts` or absorb it?~~ **Resolved (D6): beside it** — `type-infer.ts` extends `type-resolver.ts` (keeps `resolveNamedType`/`resolveTypeExpr`) and is the shared service both `checks/**` and `lsp/queries/**` call. Revisit a merge only if the interpreter later wants one value/type model.
 - Which config keys gate the new checks, and do any belong ON by default once proven? (Decide per-check after oracle validation; narrowing likely stays opt-in like the compiler's warning level.)

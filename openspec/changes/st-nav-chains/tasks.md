@@ -1,6 +1,6 @@
 ## 0. Prerequisite
 
-- [ ] 0.1 `st-body-ast` landed (tree) and `st-type-inference` landed (member typing via `inferExprType`) — this phase consumes both.
+- [ ] 0.1 `st-body-ast` landed (tree) and `st-type-inference` landed — this phase **consumes its shared service** (`semantic/type-infer.ts`: `resolveMemberChain`, `inferExprType`, `renderType`, the tree walker), NOT a new copy. If a query needs a hop the service doesn't expose, extend the service, never re-hand-roll a scope-walk (the 5 duplicates were just collapsed there).
 
 ## 1. Chain resolution
 

@@ -47,6 +47,15 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 | Interpreter (scan-cycle) + std-lib + oracle harness | ⬜ | 5 `st-interpreter` | headless CI tests |
 | Library-blind unresolved floor | ✅ done | `library-signature-index` | resolved |
 
+## Architecture — the shared semantic-query service
+
+The layering is a clean DAG (lexer → parser/vg → semantic → lsp) with a transport-decoupled query layer and a pure `CHECKS` registry — **do not rewrite it.** But an architecture survey found the machinery all of Phases 1–5 need is duplicated or missing:
+
+- the **"name → its type → member scope → member symbol"** hop (for `a.b.c`) is hand-rolled **5×** (`completion.findSymbol`, `signature-help.findCallable`, `vg/calls.findCallableType`, `vg/type-env.findTypeAst`, `_shared.findScopeByName`) + `renderType` **4×**;
+- there is **no shared `Expr`/`Statement` walker** (first copy already in `coverage-report.ts`).
+
+**Decision:** Phase 1 (`st-type-inference`) builds `semantic/type-infer.ts` as a **shared service** — exporting `inferExprType`, `resolveMemberChain`, one `renderType`, and a tree walker — consumed by BOTH `checks/**` and `lsp/queries/**`, collapsing the duplicates first (pure, ratchet-guarded). Phases 2–4 (nav, formatter, interpreter) **consume it, never re-copy**. This is the deliberate one-step-back so the later phases inherit a clean foundation. It extends `type-resolver.ts` (which stays the named-type lookup base); the DAG is unchanged (`type-infer.ts` sits in `semantic/`, which both layers already import).
+
 ## Decisions of record
 
 - **Interpret over transpile** for test execution — identical IEC-semantics cost, interpretation skips codegen. Transpiler stays deferred.
