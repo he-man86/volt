@@ -26,7 +26,18 @@ is its own, and some severities legitimately differ (see unresolved-identifier b
 | Recorder: item in PLC_PRG scope | ✅ fixed (was written at ws root → `Unknown type`) |
 | Recorder: fixture guard (verdict vs `expectTcAccepts`) | ✅ added |
 | Recorder: dependency-aware isolation (deps in source **and** PLC_PRG) | ✅ added |
-| Trusted full re-record committed | 🟡 in progress |
+| Trusted full re-record committed (242 tests) | ✅ committed |
+
+## Learnings / code-quality follow-ups
+
+- **Project-wide-walk footgun:** a check that walks `ctx.project` (not the current file's `parseResult`) is
+  called once PER FILE, so it re-emits every project-wide finding N times and attributes them to the wrong
+  document. Hit by `duplicateDeclaration` (97k corpus FPs) — now fixed. Audited the registry and found
+  **`checkShadowing` had the same bug** (hidden only because it defaults off) — also fixed. Both now scope to
+  the current file's unit scopes via `findScopeForUnit`. Rule: a check that emits per-declaration must iterate
+  `parseResult.units`, never the whole project tree.
+- **Ground truth is load-bearing:** `RULE_VENDOR_APPLICABILITY` and `KNOWN_DIVERGENCES` entries "verified"
+  against the old broken recorder are suspect — the fixed recorder overturned several. Re-verify before trusting.
 
 ## Live agreement (fresh, dependency-aware recordings — presence, any severity)
 

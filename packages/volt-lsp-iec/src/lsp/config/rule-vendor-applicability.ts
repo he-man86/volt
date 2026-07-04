@@ -11,8 +11,18 @@
  *
  * Triage source: conformance recordings against TwinCAT and CODESYS.
  * Diff between `expected-tc.json` and `expected-codesys.json` listed
- * 14 tests where the two IDEs disagreed; each entry here cites the
+ * tests where the two IDEs disagreed; each entry here cites the
  * test whose divergence motivates the vendor tag.
+ *
+ * ⚠️ RE-VERIFICATION NEEDED: several entries below were verified against the
+ * OLD recorder, which had a fixed bug (it placed the test item out of scope, so
+ * every build failed with `Unknown type` — a false "CODESYS didn't flag it").
+ * `duplicateDeclaration` was already corrected. `doubleUnderscore`,
+ * `consecutiveUnderscores`, `missingInterfaceImplementation`,
+ * `missingInterfaceSignature`, and `messagePragmas` are suspect — the fresh
+ * recordings show CODESYS DOES flag them — and must be re-verified against the
+ * fresh recording + the corpus (zero-FP) before enabling. See
+ * `openspec/specs/language-server/diagnostics-conformance.md`.
  *
  * Adding a new rule? Default is "both vendors" (no entry needed).
  * Add an entry ONLY if there's recorded conformance evidence one

@@ -127,7 +127,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "shadowing-declaration",
 		enabled: (c) => c.shadowingDeclaration,
-		run: (ctx, out) => checkShadowing(ctx.project, out),
+		run: (ctx, out) => checkShadowing(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "missing-interface-implementation",

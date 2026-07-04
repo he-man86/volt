@@ -1,13 +1,22 @@
 /**
- * Shadowing — every symbol in every scope is checked against its
+ * Shadowing — each of the CURRENT file's declarations is checked against its
  * parent chain. A same-name hit in an outer scope produces an
  * "information"-severity diagnostic at the inner declaration.
+ *
+ * Scoped to this file's unit scopes — NOT the whole project: walking the
+ * project tree on every per-file diagnostic pass re-emitted every other
+ * file's shadowing (attributed to the wrong document) and re-ran the whole
+ * project N times. (Same footgun the duplicate-declaration check hit.)
  */
+import type { ParseResult } from "../../parser/ast.js";
 import type { Symbol, Scope } from "../symbol-table.js";
-import type { DiagnosticItem } from "./_shared.js";
+import { type DiagnosticItem, findScopeForUnit } from "./_shared.js";
 
-export function checkShadowing(project: Scope, out: DiagnosticItem[]): void {
-	walkShadowing(project, out);
+export function checkShadowing(parseResult: ParseResult, project: Scope, out: DiagnosticItem[]): void {
+	for (const unit of parseResult.units) {
+		const scope = findScopeForUnit(project, unit);
+		if (scope !== undefined) walkShadowing(scope, out);
+	}
 }
 
 /**
