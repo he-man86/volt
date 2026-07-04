@@ -229,7 +229,7 @@ function resolveRhsIdentifierType(scope: Scope, name: string): string | undefine
  * Returns true when unsure (unknown type names) — we'd rather miss a
  * bug than flag valid code as broken.
  */
-function isAssignable(lhs: string, rhs: string, scope: Scope, project: Scope): boolean {
+export function isAssignable(lhs: string, rhs: string, scope: Scope, project: Scope): boolean {
 	// BIT — a 1-bit field type valid only inside STRUCT/FB — is boolean storage: freely assignable to and
 	// from BOOL (CODESYS treats `bitField := boolExpr` / `boolVar := bitField` as compatible).
 	if (lhs.toUpperCase() === "BIT") lhs = "BOOL";

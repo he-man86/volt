@@ -125,6 +125,16 @@ export interface DiagnosticConfig {
 	 */
 	binaryOperatorTypeMismatch: boolean;
 	/**
+	 * Flag a call whose arguments don't match the callee's declared
+	 * parameters: a named argument (`p := v`) naming a parameter the
+	 * callee doesn't declare, or more positional arguments than the
+	 * callee accepts, or an argument whose type is incompatible with its
+	 * parameter. Conservative: skips when the callee or a type is
+	 * unresolvable. **Default OFF** until oracle-validated against the
+	 * compiler (st-type-inference §4).
+	 */
+	callArgumentMismatch: boolean;
+	/**
 	 * Flag VAR-section kinds that aren't allowed for the containing
 	 * POU kind. Currently: VAR_TEMP only inside PROGRAM / FUNCTION /
 	 * FUNCTION_BLOCK (NOT METHOD / ACTION / INTERFACE) and
@@ -210,6 +220,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	missingInterfaceImplementation: true,
 	missingInterfaceSignature: true,
 	binaryOperatorTypeMismatch: true,
+	callArgumentMismatch: false, // opt-in — pending oracle validation (st-type-inference §4)
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
 	vendorOnlyOperator: true,

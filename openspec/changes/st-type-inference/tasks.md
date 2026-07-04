@@ -25,11 +25,11 @@ Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `l
 
 ## 4. Call-argument checking (new — default OFF until proven)
 
-- [ ] 4.1 `check-call-arguments.ts`: resolve the callee's declared inputs (via the shared service, replacing the signature-help param collection); check argument count within required/optional range.
-- [ ] 4.2 Check named-argument names against the callee's declared parameters (ST analogue of VG `vg-unknown-pin`).
-- [ ] 4.3 Check positional + named argument types are assignment-compatible (via `reference/type-conversion.ts`). Skip when callee or a param type is `unknown`/overloaded.
-- [ ] 4.4 Config-gate (default off); oracle-validate on the corpora with `scripts/lsp-vs-compiler.ts` (zero spurious hits); enable + set a corpus floor.
-- [ ] 4.5 Unit tests: wrong count, wrong type, unknown named param, overloaded-callee skip.
+- [x] 4.1 `check-call-arguments.ts`: resolve the callee's declared inputs (via the shared service, replacing the signature-help param collection); check argument count within required/optional range.
+- [x] 4.2 Check named-argument names against the callee's declared parameters (ST analogue of VG `vg-unknown-pin`).
+- [x] 4.3 Check positional + named argument types are assignment-compatible (via `reference/type-conversion.ts`). Skip when callee or a param type is `unknown`/overloaded.
+- [~] 4.4 Config-gated (default off). **FP-validated: 0 call-argument-mismatch on all 4 corpora with the check ENABLED** (clean-compilers awa/lenze/bakon = the committed oracle; pro2193 also 0). Live `lsp-vs-compiler.ts` confirmation + flipping the default ON deferred to a Windows/CODESYS session.
+- [x] 4.5 Unit tests: wrong count, wrong type, unknown named param, overloaded-callee skip.
 
 ## 5. Narrowing-conversion diagnostic (new — default OFF, compiler-parity)
 
