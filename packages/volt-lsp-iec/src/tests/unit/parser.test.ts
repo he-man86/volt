@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "bun:test";
 import { parseSource } from "../../parser/parser.js";
+import { parseStatements } from "../../parser/statements.js";
 import type {
 	ArrayType,
 	FunctionBlock,
@@ -352,6 +353,31 @@ describe("parser: PROPERTY", () => {
 		expect(errors).toEqual([]);
 		const p = units[0] as Property;
 		expect(p.accessModifier).toBe("PUBLIC");
+	});
+
+	it("SET accessor with its own access modifier keeps PRIVATE/VAR out of the body", () => {
+		// From the corpus (pro2193 DrawerFB): a SET accessor carrying `PRIVATE` + an empty VAR section
+		// before its body. The modifier + VAR must not leak into the accessor body.
+		const { units, errors } = parseOne(`
+			PROPERTY ReleaseBrakeNeeded : BOOL
+			GET
+			ReleaseBrakeNeeded := _needed;
+			END_GET
+			SET
+			PRIVATE
+			VAR
+			END_VAR
+			_needed := ReleaseBrakeNeeded;
+			END_SET
+			END_PROPERTY
+		`);
+		expect(errors).toEqual([]);
+		const p = units[0] as Property;
+		const setBody = p.setter!.body;
+		const parsed = parseStatements(setBody);
+		expect(parsed.ok).toBe(true); // body is just the assignment — PRIVATE/VAR were consumed as decl
+		expect(parsed.statements).toHaveLength(1);
+		expect(parsed.statements[0]!.kind).toBe("assign");
 	});
 
 	it("PROPERTY with complex data type", () => {

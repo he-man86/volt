@@ -88,6 +88,11 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
 	const kw = c.eatAnyKeyword("GET", "SET");
 	if (kw === undefined) return undefined;
 	const kind: "get" | "set" = kw.keyword === "GET" ? "get" : "set";
+	// An accessor may carry its own access level + ABSTRACT/FINAL (`SET PRIVATE …`) before its
+	// VAR sections. Eat them so they don't leak into the accessor body.
+	while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL") !== undefined) {
+		/* consumed */
+	}
 	const varSections = collectVarSections(c);
 	const endAccessor: Keyword = kind === "get" ? "END_GET" : "END_SET";
 
