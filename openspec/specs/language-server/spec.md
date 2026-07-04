@@ -1,8 +1,21 @@
 # language-server Specification
 
 ## Purpose
-TBD - created by archiving change review-language-server. Update Purpose after archive.
+
+The Volt IEC 61131-3 language capability — unified into one spec so there is a single place to work from toward accurate, compiler-parity analysis.
+
+It covers three concerns that were previously separate capabilities:
+
+1. **The `volt-lsp-iec` language server** — navigation, diagnostics, symbol resolution, and the ST statement/expression AST (the treewalker). LSP-owned.
+2. **The VG graphical sublanguage** the LSP analyzes (editable FBD/LD as text). Its *code correctness* is LSP-owned; its **format and PlcOpen⇄VG round-trip are bridge-owned** (`volt-bridge`).
+3. **The on-disk workspace file layout** the LSP reads (kind-named files, in-content markers). This is **bridge/CLI-owned** (`volt-bridge` writes it, `volt-git` reconciles it); it lives here because the LSP consumes it offline.
+
+Ownership note: sections A–D are LSP requirements. Sections E–F are **bridge/CLI-owned** — included because the LSP depends on them, but changes to VG format/round-trip or file materialization are implemented in `volt-bridge` / `volt-git`, not the language server. See also the sibling specs `bridge-protocol` (the HTTP wire) and the roadmap in `toolchain-map.md`.
+
 ## Requirements
+
+<!-- ══════════ A. Analyzer — scope & boundaries (LSP-owned) ══════════ -->
+
 ### Requirement: Navigation and diagnostics, never type-checking
 
 The language server SHALL provide navigation, hover, completion, signature help, semantic tokens,
@@ -25,31 +38,28 @@ TwinCAT-only names.
 - **WHEN** `vendor` is `codesys`
 - **THEN** TwinCAT-only reference entries are not offered in completion or hover
 
-### Requirement: Parsing is error-tolerant
+### Requirement: The LSP is one vendor-neutral IEC engine with an evidence-backed dialect layer
 
-The parser SHALL be error-tolerant, so a half-typed file still yields symbols and diagnostics
-rather than failing wholesale.
+The language server SHALL be a single binary that serves both CODESYS and TwinCAT through a runtime
+`vendor` setting (`codesys | twincat | auto`) — there SHALL NOT be a separate per-vendor LSP for
+CODESYS vs TwinCAT (they are the same IEC 61131-3 language). The package name SHALL be vendor-neutral.
 
-#### Scenario: A half-typed file still yields symbols
-- **WHEN** a file is mid-edit with a syntax error
-- **THEN** the server still returns document symbols and diagnostics for the valid portions
+Every vendor-gated behavior (the `wrong-vendor-pragma` check, the CODESYS-only `__`-operator check, and
+each `codesys`/`twincat`-tagged reference-catalog entry) SHALL be justified by evidence that both vendors
+do NOT accept the item. An item both vendors accept SHALL be tagged `shared`, not vendor-specific, so it
+raises no `wrong-vendor` diagnostic.
 
-### Requirement: Diagnostic defaults mirror TwinCAT
+#### Scenario: One LSP serves both vendors
+- **WHEN** a workspace is CODESYS or TwinCAT
+- **THEN** the same LSP binary analyzes it, differing only by the runtime `vendor` setting — no separate executable
 
-A diagnostic check SHALL be enabled by default only if TwinCAT itself rejects the code; lints
-stricter than the compiler SHALL ship off-by-default. Each check is individually gated by an enable flag.
+#### Scenario: A construct both vendors accept is not flagged
+- **WHEN** source uses a pragma / operator / identifier that both CODESYS and TwinCAT accept
+- **THEN** the LSP raises no `wrong-vendor-pragma` or vendor-only-operator diagnostic for it (it is tagged `shared`)
 
-#### Scenario: A stricter-than-compiler lint is off by default
-- **WHEN** the default configuration is used
-- **THEN** a lint that TwinCAT would accept is not reported unless explicitly enabled
-
-### Requirement: The workspace is cross-indexed
-
-The server SHALL cross-index the whole workspace so that types declared in unopened files resolve.
-
-#### Scenario: A type in an unopened file resolves
-- **WHEN** a file references a DUT declared in another, unopened file
-- **THEN** go-to-definition and type resolution succeed
+#### Scenario: A genuinely dialect-specific construct is still flagged
+- **WHEN** source uses a construct only one vendor accepts (e.g. a CODESYS-only `__`-operator under a TwinCAT project)
+- **THEN** the LSP flags it, backed by recorded ground truth that the active vendor rejects it
 
 ### Requirement: The LSP is wired into the agent's session for a consumer PLC project
 
@@ -70,6 +80,66 @@ project MUST receive the LSP's diagnostics through its tool loop.
 - **WHEN** opencode opens a PLC project whose directory is not the Volt repo
 - **THEN** the LSP command resolves via the `OPENCODE_CONFIG_DIR` bin on `PATH` (published/global/bundled), not via `./packages/volt-lsp-iec/...`
 
+<!-- ══════════ B. Analyzer — parsing, indexing & the body AST (LSP-owned) ══════════ -->
+
+### Requirement: Parsing is error-tolerant
+
+The parser SHALL be error-tolerant, so a half-typed file still yields symbols and diagnostics
+rather than failing wholesale.
+
+#### Scenario: A half-typed file still yields symbols
+- **WHEN** a file is mid-edit with a syntax error
+- **THEN** the server still returns document symbols and diagnostics for the valid portions
+
+### Requirement: The workspace is cross-indexed
+
+The server SHALL cross-index the whole workspace so that types declared in unopened files resolve.
+
+#### Scenario: A type in an unopened file resolves
+- **WHEN** a file references a DUT declared in another, unopened file
+- **THEN** go-to-definition and type resolution succeed
+
+### Requirement: ST POU bodies are parsed into a statement/expression AST
+
+The language server SHALL parse the body of every Structured Text POU (function block, program, function, method, action, property accessor) into a statement/expression abstract syntax tree, in addition to the existing token stream. The tree SHALL cover the ST statement forms (`IF`/`ELSIF`/`ELSE`, `CASE`, `FOR`, `WHILE`, `REPEAT`, assignment, `RETURN`/`EXIT`/`CONTINUE`, and bare call statements) and the ST expression forms (binary and unary operators with IEC precedence, member access `a.b`, indexing `a[i]`, dereference `p^`, address-of, function/method calls with positional and named `param := value` arguments, parenthesised sub-expressions, identifiers, and typed/untyped literals). Every node SHALL carry the source span of its tokens so LSP queries can map a node back to document coordinates.
+
+The parsed tree SHALL be exposed on the body model for `language: "st"` bodies. VG (graphical) bodies SHALL retain their existing dedicated model and SHALL NOT be given an ST statement tree.
+
+#### Scenario: Member-chain expression is structured, not flattened
+- **WHEN** a body contains `alarmCondition := IMM.AutoOperation AND (ActState = StateWaitForMouldClosed);`
+- **THEN** the body model exposes an assignment statement whose right-hand side is a binary `AND` expression, whose left operand is a member-access expression (`IMM` . `AutoOperation`), each node carrying its own source span
+
+#### Scenario: Call arguments are captured with names and positions
+- **WHEN** a body contains `Increment.State(ActState, XUnitsToParking(), StateTakeover1PosCheck);`
+- **THEN** the tree exposes a call expression on `Increment.State` with three positional arguments, the second of which is itself a call expression
+
+#### Scenario: Statement structure is available for control flow
+- **WHEN** a body contains a `CASE ActState OF … END_CASE` with labelled arms
+- **THEN** the tree exposes a case statement with its selector expression and one entry per labelled arm, rather than an undifferentiated token run
+
+### Requirement: Body parsing degrades conservatively and never regresses precision
+
+Parsing a body into the statement/expression AST SHALL NOT raise any new diagnostic. When a body cannot be parsed cleanly into the tree, the language server SHALL fall back to the existing token-scan representation for that body so that all current queries and diagnostics continue to function unchanged. Introducing the AST SHALL NOT change the diagnostics produced on the committed real-project corpora: parse-clean percentage, ingest percentage, and the per-corpus diagnostic floors asserted by the corpus ratchet test SHALL be greater-than-or-equal to their current baselines for every corpus (pro2193, bakon-nano, awa-palletizer, lenze-mid).
+
+#### Scenario: Unparseable body still resolves identifiers
+- **WHEN** a body contains a construct the new grammar does not yet model
+- **THEN** the body model still yields its identifier and call lists via the token-scan fallback, and no parse-error diagnostic is emitted for that body
+
+#### Scenario: Corpus ratchet holds
+- **WHEN** the corpus coverage test runs after the AST is introduced
+- **THEN** each corpus reports parse-clean, ingest, and total-diagnostic counts no worse than its committed baseline
+
+<!-- ══════════ C. Analyzer — diagnostics (LSP-owned) ══════════ -->
+
+### Requirement: Diagnostic defaults mirror TwinCAT
+
+A diagnostic check SHALL be enabled by default only if TwinCAT itself rejects the code; lints
+stricter than the compiler SHALL ship off-by-default. Each check is individually gated by an enable flag.
+
+#### Scenario: A stricter-than-compiler lint is off by default
+- **WHEN** the default configuration is used
+- **THEN** a lint that TwinCAT would accept is not reported unless explicitly enabled
+
 ### Requirement: LSP diagnostics cover what the bridge rejects
 
 The LSP's diagnostics SHALL flag any Structured Text that the bridge will reject on push, so the agent's
@@ -85,8 +155,8 @@ LSP and bridge MUST agree on validity.
 
 The LSP SHALL NOT emit semantic diagnostics for an item whose `excludeFromBuild` flag is `true`. Because
 the LSP analyzes files on disk with no live bridge, that flag reaches it as the in-file
-`(* @volt-exclude-from-build *)` marker written on pull (see workspace-file-extensions "Build-excluded
-source is marked in content, not a side manifest"), not a separate manifest. Such
+`(* @volt-exclude-from-build *)` marker written on pull (see "Build-excluded source is marked in content,
+not a side manifest" in section F below), not a separate manifest. Such
 objects are never compiled by the IDE, so their references are never checked and have no ground truth;
 diagnosing them produces false positives against code the toolchain itself ignores. Excluded items
 SHALL still be parsed, indexed, and materialized — only diagnostics are gated. Consequently, the
@@ -113,28 +183,7 @@ models; graphical bodies are simply not analyzed and are edited in the IDE.
 - **WHEN** a POU (or inlined method) body is the CFC/SFC informational marker comment
 - **THEN** the LSP produces no diagnostics for it and does not tag it read-only from content
 
-### Requirement: The LSP is one vendor-neutral IEC engine with an evidence-backed dialect layer
-
-The language server SHALL be a single binary that serves both CODESYS and TwinCAT through a runtime
-`vendor` setting (`codesys | twincat | auto`) — there SHALL NOT be a separate per-vendor LSP for
-CODESYS vs TwinCAT (they are the same IEC 61131-3 language). The package name SHALL be vendor-neutral.
-
-Every vendor-gated behavior (the `wrong-vendor-pragma` check, the CODESYS-only `__`-operator check, and
-each `codesys`/`twincat`-tagged reference-catalog entry) SHALL be justified by evidence that both vendors
-do NOT accept the item. An item both vendors accept SHALL be tagged `shared`, not vendor-specific, so it
-raises no `wrong-vendor` diagnostic.
-
-#### Scenario: One LSP serves both vendors
-- **WHEN** a workspace is CODESYS or TwinCAT
-- **THEN** the same LSP binary analyzes it, differing only by the runtime `vendor` setting — no separate executable
-
-#### Scenario: A construct both vendors accept is not flagged
-- **WHEN** source uses a pragma / operator / identifier that both CODESYS and TwinCAT accept
-- **THEN** the LSP raises no `wrong-vendor-pragma` or vendor-only-operator diagnostic for it (it is tagged `shared`)
-
-#### Scenario: A genuinely dialect-specific construct is still flagged
-- **WHEN** source uses a construct only one vendor accepts (e.g. a CODESYS-only `__`-operator under a TwinCAT project)
-- **THEN** the LSP flags it, backed by recorded ground truth that the active vendor rejects it
+<!-- ══════════ D. Analyzer — symbol resolution (LSP-owned) ══════════ -->
 
 ### Requirement: The LSP resolves library symbols from mirrored signatures + namespace stubs
 
@@ -182,33 +231,182 @@ SHALL NOT false-flag when the equivalent Structured-Text reference resolves.
 - **WHEN** an FBD/LD network references a device instance (`EtherCAT_Master`, `Axis_MainDrive`) mirrored as a `.device`
 - **THEN** the VG check does not flag it, matching Structured-Text behavior
 
-### Requirement: ST POU bodies are parsed into a statement/expression AST
+<!-- ══════════ E. VG graphical sublanguage — code correctness LSP-owned; FORMAT & ROUND-TRIP BRIDGE-OWNED ══════════ -->
 
-The language server SHALL parse the body of every Structured Text POU (function block, program, function, method, action, property accessor) into a statement/expression abstract syntax tree, in addition to the existing token stream. The tree SHALL cover the ST statement forms (`IF`/`ELSIF`/`ELSE`, `CASE`, `FOR`, `WHILE`, `REPEAT`, assignment, `RETURN`/`EXIT`/`CONTINUE`, and bare call statements) and the ST expression forms (binary and unary operators with IEC precedence, member access `a.b`, indexing `a[i]`, dereference `p^`, address-of, function/method calls with positional and named `param := value` arguments, parenthesised sub-expressions, identifiers, and typed/untyped literals). Every node SHALL carry the source span of its tokens so LSP queries can map a node back to document coordinates.
+### Requirement: VG is its own language, routed by content
 
-The parsed tree SHALL be exposed on the body model for `language: "st"` bodies. VG (graphical) bodies SHALL retain their existing dedicated model and SHALL NOT be given an ST statement tree.
+Editable FBD/LD graphical bodies SHALL be represented as VG (Volt Graphical) — a distinct language
+with its own grammar, parser, and analysis, not Structured Text. A POU body whose first significant
+token is `NETWORK` SHALL be routed to the VG analysis path; everything else is ST. The declaration
+(`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the VG parser sees only the body.
 
-#### Scenario: Member-chain expression is structured, not flattened
-- **WHEN** a body contains `alarmCondition := IMM.AutoOperation AND (ActState = StateWaitForMouldClosed);`
-- **THEN** the body model exposes an assignment statement whose right-hand side is a binary `AND` expression, whose left operand is a member-access expression (`IMM` . `AutoOperation`), each node carrying its own source span
+#### Scenario: A NETWORK body is analyzed as VG
+- **WHEN** a POU body begins with a `NETWORK` marker
+- **THEN** it is parsed and analyzed by the VG path, not the ST path
 
-#### Scenario: Call arguments are captured with names and positions
-- **WHEN** a body contains `Increment.State(ActState, XUnitsToParking(), StateTakeover1PosCheck);`
-- **THEN** the tree exposes a call expression on `Increment.State` with three positional arguments, the second of which is itself a call expression
+### Requirement: The round trip is exact and the bridge is the source of truth
 
-#### Scenario: Statement structure is available for control flow
-- **WHEN** a body contains a `CASE ActState OF … END_CASE` with labelled arms
-- **THEN** the tree exposes a case statement with its selector expression and one entry per labelled arm, rather than an undifferentiated token run
+The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ VG exactly (`VgWriter(VgParser(x)) == x`). A
+push whose VG is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
+structured diagnostic that returns the canonical text. So a graphical body can be read, edited, and
+written entirely as VG text without drift.
 
-### Requirement: Body parsing degrades conservatively and never regresses precision
+#### Scenario: A non-canonical body is refused with its canonical form
+- **WHEN** a push sends VG that is valid but not canonical (`VgWriter(VgParser(x)) != x`)
+- **THEN** the bridge refuses it with `VG_NOT_CANONICAL` and returns the canonical text to paste
 
-Parsing a body into the statement/expression AST SHALL NOT raise any new diagnostic. When a body cannot be parsed cleanly into the tree, the language server SHALL fall back to the existing token-scan representation for that body so that all current queries and diagnostics continue to function unchanged. Introducing the AST SHALL NOT change the diagnostics produced on the committed real-project corpora: parse-clean percentage, ingest percentage, and the per-corpus diagnostic floors asserted by the corpus ratchet test SHALL be greater-than-or-equal to their current baselines for every corpus (pro2193, bakon-nano, awa-palletizer, lenze-mid).
+### Requirement: The bridge owns format, the LSP owns code correctness
 
-#### Scenario: Unparseable body still resolves identifiers
-- **WHEN** a body contains a construct the new grammar does not yet model
-- **THEN** the body model still yields its identifier and call lists via the token-scan fallback, and no parse-error diagnostic is emitted for that body
+The bridge SHALL enforce VG *structural* well-formedness (the `VG_*` gate) since those checks depend
+only on the text. The LSP SHALL provide *code* correctness — type inference (wire types are inferred,
+never written), undeclared-variable detection, hover, completion, navigation — and SHOULD mirror the
+structural codes as diagnostics so a body is fixed before it is pushed.
 
-#### Scenario: Corpus ratchet holds
-- **WHEN** the corpus coverage test runs after the AST is introduced
-- **THEN** each corpus reports parse-clean, ingest, and total-diagnostic counts no worse than its committed baseline
+#### Scenario: A wire's type is inferred, not stored
+- **WHEN** the LSP hovers an internal `LET` wire
+- **THEN** it shows a type inferred from the defining expression (the VG text carries no wire type)
 
+### Requirement: FBD/LD are editable; CFC/SFC are read-only
+
+ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable VG). CFC and SFC
+bodies SHALL have **no text representation** and are authored only in the IDE; they are not a read-only
+*access* state, they simply are not materialized as editable code. A CFC/SFC body SHALL materialize as
+a single informational marker comment identifying the language and directing the reader to the IDE, and
+SHALL NOT be analyzed as VG or ST. There is no read-only-language flag.
+
+#### Scenario: A CFC body is materialized as an informational marker
+- **WHEN** a project contains a CFC (or SFC) body
+- **THEN** it materializes as an `(* @volt-graphical: <LANG> *)` informational marker comment (e.g. `(* @volt-graphical: CFC *)`, which the LSP hover explains) and is not analyzed as VG or ST
+
+### Requirement: Content detection covers whole files and inlined graphical methods
+
+`volt-vscode` SHALL highlight VG by a content injection on the `NETWORK` token. Because a POU is named
+by its KIND (`.fb`/`.prg`/`.fun`), an editable graphical POU is stored in a kind-named file, not a
+`.st`/`.fbd`/`.ld` file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
+discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
+graphical POU (e.g. a `.fb` file whose body begins with `NETWORK`) *and* a graphical body inlined
+inside a POU (a graphical method). The body discriminator is 2-way: a body beginning with `NETWORK` is
+editable VG (FBD/LD); anything else is treated as text (ST, or a CFC/SFC informational marker comment,
+which yields no analysis). There is no `READONLY <LANG>` control marker.
+
+#### Scenario: An editable graphical body is detected by NETWORK
+- **WHEN** a kind-named POU file's body begins with `NETWORK`
+- **THEN** it is highlighted and analyzed as editable VG, regardless of extension
+
+#### Scenario: A CFC/SFC informational marker is not analyzed
+- **WHEN** a kind-named POU (or inlined method) body is a CFC/SFC informational marker comment
+- **THEN** it is not highlighted or analyzed as VG, and produces no diagnostics (it is a comment)
+
+<!-- ══════════ F. Workspace file layout & materialization — BRIDGE/CLI-OWNED (LSP consumes) ══════════ -->
+
+### Requirement: Writable source items are named by kind
+
+Every writable source item SHALL materialize with an extension that names its KIND:
+`function_block → .fb`, `program → .prg`, `function → .fun`, `interface → .itf`, `structure → .struct`,
+`enumeration → .enum`, `union → .union`, `alias → .alias`, `gvl → .gvl`. A POU SHALL be named by its
+kind regardless of body language — an editable graphical (FBD/LD) body and a read-only graphical
+(CFC/SFC) body of a function block are both `<name>.fb` — so the extension always reveals what the
+item is. The bridge SHALL choose the extension from the item's kind (`ItemKind.ExtFor`); kind SHALL
+NOT be carried on the wire (it is recovered from content on push).
+
+#### Scenario: A POU is named by kind, not body language
+- **WHEN** the IDE contains a function block with a textual body, a second with an editable FBD body, and a third with a read-only CFC body
+- **THEN** all three materialize as `<name>.fb`, and a program is `.prg` and a function is `.fun`
+
+#### Scenario: DUTs, interfaces, and GVLs use their kind extension
+- **WHEN** the IDE contains an enumeration, structure, union, alias, interface, or GVL
+- **THEN** each materializes as `.enum`/`.struct`/`.union`/`.alias`/`.itf`/`.gvl` respectively
+
+### Requirement: Read-only graphical POUs are marked in content, not by extension
+
+Because POUs are named by kind, the extension SHALL NOT encode read-only access for a POU. A read-only
+graphical POU (a CFC/SFC body) SHALL materialize with an in-content marker: its body is a leading
+`READONLY <LANG>` line (e.g. `READONLY CFC`), stating it is read-only because the body is graphical.
+Read-only for a POU SHALL be detected from this marker (the body's first significant token is
+`READONLY`), never from the extension. Opaque reference kinds (`library`, `task`, `image_pool`,
+`text_list`, `recipe_manager`, `visualization`, `visualization_manager`, `library_manager`,
+`class_diagram`, `external_types`, `tmc`) SHALL remain read-only by their own extension. A folder SHALL
+remain a `.gitkeep` marker.
+
+#### Scenario: A read-only CFC POU carries a content marker
+- **WHEN** the IDE contains a function block whose body is a read-only CFC
+- **THEN** it materializes as `<name>.fb` whose body begins with `READONLY CFC` — no `.cfc` extension and no wire flag mark it
+
+#### Scenario: A reference kind keeps its extension and is read-only
+- **WHEN** the IDE contains a library, task, or visualization
+- **THEN** it materializes with that kind's own extension and is read-only
+
+### Requirement: Access is read from content; kind from content
+
+The CLI SHALL derive a POU file's push-ability from its content — a body led by `READONLY` is
+read-only, a `NETWORK`-led or textual body is writable — while reference kinds stay read-only by
+their extension. The bridge SHALL recover an item's kind from file content on push-back (the ST
+declaration header for textual kinds; the NETWORK-token VG body for editable graphical POUs), never
+from the extension. The kind-based naming SHALL NOT lose kind or access information.
+
+#### Scenario: Kind is recovered from content on push
+- **WHEN** an agent edits and pushes a `.fb`/`.prg`/`.fun`/`.struct`/`.itf`/`.gvl` file
+- **THEN** the bridge reconstructs the correct kind from the content and applies the push
+
+#### Scenario: A read-only POU is not pushed
+- **WHEN** a `.fb` file whose body begins with `READONLY` (a CFC/SFC body) is edited and a push is attempted
+- **THEN** the CLI refuses it up front from the marker, and the bridge refuses it as a backstop
+
+### Requirement: Build-excluded source is marked in content, not a side manifest
+
+A source item's exclude-from-build state SHALL be recorded IN the file, NOT in a separate excluded-paths
+manifest, because the LSP analyzes files on disk with no live bridge to read the per-item `excludeFromBuild`
+wire flag (see bridge-protocol "Exclude-from-build is a per-item wire flag"). On pull, a source item whose
+`excludeFromBuild` flag is `true` SHALL materialize with a leading `(* @volt-exclude-from-build *)` ST comment
+(idempotent — never duplicated). This marker is Volt-managed, not real IDE source: on push the CLI SHALL strip
+it before sending to the bridge, so it never reaches the IDE's stored source (and does not re-duplicate on the
+next pull). The LSP and coverage harness SHALL read the marker as the on-disk source of the flag — it is how an
+offline workspace or a committed corpus gates diagnostics on excluded objects. Only source-kind files carry it
+(reference kinds are never analyzed and stay read-only by their extension).
+
+#### Scenario: A build-excluded object materializes with the marker
+- **WHEN** the IDE reports an item with `excludeFromBuild: true` and a pull materializes it
+- **THEN** its source file begins with `(* @volt-exclude-from-build *)` — no side manifest records the exclusion
+
+#### Scenario: The marker is stripped on push
+- **WHEN** an excluded source file (leading `(* @volt-exclude-from-build *)`) is pushed back
+- **THEN** the CLI strips the marker so the IDE's stored source is unchanged, and the next pull does not duplicate it
+
+#### Scenario: The LSP reads the marker offline
+- **WHEN** the LSP analyzes an on-disk workspace (or the committed corpus) with no live bridge
+- **THEN** it skips diagnostics on files carrying the marker, exactly as if the wire flag were `true`
+
+### Requirement: The scheme change re-materializes once
+
+Because the wire item name includes the extension, moving from `.st` to kind extensions SHALL change
+the affected items' wire names (and only their file paths — `structureVersion` hashes the sorted bare
+names, so it is unchanged). On the first pull after the change, a bound workspace SHALL re-materialize
+the affected items — the `*.st` files removed and the kind-named files created — reconciled through
+native git as deletes and adds, with no custom migration step. Both vendor bridges SHALL apply the
+same kind-based naming in shared Core.
+
+#### Scenario: A bound workspace re-materializes on first pull
+- **WHEN** a workspace bound under the `.st` scheme is pulled after this change
+- **THEN** the `*.st` files are removed and equivalent `.fb`/`.prg`/`.fun`/`.itf`/`.struct`/… files appear, with no data loss
+
+#### Scenario: structureVersion is unchanged by the rename
+- **WHEN** only the extensions change (bare names identical)
+- **THEN** `structureVersion` is unchanged, regardless of vendor
+
+### Requirement: Library signatures materialize under the Library Manager, not a separate tree
+
+Referenced-library public signatures SHALL materialize INTO the mirrored CODESYS tree — each element under
+its owning library's folder in the Library Manager (`…/Library Manager/<LibraryName>/<Element>.<kind>`),
+co-located with that library's `.library` stub — NOT into a separate `libs/` tree. Files SHALL use the same
+kind-based extensions as project source (`.fb`/`.prg`/`.fun`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`/`.itf`)
+and contain declarations/signatures only (no implementation bodies). They SHALL be **read-only**: never a
+push target, never reconciled to the IDE. They are committed and change only when a referenced library is
+added, removed, or version-bumped.
+
+#### Scenario: A library element is a kind-named signature file in its library's folder
+- **WHEN** the `L_MC4P` library exposes a struct `AxesGroup`
+- **THEN** it materializes at `…/Library Manager/L_MC4P_MotionControlCam/AxesGroup.struct` (beside `L_MC4P_MotionControlCam.library`), containing only its declaration, and is not editable or pushable
+
+#### Scenario: Library signatures are never pushed
+- **WHEN** a push is computed
+- **THEN** no library signature file is included — they are a read-only library mirror, not project source
