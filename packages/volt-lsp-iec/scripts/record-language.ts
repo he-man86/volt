@@ -57,6 +57,34 @@ function plcPrgFor(t: LanguageTest): string {
 	return `PROGRAM PLC_PRG\nVAR\n${v}\nEND_VAR\n\n${b}\nEND_PROGRAM\n`;
 }
 
+// pouName → fixture, for resolving cross-fixture dependencies. Built from ALL_TESTS so a dependency
+// outside the selected slice still resolves.
+const BY_POU = new Map<string, LanguageTest>(ALL_TESTS.map((t) => [t.pouName, t]));
+
+/**
+ * The transitive set of OTHER fixtures whose declared type (`pouName`) this test's source names — its
+ * EXTENDS base, IMPLEMENTED interface(s), used DUTs, etc. Without them in the isolated project the compiler
+ * errors "Unknown type / No definition found" — an isolation artifact, not real language behavior. Resolved
+ * by scanning identifiers (fixtures use the distinctive `*_LANG_*` naming, so this is unambiguous).
+ */
+function depsOf(t: LanguageTest): LanguageTest[] {
+	const out: LanguageTest[] = [];
+	const seen = new Set<string>([t.pouName]);
+	const stack = [t];
+	while (stack.length > 0) {
+		const cur = stack.pop() as LanguageTest;
+		for (const id of new Set(cur.source.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])) {
+			if (seen.has(id)) continue;
+			const dep = BY_POU.get(id);
+			if (dep === undefined) continue;
+			seen.add(dep.pouName);
+			out.push(dep);
+			stack.push(dep);
+		}
+	}
+	return out;
+}
+
 async function main(): Promise<void> {
 	// Select tests (optional subset for validation).
 	let tests = ALL_TESTS.filter((t) => t.recorderSkip !== true);
@@ -89,18 +117,23 @@ async function main(): Promise<void> {
 
 	const recorded: Record<string, Recorded> = {};
 	const mismatches: string[] = []; // fixtures whose compiler verdict contradicts declared expectTcAccepts
-	let prevFile: string | undefined;
+	let prevFiles: string[] = [];
 	for (const [i, t] of tests.entries()) {
-		// 1. reset to empty structure (remove prior test item + bare PLC_PRG), push.
-		if (prevFile) rmSync(prevFile, { force: true });
+		// 1. reset to empty structure (remove the prior test + its deps + bare PLC_PRG), push.
+		for (const f of prevFiles) rmSync(f, { force: true });
+		prevFiles = [];
 		writeFileSync(plcPrgFile, BARE_PLC_PRG, "utf-8");
 		volt(ws, "push", "--force", "--no-drift-check");
 
-		// 2-3. write this test + its instantiation, push.
-		const file = join(appDir, `${t.pouName}.${KIND_EXT[t.kind]}`);
-		writeFileSync(file, t.source, "utf-8");
+		// 2-3. write this test + its dependency fixtures (bases/interfaces/DUTs it references) into PLC_PRG's
+		// folder so the compiler can resolve them, then instantiate the test in PLC_PRG.
+		const deps = depsOf(t);
+		for (const d of [t, ...deps]) {
+			const f = join(appDir, `${d.pouName}.${KIND_EXT[d.kind]}`);
+			writeFileSync(f, d.source, "utf-8");
+			prevFiles.push(f);
+		}
 		writeFileSync(plcPrgFile, plcPrgFor(t), "utf-8");
-		prevFile = file;
 		const push = volt(ws, "push", "--force", "--no-drift-check");
 		if (push.code !== 0) {
 			recorded[t.name] = { buildSuccess: false, durationMs: 0, diagnostics: [] };
@@ -116,7 +149,7 @@ async function main(): Promise<void> {
 		const errs = diags.filter((d) => d.severity === "error").length;
 		const accepts = errs === 0;
 		recorded[t.name] = { buildSuccess: accepts, durationMs: build.duration ?? 0, diagnostics: diags };
-		console.log(`  ${accepts ? "✓" : "✗"} ${t.name.padEnd(34)} (${i + 1}/${tests.length}) errors=${errs} warnings=${diags.length - errs}`);
+		console.log(`  ${accepts ? "✓" : "✗"} ${t.name.padEnd(34)} (${i + 1}/${tests.length}) errors=${errs} warnings=${diags.length - errs}${deps.length ? ` deps=${deps.length}` : ""}`);
 		// Fixture guard: the compiler is the oracle — if it contradicts the fixture's declared intent, the
 		// FIXTURE is broken (a "pass" case that errors, or a "fail" case that compiles clean). Flag it before
 		// this ground truth is ever compared against the LSP.
@@ -127,7 +160,7 @@ async function main(): Promise<void> {
 	}
 
 	// final reset to empty
-	if (prevFile) rmSync(prevFile, { force: true });
+	for (const f of prevFiles) rmSync(f, { force: true });
 	writeFileSync(plcPrgFile, BARE_PLC_PRG, "utf-8");
 	volt(ws, "push", "--force", "--no-drift-check");
 
