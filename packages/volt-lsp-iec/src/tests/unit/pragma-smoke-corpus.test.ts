@@ -15,32 +15,19 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_DIAGNOSTIC_CONFIG, type DiagnosticConfig } from "../../lsp/config/index.js";
 import { ALL_PRAGMAS } from "../../reference/pragmas.js";
-import { buildBodyModelsForParseResult } from "../../semantic/body.js";
-import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
-import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
-import { parseSource } from "../../parser/parser.js";
+import { diagnosticsFor } from "../support/diagnostics.js";
 
 function runDiagnostics(src: string) {
-	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
-	const config: DiagnosticConfig = {
-		...DEFAULT_DIAGNOSTIC_CONFIG,
-		// Force every pragma-related diagnostic on — the smoke test
-		// specifically wants to surface any false positives.
-		unknownPragma: true,
-		wrongVendorPragma: false,  // vendor-cross-warnings are expected on the TC entries vs codesys-active; not what this test pins
-		pragmaMissingCompanion: false,  // companions tested separately; this fixture intentionally uses isolated pragmas
-		pragmaConflict: false,
-	};
-	return computeSemanticDiagnostics({
-		parseResult,
-		source: src,
-		project,
-		config,
-		activeVendor: undefined,  // no active vendor → catalog-only check
-		bodyModels: buildBodyModelsForParseResult(parseResult),
+	// Force every pragma-related diagnostic on — the smoke test surfaces any false positive.
+	// wrongVendorPragma/companion/conflict off: tested elsewhere; this fixture uses isolated pragmas.
+	return diagnosticsFor(src, {
+		configOverrides: {
+			unknownPragma: true,
+			wrongVendorPragma: false,
+			pragmaMissingCompanion: false,
+			pragmaConflict: false,
+		},
 	});
 }
 

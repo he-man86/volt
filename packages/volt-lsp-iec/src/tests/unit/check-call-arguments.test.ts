@@ -4,26 +4,10 @@
  * corpus ratchet covers zero-FP). See openspec change `st-type-inference`.
  */
 import { describe, expect, it } from "bun:test";
-import { parseSource } from "../../parser/parser.js";
-import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
-import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
-import { buildBodyModelsForParseResult } from "../../semantic/body.js";
-import { DEFAULT_DIAGNOSTIC_CONFIG } from "../../lsp/config/index.js";
+import { diagnosticsFor } from "../support/diagnostics.js";
 
-function callArgDiags(src: string) {
-	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult, source: src }]);
-	const bodyModels = buildBodyModelsForParseResult(parseResult, src);
-	return computeSemanticDiagnostics({
-		parseResult,
-		source: src,
-		project,
-		config: { ...DEFAULT_DIAGNOSTIC_CONFIG, callArgumentMismatch: true },
-		bodyModels,
-		libraryNamespaces: new Set(),
-		deviceInstances: new Set(),
-	}).filter((d) => d.code === "call-argument-mismatch");
-}
+const callArgDiags = (src: string) =>
+	diagnosticsFor(src, { configOverrides: { callArgumentMismatch: true }, code: "call-argument-mismatch" });
 
 const ADDER = `FUNCTION_BLOCK Adder
 VAR_INPUT

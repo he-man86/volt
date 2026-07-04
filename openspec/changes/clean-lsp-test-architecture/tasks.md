@@ -8,9 +8,9 @@
 
 ## 2. Shared diagnostics test helper (kill 4× copy-paste)
 
-- [ ] 2.1 Extract `src/tests/support/diagnostics.ts`: `diagnosticsFor(source, { configOverrides, code? })` building the symbol table + `computeSemanticDiagnostics`.
-- [ ] 2.2 Rewire `unit/diagnostics.test.ts`, `unit/check-call-arguments.test.ts`, `unit/check-narrowing-conversion.test.ts`, `unit/type-infer.test.ts` onto it (keep each file's cases; drop the boilerplate). Suite green.
-- [ ] 2.3 Collapse 4-way pragma coverage to catalog-shape (`reference/pragma-catalog-conformance`) + one smoke test; remove the redundant path. Suite green.
+- [x] 2.1 Extract `src/tests/support/diagnostics.ts`: `diagnosticsFor(source, { configOverrides, code? })` building the symbol table + `computeSemanticDiagnostics`.
+- [x] 2.2 Rewire `unit/diagnostics.test.ts`, `unit/check-call-arguments.test.ts`, `unit/check-narrowing-conversion.test.ts`, `unit/type-infer.test.ts` onto it (keep each file's cases; drop the boilerplate). Suite green.
+- [x] 2.3 Assessed: the 4 pragma tests cover DISTINCT concerns (catalog-shape / every-reference-pragma-recognized / hover / oracle) — NOT duplication, so removing any loses coverage. Instead deduped the HARNESS: rewired `pragma-smoke-corpus` onto the shared helper. Coverage preserved.
 
 ## 3. One mechanism per nav query (drop redundant snapshots)
 

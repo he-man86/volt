@@ -3,35 +3,13 @@
  * enabled explicitly here. LREAL→REAL warns; widening / same-type does not.
  */
 import { describe, expect, it } from "bun:test";
-import { parseSource } from "../../parser/parser.js";
-import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
-import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
-import { buildBodyModelsForParseResult } from "../../semantic/body.js";
-import { DEFAULT_DIAGNOSTIC_CONFIG } from "../../lsp/config/index.js";
+import { diagnosticsFor } from "../support/diagnostics.js";
 
-function narrowingDiags(body: string) {
-	const src = `PROGRAM Main
-VAR
-	r : REAL;
-	lr : LREAL;
-	i : INT;
-END_VAR
-${body}
-END_PROGRAM
-`;
-	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult, source: src }]);
-	const bodyModels = buildBodyModelsForParseResult(parseResult, src);
-	return computeSemanticDiagnostics({
-		parseResult,
-		source: src,
-		project,
-		config: { ...DEFAULT_DIAGNOSTIC_CONFIG, narrowingConversion: true },
-		bodyModels,
-		libraryNamespaces: new Set(),
-		deviceInstances: new Set(),
-	}).filter((d) => d.code === "narrowing-conversion");
-}
+const wrap = (body: string) => `PROGRAM Main\nVAR\n\tr : REAL;\n\tlr : LREAL;\n\ti : INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`;
+
+/** Narrowing diagnostics with the check enabled. */
+const narrowingDiags = (body: string) =>
+	diagnosticsFor(wrap(body), { configOverrides: { narrowingConversion: true }, code: "narrowing-conversion" });
 
 describe("narrowing-conversion", () => {
 	it("warns on LREAL → REAL", () => {
@@ -55,26 +33,7 @@ describe("narrowing-conversion", () => {
 	});
 
 	it("is OFF by default (no config override)", () => {
-		const src = `PROGRAM Main
-VAR
-	r : REAL;
-	lr : LREAL;
-END_VAR
-r := lr;
-END_PROGRAM
-`;
-		const parseResult = parseSource(src);
-		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult, source: src }]);
-		const bodyModels = buildBodyModelsForParseResult(parseResult, src);
-		const diags = computeSemanticDiagnostics({
-			parseResult,
-			source: src,
-			project,
-			config: DEFAULT_DIAGNOSTIC_CONFIG,
-			bodyModels,
-			libraryNamespaces: new Set(),
-			deviceInstances: new Set(),
-		});
-		expect(diags.filter((d) => d.code === "narrowing-conversion")).toHaveLength(0);
+		// Default config — the check must not fire even on a real LREAL→REAL narrowing.
+		expect(diagnosticsFor(wrap("r := lr;"), { code: "narrowing-conversion" })).toHaveLength(0);
 	});
 });

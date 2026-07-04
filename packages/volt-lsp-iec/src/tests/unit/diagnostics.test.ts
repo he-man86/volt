@@ -3,30 +3,23 @@
  * Fixtures use the parser directly — no LSP layer involved.
  */
 import { describe, expect, it } from "bun:test";
+import type { DiagnosticConfig } from "../../lsp/config/index.js";
+import { buildProject, runDiagnostics } from "../support/diagnostics.js";
+// Direct imports for the one cross-file (multi-source) case the single-source helper doesn't cover.
 import { parseSource } from "../../parser/parser.js";
 import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
 import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
 import { buildBodyModelsForParseResult } from "../../semantic/body.js";
-import { DEFAULT_DIAGNOSTIC_CONFIG, type DiagnosticConfig } from "../../lsp/config/index.js";
+import { DEFAULT_DIAGNOSTIC_CONFIG } from "../../lsp/config/index.js";
 
 function setup(
 	src: string,
 	configOverrides?: Partial<DiagnosticConfig>,
 	activeVendor?: "codesys" | "twincat",
 ) {
-	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
-	const config: DiagnosticConfig = { ...DEFAULT_DIAGNOSTIC_CONFIG, ...configOverrides };
-	const bodyModels = buildBodyModelsForParseResult(parseResult);
-	const diags = computeSemanticDiagnostics({
-		parseResult,
-		source: src,
-		project,
-		config,
-		activeVendor,
-		bodyModels,
-	});
-	return { diags, project, parseResult };
+	const built = buildProject(src);
+	const diags = runDiagnostics(built, { configOverrides, activeVendor });
+	return { diags, project: built.project, parseResult: built.parseResult };
 }
 
 describe("diagnostics: reserved keyword as identifier", () => {

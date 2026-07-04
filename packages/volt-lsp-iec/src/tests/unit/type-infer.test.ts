@@ -5,13 +5,12 @@
  * zero-FP guarantee. See openspec change `st-type-inference`.
  */
 import { describe, expect, it } from "bun:test";
-import { parseSource } from "../../parser/parser.js";
-import { buildSymbolTable } from "../../semantic/symbol-table-build.js";
 import { lex } from "../../lexer/lexer.js";
 import { Cursor } from "../../parser/cursor.js";
 import { parseExpression } from "../../parser/expression.js";
 import { inferExprType, resolveMemberChain } from "../../semantic/type-infer.js";
 import type { Scope } from "../../semantic/symbol-table.js";
+import { buildProject } from "../support/diagnostics.js";
 
 const SRC = `
 TYPE Point : STRUCT x : REAL; y : LREAL; END_STRUCT END_TYPE
@@ -28,7 +27,7 @@ END_FUNCTION_BLOCK
 `;
 
 function build(): { project: Scope; fb: Scope } {
-	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult: parseSource(SRC), source: SRC }]);
+	const { project } = buildProject(SRC);
 	const fb = project.children.find((c) => c.name.toLowerCase() === "motor");
 	if (fb === undefined) throw new Error("Motor scope not built");
 	return { project, fb };
