@@ -17,7 +17,7 @@ import type { Span } from "../lexer/span.js";
 import type { Keyword } from "../lexer/tokens.js";
 import { Cursor } from "./cursor.js";
 import { skipFolderDirective } from "./util.js";
-import { mergeSpans as merge, parseExpression } from "./expression.js";
+import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js";
 import type {
 	BodySpan,
 	CaseArm,
@@ -148,10 +148,9 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
 	const semi = cur.expectPunct(";", "after statement");
 	if (semi === undefined) return undefined;
 	if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: merge(expr.span, semi.span) };
-	// A bare non-call, non-assignment expression is not a valid ST statement
-	// (e.g. an `S=` set-assignment) — fall back rather than invent a node.
-	cur.pushError("expected an assignment or call statement", expr.span);
-	return undefined;
+	// A bare expression terminated by `;` — a no-op read CODESYS tolerates (e.g. `fb.Status.Flag;`,
+	// a placeholder written elsewhere). Keep it in the tree so the whole body still tree-parses.
+	return { kind: "expr_stmt", expr, span: merge(expr.span, semi.span) };
 }
 
 function parseTry(cur: Cursor): Statement | undefined {
@@ -205,7 +204,7 @@ function parseIf(cur: Cursor): Statement | undefined {
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
-	const cond = parseExpression(cur);
+	const cond = parseAssignable(cur); // `IF x := f() THEN` — inline assignment in the condition (CODESYS)
 	if (cond === undefined) return undefined;
 	if (cur.expectKeyword("THEN", "in IF") === undefined) return undefined;
 	const body = parseStatementList(cur, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"));
@@ -329,7 +328,7 @@ function parseFor(cur: Cursor): Statement | undefined {
 
 function parseWhile(cur: Cursor): Statement | undefined {
 	const kw = cur.consume(); // WHILE
-	const cond = parseExpression(cur);
+	const cond = parseAssignable(cur);
 	if (cond === undefined) return undefined;
 	if (cur.expectKeyword("DO", "in WHILE") === undefined) return undefined;
 	const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"));
@@ -343,7 +342,7 @@ function parseRepeat(cur: Cursor): Statement | undefined {
 	const kw = cur.consume(); // REPEAT
 	const body = parseStatementList(cur, (c) => atKeyword(c, "UNTIL"));
 	if (cur.expectKeyword("UNTIL", "in REPEAT") === undefined) return undefined;
-	const until = parseExpression(cur);
+	const until = parseAssignable(cur);
 	if (until === undefined) return undefined;
 	const end = cur.expectKeyword("END_REPEAT", "closing REPEAT");
 	if (end === undefined) return undefined;

@@ -210,3 +210,26 @@ describe("IEC set/reset/reference assignment operators", () => {
 		expect(s.op).toBeUndefined();
 	});
 });
+
+describe("inline assignment in a condition + bare expression statement", () => {
+	it("`IF x := f() THEN` — unparenthesized inline assignment condition", () => {
+		// From the corpus (ChainControlFB): `IF result := transferRejects.ExecuteTransfer() THEN`.
+		const r = run("IF result := Compute() THEN x := 1; END_IF");
+		expect(r.ok).toBe(true);
+		const s = r.statements[0]!;
+		if (s.kind !== "if") throw new Error("expected if");
+		expect(s.branches[0]!.cond.kind).toBe("assign_expr");
+	});
+
+	it("`WHILE x := next() DO … END_WHILE`", () => {
+		const r = run("WHILE r := Next() DO x := 1; END_WHILE");
+		expect(r.ok).toBe(true);
+	});
+
+	it("bare expression statement `a.b.c;` — a no-op read CODESYS tolerates", () => {
+		// From the corpus (BasicMovement): `ioDataExchange.Status.InPosition;//writen in statemachine`.
+		const r = run("fb.Status.InPosition;");
+		expect(r.ok).toBe(true);
+		expect(r.statements[0]!.kind).toBe("expr_stmt");
+	});
+});

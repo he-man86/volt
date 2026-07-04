@@ -479,6 +479,7 @@ export type Statement =
 	| ExitStatement
 	| ContinueStatement
 	| TryStatement
+	| ExprStatement
 	| EmptyStatement;
 
 /** An ordered list of statements — a body or a nested block. */
@@ -503,6 +504,14 @@ export interface Assignment {
 export interface CallStatement {
 	kind: "call_stmt";
 	call: CallExpr;
+	span: Span;
+}
+
+/** A bare expression terminated by `;` — a no-op read CODESYS tolerates (`fb.Status.Flag;`, often a
+ *  placeholder written elsewhere). Not a call and not an assignment. */
+export interface ExprStatement {
+	kind: "expr_stmt";
+	expr: Expr;
 	span: Span;
 }
 

@@ -98,6 +98,24 @@ export function parseExpression(cur: Cursor): Expr | undefined {
 	return parseBinary(cur, 1);
 }
 
+/**
+ * An expression that may be an inline assignment `x := value` (CODESYS). Used where an assignment can
+ * legitimately appear in expression position — inside parentheses `(x := y)` and as an IF/WHILE/REPEAT
+ * condition `IF x := f() THEN`. NOT used by the general expression parser, so `:=` never hijacks a
+ * statement-level assignment. `:=` binds lowest and right, so the whole RHS is captured.
+ */
+export function parseAssignable(cur: Cursor): Expr | undefined {
+	const target = parseExpression(cur);
+	if (target === undefined) return undefined;
+	if (cur.peek().kind === "punct" && cur.peek().text === ":=") {
+		cur.consume();
+		const value = parseExpression(cur);
+		if (value === undefined) return undefined;
+		return { kind: "assign_expr", target, value, span: merge(target.span, value.span) };
+	}
+	return target;
+}
+
 function parseBinary(cur: Cursor, minPrec: number): Expr | undefined {
 	let left = parseUnary(cur);
 	if (left === undefined) return undefined;
@@ -243,19 +261,9 @@ function parsePrimary(cur: Cursor): Expr | undefined {
 	}
 	if (t.kind === "punct" && t.text === "(") {
 		const open = cur.consume();
-		const inner = parseExpression(cur);
+		// Allow an inline assignment `(x := value)` inside the parens (CODESYS).
+		const inner = parseAssignable(cur);
 		if (inner === undefined) return undefined;
-		// CODESYS inline assignment `(x := value)` — assigns and yields `value`. Only valid inside
-		// parentheses, so handling it here keeps `:=` from hijacking statement-level assignment.
-		if (cur.peek().kind === "punct" && cur.peek().text === ":=") {
-			cur.consume();
-			const value = parseExpression(cur);
-			if (value === undefined) return undefined;
-			const close = cur.expectPunct(")", "closing parenthesis");
-			if (close === undefined) return undefined;
-			const assign: Expr = { kind: "assign_expr", target: inner, value, span: merge(inner.span, value.span) };
-			return { kind: "paren", inner: assign, span: merge(open.span, close.span) };
-		}
 		const close = cur.expectPunct(")", "closing parenthesis");
 		if (close === undefined) return undefined;
 		return { kind: "paren", inner, span: merge(open.span, close.span) };

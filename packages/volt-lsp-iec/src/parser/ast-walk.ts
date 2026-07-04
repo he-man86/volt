@@ -51,6 +51,8 @@ export function stmtExprs(s: Statement): Expr[] {
 			return s.chained ? [s.target, ...s.chained, s.value] : [s.target, s.value];
 		case "call_stmt":
 			return [s.call];
+		case "expr_stmt":
+			return [s.expr];
 		case "if":
 			return s.branches.map((b) => b.cond);
 		case "case":
