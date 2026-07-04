@@ -30,7 +30,7 @@ export function exprChildren(e: Expr): Expr[] {
 		case "deref":
 			return [e.base];
 		case "call":
-			return [e.callee, ...e.args.flatMap((a) => (a.param ? [a.param, a.value] : [a.value]))];
+			return [e.callee, ...e.args.flatMap((a) => [...(a.param ? [a.param] : []), ...(a.value ? [a.value] : [])])];
 		case "paren":
 			return [e.inner];
 	}
@@ -46,7 +46,7 @@ export function walkExpr(e: Expr, visit: (e: Expr) => void): void {
 export function stmtExprs(s: Statement): Expr[] {
 	switch (s.kind) {
 		case "assign":
-			return [s.target, s.value];
+			return s.chained ? [s.target, ...s.chained, s.value] : [s.target, s.value];
 		case "call_stmt":
 			return [s.call];
 		case "if":
@@ -59,6 +59,8 @@ export function stmtExprs(s: Statement): Expr[] {
 			return [s.cond];
 		case "repeat":
 			return [s.until];
+		case "try":
+			return s.catchVar ? [s.catchVar] : [];
 		case "return":
 		case "exit":
 		case "continue":
@@ -78,6 +80,8 @@ export function stmtChildLists(s: Statement): StatementList[] {
 		case "while":
 		case "repeat":
 			return [s.body];
+		case "try":
+			return [s.tryBody, ...(s.catchBody ? [s.catchBody] : []), ...(s.finallyBody ? [s.finallyBody] : [])];
 		default:
 			return [];
 	}

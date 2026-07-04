@@ -108,6 +108,8 @@ function parseStatement(cur: Cursor): Statement | undefined {
 				cur.eatPunct(";");
 				return { kind: "continue", span: k.span };
 			}
+			case "__TRY":
+				return parseTry(cur);
 		}
 	}
 	return parseExprOrAssign(cur);
@@ -117,11 +119,25 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
 	const expr = parseExpression(cur);
 	if (expr === undefined) return undefined;
 	if (cur.eatPunct(":=") !== undefined) {
-		const value = parseExpression(cur);
+		let value = parseExpression(cur);
 		if (value === undefined) return undefined;
+		// Chained assignment `a := b := c` (CODESYS): each `:=` promotes the last RHS to an
+		// intermediate target; all receive the final value.
+		const chained: Expr[] = [];
+		while (cur.eatPunct(":=") !== undefined) {
+			chained.push(value);
+			value = parseExpression(cur);
+			if (value === undefined) return undefined;
+		}
 		const semi = cur.expectPunct(";", "after assignment");
 		if (semi === undefined) return undefined;
-		return { kind: "assign", target: expr, value, span: merge(expr.span, semi.span) };
+		return {
+			kind: "assign",
+			target: expr,
+			value,
+			...(chained.length > 0 ? { chained } : {}),
+			span: merge(expr.span, semi.span),
+		};
 	}
 	const semi = cur.expectPunct(";", "after statement");
 	if (semi === undefined) return undefined;
@@ -130,6 +146,35 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
 	// (e.g. an `S=` set-assignment) — fall back rather than invent a node.
 	cur.pushError("expected an assignment or call statement", expr.span);
 	return undefined;
+}
+
+function parseTry(cur: Cursor): Statement | undefined {
+	const kw = cur.consume(); // __TRY
+	const tryBody = parseStatementList(cur, (c) => atKeyword(c, "__CATCH", "__FINALLY", "__ENDTRY"));
+	let catchVar: Expr | undefined;
+	let catchBody: StatementList | undefined;
+	if (cur.eatKeyword("__CATCH") !== undefined) {
+		if (cur.expectPunct("(", "in __CATCH") === undefined) return undefined;
+		catchVar = parseExpression(cur);
+		if (catchVar === undefined) return undefined;
+		if (cur.expectPunct(")", "closing __CATCH") === undefined) return undefined;
+		catchBody = parseStatementList(cur, (c) => atKeyword(c, "__FINALLY", "__ENDTRY"));
+	}
+	let finallyBody: StatementList | undefined;
+	if (cur.eatKeyword("__FINALLY") !== undefined) {
+		finallyBody = parseStatementList(cur, (c) => atKeyword(c, "__ENDTRY"));
+	}
+	const end = cur.expectKeyword("__ENDTRY", "closing __TRY");
+	if (end === undefined) return undefined;
+	cur.eatPunct(";");
+	return {
+		kind: "try",
+		tryBody,
+		...(catchVar ? { catchVar } : {}),
+		...(catchBody ? { catchBody } : {}),
+		...(finallyBody ? { finallyBody } : {}),
+		span: merge(kw.span, end.span),
+	};
 }
 
 function parseIf(cur: Cursor): Statement | undefined {

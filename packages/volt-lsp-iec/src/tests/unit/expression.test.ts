@@ -37,7 +37,7 @@ function shape(e: Expr): string {
 		case "deref":
 			return `${shape(e.base)}^`;
 		case "call":
-			return `${shape(e.callee)}(${e.args.map((a) => (a.param ? `${a.param.name}${a.output ? "=>" : ":="}` : "") + shape(a.value)).join(",")})`;
+			return `${shape(e.callee)}(${e.args.map((a) => (a.param ? `${a.param.name}${a.output ? "=>" : ":="}` : "") + (a.value ? shape(a.value) : "")).join(",")})`;
 		case "paren":
 			return `<${shape(e.inner)}>`;
 	}
@@ -80,6 +80,12 @@ describe("postfix chains", () => {
 		expect(shape(parse("p^.field[i]").expr)).toBe("p^.field[i]");
 	});
 
+	it("bit access a.0 / a.15 (CODESYS numeric member)", () => {
+		// From the corpus: `slice.0 := sliceInfo.component[1].forceValue`.
+		expect(shape(parse("slice.0").expr)).toBe("slice.0");
+		expect(shape(parse("status.15").expr)).toBe("status.15");
+	});
+
 	it("member chain a.b.c", () => {
 		const e = parse("a.b.c").expr as MemberExpr;
 		expect(e.kind).toBe("member");
@@ -110,6 +116,22 @@ describe("call arguments", () => {
 		expect(shape(parse("TON(IN := start, PT := t#1s, Q => done)").expr)).toBe(
 			"TON(IN:=start,PT:=t#1s,Q=>done)",
 		);
+	});
+
+	it("unconnected output args (`out => ,` / `out => )`) — CODESYS routes the output nowhere", () => {
+		// From the corpus: `InputControl[...](sliceNumber := s, bit1 => x, bit2 => , bit3 => y)`.
+		const call = parse("FB(a := 1, b => , c => x)").expr;
+		expect(shape(call)).toBe("FB(a:=1,b=>,c=>x)");
+		// The empty output keeps its param name but carries no value.
+		if (call.kind !== "call") throw new Error("expected a call");
+		const empty = call.args[1]!;
+		expect(empty.param?.name).toBe("b");
+		expect(empty.output).toBe(true);
+		expect(empty.value).toBeUndefined();
+	});
+
+	it("trailing unconnected output before `)`", () => {
+		expect(shape(parse("FB(x := 1, done => )").expr)).toBe("FB(x:=1,done=>)");
 	});
 });
 

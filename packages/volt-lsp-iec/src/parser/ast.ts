@@ -442,7 +442,9 @@ export interface CallArg {
 	kind: "call_arg";
 	param?: IdentExpr;
 	output: boolean;
-	value: Expr;
+	/** The argument value, or undefined for an unconnected output (`out => ,` / `out => )`) —
+	 *  CODESYS lets you name an output but route it nowhere. */
+	value?: Expr;
 	span: Span;
 }
 
@@ -466,6 +468,7 @@ export type Statement =
 	| ReturnStatement
 	| ExitStatement
 	| ContinueStatement
+	| TryStatement
 	| EmptyStatement;
 
 /** An ordered list of statements — a body or a nested block. */
@@ -476,6 +479,9 @@ export interface Assignment {
 	kind: "assign";
 	target: Expr;
 	value: Expr;
+	/** Intermediate l-values of a chained assignment `a := b := c` — here `[b]`, with target `a` and
+	 *  value `c` (all receive `c`'s value per CODESYS). Undefined/empty for a plain assignment. */
+	chained?: Expr[];
 	span: Span;
 }
 
@@ -483,6 +489,18 @@ export interface Assignment {
 export interface CallStatement {
 	kind: "call_stmt";
 	call: CallExpr;
+	span: Span;
+}
+
+/** CODESYS exception handling: `__TRY … __CATCH(e) … __FINALLY … __ENDTRY`. Catch and finally
+ *  are each optional (at least one is present in valid code). */
+export interface TryStatement {
+	kind: "try";
+	tryBody: StatementList;
+	/** The `__CATCH(…)` argument — an l-value expression receiving the exception code. */
+	catchVar?: Expr;
+	catchBody?: StatementList;
+	finallyBody?: StatementList;
 	span: Span;
 }
 

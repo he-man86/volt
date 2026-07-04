@@ -1167,3 +1167,44 @@ END_FUNCTION_BLOCK`,
 		expect(diags).toHaveLength(0);
 	});
 });
+
+describe("diagnostics: assignment type-mismatch — temporal arithmetic (IEC)", () => {
+	// PASS twin: `DT - DT = TIME` is a duration, so assigning it to a TIME is valid.
+	// From the corpus (bakon-nano CyclicTask.prg): `dtDiff := dtNow - dtLast`.
+	it("does NOT flag `TIME := DT - DT` (datetime difference is a duration)", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	dtNow : DT;
+	dtLast : DT;
+	dtDiff : TIME;
+END_VAR
+	dtDiff := dtNow - dtLast;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "assignment-type-mismatch")).toHaveLength(0);
+	});
+
+	it("does NOT flag `DT := DT + TIME` (datetime plus a duration stays a datetime)", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	dtNow : DT;
+	dtNext : DT;
+	span : TIME;
+END_VAR
+	dtNext := dtNow + span;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "assignment-type-mismatch")).toHaveLength(0);
+	});
+
+	// FAIL twin: assigning the datetime difference (a TIME) to an INT is a real mismatch.
+	it("DOES flag `INT := DT - DT` (a duration is not an INT)", () => {
+		const { diags } = setup(`FUNCTION_BLOCK FB_X
+VAR
+	dtNow : DT;
+	dtLast : DT;
+	n : INT;
+END_VAR
+	n := dtNow - dtLast;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "assignment-type-mismatch")).toHaveLength(1);
+	});
+});

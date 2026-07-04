@@ -132,6 +132,14 @@ function parsePostfix(cur: Cursor): Expr | undefined {
 		if (t.kind !== "punct") break;
 		if (t.text === ".") {
 			cur.consume();
+			// CODESYS bit access `x.0` .. `x.63` — the member is a numeric bit index, not a name.
+			const bitTok = cur.peek();
+			if (bitTok.kind === "int_lit") {
+				cur.consume();
+				const member: IdentExpr = { kind: "ident_expr", name: bitTok.text, span: bitTok.span };
+				base = { kind: "member", base, member, span: merge(base.span, bitTok.span) };
+				continue;
+			}
 			const nameTok = eatName(cur);
 			if (nameTok === undefined) {
 				cur.pushError("expected member name after '.'", cur.peek().span);
@@ -194,10 +202,17 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
 		if (next.kind === "punct" && (next.text === ":=" || next.text === "=>")) {
 			const nameTok = cur.consume();
 			const opTok = cur.consume();
+			const output = opTok.text === "=>";
+			const param: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span };
+			// An output may be left unconnected: `out => ,` or `out => )`. Only outputs — an empty
+			// input target is a genuine error.
+			const after = cur.peek();
+			if (output && after.kind === "punct" && (after.text === "," || after.text === ")")) {
+				return { kind: "call_arg", param, output: true, span: merge(nameTok.span, opTok.span) };
+			}
 			const value = parseExpression(cur);
 			if (value === undefined) return undefined;
-			const param: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span };
-			return { kind: "call_arg", param, output: opTok.text === "=>", value, span: merge(nameTok.span, value.span) };
+			return { kind: "call_arg", param, output, value, span: merge(nameTok.span, value.span) };
 		}
 	}
 	const value = parseExpression(cur);

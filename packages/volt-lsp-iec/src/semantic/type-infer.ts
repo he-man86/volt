@@ -306,11 +306,34 @@ function literalType(lit: Literal): InferredType {
 
 const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="]);
 
+// IEC 61131-3 temporal arithmetic: a datetime minus the same datetime is a DURATION (not the
+// datetime), and a datetime ± a duration stays the datetime. Names are canonical (DT/TOD/…).
+const DATETIME_TYPES: ReadonlySet<string> = new Set(["DATE", "TOD", "DT", "LDATE", "LTOD", "LDT"]);
+const DURATION_TYPES: ReadonlySet<string> = new Set(["TIME", "LTIME"]);
+const durationFor = (name: string): string => (name.startsWith("L") ? "LTIME" : "TIME");
+
+/** The IEC result type of temporal `+`/`-`, or undefined when the operands aren't a temporal pair. */
+function temporalArithResult(op: string, l: string, r: string): string | undefined {
+	if (op === "-") {
+		if (DATETIME_TYPES.has(l) && l === r) return durationFor(l); // DT - DT = TIME
+		if (DATETIME_TYPES.has(l) && DURATION_TYPES.has(r)) return l; // DT - TIME = DT
+	}
+	if (op === "+") {
+		if (DATETIME_TYPES.has(l) && DURATION_TYPES.has(r)) return l; // DT + TIME = DT
+		if (DURATION_TYPES.has(l) && DATETIME_TYPES.has(r)) return r; // TIME + DT = DT
+	}
+	return undefined;
+}
+
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): InferredType {
 	if (COMPARISON_OPS.has(e.op)) return { kind: "elementary", name: "BOOL" };
 	// Arithmetic / bitwise: conservative — only commit when both operands infer to the same named type.
 	const l = inferExprType(e.left, scope, project);
 	const r = inferExprType(e.right, scope, project);
+	if (l.name !== undefined && r.name !== undefined) {
+		const temporal = temporalArithResult(e.op, l.name, r.name);
+		if (temporal !== undefined) return { kind: "elementary", name: temporal };
+	}
 	return l.name !== undefined && l.name === r.name ? l : UNKNOWN_TYPE;
 }
 

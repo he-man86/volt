@@ -67,6 +67,7 @@ export function checkConversionCalls(
 				if (conv === undefined || conv.sourceType === "ANY") return;
 				if (e.args.length !== 1 || e.args[0]!.param !== undefined) return; // single positional arg
 				const arg = e.args[0]!.value;
+				if (arg === undefined) return;
 				const t = inferExprType(arg, scope, project);
 				if (t.kind !== "elementary" || t.name === undefined) return; // only elementary args (matches old)
 				const argType = t.name;

@@ -110,7 +110,8 @@ function checkCall(e: CallExpr, callee: Callee, scope: Scope, project: Scope, ou
 	}
 }
 
-function checkArgType(argExpr: Expr, param: { name: string; typeExpr: TypeExpr }, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+function checkArgType(argExpr: Expr | undefined, param: { name: string; typeExpr: TypeExpr }, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+	if (argExpr === undefined) return; // unconnected output (`out => ,`) — nothing to type-check
 	const argT = inferExprType(argExpr, scope, project);
 	if (argT.kind !== "elementary" || argT.name === undefined) return;
 	const paramT = typeExprToInferred(param.typeExpr, project);

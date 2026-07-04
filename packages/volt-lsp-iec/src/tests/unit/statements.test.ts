@@ -147,3 +147,37 @@ describe("empty body", () => {
 		expect(r.statements).toHaveLength(0);
 	});
 });
+
+describe("CODESYS constructs found on the real-project corpus", () => {
+	it("chained assignment `a := b := c` (all receive c)", () => {
+		// From the corpus: `ProgramSelector := uiProgramSelector := SEL(...)`.
+		const r = run("a := b := SEL(cond, x, y);");
+		expect(r.ok).toBe(true);
+		expect(r.statements).toHaveLength(1);
+		const s = r.statements[0]!;
+		if (s.kind !== "assign") throw new Error("expected assign");
+		expect(s.target.kind).toBe("ident_expr");
+		expect(s.chained).toHaveLength(1); // the intermediate `b`
+	});
+
+	it("__TRY / __CATCH / __ENDTRY exception block", () => {
+		// From the corpus: `__TRY … __CATCH(GVL.codes[...]) … __ENDTRY`.
+		const r = run("__TRY\n  x := 1;\n__CATCH(GVL.codes[1])\n  y := 2;\n__ENDTRY");
+		expect(r.ok).toBe(true);
+		expect(r.statements).toHaveLength(1);
+		const s = r.statements[0]!;
+		if (s.kind !== "try") throw new Error("expected try");
+		expect(s.tryBody).toHaveLength(1);
+		expect(s.catchVar).toBeDefined();
+		expect(s.catchBody).toHaveLength(1);
+	});
+
+	it("__TRY / __FINALLY (no catch)", () => {
+		const r = run("__TRY\n  x := 1;\n__FINALLY\n  y := 2;\n__ENDTRY");
+		expect(r.ok).toBe(true);
+		const s = r.statements[0]!;
+		if (s.kind !== "try") throw new Error("expected try");
+		expect(s.finallyBody).toHaveLength(1);
+		expect(s.catchBody).toBeUndefined();
+	});
+});
