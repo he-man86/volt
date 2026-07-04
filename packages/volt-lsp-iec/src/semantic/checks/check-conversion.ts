@@ -12,9 +12,8 @@
  *   - When the inner identifier can't be resolved, we skip (so the
  *     unresolved-identifier diagnostic handles it, not us).
  */
-import type { BodySpan, Expr, ParseResult } from "../../parser/ast.js";
+import type { Expr, ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
-import { lookup as resolverLookup } from "../resolver.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
@@ -23,12 +22,7 @@ import {
 	getConversion,
 	isAcceptableSource,
 } from "../../reference/type-conversion.js";
-import {
-	type DiagnosticItem,
-	getBody,
-	findScopeForUnit,
-	isLexerTrivia,
-} from "./_shared.js";
+import { type DiagnosticItem, getBody, findScopeForUnit } from "./_shared.js";
 
 /** Source-like text of a conversion argument, for the diagnostic message. */
 function renderArg(expr: Expr): string {
@@ -60,96 +54,28 @@ export function checkConversionCalls(
 		if (scope === undefined) continue;
 
 		const parsed = parseStatements(body);
-		if (parsed.ok) {
-			walkAllExprs(parsed.statements, (e) => {
-				if (e.kind !== "call" || e.callee.kind !== "ident_expr") return;
-				const conv = getConversion(e.callee.name);
-				if (conv === undefined || conv.sourceType === "ANY") return;
-				if (e.args.length !== 1 || e.args[0]!.param !== undefined) return; // single positional arg
-				const arg = e.args[0]!.value;
-				if (arg === undefined) return;
-				const t = inferExprType(arg, scope, project);
-				if (t.kind !== "elementary" || t.name === undefined) return; // only elementary args (matches old)
-				const argType = t.name;
-				if (isAcceptableSource(conv, argType)) return;
-				const argText = renderArg(arg);
-				const replacements = conversionsForSource(argType, conv.destType);
-				const suggestion = replacements.length > 0 ? ` Use \`${replacements[0]?.name}(${argText})\` instead.` : "";
-				out.push({
-					severity: "error",
-					span: e.callee.span,
-					source: "volt-lsp-iec",
-					code: "conversion-source-mismatch",
-					message: `Conversion '${conv.name}' expects ${conv.sourceType}, but '${argText}' is declared ${argType}.${suggestion}`,
-				});
-			});
-			continue;
-		}
-		checkTokenScan(body, scope, project, out);
-	}
-}
-
-/** Original token-scan path — used verbatim when a body doesn't parse to a clean statement tree. */
-function checkTokenScan(body: BodySpan, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
-	{
-		const meaningful = body.tokens.filter((t) => !isLexerTrivia(t.kind));
-		for (let i = 0; i < meaningful.length; i++) {
-			const callTok = meaningful[i];
-			if (callTok === undefined || callTok.kind !== "identifier") continue;
-
-			const conv = getConversion(callTok.text);
-			if (conv === undefined) continue;
-			if (conv.sourceType === "ANY") continue; // TO_<DST> form — can't validate
-
-			// Need `(` next.
-			const lparen = meaningful[i + 1];
-			if (lparen?.kind !== "punct" || lparen.text !== "(") continue;
-			// Need simple identifier as the single arg.
-			const argTok = meaningful[i + 2];
-			if (argTok?.kind !== "identifier") continue;
-			const rparen = meaningful[i + 3];
-			if (rparen?.kind !== "punct" || rparen.text !== ")") continue;
-
-			// Resolve the inner identifier.
-			const r = resolverLookup(scope, argTok.text);
-			if (r === undefined) continue; // unresolved → other diagnostic handles
-			const typeExpr = r.symbol.typeExpr;
-			if (typeExpr === undefined) continue;
-			// Extract a comparable type name. We only check the
-			// straightforward cases — array / pointer / reference /
-			// implicit-enum get skipped (composite types can't easily
-			// match a conversion's source).
-			let argType: string;
-			if (typeExpr.kind === "named_type") {
-				argType = typeExpr.name.text;
-			} else if (typeExpr.kind === "string_type") {
-				argType = typeExpr.wide ? "WSTRING" : "STRING";
-			} else {
-				continue;
-			}
-
-			if (isAcceptableSource(conv, argType)) continue;
-
-			// Suggest a replacement: same destination, source matching
-			// the argument's actual type. Prefer the strictly-named form.
+		if (!parsed.ok) continue; // body-AST is 100% on real code; skip a non-parsing body (conservative, zero-FP)
+		walkAllExprs(parsed.statements, (e) => {
+			if (e.kind !== "call" || e.callee.kind !== "ident_expr") return;
+			const conv = getConversion(e.callee.name);
+			if (conv === undefined || conv.sourceType === "ANY") return;
+			if (e.args.length !== 1 || e.args[0]!.param !== undefined) return; // single positional arg
+			const arg = e.args[0]!.value;
+			if (arg === undefined) return;
+			const t = inferExprType(arg, scope, project);
+			if (t.kind !== "elementary" || t.name === undefined) return; // only elementary args
+			const argType = t.name;
+			if (isAcceptableSource(conv, argType)) return;
+			const argText = renderArg(arg);
 			const replacements = conversionsForSource(argType, conv.destType);
-			const suggestion =
-				replacements.length > 0
-					? ` Use \`${replacements[0]?.name}(${argTok.text})\` instead.`
-					: "";
-
+			const suggestion = replacements.length > 0 ? ` Use \`${replacements[0]?.name}(${argText})\` instead.` : "";
 			out.push({
-				// Error — TC refuses to compile these ("Cannot convert
-				// type X to type Y"). Matching the TC severity keeps
-				// the IDE squiggle red where the IDE squiggle is red.
 				severity: "error",
-				span: callTok.span,
+				span: e.callee.span,
 				source: "volt-lsp-iec",
 				code: "conversion-source-mismatch",
-				message:
-					`Conversion '${conv.name}' expects ${conv.sourceType}, ` +
-					`but '${argTok.text}' is declared ${argType}.${suggestion}`,
+				message: `Conversion '${conv.name}' expects ${conv.sourceType}, but '${argText}' is declared ${argType}.${suggestion}`,
 			});
-		}
+		});
 	}
 }

@@ -596,6 +596,37 @@ iCopy := unknownVar^;
 END_FUNCTION_BLOCK`);
 		expect(diags.filter((d) => d.code === "deref-non-pointer")).toHaveLength(0);
 	});
+
+	// Tree migration: a member/index base is now typed via inference (the old token check only saw `<id>^`).
+	it("flags `s.count^` when the struct field is INT (member base)", () => {
+		const { diags } = setup(`TYPE T_S : STRUCT
+	count : INT;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_X
+VAR
+	s : T_S;
+	n : INT;
+END_VAR
+n := s.count^;
+END_FUNCTION_BLOCK`);
+		const errors = diags.filter((d) => d.code === "deref-non-pointer");
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toContain("s.count");
+	});
+
+	it("allows `s.p^` when the struct field is a POINTER (member base)", () => {
+		const { diags } = setup(`TYPE T_S : STRUCT
+	p : POINTER TO INT;
+END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_X
+VAR
+	s : T_S;
+	n : INT;
+END_VAR
+n := s.p^;
+END_FUNCTION_BLOCK`);
+		expect(diags.filter((d) => d.code === "deref-non-pointer")).toHaveLength(0);
+	});
 });
 
 describe("diagnostics: shadowing — qualified_only GVL suppression", () => {

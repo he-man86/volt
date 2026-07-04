@@ -4,25 +4,18 @@
  *   - arithmetic (+, -, *, /) mixing BOOL with numeric (TC: "Cannot
  *     convert type 'BOOL' to type 'INT'")
  *
- * Primary path walks the statement AST (`st-body-ast`) and infers each
- * operand's type via `type-infer.ts`, so operands of any shape (members,
- * calls, nested expressions) are covered — previously it only matched a
- * flat `lhs := a op b` of two bare identifiers. Falls back to the token
- * scan when a body doesn't parse. Conservative: an operand that infers to
- * a non-elementary / unknown type skips the check (never a false positive).
+ * Walks the statement AST (`st-body-ast`) and infers each operand's type
+ * via `type-infer.ts`, so operands of any shape (members, calls, nested
+ * expressions) are covered. A body that doesn't parse to a clean tree is
+ * skipped (the treewalker is 100% on real code). Conservative: an operand
+ * that infers to a non-elementary / unknown type skips the check.
  */
-import type { BinaryExpr, BodySpan, Expr, ParseResult } from "../../parser/ast.js";
+import type { BinaryExpr, Expr, ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
-import {
-	type DiagnosticItem,
-	getBody,
-	findScopeForUnit,
-	simpleIdentifierType,
-	isLexerTrivia,
-} from "./_shared.js";
+import { type DiagnosticItem, getBody, findScopeForUnit } from "./_shared.js";
 
 const ARITH_OPS = new Set(["+", "-", "*", "/"]);
 const INTEGER_TYPES = new Set([
@@ -52,19 +45,16 @@ export function checkBinaryOperators(
 		if (scope === undefined) continue;
 
 		const parsed = parseStatements(body);
-		if (parsed.ok) {
-			walkAllExprs(parsed.statements, (e) => {
-				if (e.kind !== "binary") return;
-				const opText = ARITH_OPS.has(e.op) ? e.op : e.op === "MOD" ? "MOD" : undefined;
-				if (opText === undefined) return;
-				const aType = elemName(e.left, scope, project);
-				const bType = elemName(e.right, scope, project);
-				if (aType === undefined || bType === undefined) return;
-				checkOperands(e, opText, aType, bType, out);
-			});
-			continue;
-		}
-		checkTokenScan(body, scope, project, out);
+		if (!parsed.ok) continue; // body-AST is 100% on real code; skip a non-parsing body (conservative, zero-FP)
+		walkAllExprs(parsed.statements, (e) => {
+			if (e.kind !== "binary") return;
+			const opText = ARITH_OPS.has(e.op) ? e.op : e.op === "MOD" ? "MOD" : undefined;
+			if (opText === undefined) return;
+			const aType = elemName(e.left, scope, project);
+			const bType = elemName(e.right, scope, project);
+			if (aType === undefined || bType === undefined) return;
+			checkOperands(e, opText, aType, bType, out);
+		});
 	}
 }
 
@@ -92,63 +82,6 @@ function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: stri
 				code: "binary-op-type-mismatch",
 				message: `Arithmetic '${opText}' cannot mix BOOL with numeric — got ${aType} ${opText} ${bType}.`,
 			});
-		}
-	}
-}
-
-/** Original token-scan path — used verbatim when a body doesn't parse to a clean statement tree. */
-function checkTokenScan(body: BodySpan, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
-	{
-		const meaningful = body.tokens.filter((t) => !isLexerTrivia(t.kind));
-		// Walk looking for `<lhs> := <a> <op> <b> ;` shapes (6 tokens).
-		for (let i = 0; i + 5 < meaningful.length; i++) {
-			const lhs = meaningful[i]!;
-			const assign = meaningful[i + 1]!;
-			const opA = meaningful[i + 2]!;
-			const op = meaningful[i + 3]!;
-			const opB = meaningful[i + 4]!;
-			const semi = meaningful[i + 5]!;
-			if (lhs.kind !== "identifier") continue;
-			if (assign.kind !== "punct" || assign.text !== ":=") continue;
-			if (opA.kind !== "identifier" || opB.kind !== "identifier") continue;
-			if (semi.kind !== "punct" || semi.text !== ";") continue;
-
-			let opText: string | undefined;
-			if (op.kind === "punct" && ARITH_OPS.has(op.text)) opText = op.text;
-			else if (op.kind === "keyword" && op.text.toUpperCase() === "MOD") opText = "MOD";
-			if (opText === undefined) continue;
-
-			const aType = simpleIdentifierType(scope, opA.text);
-			const bType = simpleIdentifierType(scope, opB.text);
-			if (aType === undefined || bType === undefined) continue;
-
-			if (opText === "MOD") {
-				if (!INTEGER_TYPES.has(aType) || !INTEGER_TYPES.has(bType)) {
-					out.push({
-						severity: "error",
-						span: op.span,
-						source: "volt-lsp-iec",
-						code: "binary-op-type-mismatch",
-						message: `'MOD' is defined for integer types only — got ${aType} and ${bType}.`,
-					});
-				}
-				continue;
-			}
-			// Arithmetic + - * /
-			if (ARITH_OPS.has(opText)) {
-				const bothNumeric = NUMERIC_TYPES.has(aType) && NUMERIC_TYPES.has(bType);
-				if (bothNumeric) continue;
-				// One BOOL + one numeric — the common cross-type bug.
-				if (aType === "BOOL" || bType === "BOOL") {
-					out.push({
-						severity: "error",
-						span: op.span,
-						source: "volt-lsp-iec",
-						code: "binary-op-type-mismatch",
-						message: `Arithmetic '${opText}' cannot mix BOOL with numeric — got ${aType} ${opText} ${bType}.`,
-					});
-				}
-			}
 		}
 	}
 }

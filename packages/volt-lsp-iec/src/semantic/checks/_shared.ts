@@ -9,7 +9,6 @@
 import type { Span } from "../../lexer/span.js";
 import type { BodySpan, TopLevel } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
-import { lookup as resolverLookup } from "../resolver.js";
 import { ALL_KEYWORDS } from "../../lexer/tokens.js";
 import { isVgBody } from "../../vg/index.js";
 
@@ -123,23 +122,4 @@ export function findScopeByName(project: Scope, name: string): Scope | undefined
 	return walk(project);
 }
 
-/** Look up an identifier and return its declared elementary type name (uppercased), or undefined when not resolvable to a simple named type. */
-export function simpleIdentifierType(scope: Scope, name: string): string | undefined {
-	const r = resolverLookup(scope, name);
-	if (r === undefined) return undefined;
-	const t = r.symbol.typeExpr;
-	if (t === undefined) return undefined;
-	if (t.kind === "named_type") return t.name.text.toUpperCase();
-	if (t.kind === "string_type") return t.wide ? "WSTRING" : "STRING";
-	return undefined;
-}
-
-export function isLexerTrivia(kind: string): boolean {
-	return (
-		kind === "whitespace" ||
-		kind === "line_comment" ||
-		kind === "block_comment" ||
-		kind === "pragma"
-	);
-}
 
