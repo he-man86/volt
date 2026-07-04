@@ -744,6 +744,286 @@ exports[`language conformance (LSP vs twincat recording) pragma_conflicting_pair
 }
 `;
 
+exports[`language conformance (LSP vs twincat recording) tc_retain LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_retain",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_persistent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_persistent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_ignore_persistent LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_ignore_persistent",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_init_on_reset LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_on_reset",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_no_symbol LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_no_symbol",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_encoding LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_encoding",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_display_scale LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_display_scale",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_swap_word LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_word",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_swap_dword LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_dword",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_context_id LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_id",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_context_name LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_name",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_init_symbol LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_symbol",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_link_to LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_link_to_oso LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to_oso",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_nc_axis LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_nc_axis",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_rpc_enable LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_rpc_enable",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_call_after_output_update LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_call_after_output_update",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_global_data_type LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_global_data_type",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc_hide_sub_items LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_hide_sub_items",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) tc2_gvl_var_names LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc2_gvl_var_names",
+  "vendor": "twincat",
+}
+`;
+
 exports[`language conformance (LSP vs twincat recording) fb_init_canonical LSP diagnostics agree with twincat 1`] = `
 {
   "ideErrors": 0,
@@ -3264,20 +3544,6 @@ exports[`language conformance (LSP vs twincat recording) use_method_array_param 
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) hide_var LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "hide_var",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) call_after_init LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3288,76 +3554,6 @@ exports[`language conformance (LSP vs codesys recording) call_after_init LSP dia
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "call_after_init",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) warning_message LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "warning_message",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) noinit LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "noinit",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) init_on_onlchange LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "init_on_onlchange",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_hex LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "displaymode_hex",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) no_copy LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "no_copy",
   "vendor": "codesys",
 }
 `;
@@ -3446,20 +3642,6 @@ exports[`language conformance (LSP vs codesys recording) reflection LSP diagnost
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) unknown_attribute_typo LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "unknown_attribute_typo",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) enable_dynamic_creation LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3516,48 +3698,6 @@ exports[`language conformance (LSP vs codesys recording) global_init_slot LSP di
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) monitoring_display LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "monitoring_display",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) monitoring_encoding LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "monitoring_encoding",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) subsequent LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "subsequent",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) suppress_warning LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3568,20 +3708,6 @@ exports[`language conformance (LSP vs codesys recording) suppress_warning LSP di
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "suppress_warning",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) conditionalshow LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "conditionalshow",
   "vendor": "codesys",
 }
 `;
@@ -3642,48 +3768,6 @@ exports[`language conformance (LSP vs codesys recording) instance_path_with_refl
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) displaymode_bin LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "displaymode_bin",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_dec LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "displaymode_dec",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_invalid_value LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "displaymode_invalid_value",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) suppress_warning_multi LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3694,20 +3778,6 @@ exports[`language conformance (LSP vs codesys recording) suppress_warning_multi 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "suppress_warning_multi",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) no_init_aliases LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "no_init_aliases",
   "vendor": "codesys",
 }
 `;
@@ -3896,8 +3966,9 @@ exports[`language conformance (LSP vs codesys recording) pin_presentation_order_
 
 exports[`language conformance (LSP vs codesys recording) implicit_parameter_pouname LSP diagnostics agree with codesys 1`] = `
 {
-  "ideErrors": 0,
+  "ideErrors": 1,
   "ideMessages": [
+    "[error] Function 'LogIt' requires exactly '1' inputs",
     "[warning] The attribute implicit-parameter is unknown and will be ignored by the  compiler.",
   ],
   "ideWarnings": 1,
@@ -3920,20 +3991,6 @@ exports[`language conformance (LSP vs codesys recording) region_basic LSP diagno
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "region_basic",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) error_message LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "error_message",
   "vendor": "codesys",
 }
 `;
@@ -3980,7 +4037,7 @@ exports[`language conformance (LSP vs codesys recording) pragma_unknown_directiv
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) pragma_conflicting_pair LSP diagnostics agree with codesys 1`] = `
+exports[`language conformance (LSP vs codesys recording) tc_retain LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
   "ideMessages": [],
@@ -3989,7 +4046,273 @@ exports[`language conformance (LSP vs codesys recording) pragma_conflicting_pair
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
-  "name": "pragma_conflicting_pair",
+  "name": "tc_retain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_persistent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_persistent",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_ignore_persistent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_ignore_persistent",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_init_on_reset LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_on_reset",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_no_symbol LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_no_symbol",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_encoding LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_encoding",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_display_scale LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_display_scale",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_swap_word LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_word",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_swap_dword LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_swap_dword",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_context_id LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_id",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_context_name LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_context_name",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_init_symbol LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_init_symbol",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_link_to LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_link_to_oso LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_link_to_oso",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_nc_axis LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_nc_axis",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_rpc_enable LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_rpc_enable",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_call_after_output_update LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_call_after_output_update",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_global_data_type LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_global_data_type",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc_hide_sub_items LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc_hide_sub_items",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) tc2_gvl_var_names LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "tc2_gvl_var_names",
   "vendor": "codesys",
 }
 `;
@@ -4098,34 +4421,6 @@ exports[`language conformance (LSP vs codesys recording) fb_reinit_with_params L
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "fb_reinit_with_params",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) identifier_double_underscore LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "identifier_double_underscore",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) identifier_consecutive_underscores LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "identifier_consecutive_underscores",
   "vendor": "codesys",
 }
 `;
@@ -4434,12 +4729,16 @@ exports[`language conformance (LSP vs codesys recording) conversion_overloaded_t
 
 exports[`language conformance (LSP vs codesys recording) duplicate_declaration LSP diagnostics agree with codesys 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] A local variable named 'iCounter' is already defined in 'FB_LANG_duplicate_declaration'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] 'iCounter' is already declared in this scope",
+  ],
   "lspWarnings": 0,
   "name": "duplicate_declaration",
   "vendor": "codesys",
@@ -4461,20 +4760,6 @@ exports[`language conformance (LSP vs codesys recording) unresolved_identifier_i
   ],
   "lspWarnings": 1,
   "name": "unresolved_identifier_in_body",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "pragma_conflict_hide_plus_monitoring",
   "vendor": "codesys",
 }
 `;
@@ -5008,9 +5293,9 @@ exports[`language conformance (LSP vs codesys recording) op_sys_queryinterface L
 {
   "ideErrors": 3,
   "ideMessages": [
-    "[error] Cannot convert type 'Unknown type: '__QUERYINTERFACE(THIS^, ITF_LANG_with_method)'' to type 'BOOL'",
-    "[error] Unknown type: 'ITF_LANG_with_method'",
-    "[error] Identifier 'ITF_LANG_with_method' not defined",
+    "[error] Interface FB_LANG_op_sys_queryinterface does not extend __System.IQueryInterface",
+    "[error] Interface 'ITF_LANG_with_method' must be instantiated to be accessed",
+    "[error] Operation '__QueryInterface' is not possible on type 'ITF_LANG_WITH_METHOD'",
   ],
   "ideWarnings": 0,
   "knownDivergent": true,
@@ -5236,20 +5521,6 @@ exports[`language conformance (LSP vs codesys recording) interface_with_method_i
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) interface_missing_implementation LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "interface_missing_implementation",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) interface_extends_another LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -5302,20 +5573,6 @@ exports[`language conformance (LSP vs codesys recording) interface_method_with_r
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "interface_method_with_return_type_impl",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) interface_with_property LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "interface_with_property",
   "vendor": "codesys",
 }
 `;
@@ -5414,20 +5671,6 @@ exports[`language conformance (LSP vs codesys recording) oop_abstract_fb LSP dia
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "oop_abstract_fb",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) oop_abstract_instantiated LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "oop_abstract_instantiated",
   "vendor": "codesys",
 }
 `;
@@ -5577,34 +5820,6 @@ exports[`language conformance (LSP vs codesys recording) type_dut_struct_simple 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "type_dut_struct_simple",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_extends LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "type_dut_struct_extends",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_nested LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "type_dut_struct_nested",
   "vendor": "codesys",
 }
 `;
@@ -5917,24 +6132,11 @@ exports[`language conformance (LSP vs codesys recording) var_retain LSP diagnost
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) var_persistent LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "var_persistent",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) var_non_retain LSP diagnostics agree with codesys 1`] = `
 {
-  "ideErrors": 4,
+  "ideErrors": 5,
   "ideMessages": [
+    "[error] ',, AT or :' expected instead of 'iCount'",
     "[error] Identifier 'iCount' not defined",
     "[error] 'iCount' is no valid assignment target",
     "[error] Unknown type: 'iCount'",
@@ -5976,20 +6178,6 @@ exports[`language conformance (LSP vs codesys recording) var_external_gvl LSP di
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "var_external_gvl",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) var_external_consumer LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "var_external_consumer",
   "vendor": "codesys",
 }
 `;
@@ -6351,20 +6539,6 @@ exports[`language conformance (LSP vs codesys recording) use_struct_member_acces
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) use_struct_nested_member LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "use_struct_nested_member",
-  "vendor": "codesys",
-}
-`;
-
 exports[`language conformance (LSP vs codesys recording) use_gvl_field_access LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -6459,566 +6633,6 @@ exports[`language conformance (LSP vs codesys recording) use_method_array_param 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "use_method_array_param",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_retain LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_retain",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_persistent LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_persistent",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_ignore_persistent LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_ignore_persistent",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_init_on_reset LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_init_on_reset",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_no_symbol LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_no_symbol",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_encoding LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_encoding",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_display_scale LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_display_scale",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_swap_word LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_swap_word",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_swap_dword LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_swap_dword",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_context_id LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_context_id",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_context_name LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_context_name",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_init_symbol LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_init_symbol",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_link_to LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_link_to",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_link_to_oso LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_link_to_oso",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_nc_axis LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_nc_axis",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_rpc_enable LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_rpc_enable",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_call_after_output_update LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_call_after_output_update",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_global_data_type LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_global_data_type",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc_hide_sub_items LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_hide_sub_items",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) tc2_gvl_var_names LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc2_gvl_var_names",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_retain LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_retain",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_persistent LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_persistent",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_ignore_persistent LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_ignore_persistent",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_init_on_reset LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_init_on_reset",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_no_symbol LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_no_symbol",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_encoding LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_encoding",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_display_scale LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_display_scale",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_swap_word LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_swap_word",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_swap_dword LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_swap_dword",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_context_id LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_context_id",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_context_name LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_context_name",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_init_symbol LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_init_symbol",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_link_to LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_link_to",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_link_to_oso LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_link_to_oso",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_nc_axis LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_nc_axis",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_rpc_enable LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_rpc_enable",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_call_after_output_update LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_call_after_output_update",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_global_data_type LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_global_data_type",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc_hide_sub_items LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc_hide_sub_items",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) tc2_gvl_var_names LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "tc2_gvl_var_names",
   "vendor": "codesys",
 }
 `;

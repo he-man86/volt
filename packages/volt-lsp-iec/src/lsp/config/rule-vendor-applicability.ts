@@ -62,14 +62,6 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 */
 	vendorOnlyOperator: ["twincat"],
 	/**
-	 * TC errors on two declarations sharing a name in the same scope
-	 * (`A local variable named 'X' is already defined in '...'`).
-	 * CODESYS apparently doesn't surface this through the messages we
-	 * scrape from the build store — verified: `duplicate_declaration`
-	 * → TC 1 error, CS 0.
-	 */
-	duplicateDeclaration: ["twincat"],
-	/**
 	 * `{error 'msg'}`, `{warning 'msg'}`, `{info 'msg'}`, `{text 'msg'}`
 	 * are TC-specific pragmas that surface during the TC compile. CODESYS
 	 * uses different pragma syntax for compile-time messages and the

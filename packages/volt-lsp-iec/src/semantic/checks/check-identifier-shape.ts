@@ -5,14 +5,20 @@
  *   - consecutive-underscores
  *   - duplicate-declaration (same name twice in one scope)
  *
- * Walks every top-level unit's declared names + a project-wide pass
- * over the scope tree for duplicates.
+ * Walks every top-level unit's declared names, and checks each unit's OWN
+ * scope tree (its VARs, method params, struct fields, …) for duplicates.
+ *
+ * Scoped to the CURRENT file's units — NOT the whole project: two files
+ * legitimately reuse names (a `GVL`, an `Errors` GVL, a `Delete` FB + a
+ * `Delete` function), which CODESYS resolves by namespace and IEC allows;
+ * flagging those (and re-emitting every project duplicate on every file's
+ * diagnostic pass) was a massive false-positive source.
  */
 import type { Span } from "../../lexer/span.js";
 import type { ParseResult, TopLevel } from "../../parser/ast.js";
 import type { Scope, Symbol } from "../symbol-table.js";
 import type { DiagnosticConfig } from "../../lsp/config/index.js";
-import { type DiagnosticItem, KEYWORD_SET, getUnitName } from "./_shared.js";
+import { type DiagnosticItem, KEYWORD_SET, getUnitName, findScopeForUnit } from "./_shared.js";
 
 /** Contextual keywords that are ALSO valid identifiers (accessors + access/inheritance modifiers). CODESYS
  *  reserves them only in specific positions, so a method/var named `Set`, `Get`, `Override`, … is legal and
@@ -31,7 +37,12 @@ export function walkDeclarations(
 		checkUnitIdentifiers(unit, cfg, out);
 	}
 	if (cfg.duplicateDeclaration) {
-		walkScopeForDuplicates(project, out);
+		// Only THIS file's unit scopes — a POU's own locals/methods, a struct's fields, etc. Skip the project
+		// scope (cross-file name reuse is legal + resolved by namespace) and never walk other files' units.
+		for (const unit of parseResult.units) {
+			const scope = findScopeForUnit(project, unit);
+			if (scope !== undefined) walkScopeForDuplicates(scope, out);
+		}
 	}
 }
 
