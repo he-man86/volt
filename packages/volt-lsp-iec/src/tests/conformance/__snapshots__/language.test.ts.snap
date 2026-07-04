@@ -3558,6 +3558,24 @@ exports[`language conformance (LSP vs codesys recording) call_after_init LSP dia
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) warning_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [
+    "[warning] this is a deliberate test warning",
+  ],
+  "lspWarnings": 1,
+  "name": "warning_message",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) linkalways LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3733,7 +3751,9 @@ exports[`language conformance (LSP vs codesys recording) info_message LSP diagno
   "ideWarnings": 0,
   "knownDivergent": false,
   "lspErrors": 0,
-  "lspMessages": [],
+  "lspMessages": [
+    "[information] this is a deliberate test info",
+  ],
   "lspWarnings": 0,
   "name": "info_message",
   "vendor": "codesys",
@@ -3747,7 +3767,9 @@ exports[`language conformance (LSP vs codesys recording) text_message LSP diagno
   "ideWarnings": 0,
   "knownDivergent": false,
   "lspErrors": 0,
-  "lspMessages": [],
+  "lspMessages": [
+    "[hint] this is a deliberate test text",
+  ],
   "lspWarnings": 0,
   "name": "text_message",
   "vendor": "codesys",
@@ -3991,6 +4013,24 @@ exports[`language conformance (LSP vs codesys recording) region_basic LSP diagno
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "region_basic",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) error_message LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] this is a deliberate test error",
+  ],
+  "lspWarnings": 0,
+  "name": "error_message",
   "vendor": "codesys",
 }
 `;
@@ -4421,6 +4461,50 @@ exports[`language conformance (LSP vs codesys recording) fb_reinit_with_params L
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "fb_reinit_with_params",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) identifier_double_underscore LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 5,
+  "ideMessages": [
+    "[error] Unexpected token '__systemReserved' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected token 'INT' found",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Identifiers starting with '__' are reserved for system-generated names",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_double_underscore",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) identifier_consecutive_underscores LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 5,
+  "ideMessages": [
+    "[error] Unexpected token 'foo__bar' found",
+    "[error] ';' expected instead of ':'",
+    "[error] Unexpected token ':' found",
+    "[error] ';' expected instead of 'INT'",
+    "[error] Unexpected token 'INT' found",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Multiple consecutive underscores are not permitted in identifiers",
+  ],
+  "lspWarnings": 0,
+  "name": "identifier_consecutive_underscores",
   "vendor": "codesys",
 }
 `;

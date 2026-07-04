@@ -208,8 +208,13 @@ for (const { vendor, filename } of RECORDINGS) {
 
 				it(`LSP diagnostics agree with ${vendor}`, () => {
 					const lspDiags = runLsp(test.source, testIdx, vendor);
-					const lspFlagged = lspDiags.length > 0;
-					const recordedFlagged = recorded.diagnostics.length > 0;
+					// Compare error+warning presence only — symmetric with the recorder, which drops CODESYS
+					// info-severity noise (`record-language.ts`). The LSP's `information`/`hint` diagnostics
+					// (e.g. `{info}`/`{text}` message pragmas, shadowing) have no ground-truth counterpart, so
+					// counting them would be an unfair asymmetry.
+					const significant = (sev: string): boolean => sev === "error" || sev === "warning";
+					const lspFlagged = lspDiags.some((d) => significant(d.severity));
+					const recordedFlagged = recorded.diagnostics.some((d) => significant(d.severity));
 
 					// HARD assertion: did the LSP flag the same code the IDE
 					// flagged? Skipped for documented per-test divergences

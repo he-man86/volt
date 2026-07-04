@@ -14,15 +14,15 @@
  * tests where the two IDEs disagreed; each entry here cites the
  * test whose divergence motivates the vendor tag.
  *
- * ⚠️ RE-VERIFICATION NEEDED: several entries below were verified against the
- * OLD recorder, which had a fixed bug (it placed the test item out of scope, so
- * every build failed with `Unknown type` — a false "CODESYS didn't flag it").
- * `duplicateDeclaration` was already corrected. `doubleUnderscore`,
- * `consecutiveUnderscores`, `missingInterfaceImplementation`,
- * `missingInterfaceSignature`, and `messagePragmas` are suspect — the fresh
- * recordings show CODESYS DOES flag them — and must be re-verified against the
- * fresh recording + the corpus (zero-FP) before enabling. See
- * `openspec/specs/language-server/diagnostics-conformance.md`.
+ * NOTE: several former entries were verified against the OLD recorder (a fixed
+ * bug placed the test item out of scope → every build spuriously `Unknown type`
+ * → a false "CODESYS didn't flag it"). Re-verified against the fresh recordings:
+ *   - `duplicateDeclaration`, `doubleUnderscore`, `consecutiveUnderscores`,
+ *     `messagePragmas` — CODESYS flags them, zero corpus FP → now enabled for BOTH.
+ *   - `missingInterfaceImplementation` / `missingInterfaceSignature` — CODESYS
+ *     flags them too, but the CHECK has 189 corpus FPs (can't resolve inherited /
+ *     library interface members) → kept TwinCAT-only until the check is robust.
+ * See `openspec/specs/language-server/diagnostics-conformance.md`.
  *
  * Adding a new rule? Default is "both vendors" (no entry needed).
  * Add an entry ONLY if there's recorded conformance evidence one
@@ -38,33 +38,6 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	Record<keyof DiagnosticConfig, VendorApplicability>
 > = {
 	/**
-	 * TC errors on identifiers starting with `__` (system-name
-	 * collision risk). CODESYS accepts the same code silently
-	 * (verified: `identifier_double_underscore` test → TC 5 errors,
-	 * CS 0).
-	 */
-	doubleUnderscore: ["twincat"],
-	/**
-	 * TC errors on multiple consecutive underscores anywhere in an
-	 * identifier. CODESYS accepts (verified:
-	 * `identifier_consecutive_underscores` → TC 5 errors, CS 0).
-	 */
-	consecutiveUnderscores: ["twincat"],
-	/**
-	 * TC catches `IMPLEMENTS X` declarations missing required interface
-	 * members at parse time. CODESYS surfaces these only at build
-	 * time and via different diagnostic channels we don't currently
-	 * scrape (verified: `interface_missing_implementation` and
-	 * `interface_with_property_impl` → TC 1 error each, CS 0).
-	 */
-	missingInterfaceImplementation: ["twincat"],
-	/**
-	 * Signature check extends missingInterfaceImplementation — same
-	 * vendor applicability: TC validates signatures at parse time,
-	 * CODESYS is silent on the same divergences.
-	 */
-	missingInterfaceSignature: ["twincat"],
-	/**
 	 * `vendorOnlyOperator` exists specifically to error on CODESYS-only
 	 * operators when the workspace targets TwinCAT. By definition, the
 	 * rule must not fire on a CODESYS workspace — those operators are
@@ -72,14 +45,16 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 */
 	vendorOnlyOperator: ["twincat"],
 	/**
-	 * `{error 'msg'}`, `{warning 'msg'}`, `{info 'msg'}`, `{text 'msg'}`
-	 * are TC-specific pragmas that surface during the TC compile. CODESYS
-	 * uses different pragma syntax for compile-time messages and the
-	 * TC-style pragmas just get silently ignored — verified across
-	 * `error_message`, `warning_message`, `info_message`, `text_message`
-	 * (all TC-flagged, all CS-silent).
+	 * KEPT TwinCAT-only for a DIFFERENT reason than the old "CS 0" claim:
+	 * CODESYS DOES flag missing interface members ("There is no implementation
+	 * for method …"), but our check produces 189 corpus false positives — it
+	 * can't tell a complete implementation from an incomplete one when the
+	 * interface / its members come from a library or a base class. Enable for
+	 * CODESYS only after the check resolves inherited + library interface
+	 * members robustly (same blocker as the external-write check).
 	 */
-	messagePragmas: ["twincat"],
+	missingInterfaceImplementation: ["twincat"],
+	missingInterfaceSignature: ["twincat"],
 };
 
 /**

@@ -140,6 +140,10 @@ export function computeCoverage(
 		}
 		for (const d of computeSemanticDiagnostics({ parseResult, source, project, config, bodyModels, libraryNamespaces, deviceInstances })) {
 			if (isExcluded) { cov.excludedDiags++; continue; }
+			// Message pragmas (`{error}`/`{warning}`/`{info}`/`{text}`) are AUTHOR-emitted diagnostics — the
+			// source literally contains the pragma, and CODESYS emits the same. They are true positives, not
+			// analysis false positives, so they don't belong in the precision (FP) count.
+			if (d.code.startsWith("message-pragma")) continue;
 			cov.byCode[d.code] = (cov.byCode[d.code] ?? 0) + 1;
 			cov.totalDiags++;
 		}

@@ -58,7 +58,11 @@ is its own, and some severities legitimately differ (see unresolved-identifier b
 | Off-by-default checks (narrowing: `operand_uchar_literal` UDINT→BYTE) | ~2 | validate + enable |
 | Deliberate-message fixtures (`{error 'msg'}`) | ~2 | vendor-specific pragma |
 
-## Active triage — the 28 replay hard-failures (trusted recordings, presence mismatch)
+## Active triage — replay hard-failures (trusted recordings, presence mismatch)
+
+**Progress: 28 → 24.** Closed at root: `duplicateDeclaration` (scoping), `doubleUnderscore` +
+`consecutiveUnderscores` (vendor-applicability, zero-FP), `messagePragmas` + the info-severity comparison
+symmetry. Deferred honestly (would break zero-FP): the external-write check, `missingInterfaceImplementation`.
 
 The final full re-record (trusted ground truth) is committed; the replay now hard-fails where the LSP and
 CODESYS disagree on *presence*. Only the conformance replay is affected — corpus ratchet + units stay green.
@@ -82,13 +86,20 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
   - **Fixture-fix — doable now.** Change the 14 pragma fixtures' PLC_PRG to not write internals (read/call
     instead), re-record → the pragma is tested cleanly and CODESYS accepts (both clean → agree).
 
-- **Bucket B — vendor-applicability, checks the LSP HAS (masked on bad ground truth) (4):**
-  `interface_missing_implementation`, `interface_with_property` (CODESYS: "There is no implementation for
-  method…"), `identifier_double_underscore`, `identifier_consecutive_underscores` (CODESYS parse-rejects
-  `__`/`foo__bar`). Re-verify each against the fresh recording + corpus → **enable for codesys** if zero-FP.
+- **Bucket B — vendor-applicability (checks the LSP HAS):**
+  - ✅ `doubleUnderscore`, `consecutiveUnderscores` — CODESYS parse-rejects `__`/`foo__bar`; **enabled for
+    both, zero corpus FP.** `identifier_double_underscore` + `identifier_consecutive_underscores` now agree.
+  - ⏸️ `missingInterfaceImplementation` / `missingInterfaceSignature` — CODESYS flags missing members, but the
+    check has **189 corpus FPs** (can't resolve inherited / library interface members — same blocker as
+    external-write). **Kept TwinCAT-only** until the check is robust. `interface_with_property` is a DISTINCT
+    diagnostic (empty property, no get/set) the LSP doesn't have — a separate new-check gap.
 
-- **Bucket C — message pragmas (2):** `error_message`, `warning_message`. `{error 'msg'}`/`{warning 'msg'}` —
-  CODESYS emitted the message. `messagePragmas` is TwinCAT-only on old ground truth → re-verify + enable.
+- **Bucket C — message pragmas:** ✅ `messagePragmas` **enabled for both** — CODESYS emits `{error}`/`{warning}`.
+  `error_message` + `warning_message` now agree. `{info}`/`{text}` (`info_message`/`text_message`) stay correct
+  via a **methodology fix**: the recorder drops CODESYS info-severity noise, so the replay presence check now
+  compares **error+warning only** (symmetric) instead of all severities. Corpus message-pragma diagnostics are
+  author-emitted (source contains the pragma; CODESYS emits the same) → excluded from the precision (FP) count,
+  not silenced.
 
 - **Bucket D — pragma-attribute warnings (3):** `unknown_attribute_typo`, `monitoring_encoding`,
   `pragma_conflicting_pair`. CODESYS warns (unknown attribute / invalid value / conflicting pingroup). LSP has
