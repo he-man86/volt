@@ -4,12 +4,18 @@
  * Discriminated unions keyed on `kind`. Every node carries a `span`
  * for LSP-style position queries.
  *
- * Coverage intent: navigation-only. We capture enough structure to
- * answer "what's defined where", "what types do these vars have",
- * "what methods does this FB have", "what does this property
- * return". We deliberately do *not* parse statement-level expression
- * trees — bodies are captured as an opaque token span which a
- * later pass scans for identifier references and call sites.
+ * Coverage intent for DECLARATIONS: navigation-first. We capture
+ * enough structure to answer "what's defined where", "what types do
+ * these vars have", "what methods does this FB have", "what does this
+ * property return". A POU body is still stored as an opaque `BodySpan`
+ * token slice on the unit.
+ *
+ * BODIES additionally have a statement/expression AST (the "Statement
+ * / Expression tree" section below), parsed on demand from a
+ * `BodySpan` by `src/parser/statements.ts`. It is additive: the token
+ * slice stays, and consumers opt into the tree when they need real
+ * structure (member chains, call arguments, control flow) instead of a
+ * flat token scan.
  */
 import type { Span } from "../lexer/span.js";
 import type { Keyword, Token } from "../lexer/tokens.js";
@@ -323,6 +329,243 @@ export interface Identifier {
 export interface BodySpan {
 	kind: "body";
 	tokens: Token[];
+	span: Span;
+}
+
+// ─── Statement / Expression tree (POU bodies) ────────────────────────
+//
+// Parsed on demand from a `BodySpan` by `src/parser/statements.ts`
+// (statements) + `src/parser/expression.ts` (expressions). Every node
+// is a discriminated union keyed on `kind` and carries a `span`, like
+// the declaration nodes above. The `kind` strings are disjoint from the
+// declaration/type kinds so a single node type never collides.
+
+export type Expr =
+	| IdentExpr
+	| Literal
+	| BinaryExpr
+	| UnaryExpr
+	| MemberExpr
+	| IndexExpr
+	| DerefExpr
+	| CallExpr
+	| ParenExpr;
+
+/** A bare name reference in an expression (`ActState`, `IMM`). */
+export interface IdentExpr {
+	kind: "ident_expr";
+	name: string;
+	span: Span;
+}
+
+/** Discriminates a literal so consumers can type it without re-lexing. */
+export type LiteralKind =
+	| "int"
+	| "real"
+	| "string"
+	| "wstring"
+	| "time"
+	| "date"
+	| "tod"
+	| "datetime"
+	| "typed" // `INT#5`, `16#FF` — a type-prefixed / based literal
+	| "bool"
+	| "address"; // `%IX0.0`
+
+export interface Literal {
+	kind: "literal";
+	literalKind: LiteralKind;
+	/** Source text exactly as written. */
+	text: string;
+	span: Span;
+}
+
+/**
+ * A binary operation. `op` is the canonical operator: an uppercased
+ * keyword for word operators (`AND`, `OR`, `XOR`, `MOD`, `AND_THEN`,
+ * `OR_ELSE`) or the literal punctuation for symbol operators
+ * (`+ - * / ** < > <= >= = <> &`).
+ */
+export interface BinaryExpr {
+	kind: "binary";
+	op: string;
+	left: Expr;
+	right: Expr;
+	span: Span;
+}
+
+/** A prefix unary operation: `NOT`, unary `-`/`+`, or address-of `&`. */
+export interface UnaryExpr {
+	kind: "unary";
+	op: string;
+	operand: Expr;
+	span: Span;
+}
+
+/** Member access `base.member` (one level; chains nest as `base`). */
+export interface MemberExpr {
+	kind: "member";
+	base: Expr;
+	member: IdentExpr;
+	span: Span;
+}
+
+/** Array/subscript access `base[i]` or `base[i, j]`. */
+export interface IndexExpr {
+	kind: "index";
+	base: Expr;
+	indices: Expr[];
+	span: Span;
+}
+
+/** Pointer dereference `base^`. */
+export interface DerefExpr {
+	kind: "deref";
+	base: Expr;
+	span: Span;
+}
+
+/** Function / method / FB call `callee(args)`. */
+export interface CallExpr {
+	kind: "call";
+	callee: Expr;
+	args: CallArg[];
+	span: Span;
+}
+
+/**
+ * One argument in a call. Positional when `param` is undefined; named
+ * input when `param` is set and `output` is false (`p := v`); output
+ * binding when `output` is true (`p => target`).
+ */
+export interface CallArg {
+	kind: "call_arg";
+	param?: IdentExpr;
+	output: boolean;
+	value: Expr;
+	span: Span;
+}
+
+/** Parenthesised sub-expression — kept so spans/formatting round-trip. */
+export interface ParenExpr {
+	kind: "paren";
+	inner: Expr;
+	span: Span;
+}
+
+// ── Statements ──
+
+export type Statement =
+	| Assignment
+	| CallStatement
+	| IfStatement
+	| CaseStatement
+	| ForStatement
+	| WhileStatement
+	| RepeatStatement
+	| ReturnStatement
+	| ExitStatement
+	| ContinueStatement
+	| EmptyStatement;
+
+/** An ordered list of statements — a body or a nested block. */
+export type StatementList = Statement[];
+
+/** `target := value;` (target may be a member/index/deref l-value). */
+export interface Assignment {
+	kind: "assign";
+	target: Expr;
+	value: Expr;
+	span: Span;
+}
+
+/** A call used as a statement: `Increment.State(...);`. */
+export interface CallStatement {
+	kind: "call_stmt";
+	call: CallExpr;
+	span: Span;
+}
+
+export interface IfStatement {
+	kind: "if";
+	/** `IF` plus each `ELSIF` — evaluated in order. */
+	branches: IfBranch[];
+	elseBody?: StatementList;
+	span: Span;
+}
+
+export interface IfBranch {
+	kind: "if_branch";
+	cond: Expr;
+	body: StatementList;
+	span: Span;
+}
+
+export interface CaseStatement {
+	kind: "case";
+	selector: Expr;
+	arms: CaseArm[];
+	elseBody?: StatementList;
+	span: Span;
+}
+
+export interface CaseArm {
+	kind: "case_arm";
+	labels: CaseLabel[];
+	body: StatementList;
+	span: Span;
+}
+
+/** A CASE label: a single value, or a range when `upper` is set (`1..5`). */
+export interface CaseLabel {
+	kind: "case_label";
+	value: Expr;
+	upper?: Expr;
+	span: Span;
+}
+
+export interface ForStatement {
+	kind: "for";
+	controlVar: Expr;
+	from: Expr;
+	to: Expr;
+	by?: Expr;
+	body: StatementList;
+	span: Span;
+}
+
+export interface WhileStatement {
+	kind: "while";
+	cond: Expr;
+	body: StatementList;
+	span: Span;
+}
+
+export interface RepeatStatement {
+	kind: "repeat";
+	body: StatementList;
+	until: Expr;
+	span: Span;
+}
+
+export interface ReturnStatement {
+	kind: "return";
+	span: Span;
+}
+
+export interface ExitStatement {
+	kind: "exit";
+	span: Span;
+}
+
+export interface ContinueStatement {
+	kind: "continue";
+	span: Span;
+}
+
+/** A lone `;` — kept so statement counts/spans stay faithful. */
+export interface EmptyStatement {
+	kind: "empty";
 	span: Span;
 }
 

@@ -88,8 +88,30 @@ const CORPORA: ReadonlyArray<{
 	dir: string;
 	base: { files: number; parseCleanFiles: number; ingestFiles: number; totalDiags: number; excludedFiles: number };
 }> = [
-	{ name: "pro2193", dir: "pro2193", base: { files: 523, parseCleanFiles: 523, ingestFiles: 523, totalDiags: 35, excludedFiles: 14 } },
-	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 130, parseCleanFiles: 130, ingestFiles: 130, totalDiags: 275, excludedFiles: 0 } },
+	// + library-signature-index Phase 2 (build-free extraction): `AllPrecompiledSignatures(true,true)` returns
+	//   every resolved library signature WITHOUT a build (libraries precompile independently), so `_libsigs`
+	//   materializes even on projects whose headless build fails. Harvested per corpus. pro2193 35→30 (2222
+	//   stubs; residual = bare lib elements CLOCK/TICKS + enum values). Remaining floors are non-library gaps.
+	// + bare enum-member resolution: a non-`{attribute 'qualified_only'}` enum's members are global constants
+	//   reachable unqualified (`StateAutomatic`), but the member symbol lives in the enum's own scope, off the
+	//   resolver's parent chain — so bare refs false-positived. The unresolved check now skips them (cached set
+	//   of bare-accessible enum members). bakon 231→11, pro2193 30→29.
+	// + transitive-namespace `.library` stubs (full GetDependencies() tree) + verbose /fetch signatures materialized
+	//   under each library's folder in the Library Manager (no more `_libsigs/`; `/lib-symbols` folded into
+	//   `/fetch?verbose`; extraction builds first so a freshly-opened project precompiles). Re-harvested from the
+	//   cleaned `_COdesys` project variant. pro2193 29→17 (5220 sigs).
+	// + referenced-only signatures: emit a library element's signature ONLY when project source names it (bridge
+	//   FetchService tokenizes source; drops the blanket `(system)` filter). Shrinks the corpus ~92% AND fixes
+	//   used-system-lib refs (`BLINK`/`StrReplaceA`). Renderer now emits a FB's internal VARs too (a derived FB
+	//   reads its base's internals, e.g. BLINK's `CLOCK`). Parser: soft keywords (`SET`) are valid var names
+	//   (Standard `RS` declares `SET : BOOL`). pro2193 17→3 (279 sigs; residual = `TYPE_CLASS` + a project action).
+	{ name: "pro2193", dir: "pro2193", base: { files: 803, parseCleanFiles: 803, ingestFiles: 803, totalDiags: 3, excludedFiles: 14, stBodiesClean: 1712 } },
+	// bakon 275→231 (4351 stubs). The −44 was the library floor; the 231 residual is a PROJECT-LOCAL gap — bare
+	// enum-value references (`StateAutomatic` of sState, `Prod_*` of sProdType) the unresolved check doesn't yet
+	// resolve against in-scope enums. Tracked separately from libraries.
+	// bakon 11→10 (117 sigs; `SysTimeRtcGet` cleared). Residual 10 = implicit CODESYS globals (`IoConfig_Globals`,
+	// `g_dwAGM1_Status`) — a separate follow-up; compiler-verified as false positives (bakon builds 0 errors).
+	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 247, parseCleanFiles: 247, ingestFiles: 247, totalDiags: 10, excludedFiles: 0, stBodiesClean: 105 } },
 	// awa-palletizer (2026-07-03): the "AWA_Palletizer 09_1" project (54 source files) — a PackML/NextGen-library
 	// machine using `{attribute 'qualified_only'}` GVLs with deep qualified access (PC01_GVL.UN01.myState.…).
 	// Surfaced + fixed a REAL parser gap: a stray double semicolon (`x : T;;`) in a STRUCT or VAR block (CODESYS
@@ -98,7 +120,11 @@ const CORPORA: ReadonlyArray<{
 	// full path, breaking qualified `GvlName.field` access — latent, not hit by the `/`-normalized coverage scan).
 	// Baseline 16 diagnostics, all unresolved-identifier: library-blind (L_IE1P/L_TB2P/MC_DIRECTION) + a small tail
 	// on `myState`/`iIndex` (a local FB var referenced via the `S=` set-assignment — a separate resolver follow-up).
-	{ name: "awa-palletizer", dir: "awa-palletizer", base: { files: 54, parseCleanFiles: 54, ingestFiles: 54, totalDiags: 16, excludedFiles: 0 } },
+	// awa 16→15 (`_libsigs`) →0. The last 15 were NOT the suspected `S=` gap: `FUNCTION_BLOCK UN01_Main EXTENDS
+	// StateMachine;` has a stray trailing `;` after the header, so collectVarSections stopped at it and dropped
+	// every local (myState/iIndex) from the symbol table — every member reference then false-flagged. Consuming
+	// the `;` in parseFunctionBlock (same class as the METHOD/FUNCTION trailing-`;` fix) cleared all 15 → 0.
+	{ name: "awa-palletizer", dir: "awa-palletizer", base: { files: 113, parseCleanFiles: 113, ingestFiles: 113, totalDiags: 0, excludedFiles: 0, stBodiesClean: 64 } },
 	// lenze-mid (2026-07-03): the "Lenze_MID-S100_V5_00_602_T51" project (180 source files) — the first LD-HEAVY
 	// corpus, a stress test for the bridge's PlcOpen⇄VG round-trip AND the LSP's VG analyzer. Every ambiguous case
 	// was triaged against the bridge /debug endpoint (raw PlcOpen) before fixing. Surfaced ONE bridge bug — an
@@ -108,7 +134,26 @@ const CORPORA: ReadonlyArray<{
 	// leaf vs malformed group, and EXTENDS-chain pin resolution. VG_PARSE / VG_BAD_EXPRESSION / VG_DUPLICATE_NAME /
 	// vg-unknown-pin all → 0; the 79 baseline is the library-blind floor (24 vg-undeclared in VG bodies + 55 ST
 	// unresolved, external Lenze/CODESYS libs not mirrored). 1 excluded-from-build object.
-	{ name: "lenze-mid", dir: "lenze-mid", base: { files: 180, parseCleanFiles: 180, ingestFiles: 180, totalDiags: 79, excludedFiles: 1 } },
+	// + library-signature-index Phase 2 (full signatures): the bridge's `POST /lib-symbols` extracts every
+	//   referenced-library element's SIGNATURE (FB/function pins+types, struct fields, enum members, GVLs,
+	//   interfaces) from the resolved compile context and materializes them as read-only per-element stub
+	//   files (`_libsigs/<lib>/<Element>.<kind>`) — 1490 files. The LSP already scans those kind extensions,
+	//   so the stubs ingest into the symbol table for free: bare library elements + member access now resolve
+	//   (files 180→1670, all parse/ingest clean, no self-diagnostics). ST unresolved 55→2. Two check fixes
+	//   rode along: (a) the VG undeclared check now consults libraryNamespaces + deviceInstances like the ST
+	//   check (device/library roots in graphical bodies stopped false-flagging, −18); (b) the VG opaque-leaf
+	//   identifier scan skips `.`-preceded member segments (a deep chain `a.b.c.d/10` no longer flags c/d, −2).
+	//   Diags 79→6. Remaining 6 are corpus-staleness, not code: 4 `EXECUTE` (re-harvest with the execute-box
+	//   bridge fix) + 2 `MEM` (a library ref missing from the corpus's Library Manager).
+	// lenze re-harvested from the cleaned `_Codesys` variant (v21): 5406 sigs + full `.library` tree. MEM now
+	// resolves (CAA Memory.library carries NAMESPACE MEM). 6→4; the 4 residual are the `EXECUTE` graphical boxes
+	// (a separate bridge round-trip issue: the ST inside a CODESYS Execute box is dropped, rendered as `EXECUTE()`).
+	// + Execute-box STCode in LD bodies: the LD block-read path omitted `ReadStCode` (the FBD path had it), so a
+	//   CODESYS Execute box in an LD network dropped its inline ST → rendered `EXECUTE()`. Now it round-trips as
+	//   `EXECUTE … END_EXECUTE`. That exposed a VG-parser gap: an EXECUTE box's `IF en THEN` guard is multi-line and
+	//   consumed in preprocessing, so `en` wasn't registered as an EN wire and `LET en := <wire>` mis-tripped
+	//   VG_LEAF_REFERENCES_TEMP. Now the guard is seeded into enWires from the execute body. lenze 4→0.
+	{ name: "lenze-mid", dir: "lenze-mid", base: { files: 366, parseCleanFiles: 366, ingestFiles: 366, totalDiags: 0, excludedFiles: 1, stBodiesClean: 138 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {
@@ -121,7 +166,8 @@ for (const { name, dir, base } of CORPORA) {
 				`\n  [${name}] ${cov.files} files / ${cov.units} units` +
 					`\n  parse   ${cov.parseCleanFiles}/${cov.files} clean (${pct(cov.parseCleanFiles, cov.files)}) — ${cov.parseErrors} errors` +
 					`\n  ingest  ${cov.ingestFiles}/${cov.files} (${pct(cov.ingestFiles, cov.files)})` +
-					`\n  precision ${cov.totalDiags} diagnostics (target 0): ${JSON.stringify(cov.byCode)}`,
+					`\n  precision ${cov.totalDiags} diagnostics (target 0): ${JSON.stringify(cov.byCode)}` +
+					`\n  body-AST ${cov.stBodiesClean}/${cov.stBodies} bodies clean (${pct(cov.stBodiesClean, cov.stBodies)}) — ${cov.identMismatchBodies} identifier mismatches`,
 			);
 			expect(cov.files).toBeGreaterThanOrEqual(base.files);
 		});
@@ -136,6 +182,18 @@ for (const { name, dir, base } of CORPORA) {
 
 		test("precision does not regress (no new false positives on built objects)", () => {
 			expect(cov.totalDiags).toBeLessThanOrEqual(base.totalDiags);
+		});
+
+		// ── ST body AST (st-body-ast). The tree is additive + falls back to the token scan on any unmodeled
+		//    construct, so `ok=false` bodies are safe. Two ratchets guard it: (1) body-parse-clean never
+		//    regresses — raise the floor as grammar gaps close; (2) ZERO identifier-set mismatches — where the
+		//    AST parses, it must cover every identifier the token scan finds, else it silently mis-parsed. ──
+		test("ST body-parse-clean does not regress", () => {
+			expect(cov.stBodiesClean).toBeGreaterThanOrEqual(base.stBodiesClean);
+		});
+
+		test("ST body AST covers every scanned identifier (no mis-parse)", () => {
+			expect(cov.identMismatchBodies).toBe(0);
 		});
 
 		if (base.excludedFiles > 0) {

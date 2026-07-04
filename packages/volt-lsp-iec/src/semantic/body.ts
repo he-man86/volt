@@ -8,9 +8,10 @@
  * list every LSP query consumes), dispatching to the VG parser for VG
  * bodies and the ST scan otherwise.
  */
-import type { BodySpan, TopLevel } from "../parser/ast.js";
+import type { BodySpan, StatementList, TopLevel } from "../parser/ast.js";
 import type { Span } from "../lexer/span.js";
 import { scanAllIdentifiersInBody } from "./identifier-scan.js";
+import { parseStatements } from "../parser/statements.js";
 import { isVgBody, parseVgBody, type VgBody } from "../vg/index.js";
 import { collectVgIdentifierRefs } from "../vg/identifiers.js";
 
@@ -40,6 +41,17 @@ export interface BodyModel {
 	/** The parsed VG body — present only when `language === "vg"`. Drives
 	 *  every VG query (tokens, hover, navigation, diagnostics, …). */
 	vg?: VgBody;
+	/**
+	 * The parsed ST statement/expression tree — present only for `st`
+	 * bodies (see `src/parser/statements.ts`). Additive: consumers that
+	 * want real structure (member chains, call args, control flow) use
+	 * this; the existing `identifiers`/`calls`/`st` fields are unchanged.
+	 * Trust it only when `statementsOk` is true — otherwise the body hit
+	 * an unmodeled construct and fell back to the token scan.
+	 */
+	statements?: StatementList;
+	/** Whether `statements` covers the whole body with no parse error. */
+	statementsOk?: boolean;
 }
 
 export interface IdentifierRef {
@@ -92,7 +104,8 @@ export function buildBodyModel(st: BodySpan, source?: string): BodyModel {
 	const calls: CallSite[] = identifiers
 		.filter((i) => i.isCall)
 		.map((i) => ({ name: i.name, span: i.span }));
-	return { span: st.span, language: "st", identifiers, calls, st };
+	const parsed = parseStatements(st);
+	return { span: st.span, language: "st", identifiers, calls, st, statements: parsed.statements, statementsOk: parsed.ok };
 }
 
 /** Build a BodyModel for a VG (graphical) body — parse it and collect
