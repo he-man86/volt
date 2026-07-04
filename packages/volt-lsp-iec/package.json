@@ -32,7 +32,8 @@
     "prepare": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsgo --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "record:language": "bun run scripts/record-language.ts"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

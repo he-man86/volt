@@ -20,9 +20,9 @@
 
 ## 4. Revive the live-bridge recorder
 
-- [ ] 4.1 Port the recorder into `scripts/record-language.ts` (from the pre-deletion `volt-agent` version): load `ALL_TESTS`; per category write each case `source` + a PLC_PRG instantiation as workspace `.st`, `volt push` (canonical StSplitter path), `POST /build`, scope diagnostics by object name, cleanup; write `recordings/expected-{vendor}.json`. Vendor by port (8556 CODESYS / 8555 TwinCAT).
-- [ ] 4.2 Add `"record:language"` to `package.json` scripts.
-- [ ] 4.3 Validate live on ONE category (bridge up via `volt-scripts/codesys-bridge.ps1 up`): recorded diagnostics land, cleanup restores the fixture, `language.test.ts` replays green.
+- [x] 4.1 Ported the recorder (per-test ISOLATION — /build has no object attribution, and it prevents stale-logic bleed): reset to empty → push test + PLC_PRG instantiation via `volt push` → /build → record non-info diagnostics → reset. `scripts/record-language.ts`. — was: Port the recorder into `scripts/record-language.ts` (from the pre-deletion `volt-agent` version): load `ALL_TESTS`; per category write each case `source` + a PLC_PRG instantiation as workspace `.st`, `volt push` (canonical StSplitter path), `POST /build`, scope diagnostics by object name, cleanup; write `recordings/expected-{vendor}.json`. Vendor by port (8556 CODESYS / 8555 TwinCAT).
+- [x] 4.2 Added `record:language` to package.json.
+- [~] 4.3 BLOCKED: `volt init`/`pull` fails — the bridge's `/fetch` emits a `librarySignatures` field volt-git's strict schema rejects. Deferred to change `fix-library-signatures-fetch-shape` (deliver signatures as regular items, not a bespoke field). Recorder validation resumes once that lands. — was: Validate live on ONE category (bridge up via `volt-scripts/codesys-bridge.ps1 up`): recorded diagnostics land, cleanup restores the fixture, `language.test.ts` replays green.
 - [ ] 4.4 Update `language.test.ts` skip message + README to reference the restored `record:language`.
 
 ## 5. Codify the model
