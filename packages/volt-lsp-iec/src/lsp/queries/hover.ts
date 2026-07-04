@@ -15,6 +15,9 @@
 import type { Token } from "../../lexer/tokens.js";
 import { lookup } from "../../semantic/resolver.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
+import { memberAtOffset } from "../../parser/ast-walk.js";
+import { resolveMemberChain } from "../../semantic/type-infer.js";
+import { stStatementsAtOffset } from "../st-body-at.js";
 import {
 	lookup as lookupReference,
 	renderHover as renderReferenceHover,
@@ -104,6 +107,26 @@ export function hover(args: HoverArgs): HoverResult | null {
 	// "what is `INT` / `FB_Init` / `{attribute 'no_init'}`" cases the
 	// user did NOT declare.
 	const start = scopeAtOffset(args.project, args.doc, offset);
+
+	// Member-chain hover (st-nav-chains): on a member `a.b`, resolve through the base's type to the member's
+	// real declaration, rather than hovering whatever the bare name resolves to. Falls back below on unresolved.
+	const chainStatements = stStatementsAtOffset(args.doc.bodyModels, offset);
+	if (chainStatements !== undefined) {
+		const member = memberAtOffset(chainStatements, offset);
+		if (member !== undefined) {
+			const sym = resolveMemberChain(member, start, args.project);
+			if (sym !== undefined) {
+				const userHover = renderHover(sym);
+				const typeRef = sym.typeExpr !== undefined ? lookupTypeReference(sym, args.activeVendor) : undefined;
+				const value =
+					typeRef !== undefined
+						? `${userHover}\n\n---\n\n${renderReferenceHover(typeRef, { showSource: args.showSource, activeVendor: args.activeVendor })}`
+						: userHover;
+				return { contents: { kind: "markdown", value }, range: rangeFromSpan(member.member.span) };
+			}
+		}
+	}
+
 	const r = lookup(start, idToken.text);
 	if (r !== undefined) {
 		const userHover = renderHover(r.symbol);

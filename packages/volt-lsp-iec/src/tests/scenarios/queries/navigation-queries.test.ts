@@ -70,6 +70,20 @@ END_FUNCTION_BLOCK`;
 		expect(result?.contents.value).toContain("count : INT");
 	});
 
+	it("reports the member's type resolved through a chain `a.b` (st-nav-chains)", () => {
+		const structSrc = `TYPE Motor :\nSTRUCT\n\tspeed : LREAL;\nEND_STRUCT\nEND_TYPE\n`;
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\tm : Motor;\nEND_VAR\n\nm.speed := 1.0;\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///motor.st", structSrc, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+		const result = hover({
+			doc: ws.getDocument("file:///fb.st")!,
+			position: positionOf(src, "speed"), // `speed` only appears in `m.speed` in this file
+			project: ws.getProjectScope(),
+		});
+		expect(result?.contents.value).toContain("speed : LREAL");
+	});
+
 	it("returns null when no identifier under cursor", () => {
 		const ws = new Workspace();
 		ws.openDocument("file:///x.st", `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`, 1);
