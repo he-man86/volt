@@ -61,8 +61,15 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
 - **Bucket A — external write to a non-`VAR_INPUT` member (14):** `hide_var`, `noinit`, `init_on_onlchange`,
   `displaymode_{hex,bin,dec,invalid_value}`, `no_copy`, `monitoring_display`, `subsequent`, `conditionalshow`,
   `no_init_aliases`, `pragma_conflict_hide_plus_monitoring`. Each fixture's PLC_PRG does `fb.internalVar := x`;
-  CODESYS rejects (`'X' is no input`). **Two roots** — (A) fix the pragma fixtures to not write internals, or
-  (B) add an external-write-access check to the LSP. **DECISION NEEDED.**
+  CODESYS rejects (`'X' is no input`). Rule confirmed in docs (02-variables: only `VAR_INPUT` is externally
+  writable). Decision: **Both** — fix the fixtures + add an LSP check.
+  - **Check attempt → REVERTED (protect zero-FP).** A first `external-non-input-write` check produced **10
+    corpus false positives** — legal writes to library-FB / interface / inherited members (`ModuleHandler.CompName`
+    where `ModuleHandler : L_IMHP.L_IMHP_ModuleHandler`), because the member's section can't be reliably resolved
+    across library-signature FBs, interfaces, and inheritance. **Deferred** until member-section resolution is
+    robust for those cases — shipping it would break the zero-FP invariant.
+  - **Fixture-fix — doable now.** Change the 14 pragma fixtures' PLC_PRG to not write internals (read/call
+    instead), re-record → the pragma is tested cleanly and CODESYS accepts (both clean → agree).
 
 - **Bucket B — vendor-applicability, checks the LSP HAS (masked on bad ground truth) (4):**
   `interface_missing_implementation`, `interface_with_property` (CODESYS: "There is no implementation for
