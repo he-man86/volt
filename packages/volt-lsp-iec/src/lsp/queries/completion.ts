@@ -37,7 +37,8 @@ import {
 } from "../../reference/index.js";
 import { ALL_PRAGMAS } from "../../reference/pragmas.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
-import { findSymbolByName } from "../../semantic/type-infer.js";
+import { lookupLocal } from "../../semantic/symbol-table.js";
+import { inferExprType, typeExprToInferred } from "../../semantic/type-infer.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
 import { scopeAtOffset } from "../scope-at.js";
@@ -60,7 +61,7 @@ export interface CompletionArgs {
 type CursorContext =
 	| { kind: "default" }
 	| { kind: "pragma-attribute" } // inside `{attribute '...'}`
-	| { kind: "member-access"; baseName: string }; // after `<name>.`
+	| { kind: "member-access"; basePath: string[] }; // after `<a>.<b>.` → ["a","b"]
 
 function detectContext(source: string, offset: number): CursorContext {
 	// Look back from the cursor over the current line, ignoring leading whitespace.
@@ -72,10 +73,10 @@ function detectContext(source: string, offset: number): CursorContext {
 		return { kind: "pragma-attribute" };
 	}
 
-	// Member access: `<ident>.` with optional partial identifier following.
-	const member = /([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)?$/.exec(prefix);
+	// Member access: a chain `<a>.<b>.` (any depth) with an optional partial member being typed.
+	const member = /([A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)?$/.exec(prefix);
 	if (member !== null && member[1] !== undefined) {
-		return { kind: "member-access", baseName: member[1] };
+		return { kind: "member-access", basePath: member[1].split(/\s*\.\s*/) };
 	}
 
 	return { kind: "default" };
@@ -91,7 +92,7 @@ export function completion(args: CompletionArgs): CompletionItem[] {
 	}
 
 	if (context.kind === "member-access") {
-		return memberCompletions(context.baseName, args.project);
+		return memberCompletions(context.basePath, scopeAtOffset(args.project, args.doc, offset), args.project);
 	}
 
 	// Default: static reference items + local symbols.
@@ -151,38 +152,34 @@ function pragmaAttributeCompletions(snippetSupport: boolean, activeVendor?: Vend
 
 // ─── Member-access context ───────────────────────────────────────────
 
-function memberCompletions(baseName: string, project: Scope): CompletionItem[] {
-	// Find the FB type referenced by `baseName` and offer its members.
-	// We need: lookup baseName in any reachable scope → get its type →
-	// find that type's scope → return symbols.
-	const baseSym = findSymbol(project, baseName);
-	if (baseSym?.typeExpr === undefined) return [];
-	if (baseSym.typeExpr.kind !== "named_type") return [];
-	const typeName = baseSym.typeExpr.name.text.toLowerCase();
+const NO_SPAN = { start: 0, end: 0, startLine: 0, startCol: 0, endLine: 0, endCol: 0 };
 
-	// Find the type's scope (FB or struct).
-	for (const child of project.children) {
-		if (child.name.toLowerCase() === typeName) {
-			const items: CompletionItem[] = [];
-			for (const [, symbols] of child.symbols) {
-				for (const sym of symbols) {
-					items.push({
-						label: sym.name,
-						kind: lspKindForSymbol(sym),
-						detail: humanKind(sym),
-						sortText: `00_${sym.name}`,
-						data: { source: "member", uri: sym.uri },
-					});
-				}
-			}
-			return items;
+/** Members offered after a member chain `<a>.<b>.` — resolves the chain to the final type's scope through
+ *  the shared inference service (any depth), then lists that type's members. */
+function memberCompletions(basePath: string[], scope: Scope, project: Scope): CompletionItem[] {
+	if (basePath.length === 0) return [];
+	// Resolve the base ident in the local scope, then walk each further member through its type's scope.
+	let t = inferExprType({ kind: "ident_expr", name: basePath[0]!, span: NO_SPAN }, scope, project);
+	for (let i = 1; i < basePath.length; i++) {
+		if (t.scope === undefined) return [];
+		const m = lookupLocal(t.scope, basePath[i]!)[0];
+		if (m?.typeExpr === undefined) return [];
+		t = typeExprToInferred(m.typeExpr, project);
+	}
+	if (t.scope === undefined) return [];
+	const items: CompletionItem[] = [];
+	for (const [, symbols] of t.scope.symbols) {
+		for (const sym of symbols) {
+			items.push({
+				label: sym.name,
+				kind: lspKindForSymbol(sym),
+				detail: humanKind(sym),
+				sortText: `00_${sym.name}`,
+				data: { source: "member", uri: sym.uri },
+			});
 		}
 	}
-	return [];
-}
-
-function findSymbol(project: Scope, name: string): Symbol | undefined {
-	return findSymbolByName(project, name);
+	return items;
 }
 
 // ─── Default context ─────────────────────────────────────────────────

@@ -54,6 +54,30 @@ END_FUNCTION_BLOCK`;
 	});
 });
 
+describe("completion: member access (st-nav-chains)", () => {
+	const inner = `TYPE T_Inner :\nSTRUCT\n\tdeep : INT;\nEND_STRUCT\nEND_TYPE\n`;
+	const outer = `TYPE T_Outer :\nSTRUCT\n\tinner : T_Inner;\nEND_STRUCT\nEND_TYPE\n`;
+	function items(marker: string) {
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\to : T_Outer;\nEND_VAR\n\n${marker}\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///inner.st", inner, 1);
+		ws.openDocument("file:///outer.st", outer, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+		return completion({ doc: ws.getDocument("file:///fb.st")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
+	}
+
+	it("single-level `o.` offers the struct's members", () => {
+		const r = items("o.▎");
+		expect(r.some((i) => i.label === "inner")).toBe(true);
+	});
+
+	it("multi-level `o.inner.` offers the NESTED type's members", () => {
+		const r = items("o.inner.▎");
+		expect(r.some((i) => i.label === "deep")).toBe(true);
+		expect(r.some((i) => i.label === "inner")).toBe(false); // not the outer's members
+	});
+});
+
 describe("completion: pragma-attribute context", () => {
 	it("offers pragma names after `{attribute '`", () => {
 		const src = `FUNCTION_BLOCK FB_X

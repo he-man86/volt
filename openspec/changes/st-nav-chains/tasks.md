@@ -7,7 +7,7 @@
 - [x] 1.1 Chain context via `lsp/st-body-at.ts` (`stStatementsAtOffset`) + `parser/ast-walk.ts` `memberAtOffset` — a query gets the enclosing member expr at the cursor from the body AST. (Cleaner than threading it through identifier-at; shared by all nav queries.)
 - [x] 1.2 Go-to-definition resolves `a.b(.c)` through the base's type via `resolveMemberChain` → the member's declaration (cross-file), falling back to name-based on unresolved. Scenario test: `m.speed` → the struct field decl, not every `speed`. Full suite green.
 - [x] 1.3 Hover resolves a member `a.b` through the base's type to the member's real declaration (type + reference docs), via the shared `memberAtOffset` + `resolveMemberChain`; falls back to name-based on unresolved. Scenario test: `m.speed` hover → `speed : LREAL`.
-- [ ] 1.4 Completion (`completion.ts`): multi-level member completion (`a.b.` offers `b`'s type's members), replacing the single-level regex.
+- [x] 1.4 Completion: multi-level member completion — the regex now captures the full chain path (`o.inner.`), resolved through the shared inference to the final type's scope. Offers the NESTED type's members, not the base's. Also removed the last `findSymbol`/`findSymbolByName` copy (now uses `inferExprType`). Scenario tests: single + multi-level.
 
 ## 2. Type-aware references
 
