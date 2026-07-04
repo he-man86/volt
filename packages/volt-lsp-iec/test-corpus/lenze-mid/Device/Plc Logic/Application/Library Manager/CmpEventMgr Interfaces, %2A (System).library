@@ -1,0 +1,5 @@
+LIBRARY CmpEventMgr Interfaces, * (System)
+NAMESPACE CmpEventMgr_Interfaces
+RESOLUTION CmpEventMgr Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

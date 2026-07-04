@@ -1,0 +1,5 @@
+LIBRARY SysSemProcess
+NAMESPACE SysSemProcess
+RESOLUTION SysSemProcess, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false

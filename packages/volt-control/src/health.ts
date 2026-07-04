@@ -60,6 +60,19 @@ export function readExcludedFromBuild(workspaceRoot: string): Set<string> {
 	}
 }
 
+/** Full item names of dead/uncompiled POUs (CODESYS never compiled them — uncalled), from the pull sidecar.
+ *  No compiler ground truth, so the LSP skips diagnostics and the editor badges them `DC`. Empty set if the
+ *  sidecar is absent or predates the field. */
+export function readDeadCode(workspaceRoot: string): Set<string> {
+	try {
+		const raw = readFileSync(join(workspaceRoot, ".git", "volt", "ide-refs.json"), "utf-8")
+		const parsed = JSON.parse(raw) as { deadCode?: string[] }
+		return new Set(parsed.deadCode ?? [])
+	} catch {
+		return new Set()
+	}
+}
+
 export async function probeHealth(port: number, timeoutMs = 2_000): Promise<HealthState> {
 	return new Promise<HealthState>((resolve) => {
 		const req = httpRequest(

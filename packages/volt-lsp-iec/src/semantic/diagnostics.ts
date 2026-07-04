@@ -169,7 +169,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "vg-code",
 		enabled: (c) => c.vgUndeclaredIdentifier || c.vgUndefinedLabel || c.vgUnknownPin,
-		run: (ctx, out) => checkVgCode(ctx.parseResult, ctx.project, ctx.bodyModels, ctx.config, out),
+		run: (ctx, out) => checkVgCode(ctx.parseResult, ctx.project, ctx.bodyModels, ctx.config, out, ctx.libraryNamespaces, ctx.deviceInstances),
 	},
 	{
 		id: "vendor-only-operator",

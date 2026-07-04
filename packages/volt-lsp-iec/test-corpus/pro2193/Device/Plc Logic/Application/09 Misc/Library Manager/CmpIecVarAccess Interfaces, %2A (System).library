@@ -1,0 +1,5 @@
+LIBRARY CmpIecVarAccess Interfaces, * (System)
+NAMESPACE CmpIecVarAccess_Interfaces
+RESOLUTION CmpIecVarAccess Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

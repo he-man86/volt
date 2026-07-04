@@ -1,0 +1,5 @@
+LIBRARY Standard64
+NAMESPACE Standard64
+RESOLUTION Standard64, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false

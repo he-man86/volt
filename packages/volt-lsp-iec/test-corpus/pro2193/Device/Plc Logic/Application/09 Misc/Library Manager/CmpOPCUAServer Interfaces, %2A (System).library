@@ -1,0 +1,5 @@
+LIBRARY CmpOPCUAServer Interfaces, * (System)
+NAMESPACE CmpOPCUAServer_Interfaces
+RESOLUTION CmpOPCUAServer Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

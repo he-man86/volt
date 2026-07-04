@@ -1,0 +1,5 @@
+LIBRARY L_MC4I_TestTools, * (Lenze)
+NAMESPACE L_MC4I
+RESOLUTION L_MC4I_TestTools, * (Lenze)
+PLACEHOLDER false
+SYSTEM false

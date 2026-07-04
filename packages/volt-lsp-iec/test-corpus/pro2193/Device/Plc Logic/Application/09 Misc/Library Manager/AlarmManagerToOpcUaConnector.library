@@ -1,0 +1,5 @@
+LIBRARY AlarmManagerToOpcUaConnector
+NAMESPACE AlarmManagerToOpcUaConnector
+RESOLUTION AlarmManagerToOpcUaConnector, 4.7.0.0 (CODESYS)
+PLACEHOLDER true
+SYSTEM false

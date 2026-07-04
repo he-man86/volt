@@ -1,0 +1,5 @@
+LIBRARY SysSocket Implementation
+NAMESPACE SysSocket_Implementation
+RESOLUTION SysSocket Implementation, 3.5.19.0 (System)
+PLACEHOLDER true
+SYSTEM false

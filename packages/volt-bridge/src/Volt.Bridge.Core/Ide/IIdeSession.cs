@@ -36,4 +36,15 @@ public interface IIdeSession
     void FlushPendingWrites();
     bool Build();
     IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
+
+    // ── library signatures ──
+    /// <summary>Extract every referenced-library element's SIGNATURE (declaration only, no body) from the
+    /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT returns none for
+    /// now (no equivalent surface yet).</summary>
+    IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
+
+    /// <summary>Names of the PROJECT POUs (FB/PRG/FUNCTION) CODESYS actually COMPILED. A project POU absent from
+    /// this set is DEAD code (uncalled) — no compiler ground truth, like exclude-from-build. Null ⇒ can't
+    /// determine (e.g. no compile context / TwinCAT), so the caller marks nothing.</summary>
+    ISet<string>? GetCompiledPouNames();
 }

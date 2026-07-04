@@ -19,7 +19,7 @@ function diagnose(src: string, extra: { libraryNamespaces?: ReadonlySet<string>;
 	return computeSemanticDiagnostics({
 		parseResult,
 		source: src,
-		project: buildSymbolTable([{ uri: "file:///t.st", parseResult }]),
+		project: buildSymbolTable([{ uri: "file:///t.st", parseResult, source: src }]),
 		config: DEFAULT_DIAGNOSTIC_CONFIG,
 		bodyModels: buildBodyModelsForParseResult(parseResult),
 		...extra,
@@ -129,5 +129,19 @@ END_FUNCTION_BLOCK`
 	})
 	it("resolves the reference when the instance is in the catalog", () => {
 		expect(diagnose(src, { deviceInstances: new Set(["magazineaxes"]) }).some((d) => d.message.includes("MagazineAxes"))).toBe(false)
+	})
+})
+
+// ── bare enum members (non-qualified_only enums expose members as global constants) ──────────────────
+describe("bare enum-member resolution", () => {
+	const ENUM = "TYPE sState :(\n\tStateInit,\n\tStateRun\n);\nEND_TYPE\n"
+	// Reference the member bare in an INT context (not an enum-typed target), so ONLY bare-global resolution can
+	// resolve it — isolating this skip from enum-context inference on an enum-typed assignment.
+	const use = "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\nn := StateRun;\nEND_FUNCTION_BLOCK"
+	it("resolves a non-qualified_only enum's member referenced bare", () => {
+		expect(diagnose(ENUM + use).some((d) => d.message.includes("StateRun"))).toBe(false)
+	})
+	it("still flags a bare member of a {attribute 'qualified_only'} enum (must be qualified)", () => {
+		expect(diagnose("{attribute 'qualified_only'}\n" + ENUM + use).some((d) => d.message.includes("StateRun"))).toBe(true)
 	})
 })

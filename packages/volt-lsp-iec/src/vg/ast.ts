@@ -232,6 +232,9 @@ export interface VgUnknownStmt {
 export interface VgExecuteBody {
 	tokens: Token[];
 	span: Span;
+	/** The name of the `IF <en> THEN` guard wrapping this EXECUTE box, if any — an EN enable wire consumed
+	 *  during preprocessing (its `IF` line never reaches the statement grammar). */
+	enGuard?: string;
 }
 
 export interface VgNetwork {

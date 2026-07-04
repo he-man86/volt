@@ -48,6 +48,9 @@ END_VAR
 
 NETWORK 0 LD
   // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
+  EXECUTE
+tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptying);
+  END_EXECUTE
 END_NETWORK
 NETWORK 1 LD
   LET i1 := DINT_TO_TIME(tEmptyingCycleInterval);
@@ -77,7 +80,11 @@ NETWORK 3 LD
   LET en4 := g2;
   IF en4 THEN stActPowerHeater1 := MOVE(iSetPowerHeater1); END_IF
   LET en5 := (True AND NOT iPowerOrAnalog);
-  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  IF en5 THEN
+  EXECUTE
+oPowerHeater1:=INT_TO_WORD(stActPowerHeater1*27648/1000);
+  END_EXECUTE
+  END_IF
   LET en6 := (True AND iPowerOrAnalog);
   IF en6 THEN oPowerHeater1 := MOVE(i1); END_IF
 END_NETWORK
@@ -93,7 +100,11 @@ NETWORK 4 LD
   LET en4 := g2;
   IF en4 THEN stActPowerHeater2 := MOVE(iSetPowerHeater2); END_IF
   LET en5 := (True AND NOT iPowerOrAnalog);
-  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  IF en5 THEN
+  EXECUTE
+oPowerHeater2:=INT_TO_WORD(stActPowerHeater2*27648/1000);
+  END_EXECUTE
+  END_IF
   LET en6 := (True AND iPowerOrAnalog);
   IF en6 THEN oPowerHeater2 := MOVE(i1); END_IF
 END_NETWORK
@@ -109,7 +120,11 @@ NETWORK 5 LD
   LET en4 := g2;
   IF en4 THEN stActPowerHeater3 := MOVE(iSetPowerHeater3); END_IF
   LET en5 := (True AND NOT iPowerOrAnalog);
-  IF en5 THEN LET g3 := EXECUTE(); END_IF
+  IF en5 THEN
+  EXECUTE
+oPowerHeater3:=INT_TO_WORD(stActPowerHeater3*27648/1000);
+  END_EXECUTE
+  END_IF
   LET en6 := (True AND iPowerOrAnalog);
   IF en6 THEN oPowerHeater3 := MOVE(i1); END_IF
 END_NETWORK

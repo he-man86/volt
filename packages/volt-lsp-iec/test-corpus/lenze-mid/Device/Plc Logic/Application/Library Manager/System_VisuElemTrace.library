@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemTrace
 NAMESPACE VisuElemTrace
-RESOLUTION VisuElemTrace, 4.8.0.0 (System)
+RESOLUTION VisuElemTrace, 4.1.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

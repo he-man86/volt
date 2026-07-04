@@ -2,4 +2,4 @@ LIBRARY CmpDynamicText
 NAMESPACE CmpDynamicText
 RESOLUTION CmpDynamicText, 3.5.17.0 (System)
 PLACEHOLDER true
-SYSTEM true
+SYSTEM false

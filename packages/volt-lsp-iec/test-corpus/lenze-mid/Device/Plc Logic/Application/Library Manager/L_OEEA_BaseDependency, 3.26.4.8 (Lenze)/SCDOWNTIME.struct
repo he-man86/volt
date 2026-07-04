@@ -1,0 +1,9 @@
+TYPE SCDOWNTIME :
+STRUCT
+	SCPRODUCTIONMODES : ARRAY [0..uiNoOfProductionModes] OF scProductionModes;
+	SCDOWNTIMECATEGORIES : ARRAY [0..uiNoOfDowntimeCategories] OF scDowntimeCategories;
+	SCTOP3DOWNTIME : scVisuTop3Downtime;
+	SCTOP3PRODUCTIONMODE : scVisuTop3ProductionMode;
+	SCTOP3PERFORMANCELOSSES : scVisuTop3ProductionMode;
+END_STRUCT
+END_TYPE

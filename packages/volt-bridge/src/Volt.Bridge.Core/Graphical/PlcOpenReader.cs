@@ -171,7 +171,7 @@ namespace Volt.Bridge.Core.Graphical
                             .Select(v => (string?)v.Attribute("formalParameter") ?? "").ToList();
                         var blk = new Block(next++, null, (string?)el.Attribute("typeName") ?? "",
                             (string?)el.Attribute("instanceName"), ins, outs, ReadCallType(el, ns),
-                            outTypes.Count > 0 ? outTypes : null);
+                            outTypes.Count > 0 ? outTypes : null, ReadStCode(el, ns)); // Execute box in an LD body carries inline ST too
                         nodes.Add(blk);
                         // A block output assigned to a variable via an embedded <expression> (TC's form for a
                         // non-boolean output) — emit it after the coils so the boolean primary comes first.

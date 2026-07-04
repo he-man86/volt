@@ -1,0 +1,5 @@
+LIBRARY L_UM1P_MulticoreBasic
+NAMESPACE L_UM1P
+RESOLUTION L_UM1P_MulticoreBasic, 3.34.0.21 (Lenze)
+PLACEHOLDER true
+SYSTEM false

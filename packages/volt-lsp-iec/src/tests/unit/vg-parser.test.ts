@@ -327,6 +327,19 @@ END_NETWORK`);
 		expect(b.diagnostics.map((d) => d.code)).toContain("VG_LEAF_REFERENCES_TEMP");
 	});
 
+	it("does NOT flag an EXECUTE box's `LET en := <wire>` guard (en is an EN wire, consumed multi-line)", () => {
+		const b = parse(`NETWORK 0 LD
+  LET g1 := (a AND b);
+  LET en := g1;
+  IF en THEN
+  EXECUTE
+x := 1;
+  END_EXECUTE
+  END_IF
+END_NETWORK`);
+		expect(b.diagnostics.map((d) => d.code)).not.toContain("VG_LEAF_REFERENCES_TEMP");
+	});
+
 	it("statement before any NETWORK", () => {
 		const b = parse(`out := (a AND b);`);
 		expect(b.diagnostics.map((d) => d.code)).toContain("VG_PARSE");

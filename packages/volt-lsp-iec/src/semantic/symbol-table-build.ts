@@ -134,7 +134,7 @@ function ingestTopLevel(
 		case "interface":
 			return ingestInterface(project, unit, uri);
 		case "type_decl":
-			ingestTypeDecl(project, unit, uri);
+			ingestTypeDecl(project, unit, uri, source);
 			return undefined;
 		case "global_var_list":
 			ingestGlobalVarList(project, unit, uri, source ?? "");
@@ -390,7 +390,7 @@ function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {
 	return ifaceScope;
 }
 
-function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string): void {
+function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string, source?: string): void {
 	defineSymbol(project, {
 		kind: "type",
 		name: t.name.text,
@@ -408,7 +408,7 @@ function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string): void {
 			ingestUnion(project, t, t.body, uri);
 			break;
 		case "enum":
-			ingestEnum(project, t, t.body, uri);
+			ingestEnum(project, t, t.body, uri, source);
 			break;
 		case "alias":
 			// Aliases don't add members; the alias points at another type.
@@ -446,7 +446,7 @@ function ingestUnion(project: Scope, t: TypeDecl, body: UnionBody, uri: string):
 	}
 }
 
-function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string): void {
+function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string, source?: string): void {
 	const scope: Scope = {
 		kind: "enum",
 		name: t.name.text,
@@ -454,6 +454,10 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string): v
 		symbols: new Map(),
 		children: [],
 		span: t.span,
+		// Per IEC 61131-3 / CODESYS, an enum's members are global constants reachable BARE (`StateAutomatic`)
+		// UNLESS the enum carries {attribute 'qualified_only'} — then only `EnumType.Member` resolves. The
+		// unresolved-identifier check reads this flag to skip bare-accessible members (see collectBareEnumMembers).
+		qualifiedOnly: /\{attribute\s+'qualified_only'\}/i.test(source ?? "") || undefined,
 	};
 	project.children.push(scope);
 	for (const v of body.values) {

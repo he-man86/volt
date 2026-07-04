@@ -1,0 +1,5 @@
+LIBRARY CmpIoMgr Implementation
+NAMESPACE CmpIoMgr_Implementation
+RESOLUTION CmpIoMgr Implementation, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false

@@ -1,0 +1,5 @@
+LIBRARY SysSocket Interfaces, * (System)
+NAMESPACE SysSocket_Interfaces
+RESOLUTION SysSocket Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

@@ -1,0 +1,5 @@
+LIBRARY VisuUtils
+NAMESPACE VU
+RESOLUTION Visu Utils, * (System)
+PLACEHOLDER true
+SYSTEM false

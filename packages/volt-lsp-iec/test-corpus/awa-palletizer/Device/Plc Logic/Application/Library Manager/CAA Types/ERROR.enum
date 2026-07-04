@@ -1,0 +1,5 @@
+TYPE ERROR :
+(
+	NO_ERROR
+);
+END_TYPE

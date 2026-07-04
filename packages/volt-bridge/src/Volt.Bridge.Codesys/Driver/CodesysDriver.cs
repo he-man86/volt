@@ -60,6 +60,11 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override bool Build() =>
         _om.Build(_om.FindApplication() ?? throw new InvalidOperationException("CODESYS: no Application to build"));
 
+    public override IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() =>
+        _om.ExtractLibrarySignatures();
+
+    public override System.Collections.Generic.ISet<string>? GetCompiledPouNames() => _om.GetCompiledPouNames();
+
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
         _om.GetBuildDiagnostics().Select(d =>
         {

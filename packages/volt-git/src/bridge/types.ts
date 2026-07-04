@@ -103,6 +103,9 @@ export const FetchResponseSchema = z
 		items: z.record(z.string(), z.string()),
 		// full name → true for build-excluded items (all items, not just changed). Optional; absent ⇒ false.
 		excludeFromBuild: z.record(z.string(), z.boolean()).optional(),
+		// full name → true for dead/uncompiled POUs (CODESYS never compiled them — no ground truth). Only on a
+		// verbose fetch (needs the build result). Optional; absent ⇒ false.
+		deadCode: z.record(z.string(), z.boolean()).optional(),
 	})
 	.strict();
 export type FetchResponse = z.infer<typeof FetchResponseSchema>;

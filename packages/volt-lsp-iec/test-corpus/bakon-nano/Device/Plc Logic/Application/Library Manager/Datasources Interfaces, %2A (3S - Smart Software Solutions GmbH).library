@@ -1,0 +1,5 @@
+LIBRARY Datasources Interfaces, * (3S - Smart Software Solutions GmbH)
+NAMESPACE IDatasources
+RESOLUTION Datasources Interfaces, * (3S - Smart Software Solutions GmbH)
+PLACEHOLDER false
+SYSTEM false

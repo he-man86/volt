@@ -1,0 +1,21 @@
+TYPE IDENT_IN_GROUP_REF :
+(
+	NONE,
+	Y,
+	Z,
+	A,
+	C,
+	A1,
+	A2,
+	A3,
+	A4,
+	A5,
+	A6,
+	AUX1,
+	AUX2,
+	AUX3,
+	AUX4,
+	AUX5,
+	AUX6
+);
+END_TYPE

@@ -1,0 +1,5 @@
+LIBRARY CmpVisuHandler
+NAMESPACE CmpVisuHandler
+RESOLUTION CmpVisuHandler, 3.5.19.0 (System)
+PLACEHOLDER true
+SYSTEM false

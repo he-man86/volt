@@ -1,0 +1,5 @@
+LIBRARY IoDriver2 Interfaces, * (System)
+NAMESPACE IIoDrv
+RESOLUTION IoDriver2 Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

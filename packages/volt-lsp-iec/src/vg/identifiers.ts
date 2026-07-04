@@ -156,11 +156,15 @@ function emitCore(core: VgCore, local: Set<string>, out: VgIdentifierRef[]): voi
 				}
 				return;
 			}
-			// Opaque multi-token leaf (`a + 1`) — surface its identifier tokens.
-			for (const t of core.tokens) {
-				if (t.kind === "identifier" && !local.has(t.text)) {
-					out.push({ name: t.text, span: t.span, isCall: false, isMemberAccess: false, isNamedParam: false });
-				}
+			// Opaque multi-token leaf (`a + 1`, `a.b.c.d / 10`) — surface its identifier tokens, but skip a
+			// segment preceded by `.` (a member field like `struct.field.sub` — resolved against the base's
+			// type, not the calling scope), exactly as the `sink` l-value does.
+			for (let i = 0; i < core.tokens.length; i++) {
+				const t = core.tokens[i]!;
+				if (t.kind !== "identifier" || local.has(t.text)) continue;
+				const prev = core.tokens[i - 1];
+				if (prev !== undefined && prev.kind === "punct" && prev.text === ".") continue; // member segment
+				out.push({ name: t.text, span: t.span, isCall: false, isMemberAccess: false, isNamedParam: false });
 			}
 			return;
 		}

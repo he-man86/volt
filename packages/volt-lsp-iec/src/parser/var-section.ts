@@ -97,12 +97,14 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
 }
 
 function parseVarDecl(c: Cursor): VarDecl | undefined {
-	const firstName = c.expectIdent("at start of var declaration");
+	// `expectName` (not `expectIdent`): soft keywords like SET/GET/OVERRIDE are legal variable names — the
+	// Standard `RS` FB literally declares `SET : BOOL`, and CODESYS accepts it.
+	const firstName = c.expectName("at start of var declaration");
 	if (firstName === undefined) return undefined;
 	const names: Identifier[] = [readMaybeQualifiedName(c, firstName)];
 
 	while (c.eatPunct(",") !== undefined) {
-		const more = c.expectIdent("in comma-separated var name list");
+		const more = c.expectName("in comma-separated var name list");
 		if (more === undefined) break;
 		names.push(readMaybeQualifiedName(c, more));
 	}

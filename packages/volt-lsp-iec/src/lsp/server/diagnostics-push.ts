@@ -15,7 +15,7 @@
  *      user feels the feedback.
  */
 import { computeSemanticDiagnostics } from "../../semantic/diagnostics.js";
-import { isExcludedFromBuild } from "../../semantic/exclude-marker.js";
+import { hasNoBuildGroundTruth } from "../../semantic/exclude-marker.js";
 import type { JsonRpcMessage } from "../types.js";
 import type { Workspace } from "../workspace.js";
 
@@ -58,7 +58,7 @@ export function computeDiagnostics(
 
 	// Build-excluded objects are never compiled by the IDE, so their references have no ground truth —
 	// skip semantic diagnostics on them (parse diagnostics still surface). Signalled by the in-file marker.
-	if (isExcludedFromBuild(doc.source)) return parseDiags;
+	if (hasNoBuildGroundTruth(doc.source)) return parseDiags;
 
 	const semantic: LspDiagnostic[] = computeSemanticDiagnostics({
 		parseResult: doc.parseResult,

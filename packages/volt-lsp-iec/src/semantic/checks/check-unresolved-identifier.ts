@@ -32,6 +32,27 @@ function bodyContainsConditionalPragma(body: BodySpan): boolean {
 	return false;
 }
 
+/**
+ * Lowercased names of every bare-accessible enum member — the members of each project enum that does NOT carry
+ * `{attribute 'qualified_only'}`. Per IEC 61131-3 / CODESYS these are global constants reachable unqualified
+ * (`StateAutomatic`), yet the member symbol lives in the enum's own scope (for qualified access + go-to-def), not
+ * the resolver's parent chain — so a bare reference resolves nowhere and would false-positive. This skip mirrors
+ * the `libraryNamespaces` / `deviceInstances` catalogs. Cached per project scope; a rebuilt symbol table is a
+ * fresh scope object, so the WeakMap self-invalidates.
+ */
+const bareEnumMemberCache = new WeakMap<Scope, ReadonlySet<string>>();
+function bareAccessibleEnumMembers(project: Scope): ReadonlySet<string> {
+	const cached = bareEnumMemberCache.get(project);
+	if (cached !== undefined) return cached;
+	const out = new Set<string>();
+	for (const child of project.children) {
+		if (child.kind !== "enum" || child.qualifiedOnly) continue;
+		for (const key of child.symbols.keys()) out.add(key); // symbol-table keys are already lowercased
+	}
+	bareEnumMemberCache.set(project, out);
+	return out;
+}
+
 export function checkUnresolvedIdentifiers(
 	parseResult: ParseResult,
 	project: Scope,
@@ -120,6 +141,9 @@ export function checkUnresolvedIdentifiers(
 			// device tree, mirrored as a read-only `.device` file (not the project symbol table). The bare
 			// reference is valid; its internal members aren't ours to check. Skip it.
 			if (deviceInstances?.has(name.toLowerCase())) continue;
+			// A bare-accessible enum member (a non-qualified_only enum's constant, e.g. `StateAutomatic`) — a
+			// global constant per IEC/CODESYS that lives in the enum's own scope, off the resolver's parent chain.
+			if (bareAccessibleEnumMembers(project).has(name.toLowerCase())) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
 				severity: "warning",

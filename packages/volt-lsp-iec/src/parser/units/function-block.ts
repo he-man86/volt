@@ -54,6 +54,12 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
 		}
 	}
 
+	// Some CODESYS exports terminate the FB header with a stray `;` (e.g. `FUNCTION_BLOCK X EXTENDS Y;`).
+	// Consume it — otherwise collectVarSections stops at the `;`, drops every local from the symbol table,
+	// and every member reference false-positives as unresolved-identifier. (Same class as the METHOD/FUNCTION
+	// trailing-`;` fix.)
+	c.eatPunct(";");
+
 	const varSections = collectVarSections(c);
 	// A graphical (FBD/LD) implementation body materializes as a second `FUNCTION_BLOCK` block whose
 	// NETWORK content is closed by END_METHOD (not END_FUNCTION_BLOCK) — accept either for graphical bodies.

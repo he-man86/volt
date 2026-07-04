@@ -1,0 +1,13 @@
+FUNCTION_BLOCK ELEMENT
+VAR
+	ITFPREV : IElementHelper;
+	ITFNEXT : IElementHelper;
+	ITFLIST : IListHelper;
+	ISLINKEDELEM : BOOL;
+	NEXTELEM : IElement;
+	PREVELEM : IElement;
+	PRVLIST : IListHelper;
+	PRVNEXTELEM : IElementHelper;
+	PRVPREVELEM : IElementHelper;
+END_VAR
+END_FUNCTION_BLOCK

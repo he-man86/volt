@@ -1,0 +1,5 @@
+LIBRARY CmpIecVarAccess Implementation
+NAMESPACE CmpIecVarAccess_Implementation
+RESOLUTION CmpIecVarAccess Implementation, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false

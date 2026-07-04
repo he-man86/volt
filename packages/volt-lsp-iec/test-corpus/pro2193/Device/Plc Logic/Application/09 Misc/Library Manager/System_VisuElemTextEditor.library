@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemTextEditor
 NAMESPACE VisuElemTextEditor
-RESOLUTION VisuElemTextEditor, 4.8.0.0 (System)
+RESOLUTION VisuElemTextEditor, 4.2.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

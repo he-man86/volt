@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemXYChart
 NAMESPACE VisuElemXYChart
-RESOLUTION VisuElemXYChart, 4.8.0.0 (System)
+RESOLUTION VisuElemXYChart, 4.1.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

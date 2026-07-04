@@ -48,6 +48,8 @@ public abstract class DriverBase : IIdeSession
     public abstract void FlushPendingWrites();
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
+    public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
+    public abstract ISet<string>? GetCompiledPouNames();
 
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). Best-effort — any probe failure is swallowed

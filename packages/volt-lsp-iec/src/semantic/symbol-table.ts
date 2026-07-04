@@ -126,6 +126,9 @@ export interface Scope {
 	/** The resolved base scope (from `EXTENDS`) — inherited members resolve through it. Linked in a
 	 *  post-pass once all POUs are ingested (the base may live in a later file). */
 	baseScope?: Scope;
+	/** For an `enum` scope: the enum carries `{attribute 'qualified_only'}`, so its members are NOT bare-accessible
+	 *  global constants (only `EnumType.Member` resolves). Undefined ⇒ members are bare-accessible. */
+	qualifiedOnly?: boolean;
 }
 
 // ─── Accessors ───────────────────────────────────────────────────────

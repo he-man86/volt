@@ -1,0 +1,5 @@
+LIBRARY CAA ResMan
+NAMESPACE RSM
+RESOLUTION CAA Ressource Manager Extern, 3.5.17.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false

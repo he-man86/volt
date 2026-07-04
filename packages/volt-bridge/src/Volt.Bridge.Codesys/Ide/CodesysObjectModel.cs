@@ -136,25 +136,35 @@ namespace Volt.Bridge.Codesys
         /// matching TwinCAT's flat library refs. Read-only (no push target).</summary>
         public List<LibRefNode> GetLibraryRefs(object libManNode)
         {
-            var refs = new List<LibRefNode>();
             var iobj = ReadObject(libManNode);
-            if (iobj == null) return refs;
+            if (iobj == null) return new List<LibRefNode>();
 
             // GetAllLibraries lives on the base ILibManObject; invoke via the
             // interface MethodInfo so explicit implementations dispatch correctly.
             var libManIface = Array.Find(iobj.GetType().GetInterfaces(), i => i.Name == "ILibManObject");
             var getAll = libManIface?.GetMethod("GetAllLibraries");
-            if (getAll?.Invoke(iobj, new object[] { false }) is not IEnumerable items) return refs;
+            if (getAll?.Invoke(iobj, new object[] { false }) is not IEnumerable items) return new List<LibRefNode>();
 
-            foreach (var item in items)
+            // Walk the FULL dependency tree: the top-level references AND their transitive dependencies (each
+            // ILibManItem exposes `GetDependencies()`). Transitive deps carry namespaces the source references
+            // DIRECTLY (e.g. `MEM` from CAA Memory, pulled in as a hidden dependency — HideWhenReferencedAsDependency)
+            // — without them those qualified roots resolve nowhere in the LSP. Dedup by (namespace|name) so a lib
+            // reached via multiple parents (or a dependency cycle) is emitted once. Best-effort per node: a library
+            // ref is READ-ONLY metadata (never a push target), so one malformed entry must not abort the walk.
+            var byName = new Dictionary<string, LibRefNode>(StringComparer.OrdinalIgnoreCase);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            void Walk(object item)
             {
-                if (item == null) continue;
-                // Best-effort by design: a library reference is READ-ONLY metadata (never a push target),
-                // so one malformed entry must not abort the whole /refs tree walk. This is NOT a
-                // source/version path, so the zero-fallback policy that governs those doesn't apply here.
-                try { refs.Add(ToLibRef(item)); } catch { /* skip a malformed ref */ }
+                string ns, nm;
+                try { ns = GetMember(item, "Namespace") as string ?? ""; nm = GetMember(item, "Name") as string ?? ""; }
+                catch { return; }
+                if (!seen.Add(ns + "|" + nm)) return; // cycle / re-reference guard (logical key, not instance)
+                try { var r = ToLibRef(item); byName[r.Name] = r; } catch { /* skip a malformed ref */ }
+                if (InvokeMethod(item, "GetDependencies") is IEnumerable deps)
+                    foreach (var d in deps) if (d != null) Walk(d);
             }
-            return refs;
+            foreach (var item in items) if (item != null) Walk(item);
+            return byName.Values.ToList();
         }
 
         private static LibRefNode ToLibRef(object item)
@@ -487,6 +497,85 @@ namespace Volt.Bridge.Codesys
             return outv;
         }
 
+
+        // ── library signature extraction (referenced-library declarations from the resolved language model) ──
+
+        /// <summary>Extract the SIGNATURE (declaration, no body) of every referenced-library element. Precompiles the
+        /// libraries (best-effort build), then reads their precompiled <c>ISignature</c>s from
+        /// <c>SystemInstances.LanguageModelMgr.AllPrecompiledSignatures</c> — the same DLL the IDE's Library Manager
+        /// renders from, and the same reflection the rest of the bridge uses. Vendor libraries only; system libraries
+        /// are dropped by the caller. Filters compiler-mangled entries (<c>__</c>-prefixed) and non-library objects.</summary>
+        public List<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures()
+        {
+            // Ensure the libraries are PRECOMPILED: a freshly-opened project has an EMPTY precompiled set until a
+            // build runs, so AllPrecompiledSignatures returns nearly nothing (verified: 2 sigs before a build, 5220
+            // after). Build best-effort — even a FAILING app build (headless device/library mismatch) still
+            // precompiles the referenced libraries, which is all we need. Libraries precompile independently of the
+            // app, so this works whether or not the app build itself succeeds.
+            var app = FindApplication();
+            if (app != null) { try { Build(app); } catch { /* a failed build still precompiles the libraries */ } }
+
+            var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr")
+                      ?? throw new InvalidOperationException("CODESYS: LanguageModelMgr unavailable");
+            // `AllPrecompiledSignatures(true,true)` returns every resolved LIBRARY signature — libraries precompile
+            // independently of the application, so this yields their declarations even when the app build fails (a
+            // headless env with an unresolvable placeholder library still precompiles the resolvable libs). Verified
+            // live: 5220–5406 fully-typed sigs across the real corpora.
+            if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs)
+                throw new InvalidOperationException("CODESYS: AllPrecompiledSignatures returned nothing");
+
+            List<Volt.Bridge.Core.Library.LibVar> Vars(object? sig, string prop)
+            {
+                var outv = new List<Volt.Bridge.Core.Library.LibVar>();
+                if (GetMember(sig, prop) is not IEnumerable coll) return outv;
+                foreach (var v in coll)
+                {
+                    if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
+                    outv.Add(new Volt.Bridge.Core.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL"));
+                }
+                return outv;
+            }
+
+            var result = new List<Volt.Bridge.Core.Library.LibSignature>();
+            foreach (var s in sigs)
+            {
+                if (GetMember(s, "IsLibraryObject") as bool? != true) continue;
+                var name = GetMember(s, "Name") as string;
+                if (string.IsNullOrEmpty(name) || name!.Contains("__")) continue;
+                var libPath = GetMember(s, "LibraryPath") as string ?? "";
+                var baseName = GetMember(GetMember(s, "BaseSignature"), "Name") as string;
+                result.Add(new Volt.Bridge.Core.Library.LibSignature(
+                    name, libPath, GetMember(s, "POUType")?.ToString() ?? "",
+                    Vars(s, "Inputs"), Vars(s, "Outputs"), Vars(s, "InOuts"), Vars(s, "AllVariables"),
+                    baseName, GetMember(s, "ReturnType")?.ToString()));
+            }
+            return result;
+        }
+
+        /// <summary>Names of every PROJECT POU (FB/PRG/FUNCTION) CODESYS actually COMPILED — the reachable call tree.
+        /// A project POU ABSENT from this set is DEAD code (uncalled): CODESYS never compiles it, so its diagnostics
+        /// have no ground truth, exactly like an exclude-from-build object. The compiled model
+        /// (<c>GetCompileContext(appGuid).GetAllSignaturesFlat()</c>) omits dead POUs — verified live. Builds first
+        /// (empty otherwise); returns null if there's no compile context (build failed) so the caller marks nothing.</summary>
+        public ISet<string>? GetCompiledPouNames()
+        {
+            var app = FindApplication();
+            if (app == null) return null;
+            Build(app);
+            var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr");
+            var ctx = InvokeMethod(lmm, "GetCompileContext", GuidOf(app));
+            if (InvokeMethod(ctx, "GetAllSignaturesFlat") is not IEnumerable sigs) return null;
+            var live = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in sigs)
+            {
+                if (GetMember(s, "IsLibraryObject") as bool? == true) continue; // project POUs only
+                var name = GetMember(s, "Name") as string;
+                if (string.IsNullOrEmpty(name) || name!.Contains("__")) continue;
+                var pou = GetMember(s, "POUType")?.ToString() ?? "";
+                if (pou.Contains("FunctionBlock") || pou.Contains("Program") || pou.Contains("Function")) live.Add(name);
+            }
+            return live;
+        }
 
         private static string SeverityToString(object? sev)
         {

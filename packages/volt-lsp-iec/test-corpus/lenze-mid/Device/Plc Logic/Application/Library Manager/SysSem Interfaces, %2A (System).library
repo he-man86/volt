@@ -1,0 +1,5 @@
+LIBRARY SysSem Interfaces, * (System)
+NAMESPACE SysSem_Interfaces
+RESOLUTION SysSem Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

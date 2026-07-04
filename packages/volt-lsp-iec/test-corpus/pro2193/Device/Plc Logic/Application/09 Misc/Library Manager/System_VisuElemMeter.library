@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemMeter
 NAMESPACE VisuElemMeter
-RESOLUTION VisuElemMeter, 4.7.0.0 (System)
+RESOLUTION VisuElemMeter, 4.1.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

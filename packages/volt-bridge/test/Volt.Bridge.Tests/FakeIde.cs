@@ -95,4 +95,7 @@ public sealed class FakeIde : IIdeDriver
     public void FlushPendingWrites() { }
     public bool Build() => true;
     public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => new List<BridgeDiagnostic>();
+    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() =>
+        new List<Volt.Bridge.Core.Library.LibSignature>();
+    public ISet<string>? GetCompiledPouNames() => null;
 }

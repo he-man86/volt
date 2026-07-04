@@ -1,0 +1,5 @@
+LIBRARY SysTimeCore, 3.5.17.0 (System)
+NAMESPACE SysTimeCore
+RESOLUTION SysTimeCore, 3.5.17.0 (System)
+PLACEHOLDER false
+SYSTEM false

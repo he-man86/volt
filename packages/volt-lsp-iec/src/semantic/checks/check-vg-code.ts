@@ -26,6 +26,8 @@ export function checkVgCode(
 	bodyModels: Map<BodySpan, BodyModel>,
 	config: DiagnosticConfig,
 	out: DiagnosticItem[],
+	libraryNamespaces?: ReadonlySet<string>,
+	deviceInstances?: ReadonlySet<string>,
 ): void {
 	for (const unit of parseResult.units) {
 		const body = getAnyBody(unit);
@@ -35,7 +37,7 @@ export function checkVgCode(
 		const scope = findScopeForUnit(project, unit);
 		if (scope === undefined) continue;
 
-		if (config.vgUndeclaredIdentifier) checkUndeclared(model, scope, out);
+		if (config.vgUndeclaredIdentifier) checkUndeclared(model, scope, out, libraryNamespaces, deviceInstances);
 		for (const network of model.vg.networks) {
 			if (config.vgUndefinedLabel) checkLabels(network, out);
 			if (config.vgUnknownPin) checkPins(network, project, scope, out);
@@ -43,7 +45,13 @@ export function checkVgCode(
 	}
 }
 
-function checkUndeclared(model: BodyModel, scope: Scope, out: DiagnosticItem[]): void {
+function checkUndeclared(
+	model: BodyModel,
+	scope: Scope,
+	out: DiagnosticItem[],
+	libraryNamespaces?: ReadonlySet<string>,
+	deviceInstances?: ReadonlySet<string>,
+): void {
 	for (const ref of model.identifiers) {
 		if (ref.isNamedParam || ref.isMemberAccess) continue;
 		const name = ref.name;
@@ -53,6 +61,11 @@ function checkUndeclared(model: BodyModel, scope: Scope, out: DiagnosticItem[]):
 		// (CONCAT/DELETE/REPLACE/INSERT/FIND/…), builtin types — live in the reference catalog, not the project
 		// scope. The ST unresolved-identifier check consults it the same way; the VG analogue must too.
 		if (referenceLookup(name) !== undefined) continue;
+		// A referenced library's namespace root (PACK_ML, L_MC4P, …) or a device-tree instance (EtherCAT_Master,
+		// Axis_MainDrive, …) — valid globals mirrored outside the project symbol table. The ST check skips both;
+		// the VG check must too, or graphical bodies false-flag what ST bodies resolve.
+		if (libraryNamespaces?.has(name.toLowerCase())) continue;
+		if (deviceInstances?.has(name.toLowerCase())) continue;
 		if (resolverLookup(scope, name) !== undefined) continue;
 		out.push({
 			severity: "warning",

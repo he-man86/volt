@@ -1,0 +1,5 @@
+LIBRARY IecVarAccess3 Interfaces, * (System)
+NAMESPACE IecVarAccess_Interfaces
+RESOLUTION IecVarAccess3 Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

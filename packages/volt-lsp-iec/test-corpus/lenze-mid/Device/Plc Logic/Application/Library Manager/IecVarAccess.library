@@ -2,4 +2,4 @@ LIBRARY IecVarAccess
 NAMESPACE IecVarAccessLibrary
 RESOLUTION IecVarAccess, 4.6.0.0 (System)
 PLACEHOLDER true
-SYSTEM true
+SYSTEM false

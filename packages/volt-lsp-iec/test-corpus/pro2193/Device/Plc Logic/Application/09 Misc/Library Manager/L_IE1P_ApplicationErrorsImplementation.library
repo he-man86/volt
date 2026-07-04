@@ -1,0 +1,5 @@
+LIBRARY L_IE1P_ApplicationErrorsImplementation
+NAMESPACE L_IE1P_Implementation
+RESOLUTION L_IE1P_ApplicationErrorsImplementation, 3.32.0.4 (Lenze)
+PLACEHOLDER true
+SYSTEM false

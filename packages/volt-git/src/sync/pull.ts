@@ -22,7 +22,7 @@ import {
 } from "../git/plumbing.js";
 import { basename } from "node:path";
 import { materializeItem } from "../translate/materialize.js";
-import { addExcludeMarker, isSourceFile } from "../translate/exclude-marker.js";
+import { addExcludeMarker, addUncompiledMarker, isSourceFile } from "../translate/exclude-marker.js";
 import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
@@ -59,16 +59,23 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	autoCommitSrc(root);
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
-	// Excluded-from-build objects carry an in-file marker (self-contained, read by the LSP; stripped on push).
+	// A source object with no compiler ground truth carries an in-file marker (self-contained, read by the LSP;
+	// stripped on push): excluded-from-build, or dead/uncompiled code (only present on a verbose fetch).
 	const excluded = fetched.excludeFromBuild ?? {};
-	const ideFiles = fetched.changed
-		.flatMap(materializeItem)
-		.map((f) => (isSourceFile(f.path) && excluded[basename(f.path)] ? { ...f, content: addExcludeMarker(f.content) } : f));
+	const deadCode = fetched.deadCode ?? {};
+	const ideFiles = fetched.changed.flatMap(materializeItem).map((f) => {
+		if (!isSourceFile(f.path)) return f;
+		const bn = basename(f.path);
+		if (excluded[bn]) return { ...f, content: addExcludeMarker(f.content) };
+		if (deadCode[bn]) return { ...f, content: addUncompiledMarker(f.content) };
+		return f;
+	});
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,
 		folders: refs.folders,
 		excluded: Object.keys(fetched.excludeFromBuild ?? {}).sort(),
+		deadCode: Object.keys(fetched.deadCode ?? {}).sort(),
 	};
 	const head = headCommit(root);
 

@@ -32,7 +32,7 @@ function build(src: string) {
 	return { parseResult, project, bodyModels, doc };
 }
 
-function diags(src: string, overrides = {}) {
+function diags(src: string, overrides = {}, ctx: { libraryNamespaces?: ReadonlySet<string>; deviceInstances?: ReadonlySet<string> } = {}) {
 	const { parseResult, project, bodyModels } = build(src);
 	return computeSemanticDiagnostics({
 		parseResult,
@@ -40,6 +40,7 @@ function diags(src: string, overrides = {}) {
 		project,
 		config: { ...DEFAULT_DIAGNOSTIC_CONFIG, ...overrides },
 		bodyModels,
+		...ctx,
 	});
 }
 
@@ -108,6 +109,36 @@ END_FUNCTION_BLOCK`;
 		expect(u.map((x) => x.message).join(" ")).toContain("missing");
 		// `a` and `out` are declared → only `missing` flagged.
 		expect(u).toHaveLength(1);
+	});
+
+	it("skips a device instance / library namespace in a VG body when it's in the catalog", () => {
+		const src = `FUNCTION_BLOCK FB_X
+VAR
+	out : BOOL;
+END_VAR
+NETWORK 0 FBD
+	out := (EtherCAT_Master AND PACK_ML);
+END_NETWORK
+END_FUNCTION_BLOCK`;
+		// Without the catalogs both are unresolved; with them (as ST resolves them), neither is flagged.
+		expect(diags(src).filter((x) => x.code === "vg-undeclared-identifier")).toHaveLength(2);
+		const skipped = diags(src, {}, { deviceInstances: new Set(["ethercat_master"]), libraryNamespaces: new Set(["pack_ml"]) });
+		expect(skipped.filter((x) => x.code === "vg-undeclared-identifier")).toEqual([]);
+	});
+
+	it("does not flag inner segments of a deep member-access chain in an opaque leaf", () => {
+		// `root.a.b.c / 10` parses as an opaque arithmetic leaf; only the base `root` is a scope variable —
+		// a/b/c are member fields resolved against the type, not the calling scope, so they must not flag.
+		const src = `FUNCTION_BLOCK FB_X
+VAR
+	root : BOOL;
+	out : BOOL;
+END_VAR
+NETWORK 0 FBD
+	out := (root.a.b.c AND TRUE);
+END_NETWORK
+END_FUNCTION_BLOCK`;
+		expect(diags(src).filter((x) => x.code === "vg-undeclared-identifier")).toEqual([]);
 	});
 
 	it("flags a jump to an undefined label", () => {

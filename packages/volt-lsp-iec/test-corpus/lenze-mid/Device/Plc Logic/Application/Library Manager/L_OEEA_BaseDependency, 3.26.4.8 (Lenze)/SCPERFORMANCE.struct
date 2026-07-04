@@ -1,0 +1,15 @@
+TYPE SCPERFORMANCE :
+STRUCT
+	ICALLFORSERVICE : INT;
+	ITRIGGER_SETTINGS : INT;
+	SCTHROUGHPUT : scThroughput;
+	SCSHIFTINTERVAL : scShiftInterval;
+	SCSHIFTVALUES : scCurrentShiftValues;
+	SCSHIFTTARGETS : scShiftTargetsInput;
+	SCDATETIMESTR : scDateTimeStr;
+	SCPRODUCTION : scActualProduction;
+	SCPRODUCT : scProduct;
+	SCAP : scAccessPoints;
+	SCRR : scRunRate;
+END_STRUCT
+END_TYPE

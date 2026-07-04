@@ -51,6 +51,7 @@ export interface IdeRefs {
 	items: Record<string, string>; // full name → version  (what the IDE last had)
 	folders: Record<string, string>; // full name → folder
 	excluded?: string[]; // full names EFFECTIVELY excluded from build (IDE won't compile them → LSP skips diagnostics)
+	deadCode?: string[]; // full names of dead/uncompiled POUs (CODESYS never compiled them → LSP skips diagnostics)
 }
 
 export function loadIdeRefs(root: string): IdeRefs | undefined {

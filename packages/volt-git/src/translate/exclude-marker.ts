@@ -11,6 +11,10 @@
  * (reference kinds — .library/.visualization — are never analyzed and are read-only).
  */
 export const EXCLUDE_MARKER = "(* @volt-exclude-from-build *)";
+/** Dead-code marker: a project POU CODESYS never compiled (uncalled). Like the exclude marker it means "no
+ *  compiler ground truth" (the LSP skips diagnostics), but it's a DISTINCT property — the object isn't
+ *  IDE-excluded, it's just unreachable, and it stays real, pushable source. Only set on a verbose pull/harvest. */
+export const UNCOMPILED_MARKER = "(* @volt-uncompiled *)";
 
 const SOURCE_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
 
@@ -25,9 +29,14 @@ export function addExcludeMarker(content: string): string {
 	return content.startsWith(EXCLUDE_MARKER) ? content : `${EXCLUDE_MARKER}\n${content}`;
 }
 
-/** Remove a leading exclude-marker line — used on push so the marker never reaches the IDE. */
+/** Prepend the uncompiled (dead-code) marker (idempotent). */
+export function addUncompiledMarker(content: string): string {
+	return content.startsWith(UNCOMPILED_MARKER) ? content : `${UNCOMPILED_MARKER}\n${content}`;
+}
+
+/** Remove a leading Volt marker line (exclude OR uncompiled) — used on push so no marker reaches the IDE. */
 export function stripExcludeMarker(content: string): string {
-	if (!content.startsWith(EXCLUDE_MARKER)) return content;
+	if (!content.startsWith(EXCLUDE_MARKER) && !content.startsWith(UNCOMPILED_MARKER)) return content;
 	const nl = content.indexOf("\n");
 	return nl >= 0 ? content.slice(nl + 1) : "";
 }

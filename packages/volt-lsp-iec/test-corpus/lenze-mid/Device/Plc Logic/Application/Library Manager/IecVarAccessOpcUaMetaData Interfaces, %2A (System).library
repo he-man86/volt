@@ -1,0 +1,5 @@
+LIBRARY IecVarAccessOpcUaMetaData Interfaces, * (System)
+NAMESPACE IecVarAccessOpcUaMetaData_Interfaces
+RESOLUTION IecVarAccessOpcUaMetaData Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

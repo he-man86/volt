@@ -1,0 +1,5 @@
+LIBRARY AlarmManager
+NAMESPACE AlarmManager
+RESOLUTION AlarmManager, 4.8.0.0 (Intern)
+PLACEHOLDER true
+SYSTEM false

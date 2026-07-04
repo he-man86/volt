@@ -56,6 +56,38 @@ describe("parser: FUNCTION_BLOCK shells", () => {
 		expect(fb.implements?.map((i) => i.text)).toEqual(["IControllable", "ITrackable"]);
 	});
 
+	it("accepts soft keywords (SET) as variable names (the Standard RS FB declares `SET : BOOL`)", () => {
+		const { units, errors } = parseOne(`
+			FUNCTION_BLOCK RS
+			VAR_INPUT
+				SET : BOOL;
+				RESET1 : BOOL;
+			END_VAR
+			END_FUNCTION_BLOCK
+		`);
+		expect(errors).toEqual([]);
+		const fb = units[0] as FunctionBlock;
+		expect(fb.varSections[0]?.decls.flatMap((d) => d.names.map((n) => n.text))).toEqual(["SET", "RESET1"]);
+	});
+
+	it("consumes a stray trailing `;` after the header so VAR sections still parse", () => {
+		// Some CODESYS exports write `FUNCTION_BLOCK X EXTENDS Y;`. The `;` must not swallow the VAR sections —
+		// otherwise every local drops from the symbol table and every member reference false-flags.
+		const { units, errors } = parseOne(`
+			FUNCTION_BLOCK UN01_Main EXTENDS StateMachine;
+			VAR
+				myState : strState;
+				iIndex : INT;
+			END_VAR
+			END_FUNCTION_BLOCK
+		`);
+		expect(errors).toEqual([]);
+		const fb = units[0] as FunctionBlock;
+		expect(fb.extends?.text).toBe("StateMachine");
+		expect(fb.varSections).toHaveLength(1);
+		expect(fb.varSections[0]?.decls.map((d) => d.names[0]?.text)).toEqual(["myState", "iIndex"]);
+	});
+
 	it("FB with VAR sections", () => {
 		const { units, errors } = parseOne(`
 			FUNCTION_BLOCK FB_X

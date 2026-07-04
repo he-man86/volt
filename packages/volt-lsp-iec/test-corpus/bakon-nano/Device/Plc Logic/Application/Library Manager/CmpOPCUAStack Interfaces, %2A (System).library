@@ -1,0 +1,5 @@
+LIBRARY CmpOPCUAStack Interfaces, * (System)
+NAMESPACE CmpOPCUAStack_Interfaces
+RESOLUTION CmpOPCUAStack Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

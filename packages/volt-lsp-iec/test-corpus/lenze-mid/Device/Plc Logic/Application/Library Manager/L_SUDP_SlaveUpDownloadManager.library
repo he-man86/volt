@@ -1,0 +1,5 @@
+LIBRARY L_SUDP_SlaveUpDownloadManager
+NAMESPACE L_SUDP
+RESOLUTION L_SUDP_SlaveUpDownloadManager, 3.32.0.7 (Lenze)
+PLACEHOLDER true
+SYSTEM false

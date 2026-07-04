@@ -110,4 +110,9 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     public override void FlushPendingWrites() => _om.FlushPendingWrites();
     public override bool Build() => _om.Build();
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => _om.GetBuildDiagnostics();
+    // TwinCAT has no resolved-library-signature surface yet — return none (parity boundary is the wire).
+    public override IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() =>
+        new List<Volt.Bridge.Core.Library.LibSignature>();
+    // No compiled-model dead-code signal yet — null ⇒ mark nothing (documented parity gap).
+    public override System.Collections.Generic.ISet<string>? GetCompiledPouNames() => null;
 }

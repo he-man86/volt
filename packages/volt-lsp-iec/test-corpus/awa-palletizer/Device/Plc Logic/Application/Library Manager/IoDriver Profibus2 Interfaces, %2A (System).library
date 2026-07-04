@@ -1,0 +1,5 @@
+LIBRARY IoDriver Profibus2 Interfaces, * (System)
+NAMESPACE IIoDrvProfibus
+RESOLUTION IoDriver Profibus2 Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

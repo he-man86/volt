@@ -1,0 +1,5 @@
+LIBRARY CAA Types
+NAMESPACE CAA
+RESOLUTION CAA Types Extern, 3.5.17.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false

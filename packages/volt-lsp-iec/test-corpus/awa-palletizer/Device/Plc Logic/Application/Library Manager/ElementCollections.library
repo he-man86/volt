@@ -1,0 +1,5 @@
+LIBRARY ElementCollections
+NAMESPACE COL
+RESOLUTION Element Collections, * (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false

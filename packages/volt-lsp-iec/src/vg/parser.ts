@@ -141,8 +141,9 @@ export function parseVgBody(tokens: Token[], source?: string): VgBody {
 				// Capture the verbatim ST between EXECUTE and END_EXECUTE so it's analyzed as full ST (below).
 				const stLines = lines.slice(li + 1, j);
 				const stToks = stLines.flatMap((l) => l.toks);
+				const enGuard = pendingEn?.toks[1]?.kind === "identifier" ? pendingEn.toks[1]!.text : undefined;
 				if (stToks.length > 0)
-					cur.executes.push({ tokens: stToks, span: joinSpans(stLines[0]!.span, stLines[stLines.length - 1]!.span) });
+					cur.executes.push({ tokens: stToks, span: joinSpans(stLines[0]!.span, stLines[stLines.length - 1]!.span), enGuard });
 				li = j; // consume the ST body + END_EXECUTE
 				if (pendingEn !== undefined) {
 					const k = li + 1;
@@ -326,6 +327,9 @@ class NetworkParser {
 		this.source = source;
 		this.diagnostics = diagnostics;
 		this.lines = acc.stmtLines;
+		// EXECUTE-box EN guards are consumed in preprocessing (their `IF en THEN` line isn't in stmtLines), so
+		// seed them here — otherwise `LET en := <wire>` for such a guard mis-trips VG_LEAF_REFERENCES_TEMP.
+		for (const ex of acc.executes) if (ex.enGuard !== undefined) this.enWires.add(ex.enGuard);
 	}
 
 	parse(): VgStatement[] {
@@ -351,7 +355,9 @@ class NetworkParser {
 		}
 	}
 
-	/** Pass 1 — names used as an `IF <name> THEN … := …` guard (EN enable wires). */
+	/** Pass 1 — names used as an `IF <name> THEN … := …` guard (EN enable wires). An EN guard wrapping an
+	 *  EXECUTE box is multi-line, so its `IF en THEN` is consumed during preprocessing (never reaches
+	 *  `this.lines`); those guard names are seeded separately from `acc.executes[].enGuard`. */
 	private scanEnWires(): void {
 		for (const line of this.lines) {
 			const toks = line.toks;

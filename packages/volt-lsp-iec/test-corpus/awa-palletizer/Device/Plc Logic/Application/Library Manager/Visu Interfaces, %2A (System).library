@@ -1,0 +1,5 @@
+LIBRARY Visu Interfaces, * (System)
+NAMESPACE Visu_Interfaces
+RESOLUTION Visu Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

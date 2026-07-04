@@ -1,0 +1,5 @@
+LIBRARY CmpErrors2 Interfaces, * (System)
+NAMESPACE CmpErrors
+RESOLUTION CmpErrors2 Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

@@ -1,0 +1,5 @@
+LIBRARY SysMem
+NAMESPACE SysMem
+RESOLUTION SysMem, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false

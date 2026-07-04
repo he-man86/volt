@@ -30,6 +30,12 @@ public class FetchRequest
 
     [JsonPropertyName("onlyItems")]
     public List<string>? OnlyItems { get; set; }
+
+    /// <summary>Opt-in: also return referenced-library element SIGNATURES (declaration-only), materialized under
+    /// each library's folder in the Library Manager. Off by default — a normal pull stays lightweight; the harvest
+    /// (corpus build) sets it. Extraction is build-free (AllPrecompiledSignatures), so this adds no build cost.</summary>
+    [JsonPropertyName("verbose")]
+    public bool Verbose { get; set; }
 }
 
 public class FetchedItem
@@ -70,4 +76,16 @@ public class FetchResponse
     /// so the client can keep a complete exclusion manifest. Only excluded items are listed — absent ⇒ false.</summary>
     [JsonPropertyName("excludeFromBuild")]
     public Dictionary<string, bool> ExcludeFromBuild { get; set; } = new();
+
+    /// <summary>Referenced-library element signatures (declaration-only), each a workspace-relative path (under the
+    /// owning library's folder in the Library Manager) + its ST text. Populated only when the request set
+    /// <c>verbose</c>; the client writes each verbatim, like a fetched item.</summary>
+    [JsonPropertyName("librarySignatures")]
+    public List<LibSymbolItem> LibrarySignatures { get; set; } = new();
+
+    /// <summary>Full-name → true for project POUs CODESYS did NOT compile (dead/uncalled code) — no compiler
+    /// ground truth for their diagnostics. Distinct from <see cref="ExcludeFromBuild"/> (an explicit IDE
+    /// property): dead code is still real, pushable source. Populated only on a <c>verbose</c> fetch.</summary>
+    [JsonPropertyName("deadCode")]
+    public Dictionary<string, bool> DeadCode { get; set; } = new();
 }

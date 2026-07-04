@@ -1,0 +1,5 @@
+LIBRARY UDP
+NAMESPACE UDP
+RESOLUTION UDP, 3.5.19.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false

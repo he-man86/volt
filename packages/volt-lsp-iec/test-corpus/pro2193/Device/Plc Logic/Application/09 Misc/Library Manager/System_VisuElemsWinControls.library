@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemsWinControls
 NAMESPACE VisuElemsWinControls
-RESOLUTION VisuElemsWinControls, 4.8.1.0 (System)
+RESOLUTION VisuElemsWinControls, 4.2.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

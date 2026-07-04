@@ -1,0 +1,5 @@
+LIBRARY FloatingPointUtils
+NAMESPACE FPU
+RESOLUTION FloatingPointUtils, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
