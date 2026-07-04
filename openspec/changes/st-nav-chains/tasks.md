@@ -16,7 +16,7 @@
 
 ## 3. Bare enum-member full nav
 
-- [ ] 3.1 Go-to-definition/hover/completion for bare non-`qualified_only` enum members (currently resolution-only). Inherited from `library-signature-index` §7.3.
+- [x] 3.1 Bare non-`qualified_only` enum members now have full nav: `resolveBareEnumMember` (shared service) finds the member symbol in the enum's own scope; go-to-def + hover use it as a fallback; completion offers them as global constants. Scenario tests for all three. (Inherited from `library-signature-index` §7.3.)
 
 ## 4. Cross-file spot-checks
 

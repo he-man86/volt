@@ -46,6 +46,22 @@ export function hasVarSections(sym: Symbol): boolean {
 	return Array.isArray((sym.ast as { varSections?: ReadonlyArray<unknown> }).varSections);
 }
 
+/**
+ * The enum-value symbol for a BARE reference to a non-`qualified_only` enum member
+ * (`StateAutomatic`) — a global constant per IEC/CODESYS whose symbol lives in the
+ * enum's own scope, off the resolver's parent chain. Lets nav (go-to-def / hover)
+ * reach it. Undefined when no such member exists.
+ */
+export function resolveBareEnumMember(project: Scope, name: string): Symbol | undefined {
+	const target = name.toLowerCase();
+	for (const child of project.children) {
+		if (child.kind !== "enum" || child.qualifiedOnly === true) continue;
+		const syms = child.symbols.get(target);
+		if (syms !== undefined && syms.length > 0) return syms[0];
+	}
+	return undefined;
+}
+
 /** The first symbol with members (`varSections`) matching `name`, project-wide. */
 export function findMemberBearing(project: Scope, name: string): Symbol | undefined {
 	return findSymbolByName(project, name, hasVarSections);

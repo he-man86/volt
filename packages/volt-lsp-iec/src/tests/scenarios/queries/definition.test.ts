@@ -41,6 +41,22 @@ describe("definition", () => {
 		expect(offsetFromPosition(structSrc, result[0]!.range.start)).toBe(declStart);
 	});
 
+	it("resolves a BARE enum member to its declaration in the enum (st-nav-chains)", () => {
+		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\ns := Idle;\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///e.st", enumSrc, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+		const result = definition({
+			doc: ws.getDocument("file:///fb.st")!,
+			position: positionOf(src, "Idle"), // `Idle` only appears in the body here
+			project: ws.getProjectScope(),
+		});
+		expect(result.length).toBe(1);
+		expect(result[0]?.uri).toBe("file:///e.st");
+		expect(offsetFromPosition(enumSrc, result[0]!.range.start)).toBe(enumSrc.indexOf("Idle"));
+	});
+
 	it("resolves a project-level type referenced in another FB's body to the defining file", () => {
 		const src = `
 FUNCTION_BLOCK FB_X

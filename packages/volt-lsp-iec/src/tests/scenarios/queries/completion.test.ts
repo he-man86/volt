@@ -54,6 +54,19 @@ END_FUNCTION_BLOCK`;
 	});
 });
 
+describe("completion: bare enum members (st-nav-chains)", () => {
+	it("offers a non-qualified_only enum's members as bare constants", () => {
+		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\n▎\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///e.st", enumSrc, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+		const items = completion({ doc: ws.getDocument("file:///fb.st")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
+		expect(items.some((i) => i.label === "Idle")).toBe(true);
+		expect(items.some((i) => i.label === "Running")).toBe(true);
+	});
+});
+
 describe("completion: member access (st-nav-chains)", () => {
 	const inner = `TYPE T_Inner :\nSTRUCT\n\tdeep : INT;\nEND_STRUCT\nEND_TYPE\n`;
 	const outer = `TYPE T_Outer :\nSTRUCT\n\tinner : T_Inner;\nEND_STRUCT\nEND_TYPE\n`;

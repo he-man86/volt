@@ -26,7 +26,7 @@ import { scopeAtOffset as scopeAt } from "../scope-at.js";
 import { vgBodyAtOffset } from "./vg/shared.js";
 import { vgLocalNameAtOffset } from "./vg/navigation.js";
 import { memberAtOffset } from "../../parser/ast-walk.js";
-import { resolveMemberChain } from "../../semantic/type-infer.js";
+import { resolveBareEnumMember, resolveMemberChain } from "../../semantic/type-infer.js";
 import { stStatementsAtOffset } from "../st-body-at.js";
 
 export interface DefinitionArgs {
@@ -75,7 +75,12 @@ export function definition(args: DefinitionArgs): Location[] {
 	}
 
 	const r = lookup(startScope, idToken.text);
-	if (r === undefined) return [];
+	if (r === undefined) {
+		// Bare enum member (`StateAutomatic`) — its symbol is in the enum's own scope, off the parent chain.
+		const em = resolveBareEnumMember(project, idToken.text);
+		if (em !== undefined) return [{ uri: em.uri.length > 0 ? em.uri : doc.uri, range: rangeFromSpan(em.span) }];
+		return [];
+	}
 
 	// Convert symbol's defining span into a Location. The symbol carries
 	// its own URI (set when its containing file was ingested into the

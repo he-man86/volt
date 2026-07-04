@@ -84,6 +84,21 @@ END_FUNCTION_BLOCK`;
 		expect(result?.contents.value).toContain("speed : LREAL");
 	});
 
+	it("hovers a BARE enum member (st-nav-chains)", () => {
+		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\ns := Idle;\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///e.st", enumSrc, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+		const result = hover({
+			doc: ws.getDocument("file:///fb.st")!,
+			position: positionOf(src, "Idle"),
+			project: ws.getProjectScope(),
+		});
+		expect(result).not.toBeNull();
+		expect(result?.contents.value).toContain("Idle");
+	});
+
 	it("returns null when no identifier under cursor", () => {
 		const ws = new Workspace();
 		ws.openDocument("file:///x.st", `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`, 1);

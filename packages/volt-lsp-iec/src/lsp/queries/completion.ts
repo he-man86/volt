@@ -218,6 +218,25 @@ function addLocalSymbols(items: CompletionItem[], project: Scope, doc: Document,
 		}
 		scope = scope.parent;
 	}
+	// Bare-accessible enum members (`StateAutomatic` of a non-qualified_only enum) are global constants off the
+	// parent chain — offer them too (st-nav-chains).
+	for (const child of project.children) {
+		if (child.kind !== "enum" || child.qualifiedOnly === true) continue;
+		for (const [, symbols] of child.symbols) {
+			for (const sym of symbols) {
+				const key = sym.name.toLowerCase();
+				if (seen.has(key)) continue;
+				seen.add(key);
+				items.push({
+					label: sym.name,
+					kind: lspKindForSymbol(sym),
+					detail: humanKind(sym),
+					sortText: `01_${sym.name}`,
+					data: { source: "enum-const", uri: sym.uri },
+				});
+			}
+		}
+	}
 }
 
 // ─── Resolve (Microsoft lsp-sample two-phase pattern) ────────────────

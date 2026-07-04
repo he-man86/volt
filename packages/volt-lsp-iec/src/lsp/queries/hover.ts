@@ -16,7 +16,7 @@ import type { Token } from "../../lexer/tokens.js";
 import { lookup } from "../../semantic/resolver.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import { memberAtOffset } from "../../parser/ast-walk.js";
-import { resolveMemberChain } from "../../semantic/type-infer.js";
+import { resolveBareEnumMember, resolveMemberChain } from "../../semantic/type-infer.js";
 import { stStatementsAtOffset } from "../st-body-at.js";
 import {
 	lookup as lookupReference,
@@ -142,6 +142,12 @@ export function hover(args: HoverArgs): HoverResult | null {
 			contents: { kind: "markdown", value: combined },
 			range: rangeFromSpan(idToken.span),
 		};
+	}
+
+	// Bare enum member (`StateAutomatic`) — its symbol is in the enum's own scope, off the parent chain.
+	const enumMember = resolveBareEnumMember(args.project, idToken.text);
+	if (enumMember !== undefined) {
+		return { contents: { kind: "markdown", value: renderHover(enumMember) }, range: rangeFromSpan(idToken.span) };
 	}
 
 	// Fall back to the corpus: keyword / type name / operator / pragma /
