@@ -82,8 +82,13 @@ async function main(): Promise<void> {
 	if (volt(ws, "init").code !== 0) { console.error("volt init failed"); process.exit(1); }
 	if (volt(ws, "pull").code !== 0) { console.error("volt pull failed"); process.exit(1); }
 	const plcPrgFile = findFile(ws, "PLC_PRG.prg") ?? join(ws, "PLC_PRG.prg");
+	// The test item must live in PLC_PRG's OWN folder (the Application) — under src/ so `volt push` ships it,
+	// and in the same scope so PLC_PRG can instantiate it. Writing it at the ws root leaves it unpushed and
+	// out of scope, and every build fails with "Unknown type: <FB>".
+	const appDir = dirname(plcPrgFile);
 
 	const recorded: Record<string, Recorded> = {};
+	const mismatches: string[] = []; // fixtures whose compiler verdict contradicts declared expectTcAccepts
 	let prevFile: string | undefined;
 	for (const [i, t] of tests.entries()) {
 		// 1. reset to empty structure (remove prior test item + bare PLC_PRG), push.
@@ -92,7 +97,7 @@ async function main(): Promise<void> {
 		volt(ws, "push", "--force", "--no-drift-check");
 
 		// 2-3. write this test + its instantiation, push.
-		const file = join(ws, `${t.pouName}.${KIND_EXT[t.kind]}`);
+		const file = join(appDir, `${t.pouName}.${KIND_EXT[t.kind]}`);
 		writeFileSync(file, t.source, "utf-8");
 		writeFileSync(plcPrgFile, plcPrgFor(t), "utf-8");
 		prevFile = file;
@@ -109,8 +114,16 @@ async function main(): Promise<void> {
 			.filter((d: Diag) => d.severity !== "info")
 			.map((d: Diag) => ({ severity: d.severity, message: d.message, line: d.line ?? 0 }));
 		const errs = diags.filter((d) => d.severity === "error").length;
-		recorded[t.name] = { buildSuccess: errs === 0, durationMs: build.duration ?? 0, diagnostics: diags };
-		console.log(`  ${errs === 0 ? "✓" : "✗"} ${t.name.padEnd(34)} (${i + 1}/${tests.length}) errors=${errs} warnings=${diags.length - errs}`);
+		const accepts = errs === 0;
+		recorded[t.name] = { buildSuccess: accepts, durationMs: build.duration ?? 0, diagnostics: diags };
+		console.log(`  ${accepts ? "✓" : "✗"} ${t.name.padEnd(34)} (${i + 1}/${tests.length}) errors=${errs} warnings=${diags.length - errs}`);
+		// Fixture guard: the compiler is the oracle — if it contradicts the fixture's declared intent, the
+		// FIXTURE is broken (a "pass" case that errors, or a "fail" case that compiles clean). Flag it before
+		// this ground truth is ever compared against the LSP.
+		if (accepts !== t.expectTcAccepts) {
+			mismatches.push(t.name);
+			console.log(`    ⚠ FIXTURE MISMATCH: declares expectTcAccepts=${t.expectTcAccepts}, but the compiler ${accepts ? "ACCEPTED" : "REJECTED"} it`);
+		}
 	}
 
 	// final reset to empty
@@ -124,6 +137,10 @@ async function main(): Promise<void> {
 		"utf-8",
 	);
 	console.log(`\nwrote ${OUTPUT} (${Object.keys(recorded).length} tests)`);
+	if (mismatches.length > 0) {
+		console.log(`\n⚠ ${mismatches.length} FIXTURE MISMATCH(es) — the compiler disagreed with the declared intent (fix the fixture or expectTcAccepts):`);
+		for (const n of mismatches) console.log(`    ${n}`);
+	}
 }
 
 function findFile(dir: string, name: string): string | undefined {
