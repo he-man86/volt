@@ -1,13 +1,15 @@
 /**
  * Public API surface for `@opencode-ai/volt-lsp-iec`.
  *
- * Every export here is consumed by another package (primarily
- * volt-agent's conformance harness, recorder, and VS Code extension).
- * Adding an export commits to its stability — bump the package version
- * on breaking changes. Removing one risks breaking downstream tools.
+ * The live consumer is volt-git's `volt init` (`installCorpus` + vendor
+ * detection). The VS Code extension bundles the LSP *binary* (`bin.ts`),
+ * not this API. The remaining exports are the stable analysis surface
+ * (lexer / parser / symbol table / diagnostics) kept for the in-package
+ * conformance harness + recorder and any future downstream tool; the
+ * scripts and tests import these modules directly, not through here.
  *
- * Internal modules (everything not re-exported here) are free to
- * change without a version bump.
+ * Adding an export commits to its stability — bump the package version on
+ * breaking changes. Internal modules (not re-exported here) change freely.
  */
 
 // ─── Lexer ────────────────────────────────────────────────────────────
@@ -19,21 +21,14 @@ export { lex } from "./lexer/lexer.js";
 export * from "./parser/ast.js";
 export { parse, parseSource } from "./parser/parser.js";
 
-// ─── Build-diagnostic line mapping ───────────────────────────────────
-// Maps an IDE build diagnostic's (object, line) onto a 0-based line in
-// the single assembled .st file. Shared by volt-agent's `volt build`
-// debug loop and the VS Code extension's Problems-panel display.
-export { bridgeDiagnosticFileLine } from "./bridge-diagnostic-lines.js";
-export type { ObjectDiagnosticRef } from "./bridge-diagnostic-lines.js";
-
 // ─── Semantic — symbol table ─────────────────────────────────────────
 export { buildSymbolTable } from "./semantic/symbol-table-build.js";
 export type { SymbolTableInput } from "./semantic/symbol-table-build.js";
 export type { Scope } from "./semantic/symbol-table.js";
 
 // ─── Semantic — body model ───────────────────────────────────────────
-// Used by downstream callers (volt-agent's conformance harness) that
-// compute diagnostics without going through the LSP workspace.
+// For callers that compute diagnostics without going through the LSP
+// workspace (the in-package conformance harness).
 export {
 	buildBodyModel,
 	buildBodyModelsForParseResult,
@@ -41,9 +36,8 @@ export {
 export type { BodyModel } from "./semantic/body.js";
 
 // ─── Semantic — diagnostics ──────────────────────────────────────────
-// Exposed so downstream packages (volt-agent's language-conformance
-// harness) can compute the same diagnostics the live LSP server
-// emits, without spawning a subprocess.
+// Compute the same diagnostics the live LSP server emits, without
+// spawning a subprocess (the conformance harness / recorder).
 export { computeSemanticDiagnostics } from "./semantic/diagnostics.js";
 export type { DiagnosticItem, DiagnosticsArgs } from "./semantic/diagnostics.js";
 
@@ -56,8 +50,8 @@ export { detectVendor } from "./detect-vendor.js";
 export type { DetectedVendor } from "./detect-vendor.js";
 
 // ─── Workspace init (CODESYS reference corpus installer) ─────────────
-// Used by `volt init` in volt-agent to drop the ST reference docs +
-// SKILL.md into a consumer project so AI sessions auto-discover them.
+// Used by volt-git's `volt init` to drop the ST reference docs + SKILL.md
+// into a consumer project so AI sessions auto-discover them.
 export { runInit as installCorpus } from "./init.js";
 export type {
 	InitOptions as InstallCorpusOptions,

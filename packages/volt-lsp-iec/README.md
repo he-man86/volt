@@ -112,7 +112,6 @@ plants an error on purpose).
 | `src/lsp/` | LSP wire: `server/` (framing/dispatch/diagnostics-push), `queries/` (+ `queries/vg/`), `capabilities`, `config/`, `workspace` |
 | `src/init.ts` | `installCorpus` — copies the reference corpus + writes `SKILL.md` into a consumer project at `volt init` |
 | `src/detect-vendor.ts` | Vendor auto-detection from project files |
-| `src/bridge-diagnostic-lines.ts` | Maps an IDE build diagnostic onto a line in the assembled `.st` file |
 | `src/tests/` | Unit tests + the replayable conformance harness (`tests/conformance/`) and live/e2e tests |
 | `docs/` | `codesys-reference/` + `twincat-reference/` corpora (shipped via `files`), `plcopen-xml/` notes |
 
