@@ -1,20 +1,23 @@
 /**
- * Simple assignment-type-mismatch — walks each method body, finds
- * `<id> := <rhs> ;` patterns where RHS is a single identifier or
- * typed literal, looks up both sides' types, and emits an error when
- * TC would refuse the assignment (BOOL ↔ numeric, narrowing,
- * STRING ↔ numeric).
+ * Assignment-type-mismatch — for each `target := value;`, infers both
+ * sides' types and emits an error when TC would refuse the assignment
+ * (BOOL ↔ numeric, narrowing, STRING ↔ numeric, incompatible enums).
  *
- * Skipped — silently — when RHS is more complex (binary expression,
- * conversion call, member access, parenthesized). Without full
- * expression type-inference we'd guess wrong and false-positive.
- * Conservative by design.
+ * Primary path walks the statement AST (`st-body-ast`) and types each
+ * side via the shared inference engine (`type-infer.ts`), so member/
+ * index/deref/call operands are typed rather than skipped. When a body
+ * doesn't parse to a clean tree it falls back to the original token
+ * scan, so behavior is unchanged there. Conservative throughout — any
+ * side that infers to `unknown` skips the check (never a false positive).
  */
-import type { ParseResult } from "../../parser/ast.js";
+import type { BodySpan, Expr, ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import type { Token } from "../../lexer/tokens.js";
 import { resolveTypeExpr } from "../type-resolver.js";
 import { lookup as resolverLookup } from "../resolver.js";
+import { parseStatements } from "../../parser/statements.js";
+import { walkStatements } from "../../parser/ast-walk.js";
+import { inferExprType } from "../type-infer.js";
 import {
 	type DiagnosticItem,
 	getBody,
@@ -35,6 +38,64 @@ export function checkAssignmentTypes(
 		const scope = findScopeForUnit(project, unit);
 		if (scope === undefined) continue;
 
+		const parsed = parseStatements(body);
+		if (parsed.ok) {
+			walkStatements(parsed.statements, (s) => {
+				if (s.kind !== "assign") return;
+				const lhs = assignKey(s.target, scope, project);
+				if (lhs === undefined) return;
+				const rhs = assignKey(s.value, scope, project);
+				if (rhs === undefined) return;
+				if (isAssignable(lhs, rhs, scope, project)) return;
+				out.push({
+					severity: "error",
+					span: s.target.span,
+					source: "volt-lsp-iec",
+					code: "assignment-type-mismatch",
+					message: `Cannot assign ${rhs} value to '${renderTarget(s.target)}' (declared ${lhs}).`,
+				});
+			});
+			continue;
+		}
+		checkTokenScan(body, scope, project, out);
+	}
+}
+
+/** The type key of an expression for `isAssignable` — an enum-value reference is tagged (like the token
+ *  path's `resolveRhsIdentifierType`); otherwise the inferred type name, or undefined to skip. */
+function assignKey(expr: Expr, scope: Scope, project: Scope): string | undefined {
+	if (expr.kind === "ident_expr") {
+		const r = resolverLookup(scope, expr.name);
+		if (r?.symbol.kind === "enum_value") return `${ENUM_PREFIX}${r.foundIn.name}`;
+	}
+	const t = inferExprType(expr, scope, project);
+	// Only reason about types we actually know: elementary (incl. alias-resolved) and enum. A struct/FB,
+	// a composite (array/pointer), or an unresolved library type (e.g. FILENAME) infers to a non-checkable
+	// category — skip, so we never flag a type we can't reason about (zero-FP).
+	return t.kind === "elementary" || t.kind === "enum" ? t.name : undefined;
+}
+
+/** Source-like text of an assignment target, for the diagnostic message. */
+function renderTarget(expr: Expr): string {
+	switch (expr.kind) {
+		case "ident_expr":
+			return expr.name;
+		case "member":
+			return `${renderTarget(expr.base)}.${expr.member.name}`;
+		case "index":
+			return `${renderTarget(expr.base)}[…]`;
+		case "deref":
+			return `${renderTarget(expr.base)}^`;
+		case "paren":
+			return renderTarget(expr.inner);
+		default:
+			return "target";
+	}
+}
+
+/** Original token-scan path — used verbatim when a body doesn't parse to a clean statement tree. */
+function checkTokenScan(body: BodySpan, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+	{
 		const meaningful = body.tokens.filter((t) => !isLexerTrivia(t.kind));
 		for (let i = 0; i < meaningful.length; i++) {
 			// Pattern: <ident> := <single-rhs> ;

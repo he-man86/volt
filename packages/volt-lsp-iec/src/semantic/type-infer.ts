@@ -10,7 +10,11 @@
  *
  * See `openspec/changes/st-type-inference/design.md` (D6).
  */
+import type { BinaryExpr, CallExpr, Expr, Literal, TypeExpr } from "../parser/ast.js";
 import type { Scope, Symbol } from "./symbol-table.js";
+import { lookupLocal } from "./symbol-table.js";
+import { lookup as resolverLookup } from "./resolver.js";
+import { resolveNamedType, resolveTypeExpr, type ResolvedKind } from "./type-resolver.js";
 
 /**
  * Depth-first search of the project scope tree for the first symbol whose
@@ -77,4 +81,170 @@ export function renderTypeExpr(t: unknown): string {
 		default:
 			return "?";
 	}
+}
+
+// ─── Expression type inference (st-type-inference §2) ────────────────
+//
+// A lean model: the canonical type NAME (which already distinguishes
+// `LREAL` from `REAL`, so `reference/type-conversion.ts` compatibility
+// works directly on it), plus the member `scope` for `a.b` chains and the
+// declared `typeExpr` for array-element / pointer-target descent. Every
+// arm returns `UNKNOWN_TYPE` on any unresolved sub-part — a consumer acts
+// only on a fully-known type, which is what keeps the checks zero-FP.
+
+export interface InferredType {
+	kind: ResolvedKind; // elementary | enum | struct | function_block | alias | unknown
+	/** Canonical type name (elementary uppercased, or the named-type text). Undefined for composites/unknown. */
+	name?: string;
+	/** Member scope for a struct / FB / enum — the base for `a.b`. */
+	scope?: Scope;
+	/** Declared type expression, for descending into arrays (element) / pointers (target). */
+	typeExpr?: TypeExpr;
+}
+
+export const UNKNOWN_TYPE: InferredType = { kind: "unknown" };
+
+/** IEC type abbreviations → their canonical short form, so `TIME_OF_DAY` and `TOD` compare equal. */
+const ELEM_ABBREV: Record<string, string> = {
+	TIME_OF_DAY: "TOD",
+	DATE_AND_TIME: "DT",
+	LDATE_AND_TIME: "LDT",
+	LTIME_OF_DAY: "LTOD",
+};
+function canonicalElem(name: string): string {
+	const u = name.toUpperCase();
+	return ELEM_ABBREV[u] ?? u;
+}
+
+/**
+ * The underlying canonical elementary name for a type name — follows alias
+ * chains (`FILENAME → STRING(255) → STRING`) and normalizes IEC abbreviations
+ * (`TIME_OF_DAY → TOD`). Only meaningful when the type resolves to elementary;
+ * used so compatibility compares underlying types, not alias/abbreviation names.
+ */
+function underlyingElementaryName(name: string, project: Scope): string {
+	const r = resolveNamedType(name, project);
+	if (r.kind === "alias" && r.aliasTarget !== undefined) {
+		const at = r.aliasTarget;
+		if (at.kind === "named_type") return underlyingElementaryName(at.name.text, project);
+		if (at.kind === "string_type") return at.wide ? "WSTRING" : "STRING";
+	}
+	return canonicalElem(name);
+}
+
+/** Resolve a declared `TypeExpr` to an `InferredType` (name + kind + member scope). */
+export function typeExprToInferred(t: TypeExpr, project: Scope): InferredType {
+	switch (t.kind) {
+		case "named_type": {
+			const r = resolveTypeExpr(t, project);
+			// For a type that resolves to elementary (directly or via an alias), use the underlying
+			// canonical elementary name so aliases/abbreviations don't false-positive in compatibility.
+			const name = r.kind === "elementary" ? underlyingElementaryName(t.name.text, project) : t.name.text.toUpperCase();
+			return { kind: r.kind, name, scope: r.scope, typeExpr: t };
+		}
+		case "string_type":
+			return { kind: "elementary", name: t.wide ? "WSTRING" : "STRING", typeExpr: t };
+		case "implicit_enum_type":
+			return { kind: "enum", typeExpr: t };
+		default: // array / pointer / reference — composite; keep typeExpr for descent
+			return { kind: "unknown", typeExpr: t };
+	}
+}
+
+/** Infer the type of an ST expression. Bottom-up, total, `unknown` on any unresolved sub-part. */
+export function inferExprType(expr: Expr, scope: Scope, project: Scope): InferredType {
+	switch (expr.kind) {
+		case "literal":
+			return literalType(expr);
+		case "ident_expr": {
+			const sym = resolverLookup(scope, expr.name)?.symbol;
+			return sym?.typeExpr !== undefined ? typeExprToInferred(sym.typeExpr, project) : UNKNOWN_TYPE;
+		}
+		case "member": {
+			const sym = resolveMemberChain(expr, scope, project);
+			return sym?.typeExpr !== undefined ? typeExprToInferred(sym.typeExpr, project) : UNKNOWN_TYPE;
+		}
+		case "index": {
+			const base = inferExprType(expr.base, scope, project);
+			return base.typeExpr?.kind === "array_type" ? typeExprToInferred(base.typeExpr.element, project) : UNKNOWN_TYPE;
+		}
+		case "deref": {
+			const base = inferExprType(expr.base, scope, project);
+			const t = base.typeExpr;
+			return t?.kind === "pointer_type" || t?.kind === "reference_type" ? typeExprToInferred(t.target, project) : UNKNOWN_TYPE;
+		}
+		case "call":
+			return callReturnType(expr, scope, project);
+		case "unary":
+			// NOT/-/+ all preserve the operand's type (NOT on WORD is a bitwise complement, not BOOL).
+			return inferExprType(expr.operand, scope, project);
+		case "binary":
+			return binaryResultType(expr, scope, project);
+		case "paren":
+			return inferExprType(expr.inner, scope, project);
+	}
+}
+
+/**
+ * The symbol a reference chain denotes — `x`, `a.b.c`, `a.b()` — or undefined.
+ * The nav primitive Phase 2 (`st-nav-chains`) consumes; here it feeds inference.
+ */
+export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Symbol | undefined {
+	switch (expr.kind) {
+		case "ident_expr":
+			return resolverLookup(scope, expr.name)?.symbol;
+		case "member": {
+			const base = inferExprType(expr.base, scope, project);
+			return base.scope !== undefined ? lookupLocal(base.scope, expr.member.name)[0] : undefined;
+		}
+		case "paren":
+			return resolveMemberChain(expr.inner, scope, project);
+		case "call":
+			return resolveMemberChain(expr.callee, scope, project);
+		default:
+			return undefined;
+	}
+}
+
+function literalType(lit: Literal): InferredType {
+	switch (lit.literalKind) {
+		case "string":
+			return { kind: "elementary", name: "STRING" };
+		case "wstring":
+			return { kind: "elementary", name: "WSTRING" };
+		case "bool":
+			return { kind: "elementary", name: "BOOL" };
+		case "time":
+			return { kind: "elementary", name: "TIME" };
+		case "date":
+			return { kind: "elementary", name: "DATE" };
+		case "tod":
+			return { kind: "elementary", name: "TOD" };
+		case "datetime":
+			return { kind: "elementary", name: "DT" };
+		case "typed": {
+			// `BYTE#170` / `INT#5` → the type prefix. `16#FF` (numeric base) has no type → skip.
+			const hash = lit.text.indexOf("#");
+			const prefix = hash > 0 ? lit.text.slice(0, hash) : "";
+			return /^[A-Za-z_]/.test(prefix) ? { kind: "elementary", name: prefix.toUpperCase() } : UNKNOWN_TYPE;
+		}
+		default:
+			// int / real / address literals are context-dependent — skip (matches the prior token scan).
+			return UNKNOWN_TYPE;
+	}
+}
+
+const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="]);
+
+function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): InferredType {
+	if (COMPARISON_OPS.has(e.op)) return { kind: "elementary", name: "BOOL" };
+	// Arithmetic / bitwise: conservative — only commit when both operands infer to the same named type.
+	const l = inferExprType(e.left, scope, project);
+	const r = inferExprType(e.right, scope, project);
+	return l.name !== undefined && l.name === r.name ? l : UNKNOWN_TYPE;
+}
+
+function callReturnType(call: CallExpr, scope: Scope, project: Scope): InferredType {
+	const sym = resolveMemberChain(call.callee, scope, project);
+	return sym?.typeExpr !== undefined ? typeExprToInferred(sym.typeExpr, project) : UNKNOWN_TYPE;
 }

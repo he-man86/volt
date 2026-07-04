@@ -12,16 +12,16 @@ Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `l
 
 ## 2. Type-inference engine (on the shared service)
 
-- [ ] 2.1a Define `InferredType` in `type-infer.ts`: `elem` (name + bits + signed + class BOOL/INT/REAL/TIME/STRING), `enum`/`struct`/`fb` (with scope), `array` (element), `pointer`/`ref` (target), `string` (wide), `unknown`.
-- [ ] 2.1b Map `ResolvedType` (from `type-resolver.ts`) → `InferredType` at the boundary; keep `type-resolver` unchanged (extend, don't replace — D6).
-- [ ] 2.1c Implement `inferExprType(expr, scope, project) → InferredType`: literals (with width/sign/class), identifiers (via symbol table), member access (via `resolveMemberChain`), index (→ element), deref (→ target), call (→ callee return type), unary, binary (IEC result type), paren. Any unresolved sub-part ⇒ `unknown`.
-- [ ] 2.1d Unit tests per rule: integer width/sign, REAL vs LREAL, member chain `a.b.c`, array element, deref, call return, binary promotion, and `unknown` propagation (an unresolved leaf makes the whole expr `unknown`).
+- [x] 2.1a Define `InferredType` in `type-infer.ts`: `elem` (name + bits + signed + class BOOL/INT/REAL/TIME/STRING), `enum`/`struct`/`fb` (with scope), `array` (element), `pointer`/`ref` (target), `string` (wide), `unknown`.
+- [x] 2.1b Map `ResolvedType` (from `type-resolver.ts`) → `InferredType` at the boundary; keep `type-resolver` unchanged (extend, don't replace — D6).
+- [x] 2.1c Implement `inferExprType(expr, scope, project) → InferredType`: literals (with width/sign/class), identifiers (via symbol table), member access (via `resolveMemberChain`), index (→ element), deref (→ target), call (→ callee return type), unary, binary (IEC result type), paren. Any unresolved sub-part ⇒ `unknown`.
+- [x] 2.1d Unit tests per rule: integer width/sign, REAL vs LREAL, member chain `a.b.c`, array element, deref, call return, binary promotion, and `unknown` propagation (an unresolved leaf makes the whole expr `unknown`).
 
 ## 2. Deepen the existing type checks (one at a time, ratchet after each)
 
 ## 3. Deepen the existing type checks (one at a time, ratchet after each)
 
-- [ ] 3.1 Migrate `check-assignment-types.ts` onto `statements` + `inferExprType` (fall back to the token path when `!statementsOk`). Now types member/index/deref/call l-values and r-values. Re-run `real-corpus.test.ts` — must stay `<=` baseline (pro2193 3, bakon 10, awa 0, lenze 0).
+- [x] 3.1 Migrate `check-assignment-types.ts` onto `statements` + `inferExprType` (fall back to the token path when `!statementsOk`). Now types member/index/deref/call l-values and r-values. Re-run `real-corpus.test.ts` — must stay `<=` baseline (pro2193 3, bakon 10, awa 0, lenze 0).
 - [ ] 3.2 Migrate `check-binary-operators.ts` onto the walker (operands of any shape, not just `id op id`). Ratchet.
 - [ ] 3.3 Migrate `check-conversion.ts` onto the walker (`CONV(<any expr>)`, composite arg types). Ratchet.
 
