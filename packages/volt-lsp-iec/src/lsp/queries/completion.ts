@@ -37,6 +37,7 @@ import {
 } from "../../reference/index.js";
 import { ALL_PRAGMAS } from "../../reference/pragmas.js";
 import type { Scope, Symbol } from "../../semantic/symbol-table.js";
+import { findSymbolByName } from "../../semantic/type-infer.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
 import { scopeAtOffset } from "../scope-at.js";
@@ -181,20 +182,7 @@ function memberCompletions(baseName: string, project: Scope): CompletionItem[] {
 }
 
 function findSymbol(project: Scope, name: string): Symbol | undefined {
-	const key = name.toLowerCase();
-	for (const [, syms] of project.symbols) {
-		for (const sym of syms) {
-			if (sym.name.toLowerCase() === key) return sym;
-		}
-	}
-	for (const child of project.children) {
-		for (const [, syms] of child.symbols) {
-			for (const sym of syms) {
-				if (sym.name.toLowerCase() === key) return sym;
-			}
-		}
-	}
-	return undefined;
+	return findSymbolByName(project, name);
 }
 
 // ─── Default context ─────────────────────────────────────────────────

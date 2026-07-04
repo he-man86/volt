@@ -21,8 +21,9 @@ import { resolveConfig } from "../src/lsp/config/index.js";
 import { loadLibraryNamespaces, loadDeviceInstances } from "../src/semantic/reference-catalog.js";
 import { hasNoBuildGroundTruth } from "../src/semantic/exclude-marker.js";
 import { walkFiles } from "../src/fs-walk.js";
-import type { Expr, StatementList } from "../src/parser/ast.js";
+import type { StatementList } from "../src/parser/ast.js";
 import { parseStatements } from "../src/parser/statements.js";
+import { walkAllExprs } from "../src/parser/ast-walk.js";
 
 // Every writable source kind is named by its kind (bridge: ItemKind.ExtFor).
 export const KIND_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"]);
@@ -50,51 +51,13 @@ export interface Coverage {
 	parseFailSamples: string[]; // "file :: <first error>" samples of ok=false bodies (capped) — the fallback tail, not a defect
 }
 
-/** Byte offsets of every NAME node in an expression (idents, member names, named-arg params). */
-function collectExprNameOffsets(e: Expr, out: Set<number>): void {
-	switch (e.kind) {
-		case "ident_expr": out.add(e.span.start); break;
-		case "literal": break;
-		case "binary": collectExprNameOffsets(e.left, out); collectExprNameOffsets(e.right, out); break;
-		case "unary": collectExprNameOffsets(e.operand, out); break;
-		case "member": collectExprNameOffsets(e.base, out); out.add(e.member.span.start); break;
-		case "index": collectExprNameOffsets(e.base, out); for (const i of e.indices) collectExprNameOffsets(i, out); break;
-		case "deref": collectExprNameOffsets(e.base, out); break;
-		case "call":
-			collectExprNameOffsets(e.callee, out);
-			for (const a of e.args) { if (a.param) out.add(a.param.span.start); collectExprNameOffsets(a.value, out); }
-			break;
-		case "paren": collectExprNameOffsets(e.inner, out); break;
-	}
-}
-
+/** Byte offsets of every identifier NAME node in a statement list (idents, member names, named-arg
+ *  params — all `ident_expr` nodes). Uses the shared walker; equivalence with the token scan is
+ *  asserted by the corpus ratchet. */
 function collectStmtNameOffsets(list: StatementList, out: Set<number>): void {
-	for (const s of list) {
-		switch (s.kind) {
-			case "assign": collectExprNameOffsets(s.target, out); collectExprNameOffsets(s.value, out); break;
-			case "call_stmt": collectExprNameOffsets(s.call, out); break;
-			case "if":
-				for (const b of s.branches) { collectExprNameOffsets(b.cond, out); collectStmtNameOffsets(b.body, out); }
-				if (s.elseBody) collectStmtNameOffsets(s.elseBody, out);
-				break;
-			case "case":
-				collectExprNameOffsets(s.selector, out);
-				for (const arm of s.arms) {
-					for (const l of arm.labels) { collectExprNameOffsets(l.value, out); if (l.upper) collectExprNameOffsets(l.upper, out); }
-					collectStmtNameOffsets(arm.body, out);
-				}
-				if (s.elseBody) collectStmtNameOffsets(s.elseBody, out);
-				break;
-			case "for":
-				collectExprNameOffsets(s.controlVar, out); collectExprNameOffsets(s.from, out); collectExprNameOffsets(s.to, out);
-				if (s.by) collectExprNameOffsets(s.by, out);
-				collectStmtNameOffsets(s.body, out);
-				break;
-			case "while": collectExprNameOffsets(s.cond, out); collectStmtNameOffsets(s.body, out); break;
-			case "repeat": collectStmtNameOffsets(s.body, out); collectExprNameOffsets(s.until, out); break;
-			case "return": case "exit": case "continue": case "empty": break;
-		}
-	}
+	walkAllExprs(list, (e) => {
+		if (e.kind === "ident_expr") out.add(e.span.start);
+	});
 }
 
 function collect(dir: string): string[] {

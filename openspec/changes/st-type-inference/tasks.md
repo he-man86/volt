@@ -6,9 +6,9 @@
 
 Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `lsp/queries/**` consume. Do the dedup FIRST (behavior-preserving) so inference layers onto a clean base.
 
-- [ ] 1.0a Add a shared `Expr`/`Statement` **walker** (in `type-infer.ts` or a tiny `src/parser/ast-walk.ts`) — one visitor/reducer skeleton. Retrofit `scripts/coverage-report.ts`'s hand-rolled walk onto it (proves the shape; the corpus ratchet guards it).
-- [ ] 1.0b Extract `resolveMemberChain(expr|name-path, scope, project) → { symbol, typeExpr } | undefined` — the recursive "name → its type → member scope → member symbol" hop, built on `resolver.lookup` + `type-resolver.resolveTypeExpr`. **Collapse the 5 duplicates into it**: `completion.ts findSymbol`, `signature-help.ts findCallable`, `vg/calls.ts findCallableType`, `vg/type-env.ts findTypeAst`, `_shared.ts findScopeByName`. Behavior-preserving — full suite + corpus ratchet green (this is a pure refactor; no diagnostic changes).
-- [ ] 1.0c Extract one `renderType(typeExpr) → string`, collapsing the 4 copies (`signature-help.ts`, `vg/calls.ts`, `vg/type-env.ts`, `hover.ts`).
+- [x] 1.0a Shared `Expr`/`Statement` **walker** → `src/parser/ast-walk.ts` (`exprChildren`/`walkExpr`/`stmtExprs`/`stmtChildLists`/`walkStatements`/`walkAllExprs`). `coverage-report.ts`'s two hand-rolled walks collapsed to one `walkAllExprs` call. Corpus ratchet green (0 mismatches, baselines held).
+- [x] 1.0b Shared symbol finder `findSymbolByName` (+ `findMemberBearing`) in `src/semantic/type-infer.ts`. Collapsed the **4 duplicated symbol-walks** into it: `completion.findSymbol`, `signature-help.findCallable`, `vg/calls.findCallableType`, `vg/type-env.findTypeAst`. (`_shared.findScopeByName` is a single shared scope-by-name helper — not a copy — left as-is.) Full suite 5772 pass, all snapshots intact (completion's shallow→DFS was behavior-preserving). `resolveMemberChain` (the multi-hop) lands in §2 where inference consumes it, built on this primitive.
+- [x] 1.0c Shared `renderTypeExpr` in `type-infer.ts`; collapsed the **2 identical** copies (`signature-help`, `vg/calls`). The other 2 have DIFFERENT contracts and stay separate by design: `hover.typeText` (typed, real `ARRAY[dims]` + enum values) and `vg/type-env.renderType` (uppercases, returns `undefined`) — unifying them would change output.
 
 ## 2. Type-inference engine (on the shared service)
 

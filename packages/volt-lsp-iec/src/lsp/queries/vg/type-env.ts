@@ -4,6 +4,7 @@
  */
 import type { Scope } from "../../../semantic/symbol-table.js";
 import { lookup as resolverLookup } from "../../../semantic/resolver.js";
+import { findMemberBearing } from "../../../semantic/type-infer.js";
 import type { VgTypeEnv } from "../../../vg/type-infer.js";
 
 export function makeVgTypeEnv(project: Scope, scope: Scope): VgTypeEnv {
@@ -57,21 +58,7 @@ function outputPinType(project: Scope, typeName: string, pin: string): string | 
 }
 
 function findTypeAst(project: Scope, typeName: string): AstWithVarSections | undefined {
-	const target = typeName.toLowerCase();
-	const stack: Scope[] = [project];
-	while (stack.length > 0) {
-		const sc = stack.pop()!;
-		for (const [, syms] of sc.symbols) {
-			for (const sym of syms) {
-				if (sym.name.toLowerCase() === target) {
-					const ast = sym.ast as AstWithVarSections | undefined;
-					if (ast !== undefined && Array.isArray(ast.varSections)) return ast;
-				}
-			}
-		}
-		stack.push(...sc.children);
-	}
-	return undefined;
+	return findMemberBearing(project, typeName)?.ast as AstWithVarSections | undefined;
 }
 
 function renderType(t: unknown): string | undefined {

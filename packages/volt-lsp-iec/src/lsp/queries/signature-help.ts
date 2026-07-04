@@ -15,6 +15,7 @@ import type {
 	SignatureInformation,
 } from "vscode-languageserver-protocol";
 import type { Scope } from "../../semantic/symbol-table.js";
+import { findMemberBearing, renderTypeExpr } from "../../semantic/type-infer.js";
 import { offsetFromPosition } from "../position.js";
 import type { Document } from "../workspace.js";
 import { vgBodyAtOffset } from "./vg/shared.js";
@@ -117,25 +118,8 @@ interface CallableSym {
 }
 
 function findCallable(project: Scope, name: string): CallableSym | undefined {
-	const target = name.toLowerCase();
-	const stack: Scope[] = [project];
-	while (stack.length > 0) {
-		const sc = stack.pop()!;
-		for (const [, syms] of sc.symbols) {
-			for (const sym of syms) {
-				if (sym.name.toLowerCase() === target) {
-					// AST shape varies — TopLevel union includes some
-					// with `varSections` and some without.
-					const ast = sym.ast as { varSections?: ReadonlyArray<unknown> };
-					if (Array.isArray(ast.varSections)) {
-						return sym as unknown as CallableSym;
-					}
-				}
-			}
-		}
-		stack.push(...sc.children);
-	}
-	return undefined;
+	// A callable is a member-bearing symbol (FB/PROGRAM/FUNCTION/METHOD — has `varSections`).
+	return findMemberBearing(project, name) as unknown as CallableSym | undefined;
 }
 
 function collectVarInputParams(ast: CallableSym["ast"]): Array<{ name: string; type: string }> {
@@ -144,7 +128,7 @@ function collectVarInputParams(ast: CallableSym["ast"]): Array<{ name: string; t
 	for (const section of ast.varSections) {
 		if (section.sectionKind !== "VAR_INPUT") continue;
 		for (const decl of section.decls) {
-			const typeText = renderTypeExprText(decl.type);
+			const typeText = renderTypeExpr(decl.type);
 			for (const id of decl.names) {
 				out.push({ name: id.text, type: typeText });
 			}
@@ -153,23 +137,3 @@ function collectVarInputParams(ast: CallableSym["ast"]): Array<{ name: string; t
 	return out;
 }
 
-function renderTypeExprText(t: unknown): string {
-	if (t === null || typeof t !== "object") return "?";
-	const obj = t as { kind?: string; name?: { text: string }; target?: unknown; element?: unknown; wide?: boolean };
-	switch (obj.kind) {
-		case "named_type":
-			return obj.name?.text ?? "?";
-		case "array_type":
-			return `ARRAY OF ${renderTypeExprText(obj.element)}`;
-		case "pointer_type":
-			return `POINTER TO ${renderTypeExprText(obj.target)}`;
-		case "reference_type":
-			return `REFERENCE TO ${renderTypeExprText(obj.target)}`;
-		case "string_type":
-			return obj.wide ? "WSTRING" : "STRING";
-		case "implicit_enum_type":
-			return "(implicit enum)";
-		default:
-			return "?";
-	}
-}

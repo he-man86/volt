@@ -10,6 +10,7 @@
  */
 import type { Scope } from "../../../semantic/symbol-table.js";
 import { lookup as resolverLookup } from "../../../semantic/resolver.js";
+import { findMemberBearing, renderTypeExpr } from "../../../semantic/type-infer.js";
 
 export interface CallParam {
 	name: string;
@@ -78,21 +79,7 @@ export function enclosingCallee(source: string, offset: number): string | undefi
 }
 
 function findCallableType(project: Scope, typeName: string): AstWithVarSections | undefined {
-	const target = typeName.toLowerCase();
-	const stack: Scope[] = [project];
-	while (stack.length > 0) {
-		const sc = stack.pop()!;
-		for (const [, syms] of sc.symbols) {
-			for (const sym of syms) {
-				if (sym.name.toLowerCase() === target) {
-					const ast = sym.ast as AstWithVarSections | undefined;
-					if (ast !== undefined && Array.isArray(ast.varSections)) return ast;
-				}
-			}
-		}
-		stack.push(...sc.children);
-	}
-	return undefined;
+	return findMemberBearing(project, typeName)?.ast as AstWithVarSections | undefined;
 }
 
 /** Input pins: VAR_INPUT and VAR_IN_OUT (both appear in an FB-call pin list). */
@@ -101,28 +88,10 @@ function inputParams(ast: AstWithVarSections): CallParam[] {
 	for (const section of ast.varSections ?? []) {
 		if (section.sectionKind !== "VAR_INPUT" && section.sectionKind !== "VAR_IN_OUT") continue;
 		for (const decl of section.decls) {
-			const typeText = renderTypeExprText(decl.type);
+			const typeText = renderTypeExpr(decl.type);
 			for (const id of decl.names) out.push({ name: id.text, type: typeText });
 		}
 	}
 	return out;
 }
 
-function renderTypeExprText(t: unknown): string {
-	if (t === null || typeof t !== "object") return "?";
-	const obj = t as { kind?: string; name?: { text: string }; target?: unknown; element?: unknown; wide?: boolean };
-	switch (obj.kind) {
-		case "named_type":
-			return obj.name?.text ?? "?";
-		case "array_type":
-			return `ARRAY OF ${renderTypeExprText(obj.element)}`;
-		case "pointer_type":
-			return `POINTER TO ${renderTypeExprText(obj.target)}`;
-		case "reference_type":
-			return `REFERENCE TO ${renderTypeExprText(obj.target)}`;
-		case "string_type":
-			return obj.wide ? "WSTRING" : "STRING";
-		default:
-			return "?";
-	}
-}
