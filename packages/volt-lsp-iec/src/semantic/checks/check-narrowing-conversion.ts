@@ -32,6 +32,7 @@ export function checkNarrowingConversion(parseResult: ParseResult, project: Scop
 		if (!parsed.ok) continue; // tree-only
 		walkStatements(parsed.statements, (s) => {
 			if (s.kind !== "assign") return;
+			if (s.op !== undefined) return; // set/reset/reference operators — not a value narrowing
 			const target = elemName(s.target, scope, project);
 			const value = elemName(s.value, scope, project);
 			if (target === "REAL" && value === "LREAL") {

@@ -124,11 +124,6 @@ describe("conditional-compile pragmas are ignored (trivia)", () => {
 });
 
 describe("ok=false fallback (no throw, no invented nodes)", () => {
-	it("unmodeled S= set-assignment falls back cleanly", () => {
-		const r = run("myState.xCmdInit S= (FALSE);");
-		expect(r.ok).toBe(false); // known gap (harden 8.2) — must fall back, not throw
-	});
-
 	it("truncated IF falls back", () => {
 		const r = run("IF a THEN x := 1;");
 		expect(r.ok).toBe(false);
@@ -179,5 +174,39 @@ describe("CODESYS constructs found on the real-project corpus", () => {
 		if (s.kind !== "try") throw new Error("expected try");
 		expect(s.finallyBody).toHaveLength(1);
 		expect(s.catchBody).toBeUndefined();
+	});
+});
+
+describe("IEC set/reset/reference assignment operators", () => {
+	it("`out S= cond` (set) parses with op recorded", () => {
+		// From the corpus: `GlobalVars_BFU.Reset S= Reset.ButtonPushed`.
+		const r = run("out S= cond;");
+		expect(r.ok).toBe(true);
+		const s = r.statements[0]!;
+		if (s.kind !== "assign") throw new Error("expected assign");
+		expect(s.op).toBe("S=");
+	});
+
+	it("`out R= cond` (reset)", () => {
+		const r = run("out R= cond;");
+		expect(r.ok).toBe(true);
+		const s = r.statements[0]!;
+		if (s.kind !== "assign") throw new Error("expected assign");
+		expect(s.op).toBe("R=");
+	});
+
+	it("`ref REF= target` (reference bind)", () => {
+		const r = run("ref REF= target;");
+		expect(r.ok).toBe(true);
+		const s = r.statements[0]!;
+		if (s.kind !== "assign") throw new Error("expected assign");
+		expect(s.op).toBe("REF=");
+	});
+
+	it("plain `:=` leaves op undefined", () => {
+		const r = run("x := 1;");
+		const s = r.statements[0]!;
+		if (s.kind !== "assign") throw new Error("expected assign");
+		expect(s.op).toBeUndefined();
 	});
 });

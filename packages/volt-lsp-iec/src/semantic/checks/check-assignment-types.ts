@@ -42,6 +42,7 @@ export function checkAssignmentTypes(
 		if (parsed.ok) {
 			walkStatements(parsed.statements, (s) => {
 				if (s.kind !== "assign") return;
+				if (s.op !== undefined) return; // S= / R= (BOOL latch) / REF= (reference bind) — different rules
 				const lhs = assignKey(s.target, scope, project);
 				if (lhs === undefined) return;
 				const rhs = assignKey(s.value, scope, project);

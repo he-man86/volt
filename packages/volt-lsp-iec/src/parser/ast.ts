@@ -479,6 +479,10 @@ export interface Assignment {
 	kind: "assign";
 	target: Expr;
 	value: Expr;
+	/** The assignment operator when it is NOT plain `:=` — the IEC set/reset/reference forms
+	 *  `S=` (set), `R=` (reset), `REF=` (reference). Undefined for `:=`. These carry different
+	 *  semantics (BOOL latch / reference bind), so type checks treat them separately. */
+	op?: "S=" | "R=" | "REF=";
 	/** Intermediate l-values of a chained assignment `a := b := c` — here `[b]`, with target `a` and
 	 *  value `c` (all receive `c`'s value per CODESYS). Undefined/empty for a plain assignment. */
 	chained?: Expr[];

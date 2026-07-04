@@ -118,13 +118,18 @@ function parseStatement(cur: Cursor): Statement | undefined {
 function parseExprOrAssign(cur: Cursor): Statement | undefined {
 	const expr = parseExpression(cur);
 	if (expr === undefined) return undefined;
-	if (cur.eatPunct(":=") !== undefined) {
+	// Assignment operators: plain `:=` plus the IEC set/reset/reference forms `S=` / `R=` / `REF=`.
+	const opTok = cur.peek();
+	const isAssignOp = opTok.kind === "punct" && (opTok.text === ":=" || opTok.text === "S=" || opTok.text === "R=" || opTok.text === "REF=");
+	if (isAssignOp) {
+		cur.consume(); // the assignment operator
+		const op = opTok.text === ":=" ? undefined : (opTok.text as "S=" | "R=" | "REF=");
 		let value = parseExpression(cur);
 		if (value === undefined) return undefined;
 		// Chained assignment `a := b := c` (CODESYS): each `:=` promotes the last RHS to an
-		// intermediate target; all receive the final value.
+		// intermediate target; all receive the final value. Only plain `:=` chains.
 		const chained: Expr[] = [];
-		while (cur.eatPunct(":=") !== undefined) {
+		while (op === undefined && cur.eatPunct(":=") !== undefined) {
 			chained.push(value);
 			value = parseExpression(cur);
 			if (value === undefined) return undefined;
@@ -135,6 +140,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
 			kind: "assign",
 			target: expr,
 			value,
+			...(op !== undefined ? { op } : {}),
 			...(chained.length > 0 ? { chained } : {}),
 			span: merge(expr.span, semi.span),
 		};
