@@ -33,6 +33,8 @@ export function exprChildren(e: Expr): Expr[] {
 			return [e.callee, ...e.args.flatMap((a) => [...(a.param ? [a.param] : []), ...(a.value ? [a.value] : [])])];
 		case "paren":
 			return [e.inner];
+		case "assign_expr":
+			return [e.target, e.value];
 	}
 }
 

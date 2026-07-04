@@ -204,11 +204,11 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
 			const opTok = cur.consume();
 			const output = opTok.text === "=>";
 			const param: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span };
-			// An output may be left unconnected: `out => ,` or `out => )`. Only outputs — an empty
-			// input target is a genuine error.
+			// Either side may be left unconnected: `out => ,` / `in := ,` / `… )`. CODESYS accepts an
+			// empty input (routed from nowhere) as well as an empty output.
 			const after = cur.peek();
-			if (output && after.kind === "punct" && (after.text === "," || after.text === ")")) {
-				return { kind: "call_arg", param, output: true, span: merge(nameTok.span, opTok.span) };
+			if (after.kind === "punct" && (after.text === "," || after.text === ")")) {
+				return { kind: "call_arg", param, output, span: merge(nameTok.span, opTok.span) };
 			}
 			const value = parseExpression(cur);
 			if (value === undefined) return undefined;
@@ -245,6 +245,17 @@ function parsePrimary(cur: Cursor): Expr | undefined {
 		const open = cur.consume();
 		const inner = parseExpression(cur);
 		if (inner === undefined) return undefined;
+		// CODESYS inline assignment `(x := value)` — assigns and yields `value`. Only valid inside
+		// parentheses, so handling it here keeps `:=` from hijacking statement-level assignment.
+		if (cur.peek().kind === "punct" && cur.peek().text === ":=") {
+			cur.consume();
+			const value = parseExpression(cur);
+			if (value === undefined) return undefined;
+			const close = cur.expectPunct(")", "closing parenthesis");
+			if (close === undefined) return undefined;
+			const assign: Expr = { kind: "assign_expr", target: inner, value, span: merge(inner.span, value.span) };
+			return { kind: "paren", inner: assign, span: merge(open.span, close.span) };
+		}
 		const close = cur.expectPunct(")", "closing parenthesis");
 		if (close === undefined) return undefined;
 		return { kind: "paren", inner, span: merge(open.span, close.span) };

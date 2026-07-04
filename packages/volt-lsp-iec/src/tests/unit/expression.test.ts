@@ -133,6 +133,28 @@ describe("call arguments", () => {
 	it("trailing unconnected output before `)`", () => {
 		expect(shape(parse("FB(x := 1, done => )").expr)).toBe("FB(x:=1,done=>)");
 	});
+
+	it("unconnected INPUT args (`in := ,`) — CODESYS leaves the input at default", () => {
+		// From the corpus (BFU.prg): `GateBFU(xRequestForOpening := , xAcknowledgement := , …)`.
+		const call = parse("FB(a := 1, xReq := , xAck := , n := 0)").expr;
+		if (call.kind !== "call") throw new Error("expected a call");
+		expect(call.args[1]!.param?.name).toBe("xReq");
+		expect(call.args[1]!.output).toBe(false); // an INPUT left empty
+		expect(call.args[1]!.value).toBeUndefined();
+	});
+});
+
+describe("inline assignment expression (CODESYS)", () => {
+	it("`(x := value)` parses as an assign-expr yielding the value", () => {
+		// From the corpus (XYControlFB): `IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(4))) …`.
+		const e = parse("(r := Compute())").expr;
+		if (e.kind !== "paren") throw new Error("expected paren");
+		expect(e.inner.kind).toBe("assign_expr");
+		const a = e.inner;
+		if (a.kind !== "assign_expr") throw new Error("expected assign_expr");
+		expect(a.target.kind).toBe("ident_expr");
+		expect(a.value.kind).toBe("call");
+	});
 });
 
 describe("standard-function keywords as callees", () => {

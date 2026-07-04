@@ -349,7 +349,8 @@ export type Expr =
 	| IndexExpr
 	| DerefExpr
 	| CallExpr
-	| ParenExpr;
+	| ParenExpr
+	| AssignExpr;
 
 /** A bare name reference in an expression (`ActState`, `IMM`). */
 export interface IdentExpr {
@@ -452,6 +453,15 @@ export interface CallArg {
 export interface ParenExpr {
 	kind: "paren";
 	inner: Expr;
+	span: Span;
+}
+
+/** CODESYS inline assignment used as an expression: `(x := value)` assigns and yields `value`.
+ *  Only appears inside parentheses (e.g. `IF (r := Compute()) THEN`). */
+export interface AssignExpr {
+	kind: "assign_expr";
+	target: Expr;
+	value: Expr;
 	span: Span;
 }
 

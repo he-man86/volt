@@ -236,6 +236,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Inferre
 			return binaryResultType(expr, scope, project);
 		case "paren":
 			return inferExprType(expr.inner, scope, project);
+		case "assign_expr":
+			// `(x := value)` yields the assigned value.
+			return inferExprType(expr.value, scope, project);
 	}
 }
 
