@@ -1,20 +1,20 @@
-## 1. Bridge — deliver signatures as regular items
+## 1. Bridge — deliver signatures as items, omit no-ground-truth objects
 
-- [ ] 1.1 In `Sync/FetchService.cs`, map each rendered library signature to a regular `FetchedItem` (name = element name, folder = `…/Library Manager/<Lib>`, sourceText = rendered signature, version = content hash) and add it to `changed`/`items` instead of `response.LibrarySignatures`. Keep `LibSignatureRenderer` + the referenced-only filter.
-- [ ] 1.2 Remove the `LibrarySignatures` field from `Wire/RefsFetch.cs` `FetchResponse` and the `AppendLibrarySignatures(... response.LibrarySignatures)` call.
-- [ ] 1.3 Decide + implement `structureVersion` / push behavior: signatures must NOT be a push target and must not perturb `structureVersion` in a surprising way (mirror how read-only reference kinds are handled today).
-- [ ] 1.4 Build both bridges (net48 CODESYS + net8 Beckhoff); `dotnet test`.
+- [x] 1.1 In `Sync/FetchService.cs`, map each rendered library signature to a regular `FetchedItem` (folder = `…/Library Manager/<Lib>`, name = `<Element><ext>`, sourceText = rendered signature, version = content hash) added to `changed` instead of `response.LibrarySignatures`. Kept `LibSignatureRenderer` + the referenced-only filter.
+- [x] 1.2 Removed the `LibrarySignatures`, `ExcludeFromBuild`, and `DeadCode` fields from `Wire/RefsFetch.cs` (`FetchResponse`) + `ExcludeFromBuild` from `RefsResponse`; deleted the dead `LibSymbolItem` model.
+- [x] 1.3 Omit no-ground-truth objects at the source: `FetchService` + `RefsService` skip `ExcludeFromBuild` items; `FetchService` drops dead (uncompiled) POUs on a verbose fetch (from `changed` + `versions`). Signatures stay out of `versions`/`structureVersion`, so they never perturb the structure hash or become a push target.
+- [x] 1.4 Built both bridges (net48 CODESYS + net8 Beckhoff); `dotnet test` green (204). Added `FetchExclusionTests` (excluded items omitted from /fetch + /refs); extended `FakeIde` with `ExcludeFromBuild`.
 
-## 2. volt-git — verify no schema change needed
+## 2. volt-git — drop the metadata fields
 
-- [ ] 2.1 Confirm the signatures materialize via the existing `changed`-items path (no `librarySignatures` in `FetchResponseSchema`; do NOT add one). Verify `pull` writes them under the Library Manager tree, read-only.
-- [ ] 2.2 Update `tests/mock-bridge.ts` + any library-signature test to the regular-item shape.
+- [x] 2.1 Removed `excludeFromBuild` / `deadCode` from `FetchResponseSchema` + `RefsResponseSchema`; `pull.ts` no longer reads them or writes markers (nothing to mark — the files aren't delivered). Signatures materialize via the existing `changed` path.
+- [x] 2.2 Trimmed `translate/exclude-marker.ts` to the strip-on-push helper (legacy files) + constants; removed the dead `add*`/`isSourceFile`. Dropped `excluded`/`deadCode` from the `IdeRefs` sidecar. Updated `tests/mock-bridge.ts` to mirror the bridge (omit excluded items) and rewrote the sync test (`1c`) to assert an excluded object is omitted, not marked.
 
 ## 3. Validate
 
-- [ ] 3.1 Live: `volt-scripts/codesys-bridge.ps1 up`, `volt pull` a library-referencing project succeeds; signatures appear as files. This unblocks `clean-lsp-test-architecture` §4 (the recorder).
-- [ ] 3.2 Corpus/e2e green; both vendors (parity boundary is the wire).
+- [ ] 3.1 Live: `volt-scripts/codesys-bridge.ps1 up`, `volt pull` a library-referencing project succeeds; signatures appear as files; excluded/dead objects are absent. This unblocks `clean-lsp-test-architecture` §4 (the recorder). **(Pending — needs the headless CODESYS bridge running on Windows.)**
+- [x] 3.2 Offline: `bun typecheck` + `bun test` green in volt-git (the one failing `vocabulary` test is a pre-existing `ItemKind.Map`↔`item-kinds.json` drift, untouched here); oxlint 0 errors; both bridges build.
 
 ## Notes
 
-- Do NOT touch `excludeFromBuild` / `deadCode` here — they are load-bearing (volt-git writes the in-file markers from them; the LSP's zero-FP invariant depends on it). Making files fully self-describing (bridge embeds all markers) is a separate deliberate change.
+- The corpus (`test-corpus/**`) is a frozen snapshot harvested BEFORE this change, so it still contains excluded/dead objects with in-file markers. The LSP keeps reading those markers (`hasNoBuildGroundTruth`) for the committed corpus; a future re-harvest will simply not contain them. No LSP change needed now.

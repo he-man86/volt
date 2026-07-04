@@ -20,12 +20,14 @@ public static class RefsService
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
-        var excluded = new Dictionary<string, bool>();
 
         foreach (var it in ide.WalkItems())
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
+            // Excluded-from-build objects have no compiler ground truth — omit them (matches /fetch), so the
+            // client never tracks a file the LSP would false-positive on.
+            if (it.ExcludeFromBuild) continue;
 
             // Per-item resilience: a malformed item (e.g. an LD POU whose PLCopen export has no body) must not
             // brick all of /refs. Isolate it with the sentinel; it stays in the project hash but, being
@@ -36,7 +38,6 @@ public static class RefsService
             {
                 fullVersions[mat.FullName] = version;
                 folders[mat.FullName] = it.Folder;
-                if (it.ExcludeFromBuild) excluded[mat.FullName] = true;
             }
         }
 
@@ -46,7 +47,6 @@ public static class RefsService
             StructureVersion = Hasher.ComputeStructureVersion(versions),
             Items = fullVersions,
             Folders = folders,
-            ExcludeFromBuild = excluded,
         };
     }
 }

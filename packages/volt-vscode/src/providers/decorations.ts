@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import type { StatusJson, ChangeSet } from "@opencode-ai/volt-control"
-import { readExtensionAccess, readExcludedFromBuild, readDeadCode } from "@opencode-ai/volt-control"
+import { readExtensionAccess } from "@opencode-ai/volt-control"
 
 export class VoltDecorations implements vscode.FileDecorationProvider {
 	private readonly emitter = new vscode.EventEmitter<vscode.Uri | undefined>()
@@ -10,8 +10,6 @@ export class VoltDecorations implements vscode.FileDecorationProvider {
 	private outgoing: Record<string, string> = {}
 	private conflicts: Record<string, string> = {}
 	private readOnlyExts = new Set<string>()
-	private excluded = new Set<string>()
-	private deadCode = new Set<string>()
 	private workspaceRoot = ""
 
 	refresh(status: StatusJson, workspaceRoot: string): void {
@@ -27,10 +25,6 @@ export class VoltDecorations implements vscode.FileDecorationProvider {
 		// reads but can't push (push refuses body changes on them).
 		const access = readExtensionAccess(workspaceRoot)
 		this.readOnlyExts = new Set(Object.entries(access).filter(([, a]) => a === "r").map(([ext]) => ext.toLowerCase()))
-		// Full item names the IDE won't compile (excluded from build) → the LSP skips diagnostics; badge them EX.
-		this.excluded = readExcludedFromBuild(workspaceRoot)
-		// Dead/uncompiled POUs (CODESYS never compiled them — uncalled) → also no ground truth; badge them DC.
-		this.deadCode = readDeadCode(workspaceRoot)
 		this.emitter.fire(undefined)
 	}
 
@@ -46,22 +40,6 @@ export class VoltDecorations implements vscode.FileDecorationProvider {
 			const colorId = i !== undefined ? "volt.driftIncomingForeground" : "volt.driftOutgoingForeground"
 			const dir = i !== undefined ? "incoming" : "outgoing"
 			return { badge: letter, color: new vscode.ThemeColor(colorId), tooltip: `${dir} — ${i ?? o}. diff via \`volt show\` or the SCM view` }
-		}
-		// Excluded from build in the IDE (by item name) — not compiled, so Volt skips diagnostics here.
-		if (rel.startsWith("src/") && this.excluded.has(rel.slice(rel.lastIndexOf("/") + 1))) {
-			return {
-				badge: "EX",
-				color: new vscode.ThemeColor("disabledForeground"),
-				tooltip: "Excluded from build in CODESYS — not compiled, so Volt skips diagnostics here.",
-			}
-		}
-		// Dead code — an uncalled POU CODESYS never compiled, so it has no ground truth; Volt skips diagnostics.
-		if (rel.startsWith("src/") && this.deadCode.has(rel.slice(rel.lastIndexOf("/") + 1))) {
-			return {
-				badge: "DC",
-				color: new vscode.ThemeColor("disabledForeground"),
-				tooltip: "Dead code — this POU is never called, so CODESYS doesn't compile it and Volt skips diagnostics here.",
-			}
 		}
 		// Read-only config kind (only within the tracked src/ tree).
 		if (rel.startsWith("src/")) {

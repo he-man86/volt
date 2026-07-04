@@ -67,18 +67,16 @@ describe("volt-git sync", () => {
 		expect(existsSync(join(root, "libs"))).toBe(false); // no separate generated catalog
 	});
 
-	test("1c. an excluded object gets the in-file marker on pull, stripped on push", async () => {
-		const body = "FUNCTION_BLOCK Bad\nVAR\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n";
-		const bridge = await setup([{ name: "Bad.fb", sourceText: body, excludeFromBuild: true }]);
-		// Pull materialized the exclude marker into the file.
-		expect(readSrc(root, "Bad.fb").startsWith("(* @volt-exclude-from-build *)")).toBe(true);
-		// Edit + push → the bridge receives clean source (marker stripped, never reaches the IDE).
-		writeSrc(root, "Bad.fb", `(* @volt-exclude-from-build *)\n${body.replace("x : INT;", "y : INT;")}`);
-		commitAll(root, "edit excluded fb");
-		await push(root, bridge);
-		const op = bridge.pushCalls.at(-1)!.ops[0] as Record<string, unknown>;
-		expect(op.sourceText).not.toContain("@volt-exclude-from-build");
-		expect(op.sourceText).toContain("y : INT;");
+	test("1c. an excluded-from-build object is omitted by the bridge (no ground truth → not returned)", async () => {
+		const bad = "FUNCTION_BLOCK Bad\nVAR\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n";
+		await setup([
+			{ name: "Good.fb", sourceText: "FUNCTION_BLOCK Good\nEND_FUNCTION_BLOCK\n" },
+			{ name: "Bad.fb", sourceText: bad, excludeFromBuild: true },
+		]);
+		// The excluded object is never materialized — the LSP can't false-positive on code the IDE won't
+		// compile, and there is no marker machinery. The buildable object still comes through.
+		expect(existsSync(srcFile(root, "Bad.fb"))).toBe(false);
+		expect(existsSync(srcFile(root, "Good.fb"))).toBe(true);
 	});
 
 	test("2. no-edit pull fast-forwards (no merge commit)", async () => {

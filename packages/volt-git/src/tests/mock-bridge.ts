@@ -40,22 +40,27 @@ export class MockBridge implements Remote {
 		this.items.delete(name);
 	}
 
+	/** Items with compiler ground truth — the bridge omits excluded-from-build objects entirely, so the
+	 *  mock does too (they never reach the wire: not in changed/items/versions). */
+	private live(): MockItem[] {
+		return [...this.items.values()].filter((it) => !it.excludeFromBuild);
+	}
 	private versions(): Record<string, string> {
 		const o: Record<string, string> = {};
-		for (const [n, it] of this.items) o[n] = ver(it.sourceText);
+		for (const it of this.live()) o[it.name] = ver(it.sourceText);
 		return o;
 	}
 	private folderMap(): Record<string, string> {
 		const o: Record<string, string> = {};
-		for (const [n, it] of this.items) o[n] = it.folder ?? "";
+		for (const it of this.live()) o[it.name] = it.folder ?? "";
 		return o;
 	}
 	private projectVersion(): string {
-		const sorted = [...this.items.keys()].sort().map((n) => `${n}:${ver(this.items.get(n)!.sourceText)}`);
+		const sorted = this.live().map((it) => `${it.name}:${ver(it.sourceText)}`).sort();
 		return ver(sorted.join(";"));
 	}
 	private structureVersion(): string {
-		return ver([...this.items.keys()].sort().join(","));
+		return ver(this.live().map((it) => it.name).sort().join(","));
 	}
 
 	async getHealth(): Promise<HealthResponse> {
@@ -77,13 +82,12 @@ export class MockBridge implements Remote {
 
 	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
 		const known = req.knownItems ?? {};
-		const changed = [...this.items.values()]
+		const changed = this.live()
 			.filter((it) => known[it.name] !== ver(it.sourceText))
 			.map((it) => ({ name: it.name, folder: it.folder, sourceText: it.sourceText, version: ver(it.sourceText) }));
-		const removed = Object.keys(known).filter((n) => !this.items.has(n));
-		const excludeFromBuild: Record<string, boolean> = {};
-		for (const it of this.items.values()) if (it.excludeFromBuild) excludeFromBuild[it.name] = true;
-		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions(), excludeFromBuild };
+		const live = new Set(this.live().map((it) => it.name));
+		const removed = Object.keys(known).filter((n) => !live.has(n));
+		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions() };
 	}
 
 	async pushBatch(req: PushRequest): Promise<PushResponse> {

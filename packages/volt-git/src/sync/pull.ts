@@ -20,9 +20,7 @@ import {
 	resolveGitDir,
 	updateRef,
 } from "../git/plumbing.js";
-import { basename } from "node:path";
 import { materializeItem } from "../translate/materialize.js";
-import { addExcludeMarker, addUncompiledMarker, isSourceFile } from "../translate/exclude-marker.js";
 import { ensureGitignore, stripSrcPrefix, writeSrcFiles } from "../workspace/files.js";
 import { changeList, computeIncoming, hasChanges } from "./diff.js";
 import { buildVoltIdeTree, commitVoltIde, loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead, type IdeRefs } from "./refs.js";
@@ -59,23 +57,13 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	autoCommitSrc(root);
 
 	const fetched = await bridge.fetchChanges({ knownItems: {} });
-	// A source object with no compiler ground truth carries an in-file marker (self-contained, read by the LSP;
-	// stripped on push): excluded-from-build, or dead/uncompiled code (only present on a verbose fetch).
-	const excluded = fetched.excludeFromBuild ?? {};
-	const deadCode = fetched.deadCode ?? {};
-	const ideFiles = fetched.changed.flatMap(materializeItem).map((f) => {
-		if (!isSourceFile(f.path)) return f;
-		const bn = basename(f.path);
-		if (excluded[bn]) return { ...f, content: addExcludeMarker(f.content) };
-		if (deadCode[bn]) return { ...f, content: addUncompiledMarker(f.content) };
-		return f;
-	});
+	// The bridge only returns items with compiler ground truth — excluded-from-build and dead/uncompiled
+	// objects are omitted at the source, so there is nothing to mark here.
+	const ideFiles = fetched.changed.flatMap(materializeItem);
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,
 		folders: refs.folders,
-		excluded: Object.keys(fetched.excludeFromBuild ?? {}).sort(),
-		deadCode: Object.keys(fetched.deadCode ?? {}).sort(),
 	};
 	const head = headCommit(root);
 
