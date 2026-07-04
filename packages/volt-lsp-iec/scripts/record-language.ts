@@ -73,7 +73,10 @@ function depsOf(t: LanguageTest): LanguageTest[] {
 	const stack = [t];
 	while (stack.length > 0) {
 		const cur = stack.pop() as LanguageTest;
-		for (const id of new Set(cur.source.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])) {
+		// Scan the fixture source AND its PLC_PRG snippet — an interface test names its impl FB only in
+		// plcPrgVar/plcPrgBody, so scanning source alone would miss it.
+		const text = `${cur.source}\n${cur.plcPrgVar ?? ""}\n${cur.plcPrgBody ?? ""}`;
+		for (const id of new Set(text.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])) {
 			if (seen.has(id)) continue;
 			const dep = BY_POU.get(id);
 			if (dep === undefined) continue;
