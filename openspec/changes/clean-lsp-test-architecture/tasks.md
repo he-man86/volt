@@ -14,9 +14,9 @@
 
 ## 3. One mechanism per nav query (drop redundant snapshots)
 
-- [ ] 3.1 For each of the 7 doubly-covered queries (completion, definition, hover, references, document-symbols, semantic-tokens, + the bundle in `navigation-queries`): keep the assertion form in `scenarios/queries/*`, drop the redundant `conformance/corpus/<query>.test.ts` snapshot — UNLESS catalog-wide breadth demonstrably catches a class of regression assertions don't (then keep one snapshot, noted).
-- [ ] 3.2 Keep corpus-only queries with no assertion twin (`code-action`, `document-highlight`, `folding-range`, `selection-range`, `signature-help`) — or add a small assertion test and drop the snapshot, per query.
-- [ ] 3.3 Remove the now-unused snapshot files under `corpus/__snapshots__/`. Suite green; confirm nav coverage intact via `scenarios/queries/*`.
+- [x] 3.1 For each of the 7 doubly-covered queries (completion, definition, hover, references, document-symbols, semantic-tokens, + the bundle in `navigation-queries`): keep the assertion form in `scenarios/queries/*`, drop the redundant `conformance/corpus/<query>.test.ts` snapshot — UNLESS catalog-wide breadth demonstrably catches a class of regression assertions don't (then keep one snapshot, noted).
+- [x] 3.2 The 5 corpus-only queries (code-action, document-highlight, folding-range, selection-range, signature-help) have NO assertion twin → snapshot IS their single mechanism (not duplication). KEPT as-is; converting to assertions is an optional follow-up, not needed for the no-duplication goal.
+- [x] 3.3 Remove the now-unused snapshot files under `corpus/__snapshots__/`. Suite green; confirm nav coverage intact via `scenarios/queries/*`.
 
 ## 4. Revive the live-bridge recorder
 
