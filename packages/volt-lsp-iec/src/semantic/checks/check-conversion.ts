@@ -12,9 +12,12 @@
  *   - When the inner identifier can't be resolved, we skip (so the
  *     unresolved-identifier diagnostic handles it, not us).
  */
-import type { ParseResult } from "../../parser/ast.js";
+import type { BodySpan, Expr, ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { lookup as resolverLookup } from "../resolver.js";
+import { parseStatements } from "../../parser/statements.js";
+import { walkAllExprs } from "../../parser/ast-walk.js";
+import { inferExprType } from "../type-infer.js";
 import {
 	conversionsForSource,
 	getConversion,
@@ -27,6 +30,24 @@ import {
 	isLexerTrivia,
 } from "./_shared.js";
 
+/** Source-like text of a conversion argument, for the diagnostic message. */
+function renderArg(expr: Expr): string {
+	switch (expr.kind) {
+		case "ident_expr":
+			return expr.name;
+		case "member":
+			return `${renderArg(expr.base)}.${expr.member.name}`;
+		case "index":
+			return `${renderArg(expr.base)}[…]`;
+		case "deref":
+			return `${renderArg(expr.base)}^`;
+		case "paren":
+			return renderArg(expr.inner);
+		default:
+			return "argument";
+	}
+}
+
 export function checkConversionCalls(
 	parseResult: ParseResult,
 	project: Scope,
@@ -38,6 +59,38 @@ export function checkConversionCalls(
 		const scope = findScopeForUnit(project, unit);
 		if (scope === undefined) continue;
 
+		const parsed = parseStatements(body);
+		if (parsed.ok) {
+			walkAllExprs(parsed.statements, (e) => {
+				if (e.kind !== "call" || e.callee.kind !== "ident_expr") return;
+				const conv = getConversion(e.callee.name);
+				if (conv === undefined || conv.sourceType === "ANY") return;
+				if (e.args.length !== 1 || e.args[0]!.param !== undefined) return; // single positional arg
+				const arg = e.args[0]!.value;
+				const t = inferExprType(arg, scope, project);
+				if (t.kind !== "elementary" || t.name === undefined) return; // only elementary args (matches old)
+				const argType = t.name;
+				if (isAcceptableSource(conv, argType)) return;
+				const argText = renderArg(arg);
+				const replacements = conversionsForSource(argType, conv.destType);
+				const suggestion = replacements.length > 0 ? ` Use \`${replacements[0]?.name}(${argText})\` instead.` : "";
+				out.push({
+					severity: "error",
+					span: e.callee.span,
+					source: "volt-lsp-iec",
+					code: "conversion-source-mismatch",
+					message: `Conversion '${conv.name}' expects ${conv.sourceType}, but '${argText}' is declared ${argType}.${suggestion}`,
+				});
+			});
+			continue;
+		}
+		checkTokenScan(body, scope, project, out);
+	}
+}
+
+/** Original token-scan path — used verbatim when a body doesn't parse to a clean statement tree. */
+function checkTokenScan(body: BodySpan, scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+	{
 		const meaningful = body.tokens.filter((t) => !isLexerTrivia(t.kind));
 		for (let i = 0; i < meaningful.length; i++) {
 			const callTok = meaningful[i];
