@@ -114,8 +114,11 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 // only units (interfaces, DUTs, GVLs). Lets `IMPLEMENTS <X>` resolve
 // across test files without leaking FBs/methods that would collide on
 // common names. Computed ONCE, reused across both vendor runs.
+// URI basename is the ITEM name (`pouName`), matching production: on disk a GVL/FB lives in a file named
+// after the item, and name-derived-from-file resolution (a GVL's name via `gvlNameFromUri`, so
+// `GVL_Name.field` resolves) depends on it. `t.name` is only a test slug. pouNames are unique (asserted).
 const ALL_PARSE_RESULTS = ALL_TESTS.map((t) => ({
-	uri: `file:///conformance/${t.name}.st` as const,
+	uri: `file:///conformance/${t.pouName}.st` as const,
 	parseResult: parseSource(t.source),
 }));
 
@@ -129,14 +132,26 @@ const CROSS_TEST_DECLS = ALL_PARSE_RESULTS.map((p) => ({
 	},
 }));
 
+// The recorder builds each test as {FB + a PLC_PRG that instantiates and uses it} — CODESYS's verdict
+// covers the WHOLE build, including the PLC_PRG usage. To keep the LSP side symmetric, synthesize the
+// same PLC_PRG (from `plcPrgVar`/`plcPrgBody`) and analyze it too. This is what surfaces usage-only
+// diagnostics like external-write (`fb.internalVar := x`), which live in the PLC_PRG body, not the FB.
+const PLC_PRGS = ALL_TESTS.map((t) => {
+	if (t.plcPrgVar === undefined && t.plcPrgBody === undefined) return undefined;
+	const source = `PROGRAM PLC_PRG\nVAR\n${t.plcPrgVar ?? ""}\nEND_VAR\n${t.plcPrgBody ?? ""}\nEND_PROGRAM\n`;
+	return { uri: `file:///conformance/${t.name}__plcprg.st` as const, source, parseResult: parseSource(source) };
+});
+
 function runLsp(
 	source: string,
 	testIndex: number,
 	vendor: Vendor,
 ): Array<{ severity: string; message: string }> {
 	const own = ALL_PARSE_RESULTS[testIndex]!;
+	const plc = PLC_PRGS[testIndex];
 	const project = buildSymbolTable([
 		{ uri: own.uri, parseResult: own.parseResult },
+		...(plc ? [{ uri: plc.uri, parseResult: plc.parseResult }] : []),
 		...CROSS_TEST_DECLS.filter((_, i) => i !== testIndex),
 	]);
 	const parseResult = own.parseResult;
@@ -151,6 +166,19 @@ function runLsp(
 		activeVendor: resolved.vendor,
 		bodyModels: buildBodyModelsForParseResult(parseResult),
 	});
+	// Analyze the synthesized PLC_PRG too (usage-only diagnostics live here — see PLC_PRGS above).
+	if (plc) {
+		diags.push(
+			...computeSemanticDiagnostics({
+				parseResult: plc.parseResult,
+				source: plc.source,
+				project,
+				config: resolved.diagnostics,
+				activeVendor: resolved.vendor,
+				bodyModels: buildBodyModelsForParseResult(plc.parseResult),
+			}),
+		);
+	}
 	// Surface parse errors as diagnostics too — comparison wants to know
 	// if EITHER side rejected the source.
 	for (const e of parseResult.errors) {

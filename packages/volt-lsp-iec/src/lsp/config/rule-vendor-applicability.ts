@@ -55,6 +55,14 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 */
 	missingInterfaceImplementation: ["twincat"],
 	missingInterfaceSignature: ["twincat"],
+	/**
+	 * CODESYS-only. External `fb.internalVar := x` (write to a non-VAR_INPUT/VAR_OUTPUT member):
+	 * verified by the conformance recordings — for the SAME source, CODESYS rejects ("'X' is no input
+	 * of '<FB>'", build fails) but TwinCAT ACCEPTS (build clean, 0 errors). The 13 Bucket-A fixtures
+	 * (hide_var, noinit, displaymode_*, …) all show TC build=true / CS build=false. Running the check on
+	 * a TwinCAT workspace would false-positive on code TC compiles.
+	 */
+	externalNonInputWrite: ["codesys"],
 };
 
 /**

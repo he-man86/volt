@@ -60,9 +60,21 @@ is its own, and some severities legitimately differ (see unresolved-identifier b
 
 ## Active triage — replay hard-failures (trusted recordings, presence mismatch)
 
-**Progress: 28 → 24.** Closed at root: `duplicateDeclaration` (scoping), `doubleUnderscore` +
+**Progress: 28 → 24 → 9.** Closed at root: `duplicateDeclaration` (scoping), `doubleUnderscore` +
 `consecutiveUnderscores` (vendor-applicability, zero-FP), `messagePragmas` + the info-severity comparison
-symmetry. Deferred honestly (would break zero-FP): the external-write check, `missingInterfaceImplementation`.
+symmetry, **and Bucket A (14 external-write tests) via the PLC_PRG harness fix + a CODESYS-only check.**
+Remaining 9: interface/property (2), struct-parser (3), abstract-instantiation, var_persistent,
+var_external_consumer, pragma_conflicting_pair.
+
+### Harness fix — replay now analyzes PLC_PRG (closed Bucket A)
+
+The recorder builds each test as `{FB + a PLC_PRG that instantiates/uses it}`; CODESYS's verdict covers the
+whole build. The replay previously fed the LSP only `t.source` (the FB), so **usage-only** diagnostics
+(external write `fb.internalVar := x`, which lives in the PLC_PRG body) never fired → presence mismatch.
+Fix (`language.test.ts`): synthesize the same `PROGRAM PLC_PRG` from `plcPrgVar`/`plcPrgBody`, add it to the
+project scope, and run diagnostics on it too. Also switched the per-test URI basename to `pouName` (the item
+name), so name-from-file resolution (a GVL's name via `gvlNameFromUri`, `GVL_Name.field`) works as in
+production — otherwise feeding PLC_PRG surfaced a spurious `unresolved-identifier` on `use_gvl_field_access`.
 
 The final full re-record (trusted ground truth) is committed; the replay now hard-fails where the LSP and
 CODESYS disagree on *presence*. Only the conformance replay is affected — corpus ratchet + units stay green.
@@ -83,9 +95,18 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
     really writable). Root: library signatures flatten sections, so their members' var-sections are unreliable.
     Fix: `isLibrarySymbol` (uri under `Library Manager`) — the check skips library members and only flags
     PROJECT-LOCAL FB writes, where sections are fully parsed. Zero corpus FP; scenario-tested.
-  - **Does NOT auto-close the Bucket A replay tests:** the write is in PLC_PRG, which the replay's `runLsp`
-    doesn't feed the LSP (only `t.source`). Closing them needs the fixture-fix (PLC_PRG stops writing internals →
-    CODESYS clean) OR the replay analyzing the PLC_PRG — a separate harness item, not the check.
+  - ✅ **Bucket A now closes** via the PLC_PRG harness fix above (the replay analyzes the PLC_PRG body where
+    the write lives). All 14 flip to agreement.
+  - **CODESYS-ONLY (verified vendor divergence, not a doc assumption):** the recordings show for the SAME
+    `fb.internalVar := x`, **CODESYS rejects** (build fails, "'X' is no input") but **TwinCAT ACCEPTS**
+    (build clean, 0 errors) — all 13 plain-`VAR` fixtures. So the check is masked TwinCAT-off via
+    `RULE_VENDOR_APPLICABILITY: externalNonInputWrite: ["codesys"]`. The mask is the *conservative* direction:
+    if the divergence is ever wrong, TC just loses the check (a recall gap), never gains an FP.
+  - **Scope:** flags any section that is NOT `VAR_INPUT`/`VAR_OUTPUT` (both externally writable per doc
+    02-variables L81). `VAR_OUTPUT` external write is doc-legal → skipped (no fixture proves otherwise yet).
+  - **⚠️ Follow-up — verify on LIVE TwinCAT:** the TC≠CS split rests on the offline TC recording (2026-07-03),
+    not a doc inference alone, but the definitive check is a live `:8555` TwinCAT run. Re-verify the divergence
+    (and whether TC rejects `VAR_OUTPUT`/other sections) when the TC bridge is available; adjust the mask then.
   - **Follow-up (bridge):** the signature renderer flattens VAR_INPUT/VAR_OUTPUT/properties into `VAR`. Rendering
     them faithfully would let the LSP check library members too (and is the "true" root of the section loss).
 
