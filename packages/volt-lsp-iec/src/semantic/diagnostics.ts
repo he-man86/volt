@@ -28,6 +28,7 @@ import { checkAssignmentTypes } from "./checks/check-assignment-types.js";
 import { checkInterfaceImplementations } from "./checks/check-interface-implementation.js";
 import { checkBinaryOperators } from "./checks/check-binary-operators.js";
 import { checkCallArguments } from "./checks/check-call-arguments.js";
+import { checkNarrowingConversion } from "./checks/check-narrowing-conversion.js";
 import { checkVarSectionPlacement } from "./checks/check-var-section-placement.js";
 import { checkDerefOnNonPointer } from "./checks/check-deref.js";
 import { checkVendorOnlyOperators } from "./checks/check-vendor-only-operator.js";
@@ -159,6 +160,11 @@ const CHECKS: CheckSpec[] = [
 		id: "call-argument-mismatch",
 		enabled: (c) => c.callArgumentMismatch,
 		run: (ctx, out) => checkCallArguments(ctx.parseResult, ctx.project, out),
+	},
+	{
+		id: "narrowing-conversion",
+		enabled: (c) => c.narrowingConversion,
+		run: (ctx, out) => checkNarrowingConversion(ctx.parseResult, ctx.project, out),
 	},
 	{
 		id: "deref-non-pointer",

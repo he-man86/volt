@@ -135,6 +135,14 @@ export interface DiagnosticConfig {
 	 */
 	callArgumentMismatch: boolean;
 	/**
+	 * Warn on an implicit narrowing / loss-of-precision conversion the
+	 * compiler flags as "possible loss of information" — currently the
+	 * confirmed LREAL→REAL case (assigning an `LREAL` value to a `REAL`
+	 * target). A warning, not an error (the code compiles). **Default OFF**
+	 * — matches the compiler's opt-in warning level (st-type-inference §5).
+	 */
+	narrowingConversion: boolean;
+	/**
 	 * Flag VAR-section kinds that aren't allowed for the containing
 	 * POU kind. Currently: VAR_TEMP only inside PROGRAM / FUNCTION /
 	 * FUNCTION_BLOCK (NOT METHOD / ACTION / INTERFACE) and
@@ -221,6 +229,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	missingInterfaceSignature: true,
 	binaryOperatorTypeMismatch: true,
 	callArgumentMismatch: false, // opt-in — pending oracle validation (st-type-inference §4)
+	narrowingConversion: false, // opt-in — compiler-parity warning (st-type-inference §5)
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
 	vendorOnlyOperator: true,

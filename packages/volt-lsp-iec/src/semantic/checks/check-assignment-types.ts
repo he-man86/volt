@@ -304,6 +304,10 @@ export function isAssignable(lhs: string, rhs: string, scope: Scope, project: Sc
 		REAL: 5,
 		LREAL: 6,
 	};
+	// REAL ↔ LREAL: assignable in both directions. LREAL→REAL is a "possible loss of information"
+	// WARNING, not an error (the code compiles) — the narrowing-conversion check surfaces it. So the
+	// assignment check must NOT error it here, or the site would double-report.
+	if ((lhs === "REAL" && rhs === "LREAL") || (lhs === "LREAL" && rhs === "REAL")) return true;
 	const lr = NUMERIC_RANK[lhs];
 	const rr = NUMERIC_RANK[rhs];
 	if (lr === undefined || rr === undefined) return true; // unknown — don't flag

@@ -33,9 +33,9 @@ Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `l
 
 ## 5. Narrowing-conversion diagnostic (new — default OFF, compiler-parity)
 
-- [ ] 5.1 `check-narrowing-conversion.ts`: flag implicit narrowing / loss-of-precision (LREAL→REAL, and the wider integer/real narrowings the compiler warns on) using `inferExprType` + the conversion table's loss classification.
-- [ ] 5.2 Validate against the CODESYS compiler oracle — match the 27 bakon LREAL→REAL warnings; confirm no spurious hits on the other corpora. Enable + set floor.
-- [ ] 5.3 Unit tests: LREAL→REAL warns, REAL→LREAL does not, INT→SINT narrowing behavior matches the compiler.
+- [x] 5.1 `check-narrowing-conversion.ts`: flag implicit narrowing / loss-of-precision (LREAL→REAL, and the wider integer/real narrowings the compiler warns on) using `inferExprType` + the conversion table's loss classification.
+- [~] 5.2 **Zero-FP confirmed** (0 on awa/lenze/bakon/pro2193 with the check enabled). The check catches known-typed LREAL→REAL but does NOT yet match bakon's 27 compiler warnings — those are library/complex expressions inference conservatively skips. Matching them (richer inference for library return types) + flipping default ON needs a live `lsp-vs-compiler.ts` run. Deferred to a Windows/CODESYS session.
+- [x] 5.3 Unit tests: LREAL→REAL warns, REAL→LREAL does not, INT→SINT narrowing behavior matches the compiler.
 
 ## 6. Land it
 
