@@ -216,6 +216,26 @@ END_FUNCTION_BLOCK`,
 		});
 		expect(outgoing.map((o) => o.to.name).sort()).toEqual(["Helper", "Other"]);
 	});
+
+	it("outgoingCalls includes member calls `fb.method()` (st-nav-chains)", () => {
+		const ws = new Workspace();
+		// Assembled form: a METHOD is a sibling AFTER END_FUNCTION_BLOCK, attached to the FB as a member.
+		ws.openDocument(
+			"file:///motor.st",
+			`FUNCTION_BLOCK FB_Motor\nEND_FUNCTION_BLOCK\n\nMETHOD PUBLIC Start : BOOL\nEND_METHOD\n`,
+			1,
+		);
+		const mainSrc = `PROGRAM Main\nVAR\n\tm : FB_Motor;\nEND_VAR\n\nm.Start();\nEND_PROGRAM`;
+		ws.openDocument("file:///main.st", mainSrc, 1);
+		const item = prepareCallHierarchy({
+			doc: ws.getDocument("file:///main.st")!,
+			position: positionOf(mainSrc, "Main"),
+			project: ws.getProjectScope(),
+		})[0]!;
+		const outgoing = outgoingCalls({ workspace: ws, project: ws.getProjectScope(), item });
+		// The member call `m.Start()` resolves through m's FB type to the Start method — previously dropped.
+		expect(outgoing.some((o) => o.to.name === "Start")).toBe(true);
+	});
 });
 
 describe("type hierarchy", () => {

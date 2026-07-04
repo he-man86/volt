@@ -21,6 +21,9 @@ import type { Scope, Symbol } from "../../semantic/symbol-table.js";
 import type { Location, LspSymbolKindValue, Position, Range } from "../types.js";
 import type { Document, Workspace } from "../workspace.js";
 import { findIdentifierAtOffset } from "../identifier-at.js";
+import { findScopeForUnit } from "../../semantic/checks/_shared.js";
+import { memberAtOffset } from "../../parser/ast-walk.js";
+import { resolveMemberChain } from "../../semantic/type-infer.js";
 import type {
 	Action,
 	BodySpan,
@@ -134,14 +137,22 @@ export function outgoingCalls(args: OutgoingArgs): CallHierarchyOutgoingCall[] {
 
 	const model = doc.bodyModels.get(body);
 	if (model === undefined) return [];
-	const occs = model.calls.filter((c) => {
-		const ref = model.identifiers.find((i) => i.span.start === c.span.start && i.name === c.name);
-		return ref !== undefined && !ref.isMemberAccess;
-	});
+	const bodyScope = findScopeForUnit(project, containingUnit) ?? project;
 	const targets = new Map<string, { to: CallHierarchyItem; ranges: Range[] }>();
-	for (const o of occs) {
-		const r = lookup(project, o.name);
-		if (r === undefined || !isCallable(r.symbol)) continue;
+	for (const o of model.calls) {
+		const ref = model.identifiers.find((i) => i.span.start === o.span.start && i.name === o.name);
+		// A member call `fb.method()` resolves through the base's type (st-nav-chains); a bare call by name.
+		let sym: Symbol | undefined;
+		if (ref?.isMemberAccess === true) {
+			if (model.statementsOk === true && model.statements !== undefined) {
+				const member = memberAtOffset(model.statements, o.span.start);
+				if (member !== undefined) sym = resolveMemberChain(member, bodyScope, project);
+			}
+		} else {
+			sym = lookup(project, o.name)?.symbol;
+		}
+		if (sym === undefined || !isCallable(sym)) continue;
+		const r = { symbol: sym };
 		// The target's defining doc — we don't yet track per-symbol URI,
 		// so we synthesize an item using the project-wide name; the
 		// `uri` field falls back to the calling document's URI when

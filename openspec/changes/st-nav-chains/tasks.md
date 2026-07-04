@@ -12,7 +12,7 @@
 ## 2. Type-aware references
 
 - [ ] 2.1 References/rename/document-highlight (`references.ts`, `rename.ts`, `document-highlight.ts`): narrow a member reference by its owning type; fall back to name-based on unresolved.
-- [ ] 2.2 Call-hierarchy (`call-hierarchy.ts`): include `fb.method()` member-call sites (currently dropped).
+- [x] 2.2 Call-hierarchy now includes `fb.method()` member calls — resolved through the base's type via `resolveMemberChain` (with the containing unit's scope), instead of dropping every `isMemberAccess` call. Additive; scenario test: `m.Start()` → outgoing call to `Start`.
 
 ## 3. Bare enum-member full nav
 
