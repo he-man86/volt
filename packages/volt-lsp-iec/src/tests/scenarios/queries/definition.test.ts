@@ -21,6 +21,26 @@ function positionOf(src: string, marker: string) {
 }
 
 describe("definition", () => {
+	it("resolves a member chain `a.b` to the field's declaration, not every same-named symbol (st-nav-chains)", () => {
+		const structSrc = `TYPE Motor :\nSTRUCT\n\tspeed : REAL;\n\trunning : BOOL;\nEND_STRUCT\nEND_TYPE\n`;
+		const src = `FUNCTION_BLOCK FB_X\nVAR\n\tm : Motor;\nEND_VAR\n\nm.speed := 1.0;\nEND_FUNCTION_BLOCK\n`;
+		const ws = new Workspace();
+		ws.openDocument("file:///motor.st", structSrc, 1);
+		ws.openDocument("file:///fb.st", src, 1);
+
+		// cursor on `speed` inside `m.speed`
+		const bodySpeed = src.indexOf("speed", src.indexOf("m."));
+		const pos = positionOf(src, src.slice(bodySpeed, bodySpeed + 5));
+
+		const result = definition({ doc: ws.getDocument("file:///fb.st")!, position: pos, project: ws.getProjectScope() });
+
+		expect(result.length).toBe(1);
+		// It resolves to the FIELD declaration in the struct file — through the base's type — not to a bare `speed`.
+		expect(result[0]?.uri).toBe("file:///motor.st");
+		const declStart = structSrc.indexOf("speed");
+		expect(offsetFromPosition(structSrc, result[0]!.range.start)).toBe(declStart);
+	});
+
 	it("resolves a project-level type referenced in another FB's body to the defining file", () => {
 		const src = `
 FUNCTION_BLOCK FB_X

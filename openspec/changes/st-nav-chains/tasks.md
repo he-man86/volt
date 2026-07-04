@@ -1,11 +1,11 @@
 ## 0. Prerequisite
 
-- [ ] 0.1 `st-body-ast` landed (tree) and `st-type-inference` landed — this phase **consumes its shared service** (`semantic/type-infer.ts`: `resolveMemberChain`, `inferExprType`, `renderType`, the tree walker), NOT a new copy. If a query needs a hop the service doesn't expose, extend the service, never re-hand-roll a scope-walk (the 5 duplicates were just collapsed there).
+- [x] 0.1 `st-body-ast` landed (tree) and `st-type-inference` landed — this phase **consumes its shared service** (`semantic/type-infer.ts`: `resolveMemberChain`, `inferExprType`, `renderType`, the tree walker), NOT a new copy. If a query needs a hop the service doesn't expose, extend the service, never re-hand-roll a scope-walk (the 5 duplicates were just collapsed there).
 
 ## 1. Chain resolution
 
-- [ ] 1.1 Attach chain context in `lsp/identifier-at.ts` so a body token carries its enclosing member/index/call expression (from the body AST), not just the bare identifier.
-- [ ] 1.2 Go-to-definition (`definition.ts`): resolve through the chain via `inferExprType` (base type → member scope → declaration). Fall back to name-based on unresolved.
+- [x] 1.1 Chain context via `lsp/st-body-at.ts` (`stStatementsAtOffset`) + `parser/ast-walk.ts` `memberAtOffset` — a query gets the enclosing member expr at the cursor from the body AST. (Cleaner than threading it through identifier-at; shared by all nav queries.)
+- [x] 1.2 Go-to-definition resolves `a.b(.c)` through the base's type via `resolveMemberChain` → the member's declaration (cross-file), falling back to name-based on unresolved. Scenario test: `m.speed` → the struct field decl, not every `speed`. Full suite green.
 - [ ] 1.3 Hover (`hover.ts`): show the member's type resolved through the chain.
 - [ ] 1.4 Completion (`completion.ts`): multi-level member completion (`a.b.` offers `b`'s type's members), replacing the single-level regex.
 

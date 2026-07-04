@@ -25,6 +25,9 @@ import { findIdentifierAtOffset } from "../identifier-at.js";
 import { scopeAtOffset as scopeAt } from "../scope-at.js";
 import { vgBodyAtOffset } from "./vg/shared.js";
 import { vgLocalNameAtOffset } from "./vg/navigation.js";
+import { memberAtOffset } from "../../parser/ast-walk.js";
+import { resolveMemberChain } from "../../semantic/type-infer.js";
+import { stStatementsAtOffset } from "../st-body-at.js";
 
 export interface DefinitionArgs {
 	doc: Document;
@@ -56,6 +59,20 @@ export function definition(args: DefinitionArgs): Location[] {
 	// unit, use that unit's child scope as the starting point; else
 	// fall back to project.
 	const startScope = scopeAt(project, doc, offset);
+
+	// Member-chain resolution (st-nav-chains): if the cursor is on the member part of `a.b(.c)`, resolve it
+	// through the base's inferred type rather than matching the bare name project-wide. Falls back to the
+	// name-based lookup below when the chain doesn't resolve (unknown base type) — no worse than before.
+	const statements = stStatementsAtOffset(doc.bodyModels, offset);
+	if (statements !== undefined) {
+		const member = memberAtOffset(statements, offset);
+		if (member !== undefined) {
+			const sym = resolveMemberChain(member, startScope, project);
+			if (sym !== undefined) {
+				return [{ uri: sym.uri.length > 0 ? sym.uri : doc.uri, range: rangeFromSpan(sym.span) }];
+			}
+		}
+	}
 
 	const r = lookup(startScope, idToken.text);
 	if (r === undefined) return [];

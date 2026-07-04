@@ -11,7 +11,7 @@
  * `IdentExpr` in the tree; a consumer that only wants "real" references
  * filters by context.
  */
-import type { Expr, Statement, StatementList } from "./ast.js";
+import type { Expr, MemberExpr, Statement, StatementList } from "./ast.js";
 
 /** Immediate sub-expressions of an expression, in source order. */
 export function exprChildren(e: Expr): Expr[] {
@@ -96,4 +96,25 @@ export function walkAllExprs(list: StatementList, visit: (e: Expr) => void): voi
 	walkStatements(list, (s) => {
 		for (const e of stmtExprs(s)) walkExpr(e, visit);
 	});
+}
+
+/** The innermost expression node whose span covers `offset` (smallest span wins). */
+export function exprAtOffset(list: StatementList, offset: number): Expr | undefined {
+	let best: Expr | undefined;
+	walkAllExprs(list, (e) => {
+		if (offset >= e.span.start && offset < e.span.end) {
+			if (best === undefined || e.span.end - e.span.start < best.span.end - best.span.start) best = e;
+		}
+	});
+	return best;
+}
+
+/** The member-access node whose MEMBER name (`.b` in `a.b`) covers `offset` — the node to resolve for
+ *  member-chain navigation when the cursor is on a member. */
+export function memberAtOffset(list: StatementList, offset: number): MemberExpr | undefined {
+	let hit: MemberExpr | undefined;
+	walkAllExprs(list, (e) => {
+		if (e.kind === "member" && offset >= e.member.span.start && offset < e.member.span.end) hit = e;
+	});
+	return hit;
 }
