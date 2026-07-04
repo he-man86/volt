@@ -1239,3 +1239,30 @@ END_FUNCTION_BLOCK`);
 		expect(diags.filter((d) => d.code === "assignment-type-mismatch")).toHaveLength(1);
 	});
 });
+
+describe("diagnostics: external write to a non-VAR_INPUT member", () => {
+	const FB = `FUNCTION_BLOCK FB_X
+VAR_INPUT
+	iIn : INT;
+END_VAR
+VAR
+	iInternal : INT;
+END_VAR
+	iInternal := 5;
+END_FUNCTION_BLOCK
+`;
+	function externalWrites(prg: string) {
+		const { diags } = setup(FB + prg);
+		return diags.filter((d) => d.code === "external-non-input-write");
+	}
+
+	it("flags writing an FB's internal VAR from outside", () => {
+		expect(externalWrites("PROGRAM P\nVAR\n\tfb : FB_X;\nEND_VAR\n\tfb.iInternal := 2;\nEND_PROGRAM\n")).toHaveLength(1);
+	});
+	it("allows writing a VAR_INPUT member from outside", () => {
+		expect(externalWrites("PROGRAM P\nVAR\n\tfb : FB_X;\nEND_VAR\n\tfb.iIn := 1;\nEND_PROGRAM\n")).toHaveLength(0);
+	});
+	it("allows an internal THIS^ write inside the FB", () => {
+		expect(setup(FB).diags.filter((d) => d.code === "external-non-input-write")).toHaveLength(0);
+	});
+});

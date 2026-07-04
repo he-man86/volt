@@ -22,6 +22,17 @@ export interface DiagnosticItem {
 
 export const KEYWORD_SET = new Set(ALL_KEYWORDS.map((k) => k.toLowerCase()));
 
+/**
+ * True when a symbol comes from a referenced-library SIGNATURE (materialized under a `Library Manager`
+ * folder), NOT from project source. Library signatures are rendered declaration-only and FLATTEN member
+ * sections — VAR_INPUT / VAR_OUTPUT / properties all render as plain `VAR` — so a check that keys on a
+ * member's var-section (external-write, interface-impl) can't trust it for library members and must skip
+ * them. Project-local members are fully parsed and reliable.
+ */
+export function isLibrarySymbol(sym: { uri: string }): boolean {
+	return sym.uri.includes("Library Manager");
+}
+
 export function getUnitName(unit: TopLevel): { text: string; span: Span } | undefined {
 	if (
 		unit.kind === "function_block" ||

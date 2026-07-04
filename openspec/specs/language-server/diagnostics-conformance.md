@@ -78,21 +78,25 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
   `no_init_aliases`, `pragma_conflict_hide_plus_monitoring`. Each fixture's PLC_PRG does `fb.internalVar := x`;
   CODESYS rejects (`'X' is no input`). Rule confirmed in docs (02-variables: only `VAR_INPUT` is externally
   writable). Decision: **Both** — fix the fixtures + add an LSP check.
-  - **Check attempt → REVERTED (protect zero-FP).** A first `external-non-input-write` check produced **10
-    corpus false positives** — legal writes to library-FB / interface / inherited members (`ModuleHandler.CompName`
-    where `ModuleHandler : L_IMHP.L_IMHP_ModuleHandler`), because the member's section can't be reliably resolved
-    across library-signature FBs, interfaces, and inheritance. **Deferred** until member-section resolution is
-    robust for those cases — shipping it would break the zero-FP invariant.
-  - **Fixture-fix — doable now.** Change the 14 pragma fixtures' PLC_PRG to not write internals (read/call
-    instead), re-record → the pragma is tested cleanly and CODESYS accepts (both clean → agree).
+  - ✅ **Check landed, zero-FP.** The first attempt had 10 corpus FPs — all writes to LIBRARY-signature members
+    (e.g. `ModuleHandler.CompName` where the library renders `CompName` as a flattened plain `VAR` though it's
+    really writable). Root: library signatures flatten sections, so their members' var-sections are unreliable.
+    Fix: `isLibrarySymbol` (uri under `Library Manager`) — the check skips library members and only flags
+    PROJECT-LOCAL FB writes, where sections are fully parsed. Zero corpus FP; scenario-tested.
+  - **Does NOT auto-close the Bucket A replay tests:** the write is in PLC_PRG, which the replay's `runLsp`
+    doesn't feed the LSP (only `t.source`). Closing them needs the fixture-fix (PLC_PRG stops writing internals →
+    CODESYS clean) OR the replay analyzing the PLC_PRG — a separate harness item, not the check.
+  - **Follow-up (bridge):** the signature renderer flattens VAR_INPUT/VAR_OUTPUT/properties into `VAR`. Rendering
+    them faithfully would let the LSP check library members too (and is the "true" root of the section loss).
 
 - **Bucket B — vendor-applicability (checks the LSP HAS):**
   - ✅ `doubleUnderscore`, `consecutiveUnderscores` — CODESYS parse-rejects `__`/`foo__bar`; **enabled for
     both, zero corpus FP.** `identifier_double_underscore` + `identifier_consecutive_underscores` now agree.
   - ⏸️ `missingInterfaceImplementation` / `missingInterfaceSignature` — CODESYS flags missing members, but the
-    check has **189 corpus FPs** (can't resolve inherited / library interface members — same blocker as
-    external-write). **Kept TwinCAT-only** until the check is robust. `interface_with_property` is a DISTINCT
-    diagnostic (empty property, no get/set) the LSP doesn't have — a separate new-check gap.
+    check has **192 corpus FPs, ALL in PROJECT files** (0 in library files): project FBs that satisfy an
+    interface via an EXTENDS base class, whose inherited methods the check doesn't follow. This is inheritance
+    resolution — real work, deferred (not over-invested). **Kept TwinCAT-only.** `interface_with_property` is a
+    DISTINCT diagnostic (empty property, no get/set) the LSP doesn't have — a separate new-check gap.
 
 - **Bucket C — message pragmas:** ✅ `messagePragmas` **enabled for both** — CODESYS emits `{error}`/`{warning}`.
   `error_message` + `warning_message` now agree. `{info}`/`{text}` (`info_message`/`text_message`) stay correct

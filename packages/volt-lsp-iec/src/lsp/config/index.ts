@@ -161,6 +161,13 @@ export interface DiagnosticConfig {
 	 */
 	derefOnNonPointer: boolean;
 	/**
+	 * External write to a non-`VAR_INPUT` member of an FB instance
+	 * (`fb.internalVar := x`). Per IEC/CODESYS, only `VAR_INPUT` is
+	 * externally writable. Skips library-signature members (lossy
+	 * sections) and internal `THIS^`/struct writes — project-local only.
+	 */
+	externalNonInputWrite: boolean;
+	/**
 	 * When the active vendor is TwinCAT, error on CODESYS-only system
 	 * operators (`__VARINFO`, `__NEW`, `__DELETE`, `__QUERYINTERFACE`,
 	 * `__CURRENTTASK`, `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY`, etc.)
@@ -232,6 +239,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	narrowingConversion: false, // opt-in — compiler-parity warning (st-type-inference §5)
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
+	externalNonInputWrite: true,
 	vendorOnlyOperator: true,
 	vgStructure: true,
 	vgUndeclaredIdentifier: true,
