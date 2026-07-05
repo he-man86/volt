@@ -15,6 +15,7 @@ import type { Scope, Symbol } from "./symbol-table.js";
 import { lookupLocal } from "./symbol-table.js";
 import { lookup as resolverLookup } from "./resolver.js";
 import { resolveNamedType, resolveTypeExpr, type ResolvedKind } from "./type-resolver.js";
+import { canonicalElem, isDatetime, isDuration } from "./type-system/elementary.js";
 
 /**
  * Depth-first search of the project scope tree for the first symbol whose
@@ -119,18 +120,6 @@ export interface InferredType {
 }
 
 export const UNKNOWN_TYPE: InferredType = { kind: "unknown" };
-
-/** IEC type abbreviations → their canonical short form, so `TIME_OF_DAY` and `TOD` compare equal. */
-const ELEM_ABBREV: Record<string, string> = {
-	TIME_OF_DAY: "TOD",
-	DATE_AND_TIME: "DT",
-	LDATE_AND_TIME: "LDT",
-	LTIME_OF_DAY: "LTOD",
-};
-function canonicalElem(name: string): string {
-	const u = name.toUpperCase();
-	return ELEM_ABBREV[u] ?? u;
-}
 
 /**
  * The underlying canonical elementary name for a type name — follows alias
@@ -311,19 +300,17 @@ const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", 
 
 // IEC 61131-3 temporal arithmetic: a datetime minus the same datetime is a DURATION (not the
 // datetime), and a datetime ± a duration stays the datetime. Names are canonical (DT/TOD/…).
-const DATETIME_TYPES: ReadonlySet<string> = new Set(["DATE", "TOD", "DT", "LDATE", "LTOD", "LDT"]);
-const DURATION_TYPES: ReadonlySet<string> = new Set(["TIME", "LTIME"]);
 const durationFor = (name: string): string => (name.startsWith("L") ? "LTIME" : "TIME");
 
 /** The IEC result type of temporal `+`/`-`, or undefined when the operands aren't a temporal pair. */
 function temporalArithResult(op: string, l: string, r: string): string | undefined {
 	if (op === "-") {
-		if (DATETIME_TYPES.has(l) && l === r) return durationFor(l); // DT - DT = TIME
-		if (DATETIME_TYPES.has(l) && DURATION_TYPES.has(r)) return l; // DT - TIME = DT
+		if (isDatetime(l) && l === r) return durationFor(l); // DT - DT = TIME
+		if (isDatetime(l) && isDuration(r)) return l; // DT - TIME = DT
 	}
 	if (op === "+") {
-		if (DATETIME_TYPES.has(l) && DURATION_TYPES.has(r)) return l; // DT + TIME = DT
-		if (DURATION_TYPES.has(l) && DATETIME_TYPES.has(r)) return r; // TIME + DT = DT
+		if (isDatetime(l) && isDuration(r)) return l; // DT + TIME = DT
+		if (isDuration(l) && isDatetime(r)) return r; // TIME + DT = DT
 	}
 	return undefined;
 }

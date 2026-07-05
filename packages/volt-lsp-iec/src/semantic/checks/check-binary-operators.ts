@@ -17,16 +17,9 @@ import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
 import type { Vendor } from "../../reference/index.js";
 import { type DiagnosticItem, cannotConvert, getBody, findScopeForUnit } from "./_shared.js";
+import { isIntegerType, isNumericType } from "../type-system/elementary.js";
 
 const ARITH_OPS = new Set(["+", "-", "*", "/"]);
-const INTEGER_TYPES = new Set([
-	"SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT",
-	"BYTE", "WORD", "DWORD", "LWORD",
-]);
-const NUMERIC_TYPES = new Set([
-	...INTEGER_TYPES,
-	"REAL", "LREAL",
-]);
 
 /** Operand elementary type name, or undefined (skip) for non-elementary / unknown. */
 function elemName(expr: Expr, scope: Scope, project: Scope): string | undefined {
@@ -63,10 +56,10 @@ export function checkBinaryOperators(
 /** Apply the MOD / mixed-arithmetic rules to two known operand type names. */
 function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: string, activeVendor: Vendor | undefined, out: DiagnosticItem[]): void {
 	if (opText === "MOD") {
-		if (!INTEGER_TYPES.has(aType) || !INTEGER_TYPES.has(bType)) {
+		if (!isIntegerType(aType) || !isIntegerType(bType)) {
 			// Mirror the compiler: it names the offending (non-integer) operand type. TwinCAT quotes both the
 			// operator and the type (`'MOD' is not defined for 'REAL'`); CODESYS quotes neither.
-			const bad = !INTEGER_TYPES.has(aType) ? aType : bType;
+			const bad = !isIntegerType(aType) ? aType : bType;
 			const message = activeVendor === "twincat"
 				? `'MOD' is not defined for '${bad}'`
 				: `MOD is not defined for ${bad}`;
@@ -81,7 +74,7 @@ function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: stri
 		return;
 	}
 	if (ARITH_OPS.has(opText)) {
-		if (NUMERIC_TYPES.has(aType) && NUMERIC_TYPES.has(bType)) return;
+		if (isNumericType(aType) && isNumericType(bType)) return;
 		if (aType === "BOOL" || bType === "BOOL") {
 			out.push({
 				severity: "error",
