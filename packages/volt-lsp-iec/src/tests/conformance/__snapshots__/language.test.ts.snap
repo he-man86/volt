@@ -11,8 +11,8 @@ exports[`language conformance (LSP vs twincat recording) hide_var LSP diagnostic
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Cannot write 'iSecret' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iSecret' is VAR).",
-    "[error] Cannot write 'iVisible' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVisible' is VAR).",
+    "[error] 'iSecret' is no input of 'FB_LANG_hide_var'",
+    "[error] 'iVisible' is no input of 'FB_LANG_hide_var'",
   ],
   "lspWarnings": 0,
   "name": "hide_var",
@@ -62,7 +62,7 @@ exports[`language conformance (LSP vs twincat recording) noinit LSP diagnostics 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iRetain' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iRetain' is VAR).",
+    "[error] 'iRetain' is no input of 'FB_LANG_noinit'",
   ],
   "lspWarnings": 0,
   "name": "noinit",
@@ -80,7 +80,7 @@ exports[`language conformance (LSP vs twincat recording) init_on_onlchange LSP d
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iVar' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVar' is VAR).",
+    "[error] 'iVar' is no input of 'FB_LANG_init_on_onlchange'",
   ],
   "lspWarnings": 0,
   "name": "init_on_onlchange",
@@ -98,7 +98,7 @@ exports[`language conformance (LSP vs twincat recording) displaymode_hex LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iHex' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHex' is VAR).",
+    "[error] 'iHex' is no input of 'FB_LANG_displaymode_hex'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_hex",
@@ -116,7 +116,7 @@ exports[`language conformance (LSP vs twincat recording) no_copy LSP diagnostics
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iLocal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iLocal' is VAR).",
+    "[error] 'iLocal' is no input of 'FB_LANG_no_copy'",
   ],
   "lspWarnings": 0,
   "name": "no_copy",
@@ -218,7 +218,7 @@ exports[`language conformance (LSP vs twincat recording) unknown_attribute_typo 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iX' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iX' is VAR).",
+    "[error] 'iX' is no input of 'FB_LANG_unknown_attribute_typo'",
   ],
   "lspWarnings": 0,
   "name": "unknown_attribute_typo",
@@ -292,7 +292,7 @@ exports[`language conformance (LSP vs twincat recording) monitoring_display LSP 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iStatus' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iStatus' is VAR).",
+    "[error] 'iStatus' is no input of 'FB_LANG_monitoring_display'",
   ],
   "lspWarnings": 0,
   "name": "monitoring_display",
@@ -310,7 +310,7 @@ exports[`language conformance (LSP vs twincat recording) monitoring_encoding LSP
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'sValue' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sValue' is VAR).",
+    "[error] 'sValue' is no input of 'FB_LANG_monitoring_encoding'",
   ],
   "lspWarnings": 0,
   "name": "monitoring_encoding",
@@ -329,8 +329,8 @@ exports[`language conformance (LSP vs twincat recording) subsequent LSP diagnost
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
-    "[error] Cannot write 'iB' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iB' is VAR).",
+    "[error] 'iA' is no input of 'FB_LANG_subsequent'",
+    "[error] 'iB' is no input of 'FB_LANG_subsequent'",
   ],
   "lspWarnings": 0,
   "name": "subsequent",
@@ -362,7 +362,7 @@ exports[`language conformance (LSP vs twincat recording) conditionalshow LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iHidden' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHidden' is VAR).",
+    "[error] 'iHidden' is no input of 'FB_LANG_conditionalshow'",
   ],
   "lspWarnings": 0,
   "name": "conditionalshow",
@@ -440,7 +440,7 @@ exports[`language conformance (LSP vs twincat recording) displaymode_bin LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iBits' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iBits' is VAR).",
+    "[error] 'iBits' is no input of 'FB_LANG_displaymode_bin'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_bin",
@@ -458,7 +458,7 @@ exports[`language conformance (LSP vs twincat recording) displaymode_dec LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iDec' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iDec' is VAR).",
+    "[error] 'iDec' is no input of 'FB_LANG_displaymode_dec'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_dec",
@@ -476,7 +476,7 @@ exports[`language conformance (LSP vs twincat recording) displaymode_invalid_val
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVal' is VAR).",
+    "[error] 'iVal' is no input of 'FB_LANG_displaymode_invalid_value'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_invalid_value",
@@ -508,7 +508,7 @@ exports[`language conformance (LSP vs twincat recording) no_init_aliases LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+    "[error] 'iA' is no input of 'FB_LANG_no_init_aliases'",
   ],
   "lspWarnings": 0,
   "name": "no_init_aliases",
@@ -1569,7 +1569,7 @@ exports[`language conformance (LSP vs twincat recording) pragma_conflict_hide_pl
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'sVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sVal' is VAR).",
+    "[error] 'sVal' is no input of 'FB_LANG_pragma_conflict_hide_plus_monitoring'",
   ],
   "lspWarnings": 0,
   "name": "pragma_conflict_hide_plus_monitoring",
@@ -3648,8 +3648,8 @@ exports[`language conformance (LSP vs codesys recording) hide_var LSP diagnostic
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Cannot write 'iSecret' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iSecret' is VAR).",
-    "[error] Cannot write 'iVisible' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVisible' is VAR).",
+    "[error] 'iSecret' is no input of 'FB_LANG_hide_var'",
+    "[error] 'iVisible' is no input of 'FB_LANG_hide_var'",
   ],
   "lspWarnings": 0,
   "name": "hide_var",
@@ -3699,7 +3699,7 @@ exports[`language conformance (LSP vs codesys recording) noinit LSP diagnostics 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iRetain' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iRetain' is VAR).",
+    "[error] 'iRetain' is no input of 'FB_LANG_noinit'",
   ],
   "lspWarnings": 0,
   "name": "noinit",
@@ -3717,7 +3717,7 @@ exports[`language conformance (LSP vs codesys recording) init_on_onlchange LSP d
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iVar' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVar' is VAR).",
+    "[error] 'iVar' is no input of 'FB_LANG_init_on_onlchange'",
   ],
   "lspWarnings": 0,
   "name": "init_on_onlchange",
@@ -3735,7 +3735,7 @@ exports[`language conformance (LSP vs codesys recording) displaymode_hex LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iHex' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHex' is VAR).",
+    "[error] 'iHex' is no input of 'FB_LANG_displaymode_hex'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_hex",
@@ -3753,7 +3753,7 @@ exports[`language conformance (LSP vs codesys recording) no_copy LSP diagnostics
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iLocal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iLocal' is VAR).",
+    "[error] 'iLocal' is no input of 'FB_LANG_no_copy'",
   ],
   "lspWarnings": 0,
   "name": "no_copy",
@@ -3856,7 +3856,7 @@ exports[`language conformance (LSP vs codesys recording) unknown_attribute_typo 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iX' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iX' is VAR).",
+    "[error] 'iX' is no input of 'FB_LANG_unknown_attribute_typo'",
   ],
   "lspWarnings": 0,
   "name": "unknown_attribute_typo",
@@ -3930,7 +3930,7 @@ exports[`language conformance (LSP vs codesys recording) monitoring_display LSP 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iStatus' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iStatus' is VAR).",
+    "[error] 'iStatus' is no input of 'FB_LANG_monitoring_display'",
   ],
   "lspWarnings": 0,
   "name": "monitoring_display",
@@ -3949,7 +3949,7 @@ exports[`language conformance (LSP vs codesys recording) monitoring_encoding LSP
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'sValue' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sValue' is VAR).",
+    "[error] 'sValue' is no input of 'FB_LANG_monitoring_encoding'",
   ],
   "lspWarnings": 0,
   "name": "monitoring_encoding",
@@ -3968,8 +3968,8 @@ exports[`language conformance (LSP vs codesys recording) subsequent LSP diagnost
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
-    "[error] Cannot write 'iB' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iB' is VAR).",
+    "[error] 'iA' is no input of 'FB_LANG_subsequent'",
+    "[error] 'iB' is no input of 'FB_LANG_subsequent'",
   ],
   "lspWarnings": 0,
   "name": "subsequent",
@@ -4001,7 +4001,7 @@ exports[`language conformance (LSP vs codesys recording) conditionalshow LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iHidden' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHidden' is VAR).",
+    "[error] 'iHidden' is no input of 'FB_LANG_conditionalshow'",
   ],
   "lspWarnings": 0,
   "name": "conditionalshow",
@@ -4079,7 +4079,7 @@ exports[`language conformance (LSP vs codesys recording) displaymode_bin LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iBits' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iBits' is VAR).",
+    "[error] 'iBits' is no input of 'FB_LANG_displaymode_bin'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_bin",
@@ -4097,7 +4097,7 @@ exports[`language conformance (LSP vs codesys recording) displaymode_dec LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iDec' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iDec' is VAR).",
+    "[error] 'iDec' is no input of 'FB_LANG_displaymode_dec'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_dec",
@@ -4115,7 +4115,7 @@ exports[`language conformance (LSP vs codesys recording) displaymode_invalid_val
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVal' is VAR).",
+    "[error] 'iVal' is no input of 'FB_LANG_displaymode_invalid_value'",
   ],
   "lspWarnings": 0,
   "name": "displaymode_invalid_value",
@@ -4147,7 +4147,7 @@ exports[`language conformance (LSP vs codesys recording) no_init_aliases LSP dia
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+    "[error] 'iA' is no input of 'FB_LANG_no_init_aliases'",
   ],
   "lspWarnings": 0,
   "name": "no_init_aliases",
@@ -5208,7 +5208,7 @@ exports[`language conformance (LSP vs codesys recording) pragma_conflict_hide_pl
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot write 'sVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sVal' is VAR).",
+    "[error] 'sVal' is no input of 'FB_LANG_pragma_conflict_hide_plus_monitoring'",
   ],
   "lspWarnings": 0,
   "name": "pragma_conflict_hide_plus_monitoring",
