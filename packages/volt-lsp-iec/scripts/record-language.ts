@@ -27,7 +27,9 @@ import { ALL_TESTS, CATEGORIES, type LanguageTest } from "../src/tests/conforman
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556";
-const VENDOR = PORT === "8555" ? "twincat" : "codesys";
+// File token must match the replay's committed recordings (`expected-tc.json` / `expected-codesys.json`)
+// — the replay maps vendor "twincat" → "expected-tc.json", so the TwinCAT recording uses "tc", not "twincat".
+const VENDOR = PORT === "8555" ? "tc" : "codesys";
 const BASE = `http://127.0.0.1:${PORT}`;
 const VOLT_BIN = resolve(THIS_DIR, "..", "..", "volt-git", "src", "bin.ts");
 const OUTPUT = resolve(THIS_DIR, "..", "src", "tests", "conformance", "recordings", `expected-${VENDOR}.json`);

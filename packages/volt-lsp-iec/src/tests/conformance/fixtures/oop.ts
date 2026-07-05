@@ -150,7 +150,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "Trying to instantiate ABSTRACT FB — TC accepts (no compile-time enforcement)",
 		fromDoc: "10-keywords.md",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		recordIsolated: true,
 		note: "DISCOVERY (verified live 2026-05-29): TC ACCEPTS direct instantiation of an ABSTRACT FB at compile time, even though the OO contract says it shouldn't be allowed. Enforcement likely happens at runtime when an abstract method is called, but the compile passes cleanly. Catalog encodes recorded TC reality, not the OO ideal.",
 		plcPrgVar: "fb_absinst : FB_LANG_oop_abstract_instantiated;",

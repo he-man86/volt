@@ -227,7 +227,7 @@ END_INTERFACE
 		kind: "function_block",
 		feature: "FB implementing an interface property (GET-only) — TC rejects because property accessors require both GET and SET when the interface contract is symmetric",
 		fromDoc: "10-keywords.md",
-		expectTcAccepts: false,
+		expectTcAccepts: true,
 		note: "DISCOVERY (verified live 2026-05-30): TC errors with 'no implementation for method __SETVALUE defined in interface' even when only GET is needed by the consumer. A complete property impl must define both GET and SET — covered by the existing `oop_property_get_set` tests elsewhere. Catalog entry kept as a known-quirk record.",
 		plcPrgVar: undefined,
 		plcPrgBody: undefined,

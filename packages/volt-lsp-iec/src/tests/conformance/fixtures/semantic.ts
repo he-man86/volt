@@ -69,7 +69,7 @@ END_METHOD
 		kind: "function_block",
 		feature: "Two contradictory pragmas on the same variable",
 		fromDoc: "07-pragmas.md#hide",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		note: "{attribute 'hide'} (hide from monitoring) + {attribute 'monitoring_encoding' := 'UTF8'} (configure monitoring) on the same var contradict each other. TC silently accepts; LSP pragmaConflict could flag this.",
 		plcPrgVar: "fb_pc : FB_LANG_pragma_conflict_hide_plus_monitoring;",
 		plcPrgBody: "fb_pc.sVal := 'x';",

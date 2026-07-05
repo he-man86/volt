@@ -89,13 +89,21 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// The LSP's missing-interface check verifies property PRESENCE, not per-accessor (GET/SET)
 		// completeness against the interface contract. TC-specific quirk (the fixture note records it).
 		"interface_with_property_impl",
+		// TRUE CS↔TC divergence: CODESYS accepts backtick-escaped identifiers (`` `TYPE` ``); TwinCAT
+		// rejects them (`Unknown type` — the whole FB fails to parse). The LSP's parser is lenient (accepts
+		// backticks, matching CODESYS), so on a TwinCAT workspace it stays silent where TC's compiler
+		// rejects. Making the parser reject valid CODESYS syntax would false-positive on real CS projects.
+		"identifier_backtick_keyword_escape",
+		// SAME gap as codesys below (both IDEs warn on an empty PROPERTY with no get/set accessor). Deferred
+		// on BOTH vendors for the same verified reason: 92 such properties in the pro2193 corpus (all
+		// `{attribute 'monitoring'}`) would mass-false-positive offline. Not a TC-specific quirk.
+		"interface_with_property",
 	]),
 	codesys: new Set<string>([
 		// CODESYS-specific warnings not surfaced by TC. The LSP defaults
 		// to TC-grade rules; matching every CODESYS heuristic warning
 		// would mean importing CODESYS's analyzer ruleset (out of scope).
 		"fb_reinit_with_params",
-		"implicit_parameter_pouname",
 		// Both IDEs reject these via parse error. Our parser is more
 		// lenient on `__`-prefixed system calls — closing this would
 		// mean tightening the parser, risking false positives on

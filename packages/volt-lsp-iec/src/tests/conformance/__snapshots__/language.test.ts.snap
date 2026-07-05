@@ -2,12 +2,18 @@
 
 exports[`language conformance (LSP vs twincat recording) hide_var LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] 'iSecret' is no input of 'FB_LANG_hide_var'",
+    "[error] 'iVisible' is no input of 'FB_LANG_hide_var'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Cannot write 'iSecret' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iSecret' is VAR).",
+    "[error] Cannot write 'iVisible' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVisible' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "hide_var",
   "vendor": "twincat",
@@ -48,12 +54,16 @@ exports[`language conformance (LSP vs twincat recording) warning_message LSP dia
 
 exports[`language conformance (LSP vs twincat recording) noinit LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iRetain' is no input of 'FB_LANG_noinit'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iRetain' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iRetain' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "noinit",
   "vendor": "twincat",
@@ -62,12 +72,16 @@ exports[`language conformance (LSP vs twincat recording) noinit LSP diagnostics 
 
 exports[`language conformance (LSP vs twincat recording) init_on_onlchange LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iVar' is no input of 'FB_LANG_init_on_onlchange'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iVar' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVar' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "init_on_onlchange",
   "vendor": "twincat",
@@ -76,12 +90,16 @@ exports[`language conformance (LSP vs twincat recording) init_on_onlchange LSP d
 
 exports[`language conformance (LSP vs twincat recording) displaymode_hex LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iHex' is no input of 'FB_LANG_displaymode_hex'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iHex' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHex' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "displaymode_hex",
   "vendor": "twincat",
@@ -90,12 +108,16 @@ exports[`language conformance (LSP vs twincat recording) displaymode_hex LSP dia
 
 exports[`language conformance (LSP vs twincat recording) no_copy LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iLocal' is no input of 'FB_LANG_no_copy'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iLocal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iLocal' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "no_copy",
   "vendor": "twincat",
@@ -188,12 +210,16 @@ exports[`language conformance (LSP vs twincat recording) reflection LSP diagnost
 
 exports[`language conformance (LSP vs twincat recording) unknown_attribute_typo LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iX' is no input of 'FB_LANG_unknown_attribute_typo'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iX' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iX' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "unknown_attribute_typo",
   "vendor": "twincat",
@@ -258,12 +284,16 @@ exports[`language conformance (LSP vs twincat recording) global_init_slot LSP di
 
 exports[`language conformance (LSP vs twincat recording) monitoring_display LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iStatus' is no input of 'FB_LANG_monitoring_display'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iStatus' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iStatus' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "monitoring_display",
   "vendor": "twincat",
@@ -272,12 +302,16 @@ exports[`language conformance (LSP vs twincat recording) monitoring_display LSP 
 
 exports[`language conformance (LSP vs twincat recording) monitoring_encoding LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'sValue' is no input of 'FB_LANG_monitoring_encoding'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'sValue' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sValue' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "monitoring_encoding",
   "vendor": "twincat",
@@ -286,12 +320,18 @@ exports[`language conformance (LSP vs twincat recording) monitoring_encoding LSP
 
 exports[`language conformance (LSP vs twincat recording) subsequent LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] 'iA' is no input of 'FB_LANG_subsequent'",
+    "[error] 'iB' is no input of 'FB_LANG_subsequent'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+    "[error] Cannot write 'iB' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iB' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "subsequent",
   "vendor": "twincat",
@@ -314,12 +354,16 @@ exports[`language conformance (LSP vs twincat recording) suppress_warning LSP di
 
 exports[`language conformance (LSP vs twincat recording) conditionalshow LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iHidden' is no input of 'FB_LANG_conditionalshow'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iHidden' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHidden' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "conditionalshow",
   "vendor": "twincat",
@@ -343,9 +387,7 @@ exports[`language conformance (LSP vs twincat recording) pingroup LSP diagnostic
 exports[`language conformance (LSP vs twincat recording) info_message LSP diagnostics agree with twincat 1`] = `
 {
   "ideErrors": 0,
-  "ideMessages": [
-    "[info] this is a deliberate test info",
-  ],
+  "ideMessages": [],
   "ideWarnings": 0,
   "knownDivergent": false,
   "lspErrors": 0,
@@ -361,9 +403,7 @@ exports[`language conformance (LSP vs twincat recording) info_message LSP diagno
 exports[`language conformance (LSP vs twincat recording) text_message LSP diagnostics agree with twincat 1`] = `
 {
   "ideErrors": 0,
-  "ideMessages": [
-    "[info] this is a deliberate test text",
-  ],
+  "ideMessages": [],
   "ideWarnings": 0,
   "knownDivergent": false,
   "lspErrors": 0,
@@ -392,12 +432,16 @@ exports[`language conformance (LSP vs twincat recording) instance_path_with_refl
 
 exports[`language conformance (LSP vs twincat recording) displaymode_bin LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iBits' is no input of 'FB_LANG_displaymode_bin'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iBits' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iBits' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "displaymode_bin",
   "vendor": "twincat",
@@ -406,12 +450,16 @@ exports[`language conformance (LSP vs twincat recording) displaymode_bin LSP dia
 
 exports[`language conformance (LSP vs twincat recording) displaymode_dec LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iDec' is no input of 'FB_LANG_displaymode_dec'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iDec' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iDec' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "displaymode_dec",
   "vendor": "twincat",
@@ -420,12 +468,16 @@ exports[`language conformance (LSP vs twincat recording) displaymode_dec LSP dia
 
 exports[`language conformance (LSP vs twincat recording) displaymode_invalid_value LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iVal' is no input of 'FB_LANG_displaymode_invalid_value'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVal' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "displaymode_invalid_value",
   "vendor": "twincat",
@@ -448,12 +500,16 @@ exports[`language conformance (LSP vs twincat recording) suppress_warning_multi 
 
 exports[`language conformance (LSP vs twincat recording) no_init_aliases LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iA' is no input of 'FB_LANG_no_init_aliases'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "no_init_aliases",
   "vendor": "twincat",
@@ -638,20 +694,6 @@ exports[`language conformance (LSP vs twincat recording) pin_presentation_order_
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "pin_presentation_order_wildcard",
-  "vendor": "twincat",
-}
-`;
-
-exports[`language conformance (LSP vs twincat recording) implicit_parameter_pouname LSP diagnostics agree with twincat 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "implicit_parameter_pouname",
   "vendor": "twincat",
 }
 `;
@@ -1176,10 +1218,14 @@ exports[`language conformance (LSP vs twincat recording) identifier_consecutive_
 
 exports[`language conformance (LSP vs twincat recording) identifier_backtick_keyword_escape LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 3,
+  "ideMessages": [
+    "[error] Unknown type: 'FB_LANG_backtick_ident'",
+    "[error] Program name, function or function block instance expected instead of 'fb_bi.Apply'",
+    "[error] Unknown type: 'FB_LANG_backtick_ident'",
+  ],
   "ideWarnings": 0,
-  "knownDivergent": false,
+  "knownDivergent": true,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
@@ -1515,12 +1561,16 @@ exports[`language conformance (LSP vs twincat recording) unresolved_identifier_i
 
 exports[`language conformance (LSP vs twincat recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'sVal' is no input of 'FB_LANG_pragma_conflict_hide_plus_monitoring'",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'sVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sVal' is VAR).",
+  ],
   "lspWarnings": 0,
   "name": "pragma_conflict_hide_plus_monitoring",
   "vendor": "twincat",
@@ -2020,9 +2070,8 @@ exports[`language conformance (LSP vs twincat recording) op_sys_currenttask LSP 
 
 exports[`language conformance (LSP vs twincat recording) op_sys_try_catch LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 2,
+  "ideErrors": 1,
   "ideMessages": [
-    "[error] The codegenerator for the current device does not support structured exception handling.",
     "[error] Identifier 'exc' not defined",
   ],
   "ideWarnings": 0,
@@ -2059,9 +2108,9 @@ exports[`language conformance (LSP vs twincat recording) op_sys_queryinterface L
 {
   "ideErrors": 3,
   "ideMessages": [
-    "[error] Cannot convert type 'Unknown type: '__QUERYINTERFACE(THIS^, ITF_LANG_with_method)'' to type 'BOOL'",
-    "[error] Unknown type: 'ITF_LANG_with_method'",
-    "[error] Identifier 'ITF_LANG_with_method' not defined",
+    "[error] Interface FB_LANG_op_sys_queryinterface does not extend __System.IQueryInterface",
+    "[error] Interface 'ITF_LANG_with_method' must be instantiated to be accessed",
+    "[error] Operation '__QueryInterface' is not possible on type 'ITF_LANG_WITH_METHOD'",
   ],
   "ideWarnings": 0,
   "knownDivergent": false,
@@ -2366,9 +2415,11 @@ exports[`language conformance (LSP vs twincat recording) interface_method_with_r
 exports[`language conformance (LSP vs twincat recording) interface_with_property LSP diagnostics agree with twincat 1`] = `
 {
   "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
+  "ideMessages": [
+    "[warning] The property defines neither a get nor a set accessor.",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
@@ -2379,10 +2430,8 @@ exports[`language conformance (LSP vs twincat recording) interface_with_property
 
 exports[`language conformance (LSP vs twincat recording) interface_with_property_impl LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] There is no implementation for method '__SETVALUE' defined in interface 'ITF_LANG_WITH_PROPERTY'",
-  ],
+  "ideErrors": 0,
+  "ideMessages": [],
   "ideWarnings": 0,
   "knownDivergent": true,
   "lspErrors": 0,
@@ -2479,12 +2528,16 @@ exports[`language conformance (LSP vs twincat recording) oop_abstract_fb LSP dia
 
 exports[`language conformance (LSP vs twincat recording) oop_abstract_instantiated LSP diagnostics agree with twincat 1`] = `
 {
-  "ideErrors": 0,
-  "ideMessages": [],
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Functionblock FB_LANG_oop_abstract_instantiated is ABSTRACT and cannot be instantiated",
+  ],
   "ideWarnings": 0,
   "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot instantiate 'FB_LANG_oop_abstract_instantiated': it is an ABSTRACT function block.",
+  ],
   "lspWarnings": 0,
   "name": "oop_abstract_instantiated",
   "vendor": "twincat",
@@ -2640,6 +2693,20 @@ exports[`language conformance (LSP vs twincat recording) type_dut_struct_simple 
 }
 `;
 
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_base LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_base",
+  "vendor": "twincat",
+}
+`;
+
 exports[`language conformance (LSP vs twincat recording) type_dut_struct_extends LSP diagnostics agree with twincat 1`] = `
 {
   "ideErrors": 0,
@@ -2650,6 +2717,20 @@ exports[`language conformance (LSP vs twincat recording) type_dut_struct_extends
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "type_dut_struct_extends",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) type_dut_struct_inner LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_inner",
   "vendor": "twincat",
 }
 `;
@@ -3426,6 +3507,20 @@ exports[`language conformance (LSP vs twincat recording) use_struct_member_acces
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "use_struct_member_access",
+  "vendor": "twincat",
+}
+`;
+
+exports[`language conformance (LSP vs twincat recording) use_struct_inner LSP diagnostics agree with twincat 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_inner",
   "vendor": "twincat",
 }
 `;
@@ -4238,23 +4333,6 @@ exports[`language conformance (LSP vs codesys recording) pin_presentation_order_
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "pin_presentation_order_wildcard",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) implicit_parameter_pouname LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] Function 'LogIt' requires exactly '1' inputs",
-    "[warning] The attribute implicit-parameter is unknown and will be ignored by the  compiler.",
-  ],
-  "ideWarnings": 1,
-  "knownDivergent": true,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "implicit_parameter_pouname",
   "vendor": "codesys",
 }
 `;
@@ -6680,6 +6758,20 @@ exports[`language conformance (LSP vs codesys recording) var_external_gvl LSP di
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) var_external_consumer LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_external_consumer",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) var_output_on_function LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -7159,20 +7251,6 @@ exports[`language conformance (LSP vs codesys recording) use_method_array_param 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "use_method_array_param",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) var_external_consumer LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "var_external_consumer",
   "vendor": "codesys",
 }
 `;

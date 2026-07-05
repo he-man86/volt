@@ -3,6 +3,53 @@
 Live status of the **diagnostics-against-live-CODESYS** effort. The compiler is the oracle; the LSP is
 validated against its recorded verdict. Updated as work lands. Companion to `toolchain-map.md`.
 
+## ✅ CLOSED — TC realignment complete (2026-07-05)
+
+**Both bridges live: CODESYS :8556, TwinCAT :8555.** The conformance replay (`language.test.ts`) is
+**GREEN on both vendors** (0 hard-fails). Full package suite 3428 pass / 0 fail, corpus precision 0.
+
+**Big finding confirmed — the old TC snapshot was WRONG.** The `expected-tc.json` from 2026-07-03 came
+from a stale bundled bridge. The fresh LIVE TwinCAT re-record (244 tests, 2026-07-05T12:00Z) shows
+**TC ≈ CS**: of 244 fixtures, **228 identical (verdict+messages), 12 same-verdict-different-wording, only
+4 true verdict divergences.** TC **rejects** external-write (`'X' is no input`) and abstract instantiation
+exactly like CODESYS — the old vendor masks were over-masking on bad data.
+
+**What landed:**
+- `rule-vendor-applicability.ts` — `externalNonInputWrite` + `abstractInstantiation` are BOTH-vendor now
+  (only `vendorOnlyOperator: ["twincat"]` remains, and that's by design). Masks effectively collapsed.
+- `record-language.ts` — `VENDOR = 8555 ? "tc" : "codesys"` filename fix (replay reads `expected-tc.json`).
+- **19 fixtures' `expectTcAccepts` realigned** to the fresh live-TC verdicts (14 external-write + 2 pragma-
+  attribute + backtick + implicit-parameter flipped `true→false`; `interface_with_property_impl` `false→true`).
+- **Deleted `implicit_parameter_pouname`** — it tested `{attribute 'implicit-parameter' := 'pouname'}`, a
+  NON-feature both IDEs ignore (`unknown and will be ignored`) then reject for the missing arg. Not a pragma
+  test, just an un-modeled call-argument-count case. Reintroduce under `callArgumentMismatch` if that lands.
+- `KNOWN_DIVERGENCES` reconciled: added `identifier_backtick_keyword_escape` (true CS-accept/TC-reject) and
+  `interface_with_property` (empty-property gap, same verified defer-reason on both) to `twincat`; dropped the
+  stale `implicit_parameter_pouname` from `codesys`.
+- New `scripts/diff-vendors.ts` (`bun run diff:vendors [--messages]`) — CS-vs-TC recording diff on demand,
+  no re-record. This is how the 4-divergence / 12-wording split above is produced.
+
+**The 4 true CS↔TC verdict divergences** (all `KNOWN_DIVERGENCES`; LSP tolerates rare-but-valid syntax
+rather than false-positive on real projects):
+
+| fixture | CODESYS | TwinCAT | why |
+|---|---|---|---|
+| `identifier_backtick_keyword_escape` | accept | reject | CS backtick-escaped idents; TC has none |
+| `op_sys_new_delete` | reject | accept | headless-CS has no dynamic-memory pool (config, not language) |
+| `operand_partial_word_in_dword` | accept | reject | CS-only `.%W`/`.%B` partial access |
+| `type_codesys_vector` | accept | reject | CS-only `__VECTOR` SIMD type |
+
+**Message wording is NOT byte-identical (deliberate, presence-based comparison):** 12 fixtures share the
+verdict but differ in text — TC capitalizes (`token`→`Token`, `pragma`→`Pragma`), writes `Functionblock` as
+one word, quotes identifiers (`MOD`→`'MOD'`). The LSP's own wording is often clearer than either compiler's;
+matching text would mean per-vendor message templates (CS≠TC) for zero user benefit. Keep presence-based.
+
+**Bridge-robustness work THIS session (all committed, separate from the above):**
+- `092ae1015` empty-body-clear fix (TwinCAT parity). `b0d76c35b` + `d0a4aa4ba` + `579d110c4` — coverage +
+  structure-agnostic tests. Confirmed **zero API/CLI differences on both bridges**: bridge e2e 65/65 both,
+  volt-git live 17+37 both. `item-kinds.json` vocabulary drift fixed. `toFolder:""` per-vendor placement is
+  INTENTIONAL (don't "fix" it) — tests made structure-agnostic instead.
+
 ## Methodology (the loop)
 
 1. **Recorder** (`scripts/record-language.ts`) — per test: reset the headless project to empty → push the

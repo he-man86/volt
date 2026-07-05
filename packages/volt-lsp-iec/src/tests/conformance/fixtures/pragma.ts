@@ -39,7 +39,7 @@ export const PRAGMA_TESTS: readonly LanguageTest[] = [
 		kind: "function_block",
 		feature: "{attribute 'hide'} on a variable hides it from online monitoring",
 		fromDoc: "07-pragmas.md#hide",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_hide : FB_LANG_hide_var;",
 		plcPrgBody: "fb_hide.iSecret := 1;\nfb_hide.iVisible := 2;",
 		source:
@@ -111,7 +111,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'noinit'} skips implicit zero-init for a variable",
 		fromDoc: "07-pragmas.md#noinit",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_noinit : FB_LANG_noinit;",
 		plcPrgBody: "fb_noinit.iRetain := fb_noinit.iRetain + 1;",
 		source:
@@ -131,7 +131,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'init_on_onlchange'} re-inits a var on every online change",
 		fromDoc: "07-pragmas.md#init_on_onlchange",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_ioc : FB_LANG_init_on_onlchange;",
 		plcPrgBody: "fb_ioc.iVar := 1;",
 		source:
@@ -151,7 +151,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'displaymode' := 'hex'} overrides monitor format",
 		fromDoc: "07-pragmas.md#displaymode",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_dm : FB_LANG_displaymode_hex;",
 		plcPrgBody: "fb_dm.iHex := 16#FF;",
 		source:
@@ -171,7 +171,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'no_copy'} prevents the var from being copied during online change",
 		fromDoc: "07-pragmas.md#no_copy",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_nc : FB_LANG_no_copy;",
 		plcPrgBody: "fb_nc.iLocal := 42;",
 		source:
@@ -322,7 +322,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "Typo in attribute name — TC ignores, LSP should warn",
 		fromDoc: "07-pragmas.md#attribute-pragma-catalog",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_unk : FB_LANG_unknown_attribute_typo;",
 		plcPrgBody: "fb_unk.iX := 1;",
 		note: "TC silently ignores unknown attributes; LSP `unknownPragma` warning is the value-add.",
@@ -431,7 +431,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'monitoring_display' := '<member>'} shows member in monitor",
 		fromDoc: "07-pragmas.md#monitoring_display",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_md : FB_LANG_monitoring_display;",
 		plcPrgBody: "fb_md.iStatus := 1;",
 		source:
@@ -451,7 +451,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'monitoring_encoding' := 'UTF8'} marks a STRING as UTF-8",
 		fromDoc: "07-pragmas.md#monitoring_encoding",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_me : FB_LANG_monitoring_encoding;",
 		plcPrgBody: "fb_me.sValue := 'hello';",
 		source:
@@ -471,7 +471,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'subsequent'} allocates VAR section contiguously",
 		fromDoc: "07-pragmas.md#subsequent",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_sub : FB_LANG_subsequent;",
 		plcPrgBody: "fb_sub.iA := 1; fb_sub.iB := 2;",
 		source:
@@ -513,7 +513,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'conditionalshow' := '<text>'} hides identifiers conditionally",
 		fromDoc: "07-pragmas.md#conditionalshow",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_cs : FB_LANG_conditionalshow;",
 		plcPrgBody: "fb_cs.iHidden := 1;",
 		source:
@@ -623,7 +623,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'displaymode' := 'bin'} variant value",
 		fromDoc: "07-pragmas.md#displaymode",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_dmb : FB_LANG_displaymode_bin;",
 		plcPrgBody: "fb_dmb.iBits := 2#1010;",
 		source:
@@ -643,7 +643,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'displaymode' := 'dec'} variant value (the default, made explicit)",
 		fromDoc: "07-pragmas.md#displaymode",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		plcPrgVar: "fb_dmd : FB_LANG_displaymode_dec;",
 		plcPrgBody: "fb_dmd.iDec := 42;",
 		source:
@@ -663,7 +663,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "{attribute 'displaymode' := 'xyz'} invalid value — should warn",
 		fromDoc: "07-pragmas.md#displaymode",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		note: "Only valid values are bin/binary/dec/decimal/hex/hexadecimal. TC may silently ignore; LSP could validate the value enum.",
 		plcPrgVar: "fb_dmi : FB_LANG_displaymode_invalid_value;",
 		plcPrgBody: "fb_dmi.iVal := 1;",
@@ -704,7 +704,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "noinit / no_init / no-init — all three alias forms",
 		fromDoc: "07-pragmas.md#noinit",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		note: "Per docs, three spellings of the same attribute. TC + LSP must accept all three identically.",
 		plcPrgVar: "fb_nia : FB_LANG_no_init_aliases;",
 		plcPrgBody: "fb_nia.iA := fb_nia.iA + 1;",
@@ -1019,32 +1019,12 @@ END_FUNCTION_BLOCK
 `,
 	},
 
-	{
-		name: "implicit_parameter_pouname",
-		pouName: "FB_LANG_implicit_parameter_pouname",
-		kind: "function_block",
-		feature: "{attribute 'implicit-parameter' := 'pouname'} on a VAR_INPUT STRING",
-		fromDoc: "07-pragmas.md#implicit-parameter",
-		expectTcAccepts: true,
-		plcPrgVar: "fb_ipp : FB_LANG_implicit_parameter_pouname;",
-		plcPrgBody: "fb_ipp.LogIt();",
-		source:
-`FUNCTION_BLOCK FB_LANG_implicit_parameter_pouname
-VAR
-	sLastCaller : STRING(255);
-END_VAR
-
-END_FUNCTION_BLOCK
-
-METHOD LogIt
-VAR_INPUT
-	{attribute 'implicit-parameter' := 'pouname'}
-	sCaller : STRING(255);
-END_VAR
-sLastCaller := sCaller;
-END_METHOD
-`,
-	},
+	// REMOVED `implicit_parameter_pouname`: it tested `{attribute 'implicit-parameter' := 'pouname'}`,
+	// but that attribute is NOT a real feature — both CODESYS and TwinCAT ignore it (CODESYS emits
+	// `[warning] The attribute implicit-parameter is unknown and will be ignored`) and then reject the
+	// no-arg call with `Function 'LogIt' requires exactly '1' inputs`. So it wasn't a pragma test at all,
+	// just an un-modeled call-argument-count case under a misleading name. Reintroduce as a proper
+	// `callArgumentMismatch` fixture if/when that check lands.
 
 	// NOTE: `is_connected_with_reflection` and `monitoring_on_property`
 	// removed for v1 — both hit edges in the bridge's StSplitter:

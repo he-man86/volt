@@ -49,19 +49,11 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	// follows the base chain (collectProvidedMembers) and bails when a base is unresolvable (library
 	// base), so it flags only genuinely-missing members. Verified zero corpus FP. CODESYS flags these
 	// too ("There is no implementation for method …"), so no entry = both vendors.
-	/**
-	 * CODESYS-only. External `fb.internalVar := x` (write to a non-VAR_INPUT/VAR_OUTPUT member):
-	 * verified by the conformance recordings — for the SAME source, CODESYS rejects ("'X' is no input
-	 * of '<FB>'", build fails) but TwinCAT ACCEPTS (build clean, 0 errors). The 13 Bucket-A fixtures
-	 * (hide_var, noinit, displaymode_*, …) all show TC build=true / CS build=false. Running the check on
-	 * a TwinCAT workspace would false-positive on code TC compiles.
-	 */
-	externalNonInputWrite: ["codesys"],
-	/**
-	 * CODESYS-only (verified by recordings): CS errors on instantiating an ABSTRACT FB, TC accepts (no
-	 * compile-time enforcement — see the oop_abstract_instantiated fixture).
-	 */
-	abstractInstantiation: ["codesys"],
+	// externalNonInputWrite / abstractInstantiation — BOTH vendors (no entry). Previously masked
+	// CODESYS-only on the strength of the 2026-07-03 TC snapshot (which showed TC build=true). That
+	// snapshot came from a stale bundled bridge; the fresh LIVE TwinCAT re-record (2026-07-05) shows TC
+	// REJECTS both — hide_var/noinit/displaymode_* build=false ("'X' is no input"), and
+	// oop_abstract_instantiated build=false (ABSTRACT). TC and CS agree, so the checks apply to both.
 };
 
 /**

@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-07-05T09:05:00Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 245
+    "testCount": 244
   },
   "tests": {
     "hide_var": {
@@ -341,22 +341,6 @@
       "buildSuccess": true,
       "durationMs": 256,
       "diagnostics": []
-    },
-    "implicit_parameter_pouname": {
-      "buildSuccess": false,
-      "durationMs": 253,
-      "diagnostics": [
-        {
-          "severity": "error",
-          "message": "Function 'LogIt' requires exactly '1' inputs",
-          "line": 0
-        },
-        {
-          "severity": "warning",
-          "message": "The attribute implicit-parameter is unknown and will be ignored by the  compiler.",
-          "line": 0
-        }
-      ]
     },
     "region_basic": {
       "buildSuccess": true,

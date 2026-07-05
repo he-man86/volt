@@ -75,7 +75,7 @@ END_FUNCTION_BLOCK
 		kind: "function_block",
 		feature: "Backtick-escaped identifier using a CODESYS keyword — CODESYS extension; TC behavior recorded",
 		fromDoc: "08-identifiers.md#backtick-identifiers",
-		expectTcAccepts: true,
+		expectTcAccepts: false,
 		recordIsolated: true,
 		note: "Backtick-quoted identifiers let CODESYS code use keywords as names. TC support is platform-dependent — catalog records actual behavior. Source uses string concatenation to avoid escaping nightmares in this TS file.",
 		plcPrgVar: "fb_bi : FB_LANG_backtick_ident;",
