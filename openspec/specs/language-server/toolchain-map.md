@@ -16,7 +16,7 @@ independently as it lands.
 | # | Phase | Change | Status |
 |---|---|---|---|
 | 0 | **Body AST** — statement/expression tree (the treewalker) | `st-body-ast` | ✅ done (archived) |
-| 1 | **Type inference & type-aware diagnostics** — engine + deepen assignment/binary/conversion checks + call-arg checking + narrowing | `st-type-inference` | 🟡 built (shared service + inference + 3 checks deepened, all zero-FP). **Live oracle now works** — the `record:language` recorder runs against headless CODESYS (isolation + fixture-guard + dependency-aware); the replay hard-asserts LSP vs trusted ground truth. Enabled `duplicateDeclaration` for CODESYS at root; the replay now surfaces ~28 real gaps being worked bucket-by-bucket. call-arg + narrowing still pending enable. **See `diagnostics-conformance.md` (live status).** |
+| 1 | **Type inference & type-aware diagnostics** — engine + deepen assignment/binary/conversion checks + call-arg checking + narrowing | `st-type-inference` | 🟢 conformance CLOSED (2026-07-05); call-arg + narrowing still default-off. The live-CODESYS/live-TwinCAT replay is **message-IDENTICAL** on both vendors — the LSP's diagnostic text matches each compiler byte-for-byte (per-vendor wording mirrored) or is a documented parser-cascade divergence. **Corpus precision 0 on all 4 projects**; the library-blind + dead-object unresolved floor is fully cleared, so `unresolved-identifier` was **promoted warning→error** to mirror the compilers. Remaining Phase-1 work: enable call-arg + narrowing checks. **See `diagnostics-conformance.md`.** |
 | 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | 🟡 built (chain nav + type-aware references/rename/document-highlight + call-hierarchy member calls + bare-enum full nav, all green; inference gained `THIS^`/`GVL.field`/enum static bases). Remaining: §4 cross-file corpus spot-checks, then archive. |
 | 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ⬜ planned |
 | 4 | **Performance on large projects** — per-document caching, batched seed, query budget | `st-perf` | ⬜ planned |
@@ -27,7 +27,7 @@ independently as it lands.
 
 - **`library-signature-index`** — referenced-library signatures resolve; library-blind unresolved floor cleared.
 - **`expose-device-instances`** — device-tree instances resolve (`.device` descriptors). *(in progress: 20/28)*
-- **exclude-from-build awareness**, **VG graphical analysis**, **kind-based file extensions**, and the **4-corpus ratchet** (pro2193 / bakon-nano / awa-palletizer / lenze-mid) with zero false positives on built objects.
+- **exclude-from-build awareness**, **VG graphical analysis**, **kind-based file extensions**, and the **4-corpus ratchet** (pro2193 / bakon-nano / awa-palletizer / lenze-mid) — now **precision 0 (zero diagnostics)** on all four. The new bridge no longer ships excluded/uncompiled objects at fetch, so those were removed from the corpus (the in-content marker mechanism remains as a fallback); the remaining unresolved-identifier tail was closed via `_libsigs` + a `COMPILER_PROVIDED_IMPLICITS` skip (`IoConfig_Globals`, `TYPE_CLASS`).
 
 ## Component status
 
@@ -39,6 +39,8 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 | **Body AST** (statement/expression tree) | ✅ have | 0 `st-body-ast` | the treewalker — **100% body-parse-clean on all 4 corpora**, 0 mismatches (incl. CODESYS `S=`/`R=`/`REF=`, `__TRY`, inline/chained assignment, bit access) |
 | Expression type inference | ✅ `semantic/type-infer.ts` | 1 `st-type-inference` | the shared engine (inferExprType + resolveMemberChain) |
 | Diagnostics (assignment/binary/conversion) | ✅ deepened onto tree + inference | 1 `st-type-inference` | member/index/deref/call operands typed (no more bail-on-`.`) |
+| **Diagnostic message parity** (LSP text == IDE, per-vendor) | ✅ have | 1 `st-type-inference` | every diagnostic the LSP shares with the compiler reads byte-identical to it (external-write, type-mismatch via `cannotConvert`, abstract-instantiation, MOD, VAR-section, orphan-pragma, interface-impl UPPER-cased, `STRING(INT#<len>)`, per-vendor wording). The conformance test passes ONLY on identical messages; the divergence ledger is parser-cascades + IDE-only extras. |
+| `unresolved-identifier` (error severity) | ✅ have | 1 `st-type-inference` | promoted warning→**error** to mirror both compilers; corpus 0 FPs (library-blind tail + dead objects cleared) |
 | Call-argument checking (count/type/name) | 🟡 built, default-off, FP-validated | 1 `st-type-inference` | enable after live oracle |
 | Narrowing-conversion diagnostic (LREAL→REAL) | 🟡 built, default-off, FP-validated | 1 `st-type-inference` | catches known-typed cases; match compiler's 27 + enable via live oracle |
 | Member-chain nav (def/hover/completion/refs) | ✅ full chains + type-aware occurrence queries | 2 `st-nav-chains` | editor UX on `a.b.c`, narrowed by symbol identity |
