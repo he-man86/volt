@@ -85,8 +85,7 @@ Reason classes: **VERDICT** = one IDE flags where the other is silent (real capa
 | `type_codesys_vector` | accept | reject | CS-only `__VECTOR`. LSP emits `vendor-only-type` under TC; TC parse-errors. |
 
 ### TwinCAT ledger (`KNOWN_DIVERGENCES.twincat`)
-VERDICT: `interface_with_property_impl` (TC rejects GET-only interface-property impl — requires both accessors;
-CS accepts) · `interface_with_property` (both warn on empty property; deferred — 92 corpus properties → mass
+VERDICT: `interface_with_property` (both warn on empty property; deferred — 92 corpus properties → mass
 FP) · the 3 CS-only-syntax fixtures above. PARSE-CASCADE: `identifier_double_underscore`,
 `identifier_consecutive_underscores`, `deref_on_array_type`, `type_deref_non_pointer`, `var_non_retain`,
 `operand_uchar_literal`, `op_sys_currenttask`, `op_sys_varinfo`, `op_sys_try_catch`, `op_sys_queryinterface`.
@@ -103,8 +102,19 @@ operators + underscore/deref/retain/literal fixtures (LSP parser is more lenient
 tightening risks FPs elsewhere).
 
 ### Structural facts
-- GET-only interface property: CODESYS accepts, TwinCAT requires both accessors.
 - CODESYS-only extra attribute lints (`… is unknown and will be ignored`, invalid monitoring encoding) are
   IDE-only extras the LSP has no single message for.
 - The one non-mirrored wording class is entirely inside parser cascades; every remaining ledger entry is a
   parse-cascade or an IDE-only extra, not a wording mismatch of a message the LSP does emit.
+
+## Suspected bridge artifacts (removed — NOT real vendor differences)
+
+Divergences that almost certainly come from a **bridge** mis-recording, not the compilers — the two IDEs are
+the same IEC language, so a "difference" here is a red flag. Removed from the ledger above; to re-verify against
+a freshly-built live bridge before ever treating as real.
+
+- **GET-only interface property.** Previously recorded as "TwinCAT requires both accessors (`no implementation
+  for method '__SETVALUE'`), CODESYS accepts GET-only." IEC allows a GET-only interface property, so TwinCAT
+  genuinely accepting it is expected — the rejection is almost certainly the **Beckhoff bridge** synthesizing a
+  phantom `__SETVALUE` accessor (or mis-attributing the build diagnostic). Tracked as a suspected Beckhoff-bridge
+  bug; the LSP does NOT model this as a vendor difference.
