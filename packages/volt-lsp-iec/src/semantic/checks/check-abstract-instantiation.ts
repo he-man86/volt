@@ -1,9 +1,9 @@
 /**
  * Instantiating an ABSTRACT function block — `VAR x : FB_Abstract;`.
  *
- * CODESYS rejects this at compile time ("Function block '<FB>' is ABSTRACT"); TwinCAT accepts it (no
- * compile-time enforcement — see the `oop_abstract_instantiated` conformance fixture). Hence CODESYS-only
- * via RULE_VENDOR_APPLICABILITY.
+ * BOTH vendors reject it at compile time (verified live via the `oop_abstract_instantiated` conformance
+ * fixture): CODESYS "Function block '<FB>' is ABSTRACT …", TwinCAT "Functionblock …" — so the check runs on
+ * both, with the per-vendor wording mirrored below.
  *
  * Conservative — flags only a DIRECT named-type declaration whose type resolves to a project FB symbol
  * carrying `abstract` in its AST. Arrays/pointers of an abstract FB and library abstract FBs are not

@@ -1,222 +1,93 @@
 /**
- * Server configuration plumbed in via LSP `initializationOptions`.
- *
- * The client (VS Code extension, opencode, any MCP-aware tool) can pass
- * a typed options blob at `initialize` time. We store it on the workspace
- * and read it from each query/diagnostic check.
- *
- * Keep this independent of `vscode-languageserver-protocol` types — the
- * shape is ours, not LSP-defined.
+ * Server configuration, passed in via LSP `initializationOptions`. The client (VS Code, opencode, any
+ * MCP-aware tool) sends a typed blob at `initialize`; the workspace stores the resolved form and each
+ * check / query reads it. Independent of `vscode-languageserver-protocol` types — the shape is ours.
  */
 
 /**
- * Per-diagnostic enable flags. Defaults are all-on; clients disable
- * checks selectively to mute noise.
- *
- * Each flag maps 1:1 to a check in `src/semantic/diagnostics.ts`.
+ * Per-check enable flags — each maps 1:1 to a check in `../../semantic/diagnostics.ts`, where the full
+ * scope and rationale live. Defaults are in `DEFAULT_DIAGNOSTIC_CONFIG` below.
  */
 export interface DiagnosticConfig {
-	/** Identifier matches a CODESYS reserved keyword. Error. */
+	// ── Identifiers ──
+	/** Identifier collides with a reserved keyword. */
 	reservedKeyword: boolean;
-	/** Identifier starts with `__` (reserved for system-generated names). Error. */
+	/** Identifier starts with `__` (reserved for system-generated names). */
 	doubleUnderscore: boolean;
-	/** Multiple consecutive underscores anywhere in an identifier. Error. */
+	/** Repeated underscores in an identifier (`foo__bar`). */
 	consecutiveUnderscores: boolean;
-	/** Two declarations with the same name in the same scope. Error. */
+	/** Same name declared twice in one scope. */
 	duplicateDeclaration: boolean;
-	/** Identifier in a body that doesn't resolve. Warning (library-blind). */
+	/** A body identifier that resolves nowhere. */
 	unresolvedIdentifier: boolean;
-	/**
-	 * Pragma name not in either vendor's catalog. Warning. **OFF by default** —
-	 * TC silently ignores unknown attributes (forward-compat for library-
-	 * provided pragmas); enable for stricter typo-catching.
-	 */
+
+	// ── Pragmas ──
+	/** Pragma name in neither vendor's catalog. */
 	unknownPragma: boolean;
-	/**
-	 * Pragma known but belongs to the OTHER vendor (not the active one). Warning.
-	 * **OFF by default** — same rationale as `unknownPragma`. Useful when
-	 * porting between CODESYS and TwinCAT projects.
-	 */
+	/** Pragma valid only for the other vendor. */
 	wrongVendorPragma: boolean;
-	/** A pragma missing its required companion (e.g. instance-path without reflection). Error. */
+	/** A pragma missing its required companion (e.g. instance-path without reflection). */
 	pragmaMissingCompanion: boolean;
-	/** Two mutually-exclusive pragmas on the same target. Warning. */
+	/** Two mutually-exclusive pragmas on the same target. */
 	pragmaConflict: boolean;
-	/**
-	 * FB_Init/FB_Reinit/FB_Exit with missing required VAR_INPUT
-	 * params. Error. Mirrors TC's enforcement of the minimum
-	 * lifecycle contract — TC permits return-type deviations and
-	 * extra params, so the LSP does too (verified via conformance).
-	 */
-	fbLifecycleSignature: boolean;
-	/**
-	 * A declaration shadows a same-name symbol in an outer scope. Information.
-	 * **OFF by default** — TC silently allows shadowing; enable for style-
-	 * conscious code-review setups.
-	 */
-	shadowingDeclaration: boolean;
-	/**
-	 * {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot. Warning.
-	 * **OFF by default** — TC accepts user-picked slots even when CODESYS
-	 * libraries claim them (would only conflict if those libraries are loaded);
-	 * enable when you know your library set.
-	 */
-	initSlotCollision: boolean;
-	/** `<X>_TO_<Y>(arg)` where arg's declared type isn't compatible with `<X>`. Warning. */
-	conversionSourceMismatch: boolean;
-	/**
-	 * Surface message pragmas — `{text}` / `{info}` / `{warning}` /
-	 * `{error}` — as LSP diagnostics with the corresponding severity.
-	 * These pragmas are explicit author-emitted markers (compile-time
-	 * message channel); mirroring them in the LSP gives the same
-	 * red/yellow squiggle the IDE compiler shows. Off-by-default
-	 * would be silly (the user wrote them on purpose), so default ON.
-	 */
+	/** Surface `{error}`/`{warning}`/`{info}`/`{text}` message pragmas as diagnostics. */
 	messagePragmas: boolean;
-	/**
-	 * Flag orphan conditional-compile pragmas — `{ELSE}` / `{ELSIF}` /
-	 * `{END_IF}` that appear without a matching `{IF}` earlier in the
-	 * source. TC raises "Unexpected Pragma: 'ELSE' found without
-	 * matching 'if'" for the same case. Doesn't model the full
-	 * preprocessor (no compile-time define evaluation, no branch
-	 * stripping) — just the structural balance.
-	 */
+	/** `{ELSE}`/`{ELSIF}`/`{END_IF}` without a matching `{IF}` (structural balance only). */
 	orphanConditionalPragma: boolean;
-	/**
-	 * Flag simple assignments `<id> := <single-id-or-typed-literal>;`
-	 * where the right-hand side's type isn't assignable to the left
-	 * (BOOL ↔ numeric, narrowing DINT→INT, STRING→numeric, etc.).
-	 * Mirrors TC's `Cannot convert type X to type Y` error.
-	 *
-	 * Deliberately MINIMAL: only catches the simplest assignment
-	 * shape (single identifier or typed literal on RHS). Binary
-	 * expressions, conversion calls, member access are skipped to
-	 * avoid false positives — we'd need full expression type-
-	 * inference to handle them, which is well outside this LSP's
-	 * navigation-grade scope.
-	 */
-	assignmentTypeMismatch: boolean;
-	/**
-	 * Flag function blocks that declare `IMPLEMENTS <Iface>` but
-	 * don't provide every method/property the interface requires.
-	 * Mirrors TC's error on missing interface members.
-	 */
+	/** `{attribute 'global_init_slot'}` collides with a reserved slot. */
+	initSlotCollision: boolean;
+
+	// ── Declarations & OOP ──
+	/** FB_Init/FB_Reinit/FB_Exit missing a required VAR_INPUT parameter. */
+	fbLifecycleSignature: boolean;
+	/** A declaration shadows a same-name symbol in an outer scope. (info) */
+	shadowingDeclaration: boolean;
+	/** `IMPLEMENTS <Iface>` but a required method/property is missing. */
 	missingInterfaceImplementation: boolean;
-	/**
-	 * When `missingInterfaceImplementation` fires, also verify that the
-	 * present method/property has a compatible signature (param count
-	 * and types). Conservative: skips comparison when either side uses
-	 * an unresolvable type (library type, generic). Defaults ON.
-	 *
-	 * May be disabled independently for projects that intentionally
-	 * override with a different (compatible) signature.
-	 */
+	/** An implemented interface member has an incompatible signature. */
 	missingInterfaceSignature: boolean;
-	/**
-	 * Flag simple binary expressions `<id> <op> <id>` (inside an
-	 * assignment) where the operator doesn't accept those operand
-	 * types. Covers `MOD` on non-integer types and arithmetic
-	 * mixing BOOL with numeric. Mirrors TC's
-	 * `'MOD' is not defined for 'REAL'` and
-	 * `Cannot convert type 'BOOL' to type 'INT'` errors.
-	 *
-	 * Same minimalism as assignmentTypeMismatch — only the
-	 * `lhs := id op id ;` shape; anything more complex is skipped.
-	 */
-	binaryOperatorTypeMismatch: boolean;
-	/**
-	 * Flag a call whose arguments don't match the callee's declared
-	 * parameters: a named argument (`p := v`) naming a parameter the
-	 * callee doesn't declare, or more positional arguments than the
-	 * callee accepts, or an argument whose type is incompatible with its
-	 * parameter. Conservative: skips when the callee or a type is
-	 * unresolvable. **Default OFF** until oracle-validated against the
-	 * compiler (st-type-inference §4).
-	 */
-	callArgumentMismatch: boolean;
-	/**
-	 * Warn on an implicit narrowing / loss-of-precision conversion the
-	 * compiler flags as "possible loss of information" — currently the
-	 * confirmed LREAL→REAL case (assigning an `LREAL` value to a `REAL`
-	 * target). A warning, not an error (the code compiles). **Default OFF**
-	 * — matches the compiler's opt-in warning level (st-type-inference §5).
-	 */
-	narrowingConversion: boolean;
-	/**
-	 * Flag VAR-section kinds that aren't allowed for the containing
-	 * POU kind. Currently: VAR_TEMP only inside PROGRAM / FUNCTION /
-	 * FUNCTION_BLOCK (NOT METHOD / ACTION / INTERFACE) and
-	 * VAR_GLOBAL only inside a GVL. Mirrors TC's
-	 * `VAR_TEMP declaration not allowed in this place` error.
-	 */
-	varSectionPlacement: boolean;
-	/**
-	 * Flag pointer-dereference applied to a non-pointer variable:
-	 * `<id>^` where `id` is declared as a non-pointer simple type.
-	 * Mirrors TC's `'^' is not defined for ...` error.
-	 *
-	 * Conservative: only the simple `<id>^` shape is checked. Complex
-	 * shapes like `(expr)^`, `arr[i]^`, `obj.field^` are skipped to
-	 * avoid false positives without expression typing.
-	 */
-	derefOnNonPointer: boolean;
-	/**
-	 * External write to a non-`VAR_INPUT` member of an FB instance
-	 * (`fb.internalVar := x`). Per IEC/CODESYS, only `VAR_INPUT` is
-	 * externally writable. Skips library-signature members (lossy
-	 * sections) and internal `THIS^`/struct writes — project-local only.
-	 */
-	externalNonInputWrite: boolean;
-	/**
-	 * Instantiating an ABSTRACT function block (`VAR x : FB_Abstract;`).
-	 * CODESYS rejects ("... is ABSTRACT"); TwinCAT accepts (no compile-time
-	 * enforcement) → CODESYS-only via RULE_VENDOR_APPLICABILITY.
-	 */
+	/** Instantiating an ABSTRACT function block. */
 	abstractInstantiation: boolean;
-	/**
-	 * When the active vendor is TwinCAT, error on CODESYS-only system
-	 * operators (`__VARINFO`, `__NEW`, `__DELETE`, `__QUERYINTERFACE`,
-	 * `__CURRENTTASK`, `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY`, etc.)
-	 * — verified live: TC rejects all of these. Mirrors TC's parse-error
-	 * behavior. `__ISVALIDREF` is TC-compatible and stays silent.
-	 */
+	/** A VAR-section kind not allowed in the containing POU kind (e.g. VAR_TEMP in a METHOD). */
+	varSectionPlacement: boolean;
+	/** External write to a non-VAR_INPUT/OUTPUT member of an FB instance (`fb.internalVar := x`). */
+	externalNonInputWrite: boolean;
+
+	// ── Type-aware (expression inference) ──
+	/** `X_TO_Y(arg)` where arg's type isn't compatible with `X`. */
+	conversionSourceMismatch: boolean;
+	/** `a := b` where b's type isn't assignable to a. */
+	assignmentTypeMismatch: boolean;
+	/** A binary operator on incompatible operands (e.g. MOD on REAL, BOOL + numeric). */
+	binaryOperatorTypeMismatch: boolean;
+	/** A call whose arguments don't match the callee's parameters (name / count / type). */
+	callArgumentMismatch: boolean;
+	/** Implicit narrowing the compiler warns on — currently LREAL→REAL. (warning) */
+	narrowingConversion: boolean;
+	/** `x^` where x isn't a pointer type. */
+	derefOnNonPointer: boolean;
+
+	// ── Vendor-specific ──
+	/** A CODESYS-only `__` system operator used under TwinCAT (`__NEW`, `__CURRENTTASK`, …). */
 	vendorOnlyOperator: boolean;
-	/**
-	 * Structural well-formedness of a VG (graphical FBD/LD) body — the
-	 * codes the bridge gate refuses a push with (VG_BAD_EXPRESSION,
-	 * VG_UNKNOWN_OPERATOR, VG_DUPLICATE_NAME, VG_DUPLICATE_NETWORK,
-	 * VG_NETWORK_NOT_CLOSED, VG_LEAF_REFERENCES_TEMP, VG_PARSE). On by
-	 * default: surfacing them in the editor lets a graphical body be fixed
-	 * before the push is refused. (VG_PLCOPEN_DRIFT stays bridge-only.)
-	 */
+
+	// ── VG (graphical FBD/LD) ──
+	/** VG structural well-formedness — the bridge's `VG_*` push gate, surfaced in the editor. */
 	vgStructure: boolean;
-	/** A VG operand references a name not declared in the POU (the VG
-	 *  analogue of unresolved-identifier). */
+	/** A VG operand references a name not declared in the POU. */
 	vgUndeclaredIdentifier: boolean;
 	/** A VG `JMP` targets a label not defined in its network. */
 	vgUndefinedLabel: boolean;
-	/** A VG FB-instance call passes a pin name the FB type doesn't declare. */
+	/** A VG call passes a pin name the FB type doesn't declare. */
 	vgUnknownPin: boolean;
-	/**
-	 * A VG body is not in canonical form (VG_NOT_CANONICAL). OFF by
-	 * default: the LSP re-emitter checks *formatting* canonicality only
-	 * (it can't re-run the bridge's graph-level inline analysis), and the
-	 * bridge enforces full canonicality at push — so this is opt-in for
-	 * users who want push-parity warnings while editing. The formatter
-	 * (`textDocument/formatting`) is the friendlier way to canonicalise.
-	 */
+	/** VG body not in canonical form (formatting-level; the bridge is the authority). */
 	vgNotCanonical: boolean;
 }
 
 /**
- * Default config mirrors TC's enforcement: every check that's ON here
- * fires only on code TC itself rejects. Stricter-than-TC lints
- * (unknown-pragma typos, vendor-mismatch attributes, shadowing
- * declarations, init-slot collisions) default OFF — they're available
- * as opt-in via init options for stricter setups, but the baseline
- * is "if TC compiles it, LSP doesn't complain". Conformance harness
- * (`src/conformance/`, replayed by `language.test.ts`) is what
- * validates this contract.
+ * Defaults mirror the compiler: a check is ON only if the compiler itself rejects (or warns on) the code.
+ * The five stricter-than-compiler lints are OFF — they fire on code the compiler accepts, so they're opt-in.
+ * The conformance replay (`../../tests/conformance/language.test.ts`) validates this contract.
  */
 export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	reservedKeyword: true,
@@ -224,47 +95,38 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	consecutiveUnderscores: true,
 	duplicateDeclaration: true,
 	unresolvedIdentifier: true,
-	// stricter-than-TC; opt-in
-	unknownPragma: false,
-	wrongVendorPragma: false,
+	unknownPragma: false, // opt-in: the compiler silently ignores unknown attributes (forward-compat)
+	wrongVendorPragma: false, // opt-in: only relevant when porting between vendors
 	pragmaMissingCompanion: true,
 	pragmaConflict: true,
-	fbLifecycleSignature: true,
-	// stricter-than-TC; opt-in
-	shadowingDeclaration: false,
-	// stricter-than-TC; opt-in
-	initSlotCollision: false,
-	conversionSourceMismatch: true,
 	messagePragmas: true,
 	orphanConditionalPragma: true,
-	assignmentTypeMismatch: true,
+	initSlotCollision: false, // opt-in: only conflicts if the claiming library is actually loaded
+	fbLifecycleSignature: true,
+	shadowingDeclaration: false, // opt-in: the compiler allows shadowing
 	missingInterfaceImplementation: true,
 	missingInterfaceSignature: true,
-	binaryOperatorTypeMismatch: true,
-	callArgumentMismatch: true, // ON since 2026-07-05 — oracle-validated zero-FP (fixed the mixed named+positional binding)
-	narrowingConversion: true, // ON since 2026-07-05 — live CODESYS + TwinCAT both warn on LREAL→REAL (a WARNING, not an error)
-	varSectionPlacement: true,
-	derefOnNonPointer: true,
-	externalNonInputWrite: true,
 	abstractInstantiation: true,
+	varSectionPlacement: true,
+	externalNonInputWrite: true,
+	conversionSourceMismatch: true,
+	assignmentTypeMismatch: true,
+	binaryOperatorTypeMismatch: true,
+	callArgumentMismatch: true,
+	narrowingConversion: true,
+	derefOnNonPointer: true,
 	vendorOnlyOperator: true,
 	vgStructure: true,
 	vgUndeclaredIdentifier: true,
 	vgUndefinedLabel: true,
 	vgUnknownPin: true,
-	// Opt-in — see the field doc; the bridge is the canonical authority.
-	vgNotCanonical: false,
+	vgNotCanonical: false, // opt-in: the bridge is the canonical authority; the formatter handles it
 };
 
 /**
- * Vendor selector. Drives which vendor-specific reference entries
- * appear in completion/hover and which diagnostic the unknown-pragma
- * check emits.
- *
- *   - `"codesys"` — CODESYS V3 (3S Smart Software Solutions) targeting
- *   - `"twincat"` — Beckhoff TwinCAT 3 targeting
- *   - `"auto"` — let the workspace scanner detect from project files;
- *     falls back to `"codesys"` when no signal found
+ * The active PLC dialect. `Vendor` is the RESOLVED value; `VendorSetting` additionally allows `"auto"`,
+ * which the client resolves (`detect-vendor.ts`) before it reaches `resolveConfig` — which falls back to
+ * `"codesys"` if it still sees `"auto"`.
  */
 export type Vendor = "codesys" | "twincat";
 export type VendorSetting = Vendor | "auto";
@@ -273,18 +135,14 @@ export interface PlcLspInitOptions {
 	/** Active vendor (default "auto"). */
 	vendor?: VendorSetting;
 	diagnostics?: Partial<DiagnosticConfig>;
-	hover?: {
-		/** Append the documentation source URL to hover content. Default: true. */
-		showSource?: boolean;
-	};
-	completion?: {
-		/** Honor LSP snippet syntax in completion items. Default: true. */
-		snippetSupport?: boolean;
-	};
+	/** Append the documentation source URL to hover content. Default: true. */
+	hover?: { showSource?: boolean };
+	/** Honor LSP snippet syntax in completion items. Default: true. */
+	completion?: { snippetSupport?: boolean };
 }
 
 export interface ResolvedConfig {
-	/** Resolved vendor — never "auto" (workspace scanner has already run). */
+	/** Resolved vendor — never "auto". */
 	vendor: Vendor;
 	diagnostics: DiagnosticConfig;
 	hover: { showSource: boolean };
@@ -299,43 +157,33 @@ export const DEFAULT_RESOLVED_CONFIG: ResolvedConfig = {
 };
 
 /**
- * Merge a partial init-options blob into the defaults. Each missing field
- * falls back to `DEFAULT_RESOLVED_CONFIG`.
- *
- * `vendor: "auto"` resolves to `"codesys"` here as a deterministic
- * default — the agent's `volt init` writes the detected vendor into
- * `.volt/config.json` and the client passes the resolved value,
- * so this default only fires when no project context is available.
- *
- * **Vendor applicability filter:** after merging user opts, rules
- * marked vendor-specific in `RULE_VENDOR_APPLICABILITY` get masked
- * out for the active vendor — e.g. `consecutiveUnderscores` is
- * silently disabled on CODESYS because CODESYS accepts those
- * identifiers (recorded divergence). This runs ONCE at init time;
- * the dispatcher in `../semantic/diagnostics.ts` then sees a
- * pre-filtered config with zero per-token vendor branching.
+ * Per-rule vendor applicability. A rule listed here runs ONLY on the vendors named; a rule ABSENT from the
+ * map runs on both. Nearly every check applies to both — CODESYS and TwinCAT are the same IEC 61131-3
+ * language. Add an entry ONLY with recorded conformance evidence that one vendor accepts code the other
+ * rejects, or for a rule vendor-specific by construction. See `diagnostics-conformance.md`.
  */
-import { filterConfigByVendor } from "./rule-vendor-applicability.js";
+const RULE_VENDOR_APPLICABILITY: Partial<Record<keyof DiagnosticConfig, readonly Vendor[]>> = {
+	// CODESYS-only `__` operators used under TwinCAT — by definition it must never fire on a CODESYS
+	// workspace, where those operators are legal.
+	vendorOnlyOperator: ["twincat"],
+};
 
+/**
+ * Merge init-options over the defaults, resolve the vendor, and mask off checks that don't apply to it
+ * (`RULE_VENDOR_APPLICABILITY` — e.g. `vendorOnlyOperator` never fires on CODESYS). Runs ONCE at init, so
+ * the dispatcher then sees a fully pre-filtered config with no per-token vendor branching.
+ */
 export function resolveConfig(opts: PlcLspInitOptions | undefined): ResolvedConfig {
-	const requestedVendor = opts?.vendor;
-	const vendor: Vendor =
-		requestedVendor === "codesys" || requestedVendor === "twincat"
-			? requestedVendor
-			: "codesys"; // "auto" or undefined → codesys default
-	const userDiagnostics: DiagnosticConfig = {
-		...DEFAULT_DIAGNOSTIC_CONFIG,
-		...(opts?.diagnostics ?? {}),
-	};
+	const requested = opts?.vendor;
+	const vendor: Vendor = requested === "codesys" || requested === "twincat" ? requested : "codesys";
+	const diagnostics: DiagnosticConfig = { ...DEFAULT_DIAGNOSTIC_CONFIG, ...opts?.diagnostics };
+	for (const [key, vendors] of Object.entries(RULE_VENDOR_APPLICABILITY)) {
+		if (vendors && !vendors.includes(vendor)) diagnostics[key as keyof DiagnosticConfig] = false;
+	}
 	return {
 		vendor,
-		diagnostics: filterConfigByVendor(userDiagnostics, vendor),
-		hover: {
-			showSource: opts?.hover?.showSource ?? DEFAULT_RESOLVED_CONFIG.hover.showSource,
-		},
-		completion: {
-			snippetSupport:
-				opts?.completion?.snippetSupport ?? DEFAULT_RESOLVED_CONFIG.completion.snippetSupport,
-		},
+		diagnostics,
+		hover: { showSource: opts?.hover?.showSource ?? true },
+		completion: { snippetSupport: opts?.completion?.snippetSupport ?? true },
 	};
 }
