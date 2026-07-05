@@ -187,7 +187,6 @@ const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// partial-access message. Left for the per-vendor decision.
 		"operand_partial_word_in_dword",
 		// Not yet mirrored — plain text-match work, tracked here until done.
-		"duplicate_declaration",
 		"interface_missing_implementation",
 	]),
 	codesys: new Set<string>([
@@ -205,7 +204,6 @@ const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		"var_non_retain",
 		"operand_uchar_literal",
 		"unresolved_identifier_in_body",
-		"duplicate_declaration",
 		"interface_missing_implementation",
 		// String LITERAL source type rendered as `STRING(INT#<len>)` by CODESYS; our inference yields `STRING`.
 		"literal_string_to_int_assignment",

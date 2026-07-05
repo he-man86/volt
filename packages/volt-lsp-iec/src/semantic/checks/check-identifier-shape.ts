@@ -113,7 +113,8 @@ function walkScopeForDuplicates(scope: Scope, out: DiagnosticItem[]): void {
 					span: sym.span,
 					source: "volt-lsp-iec",
 					code: "duplicate-declaration",
-					message: `'${sym.name}' is already declared in this scope`,
+					// Mirror the compiler's wording (both vendors identical), naming the enclosing POU.
+					message: `A local variable named '${sym.name}' is already defined in '${scope.name}'`,
 				});
 			}
 		}

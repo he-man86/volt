@@ -1532,7 +1532,7 @@ exports[`language conformance (LSP vs twincat recording) duplicate_declaration L
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] 'iCounter' is already declared in this scope",
+    "[error] A local variable named 'iCounter' is already defined in 'FB_LANG_duplicate_declaration'",
   ],
   "lspWarnings": 0,
   "name": "duplicate_declaration",
@@ -5171,7 +5171,7 @@ exports[`language conformance (LSP vs codesys recording) duplicate_declaration L
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] 'iCounter' is already declared in this scope",
+    "[error] A local variable named 'iCounter' is already defined in 'FB_LANG_duplicate_declaration'",
   ],
   "lspWarnings": 0,
   "name": "duplicate_declaration",
