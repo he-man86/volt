@@ -72,13 +72,15 @@ src/
 │       └── pragmas/           ← pragmas
 ├── services/                  # E — LSP language services
 │   ├── shared/                ← resolve-at (symbol-refs+scope-at+st-body-at+identifier-at) · position · locations(NEW) · symbol-kinds(NEW, +humanKind) · token-scan(NEW)
-│   ├── navigation/            ← definition · references · rename · document-highlight · implementation
+│   ├── navigation/            ← definition · type-definition(NEW) · references · rename(+prepareRename NEW) · document-highlight · implementation
 │   ├── hierarchy.ts           ← call-hierarchy + type-hierarchy (merged)
-│   ├── assist/                ← hover · completion · signature-help
-│   ├── semantic-tokens.ts     ← semantic-tokens.ts
+│   ├── assist/                ← hover · completion(+resolve NEW, lazy docs) · signature-help
+│   ├── inlay-hints.ts         ← NEW — inferred types + param names inline (showcases types/)
+│   ├── code-lens.ts           ← NEW — "N references" + "▶ Run test" (→ transpile/ + test/exec/)
+│   ├── semantic-tokens.ts     ← semantic-tokens.ts (+ delta/range NEW, perf)
 │   ├── structure/             ← document-symbol · workspace-symbol · folding-range · selection-range
-│   ├── formatting/            ← format · format-print · editorconfig(NEW, extracted)
-│   └── code-actions.ts        ← code-action.ts
+│   ├── formatting/            ← format · format-print · editorconfig(NEW) · on-type(NEW, auto-indent/close) · range(NEW)
+│   └── code-actions.ts        ← code-action.ts (+ declare-undeclared / add-missing-member quick-fixes)
 ├── reference/                 # F — language reference catalogs (data)
 │   ├── index.ts · data-types · operators · type-conversion · pragmas · standard-functions · standard-fbs · lifecycle · init-slots · keywords
 │   └── catalog.ts             ← semantic/reference-catalog.ts (semantic access)
@@ -91,7 +93,7 @@ src/
 │   └── services/              ← queries/vg/*  (the graphical branch of nav/hover/tokens/symbols/folding; reuses services/shared)
 ├── server/                    # G — protocol
 │   ├── server.ts              ← lsp/server/index.ts
-│   ├── dispatch.ts · framing.ts · diagnostics-push.ts   ← lsp/server/*
+│   ├── dispatch.ts · framing.ts · diagnostics.ts   ← lsp/server/*  (push AND pull diagnostics NEW; progress + cancellation NEW; incremental didChange sync NEW)
 │   ├── capabilities.ts        ← lsp/capabilities.ts (declaration only)
 │   ├── workspace.ts           ← lsp/workspace.ts
 │   ├── detect-vendor.ts       ← detect-vendor.ts
@@ -122,6 +124,15 @@ src/
 | codeAction | `services/code-actions.ts` |
 | publishDiagnostics | `analysis/` + `server/diagnostics-push.ts` |
 | (VG variants of hover/nav/tokens/symbols/folding) | `graphical/services/` |
+| **inlayHint** (NEW) — inferred types + param names inline | `services/inlay-hints.ts` |
+| **codeLens** (NEW) — "N references" + "▶ Run test" | `services/code-lens.ts` → `transpile/`+`test/exec/` |
+| **typeDefinition** (NEW) · **prepareRename** (NEW) | `services/navigation/` |
+| **on-type formatting** (NEW) · **range formatting** (NEW) | `services/formatting/` |
+| **completion/resolve** (NEW) · **semanticTokens delta/range** (NEW) | `services/assist/` · `services/semantic-tokens.ts` |
+| **pull diagnostics**, **progress**, **cancellation**, **incremental sync** (NEW, LSP 3.17) | `server/` |
+
+Deliberately N/A for PLC (recorded so they're not "forgotten"): documentColor, inlineValue (debugger),
+moniker (cross-repo index), linkedEditingRange, documentLink.
 
 | Diagnostic family | Home |
 |---|---|
