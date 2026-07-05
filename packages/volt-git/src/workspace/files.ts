@@ -1,6 +1,6 @@
 /**
  * Workspace file IO — reads/writes the `src/` tree (the PLC text) and the root `.gitignore`/
- * `.gitattributes`. All paths here are **src-relative** (e.g. "POUs/FB_Motor.st"); the on-disk
+ * `.gitattributes`. All paths here are **src-relative** (e.g. "POUs/FB_Motor.fb"); the on-disk
  * location is `<root>/src/<path>`.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";

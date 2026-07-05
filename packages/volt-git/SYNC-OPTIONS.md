@@ -77,7 +77,7 @@ The IDE is modelled as a **local branch `volt/ide`** — one deterministic commi
 
 Day in the life:
 1. `git clone` the repo → `volt init` (binds *your* IDE; `git init` is a no-op on a clone).
-2. Edit `POU_A.st` in opencode.
+2. Edit `POU_A.prg` in opencode.
 3. **Push to the IDE** → `volt push`. *No commit needed* (push doesn't merge; it only fast-forwards
    the `volt/ide` branch, not your working branch).
 4. **Pull IDE changes** → here's the catch: if you have **uncommitted edits**, you must

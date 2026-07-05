@@ -35,7 +35,7 @@ outside the fork's allowed seams; see `CLAUDE.md` → "Fork surface".)
 
 | Command | What it does |
 |---|---|
-| `bun volt-scripts/dev.ts` | opencode TUI from source with the volt LSP attached (`.st`). |
+| `bun volt-scripts/dev.ts` | opencode TUI from source with the volt LSP attached (`.fb`/`.prg`/…). |
 | `bun volt-scripts/harvest-corpus.ts` | Capture POU PLCopenXML from a live bridge (LSP corpus tooling). |
 | `pwsh volt-scripts/codesys-bridge.ps1 up\|test\|down\|…` | Headless CODESYS dev/test bridge loop. |
 | `pwsh volt-scripts/bridge.ps1` | Build + (re)launch the Beckhoff standalone bridge. |

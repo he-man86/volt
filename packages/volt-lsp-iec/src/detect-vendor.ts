@@ -16,6 +16,10 @@ import { join, resolve } from "node:path";
 
 export type DetectedVendor = "codesys" | "twincat";
 
+/** Kind-named writable-source extensions Volt materializes on disk — the files worth content-scanning for
+ *  vendor signals (a pulled workspace is named by kind, never a single legacy extension). */
+const KIND_EXTENSIONS = [".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"];
+
 export interface DetectVendorOptions {
 	/** Maximum directory depth to scan. Default 3 — enough for typical project layouts. */
 	maxDepth?: number;
@@ -60,7 +64,7 @@ export async function detectVendor(
 
 	await walk(root, 0, maxDepth, filesToScan, score);
 
-	// Sample-scan up to maxFiles of the collected .st files.
+	// Sample-scan up to maxFiles of the collected kind-named source files.
 	const sampled = filesToScan.slice(0, maxFiles);
 	for (const file of sampled) {
 		try {
@@ -83,7 +87,7 @@ async function walk(
 	dir: string,
 	depth: number,
 	maxDepth: number,
-	stFiles: string[],
+	sourceFiles: string[],
 	score: Score,
 ): Promise<void> {
 	if (depth > maxDepth) return;
@@ -104,7 +108,7 @@ async function walk(
 			continue;
 		}
 		if (s.isDirectory()) {
-			await walk(full, depth + 1, maxDepth, stFiles, score);
+			await walk(full, depth + 1, maxDepth, sourceFiles, score);
 			continue;
 		}
 		// Filename signals.
@@ -127,8 +131,8 @@ async function walk(
 			}
 		} else if (lower.endsWith(".iecst") || lower.endsWith(".exp")) {
 			score.codesys += 2;
-		} else if (lower.endsWith(".st")) {
-			stFiles.push(full);
+		} else if (KIND_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+			sourceFiles.push(full);
 		}
 	}
 }

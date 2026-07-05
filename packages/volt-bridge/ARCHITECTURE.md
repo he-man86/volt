@@ -28,7 +28,7 @@ Wire/       HTTP transport      ── serves the contract over HttpListener + J
   │
 Sync/       endpoint services   ── fetch / push / build / refs / raw
   │
-Workspace/  source materialize  ── item  ⇄  canonical .st text
+Workspace/  source materialize  ── item  ⇄  canonical ST text
 Graphical/  graphical materialize ─ PlcOpen XML  ⇄  VG text
 ```
 
@@ -37,7 +37,7 @@ Graphical/  graphical materialize ─ PlcOpen XML  ⇄  VG text
 | **`Ide/`** | **The contract.** The single seam a vendor bridge implements: `IIdeDriver` = `IIdeSession` (connect / health / build) + `IProjectTree` (walk + CRUD) + `ICodeStore` (read/write textual ST and graphical PlcOpen XML). `DriverBase` gives the shared degraded-state machine; `ItemRef` is the opaque per-vendor item handle that hides native objects from Core. | `IIdeDriver`, `IIdeSession`, `IProjectTree`, `ICodeStore`, `IInstanceProvider`, `DriverBase`, `ItemRef`, `ProjectItem` |
 | **`Wire/`** | **HTTP transport.** `BridgeHttpServer` wires the standard endpoints to the Sync services, marshals every project-touching call onto the IDE's required thread, and is the single error boundary (throws → HTTP). The rest are pure JSON DTOs. Identical for both bridges. | `BridgeHttpServer`, `HealthResponse`, `RefsFetch`, `PushModels`, `BuildModels` |
 | **`Sync/`** | **Endpoint services.** One class per endpoint: `Fetch` / `Push` / `Build` / `Refs` / `Raw`. `Hasher` + `Versioning` give one content-version per item so the same project hashes identically on either vendor. | `FetchService`, `PushService`, `BuildService`, `RefsService`, `RawService`, `Hasher`, `Versioning` |
-| **`Workspace/`** | **Source materialization.** `Materializer` turns a project item into canonical workspace text; `SourceText/` splits/assembles `.st` (`StSplitter` ⇄ `StAssembler`, sharing `CodeHelper`). `ItemKind` is the vendor-neutral item-type table. | `Materializer`, `ItemKind`, `WorkspaceItem`, `SourceText/StSplitter`, `SourceText/StAssembler`, `SourceText/CodeHelper` |
+| **`Workspace/`** | **Source materialization.** `Materializer` turns a project item into canonical workspace text; `SourceText/` splits/assembles ST text (`StSplitter` ⇄ `StAssembler`, sharing `CodeHelper`). `ItemKind` is the vendor-neutral item-type table. | `Materializer`, `ItemKind`, `WorkspaceItem`, `SourceText/StSplitter`, `SourceText/StAssembler`, `SourceText/CodeHelper` |
 | **`Graphical/`** | **Graphical materialization.** PlcOpen XML ⇄ `GraphModel` ⇄ VG text. `GraphicalCode` is the gate (FBD/LD → editable VG; CFC/SFC → read-only). `PlcOpenReader/Writer` and `Vg/VgParser`/`Vg/VgWriter` are the two ends; `FbdOperators` is the shared operator table. | `GraphicalCode`, `VgBody`, `GraphModel`, `FbdOperators`, `PlcOpenDocument`, `PlcOpenReader`, `PlcOpenWriter`, `Vg/VgParser`, `Vg/VgWriter` |
 
 Top-level `BridgeException` (the error type the wire boundary catches) and `Polyfills`

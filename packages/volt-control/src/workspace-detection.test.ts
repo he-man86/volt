@@ -5,13 +5,18 @@ import { join } from "node:path";
 import { isPouFile, readStateMtime } from "./workspace";
 
 describe("isPouFile", () => {
-	test("matches the .st source extension", () => {
-		expect(isPouFile("Foo.st")).toBe(true);
+	test("matches the kind-named source extensions", () => {
+		expect(isPouFile("Foo.fb")).toBe(true);
+		expect(isPouFile("PLC_PRG.prg")).toBe(true);
+		expect(isPouFile("Fun_Calc.fun")).toBe(true);
+		expect(isPouFile("IMotor.itf")).toBe(true);
+		expect(isPouFile("DUT_Data.struct")).toBe(true);
+		expect(isPouFile("GVL_Config.gvl")).toBe(true);
 	});
 
 	test("is case-insensitive (Windows paths arrive mixed-case)", () => {
-		expect(isPouFile("Foo.ST")).toBe(true);
-		expect(isPouFile("FB_Motor.St")).toBe(true);
+		expect(isPouFile("Foo.FB")).toBe(true);
+		expect(isPouFile("FB_Motor.Prg")).toBe(true);
 	});
 
 	test("rejects non-source extensions", () => {
@@ -26,15 +31,15 @@ describe("isPouFile", () => {
 	});
 
 	test("handles full absolute paths", () => {
-		expect(isPouFile("C:\\Users\\foo\\src\\POUs\\FB_Motor.st")).toBe(true);
-		expect(isPouFile("/home/foo/src/POUs/FB_Motor.st")).toBe(true);
+		expect(isPouFile("C:\\Users\\foo\\src\\POUs\\FB_Motor.fb")).toBe(true);
+		expect(isPouFile("/home/foo/src/POUs/FB_Motor.fb")).toBe(true);
 	});
 
 	test("only the rightmost extension counts", () => {
 		// ide-refs.json.bak - .bak isn't a PLC extension.
 		expect(isPouFile("ide-refs.json.bak")).toBe(false);
-		// foo.st.bak - last segment is .bak, not .st.
-		expect(isPouFile("foo.st.bak")).toBe(false);
+		// foo.fb.bak - last segment is .bak, not .fb.
+		expect(isPouFile("foo.fb.bak")).toBe(false);
 	});
 });
 

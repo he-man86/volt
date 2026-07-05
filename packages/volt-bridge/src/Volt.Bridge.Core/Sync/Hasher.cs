@@ -22,7 +22,7 @@ public static class Hasher
     }
 
     /// <summary>Per-item content version: hash of the item's FOLDER + its MATERIALIZED workspace text
-    /// (the exact <c>.st</c> bytes the CLI writes for any writable source kind, or the manifest for
+    /// (the exact assembled ST-text bytes the CLI writes for any writable source kind, or the manifest for
     /// non-source kinds). Content-addressed: same version ⇔ same file content, identical across both
     /// bridges. Folder is included so a move re-versions the item.</summary>
     public static string ComputeItemVersion(string? folderPath, string? materializedText)

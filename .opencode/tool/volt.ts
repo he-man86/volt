@@ -40,7 +40,7 @@ Extra flags/operands go in "args" (e.g. ["--json"], ["--dry-run"]). Mutating ver
     args: tool.schema
       .array(tool.schema.string())
       .optional()
-      .describe(`Extra CLI flags/operands, e.g. ["--json"] or (for show) ["HEAD", "Main.st"].`),
+      .describe(`Extra CLI flags/operands, e.g. ["--json"] or (for show) ["HEAD", "Main.prg"].`),
     cwd: tool.schema.string().optional().describe("Workspace directory; defaults to the session directory."),
   },
   async execute(args, ctx) {

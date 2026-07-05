@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Structured Text",
   "scopeName": "source.structured-text",
-  "fileTypes": ["st"],
+  "fileTypes": ["fb", "prg", "fun", "itf", "struct", "enum", "union", "alias", "gvl"],
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },

@@ -2,7 +2,7 @@
  * NAMESPACE-specific LSP unit tests.
  *
  * The bridge has no NAMESPACE POU kind so the conformance recorder
- * can't push a namespace `.st` file to TC — meaning the LSP code paths
+ * can't push a namespace file to TC — meaning the LSP code paths
  * for namespace name lookup, inner-unit recursion, and document-symbol
  * output stay uncovered if we rely on the catalog alone. These direct
  * unit tests close the loop without needing a live bridge.
@@ -81,7 +81,7 @@ describe("NAMESPACE: findIdentifierAtOffset", () => {
 describe("NAMESPACE: Workspace open doesn't crash", () => {
 	it("opens a namespace-containing document and builds a project scope", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///conformance/LANG_MyNs.st", NAMESPACE_SRC, 1);
+		ws.openDocument("file:///conformance/LANG_MyNs.fb", NAMESPACE_SRC, 1);
 		const project = ws.getProjectScope();
 		// We're not asserting the exact symbol-table layout (which is an
 		// implementation choice). Just that the project builds without

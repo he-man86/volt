@@ -447,12 +447,12 @@ export function handleNotification(
 	try {
 		switch (msg.method) {
 		case "initialized": {
-			// Seed the workspace with every .st file found
+			// Seed the workspace with every kind-named source file found
 			// under the workspace roots so cross-file types (enums,
 			// structs, FBs defined in files the user hasn't opened yet)
 			// are visible to the symbol table immediately.
 			for (const root of ctx.state.workspaceRoots) {
-				for (const file of walkForStFiles(root)) {
+				for (const file of walkForSourceFiles(root)) {
 					// Skip files already opened by the editor via didOpen.
 					const uri = pathToFileURL(file).toString();
 					if (ctx.workspace.getDocument(uri) !== undefined) continue;
@@ -530,7 +530,7 @@ export function handleNotification(
 const ST_LIKE_EXTENSIONS: ReadonlySet<string> = new Set([
 	".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl",
 ]);
-function* walkForStFiles(dir: string): Generator<string> {
+function* walkForSourceFiles(dir: string): Generator<string> {
 	for (const file of walkFiles(dir)) {
 		if (ST_LIKE_EXTENSIONS.has(path.extname(file).toLowerCase())) yield file;
 	}

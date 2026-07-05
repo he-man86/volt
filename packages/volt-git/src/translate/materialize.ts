@@ -7,7 +7,7 @@ import type { FetchedItem } from "../bridge/types.js";
 import { defFromName, fullNameFromPath, FOLDER_MARKER } from "../registry/extensions.js";
 
 export interface MaterializedFile {
-	/** src-RELATIVE path, e.g. "POUs/FB_Motor.st" (no leading "src/"). */
+	/** src-RELATIVE path, e.g. "POUs/FB_Motor.fb" (no leading "src/"). */
 	path: string;
 	content: string;
 }

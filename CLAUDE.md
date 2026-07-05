@@ -50,7 +50,7 @@ bun volt-scripts/merge-upstream.ts                # sync to opencode's latest RE
 bun volt-scripts/sync.ts                          # AFTER an upstream merge: the full signal flow (install→divergence→integration→lsp→tool)
 bun run volt-scripts/check-divergence.ts          # (sub-step) enforce the fork surface — also run by the pre-push hook
 bun run volt-scripts/check-volt-integration.ts    # (sub-step) confirm configs/bins/wiring are present
-bun volt-scripts/dev.ts                           # opencode TUI from source with the volt LSP attached (.st)
+bun volt-scripts/dev.ts                           # opencode TUI from source with the volt LSP attached (.fb/.prg/…)
 bun volt-scripts/verify-lsp.ts                    # prove the volt LSP loads in opencode (non-interactive)
 bun volt-scripts/verify-volt-tool.ts              # prove the volt CLI tool loads in opencode (non-interactive)
 ```

@@ -3,10 +3,11 @@ import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, TransportKind } from "vscode-languageclient/node"
 
-// All writable PLC source is one `.st` file (the structured-text language) — POU/DUT/GVL/interface,
-// textual or editable graphical. A graphical (VG) body isn't a separate file type: it's detected by
-// content (a leading NETWORK token) and can be inlined inside a .st POU (a graphical method), so the
-// server routes per-body and the editor highlights VG networks via a TextMate injection.
+// Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.struct/.enum/.union/
+// .alias/.gvl) carrying Structured Text — POU/DUT/GVL/interface, textual or editable graphical. A
+// graphical (VG) body isn't a separate file type: it's detected by content (a leading NETWORK token)
+// and can be inlined inside a POU (a graphical method), so the server routes per-body and the editor
+// highlights VG networks via a TextMate injection.
 const LANGUAGE_IDS = [
 	"structured-text",
 ]

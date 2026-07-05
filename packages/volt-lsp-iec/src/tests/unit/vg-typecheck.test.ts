@@ -26,9 +26,9 @@ END_FUNCTION_BLOCK
 
 function build(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
-	const doc = { uri: "file:///t.st", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
+	const doc = { uri: "file:///t.fb", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
 	return { parseResult, project, bodyModels, doc };
 }
 

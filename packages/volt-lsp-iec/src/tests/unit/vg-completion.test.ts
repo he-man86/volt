@@ -36,9 +36,9 @@ END_FUNCTION_BLOCK`;
 
 function ctx(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
-	const doc = { uri: "file:///t.st", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
+	const doc = { uri: "file:///t.fb", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
 	return { doc, project };
 }
 
@@ -75,9 +75,9 @@ NETWORK 0 FBD
 END_NETWORK
 END_FUNCTION_BLOCK`;
 		const parseResult = parseSource(src);
-		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+		const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 		const bodyModels = buildBodyModelsForParseResult(parseResult, src);
-		const doc = { uri: "file:///t.st", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
+		const doc = { uri: "file:///t.fb", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
 		// cursor just after `(a AND ` — inside the operator group, no callee.
 		const items = completion({ doc, position: posAfter(src, "(a AND "), project });
 		expect(items.filter((i) => i.detail?.startsWith("pin"))).toHaveLength(0);

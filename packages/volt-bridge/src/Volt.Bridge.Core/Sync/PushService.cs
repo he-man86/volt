@@ -210,7 +210,7 @@ public static class PushService
         WriteItemFromSource(ide, parent, name, existing: null, src, newFolder);
     }
 
-    /// <summary>Create-or-update an item and its children from full canonical .st source. Shared by the
+    /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
     /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.</summary>
     private static void WriteItemFromSource(IIdeDriver ide, ItemRef parent, string name, ItemRef? existing, string src, string? folder)
     {

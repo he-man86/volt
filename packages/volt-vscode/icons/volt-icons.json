@@ -9,7 +9,15 @@
   "folder":         "_folder",
   "folderExpanded": "_folder_open",
   "fileExtensions": {
-    "st": "_st"
+    "fb": "_st",
+    "prg": "_st",
+    "fun": "_st",
+    "itf": "_st",
+    "struct": "_st",
+    "enum": "_st",
+    "union": "_st",
+    "alias": "_st",
+    "gvl": "_st"
   },
   "languageIds": {
     "structured-text": "_st"

@@ -33,7 +33,7 @@ END_FUNCTION_BLOCK`;
 
 function setup(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
 	const diags = computeSemanticDiagnostics({
 		parseResult,
@@ -116,7 +116,7 @@ END_FUNCTION_BLOCK`;
 
 	function refs(src: string): string[] {
 		const parseResult = parseSource(src);
-		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+		const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 		const bodyModels = buildBodyModelsForParseResult(parseResult, src);
 		const fb = parseResult.units[0] as FunctionBlock;
 		return bodyModels.get(fb.body)!.identifiers.map((i) => i.name);

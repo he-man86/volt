@@ -24,9 +24,9 @@ function positionOf(src: string, marker: string) {
 describe("completion: default context", () => {
 	it("includes elementary type names", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", `FUNCTION_BLOCK FB_X\nVAR\n  x : ▎\nEND_VAR\nEND_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///a.fb", `FUNCTION_BLOCK FB_X\nVAR\n  x : ▎\nEND_VAR\nEND_FUNCTION_BLOCK`, 1);
 		const items = completion({
-			doc: ws.getDocument("file:///a.st")!,
+			doc: ws.getDocument("file:///a.fb")!,
 			position: positionOf(`FUNCTION_BLOCK FB_X\nVAR\n  x : ▎\nEND_VAR\nEND_FUNCTION_BLOCK`, "▎"),
 			project: ws.getProjectScope(),
 		});
@@ -43,9 +43,9 @@ END_VAR
 ▎
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///b.st", src, 1);
+		ws.openDocument("file:///b.fb", src, 1);
 		const items = completion({
-			doc: ws.getDocument("file:///b.st")!,
+			doc: ws.getDocument("file:///b.fb")!,
 			position: positionOf(src, "▎"),
 			project: ws.getProjectScope(),
 		});
@@ -59,9 +59,9 @@ describe("completion: bare enum members (st-nav-chains)", () => {
 		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\n▎\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///e.st", enumSrc, 1);
-		ws.openDocument("file:///fb.st", src, 1);
-		const items = completion({ doc: ws.getDocument("file:///fb.st")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
+		ws.openDocument("file:///e.fb", enumSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
+		const items = completion({ doc: ws.getDocument("file:///fb.fb")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
 		expect(items.some((i) => i.label === "Idle")).toBe(true);
 		expect(items.some((i) => i.label === "Running")).toBe(true);
 	});
@@ -73,10 +73,10 @@ describe("completion: member access (st-nav-chains)", () => {
 	function items(marker: string) {
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\to : T_Outer;\nEND_VAR\n\n${marker}\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///inner.st", inner, 1);
-		ws.openDocument("file:///outer.st", outer, 1);
-		ws.openDocument("file:///fb.st", src, 1);
-		return completion({ doc: ws.getDocument("file:///fb.st")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
+		ws.openDocument("file:///inner.fb", inner, 1);
+		ws.openDocument("file:///outer.fb", outer, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
+		return completion({ doc: ws.getDocument("file:///fb.fb")!, position: positionOf(src, "▎"), project: ws.getProjectScope() });
 	}
 
 	it("single-level `o.` offers the struct's members", () => {
@@ -97,9 +97,9 @@ describe("completion: pragma-attribute context", () => {
 {attribute '▎
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///c.st", src, 1);
+		ws.openDocument("file:///c.fb", src, 1);
 		const items = completion({
-			doc: ws.getDocument("file:///c.st")!,
+			doc: ws.getDocument("file:///c.fb")!,
 			position: positionOf(src, "▎"),
 			project: ws.getProjectScope(),
 		});
@@ -115,9 +115,9 @@ END_VAR
 {attribute '▎
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///d.st", src, 1);
+		ws.openDocument("file:///d.fb", src, 1);
 		const items = completion({
-			doc: ws.getDocument("file:///d.st")!,
+			doc: ws.getDocument("file:///d.fb")!,
 			position: positionOf(src, "▎"),
 			project: ws.getProjectScope(),
 		});

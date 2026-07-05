@@ -33,14 +33,14 @@ END_VAR
 END_FUNCTION_BLOCK
 `;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		// Position on the FIRST `count` reference inside the body
 		const firstUseOffset = src.indexOf("count", src.indexOf("END_VAR"));
 		const pos = positionOf(src, src.slice(firstUseOffset, firstUseOffset + 5));
 
 		const result = references({
 			workspace: ws,
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: pos,
 			project: ws.getProjectScope(),
 			includeDeclaration: false,
@@ -48,7 +48,7 @@ END_FUNCTION_BLOCK
 
 		// 5 occurrences in the body: count := 0; count := count + 1; IF count; count := 0;
 		expect(result).toHaveLength(5);
-		expect(result.every((r) => r.uri === "file:///x.st")).toBe(true);
+		expect(result.every((r) => r.uri === "file:///x.fb")).toBe(true);
 	});
 
 	it("finds occurrences across files", () => {
@@ -64,20 +64,20 @@ FUNCTION_BLOCK FB_B
 END_FUNCTION_BLOCK
 `;
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", aSrc, 1);
-		ws.openDocument("file:///b.st", bSrc, 1);
+		ws.openDocument("file:///a.fb", aSrc, 1);
+		ws.openDocument("file:///b.fb", bSrc, 1);
 
 		const helperOffset = aSrc.indexOf("Helper");
 		const result = references({
 			workspace: ws,
-			doc: ws.getDocument("file:///a.st")!,
+			doc: ws.getDocument("file:///a.fb")!,
 			position: positionOf(aSrc, "Helper"),
 			project: ws.getProjectScope(),
 			includeDeclaration: false,
 		});
 		expect(result).toHaveLength(3); // 1 in A, 2 in B
-		expect(result.filter((r) => r.uri === "file:///a.st")).toHaveLength(1);
-		expect(result.filter((r) => r.uri === "file:///b.st")).toHaveLength(2);
+		expect(result.filter((r) => r.uri === "file:///a.fb")).toHaveLength(1);
+		expect(result.filter((r) => r.uri === "file:///b.fb")).toHaveLength(2);
 		// First-occurrence offset check
 		const checkOffset = helperOffset;
 		expect(checkOffset).toBeGreaterThan(0);
@@ -103,12 +103,12 @@ END_VAR
 END_FUNCTION_BLOCK
 `;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		// Cursor on the FIRST `a.value` usage's `value`.
 		const pos = positionOf(src, "value := 1");
 		const result = references({
 			workspace: ws,
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: pos,
 			project: ws.getProjectScope(),
 			includeDeclaration: false,
@@ -133,11 +133,11 @@ END_VAR
 END_FUNCTION_BLOCK
 `;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		const pos = positionOf(src, "count := count");
 		const result = references({
 			workspace: ws,
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: pos,
 			project: ws.getProjectScope(),
 			includeDeclaration: false,
@@ -154,10 +154,10 @@ FUNCTION_BLOCK FB_X
 END_FUNCTION_BLOCK
 `;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		const result = references({
 			workspace: ws,
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: positionOf(src, "COUNT"),
 			project: ws.getProjectScope(),
 			includeDeclaration: false,

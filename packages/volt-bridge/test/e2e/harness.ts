@@ -216,7 +216,7 @@ export async function snapshot(): Promise<Snapshot> {
 	return { project: r.projectVersion, structure: r.structureVersion, items: r.items }
 }
 
-/** A snapshot item's version by its FULL wire name (e.g. "VltE2E_x.st"). */
+/** A snapshot item's version by its FULL wire name (e.g. "VltE2E_x.fb"). */
 export function snapshotItem(s: Snapshot, name: string): string | undefined {
 	return s.items[name]
 }

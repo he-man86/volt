@@ -14,7 +14,7 @@ namespace Volt.Bridge.Core.Workspace.SourceText;
 /// can drop the file directly into the workspace without any
 /// per-child reassembly on its side.
 ///
-/// Format (canonical workspace .st layout — inverse of StSplitter):
+/// Format (canonical workspace ST-text layout — inverse of StSplitter):
 ///
 ///   {pou.declaration}
 ///
@@ -33,7 +33,7 @@ public static class StAssembler
 {
 	/// <summary>
 	/// Assemble a GetHandler.BuildResult-shaped dictionary into the
-	/// canonical workspace .st text. Returns null if the input shape
+	/// canonical workspace ST text. Returns null if the input shape
 	/// is incompatible (e.g. a graphical POU whose body was masked).
 	/// </summary>
 	public static string Assemble(IDictionary<string, object?> result)

@@ -6,15 +6,15 @@ using System.Text.RegularExpressions;
 namespace Volt.Bridge.Core.Workspace.SourceText;
 
 /// <summary>
-/// Splits a single workspace `.st` file (assembled by the agent) into
+/// Splits a single assembled workspace source item (ST text, assembled by the agent) into
 /// its TwinCAT tree-item primitives: one outer POU + N children
 /// (methods / actions / properties / property accessors).
 ///
-/// Wire-model: the agent sends raw `.st` text to /push via the
+/// Wire-model: the agent sends raw ST text to /push via the
 /// pushPou op. The bridge runs SplitSt on it to recover the tree
 /// structure it needs to drive ITcSmTreeItem.CreateChild calls.
 ///
-/// Format (canonical workspace .st layout — see also StAssembler):
+/// Format (canonical workspace ST-text layout — see also StAssembler):
 ///   {optional pragmas/comments}
 ///   FUNCTION_BLOCK Name [EXTENDS B] [IMPLEMENTS I,J]
 ///   VAR_INPUT … END_VAR
@@ -71,12 +71,12 @@ public static class StSplitter
 		List<StChild> Children);
 
 	/// <summary>
-	/// Split a workspace `.st` file into its TwinCAT primitives.
+	/// Split an assembled workspace source item (ST text) into its TwinCAT primitives.
 	/// </summary>
 	public static StSplitResult SplitSt(string sourceText)
 	{
 		if (string.IsNullOrWhiteSpace(sourceText))
-			throw new BridgeException(400, "INVALID_ST", "Empty .st source");
+			throw new BridgeException(400, "INVALID_ST", "Empty ST source");
 
 		var lines = NormalizeLines(sourceText);
 

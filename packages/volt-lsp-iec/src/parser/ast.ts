@@ -20,7 +20,7 @@
 import type { Span } from "../lexer/span.js";
 import type { Keyword, Token } from "../lexer/tokens.js";
 
-// ─── Top-level units (one per .st file in the mirrored workspace) ────
+// ─── Top-level units (one per kind-named source file in the mirrored workspace) ────
 
 export type TopLevel =
 	| FunctionBlock

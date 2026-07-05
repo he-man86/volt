@@ -13,8 +13,9 @@ vendor ecosystem, not one language; a structurally-different vendor (Siemens) wo
 
 This is the analysis layer of the Volt data path. `volt-git` materializes a live PLC project into one text file per
 item under the project root; this LSP analyzes those files. Every writable source kind — POUs, GVLs, interfaces, and
-the DUT subkinds (struct/enum/union/alias), textual or editable graphical FBD/LD — is one `.st` file, so opencode and
-editors attach the LSP for `.st` (plus the read-only graphical views `.cfc`/`.sfc`), and it cross-indexes the whole
+the DUT subkinds (struct/enum/union/alias), textual or editable graphical FBD/LD — is one kind-named file
+(`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`), so opencode and editors attach the LSP for
+those kinds (plus the read-only graphical views `.cfc`/`.sfc`), and it cross-indexes the whole
 workspace so types declared in unopened files resolve.
 
 It provides go-to-definition, find-references, implementation, document/workspace symbols, call hierarchy, type
@@ -90,11 +91,11 @@ The one rule is **opencode's project dir must be the built monorepo root**:
 Verify it actually loaded (build `dist/bin.js` first):
 
 ```bash
-bun volt-scripts/verify-lsp.ts   # plants a bad .st, asserts source:"volt-lsp-iec" diagnostics come back
+bun volt-scripts/verify-lsp.ts   # plants a bad .fb, asserts source:"volt-lsp-iec" diagnostics come back
 bun volt-scripts/dev.ts          # opencode TUI from source with this LSP attached
 ```
 
-By hand: `bun --conditions=browser packages/opencode/src/index.ts debug lsp diagnostics <file>.st` from the repo
+By hand: `bun --conditions=browser packages/opencode/src/index.ts debug lsp diagnostics <file>.fb` from the repo
 root — JSON with `"source":"volt-lsp-iec"` = loaded, `{}` = not (a clean file also yields `{}`, so the sample
 plants an error on purpose).
 

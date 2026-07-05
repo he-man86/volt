@@ -32,7 +32,7 @@ END_FUNCTION_BLOCK`;
 
 function build(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
 	return { parseResult, project, bodyModels };
 }
@@ -40,7 +40,7 @@ function build(src: string) {
 function fakeDoc(src: string): Document {
 	const { parseResult, bodyModels } = build(src);
 	return {
-		uri: "file:///t.st",
+		uri: "file:///t.fb",
 		source: src,
 		version: 1,
 		parseResult,
@@ -116,7 +116,7 @@ describe("vg features: semantic tokens", () => {
 		const res = semanticTokens({
 			source: SRC,
 			project,
-			docUri: "file:///t.st",
+			docUri: "file:///t.fb",
 			vgBodies: vgBodiesOf(bodyModels),
 		});
 		// Decode: every 5 ints is one token; index 3 is the type.

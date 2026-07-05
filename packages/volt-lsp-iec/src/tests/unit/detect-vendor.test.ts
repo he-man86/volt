@@ -2,7 +2,7 @@
  * Unit tests for `detectVendor`.
  *
  * Each test gets an isolated temp directory so filesystem state doesn't
- * bleed between cases. Only .st files are content-scanned — other
+ * bleed between cases. Only kind-named source files are content-scanned — other
  * extensions (.TcPOU, .tsproj, .iecst, .project, .exp) score by filename
  * only. See `src/detect-vendor.ts` for the full scoring table.
  */
@@ -54,39 +54,39 @@ describe("detectVendor: TwinCAT filename signals", () => {
 // ── TwinCAT: content signals (ST files only) ────────────────────────────────
 
 describe("detectVendor: TwinCAT content signals", () => {
-	it("returns 'twincat' when .st content contains a Tc* attribute pragma", async () => {
+	it("returns 'twincat' when source content contains a Tc* attribute pragma", async () => {
 		const root = await makeWorkspace();
 		await writeFile(
-			join(root, "FB_Drive.st"),
+			join(root, "FB_Drive.fb"),
 			"{attribute 'TcRpcEnable'}\nFUNCTION_BLOCK FB_Drive\nEND_FUNCTION_BLOCK\n",
 			"utf-8",
 		);
 		expect(await detectVendor(root)).toBe("twincat");
 	});
 
-	it("returns 'twincat' when .st content contains Tc2_ library reference", async () => {
+	it("returns 'twincat' when source content contains Tc2_ library reference", async () => {
 		const root = await makeWorkspace();
 		await writeFile(
-			join(root, "PRG_Main.st"),
+			join(root, "PRG_Main.prg"),
 			"PROGRAM PRG_Main\nVAR\n  fb : Tc2_System.FB_SysTask;\nEND_VAR\nEND_PROGRAM\n",
 			"utf-8",
 		);
 		expect(await detectVendor(root)).toBe("twincat");
 	});
 
-	it("returns 'twincat' when .st content contains Tc3_ library reference", async () => {
+	it("returns 'twincat' when source content contains Tc3_ library reference", async () => {
 		const root = await makeWorkspace();
 		await writeFile(
-			join(root, "FB_Iot.st"),
+			join(root, "FB_Iot.fb"),
 			"FUNCTION_BLOCK FB_Iot\nVAR\n  client : Tc3_IotBase.FB_MqttClient;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
 			"utf-8",
 		);
 		expect(await detectVendor(root)).toBe("twincat");
 	});
 
-	it("ignores Tc* content in non-.st files (only .st is content-scanned)", async () => {
+	it("ignores Tc* content in non-source files (only kind-named source is content-scanned)", async () => {
 		// A .exp file with Tc2_ content should NOT trigger TC — the extension
-		// alone scores +2 for CODESYS; content is not read for non-.st files.
+		// alone scores +2 for CODESYS; content is not read for non-source files.
 		const root = await makeWorkspace();
 		await writeFile(
 			join(root, "GVL.exp"),
@@ -137,20 +137,20 @@ describe("detectVendor: CODESYS filename signals", () => {
 // ── CODESYS: content signals ────────────────────────────────────────────────
 
 describe("detectVendor: CODESYS content signals", () => {
-	it("returns 'codesys' when .st content contains __POOL", async () => {
+	it("returns 'codesys' when source content contains __POOL", async () => {
 		const root = await makeWorkspace();
 		await writeFile(
-			join(root, "FB_Pool.st"),
+			join(root, "FB_Pool.fb"),
 			"FUNCTION_BLOCK FB_Pool\nVAR\n  pool : __POOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
 			"utf-8",
 		);
 		expect(await detectVendor(root)).toBe("codesys");
 	});
 
-	it("returns 'codesys' when .st content contains {attribute 'init_namespace'}", async () => {
+	it("returns 'codesys' when source content contains {attribute 'init_namespace'}", async () => {
 		const root = await makeWorkspace();
 		await writeFile(
-			join(root, "GVL.st"),
+			join(root, "GVL.gvl"),
 			"{attribute 'init_namespace'}\nVAR_GLOBAL\n  g : INT;\nEND_VAR\n",
 			"utf-8",
 		);
@@ -204,7 +204,7 @@ describe("detectVendor: signal strength", () => {
 		const root = await makeWorkspace();
 		await writeFile(join(root, "GVL.exp"), "VAR_GLOBAL END_VAR", "utf-8"); // +2 CODESYS
 		await writeFile(
-			join(root, "FB.st"),
+			join(root, "FB.fb"),
 			"{attribute 'TcLinkTo' := '%I*'}\n{attribute 'TcContextId' := '1'}\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\n",
 			"utf-8",
 		); // +4 TC (2 Tc* pragma matches × 2)

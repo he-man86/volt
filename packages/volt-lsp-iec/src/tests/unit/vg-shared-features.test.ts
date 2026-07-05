@@ -20,9 +20,9 @@ import type { Document, Workspace } from "../../lsp/workspace.js";
 
 function ctx(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
-	const doc = { uri: "file:///t.st", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
+	const doc = { uri: "file:///t.fb", source: src, version: 1, parseResult, bodyModels } as unknown as Document;
 	const workspace = {
 		allDocuments: () => [doc],
 		getDocument: (uri: string) => (uri === doc.uri ? doc : undefined),

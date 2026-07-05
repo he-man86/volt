@@ -94,7 +94,7 @@ END_FUNCTION_BLOCK`;
 
 	function diags(src: string, vgNotCanonical: boolean) {
 		const parseResult = parseSource(src);
-		const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+		const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 		const bodyModels = buildBodyModelsForParseResult(parseResult);
 		return computeSemanticDiagnostics({
 			parseResult,

@@ -5,7 +5,7 @@
  * Source: 06-data-types.md.
  *
  * Each entry is a single DUT (`kind: "structure"`) materialized as one
- * `.st` file, like every writable source kind. PLC_PRG instantiates the
+ * kind-named file (`.struct`/`.enum`/`.union`/`.alias`), like every writable source kind. PLC_PRG instantiates the
  * type so TC analyses it (dead code is skipped by the compiler).
  *
  * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.

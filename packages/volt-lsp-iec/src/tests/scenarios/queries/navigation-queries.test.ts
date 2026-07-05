@@ -43,9 +43,9 @@ function positionOf(src: string, marker: string) {
 describe("hover", () => {
 	it("reports the kind of a function block", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///fb.st", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///fb.fb", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
 		const result = hover({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(`FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, "FB_Motor"),
 			project: ws.getProjectScope(),
 		});
@@ -61,9 +61,9 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		const result = hover({
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: positionOf(src, "count"),
 			project: ws.getProjectScope(),
 		});
@@ -74,10 +74,10 @@ END_FUNCTION_BLOCK`;
 		const structSrc = `TYPE Motor :\nSTRUCT\n\tspeed : LREAL;\nEND_STRUCT\nEND_TYPE\n`;
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\tm : Motor;\nEND_VAR\n\nm.speed := 1.0;\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///motor.st", structSrc, 1);
-		ws.openDocument("file:///fb.st", src, 1);
+		ws.openDocument("file:///motor.fb", structSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
 		const result = hover({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(src, "speed"), // `speed` only appears in `m.speed` in this file
 			project: ws.getProjectScope(),
 		});
@@ -88,10 +88,10 @@ END_FUNCTION_BLOCK`;
 		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\ns := Idle;\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///e.st", enumSrc, 1);
-		ws.openDocument("file:///fb.st", src, 1);
+		ws.openDocument("file:///e.fb", enumSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
 		const result = hover({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(src, "Idle"),
 			project: ws.getProjectScope(),
 		});
@@ -101,9 +101,9 @@ END_FUNCTION_BLOCK`;
 
 	it("returns null when no identifier under cursor", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///x.fb", `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`, 1);
 		const result = hover({
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: { line: 99, character: 99 },
 			project: ws.getProjectScope(),
 		});
@@ -114,22 +114,22 @@ END_FUNCTION_BLOCK`;
 describe("workspace/symbol", () => {
 	it("finds FBs and types matching the query", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
-		ws.openDocument("file:///b.st", `FUNCTION_BLOCK FB_Pump END_FUNCTION_BLOCK`, 1);
-		ws.openDocument("file:///c.st", `TYPE T_State : (Idle, Running) END_TYPE`, 1);
+		ws.openDocument("file:///a.fb", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///b.fb", `FUNCTION_BLOCK FB_Pump END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///c.fb", `TYPE T_State : (Idle, Running) END_TYPE`, 1);
 		const results = workspaceSymbol({
 			workspace: ws,
 			project: ws.getProjectScope(),
 			query: "motor",
 		});
 		expect(results.map((r) => r.name)).toEqual(["FB_Motor"]);
-		expect(results[0]?.location.uri).toBe("file:///a.st");
+		expect(results[0]?.location.uri).toBe("file:///a.fb");
 	});
 
 	it("empty query returns all symbols", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", `FUNCTION_BLOCK FB_A END_FUNCTION_BLOCK`, 1);
-		ws.openDocument("file:///b.st", `FUNCTION_BLOCK FB_B END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///a.fb", `FUNCTION_BLOCK FB_A END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///b.fb", `FUNCTION_BLOCK FB_B END_FUNCTION_BLOCK`, 1);
 		const results = workspaceSymbol({
 			workspace: ws,
 			project: ws.getProjectScope(),
@@ -140,7 +140,7 @@ describe("workspace/symbol", () => {
 
 	it("substring + case-insensitive", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", `FUNCTION_BLOCK FB_HighSpeed END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///a.fb", `FUNCTION_BLOCK FB_HighSpeed END_FUNCTION_BLOCK`, 1);
 		const results = workspaceSymbol({
 			workspace: ws,
 			project: ws.getProjectScope(),
@@ -154,12 +154,12 @@ describe("call hierarchy", () => {
 	it("prepare resolves to a method item", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///m.st",
+			"file:///m.fb",
 			`METHOD PUBLIC Execute : BOOL END_METHOD`,
 			1,
 		);
 		const items = prepareCallHierarchy({
-			doc: ws.getDocument("file:///m.st")!,
+			doc: ws.getDocument("file:///m.fb")!,
 			position: positionOf(`METHOD PUBLIC Execute : BOOL END_METHOD`, "Execute"),
 			project: ws.getProjectScope(),
 		});
@@ -170,12 +170,12 @@ describe("call hierarchy", () => {
 	it("incomingCalls finds callers across files", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///helper.st",
+			"file:///helper.fb",
 			`METHOD PUBLIC Helper : BOOL END_METHOD`,
 			1,
 		);
 		ws.openDocument(
-			"file:///fb.st",
+			"file:///fb.fb",
 			`FUNCTION_BLOCK FB_X
 	Helper();
 	Helper();
@@ -183,7 +183,7 @@ END_FUNCTION_BLOCK`,
 			1,
 		);
 		const item = prepareCallHierarchy({
-			doc: ws.getDocument("file:///helper.st")!,
+			doc: ws.getDocument("file:///helper.fb")!,
 			position: positionOf(`METHOD PUBLIC Helper : BOOL END_METHOD`, "Helper"),
 			project: ws.getProjectScope(),
 		})[0]!;
@@ -196,7 +196,7 @@ END_FUNCTION_BLOCK`,
 	it("outgoingCalls scans the body for call sites", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///fb.st",
+			"file:///fb.fb",
 			`FUNCTION_BLOCK FB_Caller
 	Helper();
 	Other();
@@ -204,17 +204,17 @@ END_FUNCTION_BLOCK`,
 			1,
 		);
 		ws.openDocument(
-			"file:///helper.st",
+			"file:///helper.fb",
 			`METHOD Helper : BOOL END_METHOD`,
 			1,
 		);
 		ws.openDocument(
-			"file:///other.st",
+			"file:///other.fb",
 			`METHOD Other : BOOL END_METHOD`,
 			1,
 		);
 		const callerItem = prepareCallHierarchy({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(
 				`FUNCTION_BLOCK FB_Caller
 	Helper();
@@ -236,14 +236,14 @@ END_FUNCTION_BLOCK`,
 		const ws = new Workspace();
 		// Assembled form: a METHOD is a sibling AFTER END_FUNCTION_BLOCK, attached to the FB as a member.
 		ws.openDocument(
-			"file:///motor.st",
+			"file:///motor.fb",
 			`FUNCTION_BLOCK FB_Motor\nEND_FUNCTION_BLOCK\n\nMETHOD PUBLIC Start : BOOL\nEND_METHOD\n`,
 			1,
 		);
 		const mainSrc = `PROGRAM Main\nVAR\n\tm : FB_Motor;\nEND_VAR\n\nm.Start();\nEND_PROGRAM`;
-		ws.openDocument("file:///main.st", mainSrc, 1);
+		ws.openDocument("file:///main.fb", mainSrc, 1);
 		const item = prepareCallHierarchy({
-			doc: ws.getDocument("file:///main.st")!,
+			doc: ws.getDocument("file:///main.fb")!,
 			position: positionOf(mainSrc, "Main"),
 			project: ws.getProjectScope(),
 		})[0]!;
@@ -256,9 +256,9 @@ END_FUNCTION_BLOCK`,
 describe("type hierarchy", () => {
 	it("prepare on FB returns item", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///fb.st", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///fb.fb", `FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, 1);
 		const items = prepareTypeHierarchy({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(`FUNCTION_BLOCK FB_Motor END_FUNCTION_BLOCK`, "FB_Motor"),
 			project: ws.getProjectScope(),
 		});
@@ -268,15 +268,15 @@ describe("type hierarchy", () => {
 	it("supertypes walks EXTENDS + IMPLEMENTS", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///fb.st",
+			"file:///fb.fb",
 			`FUNCTION_BLOCK FB_Motor EXTENDS FB_Base IMPLEMENTS IFoo, IBar END_FUNCTION_BLOCK`,
 			1,
 		);
-		ws.openDocument("file:///base.st", `FUNCTION_BLOCK FB_Base END_FUNCTION_BLOCK`, 1);
-		ws.openDocument("file:///ifoo.st", `INTERFACE IFoo END_INTERFACE`, 1);
-		ws.openDocument("file:///ibar.st", `INTERFACE IBar END_INTERFACE`, 1);
+		ws.openDocument("file:///base.fb", `FUNCTION_BLOCK FB_Base END_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///ifoo.fb", `INTERFACE IFoo END_INTERFACE`, 1);
+		ws.openDocument("file:///ibar.fb", `INTERFACE IBar END_INTERFACE`, 1);
 		const item = prepareTypeHierarchy({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(
 				`FUNCTION_BLOCK FB_Motor EXTENDS FB_Base IMPLEMENTS IFoo, IBar END_FUNCTION_BLOCK`,
 				"FB_Motor",
@@ -294,22 +294,22 @@ describe("type hierarchy", () => {
 	it("subtypes scans workspace for descendants", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///base.st",
+			"file:///base.fb",
 			`FUNCTION_BLOCK FB_Base END_FUNCTION_BLOCK`,
 			1,
 		);
 		ws.openDocument(
-			"file:///a.st",
+			"file:///a.fb",
 			`FUNCTION_BLOCK FB_A EXTENDS FB_Base END_FUNCTION_BLOCK`,
 			1,
 		);
 		ws.openDocument(
-			"file:///b.st",
+			"file:///b.fb",
 			`FUNCTION_BLOCK FB_B EXTENDS FB_Base END_FUNCTION_BLOCK`,
 			1,
 		);
 		const item = prepareTypeHierarchy({
-			doc: ws.getDocument("file:///base.st")!,
+			doc: ws.getDocument("file:///base.fb")!,
 			position: positionOf(
 				`FUNCTION_BLOCK FB_Base END_FUNCTION_BLOCK`,
 				"FB_Base",
@@ -327,17 +327,17 @@ describe("type hierarchy", () => {
 	it("interface EXTENDS chain", () => {
 		const ws = new Workspace();
 		ws.openDocument(
-			"file:///a.st",
+			"file:///a.fb",
 			`INTERFACE IBase END_INTERFACE`,
 			1,
 		);
 		ws.openDocument(
-			"file:///b.st",
+			"file:///b.fb",
 			`INTERFACE IDerived EXTENDS IBase END_INTERFACE`,
 			1,
 		);
 		const item = prepareTypeHierarchy({
-			doc: ws.getDocument("file:///b.st")!,
+			doc: ws.getDocument("file:///b.fb")!,
 			position: positionOf(
 				`INTERFACE IDerived EXTENDS IBase END_INTERFACE`,
 				"IDerived",
@@ -357,39 +357,39 @@ describe("textDocument/implementation", () => {
 	it("returns every FB implementing the interface under the cursor", () => {
 		const ws = new Workspace();
 		const ifaceSrc = `INTERFACE IFoo END_INTERFACE`;
-		ws.openDocument("file:///ifoo.st", ifaceSrc, 1);
+		ws.openDocument("file:///ifoo.fb", ifaceSrc, 1);
 		ws.openDocument(
-			"file:///a.st",
+			"file:///a.fb",
 			`FUNCTION_BLOCK FB_A IMPLEMENTS IFoo END_FUNCTION_BLOCK`,
 			1,
 		);
 		ws.openDocument(
-			"file:///b.st",
+			"file:///b.fb",
 			`FUNCTION_BLOCK FB_B IMPLEMENTS IFoo, IBar END_FUNCTION_BLOCK`,
 			1,
 		);
 		ws.openDocument(
-			"file:///c.st",
+			"file:///c.fb",
 			`FUNCTION_BLOCK FB_C IMPLEMENTS IBar END_FUNCTION_BLOCK`,
 			1,
 		);
 		const locs = implementation({
 			workspace: ws,
-			doc: ws.getDocument("file:///ifoo.st")!,
+			doc: ws.getDocument("file:///ifoo.fb")!,
 			position: positionOf(ifaceSrc, "IFoo"),
 			project: ws.getProjectScope(),
 		});
 		const uris = locs.map((l) => l.uri).sort();
-		expect(uris).toEqual(["file:///a.st", "file:///b.st"]);
+		expect(uris).toEqual(["file:///a.fb", "file:///b.fb"]);
 	});
 
 	it("returns empty for an FB (not an interface)", () => {
 		const ws = new Workspace();
 		const src = `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`;
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		const locs = implementation({
 			workspace: ws,
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: positionOf(src, "FB_X"),
 			project: ws.getProjectScope(),
 		});
@@ -399,15 +399,15 @@ describe("textDocument/implementation", () => {
 	it("returns empty when no FB implements the interface", () => {
 		const ws = new Workspace();
 		const src = `INTERFACE IOrphan END_INTERFACE`;
-		ws.openDocument("file:///iorphan.st", src, 1);
+		ws.openDocument("file:///iorphan.fb", src, 1);
 		ws.openDocument(
-			"file:///fb.st",
+			"file:///fb.fb",
 			`FUNCTION_BLOCK FB_Solo END_FUNCTION_BLOCK`,
 			1,
 		);
 		const locs = implementation({
 			workspace: ws,
-			doc: ws.getDocument("file:///iorphan.st")!,
+			doc: ws.getDocument("file:///iorphan.fb")!,
 			position: positionOf(src, "IOrphan"),
 			project: ws.getProjectScope(),
 		});

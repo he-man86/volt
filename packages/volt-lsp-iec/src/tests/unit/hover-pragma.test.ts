@@ -8,8 +8,8 @@ import { Workspace } from "../../lsp/workspace.js";
 
 function setup(source: string) {
 	const ws = new Workspace();
-	ws.openDocument("file:///t.st", source, 0);
-	const doc = ws.getDocument("file:///t.st")!;
+	ws.openDocument("file:///t.fb", source, 0);
+	const doc = ws.getDocument("file:///t.fb")!;
 	const project = ws.getProjectScope();
 	return { doc, project };
 }

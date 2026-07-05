@@ -17,12 +17,12 @@ export interface LanguageTest {
 	name: string;
 	/** TwinCAT POU name as it appears in the project tree. Must start with a `LANG_`-prefixed identifier (FB_LANG_*, GVL_LANG_*, DUT_LANG_*, ITF_LANG_*) so the recorder's cleanup sweep catches it. */
 	pouName: string;
-	/** Item kind on the bridge. Every writable source kind materializes as one `.st` file. */
+	/** Item kind on the bridge. Every writable source kind materializes as one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`). */
 	kind: "function_block" | "function" | "program" | "gvl" | "structure" | "interface";
 	/** What the test exercises — short label for reports. */
 	feature: string;
 	/** Self-contained workspace file content — POU + sibling children
-	 *  in the canonical assembled .st layout the bridge's StSplitter
+	 *  in the canonical assembled ST layout the bridge's StSplitter
 	 *  reads (and StAssembler emits on /fetch). */
 	source: string;
 	/** Anchor in the reference doc. Format: `<filename>#<section>` or `<filename>:L<line>`. */

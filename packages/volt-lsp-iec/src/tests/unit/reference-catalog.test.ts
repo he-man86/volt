@@ -19,7 +19,7 @@ function diagnose(src: string, extra: { libraryNamespaces?: ReadonlySet<string>;
 	return computeSemanticDiagnostics({
 		parseResult,
 		source: src,
-		project: buildSymbolTable([{ uri: "file:///t.st", parseResult, source: src }]),
+		project: buildSymbolTable([{ uri: "file:///t.fb", parseResult, source: src }]),
 		config: DEFAULT_DIAGNOSTIC_CONFIG,
 		bodyModels: buildBodyModelsForParseResult(parseResult),
 		...extra,

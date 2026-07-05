@@ -15,9 +15,9 @@ network of boxes and wires rendered as *readable, ST-flavored* text. It reads li
 server can work over a graphical body **as text**, even though it was authored graphically in the vendor IDE
 (TwinCAT, CODESYS).
 
-**Bodies are ST _or_ VG.** When a project is pulled, every writable POU materialises as a single `.st` file —
-a textual body as ST, an editable FBD/LD body as VG text (both share the `.st` extension; the body language
-rides on the VG `NETWORK` marker, not the filename). When pushed, the bridge parses the VG back to the graphical node
+**Bodies are ST _or_ VG.** When a project is pulled, every writable POU materialises as a single kind-named file
+(`.fb`/`.prg`/`.fun`) — a textual body as ST, an editable FBD/LD body as VG text (the body language
+rides on the VG `NETWORK` marker in the content, not the extension). When pushed, the bridge parses the VG back to the graphical node
 graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a graphical body
 can be read, edited, and written entirely as VG text. (CFC/SFC are surfaced read-only.)
 

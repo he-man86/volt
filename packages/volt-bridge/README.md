@@ -32,7 +32,7 @@ Core is a strict top-down stack — the contract first, vendor glue last:
 Ide/        the contract           ◄── each vendor bridge implements this, and only this
 Wire/       HTTP transport         ── serves the contract over HttpListener + JSON
 Sync/       endpoint services      ── fetch / push / build / refs / raw
-Workspace/  source materialize     ── item ⇄ canonical .st text
+Workspace/  source materialize     ── item ⇄ canonical ST text
 Graphical/  graphical materialize  ── PlcOpen XML ⇄ VG text
 ```
 

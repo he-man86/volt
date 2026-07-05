@@ -85,11 +85,11 @@ project**, not only inside the Volt dev repo. The agent toolchain — LSP + `vol
 env var (set by the desktop shell and the `volt` binary), with that config's bin dir prepended to
 `PATH` so its bare-name `volt-lsp-iec` command resolves **outside the Volt repo** (published /
 global / bundled — never a repo-relative path). `volt init` SHALL NOT write a per-project `.opencode/`;
-it only binds the IDE project and installs vendor skills. An agent editing `.st` in a bound PLC
+it only binds the IDE project and installs vendor skills. An agent editing kind-named source in a bound PLC
 project MUST receive the LSP's diagnostics through its tool loop.
 
 #### Scenario: Agent gets PLC diagnostics in a consumer project
-- **WHEN** the agent edits a `.st` file in an end-user PLC project (not the Volt repo)
+- **WHEN** the agent edits a kind-named source file in an end-user PLC project (not the Volt repo)
 - **THEN** the volt LSP is running and its diagnostics are surfaced to the agent — it is not writing ST blind from training data
 
 #### Scenario: The command resolves by bare name, not a repo-relative path
@@ -340,7 +340,7 @@ SHALL NOT be analyzed as VG or ST. There is no read-only-language flag.
 
 `volt-vscode` SHALL highlight VG by a content injection on the `NETWORK` token. Because a POU is named
 by its KIND (`.fb`/`.prg`/`.fun`), an editable graphical POU is stored in a kind-named file, not a
-`.st`/`.fbd`/`.ld` file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
+language-named file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
 discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
 graphical POU (e.g. a `.fb` file whose body begins with `NETWORK`) *and* a graphical body inlined
 inside a POU (a graphical method). The body discriminator is 2-way: a body beginning with `NETWORK` is
@@ -434,23 +434,6 @@ offline workspace or a committed corpus gates diagnostics on excluded objects. O
 - **WHEN** the LSP analyzes an on-disk workspace (or the committed corpus) with no live bridge
 - **THEN** it skips diagnostics on files carrying the marker, exactly as if the wire flag were `true`
 
-### Requirement: The scheme change re-materializes once
-
-Because the wire item name includes the extension, moving from `.st` to kind extensions SHALL change
-the affected items' wire names (and only their file paths — `structureVersion` hashes the sorted bare
-names, so it is unchanged). On the first pull after the change, a bound workspace SHALL re-materialize
-the affected items — the `*.st` files removed and the kind-named files created — reconciled through
-native git as deletes and adds, with no custom migration step. Both vendor bridges SHALL apply the
-same kind-based naming in shared Core.
-
-#### Scenario: A bound workspace re-materializes on first pull
-- **WHEN** a workspace bound under the `.st` scheme is pulled after this change
-- **THEN** the `*.st` files are removed and equivalent `.fb`/`.prg`/`.fun`/`.itf`/`.struct`/… files appear, with no data loss
-
-#### Scenario: structureVersion is unchanged by the rename
-- **WHEN** only the extensions change (bare names identical)
-- **THEN** `structureVersion` is unchanged, regardless of vendor
-
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree
 
 Referenced-library public signatures SHALL materialize INTO the mirrored CODESYS tree — each element under
@@ -472,19 +455,19 @@ added, removed, or version-bumped.
 ### Requirement: The LSP is verified against a real-project conformance corpus
 
 The LSP SHALL be tested against a committed conformance corpus materialized from a real, full-option
-CODESYS project (the project's items rendered as `.st` files on disk). Every language construct the
+CODESYS project (the project's items rendered as kind-named files on disk). Every language construct the
 corpus contains — POUs, DUTs, GVLs, interfaces, methods/properties/actions/transitions, pragmas, and
 editable graphical FBD/LD bodies surfaced as VG — SHALL parse and analyze with **no spurious parse
 errors and no analysis gaps**. The corpus SHALL be loadable from disk by the test harness and
 regenerable via a documented step, so it is a durable regression guard, not a one-off.
 
 #### Scenario: The whole corpus parses without spurious errors
-- **WHEN** the LSP loads every `.st` file in the real-project corpus
+- **WHEN** the LSP loads every kind-named source file in the real-project corpus
 - **THEN** each file parses into a usable model with no parse-error diagnostic on valid code, and every construct kind present is recognized (not silently skipped)
 
 #### Scenario: The corpus is a committed, regenerable fixture
 - **WHEN** the corpus tests run in CI (no live bridge, no CODESYS)
-- **THEN** they read the committed `.st` fixtures from disk and pass deterministically, and the corpus can be regenerated from the source project by the documented materialization step
+- **THEN** they read the committed kind-named fixtures from disk and pass deterministically, and the corpus can be regenerated from the source project by the documented materialization step
 
 ### Requirement: Diagnostics are false-positive-free on valid real code
 
@@ -496,7 +479,7 @@ actually compiles is not flagged. Any diagnostic the LSP does raise on the corpu
 to a genuine defect, not to a gap in the LSP's model of real projects.
 
 #### Scenario: A library-imported symbol is not flagged unresolved
-- **WHEN** the corpus references a symbol declared in an imported library (not in the workspace `.st` files)
+- **WHEN** the corpus references a symbol declared in an imported library (not in the workspace source files)
 - **THEN** the LSP does not raise an unresolved-identifier diagnostic for it
 
 #### Scenario: The corpus diagnostics sweep is clean

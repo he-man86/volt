@@ -35,7 +35,7 @@ export function readBridgePort(workspaceRoot: string): number | undefined {
 	return undefined
 }
 
-/** Per-extension access from .git/volt/config.json: ".st" → "rw", ".cfc" → "r", etc.
+/** Per-extension access from .git/volt/config.json: ".fb" → "rw", ".cfc" → "r", etc.
  *  Drives the read-only badge — read-only config kinds the AI reads but can't push. */
 export function readExtensionAccess(workspaceRoot: string): Record<string, "r" | "rw"> {
 	try {

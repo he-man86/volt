@@ -9,7 +9,7 @@ import { describe, expect, it } from "bun:test";
 import { rename, prepareRename } from "../../lsp/queries/rename.js";
 import { Workspace } from "../../lsp/workspace.js";
 
-function setupOne(source: string, uri = "file:///t.st") {
+function setupOne(source: string, uri = "file:///t.fb") {
 	const ws = new Workspace();
 	ws.openDocument(uri, source, 0);
 	const doc = ws.getDocument(uri)!;
@@ -95,7 +95,7 @@ END_FUNCTION_BLOCK`;
 		const position = positionOf(src, "motor :=");
 		const result = rename({ workspace: ws, doc, position, project, newName: "pump" });
 		expect(result).not.toBeNull();
-		const edits = result!.changes["file:///t.st"];
+		const edits = result!.changes["file:///t.fb"];
 		expect(edits).toBeDefined();
 		// Declaration + 2 body occurrences (lhs and rhs of `motor := motor + 1`)
 		expect(edits!.length).toBe(3);
@@ -113,7 +113,7 @@ END_FUNCTION_BLOCK`;
 		const position = positionOf(src, "speed :=");
 		const result = rename({ workspace: ws, doc, position, project, newName: "velocity" });
 		expect(result).not.toBeNull();
-		const edits = result!.changes["file:///t.st"]!;
+		const edits = result!.changes["file:///t.fb"]!;
 		// Declaration + 1 body use = 2 edits
 		expect(edits.length).toBe(2);
 		expect(edits.every((e) => e.newText === "velocity")).toBe(true);
@@ -172,7 +172,7 @@ END_FUNCTION_BLOCK`;
 		const position = positionOf(src, "FB_Motor");
 		const result = rename({ workspace: ws, doc, position, project, newName: "FB_Drive" });
 		expect(result).not.toBeNull();
-		const edits = result!.changes["file:///t.st"]!;
+		const edits = result!.changes["file:///t.fb"]!;
 		expect(edits.length).toBeGreaterThanOrEqual(1);
 		expect(edits.every((e) => e.newText === "FB_Drive")).toBe(true);
 	});
@@ -191,19 +191,19 @@ END_VAR
 speed := 100;
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///gvl.st", gvlSrc, 0);
-		ws.openDocument("file:///fb.st", pouSrc, 0);
-		const doc = ws.getDocument("file:///fb.st")!;
+		ws.openDocument("file:///gvl.fb", gvlSrc, 0);
+		ws.openDocument("file:///fb.fb", pouSrc, 0);
+		const doc = ws.getDocument("file:///fb.fb")!;
 		const project = ws.getProjectScope();
 		const position = positionOf(pouSrc, "speed :=");
 		const result = rename({ workspace: ws, doc, position, project, newName: "velocity" });
 		expect(result).not.toBeNull();
-		// Declaration lives in gvl.st
-		const gvlEdits = result!.changes["file:///gvl.st"];
+		// Declaration lives in gvl.fb
+		const gvlEdits = result!.changes["file:///gvl.fb"];
 		expect(gvlEdits).toBeDefined();
 		expect(gvlEdits!.every((e) => e.newText === "velocity")).toBe(true);
-		// Body usage lives in fb.st
-		const fbEdits = result!.changes["file:///fb.st"];
+		// Body usage lives in fb.fb
+		const fbEdits = result!.changes["file:///fb.fb"];
 		expect(fbEdits).toBeDefined();
 		expect(fbEdits!.every((e) => e.newText === "velocity")).toBe(true);
 	});
@@ -224,16 +224,16 @@ END_VAR
 count := 2;
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", srcA, 0);
-		ws.openDocument("file:///b.st", srcB, 0);
-		const doc = ws.getDocument("file:///a.st")!;
+		ws.openDocument("file:///a.fb", srcA, 0);
+		ws.openDocument("file:///b.fb", srcB, 0);
+		const doc = ws.getDocument("file:///a.fb")!;
 		const project = ws.getProjectScope();
 		const position = positionOf(srcA, "count :=");
 		const result = rename({ workspace: ws, doc, position, project, newName: "tally" });
 		expect(result).not.toBeNull();
 		// File B should have NO edits (different scope, different symbol)
 		// File A should have edits
-		const aEdits = result!.changes["file:///a.st"];
+		const aEdits = result!.changes["file:///a.fb"];
 		expect(aEdits).toBeDefined();
 		// Note: `count` in file B shares the same bare name. The rename uses
 		// lookup from the cursor's scope, which resolves to FB_A's `count`.

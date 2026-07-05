@@ -187,7 +187,7 @@ describe("volt-git sync", () => {
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toName: "B.fb" });
 		expect((ops[0] as Record<string, unknown>).sourceText).toBeUndefined(); // refs preserved, content not resent
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.st renamed to B.st
+		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.fb renamed to B.fb
 	});
 
 	test("11. pure move (folder change, name kept) → one `set` op with the new folder", async () => {
@@ -215,7 +215,7 @@ describe("volt-git sync", () => {
 		const ops = bridge.pushCalls[0]!.ops;
 		expect(ops).toHaveLength(1);
 		expect(ops[0]).toMatchObject({ op: "set", name: "A.fb", toName: "B.fb", sourceText: edited });
-		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.st gone; B.st has the edit
+		expect(keys((await bridge.getRefs()).items)).toEqual(["B.fb"]); // A.fb gone; B.fb has the edit
 	});
 
 	test("13. rename AND move in one step → one atomic `set` (no refusal)", async () => {

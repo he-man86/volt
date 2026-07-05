@@ -81,7 +81,7 @@ function printUsage(): void {
 TypeScript Language Server for IEC 61131-3 Structured Text.
 
 Usage:
-  volt-lsp-iec lex <file>     Print token stream for a .st file
+  volt-lsp-iec lex <file>     Print token stream for a source file (.fb/.prg/.fun/…)
   volt-lsp-iec --stdio        Run as LSP over stdio (LSP 3.17)
   volt-lsp-iec --version      Print version
   volt-lsp-iec --help         Show this help`);

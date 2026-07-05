@@ -20,7 +20,7 @@ describe("rename — ST body across files", () => {
 	test("renaming a global VAR updates declaration + every ST usage", () => {
 		const ws = makeWorkspace();
 		ws.openDocument(
-			"file:///GVL.st",
+			"file:///GVL.fb",
 			`VAR_GLOBAL
 \tcounter: INT;
 END_VAR
@@ -29,7 +29,7 @@ END_VAR
 			"structured-text",
 		);
 		ws.openDocument(
-			"file:///PLC_PRG.st",
+			"file:///PLC_PRG.fb",
 			`PROGRAM PLC_PRG
 VAR
 \tx: INT;
@@ -41,7 +41,7 @@ END_PROGRAM
 			1,
 			"structured-text",
 		);
-		const doc = ws.getDocument("file:///GVL.st")!;
+		const doc = ws.getDocument("file:///GVL.fb")!;
 		const result = rename({
 			workspace: ws,
 			doc,
@@ -52,8 +52,8 @@ END_PROGRAM
 		});
 		expect(result).not.toBeNull();
 		const changesByFile = result!.changes;
-		const gvlEdits = changesByFile["file:///GVL.st"] ?? [];
-		const stEdits = changesByFile["file:///PLC_PRG.st"] ?? [];
+		const gvlEdits = changesByFile["file:///GVL.fb"] ?? [];
+		const stEdits = changesByFile["file:///PLC_PRG.fb"] ?? [];
 		// One declaration edit + 3 usages in PLC_PRG.
 		expect(gvlEdits.length).toBe(1);
 		expect(stEdits.length).toBe(3);
@@ -66,7 +66,7 @@ describe("rename — type-aware narrowing (st-nav-chains §2.1)", () => {
 	test("renaming a struct field leaves a same-named field on another type untouched", () => {
 		const ws = makeWorkspace();
 		ws.openDocument(
-			"file:///x.st",
+			"file:///x.fb",
 			`TYPE T_A : STRUCT
 	value : INT;
 END_STRUCT END_TYPE
@@ -85,7 +85,7 @@ END_FUNCTION_BLOCK
 			1,
 			"structured-text",
 		);
-		const doc = ws.getDocument("file:///x.st")!;
+		const doc = ws.getDocument("file:///x.fb")!;
 		const src = doc.source;
 		const declOffset = src.indexOf("value"); // T_A.value declaration
 		const result = rename({
@@ -96,7 +96,7 @@ END_FUNCTION_BLOCK
 			newName: "amount",
 		});
 		expect(result).not.toBeNull();
-		const edits = result!.changes["file:///x.st"] ?? [];
+		const edits = result!.changes["file:///x.fb"] ?? [];
 		// T_A.value declaration + the `a.value` usage = 2 edits. T_B.value + `b.value` are NOT renamed.
 		expect(edits.length).toBe(2);
 		expect(edits.every((e) => e.newText === "amount")).toBe(true);
@@ -112,8 +112,8 @@ VAR
 END_VAR
 END_PROGRAM
 `;
-		ws.openDocument("file:///P.st", source, 1, "structured-text");
-		const doc = ws.getDocument("file:///P.st")!;
+		ws.openDocument("file:///P.fb", source, 1, "structured-text");
+		const doc = ws.getDocument("file:///P.fb")!;
 		const offset = source.indexOf("name");
 		const pos = doc.textDocument.positionAt(offset);
 		const r = prepareRename({ doc, position: pos });
@@ -124,12 +124,12 @@ END_PROGRAM
 	test("returns null on whitespace", () => {
 		const ws = makeWorkspace();
 		ws.openDocument(
-			"file:///P.st",
+			"file:///P.fb",
 			"PROGRAM P\n\nEND_PROGRAM\n",
 			1,
 			"structured-text",
 		);
-		const doc = ws.getDocument("file:///P.st")!;
+		const doc = ws.getDocument("file:///P.fb")!;
 		const r = prepareRename({
 			doc,
 			position: { line: 1, character: 0 },
@@ -142,12 +142,12 @@ describe("rename — edge cases", () => {
 	test("returns null when newName is empty / whitespace", () => {
 		const ws = makeWorkspace();
 		ws.openDocument(
-			"file:///P.st",
+			"file:///P.fb",
 			"PROGRAM P\nVAR\n\tx: INT;\nEND_VAR\nEND_PROGRAM\n",
 			1,
 			"structured-text",
 		);
-		const doc = ws.getDocument("file:///P.st")!;
+		const doc = ws.getDocument("file:///P.fb")!;
 		const pos = doc.textDocument.positionAt(
 			"PROGRAM P\nVAR\n\tx".length - 1,
 		);
@@ -164,8 +164,8 @@ describe("rename — edge cases", () => {
 	test("returns null when newName == oldName (no-op rename)", () => {
 		const ws = makeWorkspace();
 		const source = "PROGRAM P\nVAR\n\tx: INT;\nEND_VAR\nEND_PROGRAM\n";
-		ws.openDocument("file:///P.st", source, 1, "structured-text");
-		const doc = ws.getDocument("file:///P.st")!;
+		ws.openDocument("file:///P.fb", source, 1, "structured-text");
+		const doc = ws.getDocument("file:///P.fb")!;
 		const pos = doc.textDocument.positionAt(source.indexOf("x:"));
 		const result = rename({
 			workspace: ws,

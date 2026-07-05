@@ -60,7 +60,7 @@ function buildSkillMd(vendor: "codesys" | "twincat"): string {
 	if (vendor === "twincat") {
 		return `---
 name: st-reference
-description: TwinCAT 3 and IEC 61131-3 Structured Text reference — pragmas, FB lifecycle, TC-specific operators, library namespaces, init slots. Load when writing or reviewing .st files in a TwinCAT project.
+description: TwinCAT 3 and IEC 61131-3 Structured Text reference — pragmas, FB lifecycle, TC-specific operators, library namespaces, init slots. Load when writing or reviewing Structured Text source files in a TwinCAT project.
 license: MIT
 metadata:
   language: structured-text
@@ -106,7 +106,7 @@ Run \`volt init --force\` to refresh the corpus when the LSP package version cha
 
 	return `---
 name: st-reference
-description: IEC 61131-3 Structured Text reference for CODESYS — pragmas, FB lifecycle, shadowing, init slots, error catalog. Load when writing or reviewing .st files.
+description: IEC 61131-3 Structured Text reference for CODESYS — pragmas, FB lifecycle, shadowing, init slots, error catalog. Load when writing or reviewing Structured Text source files.
 license: MIT
 metadata:
   language: structured-text

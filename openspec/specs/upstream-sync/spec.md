@@ -58,7 +58,7 @@ checks that drive `opencode debug` — `verify-lsp` for the language server and 
 for the custom tool.
 
 #### Scenario: The LSP is proven loaded
-- **WHEN** `verify-lsp` plants a known-bad `.st` file and queries diagnostics
+- **WHEN** `verify-lsp` plants a known-bad `.fb` file and queries diagnostics
 - **THEN** diagnostics with `source: "volt-lsp-iec"` are returned
 
 ### Requirement: Upstream sync is one signal-flow command

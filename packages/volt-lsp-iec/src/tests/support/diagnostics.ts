@@ -24,7 +24,7 @@ export interface BuiltProject {
 /** Parse + build the symbol table + body models for a single ST source string. */
 export function buildProject(source: string): BuiltProject {
 	const parseResult = parseSource(source);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult, source }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult, source }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult, source);
 	return { source, parseResult, project, bodyModels };
 }

@@ -641,8 +641,8 @@ describe("diagnostics: shadowing — qualified_only GVL suppression", () => {
 		const gvlPR = parseSource(gvlSrc);
 		const pouPR = parseSource(pouSrc);
 		const project = buildSymbolTable([
-			{ uri: "file:///GVL_A.st", parseResult: gvlPR, source: gvlSrc },
-			{ uri: "file:///FB_X.st", parseResult: pouPR, source: pouSrc },
+			{ uri: "file:///GVL_A.fb", parseResult: gvlPR, source: gvlSrc },
+			{ uri: "file:///FB_X.fb", parseResult: pouPR, source: pouSrc },
 		]);
 		const bodyModels = buildBodyModelsForParseResult(pouPR);
 		const config: DiagnosticConfig = {

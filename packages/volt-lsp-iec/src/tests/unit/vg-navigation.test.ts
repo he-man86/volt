@@ -29,10 +29,10 @@ END_FUNCTION_BLOCK`;
 
 function ctx(src: string) {
 	const parseResult = parseSource(src);
-	const project = buildSymbolTable([{ uri: "file:///t.st", parseResult }]);
+	const project = buildSymbolTable([{ uri: "file:///t.fb", parseResult }]);
 	const bodyModels = buildBodyModelsForParseResult(parseResult);
 	const doc = {
-		uri: "file:///t.st",
+		uri: "file:///t.fb",
 		source: src,
 		version: 1,
 		parseResult,
@@ -73,7 +73,7 @@ describe("vg navigation: LET wire", () => {
 		const { doc, project, workspace } = ctx(SRC);
 		const edit = rename({ doc, workspace, position: posOf(SRC, "g1", 0), project, newName: "wAndResult" });
 		expect(edit).not.toBeNull();
-		const edits = edit!.changes["file:///t.st"]!;
+		const edits = edit!.changes["file:///t.fb"]!;
 		expect(edits).toHaveLength(3);
 		expect(edits.every((e) => e.newText === "wAndResult")).toBe(true);
 	});

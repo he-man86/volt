@@ -5,7 +5,7 @@ namespace Volt.Bridge.Tests;
 
 /// <summary>
 /// The item version is content-addressed: a hash of the item's FOLDER + its MATERIALIZED workspace
-/// text (the exact .st bytes). Same content ⇒ same version; any content or folder change ⇒
+/// text (the exact assembled ST-text bytes). Same content ⇒ same version; any content or folder change ⇒
 /// a new version. This is the single basis used by /refs, /fetch, and the push receipt, so they agree.
 /// </summary>
 public class HasherTests

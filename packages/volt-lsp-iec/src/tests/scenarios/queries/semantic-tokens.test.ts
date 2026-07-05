@@ -40,11 +40,11 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///a.st", src, 1);
+		ws.openDocument("file:///a.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///a.st",
+			docUri: "file:///a.fb",
 		});
 		const decoded = decode(result.data);
 		const intToken = decoded.find((d) => d.line === 2 && d.startChar > 0);
@@ -56,11 +56,11 @@ END_FUNCTION_BLOCK`;
 	it("colors keywords as 'keyword'", () => {
 		const src = `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///b.st", src, 1);
+		ws.openDocument("file:///b.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///b.st",
+			docUri: "file:///b.fb",
 		});
 		const decoded = decode(result.data);
 		expect(decoded.some((d) => d.type === "keyword")).toBe(true);
@@ -71,11 +71,11 @@ END_FUNCTION_BLOCK`;
 FUNCTION_BLOCK FB_X
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///c.st", src, 1);
+		ws.openDocument("file:///c.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///c.st",
+			docUri: "file:///c.fb",
 		});
 		const decoded = decode(result.data);
 		expect(decoded.some((d) => d.type === "macro")).toBe(true);
@@ -88,11 +88,11 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///d.st", src, 1);
+		ws.openDocument("file:///d.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///d.st",
+			docUri: "file:///d.fb",
 		});
 		const decoded = decode(result.data);
 		expect(decoded.some((d) => d.type === "string")).toBe(true);
@@ -105,11 +105,11 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///e.st", src, 1);
+		ws.openDocument("file:///e.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///e.st",
+			docUri: "file:///e.fb",
 		});
 		const decoded = decode(result.data);
 		expect(decoded.some((d) => d.type === "number")).toBe(true);
@@ -123,11 +123,11 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///f.st", src, 1);
+		ws.openDocument("file:///f.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///f.st",
+			docUri: "file:///f.fb",
 		});
 		const decoded = decode(result.data);
 		// FB_Motor appears at FB declaration AND as a type reference.
@@ -140,11 +140,11 @@ describe("semantic tokens: encoding", () => {
 	it("encodes 5 ints per token", () => {
 		const src = `FUNCTION_BLOCK FB_X END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///g.st", src, 1);
+		ws.openDocument("file:///g.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///g.st",
+			docUri: "file:///g.fb",
 		});
 		expect(result.data.length % 5).toBe(0);
 	});
@@ -153,11 +153,11 @@ describe("semantic tokens: encoding", () => {
 		const src = `FUNCTION_BLOCK FB_X
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///h.st", src, 1);
+		ws.openDocument("file:///h.fb", src, 1);
 		const result = semanticTokens({
 			source: src,
 			project: ws.getProjectScope(),
-			docUri: "file:///h.st",
+			docUri: "file:///h.fb",
 		});
 		// First token's deltaLine should be 0 (line 0).
 		expect(result.data[0]).toBe(0);

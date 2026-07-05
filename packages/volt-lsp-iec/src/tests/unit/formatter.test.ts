@@ -252,17 +252,17 @@ describe("readEditorConfig — directory walk + section matching", () => {
 					"indent_size = 2",
 					"end_of_line = lf",
 					"",
-					"[*.st]",
+					"[*.fb]",
 					"indent_style = tab",
 					"indent_size = 4",
 					"",
 				].join("\n"),
 			);
-			const file = path.join(dir, "FB_Demo.st");
+			const file = path.join(dir, "FB_Demo.fb");
 			fs.writeFileSync(file, "FUNCTION_BLOCK FB_Demo\nEND_FUNCTION_BLOCK\n");
 
 			const props = readEditorConfig(file);
-			// [*.st] comes after [*] so it wins for indent_style/size; end_of_line
+			// [*.fb] comes after [*] so it wins for indent_style/size; end_of_line
 			// is only in [*], so it carries through.
 			expect(props.indent_style).toBe("tab");
 			expect(props.indent_size).toBe("4");

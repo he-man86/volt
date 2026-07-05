@@ -70,7 +70,7 @@ export function getByPath(relPath: string): ExtensionDef | undefined {
 	return getByExt(base.slice(dot));
 }
 
-/** The full filename from a workspace path ("POUs/FB_Motor.st" → "FB_Motor.st"). Folder markers resolve
+/** The full filename from a workspace path ("POUs/FB_Motor.fb" → "FB_Motor.fb"). Folder markers resolve
  *  to the containing folder name. Used to match the bridge's wire names (which include extensions). */
 export function fullNameFromPath(relPath: string): string | undefined {
 	const slash = relPath.lastIndexOf("/");
@@ -86,7 +86,7 @@ export function fullNameFromPath(relPath: string): string | undefined {
 	return base;
 }
 
-/** The extension definition for a full filename ("PLC_PRG.st" → { ext:"st", defaultAccess:"rw" }). */
+/** The extension definition for a full filename ("PLC_PRG.prg" → { ext:"prg", defaultAccess:"rw" }). */
 export function defFromName(fullName: string): ExtensionDef | undefined {
 	const dot = fullName.lastIndexOf(".");
 	if (dot < 0) return undefined;

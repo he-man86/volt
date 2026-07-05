@@ -25,18 +25,18 @@ describe("definition", () => {
 		const structSrc = `TYPE Motor :\nSTRUCT\n\tspeed : REAL;\n\trunning : BOOL;\nEND_STRUCT\nEND_TYPE\n`;
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\tm : Motor;\nEND_VAR\n\nm.speed := 1.0;\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///motor.st", structSrc, 1);
-		ws.openDocument("file:///fb.st", src, 1);
+		ws.openDocument("file:///motor.fb", structSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
 
 		// cursor on `speed` inside `m.speed`
 		const bodySpeed = src.indexOf("speed", src.indexOf("m."));
 		const pos = positionOf(src, src.slice(bodySpeed, bodySpeed + 5));
 
-		const result = definition({ doc: ws.getDocument("file:///fb.st")!, position: pos, project: ws.getProjectScope() });
+		const result = definition({ doc: ws.getDocument("file:///fb.fb")!, position: pos, project: ws.getProjectScope() });
 
 		expect(result.length).toBe(1);
 		// It resolves to the FIELD declaration in the struct file — through the base's type — not to a bare `speed`.
-		expect(result[0]?.uri).toBe("file:///motor.st");
+		expect(result[0]?.uri).toBe("file:///motor.fb");
 		const declStart = structSrc.indexOf("speed");
 		expect(offsetFromPosition(structSrc, result[0]!.range.start)).toBe(declStart);
 	});
@@ -45,15 +45,15 @@ describe("definition", () => {
 		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE\n`;
 		const src = `FUNCTION_BLOCK FB_X\nVAR\n\ts : E_State;\nEND_VAR\n\ns := Idle;\nEND_FUNCTION_BLOCK\n`;
 		const ws = new Workspace();
-		ws.openDocument("file:///e.st", enumSrc, 1);
-		ws.openDocument("file:///fb.st", src, 1);
+		ws.openDocument("file:///e.fb", enumSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
 		const result = definition({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: positionOf(src, "Idle"), // `Idle` only appears in the body here
 			project: ws.getProjectScope(),
 		});
 		expect(result.length).toBe(1);
-		expect(result[0]?.uri).toBe("file:///e.st");
+		expect(result[0]?.uri).toBe("file:///e.fb");
 		expect(offsetFromPosition(enumSrc, result[0]!.range.start)).toBe(enumSrc.indexOf("Idle"));
 	});
 
@@ -68,22 +68,22 @@ END_FUNCTION_BLOCK
 `;
 		const enumSrc = `TYPE E_State : (Idle, Running) END_TYPE`;
 		const ws = new Workspace();
-		ws.openDocument("file:///fb.st", src, 1);
-		ws.openDocument("file:///e_state.st", enumSrc, 1);
+		ws.openDocument("file:///fb.fb", src, 1);
+		ws.openDocument("file:///e_state.fb", enumSrc, 1);
 
 		// Click on the second `E_State` (inside the body)
 		const bodyOccurrence = src.indexOf("E_State", src.indexOf("END_VAR"));
 		const pos = positionOf(src, src.slice(bodyOccurrence, bodyOccurrence + 7));
 
 		const result = definition({
-			doc: ws.getDocument("file:///fb.st")!,
+			doc: ws.getDocument("file:///fb.fb")!,
 			position: pos,
 			project: ws.getProjectScope(),
 		});
 
 		expect(result.length).toBeGreaterThan(0);
 		// Cross-file: the symbol was declared in e_state.st, not in fb.st.
-		expect(result[0]?.uri).toBe("file:///e_state.st");
+		expect(result[0]?.uri).toBe("file:///e_state.fb");
 	});
 
 	it("returns the same-file URI when the symbol IS declared in the requesting doc", () => {
@@ -94,23 +94,23 @@ END_VAR
 	count := count + 1;
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///y.st", src, 1);
+		ws.openDocument("file:///y.fb", src, 1);
 		// Click on the second `count` (inside the body)
 		const bodyOccurrence = src.indexOf("count", src.indexOf("END_VAR"));
 		const pos = positionOf(src, src.slice(bodyOccurrence, bodyOccurrence + 5));
 		const result = definition({
-			doc: ws.getDocument("file:///y.st")!,
+			doc: ws.getDocument("file:///y.fb")!,
 			position: pos,
 			project: ws.getProjectScope(),
 		});
-		expect(result[0]?.uri).toBe("file:///y.st");
+		expect(result[0]?.uri).toBe("file:///y.fb");
 	});
 
 	it("returns empty array when no identifier is at the cursor", () => {
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", `FUNCTION_BLOCK FB_X\n\tx := 1;\nEND_FUNCTION_BLOCK`, 1);
+		ws.openDocument("file:///x.fb", `FUNCTION_BLOCK FB_X\n\tx := 1;\nEND_FUNCTION_BLOCK`, 1);
 		const result = definition({
-			doc: ws.getDocument("file:///x.st")!,
+			doc: ws.getDocument("file:///x.fb")!,
 			position: { line: 0, character: 0 }, // on F of FUNCTION_BLOCK — not in a body
 			project: ws.getProjectScope(),
 		});
@@ -122,7 +122,7 @@ END_FUNCTION_BLOCK`;
 \tcount := 1;
 END_FUNCTION_BLOCK`;
 		const ws = new Workspace();
-		ws.openDocument("file:///x.st", src, 1);
+		ws.openDocument("file:///x.fb", src, 1);
 		// "count" starts at line 1 column 1 (0-based), since the line begins with a tab.
 		expect(offsetFromPosition(src, { line: 1, character: 1 })).toBe(src.indexOf("count"));
 	});

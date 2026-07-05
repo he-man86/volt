@@ -168,12 +168,12 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 			// — but we can also just observe the original init result. Pull
 			// diagnostics support is gated on client capabilities, so verify
 			// it was advertised.
-			openDoc(child, "file:///x.st", FB_FIXTURE);
+			openDoc(child, "file:///x.fb", FB_FIXTURE);
 			const result = await request<{ kind: string; items: unknown[] }>(
 				child,
 				nextId(),
 				"textDocument/diagnostic",
-				{ textDocument: { uri: "file:///x.st" } },
+				{ textDocument: { uri: "file:///x.fb" } },
 			);
 			expect(result.kind).toBe("full");
 		});
@@ -181,12 +181,12 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 
 	it("documentSymbol returns FB outline", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///fb.st", FB_FIXTURE);
+			openDoc(child, "file:///fb.fb", FB_FIXTURE);
 			const syms = await request<Array<{ name: string; children?: Array<{ name: string }> }>>(
 				child,
 				nextId(),
 				"textDocument/documentSymbol",
-				{ textDocument: { uri: "file:///fb.st" } },
+				{ textDocument: { uri: "file:///fb.fb" } },
 			);
 			expect(syms[0]?.name).toBe("FB_Motor");
 			expect(syms[0]?.children?.[0]?.name).toBe("tCycle");
@@ -197,12 +197,12 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 		await withServer(async (child, nextId) => {
 			openDoc(
 				child,
-				"file:///t.st",
+				"file:///t.fb",
 				"TYPE T_State : (Idle, Running) END_TYPE",
 			);
 			openDoc(
 				child,
-				"file:///fb.st",
+				"file:///fb.fb",
 				"FUNCTION_BLOCK FB_X\nVAR\n  state : T_State;\nEND_VAR\nEND_FUNCTION_BLOCK",
 			);
 			const result = await request<Array<{ uri: string }>>(
@@ -210,24 +210,24 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 				nextId(),
 				"textDocument/definition",
 				{
-					textDocument: { uri: "file:///fb.st" },
+					textDocument: { uri: "file:///fb.fb" },
 					position: { line: 2, character: 12 }, // on "T_State"
 				},
 			);
 			expect(result.length).toBeGreaterThan(0);
-			expect(result[0]?.uri).toBe("file:///t.st");
+			expect(result[0]?.uri).toBe("file:///t.fb");
 		});
 	}, 5000);
 
 	it("references returns a Location array (verified across files)", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///a.st", "FUNCTION_BLOCK FB_Shared END_FUNCTION_BLOCK");
+			openDoc(child, "file:///a.fb", "FUNCTION_BLOCK FB_Shared END_FUNCTION_BLOCK");
 			openDoc(
 				child,
-				"file:///b.st",
+				"file:///b.fb",
 				"FUNCTION_BLOCK FB_User\nVAR\n\tinst : FB_Shared;\nEND_VAR\nEND_FUNCTION_BLOCK",
 			);
-			// Query from the USE site in b.st — references unit tests confirm
+			// Query from the USE site in b.fb — references unit tests confirm
 			// this finds at least the declaration. E2E just verifies wire
 			// shape: response is a Location[] (possibly empty depending on
 			// resolver coverage, which the unit tests own).
@@ -236,8 +236,8 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 				nextId(),
 				"textDocument/references",
 				{
-					textDocument: { uri: "file:///b.st" },
-					position: { line: 2, character: 11 }, // on FB_Shared in b.st
+					textDocument: { uri: "file:///b.fb" },
+					position: { line: 2, character: 11 }, // on FB_Shared in b.fb
 					context: { includeDeclaration: true },
 				},
 			);
@@ -247,13 +247,13 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 
 	it("hover returns markdown content for a known symbol", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///h.st", FB_FIXTURE);
+			openDoc(child, "file:///h.fb", FB_FIXTURE);
 			const hover = await request<{ contents: { kind: string; value: string } } | null>(
 				child,
 				nextId(),
 				"textDocument/hover",
 				{
-					textDocument: { uri: "file:///h.st" },
+					textDocument: { uri: "file:///h.fb" },
 					position: { line: 0, character: 18 }, // FB_Motor name
 				},
 			);
@@ -264,8 +264,8 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 
 	it("workspace/symbol finds across-file declarations", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///a.st", "FUNCTION_BLOCK FB_Alpha END_FUNCTION_BLOCK");
-			openDoc(child, "file:///b.st", "FUNCTION_BLOCK FB_Beta END_FUNCTION_BLOCK");
+			openDoc(child, "file:///a.fb", "FUNCTION_BLOCK FB_Alpha END_FUNCTION_BLOCK");
+			openDoc(child, "file:///b.fb", "FUNCTION_BLOCK FB_Beta END_FUNCTION_BLOCK");
 			const result = await request<Array<{ name: string }>>(
 				child,
 				nextId(),
@@ -278,10 +278,10 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 
 	it("implementation returns FBs that IMPLEMENTS the interface", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///i.st", "INTERFACE IFoo END_INTERFACE");
+			openDoc(child, "file:///i.fb", "INTERFACE IFoo END_INTERFACE");
 			openDoc(
 				child,
-				"file:///fb.st",
+				"file:///fb.fb",
 				"FUNCTION_BLOCK FB_A IMPLEMENTS IFoo END_FUNCTION_BLOCK",
 			);
 			const result = await request<Array<{ uri: string }>>(
@@ -289,23 +289,23 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 				nextId(),
 				"textDocument/implementation",
 				{
-					textDocument: { uri: "file:///i.st" },
+					textDocument: { uri: "file:///i.fb" },
 					position: { line: 0, character: 11 }, // IFoo
 				},
 			);
-			expect(result.some((r) => r.uri === "file:///fb.st")).toBe(true);
+			expect(result.some((r) => r.uri === "file:///fb.fb")).toBe(true);
 		});
 	}, 5000);
 
 	it("prepareCallHierarchy resolves a method", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///m.st", "METHOD PUBLIC Execute : BOOL END_METHOD");
+			openDoc(child, "file:///m.fb", "METHOD PUBLIC Execute : BOOL END_METHOD");
 			const items = await request<Array<{ name: string }>>(
 				child,
 				nextId(),
 				"textDocument/prepareCallHierarchy",
 				{
-					textDocument: { uri: "file:///m.st" },
+					textDocument: { uri: "file:///m.fb" },
 					position: { line: 0, character: 17 }, // Execute
 				},
 			);
@@ -315,13 +315,13 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 
 	it("prepareTypeHierarchy resolves an FB", async () => {
 		await withServer(async (child, nextId) => {
-			openDoc(child, "file:///fb.st", FB_FIXTURE);
+			openDoc(child, "file:///fb.fb", FB_FIXTURE);
 			const items = await request<Array<{ name: string }>>(
 				child,
 				nextId(),
 				"textDocument/prepareTypeHierarchy",
 				{
-					textDocument: { uri: "file:///fb.st" },
+					textDocument: { uri: "file:///fb.fb" },
 					position: { line: 0, character: 18 },
 				},
 			);
@@ -332,12 +332,12 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 	it("textDocument/diagnostic returns a full report (pull)", async () => {
 		await withServer(async (child, nextId) => {
 			// Force a parse error so we observe a non-empty report.
-			openDoc(child, "file:///bad.st", "FUNCTION_BLOCK FB_Broken");
+			openDoc(child, "file:///bad.fb", "FUNCTION_BLOCK FB_Broken");
 			const report = await request<{ kind: string; items: unknown[] }>(
 				child,
 				nextId(),
 				"textDocument/diagnostic",
-				{ textDocument: { uri: "file:///bad.st" } },
+				{ textDocument: { uri: "file:///bad.fb" } },
 			);
 			expect(report.kind).toBe("full");
 			expect(Array.isArray(report.items)).toBe(true);
@@ -369,12 +369,12 @@ describe.skipIf(!existsSync(BIN_PATH))("LSP server end-to-end", () => {
 				};
 				child.stdout.on("data", onData);
 			});
-			openDoc(child, "file:///d.st", "FUNCTION_BLOCK FB_Bad");
+			openDoc(child, "file:///d.fb", "FUNCTION_BLOCK FB_Bad");
 			const notif = await Promise.race([
 				seen,
 				new Promise<never>((_, rej) => setTimeout(() => rej(new Error("no publish")), 2000)),
 			]);
-			expect(notif.uri).toBe("file:///d.st");
+			expect(notif.uri).toBe("file:///d.fb");
 			// Touch nextId so the helper-typed param is used (silences lint).
 			void nextId;
 		});
