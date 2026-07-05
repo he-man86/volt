@@ -151,6 +151,18 @@ Parsing a body into the statement/expression AST SHALL NOT raise any new diagnos
 - **WHEN** the corpus coverage test measures body-AST-clean (bodies that parse fully into the statement tree) across all four corpora
 - **THEN** it reports 100% (pro2193, bakon-nano, awa-palletizer, lenze-mid) with zero identifier-set mismatches, so the token-scan fallback is exercised only by genuinely malformed input, never by real code
 
+### Requirement: Expressions are type-inferred over the body AST
+
+The language server SHALL infer the type of an ST expression by walking the `st-body-ast` expression tree, resolving names through the symbol table and named types through the type resolver. Inference SHALL propagate: literal types (integer width/signedness, REAL vs LREAL, STRING/WSTRING, TIME); member access (`a.b`) by resolving the base expression's type and looking up the member; array indexing to the element type; dereference to the pointer's target type; call expressions to the callee's return type; and binary operations to the IEC result type. When any step cannot be resolved, inference SHALL yield an `unknown` type, and every consumer SHALL treat `unknown` as "skip" — never emitting a diagnostic from an unknown-typed expression.
+
+#### Scenario: Member-chain type is inferred, not abandoned
+- **WHEN** `motor` is a struct/FB with a `REAL` field `speed`, and an expression reads `motor.speed`
+- **THEN** the inferred type of `motor.speed` is REAL (whereas the prior token scan abandoned any `.` expression)
+
+#### Scenario: Unknown type never false-positives
+- **WHEN** an expression references a symbol from an unresolved library or an unmodeled construct
+- **THEN** its inferred type is `unknown` and no type diagnostic is raised for it
+
 <!-- ══════════ C. Analyzer — diagnostics (LSP-owned) ══════════ -->
 
 ### Requirement: Diagnostic defaults mirror TwinCAT
@@ -161,6 +173,42 @@ stricter than the compiler SHALL ship off-by-default. Each check is individually
 #### Scenario: A stricter-than-compiler lint is off by default
 - **WHEN** the default configuration is used
 - **THEN** a lint that TwinCAT would accept is not reported unless explicitly enabled
+
+### Requirement: Type-aware diagnostics resolve through compound expressions
+
+The assignment-type, binary-operator, and conversion diagnostics SHALL evaluate operand types via the type-inference walker rather than a single-token heuristic, so that member access, indexing, dereference, calls, and nested expressions are typed rather than skipped. These diagnostics SHALL NOT raise a false-positive ERROR on any built object of the committed corpora.
+
+#### Scenario: Assignment mismatch through a member l-value
+- **WHEN** a `BOOL` value is assigned to `motor.speed` (a REAL field)
+- **THEN** the assignment-type diagnostic can evaluate both sides (previously it skipped any member l-value)
+
+#### Scenario: Corpus error precision holds
+- **WHEN** the deepened checks run over the four corpora
+- **THEN** ERROR-severity diagnostics on built objects are zero on all four; warnings the compiler also emits are oracle-validated and reported separately, not ratcheted
+
+### Requirement: Call arguments are checked against the callee signature
+
+The language server SHALL check a call expression against the resolved callee's declared parameters: the argument count SHALL be within the callee's required/optional input range, each positional and named argument's inferred type SHALL be assignment-compatible with its parameter, and a named argument SHALL name a parameter the callee actually declares. When the callee or a parameter type cannot be resolved, the affected check SHALL be skipped (no false positive). A call that MIXES a named argument with a positional one SHALL NOT bind the positional argument by index — that mapping is ambiguous, so positional type-checking runs only on all-positional calls.
+
+#### Scenario: Wrong argument type is flagged
+- **WHEN** a function block input declared `INT` is called with a `STRING` argument
+- **THEN** a call-argument-type diagnostic is raised
+
+#### Scenario: Unknown named parameter is flagged
+- **WHEN** a call uses `paramX := value` and the callee declares no `paramX`
+- **THEN** an unknown-named-argument diagnostic is raised
+
+#### Scenario: A mixed named+positional call does not false-positive
+- **WHEN** a call passes a named argument and then a positional one (`fb(In := x, y)`)
+- **THEN** the positional `y` is NOT type-checked against parameter 0; the named argument is still checked by name
+
+### Requirement: Narrowing-conversion diagnostic
+
+The language server SHALL emit a WARNING for an implicit narrowing / loss-of-precision conversion the compiler also warns on — currently assigning an `LREAL` expression to a `REAL` target ("possible loss of information"). It is ENABLED by default: the compiler oracle (a recorded conformance fixture) confirmed BOTH CODESYS and TwinCAT emit the warning, and the LSP mirrors each vendor's exact wording. It remains individually gated by a config flag. Being a warning (the code still compiles), it is validated by the conformance oracle and reported separately by the corpus harness — never counted in the zero-ERROR precision floor.
+
+#### Scenario: LREAL to REAL narrowing warns
+- **WHEN** an `LREAL` expression is assigned to a `REAL` variable
+- **THEN** a narrowing-conversion warning is raised, matching the compiler's warning on the same site
 
 ### Requirement: LSP diagnostics cover what the bridge rejects
 

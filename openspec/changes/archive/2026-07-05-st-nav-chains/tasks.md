@@ -21,8 +21,12 @@
 ## 4. Cross-file spot-checks
 
 - [ ] 4.1 Query snapshots over the corpus: definition into library-adjacent files, references across files, hover types, completion in library-heavy scopes. Inherited from `harden-lsp-real-project` §6.
+  - DEFERRED (2026-07-05, archived): the core chain-nav functionality is validated by the unit tests and the
+    existing corpus query snapshots (code-action, document-highlight ≈ references, selection-range,
+    signature-help, folding-range — all green over all 4 corpora). A dedicated definition / hover / completion
+    snapshot pass over library-heavy scopes remains a follow-up; not a blocker for the landed capability.
 
 ## 5. Land it
 
-- [ ] 5.1 `cd packages/volt-lsp-iec && bun test` green and `bun typecheck` clean; corpus ratchet unaffected.
-- [ ] 5.2 `openspec validate st-nav-chains`; sync the `language-server` delta + archive.
+- [x] 5.1 `cd packages/volt-lsp-iec && bun test` green and `bun typecheck` clean; corpus ratchet unaffected.
+- [x] 5.2 `openspec validate st-nav-chains`; delta already synced into the main `language-server` spec; archived.

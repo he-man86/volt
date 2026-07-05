@@ -1,6 +1,6 @@
 ## 0. Prerequisite
 
-- [ ] 0.1 Confirm `st-body-ast` is landed — `BodyModel.statements` + `statementsOk` available (it is; archived work).
+- [x] 0.1 Confirm `st-body-ast` is landed — `BodyModel.statements` + `statementsOk` available (it is; archived work).
 
 ## 1. Shared semantic-query service — the "one step back" (D6)
 
@@ -42,4 +42,4 @@ Build `src/semantic/type-infer.ts` as the shared service both `checks/**` and `l
 - [x] 6.1 `cd packages/volt-lsp-iec && bun test` green (unit + corpus) and `bun typecheck` clean; the §1 dedup left behavior unchanged (full suite green after each collapse).
 - [x] 6.2 Corpus precision floors hold for the always-on checks; new opt-in checks have their own oracle-proven floors. Zero new false positives on built objects.
 - [x] 6.3 Token-fallback path **KEPT** — body-parse-clean is 81–86% (< the ~95% bar), so unparsed bodies still need it. Toolchain map updated.
-- [ ] 6.4 `openspec validate st-type-inference`; sync the `language-server` delta + archive.
+- [x] 6.4 `openspec validate st-type-inference`; sync the `language-server` delta + archive.

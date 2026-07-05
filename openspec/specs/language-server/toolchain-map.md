@@ -16,8 +16,8 @@ independently as it lands.
 | # | Phase | Change | Status |
 |---|---|---|---|
 | 0 | **Body AST** — statement/expression tree (the treewalker) | `st-body-ast` | ✅ done (archived) |
-| 1 | **Type inference & type-aware diagnostics** — engine + assignment/binary/conversion/call-arg/narrowing checks, message-parity with the compilers | `st-type-inference` | ✅ **done** (2026-07-05, ready to archive) — `type-infer.ts` is the shared engine (checks + queries); every type-aware check landed & oracle-validated; each diagnostic the LSP shares with the compiler reads **byte-identical** to it (per-vendor); corpus precision **0 errors** on all 4. Detail in `diagnostics-conformance.md`. |
-| 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | 🟡 built (chain nav + type-aware references/rename/document-highlight + call-hierarchy member calls + bare-enum full nav, all green; inference gained `THIS^`/`GVL.field`/enum static bases). Remaining: §4 cross-file corpus spot-checks, then archive. |
+| 1 | **Type inference & type-aware diagnostics** — engine + assignment/binary/conversion/call-arg/narrowing checks, message-parity with the compilers | `st-type-inference` | ✅ **done · archived 2026-07-05** — `type-infer.ts` is the shared engine (checks + queries); every type-aware check landed & oracle-validated; each diagnostic the LSP shares with the compiler reads **byte-identical** to it (per-vendor); corpus precision **0 errors** on all 4. Detail in `diagnostics-conformance.md`. |
+| 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | ✅ **done · archived 2026-07-05** — chain nav + type-aware references/rename/document-highlight + call-hierarchy member calls + bare-enum full nav, all green; inference gained `THIS^`/`GVL.field`/enum static bases. (A dedicated definition/hover/completion corpus-snapshot pass was deferred as a follow-up — not a blocker for the landed capability.) |
 | 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ⬜ planned |
 | 4 | **Performance on large projects** — per-document caching, batched seed, query budget | `st-perf` | ⬜ planned |
 | 5 | **Headless ST test execution** — scan-cycle interpreter + `bun test` API + oracle harness | `st-interpreter` | ⬜ scoped (0/27) |
@@ -25,19 +25,18 @@ independently as it lands.
 
 ## What's next
 
-Phase 1 is complete; Phase 2 is a spot-check from archiving. In priority order:
+Phases 0–2 are archived; diagnostics are compiler-parity. In priority order:
 
-1. **Archive Phases 1 & 2** — `st-type-inference` (done) and `st-nav-chains` (finish the §4 cross-file
-   spot-checks, then archive). Housekeeping that clears the roadmap to the real next build.
-2. **Phase 3 — structural formatter** (`st-format`) — the next real build, and the highest editor-UX payoff
+1. **Phase 3 — structural formatter** (`st-format`) — the next real build, and the highest editor-UX payoff
    now that diagnostics are compiler-parity. A pretty-printer from the AST (the treewalker already produces
    the input), replacing the keyword-indent heuristic.
-3. **Deepen type-aware diagnostics** — small, incremental, oracle-driven, no new phase. Each follows the
+2. **Deepen type-aware diagnostics** — small, incremental, oracle-driven, no new phase. Each follows the
    proven loop (dedicated fixture → record live → mirror message → corpus as the final net): wider narrowings
    beyond LREAL→REAL, more call-arg / conversion cases, and the ~15 `'X' is no input` fixture-design pass.
-4. **Phase 4 — performance** (`st-perf`) — per-document caching + query budget, if/when large projects feel
+   Also the deferred Phase-2 follow-up: definition/hover/completion corpus-snapshot spot-checks.
+3. **Phase 4 — performance** (`st-perf`) — per-document caching + query budget, if/when large projects feel
    slow (not yet observed as a problem).
-5. **Phase 5 — headless ST test execution** (`st-interpreter`) — the biggest north-star item: a scan-cycle
+4. **Phase 5 — headless ST test execution** (`st-interpreter`) — the biggest north-star item: a scan-cycle
    interpreter over the AST so users `bun test` their PLC logic. Scoped, 0/27.
 
 ## Foundations already landed (✅ archived)
