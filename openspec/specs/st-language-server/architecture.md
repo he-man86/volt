@@ -42,7 +42,11 @@ A  syntax        tokens · lexer · complete AST · parser + treewalker
 Tokens, lexer (error-tolerant, trivia-preserving), the **complete AST** (declarations · type expressions with
 structured dims/length/subrange/vector · statements · expressions · literals carrying value + type), and the
 parser + treewalker. Contract: `parse(source) → { units, diagnostics }`; a body materializes to a statement
-tree or a graphical marker. No semantics here.
+tree or a graphical marker. No semantics here. Modern parser concerns: **incremental re-parse** of the edited
+region (perf on large files, paired with the server's incremental sync); **error-recovery nodes** in the tree
+so completion/navigation still work inside a broken region. Design call: the tree is an AST + `BodySpan` trivia,
+NOT a fully-lossless CST — enough for round-trip/formatting without the CST's weight (revisit only if
+tree-rewriting refactors are needed).
 
 ### B — `symbols/`
 The binder: `symbol` · `scope`, `binder` (AST → scope tree, workspace cross-indexed), and `scope-nav` (the one
@@ -77,14 +81,20 @@ a second stack.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,
-capabilities, push **and** pull diagnostics, progress + cancellation, incremental document sync.
+capabilities, push **and** pull diagnostics (with related-information links — "duplicate: first declared
+here"), progress + cancellation, incremental document sync, and file-operation events (`didRename` a POU file →
+update its references, since it is one item per file).
 
 ### Backend — `transpile/`
 A compiler backend, sibling consumer of the frontend (`syntax ← symbols ← types`), not of the LSP. It lowers
 the AST to a small IR carrying resolved types + constant values and emits Rust (`transpile/rust/`, umbrella for
 future targets). IEC→Rust type mapping consumes `types/elementary` (INT→i16, BYTE→u8, subrange/overflow from
 the ranges). Purpose: headless PLC-logic tests — `test/exec/` transpiles a POU, builds it, drives inputs across
-scan cycles, and asserts outputs.
+scan cycles, and asserts outputs. Correctness essentials (or the tests lie): **source maps** (generated Rust →
+ST source lines, so a failed assertion or panic points at the ST, not the emitted code); **codegen diagnostics**
+(report any construct the backend can't lower — an untestable POU is flagged, never silently wrong); and
+**deterministic numerics** (integer overflow wraps per the IEC type's width, REAL/LREAL match the PLC's
+precision — semantics come from `types/`, not Rust's defaults).
 
 ## Testing (built in)
 
