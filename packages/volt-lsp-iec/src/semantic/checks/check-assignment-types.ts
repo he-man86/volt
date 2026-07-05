@@ -47,8 +47,9 @@ export function checkAssignmentTypes(
 				source: "volt-lsp-iec",
 				code: "assignment-type-mismatch",
 				// Mirror the compiler's uniform wording: converting the RHS type to the LHS type failed
-				// (e.g. DINT → INT is narrowing). `typeName` strips the internal enum sentinel for display.
-				message: cannotConvert(typeName(rhs), typeName(lhs)),
+				// (e.g. DINT → INT is narrowing). `rhsDisplayType` renders a string LITERAL the way the
+				// compiler does — length-tagged (`STRING(INT#4)` for `'oops'`) — not as plain `STRING`.
+				message: cannotConvert(rhsDisplayType(s.value, rhs), typeName(lhs)),
 			});
 		});
 	}
@@ -74,6 +75,22 @@ const ENUM_PREFIX = "__enum__:";
 /** A displayable type name — strips the internal enum sentinel so the message shows the bare type. */
 function typeName(key: string): string {
 	return key.startsWith(ENUM_PREFIX) ? key.slice(ENUM_PREFIX.length) : key;
+}
+
+/**
+ * The RHS type as the COMPILER renders it in the mismatch message. A string LITERAL is shown length-tagged —
+ * `STRING(INT#<len>)` (`WSTRING(INT#<len>)` for a `"…"` literal) — matching both CODESYS and TwinCAT byte for
+ * byte. Everything else uses the plain inferred type name.
+ */
+function rhsDisplayType(value: Expr, rhsKey: string): string {
+	if (value.kind === "literal" && (value.literalKind === "string" || value.literalKind === "wstring")) {
+		// Strip the surrounding quotes and count characters.
+		// ponytail: raw code-unit count — IEC `$`-escapes (`$'`, `$0A`) would over-count; no fixture uses them.
+		const inner = value.text.replace(/^['"]/, "").replace(/['"]$/, "");
+		const base = value.literalKind === "wstring" ? "WSTRING" : "STRING";
+		return `${base}(INT#${inner.length})`;
+	}
+	return typeName(rhsKey);
 }
 
 /**

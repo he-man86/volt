@@ -112,7 +112,6 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		"op_sys_queryinterface",
 		// ── other ──
 		"unresolved_identifier_in_body",  // severity matches (error); IDE emits a 2-error cascade, LSP one message.
-		"literal_string_to_int_assignment", // IDE renders the literal type as `STRING(INT#<len>)`; LSP infers plain STRING.
 	]),
 	codesys: new Set<string>([
 		// CODESYS-specific warnings not surfaced by TC. The LSP defaults
@@ -166,7 +165,6 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		"op_sys_try_catch",               // CS: `Identifier 'exc' not defined`; LSP errors with its own wording.
 		// ── other ──
 		"unresolved_identifier_in_body",
-		"literal_string_to_int_assignment",
 		"unknown_attribute_typo",         // CS emits an EXTRA `attribute … unknown` warning atop the matched error.
 		"monitoring_encoding",            // same extra CS-only attribute-lint warning.
 	]),

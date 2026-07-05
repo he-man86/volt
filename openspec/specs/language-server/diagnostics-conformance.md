@@ -252,9 +252,10 @@ quoting), `conditional_orphan_else` (`pragma:`/`Pragma:`). Enforced on both vend
 - **~~`interface_missing_implementation`~~ (CLOSED 2026-07-05):** now mirrored byte-exact, UPPER-casing the
   method + interface names like CODESYS (`There is no implementation for method 'COMPUTE' defined in interface
   'I_MOTOR'`). The uppercase-in-editor was the deliberate call — exact match over prettier.
-- **`literal_string_to_int_assignment`:** IDE renders the literal source type as `STRING(INT#<len>)`; our
-  inference yields plain `STRING`. Needs literal-length rendering (the last real mirror gap; the rest are
-  parser cascades or IDE-only extra warnings).
+- **~~`literal_string_to_int_assignment`~~ (CLOSED 2026-07-05):** the assignment check now renders a string
+  LITERAL length-tagged (`rhsDisplayType` → `STRING(INT#4)` for `'oops'`, WSTRING for `"…"`) in the message
+  ONLY (the `isAssignable` type key stays plain `STRING`). Was the last real mirror gap — **every remaining
+  ledger entry is now a parser cascade or an IDE-only extra diagnostic the LSP has no single message for.**
 
 ## Standing invariants
 
