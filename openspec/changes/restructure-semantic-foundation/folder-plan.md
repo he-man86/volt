@@ -96,9 +96,17 @@ src/
 │   ├── workspace.ts           ← lsp/workspace.ts
 │   ├── detect-vendor.ts       ← detect-vendor.ts
 │   └── protocol-types.ts      ← lsp/types.ts
+├── transpile/                 # (FUTURE) a compiler BACKEND — AST + types → target source. NOT built today;
+│   │                          #   the structure reserves its home. Sibling consumer of the frontend, like services/.
+│   ├── index.ts               # transpile(units, semantics) → emitted files
+│   ├── lower.ts               # AST → a small IR (normalize control flow; attach resolved types/const values)
+│   └── rust/                  # the first target (umbrella like graphical/ — room for c/ · wasm/ later)
+│       ├── emit.ts            #   IR → Rust source
+│       ├── types.ts           #   IEC type → Rust type (INT→i16, BYTE→u8, subrange/overflow semantics) — uses types/elementary
+│       └── runtime/           #   Rust scaffolding: scan-cycle harness + IEC std blocks (TON/CTU/…)
 ├── cli/                       ← bin.ts · init.ts (+ fs-walk.ts)
 ├── index.ts                   # public API surface
-└── test/                      # mirrors the src tree (conformance harness stays)
+└── test/                      # mirrors the src tree (conformance harness); test/exec/ runs transpiled Rust
 ```
 
 ## Feature-coverage cross-check (every capability + diagnostic has a home)
@@ -143,6 +151,23 @@ just one file-set inside it (`graphical/text/`), leaving siblings free for a fut
 term (C# `VgParser`/`VgWriter`/`VG_NOT_CANONICAL`, `volt-git`, `volt-vscode`, the `vg-language.md` spec) is
 product-wide and is NOT renamed here — a canonical rename (candidate: **GT, "Graphical Text"**) is a separate
 cross-package change so the bridge protocol stays stable during this LSP rebuild.
+
+## Future backend: the Rust transpiler (headless test execution)
+
+Not built today, but the structure reserves its home so it fits natively when it lands. A transpiler is a
+compiler **backend**: it reads the same frontend the LSP reads — `syntax/` (AST) + `symbols/` (resolved
+names) + `types/` (types + `const-eval`) — and emits Rust instead of editor answers. So it is a **sibling
+consumer of the frontend**, alongside `analysis/` and `services/`; it does NOT import them (a backend needs no
+diagnostics or hover). This is the architecture paying off: one clean frontend, many backends (LSP today, Rust
+transpiler next).
+
+- **`transpile/`** owns AST→target lowering + emission; `transpile/rust/` is the first target (umbrella, room
+  for `c/`/`wasm/`). IEC→Rust type mapping consumes `types/elementary` directly (INT→i16, BYTE→u8, subrange &
+  overflow semantics from the ranges), so the type-system rebuild is its enabler.
+- **Purpose = testing.** `test/exec/` transpiles a POU to Rust, `cargo build`s it, drives inputs across scan
+  cycles, and asserts outputs — headless PLC-logic unit tests (the toolchain-map's Phase-5 north star, via the
+  transpiler path rather than an interpreter).
+- **Layering:** `transpile ← types ← symbols ← syntax`. Reserve the folder now; leave it empty until built.
 
 ## Open decisions (resolve before building the affected layer)
 
