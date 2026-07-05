@@ -39,6 +39,10 @@ const wsPath = (rel: string): string => join(ws, "src", rel)
 const readWs = (rel: string): string => readFileSync(wsPath(rel), "utf8")
 const writeWs = (rel: string, content: string): void => { mkdirSync(dirname(wsPath(rel)), { recursive: true }); writeFileSync(wsPath(rel), content) }
 const mvWs = (a: string, b: string): void => { mkdirSync(dirname(wsPath(b)), { recursive: true }); renameSync(wsPath(a), wsPath(b)) }
+// Src-relative path of an item = its FULL tree folder (from /refs) + name. Structure-aware so the SAME
+// assertion holds on either vendor's project shape — CODESYS nests items under "Device/Plc Logic/Application",
+// TwinCAT is flat from the PLC-project root. `toFolder: ""` (create at the default root) resolves per vendor.
+const srcRelOf = async (name: string): Promise<string> => { const f = await refsFolder(name); return f ? `${f}/${name}` : name }
 const rmWs = (rel: string): void => rmSync(wsPath(rel), { force: true })
 
 const fb = (name: string, body = "n := n + 1;"): string => `FUNCTION_BLOCK ${name}\nVAR\n\tn : INT;\nEND_VAR\n\n${body}\nEND_FUNCTION_BLOCK\n`
@@ -138,33 +142,37 @@ suite("live: IDE → workspace + merge + git", () => {
 	it("IDE create → pull surfaces it in src/", async () => {
 		const n = `${PREFIX}_ide_create`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(existsSync(wsPath(`${n}.fb`))).toBe(true)
+		expect(existsSync(wsPath(rel))).toBe(true)
 	})
 	it("IDE edit → pull updates src/", async () => {
 		const n = `${PREFIX}_ide_edit`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
 		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 12345;") })
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(readWs(`${n}.fb`)).toContain("12345")
+		expect(readWs(rel)).toContain("12345")
 	})
 	it("IDE delete → pull removes from src/", async () => {
 		const n = `${PREFIX}_ide_del`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
 		await ideDelete(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		expect(existsSync(wsPath(`${n}.fb`))).toBe(false)
+		expect(existsSync(wsPath(rel))).toBe(false)
 	})
 	it("diff baselines: VOLTIDE = last-synced, BRIDGE = live IDE (what the diff tab compares)", async () => {
 		const n = `${PREFIX}_diffbase`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n, "n := 1;") })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
 		// the IDE changes it again → incoming. VOLTIDE (refs/remotes/volt/ide) is the synced baseline, NOT the live IDE.
 		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 999;") })
-		const base = await show(ws, bridge, "VOLTIDE", `${n}.fb`)
-		const live = await show(ws, bridge, "BRIDGE", `${n}.fb`)
+		const base = await show(ws, bridge, "VOLTIDE", rel)
+		const live = await show(ws, bridge, "BRIDGE", rel)
 		expect(Buffer.isBuffer(base) ? base.toString("utf8") : "").toContain("n := 1;") // baseline = last synced
 		expect(Buffer.isBuffer(live) ? live.toString("utf8") : "").toContain("n := 999;") // BRIDGE = live IDE
 	})
@@ -173,12 +181,13 @@ suite("live: IDE → workspace + merge + git", () => {
 	it("non-overlapping edits auto-merge (workspace decl + IDE body)", async () => {
 		const n = `${PREFIX}_merge`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: `FUNCTION_BLOCK ${n}\nVAR\n\tcounter : INT := 0;\n\tlimit : INT := 99;\n\tpad : INT := 5;\nEND_VAR\n\ncounter := counter + 1;\nEND_FUNCTION_BLOCK\n` })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("merge base")
-		const base = readWs(`${n}.fb`) // work from the ACTUAL materialized bytes — catches reassembly drift
-		writeWs(`${n}.fb`, base.replace("limit : INT := 99", "limit : INT := 77")); commit("ws decl edit")
+		const base = readWs(rel) // work from the ACTUAL materialized bytes — catches reassembly drift
+		writeWs(rel, base.replace("limit : INT := 99", "limit : INT := 77")); commit("ws decl edit")
 		await ideSet(`${n}.fb`, { sourceText: base.replace("counter := counter + 1", "counter := counter + 2") })
 		expect((await pull(ws, bridge)).kind).toBe("ok")
-		const after = readWs(`${n}.fb`)
+		const after = readWs(rel)
 		expect(after).toContain("limit : INT := 77")
 		expect(after).toContain("counter := counter + 2")
 		expect(after).not.toContain("<<<<<<<")
@@ -187,18 +196,24 @@ suite("live: IDE → workspace + merge + git", () => {
 	it("simple flow: pull auto-commits local edits, then merges the IDE", async () => {
 		const n = `${PREFIX}_dirty`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n) }) // incoming from the IDE
-		writeWs(`${PREFIX}_dirty_local.fb`, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
+		// A workspace-created item must live at the SAME vendor root as a folder:"" create so it maps to a
+		// valid IDE location on push (CODESYS: under the Application; TwinCAT: the flat root).
+		const root = (await refsFolder(`${n}.fb`)) ?? ""
+		const localRel = root ? `${root}/${PREFIX}_dirty_local.fb` : `${PREFIX}_dirty_local.fb`
+		const ideRel = root ? `${root}/${n}.fb` : `${n}.fb`
+		writeWs(localRel, fb(`${PREFIX}_dirty_local`)) // uncommitted local change
 		expect((await pull(ws, bridge)).kind).toBe("ok") // auto-commits the local edit, then merges the incoming
-		expect(existsSync(wsPath(`${PREFIX}_dirty_local.fb`))).toBe(true) // my local item preserved
-		expect(existsSync(wsPath(`${n}.fb`))).toBe(true) // IDE item pulled in
+		expect(existsSync(wsPath(localRel))).toBe(true) // my local item preserved
+		expect(existsSync(wsPath(ideRel))).toBe(true) // IDE item pulled in
 	})
 
 	// Runs LAST: an aborted merge leaves volt/ide diverged from the branch, so any later pull would re-hit it.
 	it("overlapping edits conflict (both edit the same line)", async () => {
 		const n = `${PREFIX}_conflict`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n, "n := 1;") })
+		const rel = await srcRelOf(`${n}.fb`)
 		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("conflict base")
-		writeWs(`${n}.fb`, readWs(`${n}.fb`).replace("n := 1;", "n := 111;")); commit("ws edit")
+		writeWs(rel, readWs(rel).replace("n := 1;", "n := 111;")); commit("ws edit")
 		await ideSet(`${n}.fb`, { sourceText: fb(n, "n := 222;") })
 		expect((await pull(ws, bridge)).kind).toBe("conflict")
 		git("merge", "--abort")
