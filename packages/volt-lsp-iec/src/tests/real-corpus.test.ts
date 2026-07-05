@@ -111,13 +111,22 @@ const CORPORA: ReadonlyArray<{
 	//   `IConveyor_Shared_Move_Commands`) were on a DEAD FB CODESYS never compiles (never instantiated → no build
 	//   ground truth); the harvest missed its `@volt-uncompiled` marker, now added → diagnostics suppressed.
 	//   totalDiags stays 3; excludedFiles 14→15.
-	{ name: "pro2193", dir: "pro2193", base: { files: 803, parseCleanFiles: 803, ingestFiles: 803, totalDiags: 3, excludedFiles: 15, stBodiesClean: 1712 } },
+	// + 2026-07-05: `TYPE_CLASS` resolved via COMPILER_PROVIDED_IMPLICITS (a system enum the LSP now knows). The
+	//   remaining FP was `FirstCycle_XUnitsToParking` in XYControlFB — a method defined only in the sibling variant
+	//   XYControl_ForZURFB, so XYControlFB is a dead copy-paste variant. All 16 excluded/uncompiled objects are now
+	//   REMOVED from the corpus (the new bridge doesn't ship them at fetch): files 803→787, excludedFiles 15→0,
+	//   totalDiags 3→0. No new FPs — no built body referenced a deleted type.
+	{ name: "pro2193", dir: "pro2193", base: { files: 787, parseCleanFiles: 787, ingestFiles: 787, totalDiags: 0, excludedFiles: 0, stBodiesClean: 1712 } },
 	// bakon 275→231 (4351 stubs). The −44 was the library floor; the 231 residual is a PROJECT-LOCAL gap — bare
 	// enum-value references (`StateAutomatic` of sState, `Prod_*` of sProdType) the unresolved check doesn't yet
 	// resolve against in-scope enums. Tracked separately from libraries.
 	// bakon 11→10 (117 sigs; `SysTimeRtcGet` cleared). Residual 10 = implicit CODESYS globals (`IoConfig_Globals`,
 	// `g_dwAGM1_Status`) — a separate follow-up; compiler-verified as false positives (bakon builds 0 errors).
-	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 247, parseCleanFiles: 247, ingestFiles: 247, totalDiags: 10, excludedFiles: 0, stBodiesClean: 105 } },
+	// + 2026-07-05: `IoConfig_Globals` (auto-generated I/O-mapping GVL) resolved via COMPILER_PROVIDED_IMPLICITS.
+	//   `g_dwAGM1_Status` was only a COMMENT in Global_Variables.gvl and its call site in CyclicTask is commented
+	//   out ("Moved to the CAN BRIDGE PLC") → ControlStatusAGMs is dead; REMOVED (new bridge doesn't ship it):
+	//   files 247→246, totalDiags 10→0. ("bakon builds 0 errors" above = the object was already build-excluded.)
+	{ name: "bakon-nano", dir: "bakon-nano", base: { files: 246, parseCleanFiles: 246, ingestFiles: 246, totalDiags: 0, excludedFiles: 0, stBodiesClean: 105 } },
 	// awa-palletizer (2026-07-03): the "AWA_Palletizer 09_1" project (54 source files) — a PackML/NextGen-library
 	// machine using `{attribute 'qualified_only'}` GVLs with deep qualified access (PC01_GVL.UN01.myState.…).
 	// Surfaced + fixed a REAL parser gap: a stray double semicolon (`x : T;;`) in a STRUCT or VAR block (CODESYS
@@ -159,7 +168,7 @@ const CORPORA: ReadonlyArray<{
 	//   `EXECUTE … END_EXECUTE`. That exposed a VG-parser gap: an EXECUTE box's `IF en THEN` guard is multi-line and
 	//   consumed in preprocessing, so `en` wasn't registered as an EN wire and `LET en := <wire>` mis-tripped
 	//   VG_LEAF_REFERENCES_TEMP. Now the guard is seeded into enWires from the execute body. lenze 4→0.
-	{ name: "lenze-mid", dir: "lenze-mid", base: { files: 366, parseCleanFiles: 366, ingestFiles: 366, totalDiags: 0, excludedFiles: 1, stBodiesClean: 138 } },
+	{ name: "lenze-mid", dir: "lenze-mid", base: { files: 365, parseCleanFiles: 365, ingestFiles: 365, totalDiags: 0, excludedFiles: 0, stBodiesClean: 138 } },
 ];
 
 for (const { name, dir, base } of CORPORA) {

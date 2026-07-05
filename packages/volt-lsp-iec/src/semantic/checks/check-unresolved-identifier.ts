@@ -25,6 +25,13 @@ import { type DiagnosticItem, KEYWORD_SET, getBody, findScopeForUnit } from "./_
  */
 const CONDITIONAL_PRAGMA_RE = /^\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i;
 
+/**
+ * CODESYS compiler-provided implicit global/type roots — lowercased. Never in project source, always
+ * resolvable by the compiler. Extend as more surface in the corpus (guard: each must be a genuine CODESYS
+ * built-in, not a project symbol we're failing to resolve for another reason).
+ */
+const COMPILER_PROVIDED_IMPLICITS: ReadonlySet<string> = new Set(["ioconfig_globals", "type_class"]);
+
 function bodyContainsConditionalPragma(body: BodySpan): boolean {
 	for (const tok of body.tokens) {
 		if (tok.kind === "pragma" && CONDITIONAL_PRAGMA_RE.test(tok.text)) return true;
@@ -123,6 +130,14 @@ export function checkUnresolvedIdentifiers(
 			}
 			const name = ref.name;
 			if (KEYWORD_SET.has(name.toLowerCase())) continue;
+			// CODESYS COMPILER-PROVIDED implicit globals/types — never declared in project source, but always
+			// resolvable by the compiler, so a bare reference (usually the root of a member chain) is valid:
+			//   - `IoConfig_Globals` — the auto-generated I/O-mapping GVL (`IoConfig_Globals.<Device>.<pin>`),
+			//     present in every CODESYS project with a device tree; its members are device-defined.
+			//   - `TYPE_CLASS` — the system enum used with `__VARINFO` / type reflection (`TYPE_CLASS.TYPE_SUBRANGE`).
+			// Verified against the real-project corpus (bakon-nano, pro2193). Skipping is conservative (a bare
+			// reference to one of these on a NON-CODESYS project would just miss a check, never false-positive).
+			if (COMPILER_PROVIDED_IMPLICITS.has(name.toLowerCase())) continue;
 			// Built-in conversion operators (`INT_TO_REAL`, etc.) are
 			// implicit lexical tokens, not symbols in any scope. Skip
 			// them here — `checkConversionCalls` validates their own
