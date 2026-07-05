@@ -181,6 +181,40 @@ transpiler next).
 4. **checks/types/ `deref` + `vendor-only-operator`** — type-ish but not compatibility; acceptable in `types/`
    or a `misc/`. *Lean:* `types/` (both are operand-type rules).
 
+## Testing — integrated & oracle-backed (diagnostics match CODESYS + TwinCAT 100%)
+
+The test architecture is PART of the structure, not appended. The load-bearing property — every LSP diagnostic
+message is byte-identical to the vendor compiler's — is guaranteed *by construction*, because the replay test
+won't pass unless it is. Three layers (the `language-server` spec's test-architecture requirement):
+
+```
+test/
+├── conformance/            # (1) feature tests ↔ the LIVE-compiler oracle — the "match 100%" system
+│   ├── catalog/            #   fixtures grouped by IEC construct (operators · types · conversions · OOP ·
+│   │                       #   pragmas · declarations · …); ONE fixture per rule in coverage-matrix.md
+│   ├── record.ts           #   the recorder: push each fixture + a PLC_PRG instantiation to the live bridge
+│   │                       #   (CODESYS :8556 / TwinCAT :8555), build, record the compiler's exact per-object
+│   │                       #   diagnostics. (was scripts/record-language.ts — now first-class)
+│   ├── recordings/         #   expected-codesys.json · expected-tc.json — the committed oracle truth
+│   └── replay.test.ts      #   OFFLINE: run the LSP's diagnostics on each fixture; assert the message SET is
+│                           #   BYTE-IDENTICAL to the recording, per vendor. Message-identity is the SINGLE
+│                           #   criterion; KNOWN_DIVERGENCES is the only opt-out (parser-cascade / IDE-only).
+├── corpus/                 # (3) the real-project ratchet — the safety net
+│   ├── projects/           #   the 4 committed projects
+│   └── ratchet.test.ts     #   precision 0 ERRORS on built objects; a corpus miss ⇒ ADD a catalog fixture
+│                           #   (never a threshold tweak) ⇒ record ⇒ mirror
+└── exec/                   # (future) transpile a POU → Rust → run → assert I/O across scan cycles
+```
+
+Plus **co-located unit tests** — `syntax/lexer.test.ts` beside `syntax/lexer.ts`, `types/compat.test.ts` beside
+`types/compat.ts` (the golden tests for `elementary`/`compat` live here). (2) **Navigation assertion tests**
+co-locate with each `services/` module (the compiler gives no nav ground truth).
+
+**The loop, designed in:** corpus surfaces a miss → add a catalog fixture → `record.ts` against CODESYS+TC →
+implement the check + mirror the message (per-vendor where wording differs) → `replay.test.ts` green. So a new
+diagnostic can't ship *unless* its message matches both compilers — the 100% match is enforced, not hoped for.
+Each `analysis/checks/*` rule traces to its catalog fixture; the recorder is the one bridge to the oracle.
+
 ## Build order into this tree (unchanged from architecture.md)
 
 A `syntax/` → B `symbols/` → C `types/` → D `analysis/` → E `services/`, with `reference/`+`graphical/` woven
