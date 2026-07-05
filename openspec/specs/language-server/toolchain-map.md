@@ -18,25 +18,22 @@ independently as it lands.
 | 0 | **Body AST** — statement/expression tree (the treewalker) | `st-body-ast` | ✅ done (archived) |
 | 1 | **Type inference & type-aware diagnostics** — engine + assignment/binary/conversion/call-arg/narrowing checks, message-parity with the compilers | `st-type-inference` | ✅ **done · archived 2026-07-05** — `type-infer.ts` is the shared engine (checks + queries); every type-aware check landed & oracle-validated; each diagnostic the LSP shares with the compiler reads **byte-identical** to it (per-vendor); corpus precision **0 errors** on all 4. Detail in `diagnostics-conformance.md`. |
 | 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | ✅ **done · archived 2026-07-05** — chain nav + type-aware references/rename/document-highlight + call-hierarchy member calls + bare-enum full nav, all green; inference gained `THIS^`/`GVL.field`/enum static bases. (A dedicated definition/hover/completion corpus-snapshot pass was deferred as a follow-up — not a blocker for the landed capability.) |
-| 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ⬜ planned |
+| 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ✅ **done · archived 2026-07-05** — `format-print.ts` pretty-prints statements/expressions + VAR-section declarations from the tree, layered over the token re-indenter (baseline + fallback). Canonical spacing, comments/pragmas/`%FOLDER`/blank-lines woven back. Three invariants proven over all 1511 corpus files: semantic round-trip, preservation, idempotency — **0 failures, 0 body fallbacks**. Surfaced & fixed two root bugs: a body clobbering its POU header line, and the re-indenter dropping a closer keyword that shares a line with a multi-line comment's close. |
 | 4 | **Performance on large projects** — per-document caching, batched seed, query budget | `st-perf` | ⬜ planned |
 | 5 | **Headless ST test execution** — scan-cycle interpreter + `bun test` API + oracle harness | `st-interpreter` | ⬜ scoped (0/27) |
 | X | **Transpiler (ST → JS/C)** — deferred alternative to the interpreter | (none) | ⬜ deferred — only if large/fast simulation is later needed |
 
 ## What's next
 
-Phases 0–2 are archived; diagnostics are compiler-parity. In priority order:
+Phases 0–3 are archived; diagnostics are compiler-parity and formatting is structural. In priority order:
 
-1. **Phase 3 — structural formatter** (`st-format`) — the next real build, and the highest editor-UX payoff
-   now that diagnostics are compiler-parity. A pretty-printer from the AST (the treewalker already produces
-   the input), replacing the keyword-indent heuristic.
-2. **Deepen type-aware diagnostics** — small, incremental, oracle-driven, no new phase. Each follows the
+1. **Deepen type-aware diagnostics** — small, incremental, oracle-driven, no new phase. Each follows the
    proven loop (dedicated fixture → record live → mirror message → corpus as the final net): wider narrowings
    beyond LREAL→REAL, more call-arg / conversion cases, and the ~15 `'X' is no input` fixture-design pass.
    Also the deferred Phase-2 follow-up: definition/hover/completion corpus-snapshot spot-checks.
-3. **Phase 4 — performance** (`st-perf`) — per-document caching + query budget, if/when large projects feel
+2. **Phase 4 — performance** (`st-perf`) — per-document caching + query budget, if/when large projects feel
    slow (not yet observed as a problem).
-4. **Phase 5 — headless ST test execution** (`st-interpreter`) — the biggest north-star item: a scan-cycle
+3. **Phase 5 — headless ST test execution** (`st-interpreter`) — the biggest north-star item: a scan-cycle
    interpreter over the AST so users `bun test` their PLC logic. Scoped, 0/27.
 
 ## Foundations already landed (✅ archived)
@@ -60,7 +57,7 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 | Call-argument checking (count/type/name) | ✅ **ON** (2026-07-05) | 1 `st-type-inference` | enabled after fixing the mixed named+positional binding FP; zero corpus errors |
 | Narrowing-conversion diagnostic (LREAL→REAL) | ✅ **ON** (2026-07-05) | 1 `st-type-inference` | oracle-verified both compilers WARN on it (fixture `narrowing_lreal_to_real`), per-vendor wording mirrored (`Possible`/`possible`) |
 | Member-chain nav (def/hover/completion/refs) | ✅ full chains + type-aware occurrence queries | 2 `st-nav-chains` | editor UX on `a.b.c`, narrowed by symbol identity |
-| Formatter / pretty-printer | 🟡 keyword-indent only | 3 `st-format` | structural formatting |
+| Formatter / pretty-printer | ✅ structural (AST print + re-indent baseline) | 3 `st-format` | canonical spacing; round-trip/preservation/idempotency proven on 1511 files |
 | Perf on large projects (caching, seed, budget) | 🟡 all-or-nothing invalidate | 4 `st-perf` | responsive on big trees |
 | Interpreter (scan-cycle) + std-lib + oracle harness | ⬜ | 5 `st-interpreter` | headless CI tests |
 | Library-blind unresolved floor | ✅ done | `library-signature-index` | resolved |

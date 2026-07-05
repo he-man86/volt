@@ -18,8 +18,8 @@
 
 ## 4. Declarations
 
-- [ ] 4.1 Print POU headers (`FUNCTION_BLOCK … EXTENDS … IMPLEMENTS …`, `METHOD … : <ret>`) and VAR sections from the declaration AST — one declaration per line, canonical `name : TYPE := init;` spacing. No colon-alignment (deferred).
-- [ ] 4.2 Tests over representative declarations (VAR_INPUT/OUTPUT/IN_OUT, arrays, init values, pragmas kept verbatim).
+- [x] 4.1 `printVarSection` prints VAR sections from the declaration AST — one declaration per line, canonical `name : TYPE := init;` spacing, `AT` clause + initializer + type reprinted verbatim from source (the AST keeps them as opaque spans), section modifiers kept in source order, declaration-level pragmas/comments woven back. Falls back to the re-indenter for any declaration the AST can't reprint faithfully (multi-line type/init/at, or a comment interleaved inside the `name : TYPE := init` run). **Scope:** POU header lines (`FUNCTION_BLOCK … EXTENDS/IMPLEMENTS …`, `METHOD … : <ret>`) stay re-indented — they are already clean across the corpus and reprinting them from the lossy declaration AST buys marginal value. No colon-alignment (deferred).
+- [x] 4.2 Tests over representative declarations in `unit/format-declarations.test.ts` (canonical spacing, `AT`/init/multi-name, modifier order, pragma weaving, and the two fallbacks). Also covers two root fixes the corpus surfaced: (a) a body never owns its POU header line — a trailing comment on `METHOD Foo : BOOL // …` survives; (b) the re-indenter now counts a closer keyword that shares a line with a multi-line comment's close (`*) END_CASE`), which previously drifted the level for the rest of the file.
 
 ## 5. Wire-up + fallback
 
@@ -36,4 +36,4 @@
 ## 7. Land it
 
 - [x] 7.1 `cd packages/volt-lsp-iec && bun test` green and `bun typecheck` clean; corpus ratchet unaffected.
-- [ ] 7.2 `openspec validate st-format`; sync the `language-server` delta + archive; mark Phase 3 done in `toolchain-map.md`.
+- [x] 7.2 `openspec validate st-format`; sync the `language-server` delta + archive; mark Phase 3 done in `toolchain-map.md`.

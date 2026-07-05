@@ -1,33 +1,27 @@
 /**
- * `textDocument/formatting` — whole-document re-indentation, configured
- * by `.editorconfig`.
+ * `textDocument/formatting` — whole-document formatting, configured by `.editorconfig`.
  *
- * Design: a token-driven **re-indenter**, not an expression reflow. We
- * only ever change a line's *leading* indentation (and strip trailing
- * whitespace + normalize the final newline). Internal token spacing,
- * operator spacing, and keyword casing are left exactly as written.
+ * Design: a **hybrid**. A token-driven re-indenter (`reindentSt`) fixes every line's leading indentation and
+ * preserves all content — that is the baseline and the fallback. On top of it, each POU body and VAR section
+ * is REPLACED with output printed from the statement/expression AST (`format-print.ts`): canonical internal
+ * spacing (one space around `:=` / binary operators, `, ` between items, `name : TYPE := init;` declarations),
+ * with comments, pragmas, `%FOLDER` markers, and blank lines woven back from the token stream. Only a genuine
+ * parse failure (or a declaration the AST can't reprint faithfully — multi-line type/init, interleaved comment)
+ * falls back to the re-indented baseline. The treewalker is 100% clean on the real-project corpus, so bodies
+ * never fall back there. Keyword casing is left as written (IEC is case-insensitive; the IDE stays canonical).
  *
- * Why so conservative: bodies are opaque (we don't parse statement
- * trees — see memory `graphical-read-only` / the opaque-BodySpan
- * design), and the IDE compiler stays authoritative for statement
- * semantics. Re-spacing expressions risks corrupting code for no real
- * gain; fixing indentation is the high-value, zero-risk 80%.
+ * Format rules come from `.editorconfig` — the cross-editor industry standard, scoped to exactly what this
+ * formatter touches: indent style/size, end-of-line, trailing whitespace, final newline. The LSP
+ * `FormattingOptions` (the editor's own tab settings) are the fallback for any key `.editorconfig` doesn't
+ * specify. We parse `.editorconfig` with a small dependency-free reader rather than pull a WASM-backed package
+ * into the bundled server.
  *
- * Format rules come from `.editorconfig` — the cross-editor industry
- * standard, scoped to exactly what this formatter touches: indent
- * style/size, end-of-line, trailing whitespace, final newline. The LSP
- * `FormattingOptions` (the editor's own tab settings) are the fallback
- * for any key `.editorconfig` doesn't specify. We parse `.editorconfig`
- * with a small dependency-free reader rather than pull a WASM-backed
- * package into the bundled server.
- *
- * Guarantees:
+ * Guarantees (proven over the corpus in `tests/format-corpus.test.ts`):
+ *   - **Semantic round-trip**: `parse(format(x))` produces the same AST as `parse(x)` — the corruption guard.
+ *   - **Preservation**: no comment, pragma, or `%FOLDER` marker is ever dropped.
  *   - **Idempotent**: `format(format(x)) === format(x)`.
- *   - **Round-trip-clean**: the non-trivia token stream is byte-identical
- *     before and after (we only move whitespace, which is trivia).
- *   - **String/comment safe**: interior lines of a multi-line token
- *     (string literal, block comment) are emitted verbatim — never
- *     re-indented — so their content can't be altered.
+ *   - **String/comment safe**: interior lines of a multi-line token (string literal, block comment) are
+ *     emitted verbatim — never re-indented or reflowed — so their content can't be altered.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -37,7 +31,7 @@ import { isTrivia, type Keyword, type Token } from "../../lexer/tokens.js";
 import { parseSource } from "../../parser/parser.js";
 import { parseStatements } from "../../parser/statements.js";
 import { getBody } from "../../semantic/checks/_shared.js";
-import { printBody, type PrintContext } from "./format-print.js";
+import { printBody, printVarSection, type PrintContext } from "./format-print.js";
 
 /** Block openers — the line *after* these is indented one level deeper. */
 const OPENERS: ReadonlySet<Keyword> = new Set<Keyword>([
@@ -133,10 +127,16 @@ export function reindentSt(source: string, opts: IndentOptions): string {
 	for (let i = 0; i < lines.length; i++) {
 		const lineNo = i + 1;
 		const raw = lines[i] ?? "";
+		// The level delta is applied at the end of EVERY line — including protected and blank ones. A real
+		// keyword can share a line with the close of a multi-line comment (`*) END_CASE`): that line is
+		// protected (its text is emitted verbatim, never re-indented), but its `END_CASE` still closes a block,
+		// so its delta must count or the level drifts for the rest of the file.
+		const applyDelta = () => (level = Math.max(0, level + (lineDelta.get(lineNo) ?? 0)));
 
-		// Interior of a multi-line string/comment: never touch it.
+		// Interior of a multi-line string/comment: emit verbatim, but still track the level.
 		if (protectedLines.has(lineNo)) {
 			out.push(raw);
+			applyDelta();
 			continue;
 		}
 
@@ -156,7 +156,7 @@ export function reindentSt(source: string, opts: IndentOptions): string {
 		const content = trimTrailing ? noLead.replace(/[ \t]+$/, "") : noLead;
 		out.push(unit.repeat(thisLevel) + content);
 
-		level = Math.max(0, level + (lineDelta.get(lineNo) ?? 0));
+		applyDelta();
 	}
 
 	const joined = out.join(eol).replace(/(?:\r?\n)*$/, "");
@@ -185,18 +185,35 @@ export function formatDocument(args: FormatArgs): TextEdit[] {
 	// ONLY a genuine parse failure falls back to the re-indented baseline (the treewalker is 100% on real code,
 	// so that never happens on the corpus); the printer is otherwise always used — nothing is dropped.
 	const lines = reindentSt(source, options).split(/\r?\n/);
+	const docTokens = lex(source);
+	const tokensIn = (start: number, end: number): Token[] => docTokens.filter((t) => t.span.start >= start && t.span.end <= end);
 	const repl: Array<{ from: number; to: number; text: string[] }> = [];
 	for (const u of parseSource(source).units) {
+		// VAR sections: canonical `name : TYPE := init;` spacing from the declaration AST.
+		if ("varSections" in u) {
+			for (const sec of u.varSections) {
+				const level = leadingLevel(lines[sec.span.startLine - 1] ?? "", unit);
+				const printed = printVarSection(sec, tokensIn(sec.span.start, sec.span.end), source, ctx, level);
+				if (printed === undefined) continue; // inline struct/multi-line type → keep re-indented
+				repl.push({ from: sec.span.startLine - 1, to: sec.span.endLine - 1, text: printed.split(eol) });
+			}
+		}
+		// Body: canonical statement/expression formatting.
 		const b = getBody(u);
 		if (b === undefined) continue;
 		const st = parseStatements(b);
 		if (!st.ok) continue; // genuine parse failure → keep the re-indented baseline
-		const content = b.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "eof");
-		if (content.length === 0) continue; // truly-empty body — nothing to format
+		// A body that starts mid-line (e.g. `METHOD Foo : BOOL // trailing`) does NOT own the header line —
+		// that trailing comment belongs to the signature (the re-indenter keeps it). Format only whole body lines.
+		const lineStart = source.lastIndexOf("\n", b.span.start - 1) + 1;
+		const headerLine = source.slice(lineStart, b.span.start).trim() !== "" ? b.span.startLine : 0;
+		const content = b.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "eof" && t.span.startLine > headerLine);
+		if (content.length === 0) continue; // truly-empty body (or header-trailing comment only) — nothing to format
 		const first = content[0]!.span.startLine;
 		const last = content[content.length - 1]!.span.endLine;
+		const bodyTokens = headerLine === 0 ? b.tokens : b.tokens.filter((t) => t.span.startLine > headerLine);
 		const baseLevel = leadingLevel(lines[first - 1] ?? "", unit);
-		repl.push({ from: first - 1, to: last - 1, text: printBody(st.statements, b.tokens, ctx, baseLevel, source).split(eol) });
+		repl.push({ from: first - 1, to: last - 1, text: printBody(st.statements, bodyTokens, ctx, baseLevel, source).split(eol) });
 	}
 	// Apply bottom-up so earlier splices don't shift later line indices.
 	repl.sort((a, b) => b.from - a.from);

@@ -17,7 +17,7 @@
  */
 import type {
 	Assignment, CallArg, CaseStatement, Expr, ForStatement, IfStatement, RepeatStatement,
-	Statement, StatementList, TryStatement, WhileStatement,
+	Statement, StatementList, TryStatement, VarSection, WhileStatement,
 } from "../../parser/ast.js";
 import { isTrivia, type Token } from "../../lexer/tokens.js";
 
@@ -133,6 +133,53 @@ export function printBody(statements: StatementList, tokens: readonly Token[], c
 	// internal blank runs on the whole string, because a multi-line block comment `(* … *)` legitimately
 	// contains blank lines that must survive verbatim. Blank-line dedup is done in the weaver instead.
 	return full.replace(/^(?:\r?\n)+/, "").replace(/(?:\r?\n)+$/, "");
+}
+
+// ─── Declarations (VAR sections) ─────────────────────────────────────────
+
+const MOD_KEYWORDS = new Set(["CONSTANT", "RETAIN", "NON_RETAIN", "PERSISTENT"]);
+
+/**
+ * Print a VAR section from the declaration AST — canonical `name : TYPE := init;` spacing, with the type,
+ * initializer, and `AT` clause reprinted VERBATIM from `source` (the AST keeps them as opaque spans, so
+ * this is faithful without traversing every type shape), and declaration-level pragmas/comments woven back.
+ * Returns `undefined` — signalling the caller to keep the re-indented text — for a section with any
+ * declaration the AST can't reprint faithfully: a multi-line type/initializer/address (verbatim-slicing
+ * would flatten it), or a comment/pragma interleaved INSIDE the `name : TYPE := init` run (slice-and-reweave
+ * would relocate it). The common flat `name : TYPE := init;` declaration reprints cleanly. `tokens` are the
+ * section's tokens (document-absolute spans, matching `source`).
+ */
+export function printVarSection(sec: VarSection, tokens: readonly Token[], source: string, ctx: PrintContext, level: number): string | undefined {
+	const spans = (s?: { span: { startLine: number; endLine: number } }) => s !== undefined && s.span.endLine > s.span.startLine;
+	const interleaved = (start: number, end: number) =>
+		tokens.some((t) => (t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma") && t.span.start >= start && t.span.end <= end);
+	const complex = (d: VarSection["decls"][number]) =>
+		spans(d.type) || spans(d.init) || spans(d.at) || interleaved(d.names[0]!.span.start, d.span.end);
+	if (sec.decls.some(complex)) return undefined;
+	const w = new Weaver(extractTrivia(tokens, source), ctx);
+	const pad = indent(ctx, level);
+	const dpad = indent(ctx, level + 1);
+	// Emit the section's modifiers in SOURCE order (CONSTANT/RETAIN/NON_RETAIN/PERSISTENT can be written in any
+	// order) — reordering them would be a gratuitous, non-mirroring change.
+	const firstDeclStart = sec.decls[0]?.span.start ?? sec.span.end;
+	const mods = tokens
+		.filter((t) => t.span.start > sec.span.start && t.span.start < firstDeclStart && MOD_KEYWORDS.has(t.text.toUpperCase()))
+		.map((t) => t.text.toUpperCase());
+	const head = [sec.sectionKind, ...mods].join(" ");
+	const slice = (s: { span: { start: number; end: number } }) => source.slice(s.span.start, s.span.end).trim();
+	let out = pad + head + ctx.eol;
+	for (const d of sec.decls) {
+		out += w.leading(d.span.start, level + 1);
+		const names = d.names.map((n) => n.text).join(", ");
+		const at = d.at !== undefined ? ` AT ${slice(d.at)}` : "";
+		const init = d.init !== undefined ? ` := ${slice(d.init)}` : "";
+		out += `${dpad}${names}${at} : ${slice(d.type)}${init};`;
+		w.markContent();
+		out += w.trailing(d.span.endLine) + ctx.eol;
+	}
+	// Flush any trailing comments/pragmas before END_VAR (no blank line right before it).
+	out += w.leading(sec.span.end, level + 1, true);
+	return out + pad + "END_VAR";
 }
 
 // ─── Expressions ─────────────────────────────────────────────────────────
