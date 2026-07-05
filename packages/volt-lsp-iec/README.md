@@ -64,10 +64,27 @@ bun typecheck        # tsgo --noEmit
 bun test             # bun test runner (unit + conformance + e2e under src/tests/)
 bun run build        # tsc -> dist/ (also runs on `prepare`, i.e. before publish)
 bun run dev          # tsc --watch
+bun run record:language   # re-record the compiler oracle from a LIVE bridge (see below)
 ```
 
 The e2e tests spawn the built `dist/bin.js`, so build before running the full suite. Standalone, the bin also exposes
 `volt-lsp-iec lex <file>` (dump the token stream) and `--version`.
+
+### Re-recording the conformance oracle
+
+`src/tests/conformance/language.test.ts` replays the LSP's diagnostics against per-vendor recordings of the real
+compiler's verdict (`recordings/expected-codesys.json` / `expected-tc.json`) — the replay is pure and needs no bridge.
+To refresh the recordings after adding a catalog test, run the recorder against a live bridge
+(`volt-scripts/codesys-bridge.ps1 up` for CODESYS on `:8556`; TwinCAT on `:8555`):
+
+```bash
+bun run record:language                        # CODESYS (:8556) → expected-codesys.json
+VOLT_BRIDGE_PORT=8555 bun run record:language  # TwinCAT (:8555) → expected-tc.json
+# RECORD_ONLY=<category> or RECORD_LIMIT=<n> restrict the run for a quick smoke.
+```
+
+The recorder isolates each case (reset → push the test + a `PLC_PRG` that instantiates it → `/build` → record the
+non-info diagnostics → reset), so the recording is the compiler's own ground truth, not the LSP's.
 
 ## Running inside opencode
 

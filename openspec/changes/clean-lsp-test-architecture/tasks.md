@@ -22,8 +22,8 @@
 
 - [x] 4.1 Ported the recorder (per-test ISOLATION — /build has no object attribution, and it prevents stale-logic bleed): reset to empty → push test + PLC_PRG instantiation via `volt push` → /build → record non-info diagnostics → reset. `scripts/record-language.ts`. — was: Port the recorder into `scripts/record-language.ts` (from the pre-deletion `volt-agent` version): load `ALL_TESTS`; per category write each case `source` + a PLC_PRG instantiation as a workspace kind-named file, `volt push` (canonical StSplitter path), `POST /build`, scope diagnostics by object name, cleanup; write `recordings/expected-{vendor}.json`. Vendor by port (8556 CODESYS / 8555 TwinCAT).
 - [x] 4.2 Added `record:language` to package.json.
-- [~] 4.3 BLOCKED: `volt init`/`pull` fails — the bridge's `/fetch` emits a `librarySignatures` field volt-git's strict schema rejects. Deferred to change `fix-library-signatures-fetch-shape` (deliver signatures as regular items, not a bespoke field). Recorder validation resumes once that lands. — was: Validate live on ONE category (bridge up via `volt-scripts/codesys-bridge.ps1 up`): recorded diagnostics land, cleanup restores the fixture, `language.test.ts` replays green.
-- [ ] 4.4 Update `language.test.ts` skip message + README to reference the restored `record:language`.
+- [x] 4.3 Validated live against a freshly-built CODESYS `:8556` bridge (unblocked now `fix-library-signatures-fetch-shape` landed): `RECORD_LIMIT=3 bun run record:language` records diagnostics per case (reset → push → `/build` → record → reset), and the fresh recording matches the committed ground truth EXACTLY (3/3: `hide_var` 2 external-write errors, `warning_message` 1 warning, `call_after_init` clean). Restored the full recording; `language.test.ts` replays green (1470/1470).
+- [x] 4.4 `language.test.ts` header + skip messages reference `bun run record:language`; refreshed the stale `volt-agent` provenance comment to point at `scripts/record-language.ts`; added a "Re-recording the conformance oracle" section to the package README (per-vendor ports, `RECORD_ONLY`/`RECORD_LIMIT`).
 
 ## 5. Codify the model
 
@@ -32,5 +32,5 @@
 
 ## 6. Land it
 
-- [ ] 6.1 `cd packages/volt-lsp-iec && bun test` green + `bun typecheck` clean; the corpus ratchet unaffected; net test count DOWN (dedup) with no coverage loss.
-- [ ] 6.2 `openspec validate clean-lsp-test-architecture`; sync the `language-server` delta + archive.
+- [x] 6.1 `bun test` green (3485 pass / 0 fail / 11 skip) + `bun typecheck` clean; corpus ratchet unaffected (precision 0 errors on all 4). Dedup landed in §2–3 (shared helper + dropped redundant snapshots), no coverage loss.
+- [x] 6.2 `openspec validate clean-lsp-test-architecture` passes; synced the `language-server` delta (added the three-layer test-architecture requirement beside the corpus requirement); archived.

@@ -35,10 +35,10 @@ import { ALL_TESTS } from "./fixtures/index.js";
 
 /**
  * Shape of one IDE diagnostic as committed in `expected-*.json`. Mirrors
- * the bridge wire shape (`BridgeDiagnostic` in volt-agent) — kept local
- * here because the replay test only READS the recorded JSON and never
- * talks to a live bridge. Keeping it local avoids a reverse-direction
- * dependency from volt-lsp-iec back into volt-agent.
+ * the bridge wire shape that `scripts/record-language.ts` writes — kept
+ * local here because the replay test only READS the recorded JSON and never
+ * talks to a live bridge, so it needs no dependency on the recorder or the
+ * bridge client.
  */
 interface RecordedDiagnostic {
 	severity: "error" | "warning" | "info";
