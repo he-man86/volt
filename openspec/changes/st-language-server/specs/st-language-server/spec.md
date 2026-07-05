@@ -52,6 +52,26 @@ SHALL be the regression net — a miss it surfaces becomes a new fixture, never 
 - **THEN** the replay passes only if the message is byte-identical to the recorded compiler output for that
   vendor; otherwise CI fails
 
+### Requirement: Vendor differences are a single toggleable, provenance-tagged registry
+
+Every place CODESYS and TwinCAT differ — per-vendor message wording, vendor-only rules, and documented
+divergences — SHALL be a data entry in ONE registry, NOT a hardcoded `activeVendor` branch scattered across
+checks. Each entry SHALL be individually enable/disable-able and tagged with provenance (verified against the
+live compiler vs. suspected bridge artifact vs. deferred). Checks and message builders SHALL read their
+per-vendor output from the registry; disabling an entry SHALL fall back to a single shared behavior. So a
+difference later found to be a bridge bug (e.g. a phantom `__SETVALUE` on a GET-only interface property) is
+removed by flipping one flag, and every difference is auditable in one place.
+
+#### Scenario: A suspected bridge artifact is disabled without touching checks
+- **WHEN** a recorded CS↔TC difference is judged a bridge artifact rather than real vendor behavior
+- **THEN** its registry entry is disabled (one flag), the LSP reverts to shared behavior for that construct, and
+  no check code changes
+
+#### Scenario: Every vendor difference is reviewable in one place
+- **WHEN** someone audits the CODESYS↔TwinCAT surface
+- **THEN** the full set of differences (with provenance and enabled state) is the registry — not a grep across
+  check files
+
 ### Requirement: The graphical sublanguage is native, not a parallel stack
 
 The FBD/LD graphical languages — materialized as readable text — SHALL be a front-end that reuses the shared

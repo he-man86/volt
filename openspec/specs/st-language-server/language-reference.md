@@ -154,3 +154,49 @@ symbolic datasource · 20000 alarm · 24000–26000 visu · 30000 alarm+visu · 
 VAR_STAT · 49985 memory manager · **49990 GVLs** · **50000 POUs** · 50000–71000 visu/datasources · 60000–60100
 device+trend · 123456 unit-conversion · 150000–151000 dialogs/recipes · 200000 shutdown. (A TwinCAT companion
 table is anticipated, not yet present.)
+
+## 10. Vendor differences (CODESYS to TwinCAT)
+
+CODESYS and TwinCAT are the same IEC 61131-3 language; the per-vendor surface is small. **Construct-level**
+differences (which pragma/operator/type exists on which vendor) are the `shared`/`codesys`/`twincat` tags
+throughout sections 1-9 above - those tags ARE the catalog difference. This section adds the **diagnostic-level**
+differences. All of it is a single toggleable, provenance-tagged registry: each entry is individually
+enable/disable-able (`verified-live` / `suspected-bridge` / `deferred`), so a difference later found to be a
+bridge artifact is removed by one flag, not a code edit. When vendor is unset/`auto`, all default to the
+**CODESYS** form. Live re-record (2026-07-05, 244 fixtures): 228 identical, 12 wording, 4 verdict.
+
+### Message-wording (same check, different words per vendor)
+TwinCAT systematically capitalizes (`pragma` to `Pragma`), quotes operators/section-names, writes
+`Functionblock` as one word.
+
+| Construct | CODESYS | TwinCAT |
+|---|---|---|
+| MOD on a non-integer (REAL) | `MOD is not defined for REAL` | `'MOD' is not defined for 'REAL'` |
+| Instantiate an ABSTRACT FB | `Function block <N> is ABSTRACT and cannot be instantiated` | `Functionblock <N> is ABSTRACT and cannot be instantiated` |
+| FB_Init wrong signature | `The FB_Init method ... needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL` | `An 'FB_Init'-Method ... needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL.` |
+| FB_Exit wrong signature | `The FB_Exit method ... must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL.` | `An 'FB_Exit'-Method ... needs an input 'bInCopyCode' of type BOOL.` |
+| LREAL to REAL narrowing (warn) | `... 'REAL': Possible loss of information` | `... 'REAL': possible loss of information` |
+| Orphan conditional pragma | `Unexpected pragma: '<dir>' found without matching 'if'` | `Unexpected Pragma: '<dir>' ...` |
+| VAR-section misplaced | `VAR_TEMP declaration not allowed in this place` | `'VAR_TEMP' declaration not allowed in this place` |
+
+### Rules gated to one vendor
+`vendorOnlyOperator` runs on **twincat only** (flags CODESYS-only `__` operators + `__VECTOR`, legal on
+CODESYS). Every other check runs on **both** - the masks that once gated `externalNonInputWrite`,
+`abstractInstantiation`, `doubleUnderscore`/`consecutiveUnderscores` to one vendor were built on a broken
+recorder and overturned by the fresh live re-record.
+
+### Documented divergences (LSP silent where one IDE errors)
+**VERDICT** = one IDE flags, the other silent; **PARSE-CASCADE** = the IDE sprays 5-7 raw parser errors, the LSP
+emits one clean message (not reproduced). The 4 true CS-to-TC verdict divergences:
+`identifier_backtick_keyword_escape` (CS accepts backtick-escaped idents, TC rejects), `op_sys_new_delete` (CS
+runtime-config rejection, not language), `operand_partial_word_in_dword` (CS-only `.%W`/`.%B`),
+`type_codesys_vector` (CS-only `__VECTOR`). The rest is parse-cascades (`identifier_*_underscore`, `deref_*`,
+`var_non_retain`, `operand_uchar_literal`, the `op_sys_*` operators) + IDE-only-extra lints CS emits
+(`unknown_attribute_typo`, `monitoring_encoding` -> `attribute ... is unknown and will be ignored`).
+
+### Suspected bridge artifacts (disabled - NOT real vendor differences)
+A recorded CS-to-TC divergence is a red flag for a bridge bug. Disabled pending re-verification against a
+freshly-built live bridge:
+- **GET-only interface property.** Previously "TwinCAT requires both accessors (`no implementation for method
+  '__SETVALUE'`), CODESYS accepts GET-only." IEC allows GET-only, so the rejection is almost certainly the
+  **Beckhoff bridge** synthesizing a phantom `__SETVALUE`. Not modeled as a vendor difference.
