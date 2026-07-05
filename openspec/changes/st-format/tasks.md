@@ -28,12 +28,12 @@
 
 ## 6. Invariants over the corpus
 
-- [ ] 6.1 **Semantic round-trip** property test: for every clean body in the 4 corpora, `parse(format(src))` deep-equals `parse(src)`.
-- [ ] 6.2 **Comment preservation** property test: the multiset of comment texts is unchanged over the 4 corpora.
-- [ ] 6.3 **Idempotency** test: `format(format(x)) == format(x)`, including documents that mix AST-printed and fallback bodies.
-- [ ] 6.4 Report the fallback rate over the corpus (how many bodies took the re-indenter path) so it's measured, not assumed.
+- [x] 6.1 **Semantic round-trip** property test: for every clean body in the 4 corpora, `parse(format(src))` deep-equals `parse(src)`.
+- [x] 6.2 **Comment preservation** property test: the multiset of comment texts is unchanged over the 4 corpora.
+- [x] 6.3 **Idempotency** test: `format(format(x)) == format(x)`, including documents that mix AST-printed and fallback bodies.
+- [x] 6.4 Report the fallback rate over the corpus (how many bodies took the re-indenter path) so it's measured, not assumed.
 
 ## 7. Land it
 
-- [ ] 7.1 `cd packages/volt-lsp-iec && bun test` green and `bun typecheck` clean; corpus ratchet unaffected.
+- [x] 7.1 `cd packages/volt-lsp-iec && bun test` green and `bun typecheck` clean; corpus ratchet unaffected.
 - [ ] 7.2 `openspec validate st-format`; sync the `language-server` delta + archive; mark Phase 3 done in `toolchain-map.md`.

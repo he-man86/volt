@@ -69,13 +69,14 @@ class Weaver {
 	) {}
 
 	/** Emit every not-yet-consumed trivium starting before `before`: comments on their own line at `level`,
-	 *  blank markers as a single empty line (never leading a block, never doubled). */
-	leading(before: number, level: number): string {
+	 *  blank markers as a single empty line (never leading a block, never doubled). `noBlank` drops blanks —
+	 *  used at a block-boundary flush so a blank line never sits right before `ELSE` / `END_*` / the next arm. */
+	leading(before: number, level: number, noBlank = false): string {
 		let out = "";
 		while (this.i < this.ts.length && this.ts[this.i]!.start < before) {
 			const t = this.ts[this.i]!;
 			if (t.kind === "blank") {
-				if (!this.atBlockStart) out += this.ctx.eol; // one blank line
+				if (!this.atBlockStart && !noBlank) out += this.ctx.eol; // one blank line
 			} else {
 				out += this.ctx.unit.repeat(Math.max(0, level)) + t.text + this.ctx.eol;
 				this.atBlockStart = false;
@@ -104,11 +105,13 @@ class Weaver {
 /** Print a full body with its comments woven in. `tokens` is the lexed body; `statements` its parsed tree. */
 export function printBody(statements: StatementList, tokens: readonly Token[], ctx: PrintContext, level = 0): string {
 	const w = new Weaver(extractTrivia(tokens), ctx);
-	let out = printStatements(statements, ctx, level, w, Infinity);
-	// Flush any comments after the last statement (trailing block/file comments).
+	const out = printStatements(statements, ctx, level, w, Infinity);
+	// Flush any comments after the last statement (trailing block/file comments), then drop trailing blank
+	// lines — body content carries none (spacing around the body is the splice context's concern), and a
+	// trailing blank would break idempotency (a lone `\n` isn't a blank marker on re-parse).
 	const tail = w.leading(Infinity, level);
-	if (tail !== "") out = out === "" ? tail.replace(/\n$/, "") : out + ctx.eol + tail.replace(/\n$/, "");
-	return out;
+	const full = tail === "" ? out : out === "" ? tail : out + ctx.eol + tail;
+	return full.replace(/(?:\r?\n)+$/, "");
 }
 
 // ─── Expressions ─────────────────────────────────────────────────────────
@@ -157,9 +160,10 @@ export function printStatements(list: StatementList, ctx: PrintContext, level: n
 		const trail = w !== undefined ? w.trailing(s.span.endLine) : "";
 		parts.push(lead + text + trail);
 	}
-	// Flush own-line comments sitting before this block's closing keyword.
+	// Flush own-line comments sitting before this block's closing keyword — but NOT blank lines (a blank
+	// right before `ELSE`/`END_*`/the next arm is dropped, which also keeps re-printing idempotent).
 	if (w !== undefined && Number.isFinite(rangeEnd)) {
-		const tail = w.leading(rangeEnd, level);
+		const tail = w.leading(rangeEnd, level, true);
 		if (tail !== "") parts.push(tail.replace(/\n$/, ""));
 	}
 	return parts.join(ctx.eol);
@@ -208,9 +212,12 @@ function printAssign(s: Assignment): string {
 	return `${printExpr(s.target)} ${s.op ?? ":="} ${printExpr(s.value)}`;
 }
 
-/** Print a nested body at `level+1`, weaving its comments up to `rangeEnd` (the block's closing keyword). */
+/** Print a nested body at `level+1`, weaving its comments up to `rangeEnd` (the block's closing keyword).
+ *  Adds a trailing newline whenever the body produced ANY line (statements OR flushed comments), so the
+ *  closing/continuation keyword the caller emits next always lands on its own line. */
 function block(body: StatementList, ctx: PrintContext, level: number, w: Weaver | undefined, rangeEnd: number): string {
-	return body.length === 0 && (w === undefined) ? "" : printStatements(body, ctx, level + 1, w, rangeEnd) + (body.length > 0 ? ctx.eol : "");
+	const inner = printStatements(body, ctx, level + 1, w, rangeEnd);
+	return inner === "" ? "" : inner + ctx.eol;
 }
 
 function printIf(s: IfStatement, ctx: PrintContext, level: number, w?: Weaver): string {
