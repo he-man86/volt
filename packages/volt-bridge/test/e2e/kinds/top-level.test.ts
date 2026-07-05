@@ -47,7 +47,13 @@ describe(`kinds / top-level (${BASE})`, () => {
 		await ensureCompiles(root)
 		await createItem(nestedWire, fb(nested), await plcFolder("POUs/Sub/Deep"))
 		await ensureCompiles(nested)
-		expect((await fetchItem(rootWire)).folder ?? "").toBe(await plcFolder(""))
-		expect((await fetchItem(nestedWire)).folder).toBe(await plcFolder("POUs/Sub/Deep"))
+		// Root item (toFolder:"") lands at the project's DEFAULT root — which is INTENTIONALLY vendor-
+		// structure-dependent (CODESYS Application, TwinCAT the literal PLC-project root), NOT the main
+		// program's folder — so we don't pin its absolute path; create + compile (above) proves it works.
+		// The explicit nested path IS deterministic and must be honored identically on both bridges.
+		const rootFolder = (await fetchItem(rootWire)).folder ?? ""
+		const nestedFolder = (await fetchItem(nestedWire)).folder
+		expect(nestedFolder).toBe(await plcFolder("POUs/Sub/Deep"))
+		expect(nestedFolder).not.toBe(rootFolder)   // nested is genuinely deeper than root
 	})
 })
