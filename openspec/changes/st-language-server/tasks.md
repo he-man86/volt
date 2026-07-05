@@ -2,6 +2,13 @@ Build order = the layer stack, bottom-up. Invariant for EVERY task: `cd packages
 `bun typecheck` + corpus 0-error + conformance replay green before its commit. Freeze a layer's contract →
 verify → let the next consume it.
 
+## 0. Guardrails (first — before code accretes)
+- [ ] 0.1 Stand up the layer folders with an `index.ts` barrel each; consumers import from the layer, not deep
+      files. Seed the ownership map (architecture.md) as the single lookup for "where does X live".
+- [ ] 0.2 Add a `dependency-cruiser` (or `eslint-plugin-boundaries`) config that FAILS on: an upward import
+      (`types` → `analysis`), a check importing a sibling check, or a layer re-declaring a lower-layer type.
+      Wire it into `bun lint` / CI so a duplicate/upward import is a build failure, not a review nit.
+
 ## A. syntax
 - [ ] A.1 Complete AST: structured type-expr dims/length/subrange/vector, literals with value+type, initializers
       as expression trees, clean qualified names.

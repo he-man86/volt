@@ -96,6 +96,45 @@ opt-out). `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, 
 tests co-locate with each module; `test/exec/` runs transpiled Rust. The loop: corpus miss → catalog fixture →
 record → mirror the message → replay green. A diagnostic cannot ship unless it matches both compilers.
 
+## Preventing duplication (one home per concern — enforced, not hoped)
+
+The failure mode this architecture exists to kill is the same fact/type created in many places (type ranges
+across 6 files, 4 type renderers, 6 scope walks). Three mechanisms make the *right* home the *easy* home so a
+builder — human or AI — can't re-create what already exists:
+
+**1. The ownership map.** Every reusable concept has exactly ONE owning module. Before adding a type or
+constant, look it up here; if it exists, import it — never redefine.
+
+| Concept | Owner |
+|---|---|
+| Source spans, tokens | `syntax/` (`Span`, `Token`) — the shared foundation everything imports down to |
+| AST node types | `syntax/ast` |
+| Symbols, scopes | `symbols/` |
+| Scope-tree navigation | `symbols/scope-nav` |
+| **Elementary type facts** (ranges, families, bits, signed, rank, aliases) | `types/elementary` — the type-facts SSOT |
+| The `Type` model | `types/type` |
+| Type compatibility (assignable/narrowing/arith/conversion) | `types/compat` |
+| Constant evaluation | `types/const-eval` |
+| Type/expr rendering | `types/render` — the ONE renderer |
+| Diagnostic message building (per-vendor) | `analysis/messages` |
+| Vendor differences | `analysis` vendor-difference registry (data; see `language-reference.md` §10) |
+| Cursor → symbol resolution | `services/shared/resolve-at` |
+| Symbol → Location | `services/shared/locations` |
+| Symbol-kind labels | `services/shared/symbol-kinds` (one `humanKind`) |
+| Language reference data (types/operators/pragmas/…) | `reference/` |
+
+**2. Per-layer barrels.** Each layer exposes its public surface through one `index.ts`; consumers import
+`from "../types"`, not `from "../types/elementary"`. One import path per layer makes "where does X come from"
+unambiguous — re-creating it reads as obviously wrong.
+
+**3. Lint-enforced layering.** A `dependency-cruiser` (or `eslint-plugin-boundaries`) rule FAILS the build when
+an import points upward (`types` importing `analysis`), when a check imports a sibling check, or when a layer
+re-declares a lower-layer type. Imports point downward only — mechanically, not by convention. This is the guard
+an AI cannot skip.
+
+Rule of thumb baked into the build: **if you're about to define a type or a constant table, grep the ownership
+map first.** A second copy is a lint failure, not a style nit.
+
 ## Invariants
 
 - Full test suite + corpus 0-ERROR ratchet + conformance replay green before every commit — the behavioral
