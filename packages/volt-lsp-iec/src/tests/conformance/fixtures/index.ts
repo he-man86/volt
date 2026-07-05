@@ -20,6 +20,8 @@ import { LITERAL_TESTS } from "./literal.js";
 import { OOP_TESTS } from "./oop.js";
 import { OPERANDS_TESTS } from "./operands.js";
 import { OPERATOR_TESTS } from "./operator.js";
+import { OVERFLOW_TESTS } from "./overflow.js";
+import { RANGE_BOUNDS_TESTS } from "./range-bounds.js";
 import { PRAGMA_TESTS } from "./pragma.js";
 import { PRAGMA_TC_TESTS } from "./pragma-tc.js";
 import { SEMANTIC_TESTS } from "./semantic.js";
@@ -52,6 +54,9 @@ export const CATEGORIES: readonly CategoryGroup[] = [
 	{ name: "keyword", tests: KEYWORD_TESTS },
 	{ name: "operands", tests: OPERANDS_TESTS },
 	{ name: "usage-pattern", tests: USAGE_PATTERN_TESTS },
+	// ── Theoretical-gap catalog (coverage-matrix.md rows D3/D9/D10 …) — awaiting oracle recording ──
+	{ name: "range-bounds", tests: RANGE_BOUNDS_TESTS },
+	{ name: "overflow", tests: OVERFLOW_TESTS },
 ];
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests);
