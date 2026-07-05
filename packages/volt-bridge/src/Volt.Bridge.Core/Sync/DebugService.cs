@@ -44,12 +44,15 @@ public static class DebugService
         var bodies = new Dictionary<string, string>();
         foreach (var it in ide.WalkItems())
         {
-            if (ItemKind.Map(it.KindCode) is not ("program" or "function" or "function_block")) continue; // only POUs carry graphical bodies
+            var kind = ItemKind.Map(it.KindCode);
+            if (kind is not ("program" or "function" or "function_block")) continue; // only POUs carry graphical bodies
             string? raw;
             try { raw = ide.ReadXml(it.Item); } catch { raw = null; }
             if (string.IsNullOrEmpty(raw)) continue;
-            var ext = (ide.BodyLanguage(it.Item) ?? "st").ToLowerInvariant();   // full name = bare + body-language ext
-            var full = $"{it.Name}.{ext}";
+            // Name by KIND (.prg/.fun/.fb), same scheme as the workspace (ItemKind.ExtFor) — the raw XML's own
+            // header carries the body language, so the filename doesn't need it. (Was body-language `?? "st"`,
+            // the last vestige of the pre-kind-naming era.)
+            var full = $"{it.Name}.{ItemKind.ExtFor(kind)}";
             bodies[string.IsNullOrEmpty(it.Folder) ? full : $"{it.Folder}/{full}"] = raw!;
         }
         return bodies;

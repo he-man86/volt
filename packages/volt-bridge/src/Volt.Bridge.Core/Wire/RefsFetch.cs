@@ -35,8 +35,9 @@ public class FetchRequest
 
 public class FetchedItem
 {
-    /// <summary>Full workspace filename including extension (e.g. "PLC_PRG.st"; graphical FBD/LD POUs
-    /// are ".st" too, only read-only "Foo.cfc"/reference manifests carry a distinct extension).</summary>
+    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb",
+    /// "MyDut.struct") — see <see cref="Volt.Bridge.Core.Workspace.ItemKind.ExtFor"/>. A graphical FBD/LD
+    /// body keeps its kind extension (language rides in the content), not a distinct one.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
