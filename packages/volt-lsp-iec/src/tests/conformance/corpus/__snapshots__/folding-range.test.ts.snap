@@ -625,27 +625,6 @@ exports[`foldingRange corpus (every conformance test) pin_presentation_order_wil
 ]
 `;
 
-exports[`foldingRange corpus (every conformance test) implicit_parameter_pouname 1`] = `
-[
-  {
-    "endLine": 5,
-    "startLine": 0,
-  },
-  {
-    "endLine": 3,
-    "startLine": 1,
-  },
-  {
-    "endLine": 13,
-    "startLine": 7,
-  },
-  {
-    "endLine": 11,
-    "startLine": 8,
-  },
-]
-`;
-
 exports[`foldingRange corpus (every conformance test) region_basic 1`] = `
 [
   {

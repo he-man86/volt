@@ -1,7 +1,10 @@
 /**
  * Unresolved-identifier diagnostic — walks each POU body, looks up
- * every identifier via the resolver, warns when nothing is found in
- * any reachable scope.
+ * every identifier via the resolver, ERRORS when nothing is found in
+ * any reachable scope (mirrors both compilers, which reject an undefined
+ * identifier; severity promoted from warning once the real-project corpus
+ * reached zero unresolved-identifier false positives — the library-blind
+ * tail was closed via `_libsigs` + COMPILER_PROVIDED_IMPLICITS).
  *
  * Bodies that contain conditional-compile pragmas
  * ({IF}/{ELSIF}/{ELSE}/{END_IF}) are SKIPPED entirely: TC strips dead
@@ -109,7 +112,7 @@ export function checkUnresolvedIdentifiers(
 								const members = lookupLocal(resolved.scope, ref.name);
 								if (members.length === 0) {
 									out.push({
-										severity: "warning",
+										severity: "error",
 										span: ref.span,
 										source: "volt-lsp-iec",
 										code: "unresolved-identifier",
@@ -161,7 +164,7 @@ export function checkUnresolvedIdentifiers(
 			if (bareAccessibleEnumMembers(project).has(name.toLowerCase())) continue;
 			if (resolverLookup(scope, name) !== undefined) continue;
 			out.push({
-				severity: "warning",
+				severity: "error",
 				span: ref.span,
 				source: "volt-lsp-iec",
 				code: "unresolved-identifier",

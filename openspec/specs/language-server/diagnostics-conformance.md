@@ -230,8 +230,11 @@ conversion-call, assignment narrowing, BOOL-in-arithmetic) · duplicate-declarat
   so one LSP message can't match both → needs **per-vendor message templates** (the LSP is vendor-aware). Open.
 - **Parse cascades (`op_sys_*`):** the IDE emits raw parser errors from failing to parse a CODESYS-only
   operator; the LSP emits one clean semantic message. Not feasible/desirable to fake — leave.
-- **Severity-gated (`unresolved_identifier_in_body`):** IDE errors, LSP warns. Flip to error only once the 13
-  corpus library-blind FPs (pro2193: 3, bakon-nano: 10) are driven to 0 — else it ships false-positive errors.
+- **~~Severity-gated~~ (resolved 2026-07-05):** `unresolved-identifier` was promoted warning→error once the
+  corpus reached 0 unresolved-id FPs (the 13 library-blind/dead-object FPs closed via `_libsigs` +
+  `COMPILER_PROVIDED_IMPLICITS` + removing excluded objects). It now mirrors the compilers' severity. The
+  residual message divergence on `unresolved_identifier_in_body` is text/cascade only (IDE emits two errors,
+  the LSP one).
 - **CODESYS-only extra warnings (`unknown_attribute_typo`, `monitoring_encoding`):** CODESYS emits an
   `attribute … is unknown and will be ignored` lint the LSP doesn't model → a new attribute-lint check.
 - **`interface_missing_implementation`:** mirrorable, but CODESYS UPPERCASES the method/interface names

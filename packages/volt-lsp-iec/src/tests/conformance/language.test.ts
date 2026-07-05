@@ -173,8 +173,9 @@ const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		"op_sys_varinfo",
 		"op_sys_try_catch",
 		"op_sys_queryinterface",
-		// Severity-gated: IDE emits an error; the LSP emits a warning until the 13 corpus library-blind FPs are
-		// driven to 0 (promoting now would ship false-positive errors). Flip when the corpus is clean.
+		// Severity now MATCHES (the LSP errors, promoted once the corpus reached 0 unresolved-id FPs). Residual
+		// divergence is text + cascade: the IDE emits TWO errors (`Identifier 'X' not defined` + a follow-on
+		// `Cannot convert type 'Unknown type: 'X'' to type …`); the LSP emits one clean `'X' is not defined`.
 		"unresolved_identifier_in_body",
 		// The IDE renders a string LITERAL's source type as `STRING(INT#<len>)` (e.g. `STRING(INT#4)`); our
 		// inference yields plain `STRING`, so the type-mismatch text can't match without reproducing CODESYS's
@@ -212,8 +213,8 @@ const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// the surplus IDE warning is a CODESYS-only attribute-lint we don't model.
 		"unknown_attribute_typo",
 		"monitoring_encoding",
-		// CODESYS reports the undefined `exc` as an ERROR (`Identifier 'exc' not defined`); the LSP emits a
-		// WARNING (`'exc' is not defined in any reachable scope`) — the same severity-gated unresolved-id case.
+		// CODESYS reports the undefined `exc` as `Identifier 'exc' not defined`; the LSP now also ERRORS but
+		// with its own wording (`'exc' is not defined in any reachable scope`) — text-only divergence.
 		"op_sys_try_catch",
 	]),
 };
