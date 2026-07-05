@@ -1,26 +1,19 @@
-# language-server Specification
+# ST Language Server — behavior spec
 
-## Purpose
+The contracts the `volt-lsp-iec` language server guarantees. It covers three concerns:
 
-The Volt IEC 61131-3 language capability — unified into one spec so there is a single place to work from toward accurate, compiler-parity analysis.
+1. **The language server** — navigation, diagnostics, symbol resolution over the ST statement/expression AST.
+   LSP-owned.
+2. **The graphical (FBD/LD) sublanguage** the LSP analyzes as readable text — *code correctness* is LSP-owned;
+   *format and PlcOpen round-trip* are bridge-owned (`volt-bridge`).
+3. **The on-disk workspace layout** the LSP reads (kind-named files, in-content markers) — bridge/CLI-owned
+   (`volt-bridge` writes it, `volt-git` reconciles it); consumed here offline.
 
-It covers three concerns that were previously separate capabilities:
+This capability is self-contained: together with its sibling docs — `architecture.md` (the layered structure +
+build order), `data-model.md` (the concrete types), `language-reference.md` (the IEC catalog + the CODESYS↔
+TwinCAT differences) — it holds everything needed to build the LSP from the ground up. The HTTP wire it consumes
+is `bridge-protocol`.
 
-1. **The `volt-lsp-iec` language server** — navigation, diagnostics, symbol resolution, and the ST statement/expression AST (the treewalker). LSP-owned.
-2. **The VG graphical sublanguage** the LSP analyzes (editable FBD/LD as text). Its *code correctness* is LSP-owned; its **format and PlcOpen⇄VG round-trip are bridge-owned** (`volt-bridge`).
-3. **The on-disk workspace file layout** the LSP reads (kind-named files, in-content markers). This is **bridge/CLI-owned** (`volt-bridge` writes it, `volt-git` reconciles it); it lives here because the LSP consumes it offline.
-
-Ownership note: sections A–D are LSP requirements. Sections E–F are **bridge/CLI-owned** — included because the LSP depends on them, but changes to VG format/round-trip or file materialization are implemented in `volt-bridge` / `volt-git`, not the language server. See also the sibling specs `bridge-protocol` (the HTTP wire) and the roadmap in `toolchain-map.md`.
-
-### Direction (north star)
-
-This spec states what is true *today*; the end-state we build toward is:
-
-1. **Compiler-parity diagnostics** — accurate, type-aware analysis driven by the ST body AST (the treewalker) and an expression type-inference engine, so the LSP catches what the CODESYS/TwinCAT compiler catches (e.g. narrowing conversions, argument-type mismatches) without a build. *In flight:* change `st-type-inference`.
-2. **Structural formatting** — a pretty-printer that formats from the AST (spacing, alignment, line-breaking), not keyword-indent heuristics. *Landed:* change `st-format` (see the formatting requirements below).
-3. **Headless ST test execution** — let users unit-test their Structured Text in CI with no IDE/hardware: a scan-cycle **interpreter** over the same AST (`set inputs → run N scans → assert outputs`), so `bun test` can drive PLC logic. A JS/C **transpiler** is a deferred alternative, considered only if large/fast simulation is later needed. *Scoped:* change `st-interpreter`.
-
-Each becomes a requirement here **only when it lands** (as the body-AST requirements did). Until then the goal lives in `toolchain-map.md` and the named change proposals — the spec stays a contract, not a wishlist.
 ## Requirements
 
 <!-- ══════════ A. Analyzer — scope & boundaries (LSP-owned) ══════════ -->
@@ -153,7 +146,7 @@ Parsing a body into the statement/expression AST SHALL NOT raise any new diagnos
 
 ### Requirement: Expressions are type-inferred over the body AST
 
-The language server SHALL infer the type of an ST expression by walking the `st-body-ast` expression tree, resolving names through the symbol table and named types through the type resolver. Inference SHALL propagate: literal types (integer width/signedness, REAL vs LREAL, STRING/WSTRING, TIME); member access (`a.b`) by resolving the base expression's type and looking up the member; array indexing to the element type; dereference to the pointer's target type; call expressions to the callee's return type; and binary operations to the IEC result type. When any step cannot be resolved, inference SHALL yield an `unknown` type, and every consumer SHALL treat `unknown` as "skip" — never emitting a diagnostic from an unknown-typed expression.
+The language server SHALL infer the type of an ST expression by walking the expression tree, resolving names through the symbol table and named types through the type resolver. Inference SHALL propagate: literal types (integer width/signedness, REAL vs LREAL, STRING/WSTRING, TIME); member access (`a.b`) by resolving the base expression's type and looking up the member; array indexing to the element type; dereference to the pointer's target type; call expressions to the callee's return type; and binary operations to the IEC result type. When any step cannot be resolved, inference SHALL yield an `unknown` type, and every consumer SHALL treat `unknown` as "skip" — never emitting a diagnostic from an unknown-typed expression.
 
 #### Scenario: Member-chain type is inferred, not abandoned
 - **WHEN** `motor` is a struct/FB with a `REAL` field `speed`, and an expression reads `motor.speed`
@@ -342,7 +335,7 @@ SHALL NOT false-flag when the equivalent Structured-Text reference resolves.
 
 ### Requirement: Structured Text is formatted from the statement/expression AST
 
-`textDocument/formatting` SHALL produce canonical Structured Text by pretty-printing the `st-body-ast` statement/expression tree and the VAR-section declaration AST, layered over a token re-indenter that provides the baseline indentation and handles everything the AST printer does not own (POU header lines, whitespace). The printer SHALL emit: block indentation from tree nesting; one statement per line; a single space around `:=` and binary operators; `, ` between argument and list items; no space before `;`; canonical control-flow spelling (`IF … THEN`, `CASE … OF`, `FOR … DO`); and one declaration per line as `name : TYPE := init;` with the type, initializer, and `AT` clause reprinted verbatim from source and section modifiers (`CONSTANT`/`RETAIN`/`PERSISTENT`) kept in their source order. Parentheses SHALL be emitted only where operator precedence/associativity requires them to preserve meaning. Indent style, size, and end-of-line SHALL continue to resolve from `.editorconfig`, falling back to the editor's `FormattingOptions`. Keyword casing SHALL be left as written (IEC identifiers are case-insensitive).
+`textDocument/formatting` SHALL produce canonical Structured Text by pretty-printing the statement/expression tree and the VAR-section declaration AST, layered over a token re-indenter that provides the baseline indentation and handles everything the AST printer does not own (POU header lines, whitespace). The printer SHALL emit: block indentation from tree nesting; one statement per line; a single space around `:=` and binary operators; `, ` between argument and list items; no space before `;`; canonical control-flow spelling (`IF … THEN`, `CASE … OF`, `FOR … DO`); and one declaration per line as `name : TYPE := init;` with the type, initializer, and `AT` clause reprinted verbatim from source and section modifiers (`CONSTANT`/`RETAIN`/`PERSISTENT`) kept in their source order. Parentheses SHALL be emitted only where operator precedence/associativity requires them to preserve meaning. Indent style, size, and end-of-line SHALL continue to resolve from `.editorconfig`, falling back to the editor's `FormattingOptions`. Keyword casing SHALL be left as written (IEC identifiers are case-insensitive).
 
 #### Scenario: Internal spacing is canonicalized, not just indentation
 - **WHEN** a body contains `x:=a+b*(c-d);` at any indentation

@@ -105,6 +105,6 @@ record → mirror the message → replay green. A diagnostic cannot ship unless 
 - Additive to the protocol; `inferExprType` is the frontend's public entry point.
 
 Requirement-level contracts (compiler-parity, vendor-keying, error-tolerant parsing, VG ownership boundary,
-library resolution, corpus verification) live in `spec.md`; the diagnostic-parity ledger in
-`diagnostics-conformance.md`; the feature-phase roadmap in `toolchain-map.md`. This document is the structural
-blueprint the build follows.
+library resolution, corpus verification) live in `spec.md`; the concrete types in `data-model.md`; the IEC
+catalog + the CODESYS↔TwinCAT differences in `language-reference.md`. This document is the structural blueprint
+the build follows.

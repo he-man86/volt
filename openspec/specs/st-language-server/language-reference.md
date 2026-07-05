@@ -1,9 +1,9 @@
 # IEC 61131-3 language reference catalog
 
 The complete embedded language reference, derived from the working implementation. Vendor tags: **shared** =
-both CODESYS & TwinCAT · **codesys** = CODESYS-only · **twincat** = TwinCAT-only. Per-vendor differences are in
-`vendor-differences.md`; source provenance (helpme-codesys.com / infosys.beckhoff.com, retrieval dates) is
-embedded per reference file.
+both CODESYS & TwinCAT · **codesys** = CODESYS-only · **twincat** = TwinCAT-only. The diagnostic-level
+CODESYS↔TwinCAT differences are in section 10 below; source provenance (helpme-codesys.com /
+infosys.beckhoff.com) is embedded per reference file.
 
 ## 1. Pragmas
 
@@ -90,7 +90,7 @@ DUTs `STRUCT`/`ENUM`/`UNION`/`ALIAS`/subrange are declared via `TYPE … END_TYP
 **Math (IEC):** `ABS` `SQRT` `LN` `LOG` `EXP` `EXPT(b,e)` `SIN` `COS` `TAN` `ASIN` `ACOS` `ATAN`.
 **System (`__`):** `__NEW`/`__DELETE` (shared; needs `enable_dynamic_creation`) · `__ISVALIDREF` (shared) ·
 `__QUERYINTERFACE` `__QUERYPOINTER` `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY` `__VARINFO` `__POSITION`
-`__POUNAME` `__CURRENTTASK` `__COMPARE_AND_SWAP` `__XADD` `__POOL` (all codesys — see vendor-differences) ·
+`__POUNAME` `__CURRENTTASK` `__COMPARE_AND_SWAP` `__XADD` `__POOL` (all codesys — see section 10) ·
 `TEST_AND_SET` (shared) · `INI` (shared, deprecated V2.3 → FB_Init).
 **Namespace:** global (leading `.`) · GVL (`gvl.var`) · library (`lib.symbol`) · enum (`Enum.MEMBER`).
 
