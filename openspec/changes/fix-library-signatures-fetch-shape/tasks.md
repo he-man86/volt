@@ -12,7 +12,7 @@
 
 ## 3. Validate
 
-- [ ] 3.1 Live: `volt-scripts/codesys-bridge.ps1 up`, `volt pull` a library-referencing project succeeds; signatures appear as files; excluded/dead objects are absent. This unblocks `clean-lsp-test-architecture` §4 (the recorder). **(Pending — needs the headless CODESYS bridge running on Windows.)**
+- [x] 3.1 Live (fresh-built CODESYS 3.5.21 bridge on `:8556`): `volt init`/`pull` round-trips (28 files; `.library` namespace stubs materialize as files, no `LibrarySignatures` response field, no `excludeFromBuild`/`deadCode` keys on `/refs` or `/fetch`). Referenced-library **element signatures** render as `FetchedItem`s on a **verbose** fetch (the harvest path; the CLI `pull` is deliberately non-verbose) — proven by referencing `TON` in the fixture POU, building, and seeing `Library Manager/Standard/TON.fb` appear (and `CommFB/ID.fun`) where before there were none: the referenced-only gate working end-to-end. Excluded/dead omission is covered by the offline `FetchExclusionTests` (the minimal fixture has none). This unblocks `clean-lsp-test-architecture` §4 (the recorder).
 - [x] 3.2 Offline: `bun typecheck` + `bun test` green in volt-git (the one failing `vocabulary` test is a pre-existing `ItemKind.Map`↔`item-kinds.json` drift, untouched here); oxlint 0 errors; both bridges build.
 
 ## Notes

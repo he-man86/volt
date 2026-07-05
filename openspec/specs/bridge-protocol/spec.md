@@ -3,23 +3,23 @@
 ## Purpose
 TBD - created by archiving change review-bridge-protocol. Update Purpose after archive.
 ## Requirements
-### Requirement: Exclude-from-build is a per-item wire flag
+### Requirement: The bridge returns only items with compiler ground truth
 
-The bridge SHALL report, per item on both `/refs` and `/fetch`, whether the item is **effectively
-excluded from build** — whether the IDE will compile it, accounting for inheritance (an item whose
-parent folder is excluded from build is itself excluded). CODESYS SHALL derive this from the object's
-`effectively_excluded_from_build` state. The field is additive and optional — absent means `false` —
-and both vendor bridges SHALL serve it identically for the same project state. A bridge that cannot
-determine it SHALL report `false` (fail-open: an item we cannot classify is treated as built and is
-never silently hidden). A vendor without a build-exclusion concept SHALL report `false`.
+The `/refs` and `/fetch` responses SHALL contain only items the compiler can analyze. An object the IDE
+will not compile (excluded-from-build, accounting for folder inheritance) SHALL be omitted from the response
+entirely — absent from `changed`, `items`, and the aggregate versions. A project POU CODESYS did not compile
+(dead/uncalled code), detectable only on a `verbose` fetch that ran a build, SHALL likewise be omitted. The
+response SHALL NOT carry `excludeFromBuild` or `deadCode` metadata fields, and consumers SHALL NOT write
+in-file ground-truth markers — because a file with no ground truth is never delivered, the LSP never analyzes
+it and cannot false-positive on it. Both vendor bridges SHALL behave identically for the same project state.
 
-#### Scenario: An excluded item is flagged, inheriting folder exclusion
-- **WHEN** an item — or its containing folder — is excluded from build in the IDE
-- **THEN** that item reports `excludeFromBuild: true`, and a built sibling reports `false`
+#### Scenario: An excluded-from-build object is not returned
+- **WHEN** a project contains an object flagged "exclude from build" (or inside an excluded folder)
+- **THEN** neither `/refs` nor `/fetch` lists it (no `changed` entry, no `items` version), and the response carries no `excludeFromBuild` field
 
-#### Scenario: Unknown or unsupported state falls open
-- **WHEN** the bridge cannot read the state, or the vendor has no such concept
-- **THEN** the item reports `excludeFromBuild: false` and is treated as built
+#### Scenario: A dead (uncompiled) POU is dropped on a verbose fetch
+- **WHEN** a verbose fetch runs a build and a project POU is absent from the compiled model (uncalled)
+- **THEN** that POU is omitted from `changed`/`items`, and the response carries no `deadCode` field
 
 ### Requirement: The item name is the wire identity
 
@@ -127,6 +127,22 @@ parity gap); TwinCAT returns none.
 #### Scenario: A vendor without extraction returns none
 - **WHEN** the vendor bridge (TwinCAT) cannot extract library signatures
 - **THEN** a verbose fetch returns an empty library-signature set, keeping the wire shape identical
+
+### Requirement: Library signatures are delivered as regular fetch items, not a separate field
+
+The verbose `/fetch` response SHALL deliver referenced-library element signatures as ordinary items in the
+`changed`/`items` set — each a normal fetch item (name, folder, read-only source text, version) — so a
+consumer materializes them through the same path as any other file. The response SHALL NOT carry a bespoke
+top-level `librarySignatures` field. Library signatures SHALL remain read-only (never a push target) and
+SHALL NOT perturb `structureVersion` (they are excluded from the aggregate hash).
+
+#### Scenario: A library signature arrives as a normal changed item
+- **WHEN** a verbose fetch includes referenced-library signatures
+- **THEN** each signature appears in `changed` as a regular fetch item (its rendered declaration as source text) foldered `…/Library Manager/<Library>/<Element>.<kind>`, and the response has no separate `librarySignatures` key
+
+#### Scenario: A strict client parses the response without a schema addition
+- **WHEN** a client with a strict `/fetch` response schema (no `librarySignatures` field) pulls a project that references libraries
+- **THEN** the pull succeeds — the signatures materialize as files with no client schema change
 
 ### Requirement: Graphical Execute boxes round-trip as a first-class VG construct
 
