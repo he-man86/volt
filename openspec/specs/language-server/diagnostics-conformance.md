@@ -39,10 +39,11 @@ rather than false-positive on real projects):
 | `operand_partial_word_in_dword` | accept | reject | CS-only `.%W`/`.%B` partial access |
 | `type_codesys_vector` | accept | reject | CS-only `__VECTOR` SIMD type |
 
-**Message wording is NOT byte-identical (deliberate, presence-based comparison):** 12 fixtures share the
-verdict but differ in text — TC capitalizes (`token`→`Token`, `pragma`→`Pragma`), writes `Functionblock` as
-one word, quotes identifiers (`MOD`→`'MOD'`). The LSP's own wording is often clearer than either compiler's;
-matching text would mean per-vendor message templates (CS≠TC) for zero user benefit. Keep presence-based.
+**Message wording (update 2026-07-05 — the LSP now MIRRORS it):** where CODESYS and TwinCAT word the same
+error differently — TC capitalizes (`pragma`→`Pragma`), writes `Functionblock` as one word, quotes
+identifiers (`MOD`→`'MOD'`) — the checks branch on `activeVendor` and emit the exact per-vendor text. The
+only wording NOT mirrored is inside parser CASCADES (the IDE sprays 5-7 raw parse errors, the LSP emits one
+semantic message) — see the Message mirroring section.
 
 **Bridge-robustness work THIS session (all committed, separate from the above):**
 - `092ae1015` empty-body-clear fix (TwinCAT parity). `b0d76c35b` + `d0a4aa4ba` + `579d110c4` — coverage +
@@ -56,13 +57,15 @@ matching text would mean per-vendor message templates (CS≠TC) for zero user be
    fixture **+ its dependency fixtures + a PLC_PRG that instantiates it** → `/build` → record CODESYS's
    verdict `{buildSuccess, diagnostics}` as ground truth. Isolation prevents stale logic between tests.
    A **fixture guard** flags any case whose compiler verdict contradicts the declared `expectTcAccepts`.
-2. **Replay** (`tests/conformance/language.test.ts`) — runs the LSP on each catalog test and hard-asserts
-   `lspFlagged === recordedFlagged` (presence), snapshotting **both sides' severity + message** so any
-   mismatch is visible. `KNOWN_DIVERGENCES` documents legitimate LSP≠IDE disagreements.
+2. **Replay** (`tests/conformance/language.test.ts`) — runs the LSP on each catalog test and hard-asserts the
+   LSP's error+warning **message set is BYTE-IDENTICAL** to the recording. That single criterion subsumes
+   presence (equal sets ⇒ both flagged the same code). `KNOWN_DIVERGENCES` is the one opt-out — a documented
+   ledger of fixtures that legitimately don't match (VERDICT gaps + parser cascades).
 3. **Discovery** (`scripts/lsp-vs-compiler.ts`) — the same diff over a harvested real-project corpus.
 
-Comparison is **presence-based, not message-text or severity equality** — deliberately: the LSP's wording
-is its own, and some severities legitimately differ (see unresolved-identifier below).
+Comparison is **message-identical** (2026-07-05): the LSP mirrors each compiler's exact wording, per vendor,
+so the editor reads like the IDE. It wasn't always — the shift from presence-based to identical is the
+message-mirroring work below; the residual non-matches are documented, not silently tolerated.
 
 ## Infra status
 
@@ -215,15 +218,17 @@ IDE's, so an engineer sees the same words in the editor and the build pane. Prin
 don't out-do it** — drop the LSP's extra variable-naming / fix-suggestion detail in favour of the compiler's
 exact wording.
 
-**Enforced, not eyeballed.** `language.test.ts` now hard-asserts the LSP's error+warning *message set* equals
-the recording's, per vendor. `KNOWN_MESSAGE_DIVERGENCES[vendor]` lists every fixture we do NOT mirror, each
-with a reason — **that set is the mirror backlog; shrinking it is the work.** Distinct from
-`KNOWN_DIVERGENCES` (presence — whether the LSP flags at all).
+**Enforced, not eyeballed — ONE criterion.** `language.test.ts` hard-asserts the LSP's error+warning *message
+set* is byte-identical to the recording's, per vendor. Message identity subsumes presence, so there is a
+SINGLE exception set — `KNOWN_DIVERGENCES[vendor]`, the ledger of fixtures that legitimately don't match, each
+with a reason (VERDICT gap or parser cascade). The old presence assertion + per-fixture detail snapshot
+(7256 lines) were removed: the `toEqual` is the proof for matches, the ledger documents the rest.
 
 **Mirrored so far:** external-write (`'X' is no input of '<FB>'`, ~13 fixtures) · the type-mismatch family via
 the shared `cannotConvert(from,to)` helper in `checks/_shared.ts` (`Cannot convert type 'X' to type 'Y'` —
 conversion-call, assignment narrowing, BOOL-in-arithmetic) · duplicate-declaration (`A local variable named
-'X' is already defined in '<POU>'`) · vendor-only-operator simplified (dropped the `Tc2_System.…` advice).
+'X' is already defined in '<POU>'`) · interface-missing-implementation (`There is no implementation for method
+'COMPUTE' defined in interface 'I_MOTOR'` — UPPER-cased like CODESYS) · vendor-only-operator simplified.
 
 **Mirrored via per-vendor templates (2026-07-05):** where the LSP emits ONE clean message and the vendors
 differ only in wording, the check now branches on `activeVendor` — `fb_init`/`fb_exit` (canned per-vendor
@@ -244,10 +249,12 @@ quoting), `conditional_orphan_else` (`pragma:`/`Pragma:`). Enforced on both vend
   the LSP one).
 - **CODESYS-only extra warnings (`unknown_attribute_typo`, `monitoring_encoding`):** CODESYS emits an
   `attribute … is unknown and will be ignored` lint the LSP doesn't model → a new attribute-lint check.
-- **`interface_missing_implementation`:** mirrorable, but CODESYS UPPERCASES the method/interface names
-  (`'COMPUTE'`, `'ITF_LANG_WITH_METHOD'`) — a byte-exact mirror shows uppercase in the editor. Casing decision.
+- **~~`interface_missing_implementation`~~ (CLOSED 2026-07-05):** now mirrored byte-exact, UPPER-casing the
+  method + interface names like CODESYS (`There is no implementation for method 'COMPUTE' defined in interface
+  'I_MOTOR'`). The uppercase-in-editor was the deliberate call — exact match over prettier.
 - **`literal_string_to_int_assignment`:** IDE renders the literal source type as `STRING(INT#<len>)`; our
-  inference yields plain `STRING`. Needs literal-length rendering.
+  inference yields plain `STRING`. Needs literal-length rendering (the last real mirror gap; the rest are
+  parser cascades or IDE-only extra warnings).
 
 ## Standing invariants
 
