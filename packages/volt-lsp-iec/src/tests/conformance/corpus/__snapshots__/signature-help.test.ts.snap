@@ -2598,3 +2598,198 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) narrowing_lrea
   },
 ]
 `;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) subrange_init_in_range 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT",
+    "char": 13,
+    "file": "pou",
+    "label": null,
+    "line": 2,
+  },
+  {
+    "activeParameter": null,
+    "callee": "fb_sir",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) subrange_init_above_range 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT",
+    "char": 13,
+    "file": "pou",
+    "label": null,
+    "line": 2,
+  },
+  {
+    "activeParameter": null,
+    "callee": "fb_sar",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) subrange_init_below_range 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT",
+    "char": 13,
+    "file": "pou",
+    "label": null,
+    "line": 2,
+  },
+  {
+    "activeParameter": null,
+    "callee": "fb_sbr",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) subrange_assign_const_out 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "INT",
+    "char": 13,
+    "file": "pou",
+    "label": null,
+    "line": 2,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) array_index_const_in_bounds 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Use",
+    "char": 11,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) array_index_const_out_of_bounds 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Use",
+    "char": 11,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) array_index_const_below_bounds 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Use",
+    "char": 11,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_int_at_max 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_iam",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_int_above_max 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_iabv",
+    "char": 8,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_sint_above_max 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_ssm",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_byte_above_max 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_bam",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_word_above_max 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_wam",
+    "char": 7,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_uint_negative 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "fb_un",
+    "char": 6,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) overflow_typed_literal_int 1`] = `[]`;

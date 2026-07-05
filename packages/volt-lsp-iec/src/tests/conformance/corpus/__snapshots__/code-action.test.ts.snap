@@ -552,3 +552,31 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_c
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_method_array_param 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) narrowing_lreal_to_real 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) subrange_init_in_range 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) subrange_init_above_range 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) subrange_init_below_range 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) subrange_assign_const_out 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) array_index_const_in_bounds 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) array_index_const_out_of_bounds 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) array_index_const_below_bounds 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_int_at_max 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_int_above_max 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_sint_above_max 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_byte_above_max 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_word_above_max 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_uint_negative 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) overflow_typed_literal_int 1`] = `[]`;

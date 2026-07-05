@@ -62918,3 +62918,2763 @@ exports[`selectionRange corpus (POU + PLC_PRG) narrowing_lreal_to_real 1`] = `
   ],
 }
 `;
+
+exports[`selectionRange corpus (POU + PLC_PRG) subrange_init_in_range 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 40,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 45,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) subrange_init_above_range 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 43,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 48,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 28,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 28,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) subrange_init_below_range 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 43,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 48,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 29,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 29,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) subrange_assign_const_out 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 45,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 11,
+          "startLine": 2,
+        },
+        {
+          "endChar": 45,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 48,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) array_index_const_in_bounds 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 46,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 45,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 46,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 50,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 23,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 23,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) array_index_const_out_of_bounds 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 50,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 49,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 50,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 54,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 23,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 23,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) array_index_const_below_bounds 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 49,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 48,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 49,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 4,
+          "startChar": 7,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 53,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 23,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 26,
+          "endLine": 2,
+          "startChar": 23,
+          "startLine": 2,
+        },
+        {
+          "endChar": 27,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 7,
+      "ranges": [
+        {
+          "endChar": 10,
+          "endLine": 7,
+          "startChar": 7,
+          "startLine": 7,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 3,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_int_at_max 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 38,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 37,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 38,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 42,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 22,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 22,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_int_above_max 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 8,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 11,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 11,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 45,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 22,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 22,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_sint_above_max 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 46,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_byte_above_max 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 46,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 21,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_word_above_max 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 41,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 42,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 46,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 23,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 23,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_uint_negative 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 40,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 39,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 40,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 45,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 20,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 20,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`selectionRange corpus (POU + PLC_PRG) overflow_typed_literal_int 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 7,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 45,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 10,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 44,
+          "endLine": 2,
+          "startChar": 10,
+          "startLine": 2,
+        },
+        {
+          "endChar": 45,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 49,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 9,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 8,
+          "startChar": 0,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 7,
+        },
+      ],
+    },
+  ],
+}
+`;
