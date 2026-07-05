@@ -1,117 +1,129 @@
-# Diagnostic coverage matrix
+# ST Static Typechecker — design & coverage
 
-**Purpose — make "did we cover everything?" a checkable question, not a hunch.** Completeness has two
-independent legs:
+**What this is.** A *static typechecker* for Structured Text built on the statement/expression treewalker — the
+compiler's analysis frontend (name resolution + type inference + type-rule checking), **without** the rest of a
+compiler (IR, optimization, codegen, linking). It is the LSP's core engine: the same type facts power
+diagnostics, hover, completion, signature help, and member-chain navigation. The IDE compiler stays the
+authority for building/running the PLC; we **calibrate** the typechecker's verdicts + wording to match it
+byte-for-byte (the record→oracle loop), so the editor and the build pane never disagree.
 
-1. **Deductive (top-down):** every *"Diagnostic candidates"* rule distilled across the CODESYS reference docs
-   (`docs/codesys-reference/0*.md`) has a row here. That is the theoretical universe of source-level checks.
-2. **Empirical (bottom-up):** `scripts/lsp-vs-compiler.ts` over the 4 real corpora returns **empty** — nothing
-   the compiler emits on real code is missed. This backstops any rule the docs failed to distill.
+**Why reframe from "a set of checks."** A professional typechecker is not N ad-hoc checks — it is a *rich type
+model + constant evaluation + one assignability relation, applied systematically*. Modelled that way, most
+"gaps" close as a **consequence** of the type system, not as bespoke checks. Today's engine is name-string
+based with no const-eval, which is exactly the ceiling that blocks range/overflow/bounds rules.
 
-**A row is DONE when** it has a conformance fixture whose recorded CODESYS+TwinCAT verdict the LSP matches
-byte-for-byte (or a documented divergence). **The effort is DONE when** every in-scope row is ✅ *and* the
-gap-finder is empty. Warnings/info are oracle-validated (recorded), never ratcheted; errors are ratcheted on
-the corpus.
+**Completeness (unchanged, now principled).** A typechecker is complete when it enforces every rule of the type
+system. The type system is finite (IEC 61131-3 types + CODESYS extensions), enumerated by the *"Diagnostic
+candidates"* lists across `docs/codesys-reference/0*.md`. **Done = every in-scope row below is ✅ (a fixture
+whose recorded CODESYS+TwinCAT verdict the LSP matches, or a documented divergence) AND `lsp-vs-compiler.ts`
+returns empty on all 4 corpora.** Deductive leg (rows) + empirical leg (gap-finder).
 
-Status legend: ✅ checked + fixture matches oracle · 🟡 partial / opt-in flag off / needs verify · ⬜ gap (no
-check yet) · ⛔ out of scope (parser-level, bridge/device-side, or the doc itself says "not worth it").
+Legend: ✅ done · 🟡 partial / verify · ⬜ gap · ⛔ not type-checking (see boundary).
 
 ---
 
-## 01 — Languages & editors
+## Current architecture → target architecture
 
-| # | Rule (trigger → verdict) | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| L1 | `S=`/`R=` mixed in a multi-assignment chain → **warning** (eval-order trap) | ⬜ | — | new check |
-| L2 | `S=`/`R=`/`REF=` outside ExST context | ⛔ | — | doc: "probably not worth it" (no strict/ExST mode split) |
+| Layer | Today | Target |
+|---|---|---|
+| **Type model** | `InferredType = {kind, name?, scope?}` — name-based | `Type` carrying the checkable facts: elementary **range** (INT −32768..32767, BYTE 0..255…), **subrange** `{min,max}`, **array** `dims:[{lo,hi}]`, **string** `maxLen`, **enum** `members`, struct/FB members, alias target, pointer/ref target |
+| **Constant eval** | none | `evalConst(expr) → ConstValue?` — fold literals + const expressions (`40000`, `INT#40000`, `-5`, index `20`) |
+| **Assignability** | `isAssignable(lhs:string, rhs:string)` | `assignable(src:Type, srcConst?:ConstValue, dst:Type) → Violation?` over the rich model |
+| **Application** | scattered per-check | one relation, applied at every type context |
 
-## 02 — Variables (VAR-section placement & modifiers)
+## Pass 1 — Type-checking pass (the big lever)
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| V1 | `VAR_TEMP` in a function → **error** | ✅ | `varSectionPlacement` · `type_var_temp_in_method` | mirrored per-vendor |
-| V2 | `VAR_TEMP` in a program w/ `{attribute 'subsequent'}` → **error** | 🟡 | `varSectionPlacement`? | verify; overlaps G5 |
-| V3 | `VAR_INST` outside a method → **error** | 🟡 | `varSectionPlacement`? | verify has a fixture |
-| V4 | `VAR PERSISTENT` (no `RETAIN`) in an FB → **error** | ⬜ | — | new — variable-section |
-| V5 | `RETAIN` in a function → **warning** | ⬜ | — | new — variable-section |
-| V6 | `VAR_IN_OUT` passed a literal/constant at call site → **error** | ⬜ | `in-out.ts` (written) | needs call-site analysis + a check |
-| V7 | `VAR_CONFIG` outside a GVL → **error** | 🟡 | `varSectionPlacement`? | verify |
-| V8 | `VAR_EXTERNAL` with an initializer → **error** | ⬜ | — | new — variable-section |
+Walk every expression/statement; type each node; apply `assignable` at each type context. **One pass + the
+rich model + const-eval closes all of these at once**, because they are the same "does it fit?" question:
 
-## 03 — Operators
+| # | Rule | Status | Closed by |
+|---|---|---|---|
+| C0 | `<X>_TO_<Y>(arg)` source-type mismatch → error | ✅ | assignable (conversion family) |
+| C1 | Implicit narrowing (DINT→INT…) → error | ✅→verify wider set | assignable (narrowing) |
+| C1b | Implicit LREAL→REAL → warning | ✅ | assignable (narrowing, warn) |
+| D3 | Subrange literal/const out of range → error | ⬜ | const-eval + target subrange range |
+| D9 | Constant/literal overflow of a type range → error | ⬜ | const-eval + target elementary range |
+| D10 | Array constant index out of bounds → error/warn | ⬜ | const-eval + array dims |
+| C3 | `REAL_TO_<INT>` on a provably out-of-range value → warning | ⬜ | const-eval + target range |
+| — | String literal longer than `STRING(n)` → truncation | ⬜ | assignable (string maxLen) |
+| — | Out-of-range integer → ENUM → error | ⬜ | assignable (enum members) |
+| O0 | `MOD`/arith on REAL/incompatible operands → error | ✅ | operator typing |
+| O2 | Integer expression overflow may be unintended → warn | ⬜ | const-eval (low priority) |
+| P6 | Bit index out of range for the variable's type → error | ⬜ | type bit-width + const-eval |
+| P2 | Partial access on a forbidden target → error | 🟡 | operand typing |
+| C2 | `TRUNC` in an `INT` context → suggest `TRUNC_INT` | ⬜ | result-type check (migration hint) |
+| P1 | int/int division feeding a REAL → suggest `1.0/…` | ⬜ | result-type check |
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| O0 | `MOD` on a REAL operand → **error** | ✅ | `binaryOperatorTypeMismatch` · `op_modulo_on_real` | mirrored per-vendor |
-| O1 | Plain `AND`/`OR` guarding a null-ptr deref → **warning** (suggest `AND_THEN`) | ⬜ | — | new; needs flow/null analysis |
-| O2 | Integer expression where overflow may be unintended → low-prio **warning** | ⬜ | — | low priority |
-| O3 | `__NEW` without `{attribute 'enable_dynamic_creation'}` on the FB → **error** | 🟡 | (see `op_sys_new_delete` divergence) | source-level part is a real gap |
-| O4 | Deprecated `INI` operator → **warning** ("replaced by FB_Init since V3") | ⬜ | — | new small check |
+## Pass 2 — Type-declaration validation
 
-## 04 — Type conversion
+Walk each `TypeExpr` / DUT once; validate its structural rules. One pass:
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| C0 | `<X>_TO_<Y>(arg)` where arg isn't `<X>` → **error** | ✅ | `conversionSourceMismatch` · conversion fixtures | mirrored (`cannotConvert`) |
-| C1 | Implicit narrowing assignment (DINT→INT etc.) → **error** | ✅ | `assignmentTypeMismatch` · `conversion_implicit_dint_to_int` | verify wider set (`narrowing.ts`) |
-| C1b | Implicit LREAL→REAL → **warning** (possible loss) | ✅ | `narrowingConversion` · `narrowing_lreal_to_real` | per-vendor casing mirrored |
-| C2 | `TRUNC` in an `INT` context → suggest `TRUNC_INT` | ⬜ | — | migration hint |
-| C3 | `REAL_TO_<INT>` on a provably out-of-range value → **warning** | ⬜ | — | new; overlaps overflow |
+| # | Rule | Status |
+|---|---|---|
+| D1 | `POINTER TO BIT`, `REFERENCE TO BIT`, `ARRAY OF BIT`, `REFERENCE TO REFERENCE`, `POINTER TO REFERENCE`… → error | ⬜ |
+| D2 | `BIT` outside a STRUCT/FB → error | ⬜ |
+| D4 | `ENUM` with < 2 members → error | ⬜ |
+| D5 | `ENUM` without `{attribute 'strict'}` → information | ⬜ |
+| D6 | `STRUCT`/`UNION` with < 2 members → error | ⬜ |
+| D7 | `STRUCT` nested member with an `AT` clause → error | ⬜ |
+| D8 | `__VECTOR` size ∉ 1..8 or element ∉ {REAL,LREAL} → error | 🟡 |
 
-## 05 — Operands & literals
+## Pass 3 — Declaration-context validation (VAR sections & modifiers)
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| P1 | int/int division whose result feeds a REAL → suggest `1.0/…` (**warning**) | ⬜ | — | new |
-| P2 | Partial access (`.%W`/`.%X`) on a forbidden target (call/literal/property) → **error** | 🟡 | (see `operand_partial_word` divergence) | verify |
-| P3 | Time literal with out-of-order units → **error** | ⛔ | parser | parse-level, not semantic |
-| P4 | Time literal missing `T#` prefix → **error** | ⛔ | parser | parse-level |
-| P5 | Numeric literal with `,` instead of `.` → **error** | ⛔ | parser | parse-level |
-| P6 | Bit index out of range for the source variable's type → **error** | ⬜ | — | new — needs the var's bit-width |
-| P7 | `%`-address not matching device config → **error** | ⛔ | bridge-side | no device config in the LSP |
+Walk each VAR section per POU kind; validate placement + modifiers. One pass:
 
-## 06 — Data types
+| # | Rule | Status |
+|---|---|---|
+| V1 | `VAR_TEMP` in a function → error | ✅ |
+| V2 | `VAR_TEMP` in a program w/ `subsequent` → error | 🟡 |
+| V3 | `VAR_INST` outside a method → error | 🟡 |
+| V4 | `VAR PERSISTENT` (no `RETAIN`) in an FB → error | ⬜ |
+| V5 | `RETAIN` in a function → warning | ⬜ |
+| V7 | `VAR_CONFIG` outside a GVL → error | 🟡 |
+| V8 | `VAR_EXTERNAL` with an initializer → error | ⬜ |
+| G6 | `call_after_*`/`call_before_*` POU with `VAR_INPUT` → error | ⬜ |
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| D1 | `POINTER TO BIT`, `REFERENCE TO BIT`, `ARRAY OF BIT`, `REFERENCE TO REFERENCE`, `POINTER TO REFERENCE`, … → **error** | ⬜ | — | new — type-expression check |
-| D2 | `BIT` outside a STRUCT/FB → **error** | ⬜ | — | new |
-| D3 | Subrange literal provably out of range → **error** | ⬜ | `range-bounds.ts` (written) | new `rangeBounds` check |
-| D4 | `ENUM` with < 2 members → **error** | ⬜ | — | new |
-| D5 | `ENUM` without `{attribute 'strict'}` → **information** | ⬜ | — | opt-in info |
-| D6 | `STRUCT`/`UNION` with < 2 members → **error** | ⬜ | — | new |
-| D7 | `STRUCT` nested member with an `AT <address>` clause → **error** | ⬜ | — | new |
-| D8 | `__VECTOR` size outside 1..8 or element not REAL/LREAL → **error** | 🟡 | `vendorOnlyOperator` (`type_codesys_vector`) | verify |
-| D9 | Constant/literal overflow of a type's range (INT>32767, BYTE>255, unsigned<0) → **error** | ⬜ | `overflow.ts` (written) | new `constantOverflow` check |
-| D10 | Array constant index out of declared bounds → **error/warning** | ⬜ | `range-bounds.ts` (written) | new |
+## Pass 4 — Call-site & flow checks (need cross-references / light flow)
 
-## 07 — Pragmas
+| # | Rule | Status |
+|---|---|---|
+| V6 | `VAR_IN_OUT` passed a literal/constant → error | ⬜ (call-site) |
+| O1 | Plain `AND`/`OR` guarding a null-ptr deref → warning (suggest `AND_THEN`) | ⬜ (flow) |
+| L1 | `S=`/`R=` mixed in a multi-assignment chain → warning | ⬜ |
 
-| # | Rule | Status | LSP check / fixture | Notes |
-|---|---|---|---|---|
-| G1 | Unknown `{attribute '<name>'}` → **warning** (not in catalog) | 🟡 | `unknownPragma` (flag OFF) | oracle-verify then enable (`unknown_attribute_typo`) |
-| G2 | Insert-location violation (`linkalways` not first line) → **warning** | ⬜ | — | new |
-| G3 | Required companion missing (`instance-path` w/o `reflection`) → **error** | ✅ | `pragmaMissingCompanion` | |
-| G4 | Conflicting pragmas on one symbol → **warning** | ✅ | `pragmaConflict` | |
-| G5 | `{attribute 'subsequent'}` w/ `VAR_TEMP` in a program → **error** | 🟡 | (overlaps V2) | |
-| G6 | `call_after_*`/`call_before_*` POU with `VAR_INPUT` → **error** | ⬜ | — | new |
+## Pragma checks (already their own pass — `check-pragmas.ts`)
 
-## Beyond the doc "candidates" — checks the LSP already has (with fixtures)
+| # | Rule | Status |
+|---|---|---|
+| G1 | Unknown `{attribute}` → warning | 🟡 (flag OFF; oracle-verify then enable) |
+| G2 | Insert-location violation → warning | ⬜ |
+| G3 | Required companion missing → error | ✅ |
+| G4 | Conflicting pragmas → warning | ✅ |
+| O4 | Deprecated `INI` operator → warning | ⬜ |
 
-These come from other doc sections, not the distilled candidate lists, and are already mirrored:
-external-non-input-write (`'X' is no input of '<FB>'`), missing-interface-implementation/-signature,
-abstract-instantiation, unresolved-identifier (error), duplicate-declaration, deref-on-non-pointer,
-FB_Init/FB_Exit lifecycle signature, assignment/binary/conversion type-mismatch family, call-argument
-mismatch, orphan/companion/message pragmas.
+## Already mirrored (from other doc sections, not the candidate lists)
 
-## Scoreboard (source-level rows only)
+external-non-input-write · missing-interface-implementation/-signature · abstract-instantiation ·
+unresolved-identifier (error) · duplicate-declaration · deref-on-non-pointer · FB_Init/FB_Exit lifecycle.
 
-- ✅ done: **O0, C0, C1, C1b, V1, G3, G4** (+ the "beyond-candidates" set)
-- 🟡 partial / verify: **V2, V3, V7, O3, P2, D8, G1, G5**
-- ⬜ gap (needs fixture → record → implement → mirror): **L1, V4, V5, V6, V8, O1, O2, O4, C2, C3, P1, P6, D1, D2, D3, D4, D5, D6, D7, D9, D10, G2, G6**
-- ⛔ out of scope: **L2, P3, P4, P5, P7**
+## Scope boundary
 
-**~23 open gaps + 8 to verify.** That is the finite, complete backlog. Each flows through the loop: write a
-fixture here → `record:language` (CODESYS + TC) → implement the check to mirror the message → replay green +
-corpus 0-error. When this scoreboard is all ✅/⛔ and `lsp-vs-compiler.ts` is empty on all 4 corpora, coverage
-is provably complete.
+- **Parser-frontend sibling (not the typechecker, still LSP-worth):** malformed literals — comma-decimal
+  `3,14` (P5), time literal missing `T#` (P4) / out-of-order units (P3). These are lexical/syntax errors the
+  compiler catches while parsing; our lexer is currently *lenient* and accepts them silently. Tighten the
+  lexer to reject + mirror the message as a separate **parser-conformance** track.
+- **Not type-checking (correctly the IDE's job):** `%`-address vs device config (P7), `__NEW` dynamic-memory
+  runtime (O3), persistent-var-list application config. A typechecker skips these because they are runtime /
+  configuration facts, not type-system rules — the source is silent about them.
+
+## Build order (high-leverage first)
+
+1. **Type model + const-eval + `assignable`** (the Pass-1 core) — the single biggest lever; closes the whole
+   range/overflow/bounds/narrowing/string/enum cluster and upgrades the existing name-string checks onto a
+   real model. Regression-guarded by the existing conversion/narrowing/call-arg fixtures + the corpus.
+2. **Pass 2** (type-declaration validation) — mechanical once the walker exists.
+3. **Pass 3** (VAR-section/modifier validation) — extends the existing `varSectionPlacement` check.
+4. **Pass 4 + pragmas + parser-conformance** — the long tail.
+
+Each row: fixture here → `record:language` (CS + TC) → implement in the owning pass → mirror the message →
+replay green + corpus 0-error. Matrix all ✅/⛔ + gap-finder empty ⇒ typechecker complete.
