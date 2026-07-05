@@ -2060,7 +2060,7 @@ exports[`language conformance (LSP vs twincat recording) op_sys_currenttask LSP 
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Operator '__CURRENTTASK' is CODESYS-only and not supported by TwinCAT. Equivalent in twincat: 'Tc2_System.GetCurTaskIndex' (TC exposes task context via the Tc2_System library).",
+    "[error] Operator '__CURRENTTASK' is CODESYS-only and not supported by TwinCAT.",
   ],
   "lspWarnings": 0,
   "name": "op_sys_currenttask",
@@ -2079,7 +2079,7 @@ exports[`language conformance (LSP vs twincat recording) op_sys_try_catch LSP di
   "lspErrors": 4,
   "lspMessages": [
     "[warning] 'exc' is not defined in any reachable scope",
-    "[error] Operator '__TRY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile. (TC has the __TRY block; the CODESYS usage may differ)",
+    "[error] Operator '__TRY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
     "[error] Operator '__CATCH' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
     "[error] Operator '__FINALLY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
     "[error] Operator '__ENDTRY' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
@@ -2116,7 +2116,7 @@ exports[`language conformance (LSP vs twincat recording) op_sys_queryinterface L
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Operator '__QUERYINTERFACE' exists in TwinCAT but with a different signature — the CODESYS form here won't compile. (TC's form takes two interface refs)",
+    "[error] Operator '__QUERYINTERFACE' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.",
   ],
   "lspWarnings": 0,
   "name": "op_sys_queryinterface",

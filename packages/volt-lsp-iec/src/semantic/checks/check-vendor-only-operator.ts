@@ -12,6 +12,10 @@
  *     convert Unknown type … to BOOL"). Still worth flagging, but "not
  *     supported" would be wrong — the message says "different signature".
  *
+ * The message MIRRORS the IDE's verdict (TC won't accept this) and stops there —
+ * it does NOT recommend a specific replacement library. Pointing at `Tc2_System.…`
+ * is an opinionated call the engineer makes, not the LSP's job.
+ *
  * `__ISVALIDREF` is fully TC-compatible and stays silent (shared, verified live).
  *
  * Scans the full source (re-lexed) — not just POU bodies — because type-position
@@ -61,12 +65,12 @@ export function checkVendorOnlyOperators(
 
 		const opEntry = OPERATORS.get(key);
 		if (opEntry !== undefined && opEntry.vendor === "codesys") {
-			const tc = opEntry.equivalentIn?.twincat;
-			const note = tc?.note !== undefined ? ` (${tc.note})` : "";
-			const message = tc?.differentSignature
-				? `Operator '${tok.text}' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.${note}`
-				: `Operator '${tok.text}' is CODESYS-only and not supported by TwinCAT.` +
-				  (tc !== undefined ? ` Equivalent in twincat: '${tc.name}'${note}.` : "");
+			// Plain, factual — state that TwinCAT rejects the operator and stop. NOT the LSP's job to
+			// recommend a replacement library (`Tc2_System.…`). The `equivalentIn` reference data stays in
+			// operators.ts (hover/completion may use it); the diagnostic just no longer surfaces it.
+			const message = opEntry.equivalentIn?.twincat?.differentSignature === true
+				? `Operator '${tok.text}' exists in TwinCAT but with a different signature — the CODESYS form here won't compile.`
+				: `Operator '${tok.text}' is CODESYS-only and not supported by TwinCAT.`;
 			out.push({
 				severity: "error",
 				span: tok.span,
