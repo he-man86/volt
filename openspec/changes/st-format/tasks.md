@@ -1,14 +1,14 @@
 ## 1. Expression printer (the core)
 
-- [ ] 1.1 `printExpr(expr): string` over the expression AST — identifiers, literals (verbatim text), member `a.b`, index `a[i]`, deref `p^`, address-of, calls with positional + `name := value` args, unary, binary with IEC precedence.
-- [ ] 1.2 Parenthesization: emit `(...)` only where a child's precedence is lower than the parent's, or where associativity would otherwise change — guarded by the semantic round-trip test, not guessed.
-- [ ] 1.3 Unit tests per expression form → canonical string; a table of `input → expected`.
+- [x] 1.1 `printExpr(expr): string` over the expression AST — identifiers, literals (verbatim text), member `a.b`, index `a[i]`, deref `p^`, address-of, calls with positional + `name := value` args, unary, binary with IEC precedence.
+- [x] 1.2 Parenthesization: emit `(...)` only where a child's precedence is lower than the parent's, or where associativity would otherwise change — guarded by the semantic round-trip test, not guessed.
+- [x] 1.3 Unit tests per expression form → canonical string; a table of `input → expected`.
 
 ## 2. Statement printer
 
-- [ ] 2.1 `printStatements(list, ctx): string` — assignment (`:=`, and `S=`/`R=`/`REF=`), `IF`/`ELSIF`/`ELSE`, `CASE` with labelled arms, `FOR`/`WHILE`/`REPEAT`, `RETURN`/`EXIT`/`CONTINUE`, bare call statements. One statement per line; block indent from `ctx.level`.
+- [x] 2.1 `printStatements(list, ctx): string` — assignment (`:=`, and `S=`/`R=`/`REF=`), `IF`/`ELSIF`/`ELSE`, `CASE` with labelled arms, `FOR`/`WHILE`/`REPEAT`, `RETURN`/`EXIT`/`CONTINUE`, bare call statements. One statement per line; block indent from `ctx.level`.
 - [ ] 2.2 Indent unit / eol from `IndentOptions` (reuse the existing `.editorconfig` resolution); no new config.
-- [ ] 2.3 Unit tests per statement form, including nested control flow.
+- [x] 2.3 Unit tests per statement form, including nested control flow.
 
 ## 3. Comment reconciliation
 
