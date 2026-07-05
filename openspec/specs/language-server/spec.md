@@ -182,9 +182,10 @@ not a side manifest" in section F below), not a separate manifest. Such
 objects are never compiled by the IDE, so their references are never checked and have no ground truth;
 diagnosing them produces false positives against code the toolchain itself ignores. Excluded items
 SHALL still be parsed, indexed, and materialized — only diagnostics are gated. Consequently, the
-coverage invariant "a clean-compiling project yields zero diagnostics" holds over **built** objects
-only; the coverage harness and its ratchet SHALL measure precision over built objects and report
-excluded-object counts separately, never ratcheting them.
+coverage invariant "a clean-compiling project yields zero ERROR diagnostics" holds over **built** objects
+only; the coverage harness and its ratchet SHALL measure ERROR precision over built objects (warnings the
+compiler legitimately emits are reported separately and oracle-validated, not ratcheted — see "Diagnostics
+are false-positive-free on valid real code") and report excluded-object counts separately, never ratcheting them.
 
 #### Scenario: An excluded object produces no diagnostics
 - **WHEN** an item is flagged `excludeFromBuild: true` and its body references identifiers declared nowhere
@@ -471,18 +472,26 @@ regenerable via a documented step, so it is a durable regression guard, not a on
 
 ### Requirement: Diagnostics are false-positive-free on valid real code
 
-On the valid, library-heavy code in the real-project corpus the LSP SHALL raise **zero
-false-positive diagnostics**. The false-positive-prone semantic checks (unresolved identifier,
-unknown pragma, wrong-vendor pragma, and their peers) and their config defaults SHALL be tuned so
-that a symbol imported from a library, a vendor-legitimate pragma, or any construct the project
-actually compiles is not flagged. Any diagnostic the LSP does raise on the corpus SHALL correspond
-to a genuine defect, not to a gap in the LSP's model of real projects.
+On the valid, library-heavy code in the real-project corpus the LSP SHALL raise **zero false-positive
+ERROR diagnostics**. Precision is measured over ERROR severity because a clean-*building* project guarantees
+zero errors; it does NOT guarantee zero warnings — the compiler legitimately emits warnings (e.g. an implicit
+LREAL→REAL narrowing) without failing the build. WARNING-severity diagnostics are therefore validated by the
+conformance oracle (dedicated recorded fixtures verifying the compiler emits the same warning), reported by
+the corpus harness separately, and NOT ratcheted to zero. The false-positive-prone semantic checks (unresolved
+identifier, unknown pragma, wrong-vendor pragma, and their peers) and their config defaults SHALL be tuned so
+that a symbol imported from a library, a vendor-legitimate pragma, or any construct the project actually
+compiles is not flagged as an error. Any ERROR the LSP raises on the corpus SHALL correspond to a genuine
+defect, not to a gap in the LSP's model of real projects.
 
 #### Scenario: A library-imported symbol is not flagged unresolved
 - **WHEN** the corpus references a symbol declared in an imported library (not in the workspace source files)
 - **THEN** the LSP does not raise an unresolved-identifier diagnostic for it
 
-#### Scenario: The corpus diagnostics sweep is clean
+#### Scenario: The corpus error sweep is clean
 - **WHEN** the diagnostics sweep runs over the whole valid corpus
-- **THEN** it reports no diagnostics — a regression that introduces a false positive fails the sweep
+- **THEN** it reports zero ERROR diagnostics — a regression that introduces a false-positive error fails the sweep
+
+#### Scenario: A true-positive warning is not a false positive
+- **WHEN** a check emits a WARNING the compiler also emits (a conformance fixture records the compiler warning)
+- **THEN** it is validated by that oracle and reported separately by the corpus harness — it does not fail the precision sweep, which counts errors only
 

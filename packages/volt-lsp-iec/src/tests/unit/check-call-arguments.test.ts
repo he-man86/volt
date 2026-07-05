@@ -94,4 +94,47 @@ END_PROGRAM
 `;
 		expect(callArgDiags(src)).toHaveLength(0);
 	});
+
+	// OPEN TOPIC (corpus FanucUnitBaseFB): a call that MIXES a named arg with a positional one — the
+	// positional arg must NOT be index-bound to param 0. `Set(In := <bool>, rDelay)` had `rDelay` (REAL)
+	// wrongly type-checked against `In` (BOOL). When named args are present, positional binding is ambiguous
+	// without full overload resolution, so positional type-checking is skipped (conservative, zero-FP).
+	it("does NOT flag a positional arg in a call that also uses a named arg (mixed binding is ambiguous)", () => {
+		const src = `FUNCTION_BLOCK Setter
+VAR_INPUT
+	In : BOOL;
+	Delay : REAL;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+	t : Setter;
+	flag : BOOL;
+	rDelay : REAL;
+END_VAR
+t(In := flag, rDelay);
+END_PROGRAM
+`;
+		expect(callArgDiags(src)).toHaveLength(0);
+	});
+
+	it("STILL flags a NAMED arg's type error in a mixed call (named binding is unambiguous)", () => {
+		const src = `FUNCTION_BLOCK Setter
+VAR_INPUT
+	In : BOOL;
+	Delay : REAL;
+END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Main
+VAR
+	t : Setter;
+	rDelay : REAL;
+END_VAR
+t(In := rDelay, Delay := rDelay);
+END_PROGRAM
+`;
+		const d = callArgDiags(src); // In := rDelay is REAL→BOOL, a real named-arg error
+		expect(d.length).toBe(1);
+		expect(d[0]!.message).toContain("not compatible");
+	});
 });

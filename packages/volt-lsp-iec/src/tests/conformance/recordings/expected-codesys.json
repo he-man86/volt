@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-07-05T09:05:00Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 244
+    "testCount": 245
   },
   "tests": {
     "hide_var": {
@@ -1621,6 +1621,17 @@
       "buildSuccess": true,
       "durationMs": 293,
       "diagnostics": []
+    },
+    "narrowing_lreal_to_real": {
+      "buildSuccess": true,
+      "durationMs": 257,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+          "line": 0
+        }
+      ]
     }
   }
 }

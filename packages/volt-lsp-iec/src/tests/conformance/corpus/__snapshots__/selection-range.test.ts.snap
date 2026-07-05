@@ -62603,3 +62603,318 @@ exports[`selectionRange corpus (POU + PLC_PRG) use_method_array_param 1`] = `
   ],
 }
 `;
+
+exports[`selectionRange corpus (POU + PLC_PRG) narrowing_lreal_to_real 1`] = `
+{
+  "plc_prg": [
+    {
+      "char": 8,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 15,
+          "endLine": 0,
+          "startChar": 8,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 40,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 39,
+          "endLine": 2,
+          "startChar": 8,
+          "startLine": 2,
+        },
+        {
+          "endChar": 40,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 3,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 5,
+      "line": 4,
+      "ranges": [
+        {
+          "endChar": 11,
+          "endLine": 4,
+          "startChar": 5,
+          "startLine": 4,
+        },
+        {
+          "endChar": 0,
+          "endLine": 5,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+  ],
+  "pou": [
+    {
+      "char": 15,
+      "line": 0,
+      "ranges": [
+        {
+          "endChar": 46,
+          "endLine": 0,
+          "startChar": 15,
+          "startLine": 0,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 5,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 2,
+      "ranges": [
+        {
+          "endChar": 12,
+          "endLine": 2,
+          "startChar": 8,
+          "startLine": 2,
+        },
+        {
+          "endChar": 13,
+          "endLine": 2,
+          "startChar": 1,
+          "startLine": 2,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 1,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 6,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 35,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 9,
+      "line": 3,
+      "ranges": [
+        {
+          "endChar": 14,
+          "endLine": 3,
+          "startChar": 9,
+          "startLine": 3,
+        },
+        {
+          "endChar": 35,
+          "endLine": 3,
+          "startChar": 1,
+          "startLine": 3,
+        },
+        {
+          "endChar": 7,
+          "endLine": 4,
+          "startChar": 0,
+          "startLine": 1,
+        },
+        {
+          "endChar": 0,
+          "endLine": 6,
+          "startChar": 0,
+          "startLine": 0,
+        },
+      ],
+    },
+    {
+      "char": 7,
+      "line": 8,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 8,
+          "startChar": 7,
+          "startLine": 8,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+      ],
+    },
+    {
+      "char": 0,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 4,
+          "endLine": 9,
+          "startChar": 0,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+      ],
+    },
+    {
+      "char": 8,
+      "line": 9,
+      "ranges": [
+        {
+          "endChar": 13,
+          "endLine": 9,
+          "startChar": 8,
+          "startLine": 9,
+        },
+        {
+          "endChar": 0,
+          "endLine": 10,
+          "startChar": 0,
+          "startLine": 8,
+        },
+      ],
+    },
+  ],
+}
+`;

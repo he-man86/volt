@@ -5,12 +5,14 @@
  * information"). A WARNING, not an error — the code compiles.
  *
  * Tree-only, uses the shared inference engine; conservative (both sides
- * must resolve to known elementary types) and **default OFF**. The
- * confirmed case is LREAL→REAL (bakon: 27 compiler warnings); wider
- * narrowings can be added once oracle-validated.
+ * must resolve to known elementary types) and **ON by default** since
+ * 2026-07-05 — the live oracle (conformance fixture `narrowing_lreal_to_real`)
+ * confirms BOTH CODESYS and TwinCAT emit this warning on LREAL→REAL. Wider
+ * narrowings can be added once each is oracle-validated the same way.
  */
 import type { Expr, ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
+import type { Vendor } from "../../reference/index.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkStatements } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
@@ -22,7 +24,15 @@ function elemName(expr: Expr, scope: Scope, project: Scope): string | undefined 
 	return t.kind === "elementary" ? t.name : undefined;
 }
 
-export function checkNarrowingConversion(parseResult: ParseResult, project: Scope, out: DiagnosticItem[]): void {
+export function checkNarrowingConversion(
+	parseResult: ParseResult,
+	project: Scope,
+	activeVendor: Vendor | undefined,
+	out: DiagnosticItem[],
+): void {
+	// Mirror the compiler's exact warning text — verified live: CODESYS capitalizes "Possible", TwinCAT
+	// lowercases "possible"; neither has a trailing period. (The LSP's own wording used to differ on both.)
+	const possible = activeVendor === "twincat" ? "possible" : "Possible";
 	for (const unit of parseResult.units) {
 		const body = getBody(unit);
 		if (body === undefined) continue;
@@ -41,7 +51,7 @@ export function checkNarrowingConversion(parseResult: ParseResult, project: Scop
 					span: s.target.span,
 					source: "volt-lsp-iec",
 					code: "narrowing-conversion",
-					message: "Implicit conversion from 'LREAL' to 'REAL': possible loss of information.",
+					message: `Implicit conversion from '${value}' to '${target}': ${possible} loss of information`,
 				});
 			}
 		});

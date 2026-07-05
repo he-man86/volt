@@ -550,3 +550,5 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_pointer_deref
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_call 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_method_array_param 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) narrowing_lreal_to_real 1`] = `[]`;

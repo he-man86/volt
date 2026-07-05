@@ -241,8 +241,8 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	missingInterfaceImplementation: true,
 	missingInterfaceSignature: true,
 	binaryOperatorTypeMismatch: true,
-	callArgumentMismatch: false, // opt-in — pending oracle validation (st-type-inference §4)
-	narrowingConversion: false, // opt-in — compiler-parity warning (st-type-inference §5)
+	callArgumentMismatch: true, // ON since 2026-07-05 — oracle-validated zero-FP (fixed the mixed named+positional binding)
+	narrowingConversion: true, // ON since 2026-07-05 — live CODESYS + TwinCAT both warn on LREAL→REAL (a WARNING, not an error)
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
 	externalNonInputWrite: true,

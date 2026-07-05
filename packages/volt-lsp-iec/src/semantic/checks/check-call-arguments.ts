@@ -6,7 +6,7 @@
  *   - an argument whose (elementary) type is incompatible with its parameter.
  *
  * Tree-only (uses the statement AST + shared inference); conservative by
- * design and **default OFF** until oracle-validated. Skips whenever the
+ * design and **ON by default** (oracle-validated zero-FP). Skips whenever the
  * callee is unresolvable, is a standard/library conversion, or the callee
  * FB `EXTENDS` a base (inherited params aren't in its own var sections, so
  * a name check would false-positive). Types are checked only when both the
@@ -99,10 +99,16 @@ function checkCall(e: CallExpr, callee: Callee, scope: Scope, project: Scope, ou
 	}
 
 	// 3. Argument-type compatibility (elementary only).
-	positional.forEach((a, i) => {
-		const p = callee.params[i];
-		if (p !== undefined) checkArgType(a.value, p, scope, project, out);
-	});
+	// Positional args are bound by index ONLY when the call is all-positional. Once a NAMED arg is present,
+	// the positional→parameter mapping is ambiguous (a positional arg after `name := v` does not reliably
+	// bind to param[i]) — index-binding there produced a false positive (`Set(In := <bool>, rDelay)` bound
+	// the REAL `rDelay` to the BOOL `In`). Named args are still fully checked below by name.
+	if (positional.length === e.args.length) {
+		positional.forEach((a, i) => {
+			const p = callee.params[i];
+			if (p !== undefined) checkArgType(a.value, p, scope, project, out);
+		});
+	}
 	for (const a of e.args) {
 		if (a.param === undefined || a.output) continue;
 		const p = callee.params.find((pp) => pp.name.toLowerCase() === a.param!.name.toLowerCase());

@@ -181,7 +181,7 @@ for (const { name, dir, base } of CORPORA) {
 				`\n  [${name}] ${cov.files} files / ${cov.units} units` +
 					`\n  parse   ${cov.parseCleanFiles}/${cov.files} clean (${pct(cov.parseCleanFiles, cov.files)}) — ${cov.parseErrors} errors` +
 					`\n  ingest  ${cov.ingestFiles}/${cov.files} (${pct(cov.ingestFiles, cov.files)})` +
-					`\n  precision ${cov.totalDiags} diagnostics (target 0): ${JSON.stringify(cov.byCode)}` +
+					`\n  precision ${cov.totalDiags} ERRORS (target 0): ${JSON.stringify(cov.byCode)}  ·  ${cov.warnDiags} warnings (oracle-validated, not ratcheted): ${JSON.stringify(cov.warnByCode)}` +
 					`\n  body-AST ${cov.stBodiesClean}/${cov.stBodies} bodies clean (${pct(cov.stBodiesClean, cov.stBodies)}) — ${cov.identMismatchBodies} identifier mismatches`,
 			);
 			expect(cov.files).toBeGreaterThanOrEqual(base.files);

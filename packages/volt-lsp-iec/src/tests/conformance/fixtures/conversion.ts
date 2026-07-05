@@ -344,4 +344,30 @@ iDst := TO_INT(diSrc);
 END_METHOD
 `,
 	},
+
+	// ─── Narrowing — implicit LREAL→REAL (oracle: does the compiler WARN?) ───
+	{
+		name: "narrowing_lreal_to_real",
+		pouName: "FB_LANG_narrowing_lreal_to_real",
+		kind: "function_block",
+		feature: "Implicit LREAL→REAL assignment — narrowing (drives whether narrowingConversion enables)",
+		fromDoc: "04-type-conversion.md",
+		expectTcAccepts: true, // it COMPILES — a warning at most, never an error
+		note: "Oracle check: does the compiler emit a 'possible loss of information' WARNING on implicit LREAL→REAL? Ground truth decides whether the narrowing-conversion check matches the compiler.",
+		plcPrgVar: "fb_n : FB_LANG_narrowing_lreal_to_real;",
+		plcPrgBody: "fb_n.Narrow();",
+		source:
+`FUNCTION_BLOCK FB_LANG_narrowing_lreal_to_real
+VAR
+	rDst : REAL;
+	lrSrc : LREAL := 3.14159265358979;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Narrow
+rDst := lrSrc;
+END_METHOD
+`,
+	},
 ];

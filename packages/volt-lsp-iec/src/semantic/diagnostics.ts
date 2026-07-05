@@ -166,7 +166,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "narrowing-conversion",
 		enabled: (c) => c.narrowingConversion,
-		run: (ctx, out) => checkNarrowingConversion(ctx.parseResult, ctx.project, out),
+		run: (ctx, out) => checkNarrowingConversion(ctx.parseResult, ctx.project, ctx.activeVendor, out),
 	},
 	{
 		id: "deref-non-pointer",

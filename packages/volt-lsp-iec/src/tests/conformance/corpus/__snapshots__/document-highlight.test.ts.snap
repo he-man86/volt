@@ -28627,3 +28627,141 @@ exports[`documentHighlight corpus (POU + PLC_PRG) use_method_array_param 1`] = `
   },
 ]
 `;
+
+exports[`documentHighlight corpus (POU + PLC_PRG) narrowing_lreal_to_real 1`] = `
+[
+  {
+    "char": 15,
+    "file": "pou",
+    "highlights": [],
+    "line": 0,
+    "text": "FB_LANG_narrowing_lreal_to_real",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 9,
+      },
+    ],
+    "line": 2,
+    "text": "rDst",
+  },
+  {
+    "char": 8,
+    "file": "pou",
+    "highlights": [],
+    "line": 2,
+    "text": "REAL",
+  },
+  {
+    "char": 1,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 9,
+      },
+    ],
+    "line": 3,
+    "text": "lrSrc",
+  },
+  {
+    "char": 9,
+    "file": "pou",
+    "highlights": [],
+    "line": 3,
+    "text": "LREAL",
+  },
+  {
+    "char": 7,
+    "file": "pou",
+    "highlights": [],
+    "line": 8,
+    "text": "Narrow",
+  },
+  {
+    "char": 0,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 9,
+      },
+    ],
+    "line": 9,
+    "text": "rDst",
+  },
+  {
+    "char": 8,
+    "file": "pou",
+    "highlights": [
+      {
+        "char": 8,
+        "kind": 2,
+        "line": 9,
+      },
+    ],
+    "line": 9,
+    "text": "lrSrc",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 0,
+    "text": "PLC_PRG",
+  },
+  {
+    "char": 1,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 2,
+    "text": "fb_n",
+  },
+  {
+    "char": 8,
+    "file": "plc_prg",
+    "highlights": [],
+    "line": 2,
+    "text": "FB_LANG_narrowing_lreal_to_real",
+  },
+  {
+    "char": 0,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 0,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "fb_n",
+  },
+  {
+    "char": 5,
+    "file": "plc_prg",
+    "highlights": [
+      {
+        "char": 5,
+        "kind": 2,
+        "line": 4,
+      },
+    ],
+    "line": 4,
+    "text": "Narrow",
+  },
+]
+`;

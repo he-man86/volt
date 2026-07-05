@@ -2585,3 +2585,16 @@ exports[`signatureHelp corpus (every call site — POU + PLC_PRG) use_method_arr
   },
 ]
 `;
+
+exports[`signatureHelp corpus (every call site — POU + PLC_PRG) narrowing_lreal_to_real 1`] = `
+[
+  {
+    "activeParameter": null,
+    "callee": "Narrow",
+    "char": 12,
+    "file": "plc_prg",
+    "label": null,
+    "line": 4,
+  },
+]
+`;

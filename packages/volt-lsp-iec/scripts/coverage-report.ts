@@ -35,8 +35,12 @@ export interface Coverage {
 	parseErrors: number;
 	ingestFiles: number; // files yielding ≥1 unit
 	filesNoUnits: number;
-	totalDiags: number; // diagnostics on BUILT files only — the honest precision number (excluded files have no ground truth)
-	byCode: Record<string, number>; // built-only
+	totalDiags: number; // ERROR-severity diagnostics on BUILT files — the precision number. A clean-building project
+	//                     guarantees zero ERRORS; WARNINGS it legitimately carries (CODESYS emits them without
+	//                     blocking the build), so warnings are validated by the conformance oracle, not ratcheted here.
+	byCode: Record<string, number>; // built-only, error-severity
+	warnDiags: number; // WARNING-severity diagnostics on built files — reported for visibility, NOT ratcheted
+	warnByCode: Record<string, number>; // built-only, warning-severity
 	parseErrByMsg: Record<string, number>;
 	parseErrFiles: { file: string; count: number }[];
 	noUnitFiles: string[];
@@ -88,7 +92,7 @@ export function computeCoverage(
 
 	const cov: Coverage = {
 		files: files.length, units: 0, parseCleanFiles: 0, parseErrors: 0, ingestFiles: 0,
-		filesNoUnits: 0, totalDiags: 0, byCode: {}, parseErrByMsg: {}, parseErrFiles: [], noUnitFiles: [],
+		filesNoUnits: 0, totalDiags: 0, byCode: {}, warnDiags: 0, warnByCode: {}, parseErrByMsg: {}, parseErrFiles: [], noUnitFiles: [],
 		excludedFiles: 0, excludedDiags: 0,
 		stBodies: 0, stBodiesClean: 0, identMismatchBodies: 0, identMismatchSamples: [], parseFailReasons: {}, parseFailSamples: [],
 	};
@@ -144,6 +148,14 @@ export function computeCoverage(
 			// source literally contains the pragma, and CODESYS emits the same. They are true positives, not
 			// analysis false positives, so they don't belong in the precision (FP) count.
 			if (d.code.startsWith("message-pragma")) continue;
+			// Precision = ERRORS only (a clean build guarantees zero). Warnings are legitimate on a
+			// clean-building project (the compiler emits them without failing the build), so they are counted
+			// separately for visibility and validated by the conformance oracle, never ratcheted here.
+			if (d.severity === "warning") {
+				cov.warnByCode[d.code] = (cov.warnByCode[d.code] ?? 0) + 1;
+				cov.warnDiags++;
+				continue;
+			}
 			cov.byCode[d.code] = (cov.byCode[d.code] ?? 0) + 1;
 			cov.totalDiags++;
 		}
@@ -163,7 +175,7 @@ if (import.meta.main) {
 	console.log(`corpus: ${c.files} files, ${c.units} top-level units\n`);
 	console.log(`1. PARSE     ${c.parseCleanFiles}/${c.files} files clean (${pct(c.parseCleanFiles, c.files)}) — ${c.parseErrors} parse errors in ${c.parseErrFiles.length} files`);
 	console.log(`2. INGEST    ${c.ingestFiles}/${c.files} files yield ≥1 unit (${pct(c.ingestFiles, c.files)}) — ${c.filesNoUnits} parsed to 0 units`);
-	console.log(`3. PRECISION ${c.totalDiags} diagnostics on BUILT files (target 0) — ${c.excludedFiles} files excluded from build (${c.excludedDiags} diags suppressed, no ground truth)`);
+	console.log(`3. PRECISION ${c.totalDiags} ERRORS on BUILT files (target 0) · ${c.warnDiags} warnings (oracle-validated, not ratcheted) — ${c.excludedFiles} files excluded from build (${c.excludedDiags} diags suppressed, no ground truth)`);
 	console.log(`4. ST BODY-AST ${c.stBodiesClean}/${c.stBodies} bodies parse clean (${pct(c.stBodiesClean, c.stBodies)}) — ${c.identMismatchBodies} identifier-set mismatches (want 0)`);
 	if (c.identMismatchSamples.length > 0) for (const s of c.identMismatchSamples.slice(0, 10)) console.log(`     MISMATCH (defect): ${s}`);
 	const reasons = Object.entries(c.parseFailReasons).sort((a, b) => b[1] - a[1]);

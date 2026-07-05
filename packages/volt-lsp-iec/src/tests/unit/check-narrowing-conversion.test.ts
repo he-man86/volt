@@ -32,8 +32,9 @@ describe("narrowing-conversion", () => {
 		expect(narrowingDiags("r := i;")).toHaveLength(0); // INT→REAL is widening, not a loss
 	});
 
-	it("is OFF by default (no config override)", () => {
-		// Default config — the check must not fire even on a real LREAL→REAL narrowing.
-		expect(diagnosticsFor(wrap("r := lr;"), { code: "narrowing-conversion" })).toHaveLength(0);
+	it("is ON by default (enabled 2026-07-05 after live-oracle validation — both compilers warn)", () => {
+		// narrowingConversion default flipped to true: live CODESYS + TwinCAT both emit the warning on
+		// LREAL→REAL (conformance fixture `narrowing_lreal_to_real`), so the check fires without an override.
+		expect(diagnosticsFor(wrap("r := lr;"), { code: "narrowing-conversion" })).toHaveLength(1);
 	});
 });

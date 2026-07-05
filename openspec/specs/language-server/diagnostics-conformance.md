@@ -207,9 +207,23 @@ recordings and enable for CODESYS where it actually flags (guard: zero new corpu
 
 ## Genuine gaps / off-by-default (to close, oracle-verified)
 
-- [ ] Narrowing conversion (`narrowingConversion`, default-off) — validate vs recordings + corpus, then enable
-- [ ] Call-argument mismatch (`callArgumentMismatch`, default-off) — same
+- [x] Narrowing conversion (`narrowingConversion`) — **ENABLED 2026-07-05.** The oracle (new fixture
+  `narrowing_lreal_to_real`) confirmed BOTH compilers WARN on LREAL→REAL (`Possible`/`possible` loss of
+  information — per-vendor casing mirrored). Surfaced the corpus-metric fix below.
+- [x] Call-argument mismatch (`callArgumentMismatch`) — **ENABLED 2026-07-05.** A dedicated unit test caught
+  the real FP first (a call mixing a named arg with a positional one bound the positional to param 0);
+  positional type-checking now runs only on all-positional calls. Zero corpus errors.
 - [ ] Fixture-design pass: the ~15 `'iX' is no input` cases — decide fixture fix vs a new external-write check
+
+### Corpus metric: precision = ERRORS, warnings oracle-validated (2026-07-05)
+
+Enabling narrowing (a WARNING-level check) exposed a flaw: the corpus "precision 0" ratchet counted ALL
+diagnostics, but a clean-**building** project guarantees zero ERRORS, not zero warnings (the compiler emits
+warnings without failing the build). Fixed: `coverage-report.ts` counts ERROR severity in `totalDiags`
+(ratcheted) and WARNING severity in `warnDiags` (reported, not ratcheted). A warning is a true positive when
+a conformance fixture records the compiler emitting it — the **oracle** validates warnings, the **corpus** is
+the final error net. This keeps the principle clean: dedicated fixtures are primary, the 4 projects are the
+final check.
 
 ## Message mirroring — LSP text == IDE text (2026-07-05)
 

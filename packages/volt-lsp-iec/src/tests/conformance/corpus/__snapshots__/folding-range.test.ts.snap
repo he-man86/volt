@@ -3832,3 +3832,20 @@ exports[`foldingRange corpus (every conformance test) use_method_array_param 1`]
   },
 ]
 `;
+
+exports[`foldingRange corpus (every conformance test) narrowing_lreal_to_real 1`] = `
+[
+  {
+    "endLine": 6,
+    "startLine": 0,
+  },
+  {
+    "endLine": 4,
+    "startLine": 1,
+  },
+  {
+    "endLine": 10,
+    "startLine": 8,
+  },
+]
+`;
