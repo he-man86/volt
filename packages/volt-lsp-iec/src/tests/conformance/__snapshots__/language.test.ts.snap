@@ -1370,7 +1370,7 @@ exports[`language conformance (LSP vs twincat recording) conversion_int_to_real_
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+    "[error] Cannot convert type 'REAL' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "conversion_int_to_real_wrong_source",
@@ -1402,7 +1402,7 @@ exports[`language conformance (LSP vs twincat recording) conversion_implicit_din
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
+    "[error] Cannot convert type 'DINT' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "conversion_implicit_dint_to_int",
@@ -1798,7 +1798,7 @@ exports[`language conformance (LSP vs twincat recording) op_arithmetic_bool_plus
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "op_arithmetic_bool_plus_int",
@@ -2274,7 +2274,7 @@ exports[`language conformance (LSP vs twincat recording) literal_string_to_int_a
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
+    "[error] Cannot convert type 'STRING' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "literal_string_to_int_assignment",
@@ -5009,7 +5009,7 @@ exports[`language conformance (LSP vs codesys recording) conversion_int_to_real_
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Conversion 'INT_TO_REAL' expects INT, but 'rSrc' is declared REAL. Use \`REAL_TO_REAL(rSrc)\` instead.",
+    "[error] Cannot convert type 'REAL' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "conversion_int_to_real_wrong_source",
@@ -5041,7 +5041,7 @@ exports[`language conformance (LSP vs codesys recording) conversion_implicit_din
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot assign DINT value to 'iDst' (declared INT).",
+    "[error] Cannot convert type 'DINT' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "conversion_implicit_dint_to_int",
@@ -5437,7 +5437,7 @@ exports[`language conformance (LSP vs codesys recording) op_arithmetic_bool_plus
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Arithmetic '+' cannot mix BOOL with numeric — got BOOL + INT.",
+    "[error] Cannot convert type 'BOOL' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "op_arithmetic_bool_plus_int",
@@ -5909,7 +5909,7 @@ exports[`language conformance (LSP vs codesys recording) literal_string_to_int_a
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot assign STRING value to 'iValue' (declared INT).",
+    "[error] Cannot convert type 'STRING' to type 'INT'",
   ],
   "lspWarnings": 0,
   "name": "literal_string_to_int_assignment",

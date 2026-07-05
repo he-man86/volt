@@ -12,35 +12,13 @@
  *   - When the inner identifier can't be resolved, we skip (so the
  *     unresolved-identifier diagnostic handles it, not us).
  */
-import type { Expr, ParseResult } from "../../parser/ast.js";
+import type { ParseResult } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
-import {
-	conversionsForSource,
-	getConversion,
-	isAcceptableSource,
-} from "../../reference/type-conversion.js";
-import { type DiagnosticItem, getBody, findScopeForUnit } from "./_shared.js";
-
-/** Source-like text of a conversion argument, for the diagnostic message. */
-function renderArg(expr: Expr): string {
-	switch (expr.kind) {
-		case "ident_expr":
-			return expr.name;
-		case "member":
-			return `${renderArg(expr.base)}.${expr.member.name}`;
-		case "index":
-			return `${renderArg(expr.base)}[…]`;
-		case "deref":
-			return `${renderArg(expr.base)}^`;
-		case "paren":
-			return renderArg(expr.inner);
-		default:
-			return "argument";
-	}
-}
+import { getConversion, isAcceptableSource } from "../../reference/type-conversion.js";
+import { type DiagnosticItem, cannotConvert, getBody, findScopeForUnit } from "./_shared.js";
 
 export function checkConversionCalls(
 	parseResult: ParseResult,
@@ -66,15 +44,14 @@ export function checkConversionCalls(
 			if (t.kind !== "elementary" || t.name === undefined) return; // only elementary args
 			const argType = t.name;
 			if (isAcceptableSource(conv, argType)) return;
-			const argText = renderArg(arg);
-			const replacements = conversionsForSource(argType, conv.destType);
-			const suggestion = replacements.length > 0 ? ` Use \`${replacements[0]?.name}(${argText})\` instead.` : "";
 			out.push({
 				severity: "error",
 				span: e.callee.span,
 				source: "volt-lsp-iec",
 				code: "conversion-source-mismatch",
-				message: `Conversion '${conv.name}' expects ${conv.sourceType}, but '${argText}' is declared ${argType}.${suggestion}`,
+				// Mirror the compiler's uniform type-mismatch wording: the argument type can't convert to the
+				// conversion's expected source type (e.g. `INT_TO_REAL(rSrc)` with rSrc REAL → REAL to INT).
+				message: cannotConvert(argType, conv.sourceType),
 			});
 		});
 	}

@@ -17,7 +17,7 @@ import { lookup as resolverLookup } from "../resolver.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkStatements } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
-import { type DiagnosticItem, getBody, findScopeForUnit } from "./_shared.js";
+import { type DiagnosticItem, cannotConvert, getBody, findScopeForUnit } from "./_shared.js";
 
 export function checkAssignmentTypes(
 	parseResult: ParseResult,
@@ -46,7 +46,9 @@ export function checkAssignmentTypes(
 				span: s.target.span,
 				source: "volt-lsp-iec",
 				code: "assignment-type-mismatch",
-				message: `Cannot assign ${rhs} value to '${renderTarget(s.target)}' (declared ${lhs}).`,
+				// Mirror the compiler's uniform wording: converting the RHS type to the LHS type failed
+				// (e.g. DINT → INT is narrowing). `typeName` strips the internal enum sentinel for display.
+				message: cannotConvert(typeName(rhs), typeName(lhs)),
 			});
 		});
 	}
@@ -66,26 +68,13 @@ function assignKey(expr: Expr, scope: Scope, project: Scope): string | undefined
 	return t.kind === "elementary" || t.kind === "enum" ? t.name : undefined;
 }
 
-/** Source-like text of an assignment target, for the diagnostic message. */
-function renderTarget(expr: Expr): string {
-	switch (expr.kind) {
-		case "ident_expr":
-			return expr.name;
-		case "member":
-			return `${renderTarget(expr.base)}.${expr.member.name}`;
-		case "index":
-			return `${renderTarget(expr.base)}[…]`;
-		case "deref":
-			return `${renderTarget(expr.base)}^`;
-		case "paren":
-			return renderTarget(expr.inner);
-		default:
-			return "target";
-	}
-}
-
 /** Sentinel prefix used in isAssignable to mark an enum type name. */
 const ENUM_PREFIX = "__enum__:";
+
+/** A displayable type name — strips the internal enum sentinel so the message shows the bare type. */
+function typeName(key: string): string {
+	return key.startsWith(ENUM_PREFIX) ? key.slice(ENUM_PREFIX.length) : key;
+}
 
 /**
  * IEC 61131-3 assignment compatibility (simplified — only the rules

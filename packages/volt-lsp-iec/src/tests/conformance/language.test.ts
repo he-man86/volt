@@ -144,6 +144,82 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 	]),
 };
 
+// Message-TEXT mirror exceptions. Goal: where the LSP and the IDE both flag the same code, the LSP's message
+// should read IDENTICALLY to the compiler's — so an engineer sees the same words in the editor and the IDE.
+// The replay ENFORCES that by default (asserts the error+warning message sets are equal); this set lists every
+// fixture whose text we do NOT mirror, with the reason. Shrinking this set IS the mirror backlog. Distinct from
+// KNOWN_DIVERGENCES (which is about presence — whether the LSP flags at all); an entry here means "flags the
+// same, but the words differ on purpose (or not yet)".
+const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
+	twincat: new Set<string>([
+		// CS≠TC: the two compilers word these differently, so one LSP message can't match both. Left until we
+		// decide per-vendor message templates. (Also listed under codesys where its text differs from ours.)
+		"fb_init_missing_bInCopyCode",
+		"fb_exit_missing_bInCopyCode",
+		"identifier_double_underscore",
+		"identifier_consecutive_underscores",
+		"deref_on_array_type",
+		"conditional_orphan_else",
+		"op_modulo_on_real",
+		"oop_abstract_instantiated",
+		"type_var_temp_in_method",
+		"type_deref_non_pointer",
+		"var_non_retain",
+		"operand_uchar_literal",
+		// Parse-cascade: the IDE emits raw parser errors (`';' expected instead of …`) from failing to parse a
+		// CODESYS-only operator; the LSP emits one clean semantic message. Faking a parser's cascade is neither
+		// feasible nor desirable — the plain vendor-only-operator message is the intended mirror of the verdict.
+		"op_sys_currenttask",
+		"op_sys_varinfo",
+		"op_sys_try_catch",
+		"op_sys_queryinterface",
+		// Severity-gated: IDE emits an error; the LSP emits a warning until the 13 corpus library-blind FPs are
+		// driven to 0 (promoting now would ship false-positive errors). Flip when the corpus is clean.
+		"unresolved_identifier_in_body",
+		// The IDE renders a string LITERAL's source type as `STRING(INT#<len>)` (e.g. `STRING(INT#4)`); our
+		// inference yields plain `STRING`, so the type-mismatch text can't match without reproducing CODESYS's
+		// length-tagged literal-type rendering. Borderline "within reason" — revisit if we render literal lengths.
+		"literal_string_to_int_assignment",
+		// Parse-cascade: IDE emits a parse error for the CODESYS-only `__VECTOR` type; the LSP emits its own
+		// semantic vendor-only-type message. Same class as the op_sys_* operators.
+		"type_codesys_vector",
+		// CS-accepts / TC-rejects with vendor-specific text (`'%' is no component of …`); the LSP has its own
+		// partial-access message. Left for the per-vendor decision.
+		"operand_partial_word_in_dword",
+		// Not yet mirrored — plain text-match work, tracked here until done.
+		"duplicate_declaration",
+		"interface_missing_implementation",
+	]),
+	codesys: new Set<string>([
+		// Same CS≠TC set — CODESYS's wording differs from ours; per-vendor templates or leave.
+		"fb_init_missing_bInCopyCode",
+		"fb_exit_missing_bInCopyCode",
+		"identifier_double_underscore",
+		"identifier_consecutive_underscores",
+		"deref_on_array_type",
+		"conditional_orphan_else",
+		"op_modulo_on_real",
+		"oop_abstract_instantiated",
+		"type_var_temp_in_method",
+		"type_deref_non_pointer",
+		"var_non_retain",
+		"operand_uchar_literal",
+		"unresolved_identifier_in_body",
+		"duplicate_declaration",
+		"interface_missing_implementation",
+		// String LITERAL source type rendered as `STRING(INT#<len>)` by CODESYS; our inference yields `STRING`.
+		"literal_string_to_int_assignment",
+		// CODESYS emits an EXTRA warning our external-write check doesn't (`The attribute … is unknown and will
+		// be ignored`) alongside the mirrored `'X' is no input` error → message SETS differ. The error matches;
+		// the surplus IDE warning is a CODESYS-only attribute-lint we don't model.
+		"unknown_attribute_typo",
+		"monitoring_encoding",
+		// CODESYS reports the undefined `exc` as an ERROR (`Identifier 'exc' not defined`); the LSP emits a
+		// WARNING (`'exc' is not defined in any reachable scope`) — the same severity-gated unresolved-id case.
+		"op_sys_try_catch",
+	]),
+};
+
 // Cross-test scope assembly — for each test, build a project scope that
 // contains the test's full parse result + every OTHER test's declaration-
 // only units (interfaces, DUTs, GVLs). Lets `IMPLEMENTS <X>` resolve
@@ -292,6 +368,17 @@ for (const { vendor, filename } of RECORDINGS) {
 							lspFlagged: recordedFlagged,
 							ideFlagged: recordedFlagged,
 						});
+					}
+
+					// MESSAGE mirror: where both sides flag the same code, enforce that the LSP's error+warning
+					// text reads IDENTICALLY to the compiler's. Skipped for presence-divergent fixtures (nothing
+					// to compare) and for documented text exceptions (KNOWN_MESSAGE_DIVERGENCES — CS≠TC wording,
+					// parse cascades, severity-gated, or not-yet-mirrored). This is what verifies the "mirror the
+					// IDE" hypothesis and holds each fix against regression.
+					const msgSet = (ds: ReadonlyArray<{ severity: string; message: string }>): string[] =>
+						ds.filter((d) => significant(d.severity)).map((d) => `[${d.severity}] ${d.message}`).sort();
+					if (!isKnownDivergent && lspFlagged && recordedFlagged && !KNOWN_MESSAGE_DIVERGENCES[vendor].has(test.name)) {
+						expect(msgSet(lspDiags)).toEqual(msgSet(recorded.diagnostics));
 					}
 
 					expect({

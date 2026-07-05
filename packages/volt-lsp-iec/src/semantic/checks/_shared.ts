@@ -23,6 +23,17 @@ export interface DiagnosticItem {
 export const KEYWORD_SET = new Set(ALL_KEYWORDS.map((k) => k.toLowerCase()));
 
 /**
+ * The compilers' uniform type-mismatch message. BOTH CODESYS and TwinCAT render every implicit-conversion
+ * failure — assignment narrowing, wrong conversion-call source, BOOL-in-arithmetic — as this exact string
+ * (verified against the live conformance recordings). Routing every type-mismatch check through this one
+ * builder keeps the LSP byte-identical to the IDE by construction, so a future check mirrors for free.
+ * `from`/`to` are bare type names (no enum sentinels — strip those before calling).
+ */
+export function cannotConvert(from: string, to: string): string {
+	return `Cannot convert type '${from}' to type '${to}'`;
+}
+
+/**
  * True when a symbol comes from a referenced-library SIGNATURE (materialized under a `Library Manager`
  * folder), NOT from project source. Library signatures are rendered declaration-only and FLATTEN member
  * sections — VAR_INPUT / VAR_OUTPUT / properties all render as plain `VAR` — so a check that keys on a

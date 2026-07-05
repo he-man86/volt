@@ -432,9 +432,8 @@ d := INT_TO_DINT(s);
 END_FUNCTION_BLOCK`);
 		const w = diags.find((d) => d.code === "conversion-source-mismatch");
 		expect(w).toBeDefined();
-		expect(w?.message).toContain("INT_TO_DINT");
-		expect(w?.message).toContain("STRING");
-		expect(w?.message).toContain("STRING_TO_DINT");
+		// Message mirrors the compiler: the STRING arg can't convert to INT_TO_DINT's expected source (INT).
+		expect(w?.message).toBe("Cannot convert type 'STRING' to type 'INT'");
 	});
 
 	it("warns when DT_TO_STRING is used on a DATE variable (suggests DATE_TO_STRING)", () => {
@@ -500,7 +499,7 @@ END_FUNCTION_BLOCK`,
 		expect(diags.filter((d) => d.code === "conversion-source-mismatch")).toHaveLength(0);
 	});
 
-	it("warns for REAL_TO_INT on a STRING variable, suggests STRING_TO_INT", () => {
+	it("warns for REAL_TO_INT on a STRING variable", () => {
 		const { diags } = setup(`FUNCTION_BLOCK FB_X
 VAR
 	s : STRING;
@@ -510,7 +509,8 @@ i := REAL_TO_INT(s);
 END_FUNCTION_BLOCK`);
 		const w = diags.find((d) => d.code === "conversion-source-mismatch");
 		expect(w).toBeDefined();
-		expect(w?.message).toContain("STRING_TO_INT");
+		// Mirrors the compiler: the STRING arg can't convert to REAL_TO_INT's expected source (REAL).
+		expect(w?.message).toBe("Cannot convert type 'STRING' to type 'REAL'");
 	});
 });
 
@@ -811,7 +811,8 @@ narrow := wide;
 END_FUNCTION_BLOCK`);
 		const errs = diags.filter((d) => d.code === "assignment-type-mismatch");
 		expect(errs.length).toBeGreaterThan(0);
-		expect(errs[0]?.message).toContain("narrow");
+		// Mirrors the compiler's uniform wording (DINT → SINT is narrowing).
+		expect(errs[0]?.message).toBe("Cannot convert type 'DINT' to type 'SINT'");
 	});
 
 	it("fires when assigning an INT variable to a BOOL target", () => {

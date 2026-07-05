@@ -90,8 +90,6 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pin_presentation_
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pin_presentation_order_wildcard 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) implicit_parameter_pouname 1`] = `[]`;
-
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) region_basic 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) error_message 1`] = `[]`;
@@ -103,6 +101,46 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) region_pragma_nes
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_unknown_directive 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) pragma_conflicting_pair 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_retain 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_persistent 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_ignore_persistent 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_on_reset 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_no_symbol 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_encoding 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_display_scale 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_word 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_dword 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_id 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_name 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_symbol 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to_oso 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_nc_axis 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_rpc_enable 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_call_after_output_update 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) fb_init_canonical 1`] = `[]`;
 
@@ -178,29 +216,11 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_real_to_int_valid 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `
-[
-  {
-    "diagCode": "conversion-source-mismatch",
-    "file": "pou",
-    "kind": "quickfix",
-    "title": "Replace with 'REAL_TO_REAL'",
-  },
-]
-`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_int_to_real_wrong_source 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_dint_to_int_wrong_source 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `
-[
-  {
-    "diagCode": "assignment-type-mismatch",
-    "file": "pou",
-    "kind": "quickfix",
-    "title": "Wrap with DINT_TO_INT(...)",
-  },
-]
-`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_implicit_dint_to_int 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) conversion_bool_to_int_valid 1`] = `[]`;
 
@@ -325,16 +345,7 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_si
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_wstring_double_quoted 1`] = `[]`;
 
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_to_int_assignment 1`] = `
-[
-  {
-    "diagCode": "assignment-type-mismatch",
-    "file": "pou",
-    "kind": "quickfix",
-    "title": "Wrap with STRING_TO_INT(...)",
-  },
-]
-`;
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) literal_string_to_int_assignment 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) interface_empty 1`] = `[]`;
 
@@ -401,7 +412,11 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_deref_non_po
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_simple 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_base 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_extends 1`] = `[]`;
+
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_inner 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_nested 1`] = `[]`;
 
@@ -518,6 +533,8 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_fb_callable 1
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_member_access 1`] = `[]`;
 
+exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_inner 1`] = `[]`;
+
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_nested_member 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_gvl_field_access 1`] = `[]`;
@@ -533,49 +550,3 @@ exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_pointer_deref
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_self_method_call 1`] = `[]`;
 
 exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_method_array_param 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_retain 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_persistent 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_ignore_persistent 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_on_reset 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_no_symbol 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_encoding 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_display_scale 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_word 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_swap_dword 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_id 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_context_name 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_init_symbol 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_link_to_oso 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_nc_axis 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_rpc_enable 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_call_after_output_update 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_global_data_type 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc_hide_sub_items 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) tc2_gvl_var_names 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_base 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) type_dut_struct_inner 1`] = `[]`;
-
-exports[`codeAction corpus (every diagnostic in POU + PLC_PRG) use_struct_inner 1`] = `[]`;

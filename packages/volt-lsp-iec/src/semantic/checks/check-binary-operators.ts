@@ -15,7 +15,7 @@ import type { Scope } from "../symbol-table.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
-import { type DiagnosticItem, getBody, findScopeForUnit } from "./_shared.js";
+import { type DiagnosticItem, cannotConvert, getBody, findScopeForUnit } from "./_shared.js";
 
 const ARITH_OPS = new Set(["+", "-", "*", "/"]);
 const INTEGER_TYPES = new Set([
@@ -80,7 +80,9 @@ function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: stri
 				span: e.span,
 				source: "volt-lsp-iec",
 				code: "binary-op-type-mismatch",
-				message: `Arithmetic '${opText}' cannot mix BOOL with numeric — got ${aType} ${opText} ${bType}.`,
+				// Mirror the compiler: it reports this as an implicit-conversion failure, BOOL → the numeric
+					// operand (`Cannot convert type 'BOOL' to type 'INT'`), not as an "arithmetic" complaint.
+					message: cannotConvert("BOOL", aType === "BOOL" ? bType : aType),
 			});
 		}
 	}
