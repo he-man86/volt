@@ -1,82 +1,82 @@
-Invariant for EVERY task: `cd packages/volt-lsp-iec && bun test` (3594, 0 fail) + `bun typecheck` clean +
-corpus ratchet 0-error stay green before the task's commit. Build clean module → route consumers → delete
-duplicates → verify → commit. No big-bang.
+Executes the `architecture.md` blueprint (Phases A–E) as a clean, bottom-up rebuild. **Invariant for EVERY
+task:** `cd packages/volt-lsp-iec && bun test` (3594, 0 fail) + `bun typecheck` clean + corpus 0-error +
+conformance replay green BEFORE the task's commit. Build clean module → route consumers → delete duplicates →
+verify → commit. No big-bang. Superseded files move to `semantic/_legacy/` (or `parser/_legacy/`) as reference
+until their replacement is green, then the folder is deleted at task 8.
 
-## 1. Type-facts SSOT (`type-system/elementary.ts`) — the keystone
+## A. Base layer — the pro foundation (parser/AST/treewalker)
 
-- [ ] 1.1 Finish the structured table as the sole source: add `BIT`, the alias/abbreviation keys
-      (`TIME_OF_DAY`→`TOD`, `DATE_AND_TIME`→`DT`, `LDATE_AND_TIME`→`LDT`, `LTIME_OF_DAY`→`LTOD`), and a
-      separate `ANY_*` generic-family table (`{name, members}`), resolving the `ANY_MAGNITUDE`/`BIT`/`ANY_*`
-      gaps the audit found. Expose `elementaryType`, `isNumeric`, `canonicalElem`, `isElementary`, family/rank
-      views.
-- [ ] 1.2 Derive-and-delete the copies: `NUMERIC_RANK`+`ISOLATED`+both `ENUM_ISOLATED` (check-assignment-types),
-      `INTEGER_TYPES`+`NUMERIC_TYPES` (check-binary-operators), the `ELEMENTARY_TYPES` set (type-resolver) and
-      array (type-conversion) + its `integerFamily`/`dateFamily`, `ELEM_ABBREV`+`DATETIME_TYPES`+
-      `DURATION_TYPES` (type-infer). Each consumer imports from `elementary.ts`.
-- [ ] 1.3 Unit tests for the table (every elementary name resolves; alias→canonical; range/rank/family correct)
-      and that the derived views match the old sets exactly (a golden test, so the migration provably loses
-      nothing). Full suite green.
+- [ ] A.1 Complete the AST model: `ArrayType.dims:{lower,upper: Expr}`, `StringType.length: Expr`, a
+      `SubrangeType{base,lower,upper}` node (stop discarding `(lo..hi)` at `type-expr.ts:183`), `VectorType`,
+      enum member values as `Expr`, `VarDecl.init: Expr`, and `Literal{text,kind,value,type}` (values parsed;
+      ints `bigint`). Fix the `NamedType` qualifier inversion.
+- [ ] A.2 Parser produces the complete nodes (keep the parse driver + lexer). Migrate the consumers that read
+      the previously-opaque spans — **formatter** (prints declarations from structured AST, not source-slice
+      reprints), hover (`ARRAY[lo..hi]`), checks — node-by-node.
+- [ ] A.3 Verify: body-AST corpus 100%-clean, `parse(format(x))≡parse(x)` + format-corpus (1511 files) hold,
+      parse-error/fuzz tests green. AST-shape tests for the new structured nodes.
 
-## 2. Compatibility relation (`type-system/compat.ts`)
+## B. Symbols & scopes
 
-- [ ] 2.1 Move `isAssignable` out of `check-assignment-types.ts` and `isAcceptableSource` out of
-      `reference/type-conversion.ts`, plus the inline narrowing rule and `temporalArithResult`, into one
-      `compat.ts` built on `elementary.ts`: `assignable`, `isNarrowing`, `arithResultType`, `conversionSource`.
-      Preserve every oracle-calibrated rule (BIT↔BOOL, enum isolation, REAL↔LREAL non-error, widening,
+- [ ] B.1 `scope-nav.ts`: `findChildScopeByName`/`findScopeBySpan`/`walkScopes`; replace the 6+ re-impls
+      (`_shared`, `type-resolver`, `type-infer`, `check-unresolved-identifier`). **Guard (risk #5):** keep the
+      `qualified_only` resolution path independent — it is a *resolution* concern, NOT the compat-layer enum
+      isolation merged in C; add/keep a test that a bare non-`qualified_only` enum member still resolves (Req 18).
+- [ ] B.2 Split `symbol-table-build.ts`: one `makeScope(kind,name,node)` collapses the 15 `ingest*`; extract
+      the EXTENDS post-pass. Corpus ingest 100%.
+
+## C. Type system (the clean core — one SSOT per concern)
+
+- [ ] C.1 `type-system/elementary.ts` — the SOLE type-facts table: `+BIT`, alias keys (`TIME_OF_DAY`→`TOD`…),
+      an `ANY_*` generic sub-table (resolve the `ANY_MAGNITUDE`/`BIT`/`ANY_*` gaps). **Golden test:** derived
+      views (`NUMERIC_RANK`/`ISOLATED`/`INTEGER_TYPES`/`DATETIME`/…) equal the old sets exactly.
+- [ ] C.2 Derive-and-delete the 6 scattered copies (check-assignment-types, check-binary-operators,
+      type-resolver, type-conversion, type-infer) — each imports from `elementary.ts`.
+- [ ] C.3 `type-system/type.ts` (rich `Type` union, `UNKNOWN` total fallback) + `resolve.ts` (reads A's
+      structured facts directly) + `render.ts` (ONE parameterized renderer). **Guard (risk #2):** before
+      deleting `renderTypeExpr`/hover `typeText`/code-action `typeExprToString`/vg `renderType`, add one
+      exact-output assertion per call site so display strings can't silently drift.
+- [ ] C.4 `type-system/const-eval.ts` (`evalConst`; literals already valued by A; folds unary/const-ref/
+      const-arith; non-const→undefined) + `infer.ts` (one engine; `inferExprType` stays the public entry).
+- [ ] C.5 `type-system/compat.ts` — merge `isAssignable` (check) + `isAcceptableSource` (reference) + inline
+      narrowing + `temporalArithResult` into ONE relation on A. **Golden test (risk #4):** diff old-vs-new
+      `compat` verdicts across the full elementary cross-product BEFORE deleting the originals (conformance only
+      samples fixtures). Preserve every oracle rule (REAL↔LREAL non-error, BIT↔BOOL, enum isolation,
       return-true-when-unsure).
-- [ ] 2.2 Route `check-assignment-types`, `check-call-arguments`, `check-binary-operators`,
-      `check-narrowing-conversion`, `check-conversion` through `compat.ts` (delete their local logic). Their
-      fixtures + the conformance replay + corpus are the regression floor — stay green.
+- [ ] C.6 Route the 5 type-checking checks (assignment/binary/conversion/narrowing/call-arg) through `compat`;
+      delete their local logic. **Guard (risk #6):** add an invariant test that a `Type` with any unresolved
+      sub-part still yields skip at every check consumer (the conservative/zero-FP contract, Req 1/37).
 
-## 3. `Type` model + inference/resolve/render (`type-system/`)
+## D. Semantic services
 
-- [ ] 3.1 `type.ts`: the rich `Type` union (per design) + constructors; `UNKNOWN` total fallback; a shim for
-      `.name`/`.scope`/`.typeExpr` so consumers migrate incrementally.
-- [ ] 3.2 Move `type-resolver.ts` → `type-system/resolve.ts` (declared `TypeExpr` → `Type`, populating
-      elementary facts / string maxLen / array dims / enum members) and the inference half of `type-infer.ts` →
-      `type-system/infer.ts` (one engine). Keep `inferExprType` as the public entry (richer return).
-- [ ] 3.3 `render.ts`: one parameterized renderer (`{arrayDims, unknown, upper}`); fold
-      `renderTypeExpr`, hover `typeText`, code-action `typeExprToString`, vg `renderType`/`simpleType` into it.
+- [ ] D.1 `symbol-resolve` (`symbolAtOffset`/`symbolAndRangeAtOffset`) + `messages.ts` (per-vendor builders
+      alongside `cannotConvert`). Corpus 0-FP + conformance replay unchanged.
 
-## 4. `const-eval.ts`
+## E. Features — query dedup + the 3 bug fixes
 
-- [ ] 4.1 `evalConst(expr|BodySpan, scope, project) → ConstValue | undefined` — literals (int/real/typed/`16#`),
-      unary `-`, constant `CONSTANT` refs, constant binary arithmetic; integers fold to `bigint`; non-constant →
-      undefined. Reuses `parser/expression.ts` to parse opaque `BodySpan`s (array dims, string length,
-      initializers). Unit tests incl. the "not constant" cases.
+- [ ] E.1 Query utils: `locations.ts` (`locationOfSymbol`, dedup ×7), `token-scan.ts` (`tokenAt`,
+      `enclosingCall`), adopt `getAnyBody`/`getUnitName` (delete `bodyOf`×3/`pouBody`/inline guards).
+- [ ] E.2 `symbol-kinds.ts`: 3 mappers off one exhaustive kind list + ONE `humanKind` (hover's richer labels).
+      **Bug fix + guard (risk #3):** add the hover↔completion label-parity test; update any `completion.test.ts`
+      assertion locked to the old `detail` wording.
+- [ ] E.3 `definition`/`hover` delegate to `symbolAtOffset` (bug fix 2 — nav no longer drifts from
+      references/rename). Nav assertion tests.
+- [ ] E.4 `hierarchy.ts`: one `HierarchyItem`+builder+`prepareHierarchy`; merge call+type-hierarchy.
+      **Bug fix + guard (risk #1):** `incomingCalls` uses type-aware `findReferences`; add a MEMBER-call test
+      (`m.Start()`) with a same-named method on a *different* FB that must NOT appear (the negative case).
+- [ ] E.5 Extract `config/editorconfig.ts` from `format.ts` and `hover-annotations.ts` from `hover.ts`
+      (pure moves; their tests stay green). Fold code-action `typeExprToString` into `render.ts`.
 
-## 5. Shared services + query dedup
-
-- [ ] 5.1 `scope-nav.ts`: `findChildScopeByName`, `findScopeBySpan`, `walkScopes`; replace the 6+ re-impls in
-      `_shared.ts`, `type-resolver`, `type-infer`, `check-unresolved-identifier`.
-- [ ] 5.2 `symbol-resolve` (`symbolAndRangeAtOffset`) + `lsp/queries/locations.ts` (`locationOfSymbol`);
-      `definition` and `hover` delegate to it (bug fix: nav no longer drifts). Adopt `getAnyBody`/`getUnitName`
-      everywhere (delete `bodyOf`×3, `pouBody`, inline unit-name guards).
-- [ ] 5.3 `hierarchy.ts`: one `HierarchyItem` + builder + `prepareHierarchy(predicate)`; merge
-      call-hierarchy + type-hierarchy. Bug fix: `incomingCalls` uses type-aware `findReferences`.
-- [ ] 5.4 `symbol-kinds.ts`: co-locate the 3 kind mappers keyed off one exhaustive kind list; ONE `humanKind`
-      (hover's richer labels). Bug fix: hover/completion agree. Add a test asserting the label parity.
-- [ ] 5.5 `token-scan.ts`: `tokenAt` + `enclosingCall`; replace the 4 token-scan copies + the 2 paren walkers.
-
-## 6. Dead code + oversized-file splits
+## 6. Dead code + catalog cleanup
 
 - [ ] 6.1 Delete: `conversionsForSource`, over-exported `findSymbolByName`, `void parseResult`,
       `semantic-tokens` always-0 mods, `folding-range` duplicate `type_decl` branch, `data-types.ts` dead
-      family enum + 4 shadowed alias entries; switch `type-conversion` lookups to `TYPE_CONVERSIONS` Map.
-- [ ] 6.2 Split: `symbol-table-build.ts` — one `makeScope(kind,name,node)` collapses the 15 `ingest*`
-      near-duplicates; extract the EXTENDS post-pass. Extract `config/editorconfig.ts` from `format.ts`
-      (~280 lines) and `hover-annotations.ts` from `hover.ts`.
-- [ ] 6.3 Derive `data-types.ts` "Range …" hover prose from `elementary.ts` (numbers live once).
-
-## 7. Parser: subrange capture
-
-- [ ] 7.1 `type-expr.ts:183` — retain the already-consumed `(lo..hi)` as `NamedType.subrange?` (additive; only
-      when the constraint contains `..`). `resolve.ts` reads it into `Type.subrange` via `const-eval`. Test:
-      the AST now carries the bounds; a follow-up (`st-static-typechecker`) consumes them.
+      family enum + 4 shadowed alias entries; `type-conversion` lookups → the `TYPE_CONVERSIONS` Map.
+- [ ] 6.2 Derive `data-types.ts` "Range …" hover prose from `elementary.ts` (numbers live once).
 
 ## 8. Land it
 
-- [ ] 8.1 Full suite green + typecheck clean + corpus 0-error + conformance replay green. Grep-confirm the
-      deleted symbols have zero remaining references. `check-divergence` clean.
+- [ ] 8.1 Full suite green + typecheck + corpus 0-error + conformance replay. Delete `_legacy/`; grep-confirm
+      the removed symbols have zero references. `check-divergence` clean.
 - [ ] 8.2 `openspec validate restructure-semantic-foundation`; sync the `language-server` delta + archive.
-      Rebase `st-static-typechecker` onto the delivered core (its model/const-eval/compat tasks now point here).
+      Rebase `st-static-typechecker` onto the delivered Phase-C core.

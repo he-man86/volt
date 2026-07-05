@@ -19,10 +19,41 @@ suite + corpus + conformance replay encode the oracle-calibrated behaviour and a
 - Not standardizing every check signature (R6) nor unifying VG's inference (both deferred, noted).
 - No wire/protocol/API change; `inferExprType` stays the entry point (richer return).
 
+## The base layer is the foundation — it must be pro FIRST
+
+The type-system and the formatter both stand on the parser/AST/treewalker. Today that base uses an
+"opaque `BodySpan` + let each consumer re-parse" pattern for every type-relevant scalar, and both complex
+consumers work around it (the formatter reprints types/inits/`AT` verbatim from source spans; `const-eval`
+would re-parse the same spans). That is "complex feature on top of a shaky base" — the mistake this rebuild
+must not repeat. So **Phase 0 makes the base a pro implementation**: the AST models the language completely, so
+consumers read structured, evaluated nodes — never raw tokens.
+
+Base-layer upgrades (AST model + the parser code that produces the nodes; the lexer and the overall parse
+driver are sound and stay):
+
+- **Type expressions become structured, not opaque.** `ArrayType.dims` → parsed `{lower, upper}` bound
+  expressions; `StringType.length` → parsed length; **`SubrangeType` modeled** (bounds parsed, not discarded);
+  `__VECTOR` a proper node (`size`, `element`), not a lossy array. Enum member values parsed.
+- **Literals carry a value + precise type.** `Literal → { text, kind, value, type }` — `16#FF`, `INT#40000`,
+  `3.14`, `T#5S` parsed to their value/type at parse time (integers as `bigint`), not left as strings for every
+  consumer to re-scan.
+- **`VarDecl.init` parses into the expression tree** (not a `BodySpan`), so the formatter prints it canonically
+  from the AST and the typechecker type-checks it directly — one parse, many consumers.
+- **Clean qualified names** — resolve the `NamedType` qualifier inversion so namespace resolution reads
+  naturally.
+
+This is the KEY DIFF of the clean impl: a base that fully models IEC 61131-3, so formatting and typechecking are
+thin readers of a complete AST — not re-parsers of spans. It is done first; everything else consumes it.
+Blast radius is real (every check/query/formatter reads these nodes), so it migrates node-by-node with the
+suite (body-AST 100%-clean, formatter round-trip, conformance replay) green at each step.
+
 ## Target architecture
 
 ```
-lexer → parser (AST; + subrange capture)
+── PHASE 0: base layer (pro) ───────────────────────────────────────────────────────
+lexer (sound) → parser → AST (COMPLETE: structured dims/length/subrange/vector, literals with
+                                value+type, init as expression tree, clean qualifiers)
+              → treewalker (statement/expression AST — the shared base for formatter + typechecker)
   │
   ▼  ── semantic/type-system/  (the clean core — one SSOT per concern) ──────────────
   │     elementary.ts     name → { canonical, family, bits, signed, range:bigint, rank, aliases }
