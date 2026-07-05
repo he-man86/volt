@@ -225,11 +225,18 @@ the shared `cannotConvert(from,to)` helper in `checks/_shared.ts` (`Cannot conve
 conversion-call, assignment narrowing, BOOL-in-arithmetic) · duplicate-declaration (`A local variable named
 'X' is already defined in '<POU>'`) · vendor-only-operator simplified (dropped the `Tc2_System.…` advice).
 
+**Mirrored via per-vendor templates (2026-07-05):** where the LSP emits ONE clean message and the vendors
+differ only in wording, the check now branches on `activeVendor` — `fb_init`/`fb_exit` (canned per-vendor
+signature messages), `oop_abstract_instantiated` (`Function block`/`Functionblock`), `op_modulo_on_real`
+(`MOD is not defined for REAL` / `'MOD' is not defined for 'REAL'`), `type_var_temp_in_method` (section-name
+quoting), `conditional_orphan_else` (`pragma:`/`Pragma:`). Enforced on both vendors.
+
 **Backlog (the exception set), by why-not:**
-- **CS≠TC wording (14):** the two compilers word these differently (`Token`/`token`, `Functionblock`, quoting),
-  so one LSP message can't match both → needs **per-vendor message templates** (the LSP is vendor-aware). Open.
-- **Parse cascades (`op_sys_*`):** the IDE emits raw parser errors from failing to parse a CODESYS-only
-  operator; the LSP emits one clean semantic message. Not feasible/desirable to fake — leave.
+- **Parse-cascade mismatch (`identifier_*_underscore`, `deref_*`, `var_non_retain`, `operand_uchar_literal`,
+  `op_sys_*`, `type_codesys_vector`):** the IDE emits a SPRAY of raw parser errors (5-7 diagnostics) from
+  choking on the input; the LSP emits ONE clean semantic message. Reproducing a parser's cascade is neither
+  feasible nor desirable — leave. (This absorbed most of the former "CS≠TC wording" set — the differences
+  there were parser-error casing inside cascades the LSP never emits, not wording of a message it does.)
 - **~~Severity-gated~~ (resolved 2026-07-05):** `unresolved-identifier` was promoted warning→error once the
   corpus reached 0 unresolved-id FPs (the 13 library-blind/dead-object FPs closed via `_libsigs` +
   `COMPILER_PROVIDED_IMPLICITS` + removing excluded objects). It now mirrors the compilers' severity. The

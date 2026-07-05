@@ -152,17 +152,13 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 // same, but the words differ on purpose (or not yet)".
 const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 	twincat: new Set<string>([
-		// CS≠TC: the two compilers word these differently, so one LSP message can't match both. Left until we
-		// decide per-vendor message templates. (Also listed under codesys where its text differs from ours.)
-		"fb_init_missing_bInCopyCode",
-		"fb_exit_missing_bInCopyCode",
+		// PARSE-CASCADE mismatch (NOT a wording diff): the IDE emits a spray of raw parser errors from choking on
+		// the input (`Unexpected token '__x'` ×2, `';' expected …`, `Dereference requires Pointer` on top of a
+		// `Cannot convert 'Unknown type: 'x^''` artifact, etc.) while the LSP emits ONE clean semantic message.
+		// Reproducing a parser's cascade is neither feasible nor desirable — same class as op_sys_* below.
 		"identifier_double_underscore",
 		"identifier_consecutive_underscores",
 		"deref_on_array_type",
-		"conditional_orphan_else",
-		"op_modulo_on_real",
-		"oop_abstract_instantiated",
-		"type_var_temp_in_method",
 		"type_deref_non_pointer",
 		"var_non_retain",
 		"operand_uchar_literal",
@@ -191,16 +187,11 @@ const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		"interface_missing_implementation",
 	]),
 	codesys: new Set<string>([
-		// Same CS≠TC set — CODESYS's wording differs from ours; per-vendor templates or leave.
-		"fb_init_missing_bInCopyCode",
-		"fb_exit_missing_bInCopyCode",
+		// Same PARSE-CASCADE set as twincat above — the IDE emits multiple parser errors, the LSP one clean
+		// semantic message. Not a wording diff; can't fake the parser's spray.
 		"identifier_double_underscore",
 		"identifier_consecutive_underscores",
 		"deref_on_array_type",
-		"conditional_orphan_else",
-		"op_modulo_on_real",
-		"oop_abstract_instantiated",
-		"type_var_temp_in_method",
 		"type_deref_non_pointer",
 		"var_non_retain",
 		"operand_uchar_literal",

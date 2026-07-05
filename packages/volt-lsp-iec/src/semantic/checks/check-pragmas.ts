@@ -119,7 +119,7 @@ export function analyzePragmas(
 						span: pr.token.span,
 						source: "volt-lsp-iec",
 						code: "orphan-conditional-pragma",
-						message: `Unexpected pragma '${pr.directive}' without a matching '{IF}'.`,
+						message: `Unexpected ${activeVendor === "twincat" ? "Pragma" : "pragma"}: '${pr.directive}' found without matching 'if'`,
 					});
 				} else {
 					ifDepth--;
@@ -131,7 +131,7 @@ export function analyzePragmas(
 						span: pr.token.span,
 						source: "volt-lsp-iec",
 						code: "orphan-conditional-pragma",
-						message: `Unexpected pragma '${pr.directive}' without a matching '{IF}'.`,
+						message: `Unexpected ${activeVendor === "twincat" ? "Pragma" : "pragma"}: '${pr.directive}' found without matching 'if'`,
 					});
 				}
 			}

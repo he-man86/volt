@@ -124,7 +124,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "fb-lifecycle-signature",
 		enabled: (c) => c.fbLifecycleSignature,
-		run: (ctx, out) => checkLifecycleSignatures(ctx.parseResult, out),
+		run: (ctx, out) => checkLifecycleSignatures(ctx.parseResult, ctx.activeVendor, out),
 	},
 	{
 		id: "shadowing-declaration",
@@ -139,7 +139,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "var-section-placement",
 		enabled: (c) => c.varSectionPlacement,
-		run: (ctx, out) => checkVarSectionPlacement(ctx.parseResult, out),
+		run: (ctx, out) => checkVarSectionPlacement(ctx.parseResult, ctx.activeVendor, out),
 	},
 
 	// ─── ST-grammar — walk the ST token stream ──────────────────────
@@ -156,7 +156,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "binary-operator-type-mismatch",
 		enabled: (c) => c.binaryOperatorTypeMismatch,
-		run: (ctx, out) => checkBinaryOperators(ctx.parseResult, ctx.project, out),
+		run: (ctx, out) => checkBinaryOperators(ctx.parseResult, ctx.project, ctx.activeVendor, out),
 	},
 	{
 		id: "call-argument-mismatch",
@@ -181,7 +181,7 @@ const CHECKS: CheckSpec[] = [
 	{
 		id: "abstract-instantiation",
 		enabled: (c) => c.abstractInstantiation,
-		run: (ctx, out) => checkAbstractInstantiation(ctx.parseResult, ctx.project, out),
+		run: (ctx, out) => checkAbstractInstantiation(ctx.parseResult, ctx.project, ctx.activeVendor, out),
 	},
 
 	// ─── VG (graphical body) — walk the parsed VG tree ──────────────

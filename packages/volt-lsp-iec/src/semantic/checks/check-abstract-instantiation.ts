@@ -12,13 +12,18 @@
 import type { FunctionBlock, ParseResult, TypeExpr } from "../../parser/ast.js";
 import type { Scope } from "../symbol-table.js";
 import { lookupLocal } from "../symbol-table.js";
+import type { Vendor } from "../../reference/index.js";
 import { type DiagnosticItem } from "./_shared.js";
 
 export function checkAbstractInstantiation(
 	parseResult: ParseResult,
 	project: Scope,
+	activeVendor: Vendor | undefined,
 	out: DiagnosticItem[],
 ): void {
+	// Mirror the compiler's exact wording — the only difference is "Function block" (CODESYS) vs
+	// "Functionblock" (TwinCAT, one word). Default to the CODESYS form when the vendor is unset.
+	const fbWord = activeVendor === "twincat" ? "Functionblock" : "Function block";
 	for (const unit of parseResult.units) {
 		if (!("varSections" in unit)) continue;
 		for (const section of unit.varSections) {
@@ -34,7 +39,7 @@ export function checkAbstractInstantiation(
 						span: name.span,
 						source: "volt-lsp-iec",
 						code: "abstract-instantiation",
-						message: `Cannot instantiate '${t.name.text}': it is an ABSTRACT function block.`,
+						message: `${fbWord} ${t.name.text} is ABSTRACT and cannot be instantiated`,
 					});
 				}
 			}

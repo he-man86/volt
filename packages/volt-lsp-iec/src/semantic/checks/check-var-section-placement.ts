@@ -20,16 +20,18 @@
  * here as the conformance harness flags new gaps.
  */
 import type { ParseResult, TopLevel, VarSection } from "../../parser/ast.js";
+import type { Vendor } from "../../reference/index.js";
 import type { DiagnosticItem } from "./_shared.js";
 
 export function checkVarSectionPlacement(
 	parseResult: ParseResult,
+	activeVendor: Vendor | undefined,
 	out: DiagnosticItem[],
 ): void {
 	for (const unit of parseResult.units) {
 		if (!("varSections" in unit)) continue;
 		for (const section of unit.varSections) {
-			const violation = sectionViolation(unit, section);
+			const violation = sectionViolation(unit, section, activeVendor);
 			if (violation === undefined) continue;
 			out.push({
 				severity: "error",
@@ -42,17 +44,22 @@ export function checkVarSectionPlacement(
 	}
 }
 
-function sectionViolation(unit: TopLevel, section: VarSection): string | undefined {
+/** The compilers' generic misplaced-section message. TwinCAT quotes the section name, CODESYS doesn't. */
+function notAllowedHere(sectionKind: string, activeVendor: Vendor | undefined): string {
+	return activeVendor === "twincat"
+		? `'${sectionKind}' declaration not allowed in this place`
+		: `${sectionKind} declaration not allowed in this place`;
+}
+
+function sectionViolation(unit: TopLevel, section: VarSection, activeVendor: Vendor | undefined): string | undefined {
 	if (section.sectionKind === "VAR_TEMP") {
 		if (unit.kind === "method" || unit.kind === "action" || unit.kind === "interface") {
-			return "VAR_TEMP is not allowed inside a " +
-				unit.kind.toUpperCase().replace("_", " ") +
-				" — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.";
+			return notAllowedHere("VAR_TEMP", activeVendor);
 		}
 	}
 	if (section.sectionKind === "VAR_GLOBAL") {
 		if (unit.kind !== "global_var_list") {
-			return "VAR_GLOBAL is only allowed inside a GVL (global variable list).";
+			return notAllowedHere("VAR_GLOBAL", activeVendor);
 		}
 	}
 	if (section.nonRetain === true && unit.kind !== "global_var_list") {

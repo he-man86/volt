@@ -1132,7 +1132,7 @@ exports[`language conformance (LSP vs twincat recording) fb_init_missing_bInCopy
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
+    "[error] An 'FB_Init'-Method of a functionblock or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL.",
   ],
   "lspWarnings": 0,
   "name": "fb_init_missing_bInCopyCode",
@@ -1150,7 +1150,7 @@ exports[`language conformance (LSP vs twincat recording) fb_exit_missing_bInCopy
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
+    "[error] An 'FB_Exit'-Method of a functionblock or struct needs an input 'bInCopyCode' of type BOOL.",
   ],
   "lspWarnings": 0,
   "name": "fb_exit_missing_bInCopyCode",
@@ -1649,8 +1649,8 @@ exports[`language conformance (LSP vs twincat recording) conditional_orphan_else
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
-    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+    "[error] Unexpected Pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected Pragma: 'END_IF' found without matching 'if'",
   ],
   "lspWarnings": 0,
   "name": "conditional_orphan_else",
@@ -1724,7 +1724,7 @@ exports[`language conformance (LSP vs twincat recording) op_modulo_on_real LSP d
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+    "[error] 'MOD' is not defined for 'REAL'",
   ],
   "lspWarnings": 0,
   "name": "op_modulo_on_real",
@@ -2536,7 +2536,7 @@ exports[`language conformance (LSP vs twincat recording) oop_abstract_instantiat
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot instantiate 'FB_LANG_oop_abstract_instantiated': it is an ABSTRACT function block.",
+    "[error] Functionblock FB_LANG_oop_abstract_instantiated is ABSTRACT and cannot be instantiated",
   ],
   "lspWarnings": 0,
   "name": "oop_abstract_instantiated",
@@ -2638,7 +2638,7 @@ exports[`language conformance (LSP vs twincat recording) type_var_temp_in_method
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] VAR_TEMP is not allowed inside a METHOD — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.",
+    "[error] 'VAR_TEMP' declaration not allowed in this place",
   ],
   "lspWarnings": 0,
   "name": "type_var_temp_in_method",
@@ -4773,7 +4773,7 @@ exports[`language conformance (LSP vs codesys recording) fb_init_missing_bInCopy
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] FB_Init requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 2.",
+    "[error] The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL",
   ],
   "lspWarnings": 0,
   "name": "fb_init_missing_bInCopyCode",
@@ -4791,7 +4791,7 @@ exports[`language conformance (LSP vs codesys recording) fb_exit_missing_bInCopy
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] FB_Exit requires VAR_INPUT parameter 'bInCopyCode : BOOL' at position 1.",
+    "[error] The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL.",
   ],
   "lspWarnings": 0,
   "name": "fb_exit_missing_bInCopyCode",
@@ -5288,8 +5288,8 @@ exports[`language conformance (LSP vs codesys recording) conditional_orphan_else
   "knownDivergent": false,
   "lspErrors": 2,
   "lspMessages": [
-    "[error] Unexpected pragma 'ELSE' without a matching '{IF}'.",
-    "[error] Unexpected pragma 'END_IF' without a matching '{IF}'.",
+    "[error] Unexpected pragma: 'ELSE' found without matching 'if'",
+    "[error] Unexpected pragma: 'END_IF' found without matching 'if'",
   ],
   "lspWarnings": 0,
   "name": "conditional_orphan_else",
@@ -5363,7 +5363,7 @@ exports[`language conformance (LSP vs codesys recording) op_modulo_on_real LSP d
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] 'MOD' is defined for integer types only — got REAL and REAL.",
+    "[error] MOD is not defined for REAL",
   ],
   "lspWarnings": 0,
   "name": "op_modulo_on_real",
@@ -6171,7 +6171,7 @@ exports[`language conformance (LSP vs codesys recording) oop_abstract_instantiat
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] Cannot instantiate 'FB_LANG_oop_abstract_instantiated': it is an ABSTRACT function block.",
+    "[error] Function block FB_LANG_oop_abstract_instantiated is ABSTRACT and cannot be instantiated",
   ],
   "lspWarnings": 0,
   "name": "oop_abstract_instantiated",
@@ -6273,7 +6273,7 @@ exports[`language conformance (LSP vs codesys recording) type_var_temp_in_method
   "knownDivergent": false,
   "lspErrors": 1,
   "lspMessages": [
-    "[error] VAR_TEMP is not allowed inside a METHOD — declare it in the enclosing PROGRAM / FUNCTION / FUNCTION_BLOCK instead.",
+    "[error] VAR_TEMP declaration not allowed in this place",
   ],
   "lspWarnings": 0,
   "name": "type_var_temp_in_method",

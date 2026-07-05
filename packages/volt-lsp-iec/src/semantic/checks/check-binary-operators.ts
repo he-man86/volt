@@ -15,6 +15,7 @@ import type { Scope } from "../symbol-table.js";
 import { parseStatements } from "../../parser/statements.js";
 import { walkAllExprs } from "../../parser/ast-walk.js";
 import { inferExprType } from "../type-infer.js";
+import type { Vendor } from "../../reference/index.js";
 import { type DiagnosticItem, cannotConvert, getBody, findScopeForUnit } from "./_shared.js";
 
 const ARITH_OPS = new Set(["+", "-", "*", "/"]);
@@ -36,6 +37,7 @@ function elemName(expr: Expr, scope: Scope, project: Scope): string | undefined 
 export function checkBinaryOperators(
 	parseResult: ParseResult,
 	project: Scope,
+	activeVendor: Vendor | undefined,
 	out: DiagnosticItem[],
 ): void {
 	for (const unit of parseResult.units) {
@@ -53,21 +55,27 @@ export function checkBinaryOperators(
 			const aType = elemName(e.left, scope, project);
 			const bType = elemName(e.right, scope, project);
 			if (aType === undefined || bType === undefined) return;
-			checkOperands(e, opText, aType, bType, out);
+			checkOperands(e, opText, aType, bType, activeVendor, out);
 		});
 	}
 }
 
 /** Apply the MOD / mixed-arithmetic rules to two known operand type names. */
-function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: string, out: DiagnosticItem[]): void {
+function checkOperands(e: BinaryExpr, opText: string, aType: string, bType: string, activeVendor: Vendor | undefined, out: DiagnosticItem[]): void {
 	if (opText === "MOD") {
 		if (!INTEGER_TYPES.has(aType) || !INTEGER_TYPES.has(bType)) {
+			// Mirror the compiler: it names the offending (non-integer) operand type. TwinCAT quotes both the
+			// operator and the type (`'MOD' is not defined for 'REAL'`); CODESYS quotes neither.
+			const bad = !INTEGER_TYPES.has(aType) ? aType : bType;
+			const message = activeVendor === "twincat"
+				? `'MOD' is not defined for '${bad}'`
+				: `MOD is not defined for ${bad}`;
 			out.push({
 				severity: "error",
 				span: e.span,
 				source: "volt-lsp-iec",
 				code: "binary-op-type-mismatch",
-				message: `'MOD' is defined for integer types only — got ${aType} and ${bType}.`,
+				message,
 			});
 		}
 		return;

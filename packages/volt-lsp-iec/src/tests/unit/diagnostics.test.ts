@@ -526,8 +526,9 @@ END_VAR
 END_METHOD`);
 		const errors = diags.filter((d) => d.code === "var-section-placement");
 		expect(errors).toHaveLength(1);
+		// Mirrors the compilers' generic wording: `<SECTION> declaration not allowed in this place`.
 		expect(errors[0]?.message).toContain("VAR_TEMP");
-		expect(errors[0]?.message).toContain("METHOD");
+		expect(errors[0]?.message).toContain("declaration not allowed in this place");
 	});
 
 	it("allows VAR_TEMP inside a PROGRAM", () => {
