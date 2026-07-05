@@ -208,7 +208,40 @@ recordings and enable for CODESYS where it actually flags (guard: zero new corpu
 - [ ] Call-argument mismatch (`callArgumentMismatch`, default-off) — same
 - [ ] Fixture-design pass: the ~15 `'iX' is no input` cases — decide fixture fix vs a new external-write check
 
+## Message mirroring — LSP text == IDE text (2026-07-05)
+
+Goal: where the LSP and the compiler flag the SAME code, the LSP's message should read IDENTICALLY to the
+IDE's, so an engineer sees the same words in the editor and the build pane. Principle: **mirror the IDE,
+don't out-do it** — drop the LSP's extra variable-naming / fix-suggestion detail in favour of the compiler's
+exact wording.
+
+**Enforced, not eyeballed.** `language.test.ts` now hard-asserts the LSP's error+warning *message set* equals
+the recording's, per vendor. `KNOWN_MESSAGE_DIVERGENCES[vendor]` lists every fixture we do NOT mirror, each
+with a reason — **that set is the mirror backlog; shrinking it is the work.** Distinct from
+`KNOWN_DIVERGENCES` (presence — whether the LSP flags at all).
+
+**Mirrored so far:** external-write (`'X' is no input of '<FB>'`, ~13 fixtures) · the type-mismatch family via
+the shared `cannotConvert(from,to)` helper in `checks/_shared.ts` (`Cannot convert type 'X' to type 'Y'` —
+conversion-call, assignment narrowing, BOOL-in-arithmetic) · duplicate-declaration (`A local variable named
+'X' is already defined in '<POU>'`) · vendor-only-operator simplified (dropped the `Tc2_System.…` advice).
+
+**Backlog (the exception set), by why-not:**
+- **CS≠TC wording (14):** the two compilers word these differently (`Token`/`token`, `Functionblock`, quoting),
+  so one LSP message can't match both → needs **per-vendor message templates** (the LSP is vendor-aware). Open.
+- **Parse cascades (`op_sys_*`):** the IDE emits raw parser errors from failing to parse a CODESYS-only
+  operator; the LSP emits one clean semantic message. Not feasible/desirable to fake — leave.
+- **Severity-gated (`unresolved_identifier_in_body`):** IDE errors, LSP warns. Flip to error only once the 13
+  corpus library-blind FPs (pro2193: 3, bakon-nano: 10) are driven to 0 — else it ships false-positive errors.
+- **CODESYS-only extra warnings (`unknown_attribute_typo`, `monitoring_encoding`):** CODESYS emits an
+  `attribute … is unknown and will be ignored` lint the LSP doesn't model → a new attribute-lint check.
+- **`interface_missing_implementation`:** mirrorable, but CODESYS UPPERCASES the method/interface names
+  (`'COMPUTE'`, `'ITF_LANG_WITH_METHOD'`) — a byte-exact mirror shows uppercase in the editor. Casing decision.
+- **`literal_string_to_int_assignment`:** IDE renders the literal source type as `STRING(INT#<len>)`; our
+  inference yields plain `STRING`. Needs literal-length rendering.
+
 ## Standing invariants
 
 - Corpus ratchet stays zero-FP on built objects; any corpus FP → a new catalog case.
 - Every check flipped on for a vendor must be re-verified against the fresh recordings AND the 4-corpus ratchet.
+- **Message text is a tested invariant:** a check that emits a diagnostic the IDE also emits must match its
+  wording (via `cannotConvert` and friends) or be listed in `KNOWN_MESSAGE_DIVERGENCES` with a reason.
