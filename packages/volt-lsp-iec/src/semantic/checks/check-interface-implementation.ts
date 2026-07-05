@@ -32,12 +32,13 @@ export function checkInterfaceImplementations(
 		const fbScope = findScopeForUnit(project, unit);
 		if (fbScope === undefined) continue;
 
-		const fbMethodNames = new Set<string>();
-		for (const child of fbScope.children) {
-			if (child.kind === "method" || child.kind === "accessor") {
-				fbMethodNames.add(child.name.toLowerCase());
-			}
-		}
+		// Collect the members this FB provides — its OWN methods/accessors AND every one inherited
+		// through the `EXTENDS` base chain (an FB can satisfy an interface via a base-class method).
+		// If any base in the chain is unresolvable (e.g. a library base we can't see), we cannot prove
+		// a member is missing → bail on this FB entirely to preserve zero false positives.
+		const members = collectProvidedMembers(fbScope, project);
+		if (members.baseUnresolved) continue;
+		const fbMethodNames = members.names;
 
 		for (const ifaceName of implementsList) {
 			const ifaceScope = findScopeByName(project, ifaceName.text);
@@ -95,6 +96,43 @@ export function checkInterfaceImplementations(
 			}
 		}
 	}
+}
+
+/**
+ * Collect the method/accessor names an FB provides — its own plus every one inherited through the
+ * `EXTENDS` base chain (an FB can satisfy an interface via a base-class method). `baseUnresolved` is
+ * true when a declared base can't be found in the project (e.g. a library base we can't see): inherited
+ * members are then unknowable, so the caller must not flag "missing" for that FB (zero-FP guarantee).
+ */
+function collectProvidedMembers(
+	fbScope: Scope,
+	project: Scope,
+): { names: Set<string>; baseUnresolved: boolean } {
+	const names = new Set<string>();
+	const visited = new Set<string>();
+	let scope: Scope | undefined = fbScope;
+	while (scope !== undefined) {
+		// Methods/accessors are child scopes; PROPERTIES are `property` SYMBOLS on the scope (a
+		// standalone `PROPERTY X` ingests as a symbol, not a child scope) — collect both, or every
+		// interface property reads as unimplemented.
+		for (const child of scope.children) {
+			if (child.kind === "method" || child.kind === "accessor") {
+				names.add(child.name.toLowerCase());
+			}
+		}
+		for (const syms of scope.symbols.values()) {
+			for (const s of syms) {
+				if (s.kind === "property" || s.kind === "method") names.add(s.name.toLowerCase());
+			}
+		}
+		const ext = scope.extendsName;
+		if (ext === undefined || visited.has(ext)) break; // top of chain, or cycle guard
+		visited.add(ext);
+		const base = findScopeByName(project, ext);
+		if (base === undefined || base.kind !== "pou") return { names, baseUnresolved: true };
+		scope = base;
+	}
+	return { names, baseUnresolved: false };
 }
 
 /** Compare the VAR_INPUT param count and types between an interface method and its concrete override. */

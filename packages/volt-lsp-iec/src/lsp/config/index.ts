@@ -168,6 +168,12 @@ export interface DiagnosticConfig {
 	 */
 	externalNonInputWrite: boolean;
 	/**
+	 * Instantiating an ABSTRACT function block (`VAR x : FB_Abstract;`).
+	 * CODESYS rejects ("... is ABSTRACT"); TwinCAT accepts (no compile-time
+	 * enforcement) → CODESYS-only via RULE_VENDOR_APPLICABILITY.
+	 */
+	abstractInstantiation: boolean;
+	/**
 	 * When the active vendor is TwinCAT, error on CODESYS-only system
 	 * operators (`__VARINFO`, `__NEW`, `__DELETE`, `__QUERYINTERFACE`,
 	 * `__CURRENTTASK`, `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY`, etc.)
@@ -240,6 +246,7 @@ export const DEFAULT_DIAGNOSTIC_CONFIG: DiagnosticConfig = {
 	varSectionPlacement: true,
 	derefOnNonPointer: true,
 	externalNonInputWrite: true,
+	abstractInstantiation: true,
 	vendorOnlyOperator: true,
 	vgStructure: true,
 	vgUndeclaredIdentifier: true,

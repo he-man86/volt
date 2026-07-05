@@ -105,7 +105,13 @@ const CORPORA: ReadonlyArray<{
 	//   used-system-lib refs (`BLINK`/`StrReplaceA`). Renderer now emits a FB's internal VARs too (a derived FB
 	//   reads its base's internals, e.g. BLINK's `CLOCK`). Parser: soft keywords (`SET`) are valid var names
 	//   (Standard `RS` declares `SET : BOOL`). pro2193 17→3 (279 sigs; residual = `TYPE_CLASS` + a project action).
-	{ name: "pro2193", dir: "pro2193", base: { files: 803, parseCleanFiles: 803, ingestFiles: 803, totalDiags: 3, excludedFiles: 14, stBodiesClean: 1712 } },
+	// + missingInterfaceImplementation enabled for CODESYS (was TwinCAT-only): the check now follows the EXTENDS
+	//   base chain and collects PROPERTY symbols (a standalone PROPERTY ingests as a symbol, not a child scope),
+	//   fixing 192 former FPs → 0. The last 2 (`Conveyor_SingleFB` missing `ReturnNextStack`/`HasStacks` from
+	//   `IConveyor_Shared_Move_Commands`) were on a DEAD FB CODESYS never compiles (never instantiated → no build
+	//   ground truth); the harvest missed its `@volt-uncompiled` marker, now added → diagnostics suppressed.
+	//   totalDiags stays 3; excludedFiles 14→15.
+	{ name: "pro2193", dir: "pro2193", base: { files: 803, parseCleanFiles: 803, ingestFiles: 803, totalDiags: 3, excludedFiles: 15, stBodiesClean: 1712 } },
 	// bakon 275→231 (4351 stubs). The −44 was the library floor; the 231 residual is a PROJECT-LOCAL gap — bare
 	// enum-value references (`StateAutomatic` of sState, `Prod_*` of sProdType) the unresolved check doesn't yet
 	// resolve against in-scope enums. Tracked separately from libraries.

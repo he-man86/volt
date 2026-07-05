@@ -61,6 +61,22 @@ function plcPrgFor(t: LanguageTest): string {
 // outside the selected slice still resolves.
 const BY_POU = new Map<string, LanguageTest>(ALL_TESTS.map((t) => [t.pouName, t]));
 
+// global-variable name → the GVL fixture that declares it. A VAR_EXTERNAL / bare-global consumer names
+// the VARIABLE (`gShared`), not the GVL item (`GVL_LANG_…`), so pouName scanning alone misses the GVL dep
+// and the isolated build fails "No global definition found". Indexed by parsing each GVL fixture's globals.
+const BY_GLOBAL = new Map<string, LanguageTest>();
+for (const t of ALL_TESTS) {
+	if (t.kind !== "gvl") continue;
+	for (const unit of parseSource(t.source).units) {
+		if (unit.kind !== "global_var_list") continue;
+		for (const section of unit.varSections) {
+			for (const decl of section.decls) {
+				for (const name of decl.names) if (!BY_GLOBAL.has(name.text)) BY_GLOBAL.set(name.text, t);
+			}
+		}
+	}
+}
+
 /**
  * The transitive set of OTHER fixtures whose declared type (`pouName`) this test's source names — its
  * EXTENDS base, IMPLEMENTED interface(s), used DUTs, etc. Without them in the isolated project the compiler
@@ -78,8 +94,11 @@ function depsOf(t: LanguageTest): LanguageTest[] {
 		const text = `${cur.source}\n${cur.plcPrgVar ?? ""}\n${cur.plcPrgBody ?? ""}`;
 		for (const id of new Set(text.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? [])) {
 			if (seen.has(id)) continue;
-			const dep = BY_POU.get(id);
-			if (dep === undefined) continue;
+			const dep = BY_POU.get(id) ?? BY_GLOBAL.get(id);
+			// Guard on the RESOLVED dep's pouName, not the identifier: a BY_GLOBAL hit resolves a variable
+			// name (`gShared`) to a GVL whose own source re-declares that name, so keying dedup on the raw
+			// identifier would let the GVL re-push itself forever (infinite loop). pouName is the identity.
+			if (dep === undefined || seen.has(dep.pouName)) continue;
 			seen.add(dep.pouName);
 			out.push(dep);
 			stack.push(dep);

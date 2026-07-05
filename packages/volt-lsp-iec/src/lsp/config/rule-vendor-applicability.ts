@@ -44,17 +44,11 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 * legal there.
 	 */
 	vendorOnlyOperator: ["twincat"],
-	/**
-	 * KEPT TwinCAT-only for a DIFFERENT reason than the old "CS 0" claim:
-	 * CODESYS DOES flag missing interface members ("There is no implementation
-	 * for method …"), but our check produces 189 corpus false positives — it
-	 * can't tell a complete implementation from an incomplete one when the
-	 * interface / its members come from a library or a base class. Enable for
-	 * CODESYS only after the check resolves inherited + library interface
-	 * members robustly (same blocker as the external-write check).
-	 */
-	missingInterfaceImplementation: ["twincat"],
-	missingInterfaceSignature: ["twincat"],
+	// missingInterfaceImplementation / missingInterfaceSignature — now enabled for BOTH vendors. The
+	// former 192 corpus FPs were FBs satisfying an interface via an EXTENDS base method; the check now
+	// follows the base chain (collectProvidedMembers) and bails when a base is unresolvable (library
+	// base), so it flags only genuinely-missing members. Verified zero corpus FP. CODESYS flags these
+	// too ("There is no implementation for method …"), so no entry = both vendors.
 	/**
 	 * CODESYS-only. External `fb.internalVar := x` (write to a non-VAR_INPUT/VAR_OUTPUT member):
 	 * verified by the conformance recordings — for the SAME source, CODESYS rejects ("'X' is no input
@@ -63,6 +57,11 @@ export const RULE_VENDOR_APPLICABILITY: Partial<
 	 * a TwinCAT workspace would false-positive on code TC compiles.
 	 */
 	externalNonInputWrite: ["codesys"],
+	/**
+	 * CODESYS-only (verified by recordings): CS errors on instantiating an ABSTRACT FB, TC accepts (no
+	 * compile-time enforcement — see the oop_abstract_instantiated fixture).
+	 */
+	abstractInstantiation: ["codesys"],
 };
 
 /**

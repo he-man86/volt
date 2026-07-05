@@ -83,7 +83,13 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string }> = [
  * the LSP grows the capability to close that gap.
  */
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-	twincat: new Set<string>(),
+	twincat: new Set<string>([
+		// TC rejects a GET-only interface-PROPERTY implementation ("no implementation for method
+		// '__SETVALUE' defined in interface") — it requires BOTH accessors; CODESYS accepts GET-only.
+		// The LSP's missing-interface check verifies property PRESENCE, not per-accessor (GET/SET)
+		// completeness against the interface contract. TC-specific quirk (the fixture note records it).
+		"interface_with_property_impl",
+	]),
 	codesys: new Set<string>([
 		// CODESYS-specific warnings not surfaced by TC. The LSP defaults
 		// to TC-grade rules; matching every CODESYS heuristic warning
@@ -106,6 +112,27 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// rejects. Our parser matches TC. Aligning with CS would mean
 		// teaching the parser the CODESYS extension.
 		"operand_partial_word_in_dword",
+		// CODESYS warns "No VAR_PERSISTENT list is part of the application to
+		// ensure the values are stored" — an APPLICATION-CONFIG check (does a
+		// PersistentVars object exist in the app?), not a source-level property.
+		// The LSP analyzes source, not the application's object tree, so it
+		// cannot (and shouldn't) emit this. Same class as op_sys_new_delete.
+		"var_persistent",
+		// CODESYS warns "The property defines neither a get nor a set accessor"
+		// on an interface PROPERTY with no inline GET/SET. Not safely
+		// implementable offline: real interfaces declare the SAME shape en masse
+		// (92 such properties in the pro2193 corpus, all `{attribute
+		// 'monitoring'}`), and we can't verify offline which CODESYS actually
+		// warns on vs. the fixture. Enabling it risked mass false positives, so
+		// it's deferred until we can verify against a live CODESYS bridge.
+		"interface_with_property",
+		// CODESYS warns "The attribute 'pingroup' can only be added to variable"
+		// — `pingroup` is placed on the FB HEADER, but per doc 07 L612 it belongs
+		// on a variable declaration. This is an attribute-TARGET-placement check
+		// the LSP doesn't implement (it isn't the pin/pingroup mutual-exclusion
+		// the LSP's pragmaConflict models — that's a different, un-grounded pair
+		// warning that would false-positive on TwinCAT, which is silent here).
+		"pragma_conflicting_pair",
 	]),
 };
 
@@ -118,7 +145,7 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 // after the item, and name-derived-from-file resolution (a GVL's name via `gvlNameFromUri`, so
 // `GVL_Name.field` resolves) depends on it. `t.name` is only a test slug. pouNames are unique (asserted).
 const ALL_PARSE_RESULTS = ALL_TESTS.map((t) => ({
-	uri: `file:///conformance/${t.pouName}.st` as const,
+	uri: `file:///conformance/${t.pouName}.fb` as const,
 	parseResult: parseSource(t.source),
 }));
 
@@ -139,7 +166,7 @@ const CROSS_TEST_DECLS = ALL_PARSE_RESULTS.map((p) => ({
 const PLC_PRGS = ALL_TESTS.map((t) => {
 	if (t.plcPrgVar === undefined && t.plcPrgBody === undefined) return undefined;
 	const source = `PROGRAM PLC_PRG\nVAR\n${t.plcPrgVar ?? ""}\nEND_VAR\n${t.plcPrgBody ?? ""}\nEND_PROGRAM\n`;
-	return { uri: `file:///conformance/${t.name}__plcprg.st` as const, source, parseResult: parseSource(source) };
+	return { uri: `file:///conformance/${t.name}__plcprg.fb` as const, source, parseResult: parseSource(source) };
 });
 
 function runLsp(

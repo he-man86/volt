@@ -134,7 +134,7 @@ silenced with a lazy `KNOWN_DIVERGENCES` entry.
 - **Bucket E — struct (3):** ✅ **root-fixed — was a FIXTURE artifact, not a parser bug.** The 3 fixtures
   crammed TWO `TYPE…END_TYPE` DUTs into one item; CODESYS is one-DUT-per-item, so the second block is
   "Unexpected statement" (cascading into "Unknown type"). TwinCAT tolerated it; the LSP correctly parses
-  multi-unit `.st`. Both STRUCT `EXTENDS` (doc 06 L299) and nested STRUCT (L298) are valid CODESYS when the
+  multi-unit ST source. Both STRUCT `EXTENDS` (doc 06 L299) and nested STRUCT (L298) are valid CODESYS when the
   base/inner is its OWN item. Fix: split base/inner into separate fixtures (padded to 2 members to sidestep
   the doc's <2-member rule); the recorder's dep scan pushes each as its own item; re-recorded → all 6 build
   clean; the LSP was already clean (resolves inherited + nested members) → agree.

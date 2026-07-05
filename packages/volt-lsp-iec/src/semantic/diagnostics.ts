@@ -32,6 +32,7 @@ import { checkNarrowingConversion } from "./checks/check-narrowing-conversion.js
 import { checkVarSectionPlacement } from "./checks/check-var-section-placement.js";
 import { checkDerefOnNonPointer } from "./checks/check-deref.js";
 import { checkExternalNonInputWrite } from "./checks/check-external-write.js";
+import { checkAbstractInstantiation } from "./checks/check-abstract-instantiation.js";
 import { checkVendorOnlyOperators } from "./checks/check-vendor-only-operator.js";
 import { checkVgStructure } from "./checks/check-vg-structure.js";
 import { checkVgCode } from "./checks/check-vg-code.js";
@@ -176,6 +177,11 @@ const CHECKS: CheckSpec[] = [
 		id: "external-non-input-write",
 		enabled: (c) => c.externalNonInputWrite,
 		run: (ctx, out) => checkExternalNonInputWrite(ctx.parseResult, ctx.project, out),
+	},
+	{
+		id: "abstract-instantiation",
+		enabled: (c) => c.abstractInstantiation,
+		run: (ctx, out) => checkAbstractInstantiation(ctx.parseResult, ctx.project, out),
 	},
 
 	// ─── VG (graphical body) — walk the parsed VG tree ──────────────

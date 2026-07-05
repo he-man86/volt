@@ -1,3 +1,4 @@
+(* @volt-uncompiled *)
 {attribute 'symbol' := 'none'}
 FUNCTION_BLOCK Conveyor_SingleFB
 EXTENDS ModuleResettableFB

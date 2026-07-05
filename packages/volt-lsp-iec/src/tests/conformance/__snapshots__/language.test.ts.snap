@@ -2384,11 +2384,9 @@ exports[`language conformance (LSP vs twincat recording) interface_with_property
     "[error] There is no implementation for method '__SETVALUE' defined in interface 'ITF_LANG_WITH_PROPERTY'",
   ],
   "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] FB 'FB_LANG_with_property_impl' implements 'ITF_LANG_with_property' but doesn't provide property 'Value'.",
-  ],
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
   "lspWarnings": 0,
   "name": "interface_with_property_impl",
   "vendor": "twincat",
@@ -3544,6 +3542,26 @@ exports[`language conformance (LSP vs twincat recording) use_method_array_param 
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) hide_var LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] 'iSecret' is no input of 'FB_LANG_hide_var'",
+    "[error] 'iVisible' is no input of 'FB_LANG_hide_var'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Cannot write 'iSecret' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iSecret' is VAR).",
+    "[error] Cannot write 'iVisible' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVisible' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "hide_var",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) call_after_init LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3572,6 +3590,78 @@ exports[`language conformance (LSP vs codesys recording) warning_message LSP dia
   ],
   "lspWarnings": 1,
   "name": "warning_message",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) noinit LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iRetain' is no input of 'FB_LANG_noinit'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iRetain' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iRetain' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "noinit",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) init_on_onlchange LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iVar' is no input of 'FB_LANG_init_on_onlchange'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iVar' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVar' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "init_on_onlchange",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_hex LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iHex' is no input of 'FB_LANG_displaymode_hex'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iHex' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHex' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "displaymode_hex",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_copy LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iLocal' is no input of 'FB_LANG_no_copy'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iLocal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iLocal' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "no_copy",
   "vendor": "codesys",
 }
 `;
@@ -3660,6 +3750,25 @@ exports[`language conformance (LSP vs codesys recording) reflection LSP diagnost
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) unknown_attribute_typo LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[warning] The attribute qualifid_only is unknown and will be ignored by the  compiler.",
+    "[error] 'iX' is no input of 'FB_LANG_unknown_attribute_typo'",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iX' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iX' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "unknown_attribute_typo",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) enable_dynamic_creation LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3716,6 +3825,63 @@ exports[`language conformance (LSP vs codesys recording) global_init_slot LSP di
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) monitoring_display LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iStatus' is no input of 'FB_LANG_monitoring_display'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iStatus' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iStatus' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "monitoring_display",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) monitoring_encoding LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[warning] Invalid value 'UTF8' for attribute 'monitoring_encoding' should be one of: ['UTF-8', 'UnicodeCharacter']",
+    "[error] 'sValue' is no input of 'FB_LANG_monitoring_encoding'",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'sValue' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sValue' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "monitoring_encoding",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) subsequent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 2,
+  "ideMessages": [
+    "[error] 'iA' is no input of 'FB_LANG_subsequent'",
+    "[error] 'iB' is no input of 'FB_LANG_subsequent'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 2,
+  "lspMessages": [
+    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+    "[error] Cannot write 'iB' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iB' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "subsequent",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) suppress_warning LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3726,6 +3892,24 @@ exports[`language conformance (LSP vs codesys recording) suppress_warning LSP di
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "suppress_warning",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) conditionalshow LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iHidden' is no input of 'FB_LANG_conditionalshow'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iHidden' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHidden' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "conditionalshow",
   "vendor": "codesys",
 }
 `;
@@ -3790,6 +3974,60 @@ exports[`language conformance (LSP vs codesys recording) instance_path_with_refl
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) displaymode_bin LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iBits' is no input of 'FB_LANG_displaymode_bin'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iBits' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iBits' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "displaymode_bin",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_dec LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iDec' is no input of 'FB_LANG_displaymode_dec'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iDec' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iDec' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "displaymode_dec",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) displaymode_invalid_value LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iVal' is no input of 'FB_LANG_displaymode_invalid_value'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVal' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "displaymode_invalid_value",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) suppress_warning_multi LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -3800,6 +4038,24 @@ exports[`language conformance (LSP vs codesys recording) suppress_warning_multi 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "suppress_warning_multi",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) no_init_aliases LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'iA' is no input of 'FB_LANG_no_init_aliases'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "no_init_aliases",
   "vendor": "codesys",
 }
 `;
@@ -4073,6 +4329,22 @@ exports[`language conformance (LSP vs codesys recording) pragma_unknown_directiv
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "pragma_unknown_directive",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) pragma_conflicting_pair LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] The attribute 'pingroup' can only be added to variable declarations. It will be ignored here.",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "pragma_conflicting_pair",
   "vendor": "codesys",
 }
 `;
@@ -4848,6 +5120,24 @@ exports[`language conformance (LSP vs codesys recording) unresolved_identifier_i
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] 'sVal' is no input of 'FB_LANG_pragma_conflict_hide_plus_monitoring'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot write 'sVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sVal' is VAR).",
+  ],
+  "lspWarnings": 0,
+  "name": "pragma_conflict_hide_plus_monitoring",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) deref_on_array_type LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 2,
@@ -5605,6 +5895,24 @@ exports[`language conformance (LSP vs codesys recording) interface_with_method_i
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) interface_missing_implementation LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] There is no implementation for method 'COMPUTE' defined in interface 'ITF_LANG_WITH_METHOD'",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] FB 'FB_LANG_interface_missing_implementation' implements 'ITF_LANG_with_method' but doesn't provide method 'Compute'.",
+  ],
+  "lspWarnings": 0,
+  "name": "interface_missing_implementation",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) interface_extends_another LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -5657,6 +5965,22 @@ exports[`language conformance (LSP vs codesys recording) interface_method_with_r
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "interface_method_with_return_type_impl",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) interface_with_property LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] The property defines neither a get nor a set accessor.",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "interface_with_property",
   "vendor": "codesys",
 }
 `;
@@ -5755,6 +6079,24 @@ exports[`language conformance (LSP vs codesys recording) oop_abstract_fb LSP dia
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "oop_abstract_fb",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) oop_abstract_instantiated LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 1,
+  "ideMessages": [
+    "[error] Function block FB_LANG_oop_abstract_instantiated is ABSTRACT and cannot be instantiated",
+  ],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 1,
+  "lspMessages": [
+    "[error] Cannot instantiate 'FB_LANG_oop_abstract_instantiated': it is an ABSTRACT function block.",
+  ],
+  "lspWarnings": 0,
+  "name": "oop_abstract_instantiated",
   "vendor": "codesys",
 }
 `;
@@ -5904,6 +6246,62 @@ exports[`language conformance (LSP vs codesys recording) type_dut_struct_simple 
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "type_dut_struct_simple",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_base LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_base",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_extends LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_extends",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_inner LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_inner",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) type_dut_struct_nested LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "type_dut_struct_nested",
   "vendor": "codesys",
 }
 `;
@@ -6212,6 +6610,22 @@ exports[`language conformance (LSP vs codesys recording) var_retain LSP diagnost
   "lspMessages": [],
   "lspWarnings": 0,
   "name": "var_retain",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) var_persistent LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [
+    "[warning] No VAR_PERSISTENT list is part of the application to enter instance path for variable PLC_PRG.fb_per.iCount",
+  ],
+  "ideWarnings": 1,
+  "knownDivergent": true,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "var_persistent",
   "vendor": "codesys",
 }
 `;
@@ -6623,6 +7037,34 @@ exports[`language conformance (LSP vs codesys recording) use_struct_member_acces
 }
 `;
 
+exports[`language conformance (LSP vs codesys recording) use_struct_inner LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_inner",
+  "vendor": "codesys",
+}
+`;
+
+exports[`language conformance (LSP vs codesys recording) use_struct_nested_member LSP diagnostics agree with codesys 1`] = `
+{
+  "ideErrors": 0,
+  "ideMessages": [],
+  "ideWarnings": 0,
+  "knownDivergent": false,
+  "lspErrors": 0,
+  "lspMessages": [],
+  "lspWarnings": 0,
+  "name": "use_struct_nested_member",
+  "vendor": "codesys",
+}
+`;
+
 exports[`language conformance (LSP vs codesys recording) use_gvl_field_access LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
@@ -6721,283 +7163,7 @@ exports[`language conformance (LSP vs codesys recording) use_method_array_param 
 }
 `;
 
-exports[`language conformance (LSP vs codesys recording) hide_var LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 2,
-  "ideMessages": [
-    "[error] 'iSecret' is no input of 'FB_LANG_hide_var'",
-    "[error] 'iVisible' is no input of 'FB_LANG_hide_var'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 2,
-  "lspMessages": [
-    "[error] Cannot write 'iSecret' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iSecret' is VAR).",
-    "[error] Cannot write 'iVisible' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVisible' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "hide_var",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) noinit LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iRetain' is no input of 'FB_LANG_noinit'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iRetain' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iRetain' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "noinit",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) init_on_onlchange LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iVar' is no input of 'FB_LANG_init_on_onlchange'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iVar' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVar' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "init_on_onlchange",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_hex LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iHex' is no input of 'FB_LANG_displaymode_hex'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iHex' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHex' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "displaymode_hex",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) no_copy LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iLocal' is no input of 'FB_LANG_no_copy'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iLocal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iLocal' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "no_copy",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) unknown_attribute_typo LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[warning] The attribute qualifid_only is unknown and will be ignored by the  compiler.",
-    "[error] 'iX' is no input of 'FB_LANG_unknown_attribute_typo'",
-  ],
-  "ideWarnings": 1,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iX' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iX' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "unknown_attribute_typo",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) monitoring_display LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iStatus' is no input of 'FB_LANG_monitoring_display'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iStatus' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iStatus' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "monitoring_display",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) monitoring_encoding LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[warning] Invalid value 'UTF8' for attribute 'monitoring_encoding' should be one of: ['UTF-8', 'UnicodeCharacter']",
-    "[error] 'sValue' is no input of 'FB_LANG_monitoring_encoding'",
-  ],
-  "ideWarnings": 1,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'sValue' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sValue' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "monitoring_encoding",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) subsequent LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 2,
-  "ideMessages": [
-    "[error] 'iA' is no input of 'FB_LANG_subsequent'",
-    "[error] 'iB' is no input of 'FB_LANG_subsequent'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 2,
-  "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
-    "[error] Cannot write 'iB' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iB' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "subsequent",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) conditionalshow LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iHidden' is no input of 'FB_LANG_conditionalshow'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iHidden' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iHidden' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "conditionalshow",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_bin LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iBits' is no input of 'FB_LANG_displaymode_bin'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iBits' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iBits' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "displaymode_bin",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_dec LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iDec' is no input of 'FB_LANG_displaymode_dec'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iDec' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iDec' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "displaymode_dec",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) displaymode_invalid_value LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iVal' is no input of 'FB_LANG_displaymode_invalid_value'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iVal' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "displaymode_invalid_value",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) no_init_aliases LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'iA' is no input of 'FB_LANG_no_init_aliases'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'iA' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('iA' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "no_init_aliases",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) pragma_conflict_hide_plus_monitoring LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 1,
-  "ideMessages": [
-    "[error] 'sVal' is no input of 'FB_LANG_pragma_conflict_hide_plus_monitoring'",
-  ],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 1,
-  "lspMessages": [
-    "[error] Cannot write 'sVal' externally: only VAR_INPUT/VAR_OUTPUT members are writable via the instance path ('sVal' is VAR).",
-  ],
-  "lspWarnings": 0,
-  "name": "pragma_conflict_hide_plus_monitoring",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_base LSP diagnostics agree with codesys 1`] = `
+exports[`language conformance (LSP vs codesys recording) var_external_consumer LSP diagnostics agree with codesys 1`] = `
 {
   "ideErrors": 0,
   "ideMessages": [],
@@ -7006,77 +7172,7 @@ exports[`language conformance (LSP vs codesys recording) type_dut_struct_base LS
   "lspErrors": 0,
   "lspMessages": [],
   "lspWarnings": 0,
-  "name": "type_dut_struct_base",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_extends LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "type_dut_struct_extends",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_inner LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "type_dut_struct_inner",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) type_dut_struct_nested LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "type_dut_struct_nested",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) use_struct_inner LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "use_struct_inner",
-  "vendor": "codesys",
-}
-`;
-
-exports[`language conformance (LSP vs codesys recording) use_struct_nested_member LSP diagnostics agree with codesys 1`] = `
-{
-  "ideErrors": 0,
-  "ideMessages": [],
-  "ideWarnings": 0,
-  "knownDivergent": false,
-  "lspErrors": 0,
-  "lspMessages": [],
-  "lspWarnings": 0,
-  "name": "use_struct_nested_member",
+  "name": "var_external_consumer",
   "vendor": "codesys",
 }
 `;
