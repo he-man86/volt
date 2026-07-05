@@ -3,7 +3,7 @@
 A clean, from-scratch layered language server. Folders are layers; imports point downward only
 (`syntax ← symbols ← types ← analysis ← services ← server`), a lint-enforceable invariant. Built bottom-up:
 freeze a layer's contract, verify against the tests, then let the next layer consume it. The detailed blueprint
-is `specs/language-server/architecture.md`.
+is `specs/st-language-server/architecture.md`.
 
 ## Goals / Non-Goals
 
