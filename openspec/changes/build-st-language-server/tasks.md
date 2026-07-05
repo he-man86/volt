@@ -2,7 +2,18 @@ Build order = the layer stack, bottom-up. Invariant for EVERY task: `cd packages
 `bun typecheck` + corpus 0-error + conformance replay green before its commit. Freeze a layer's contract →
 verify → let the next consume it.
 
-## 0. Guardrails (first — before code accretes)
+## 0. Clean-room + guardrails (first — before any code)
+- [ ] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
+      The existing `packages/volt-lsp-iec` stays UNTOUCHED as the reference/backup (git also preserves it).
+      Scaffold a fresh package `packages/volt-lsp-iec-next` — isolated, so nothing imports it yet and there is
+      ZERO breakage while it's built. Mirror the old package config: `package.json` (`type: module`; exports
+      `.` → `src/index.ts` + `./conformance`; `bin` `volt-lsp-iec`; deps `vscode-languageserver-protocol` +
+      `-textdocument`; devDeps from catalog; scripts build/typecheck/test/record:language); `tsconfig.json`
+      (`extends @tsconfig/node22`, `rootDir src`, `module nodenext`, `lib es2022`); `turbo.json` (`extends
+      ["//"]`, test task). The real-project corpus + conformance recordings are referenced from (or copied out
+      of) the legacy package. When the new package subsumes the old and the conformance replay passes, SWAP:
+      old → `volt-lsp-iec-legacy`, new → `volt-lsp-iec`. Build bottom-up (A→G); the legacy is reference only —
+      never edited.
 - [ ] 0.1 Stand up the layer folders with an `index.ts` barrel each; consumers import from the layer, not deep
       files. Seed the ownership map (architecture.md) as the single lookup for "where does X live".
 - [ ] 0.2 Add a `dependency-cruiser` (or `eslint-plugin-boundaries`) config that FAILS on: an upward import
