@@ -592,6 +592,24 @@ describe("parser: type expressions", () => {
 		expect(at.dims).toHaveLength(2);
 	});
 
+	it("subrange constraint is retained as structured bound tokens", () => {
+		const te = parseTypeIn("INT(1..100)") as NamedType;
+		expect(te.name.text).toBe("INT");
+		expect(te.subrange).toBeDefined();
+		expect(te.subrange!.tokens.map((t) => t.text).join("")).toBe("1..100");
+	});
+
+	it("subrange with a named upper bound is retained (not evaluated at parse time)", () => {
+		const te = parseTypeIn("INT(-10..MaxLinks)") as NamedType;
+		expect(te.subrange!.tokens.map((t) => t.text).join("")).toBe("-10..MaxLinks");
+	});
+
+	it("an FB-instance initializer after a type is NOT a subrange", () => {
+		const te = parseTypeIn("SomeFB(x := 1)") as NamedType;
+		expect(te.name.text).toBe("SomeFB");
+		expect(te.subrange).toBeUndefined();
+	});
+
 	it("REFERENCE TO X", () => {
 		const te = parseTypeIn("REFERENCE TO FB_Motor");
 		const rt = te as ReferenceType;

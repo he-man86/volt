@@ -227,6 +227,13 @@ export interface NamedType {
 	name: Identifier;
 	/** For namespaced/qualified types like `Tc2_Standard.TON` — captured as ident + qualifier path. */
 	qualifiers?: Identifier[];
+	/**
+	 * Subrange constraint tokens for `INT(lo..hi)` — the `lo..hi` between the parens, retained (not
+	 * discarded) so the type system can bound-check constants against it. Only set when the constraint is a
+	 * range (contains a top-level `..`); an FB-instance initializer `FB(x := 1)` leaves this undefined.
+	 * `const-eval` splits on `..` and evaluates each bound.
+	 */
+	subrange?: BodySpan;
 	span: Span;
 }
 

@@ -180,33 +180,40 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
 		qualifiers.push(identFromToken(part));
 	}
 	let lastSpan = qualifiers.length > 0 ? (qualifiers[qualifiers.length - 1] as Identifier).span : head.span;
-	// Optional subrange constraint: `INT(0..100)` after a named type.
-	// We don't model subrange in the AST yet — just consume the parens
-	// so the parse doesn't fail and the source-slice captures it for
-	// downstream round-trip (DUT alias bodies, struct field types).
+	// A `(...)` after a named type is either a SUBRANGE constraint (`INT(0..100)`) or an FB-instance
+	// initializer (`FB(x := 1)`). Retain a subrange (detected by a top-level `..`) as structured bound tokens
+	// for the type system to const-check against; any other constraint is still consumed for round-trip but
+	// not modeled here.
+	let subrange: BodySpan | undefined;
 	if (c.peek().kind === "punct" && c.peek().text === "(") {
 		const open = c.consume();
+		const inner: Token[] = [];
 		let depth = 1;
 		let closeSpan = open.span;
+		let hasRange = false;
 		while (!c.atEof() && depth > 0) {
 			const t = c.consume();
 			closeSpan = t.span;
-			if (t.kind === "punct" && t.text === "(") depth++;
-			else if (t.kind === "punct" && t.text === ")") depth--;
+			if (t.kind === "punct" && t.text === "(") { depth++; inner.push(t); }
+			else if (t.kind === "punct" && t.text === ")") { depth--; if (depth > 0) inner.push(t); }
+			else { if (depth === 1 && t.kind === "punct" && t.text === "..") hasRange = true; inner.push(t); }
 		}
 		lastSpan = closeSpan;
+		if (hasRange) subrange = bodySpanFromTokens(inner, joinSpans(open.span, closeSpan));
 	}
 	if (qualifiers.length > 0) {
 		return {
 			kind: "named_type",
 			name: qualifiers[qualifiers.length - 1] as Identifier,
 			qualifiers: [head, ...qualifiers.slice(0, -1)],
+			subrange,
 			span: joinSpans(head.span, lastSpan),
 		};
 	}
 	return {
 		kind: "named_type",
 		name: head,
+		subrange,
 		span: joinSpans(head.span, lastSpan),
 	};
 }
