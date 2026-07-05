@@ -18,6 +18,53 @@ uses), **Verify** (the tests that pin it), **Build** (🟢 reuse largely as-is �
 
 ---
 
+## Professional folder structure (the target — folders ARE the layers)
+
+The rebuild targets this tree. Each folder is one architecture layer; imports only ever point *downward*
+(a lint-able invariant). The current `lexer/ parser/ semantic/ lsp/` layout blurs the layers — that blur is
+what let type facts and compatibility policy leak across files. Build each layer fresh INTO this tree; the old
+folders stay as reference until a layer is fully subsumed, then are deleted.
+
+```
+src/
+├── syntax/            # A — lexical + syntactic. NO semantics, no symbol table, no types.
+│   ├── token.ts           TokenKind · Token · trivia
+│   ├── lexer.ts           source → Token[]
+│   ├── ast.ts             the COMPLETE AST (declarations · type-exprs structured · statements · expressions ·
+│   │                      literals with value+type)
+│   ├── parser.ts          parse(source) → { units, diagnostics } — the driver
+│   ├── parse/             grammar modules: declarations · types · statements · expressions
+│   └── cursor.ts          cursor + parse utils
+├── symbols/           # B — binder. Names & scopes over the AST.
+│   ├── symbol.ts · scope.ts
+│   ├── binder.ts          AST → scope tree
+│   └── scope-nav.ts       the ONE scope-tree navigator
+├── types/             # C — the type system. The clean core.
+│   ├── elementary.ts      type-facts SSOT
+│   ├── type.ts            the Type model
+│   ├── resolve.ts         TypeExpr → Type      · infer.ts   Expr → Type (one engine)
+│   ├── const-eval.ts      Expr → value          · compat.ts  assignable/narrowing/arith/conversion
+│   └── render.ts          Type/TypeExpr → string (the ONE renderer)
+├── analysis/          # D — diagnostics.
+│   ├── diagnostics.ts     orchestrator          · messages.ts  per-vendor message builders
+│   └── checks/            the rules (thin), grouped: types/ · declarations/ · names/ · oop/ · pragmas/
+├── services/          # E — LSP language services (features), thin over C/D.
+│   ├── resolve-at.ts      cursor → symbol/scope/token (shared by every position query)
+│   ├── navigation.ts · hierarchy.ts · hover.ts · completion.ts · signature-help.ts · semantic-tokens.ts
+│   ├── document-symbol.ts · folding.ts · selection.ts · code-actions.ts
+│   ├── formatting/        format.ts + editorconfig.ts
+│   └── shared/            position · locations · symbol-kinds (+ humanKind) · token-scan
+├── reference/         # F — language reference catalogs (hover/completion DATA; ranges derive from types/)
+├── graphical/         # F — the VG sublanguage (ast · parser · infer-adapter · checks · render)
+├── server/            # G — LSP 3.17 / stdio · dispatch · capabilities
+├── index.ts           # the public API surface (what volt-git + vscode + the harness import)
+└── test/              # mirrors the src tree
+```
+
+Dependency rule (enforceable): `syntax ← symbols ← types ← analysis ← services ← server`; `reference` and
+`graphical` sit beside/above `types`; nothing imports `services` except `server`. If a file needs something
+from a higher layer, the layering is wrong — fix the layering, don't add the import.
+
 ## The stack (bottom → top)
 
 ```
