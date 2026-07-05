@@ -7,7 +7,7 @@
 ## 2. Statement printer
 
 - [x] 2.1 `printStatements(list, ctx): string` — assignment (`:=`, and `S=`/`R=`/`REF=`), `IF`/`ELSIF`/`ELSE`, `CASE` with labelled arms, `FOR`/`WHILE`/`REPEAT`, `RETURN`/`EXIT`/`CONTINUE`, bare call statements. One statement per line; block indent from `ctx.level`.
-- [ ] 2.2 Indent unit / eol from `IndentOptions` (reuse the existing `.editorconfig` resolution); no new config.
+- [x] 2.2 Indent unit / eol from `IndentOptions` (reuse the existing `.editorconfig` resolution); no new config.
 - [x] 2.3 Unit tests per statement form, including nested control flow.
 
 ## 3. Comment reconciliation
@@ -23,8 +23,8 @@
 
 ## 5. Wire-up + fallback
 
-- [ ] 5.1 `formatDocument` formats each POU body via the AST printer; on `parseStatements` failure or an interior-comment "cannot place", fall back to `reindentSt` for that body. The re-indenter stays unchanged as the fallback (its 26 tests stay green).
-- [ ] 5.2 Assemble the whole document (headers + bodies + between-item trivia) and return a single full-document TextEdit; empty array when already formatted.
+- [x] 5.1 `formatDocument` formats each POU body via the AST printer; on `parseStatements` failure or an interior-comment "cannot place", fall back to `reindentSt` for that body. The re-indenter stays unchanged as the fallback (its 26 tests stay green).
+- [x] 5.2 Assemble the whole document (headers + bodies + between-item trivia) and return a single full-document TextEdit; empty array when already formatted.
 
 ## 6. Invariants over the corpus
 

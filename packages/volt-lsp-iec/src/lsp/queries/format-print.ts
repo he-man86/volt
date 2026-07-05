@@ -30,21 +30,26 @@ export interface PrintContext {
 
 // ─── Comment weaving ─────────────────────────────────────────────────────
 
-interface Comment {
+interface Trivia {
+	/** A comment, or a blank-line marker (a source gap of ≥1 empty line → preserved as ONE blank line). */
+	kind: "comment" | "blank";
 	text: string;
 	start: number;
 	startLine: number;
-	/** True when the comment is the first non-trivia token on its source line (→ prints on its own line). */
+	/** True when a comment is the first non-trivia token on its source line (→ prints on its own line). */
 	ownLine: boolean;
 }
 
-/** Extract comment tokens with an own-line vs trailing classification. */
-function extractComments(tokens: readonly Token[]): Comment[] {
-	const codeLines = new Set<number>(); // lines that have seen a code token BEFORE the current scan point
-	const out: Comment[] = [];
+/** Extract comments AND blank-line markers in source order — the trivia the AST drops but a formatter keeps. */
+function extractTrivia(tokens: readonly Token[]): Trivia[] {
+	const codeLines = new Set<number>(); // lines with a code token seen BEFORE the current scan point
+	const out: Trivia[] = [];
 	for (const t of tokens) {
 		if (t.kind === "line_comment" || t.kind === "block_comment") {
-			out.push({ text: t.text, start: t.span.start, startLine: t.span.startLine, ownLine: !codeLines.has(t.span.startLine) });
+			out.push({ kind: "comment", text: t.text, start: t.span.start, startLine: t.span.startLine, ownLine: !codeLines.has(t.span.startLine) });
+		} else if (t.kind === "whitespace" && (t.text.match(/\n/g)?.length ?? 0) >= 2) {
+			// ≥2 newlines in one whitespace run = at least one blank line. Collapse to a single blank marker.
+			out.push({ kind: "blank", text: "", start: t.span.start, startLine: t.span.startLine, ownLine: true });
 		} else if (!isTrivia(t.kind) && t.kind !== "eof") {
 			codeLines.add(t.span.startLine);
 		}
@@ -52,20 +57,29 @@ function extractComments(tokens: readonly Token[]): Comment[] {
 	return out;
 }
 
-/** Consumes comments in source order as the printer walks statements. Preservation is guaranteed by the
+/** Consumes trivia in source order as the printer walks statements. Comment preservation is guaranteed by the
  *  final flush — every comment is emitted at latest when the top-level list flushes to `Infinity`. */
 class Weaver {
 	private i = 0;
+	/** Suppresses a blank line at the very start of a block and collapses consecutive blanks. */
+	private atBlockStart = true;
 	constructor(
-		private readonly cs: Comment[],
+		private readonly ts: Trivia[],
 		private readonly ctx: PrintContext,
 	) {}
 
-	/** Emit every not-yet-consumed comment starting before `before`, each on its own line at `level`. */
+	/** Emit every not-yet-consumed trivium starting before `before`: comments on their own line at `level`,
+	 *  blank markers as a single empty line (never leading a block, never doubled). */
 	leading(before: number, level: number): string {
 		let out = "";
-		while (this.i < this.cs.length && this.cs[this.i]!.start < before) {
-			out += this.ctx.unit.repeat(Math.max(0, level)) + this.cs[this.i]!.text + this.ctx.eol;
+		while (this.i < this.ts.length && this.ts[this.i]!.start < before) {
+			const t = this.ts[this.i]!;
+			if (t.kind === "blank") {
+				if (!this.atBlockStart) out += this.ctx.eol; // one blank line
+			} else {
+				out += this.ctx.unit.repeat(Math.max(0, level)) + t.text + this.ctx.eol;
+				this.atBlockStart = false;
+			}
 			this.i++;
 		}
 		return out;
@@ -73,18 +87,23 @@ class Weaver {
 
 	/** Consume a comment trailing code on `endLine`, returned as ` <text>` for the statement's line. */
 	trailing(endLine: number): string {
-		const c = this.cs[this.i];
-		if (c !== undefined && !c.ownLine && c.startLine === endLine) {
+		const t = this.ts[this.i];
+		if (t !== undefined && t.kind === "comment" && !t.ownLine && t.startLine === endLine) {
 			this.i++;
-			return " " + c.text;
+			return " " + t.text;
 		}
 		return "";
+	}
+
+	/** Called when a statement line is emitted, so the next blank marker is allowed. */
+	markContent(): void {
+		this.atBlockStart = false;
 	}
 }
 
 /** Print a full body with its comments woven in. `tokens` is the lexed body; `statements` its parsed tree. */
 export function printBody(statements: StatementList, tokens: readonly Token[], ctx: PrintContext, level = 0): string {
-	const w = new Weaver(extractComments(tokens), ctx);
+	const w = new Weaver(extractTrivia(tokens), ctx);
 	let out = printStatements(statements, ctx, level, w, Infinity);
 	// Flush any comments after the last statement (trailing block/file comments).
 	const tail = w.leading(Infinity, level);
@@ -134,6 +153,7 @@ export function printStatements(list: StatementList, ctx: PrintContext, level: n
 	for (const s of list) {
 		const lead = w !== undefined ? w.leading(s.span.start, level) : "";
 		const text = printStatement(s, ctx, level, w);
+		w?.markContent();
 		const trail = w !== undefined ? w.trailing(s.span.endLine) : "";
 		parts.push(lead + text + trail);
 	}

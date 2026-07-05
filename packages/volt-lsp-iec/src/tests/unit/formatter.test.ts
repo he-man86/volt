@@ -298,4 +298,28 @@ describe("formatDocument — LSP wrapper", () => {
 		const source = "FUNCTION_BLOCK FB\n\tVAR\n\t\tx : INT;\n\tEND_VAR\nEND_FUNCTION_BLOCK\n";
 		expect(formatDocument({ source, options: TABS })).toEqual([]);
 	});
+
+	it("canonicalizes a POU body (AST printer) while preserving declarations", () => {
+		const source = "FUNCTION_BLOCK FB\nVAR\nx : INT;\ny : INT;\nEND_VAR\nx:=1+2;\nIF x>0 THEN\ny:=x;\nEND_IF\nEND_FUNCTION_BLOCK\n";
+		const out = formatDocument({ source, options: TABS })[0]!.newText;
+		expect(out).toContain("\tx := 1 + 2;"); // body internal spacing canonicalized by the AST printer
+		expect(out).toContain("\tIF x > 0 THEN");
+		expect(out).toContain("\t\ty := x;");
+		expect(out).toContain("\t\tx : INT;"); // declarations re-indented + preserved (not AST-printed)
+		expect(formatDocument({ source: out, options: TABS })).toEqual([]); // idempotent
+	});
+
+	it("preserves comments in a formatted body", () => {
+		const source = "FUNCTION_BLOCK FB\nVAR\nx : INT;\nEND_VAR\n// init\nx:=0; // reset\nEND_FUNCTION_BLOCK\n";
+		const out = formatDocument({ source, options: TABS })[0]!.newText;
+		expect(out).toContain("\t// init");
+		expect(out).toContain("\tx := 0; // reset");
+	});
+
+	it("falls back to re-indent for a body with a pragma (never drops it)", () => {
+		const source = "FUNCTION_BLOCK FB\nVAR\nx : INT;\nEND_VAR\n{region r}\nx:=1;\n{endregion}\nEND_FUNCTION_BLOCK\n";
+		const out = formatDocument({ source, options: TABS })[0]!.newText;
+		expect(out).toContain("{region r}"); // pragma preserved via the fallback path
+		expect(out).toContain("{endregion}");
+	});
 });

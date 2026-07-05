@@ -34,6 +34,10 @@ import * as path from "node:path";
 import type { DocumentFormattingParams, TextEdit } from "vscode-languageserver-protocol";
 import { lex } from "../../lexer/lexer.js";
 import { isTrivia, type Keyword, type Token } from "../../lexer/tokens.js";
+import { parseSource } from "../../parser/parser.js";
+import { parseStatements } from "../../parser/statements.js";
+import { getBody } from "../../semantic/checks/_shared.js";
+import { printBody, type PrintContext } from "./format-print.js";
 
 /** Block openers — the line *after* these is indented one level deeper. */
 const OPENERS: ReadonlySet<Keyword> = new Set<Keyword>([
@@ -170,9 +174,43 @@ export interface FormatArgs {
  * "no changes" rather than a no-op edit).
  */
 export function formatDocument(args: FormatArgs): TextEdit[] {
-	const formatted = reindentSt(args.source, args.options);
-	if (formatted === args.source) return [];
-	return [{ range: fullDocumentRange(args.source), newText: formatted }];
+	const { source, options } = args;
+	const eol = options.eol ?? (source.includes("\r\n") ? "\r\n" : "\n");
+	const unit = options.insertSpaces ? " ".repeat(Math.max(1, options.tabSize)) : "\t";
+	const ctx: PrintContext = { unit, eol };
+
+	// Baseline: the token re-indenter fixes indentation everywhere and preserves ALL content (declarations,
+	// headers, pragmas, comments). Then each cleanly-parseable POU body is REPLACED with the AST-printed form
+	// (canonical internal spacing, comments + blank lines woven). A body that doesn't parse, is empty, or
+	// carries a pragma (which the AST drops) is left as re-indented — never corrupted.
+	const lines = reindentSt(source, options).split(/\r?\n/);
+	const repl: Array<{ from: number; to: number; text: string[] }> = [];
+	for (const u of parseSource(source).units) {
+		const b = getBody(u);
+		if (b === undefined) continue;
+		const st = parseStatements(b);
+		if (!st.ok || st.statements.length === 0) continue; // fallback: leave the re-indented baseline
+		if (b.tokens.some((t) => t.kind === "pragma")) continue; // AST drops pragmas → don't risk losing them
+		const content = b.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "eof");
+		if (content.length === 0) continue;
+		const first = content[0]!.span.startLine;
+		const last = content[content.length - 1]!.span.endLine;
+		const baseLevel = leadingLevel(lines[first - 1] ?? "", unit);
+		repl.push({ from: first - 1, to: last - 1, text: printBody(st.statements, b.tokens, ctx, baseLevel).split(eol) });
+	}
+	// Apply bottom-up so earlier splices don't shift later line indices.
+	repl.sort((a, b) => b.from - a.from);
+	for (const r of repl) lines.splice(r.from, r.to - r.from + 1, ...r.text);
+
+	const formatted = lines.join(eol);
+	return formatted === source ? [] : [{ range: fullDocumentRange(source), newText: formatted }];
+}
+
+/** Indent level of an already-re-indented line = how many leading `unit`s it starts with. */
+function leadingLevel(line: string, unit: string): number {
+	let n = 0;
+	while (line.startsWith(unit, n * unit.length)) n++;
+	return n;
 }
 
 /**

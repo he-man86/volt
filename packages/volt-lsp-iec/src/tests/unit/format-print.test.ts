@@ -122,6 +122,17 @@ describe("format-print: comment weaving", () => {
 		}
 	});
 
+	it("preserves a single blank line between statements (collapses multiples)", () => {
+		expect(fmt("x:=1;\n\n\ny:=2;")).toBe("x := 1;\n\ny := 2;");
+	});
+
+	it("keeps blank lines and comments together, and stays idempotent", () => {
+		const src = "a := 1;\n\n// section\nb := 2;";
+		const out = fmt(src);
+		expect(out).toBe("a := 1;\n\n// section\nb := 2;");
+		expect(fmt(out)).toBe(out);
+	});
+
 	it("is idempotent with comments", () => {
 		const src = "// header\nIF a THEN\nx := 1; // set\nEND_IF\n// tail";
 		const once = fmt(src);
