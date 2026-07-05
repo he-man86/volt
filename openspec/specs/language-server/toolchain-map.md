@@ -16,18 +16,35 @@ independently as it lands.
 | # | Phase | Change | Status |
 |---|---|---|---|
 | 0 | **Body AST** — statement/expression tree (the treewalker) | `st-body-ast` | ✅ done (archived) |
-| 1 | **Type inference & type-aware diagnostics** — engine + deepen assignment/binary/conversion checks + call-arg checking + narrowing | `st-type-inference` | 🟢 conformance CLOSED (2026-07-05); call-arg + narrowing still default-off. The live-CODESYS/live-TwinCAT replay is **message-IDENTICAL** on both vendors — the LSP's diagnostic text matches each compiler byte-for-byte (per-vendor wording mirrored) or is a documented parser-cascade divergence. **Corpus precision 0 on all 4 projects**; the library-blind + dead-object unresolved floor is fully cleared, so `unresolved-identifier` was **promoted warning→error** to mirror the compilers. Call-arg + narrowing checks are now **enabled** (both oracle-validated). Along the way the corpus metric was corrected: **precision counts ERRORS** (a clean build guarantees zero); WARNINGS a clean build legitimately carries (the compiler emits them without failing) are reported separately and validated by the conformance oracle, never ratcheted — the corpus stays the *final* check, dedicated fixtures are primary. **See `diagnostics-conformance.md`.** |
+| 1 | **Type inference & type-aware diagnostics** — engine + assignment/binary/conversion/call-arg/narrowing checks, message-parity with the compilers | `st-type-inference` | ✅ **done** (2026-07-05, ready to archive) — `type-infer.ts` is the shared engine (checks + queries); every type-aware check landed & oracle-validated; each diagnostic the LSP shares with the compiler reads **byte-identical** to it (per-vendor); corpus precision **0 errors** on all 4. Detail in `diagnostics-conformance.md`. |
 | 2 | **Member-chain navigation** — go-to-def/hover/completion/references through `a.b.c` on the tree + inference | `st-nav-chains` | 🟡 built (chain nav + type-aware references/rename/document-highlight + call-hierarchy member calls + bare-enum full nav, all green; inference gained `THIS^`/`GVL.field`/enum static bases). Remaining: §4 cross-file corpus spot-checks, then archive. |
 | 3 | **Structural formatter** — pretty-printer from the AST | `st-format` | ⬜ planned |
 | 4 | **Performance on large projects** — per-document caching, batched seed, query budget | `st-perf` | ⬜ planned |
 | 5 | **Headless ST test execution** — scan-cycle interpreter + `bun test` API + oracle harness | `st-interpreter` | ⬜ scoped (0/27) |
 | X | **Transpiler (ST → JS/C)** — deferred alternative to the interpreter | (none) | ⬜ deferred — only if large/fast simulation is later needed |
 
+## What's next
+
+Phase 1 is complete; Phase 2 is a spot-check from archiving. In priority order:
+
+1. **Archive Phases 1 & 2** — `st-type-inference` (done) and `st-nav-chains` (finish the §4 cross-file
+   spot-checks, then archive). Housekeeping that clears the roadmap to the real next build.
+2. **Phase 3 — structural formatter** (`st-format`) — the next real build, and the highest editor-UX payoff
+   now that diagnostics are compiler-parity. A pretty-printer from the AST (the treewalker already produces
+   the input), replacing the keyword-indent heuristic.
+3. **Deepen type-aware diagnostics** — small, incremental, oracle-driven, no new phase. Each follows the
+   proven loop (dedicated fixture → record live → mirror message → corpus as the final net): wider narrowings
+   beyond LREAL→REAL, more call-arg / conversion cases, and the ~15 `'X' is no input` fixture-design pass.
+4. **Phase 4 — performance** (`st-perf`) — per-document caching + query budget, if/when large projects feel
+   slow (not yet observed as a problem).
+5. **Phase 5 — headless ST test execution** (`st-interpreter`) — the biggest north-star item: a scan-cycle
+   interpreter over the AST so users `bun test` their PLC logic. Scoped, 0/27.
+
 ## Foundations already landed (✅ archived)
 
 - **`library-signature-index`** — referenced-library signatures resolve; library-blind unresolved floor cleared.
 - **`expose-device-instances`** — device-tree instances resolve (`.device` descriptors). *(in progress: 20/28)*
-- **exclude-from-build awareness**, **VG graphical analysis**, **kind-based file extensions**, and the **4-corpus ratchet** (pro2193 / bakon-nano / awa-palletizer / lenze-mid) — now **precision 0 (zero diagnostics)** on all four. The new bridge no longer ships excluded/uncompiled objects at fetch, so those were removed from the corpus (the in-content marker mechanism remains as a fallback); the remaining unresolved-identifier tail was closed via `_libsigs` + a `COMPILER_PROVIDED_IMPLICITS` skip (`IoConfig_Globals`, `TYPE_CLASS`).
+- **exclude-from-build awareness**, **VG graphical analysis**, **kind-based file extensions**, and the **4-corpus ratchet** (pro2193 / bakon-nano / awa-palletizer / lenze-mid) — now **precision 0 ERRORS** on all four (a clean build guarantees zero errors, not zero warnings; warnings the compiler emits are oracle-validated and reported separately, never ratcheted). The new bridge no longer ships excluded/uncompiled objects at fetch, so those were removed from the corpus (the in-content marker mechanism remains as a fallback); the remaining unresolved-identifier tail was closed via `_libsigs` + a `COMPILER_PROVIDED_IMPLICITS` skip (`IoConfig_Globals`, `TYPE_CLASS`).
 
 ## Component status
 
@@ -51,12 +68,9 @@ Legend: ✅ have · 🟡 partial · ⬜ missing.
 
 ## Architecture — the shared semantic-query service
 
-The layering is a clean DAG (lexer → parser/vg → semantic → lsp) with a transport-decoupled query layer and a pure `CHECKS` registry — **do not rewrite it.** But an architecture survey found the machinery all of Phases 1–5 need is duplicated or missing:
+The layering is a clean DAG (lexer → parser/vg → semantic → lsp) with a transport-decoupled query layer and a pure `CHECKS` registry — **do not rewrite it.** Phase 1's survey found the machinery all of Phases 1–5 need was duplicated (the **"name → its type → member scope → member symbol"** hop for `a.b.c` hand-rolled ~5×, `renderType` ~4×) or missing (no shared `Expr`/`Statement` walker).
 
-- the **"name → its type → member scope → member symbol"** hop (for `a.b.c`) is hand-rolled **5×** (`completion.findSymbol`, `signature-help.findCallable`, `vg/calls.findCallableType`, `vg/type-env.findTypeAst`, `_shared.findScopeByName`) + `renderType` **4×**;
-- there is **no shared `Expr`/`Statement` walker** (first copy already in `coverage-report.ts`).
-
-**Decision:** Phase 1 (`st-type-inference`) builds `semantic/type-infer.ts` as a **shared service** — exporting `inferExprType`, `resolveMemberChain`, one `renderType`, and a tree walker — consumed by BOTH `checks/**` and `lsp/queries/**`, collapsing the duplicates first (pure, ratchet-guarded). Phases 2–4 (nav, formatter, interpreter) **consume it, never re-copy**. This is the deliberate one-step-back so the later phases inherit a clean foundation. It extends `type-resolver.ts` (which stays the named-type lookup base); the DAG is unchanged (`type-infer.ts` sits in `semantic/`, which both layers already import).
+**Landed (Phase 1):** `semantic/type-infer.ts` is now the **shared service** — `inferExprType`, `resolveMemberChain`, one `renderType`, and a tree walker — consumed by BOTH `checks/**` and `lsp/queries/**`. It extends `type-resolver.ts` (the named-type lookup base); the DAG is unchanged (`type-infer.ts` sits in `semantic/`, which both layers already import). **The rule for Phases 2–5: consume it, never re-copy** — that's how they inherit the clean foundation instead of re-growing the duplication.
 
 ## Decisions of record
 
