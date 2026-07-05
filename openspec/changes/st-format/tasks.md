@@ -12,9 +12,9 @@
 
 ## 3. Comment reconciliation
 
-- [ ] 3.1 Bucket comment tokens by start line from the token stream; classify own-line vs trailing vs interior (by span against the surrounding statements).
-- [ ] 3.2 Interleave own-line comments between statements and append trailing comments after `;`, keyed by span. Return a signal ("cannot place") for an interior comment.
-- [ ] 3.3 Tests: own-line, trailing, blank-line runs preserved, and the interior-comment → "cannot place" signal.
+- [x] 3.1 Bucket comment tokens by start line from the token stream; classify own-line vs trailing vs interior (by span against the surrounding statements).
+- [x] 3.2 Interleave own-line comments between statements and append trailing comments after `;`, keyed by span. Return a signal ("cannot place") for an interior comment.
+- [x] 3.3 Tests: own-line, trailing, blank-line runs preserved, and the interior-comment → "cannot place" signal.
 
 ## 4. Declarations
 

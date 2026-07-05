@@ -6,7 +6,7 @@ import { describe, expect, it } from "bun:test";
 import { lex } from "../../lexer/lexer.js";
 import { parseStatements } from "../../parser/statements.js";
 import type { BodySpan } from "../../parser/ast.js";
-import { printStatements, type PrintContext } from "../../lsp/queries/format-print.js";
+import { printStatements, printBody, type PrintContext } from "../../lsp/queries/format-print.js";
 
 const CTX: PrintContext = { unit: "\t", eol: "\n" };
 const body = (src: string): BodySpan => ({ kind: "body", tokens: lex(src), span: { start: 0, end: src.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } });
@@ -80,5 +80,51 @@ describe("format-print: semantic round-trip (parse ≡ parse∘print)", () => {
 			const twice = printStatements(parseStatements(body(once)).statements, CTX, 0);
 			expect(twice).toBe(once);
 		}
+	});
+});
+
+describe("format-print: comment weaving", () => {
+	const fmt = (src: string): string => {
+		const toks = lex(src);
+		return printBody(parseStatements({ kind: "body", tokens: toks, span: { start: 0, end: src.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }).statements, toks, CTX);
+	};
+	/** Multiset of comment texts, for the preservation invariant. */
+	const comments = (src: string): string[] =>
+		lex(src).filter((t) => t.kind === "line_comment" || t.kind === "block_comment").map((t) => t.text).sort();
+
+	it("keeps an own-line comment between statements at the right indent", () => {
+		expect(fmt("x:=1;\n// step two\ny:=2;")).toBe("x := 1;\n// step two\ny := 2;");
+	});
+
+	it("keeps a trailing comment after the statement", () => {
+		expect(fmt("x:=1; // set x")).toBe("x := 1; // set x");
+	});
+
+	it("weaves a comment inside a nested block at the body indent", () => {
+		expect(fmt("IF a THEN\n// inside\nx:=1;\nEND_IF")).toBe("IF a THEN\n\t// inside\n\tx := 1;\nEND_IF");
+	});
+
+	it("relocates an interior comment to trailing but never drops it", () => {
+		const out = fmt("a := b (* note *) + c;");
+		expect(out).toContain("(* note *)"); // preserved
+		expect(comments(out)).toEqual(comments("a := b (* note *) + c;"));
+	});
+
+	it("PRESERVES the comment multiset over varied bodies (the load-bearing invariant)", () => {
+		const srcs = [
+			"// header\nx := 1;\ny := 2; // trailing\n// footer",
+			"IF a THEN\n// then\nx := 1;\nELSE\n// else\nx := 2;\nEND_IF",
+			"FOR i := 0 TO n DO\n// loop\nacc := acc + i;\nEND_FOR\n// after",
+			"CASE s OF\n1: // one\nrun();\n2: stop();\nEND_CASE",
+		];
+		for (const src of srcs) {
+			expect(comments(fmt(src))).toEqual(comments(src));
+		}
+	});
+
+	it("is idempotent with comments", () => {
+		const src = "// header\nIF a THEN\nx := 1; // set\nEND_IF\n// tail";
+		const once = fmt(src);
+		expect(fmt(once)).toBe(once);
 	});
 });
