@@ -225,10 +225,13 @@ internal sealed class TcObjectModel
     {
         // No silent catch: a failed COM assignment must surface. A NULL declaration means the item has no
         // declaration slot at all (an action) — don't touch DeclarationText, which a TwinCAT action's COM
-        // object doesn't even expose. A null/empty implementation is likewise simply not written.
+        // object doesn't even expose. NULL implementation means the same (no impl slot — interface). An
+        // EMPTY-STRING implementation is a REAL body value ("") and MUST be written to CLEAR the existing
+        // body — skipping it (the old `!IsNullOrEmpty` guard) left a stale body when a POU was emptied,
+        // diverging from CODESYS's `WriteSourceText` (which writes on `implementation != null`).
         dynamic n = node;
         if (declaration != null) n.DeclarationText = declaration;
-        if (!string.IsNullOrEmpty(implementation)) n.ImplementationText = implementation;
+        if (implementation != null) n.ImplementationText = implementation;
     }
 
     /// <summary>The item's raw item-metadata XML (ProduceXml), or "" if it produces none.</summary>

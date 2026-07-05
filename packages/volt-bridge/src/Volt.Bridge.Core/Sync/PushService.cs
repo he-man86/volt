@@ -218,6 +218,11 @@ public static class PushService
         var decl = split.PouDeclaration ?? "";
         var impl = split.PouImplementation ?? "";
         var itemType = PouKindToCode(split.PouKind);
+        // Only POUs (program/function/function_block) have an implementation-body slot. DUTs, GVLs and
+        // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
+        // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
+        // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
+        var bodyImpl = split.PouKind is "program" or "function" or "function_block" ? impl : (string?)null;
 
         // A ROOT FBD/LD body IS the editable VG language (it leads with the NETWORK marker). Write it
         // back via the PLCopen transport. (Root CFC/SFC are read-only and never reach push.)
@@ -249,7 +254,7 @@ public static class PushService
                 // GraphicalCode.Write only writes the BODY and preserves the export's <interface>, which on a
                 // fresh create is empty, leaving the vars the contacts/coils reference undeclared. Write the
                 // declaration onto the still-empty POU first (safe: nothing to clobber), then the body.
-                if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, "");
+                if (!string.IsNullOrWhiteSpace(decl)) ide.WriteText(pou, decl, null);
                 GraphicalCode.Write(ide, pou, impl, decl);
             }
             else
@@ -259,9 +264,9 @@ public static class PushService
                 // before writing anything. Without this, WriteText and child creation fail.
                 if (itemType == ItemKind.PlcItf && existing is null)
                     pou = FindChild(ide, targetParent, name) ?? pou;
-                // Interfaces have no body — their methods/properties are created as separate
-                // children. Writing implementation text on an interface node crashes TC COM.
-                ide.WriteText(pou, decl, itemType == ItemKind.PlcItf ? null : impl);
+                // Interfaces/DUTs/GVLs have no body slot (bodyImpl is null there); a POU passes its body
+                // (possibly "" to clear). Writing implementation text on a slot-less node crashes TC COM.
+                ide.WriteText(pou, decl, bodyImpl);
             }
         }
         else
@@ -286,7 +291,7 @@ public static class PushService
                         $"'{name}' is a textual body — graphical bodies are authored in the IDE, not created by push.");
             }
             if (pouVg) GraphicalCode.Write(ide, pou, impl, decl);
-            else ide.WriteText(pou, decl, impl);
+            else ide.WriteText(pou, decl, bodyImpl);
         }
 
         foreach (var child in split.Children)
@@ -315,8 +320,11 @@ public static class PushService
             // An action is body-only — it has no declaration (its "ACTION name" line is synthesized on
             // read, never persisted). Pass null so no declaration is written (TwinCAT rejects one).
             var childDecl = child.Kind == "action" ? null : child.Declaration;
-            // Interface members are declaration-only — COM rejects ImplementationText on them.
-            var childImpl = isInterface ? null : child.Implementation;
+            // Interface members are declaration-only, and a PROPERTY node has no body of its own (its GET/SET
+            // accessors carry the impl, written below) — pass null so no ImplementationText is written to a
+            // slot the COM object doesn't expose (crashes TC). Methods/actions have a body: pass it (possibly
+            // "" to clear).
+            var childImpl = isInterface || child.Kind == "property" ? null : child.Implementation;
             ide.WriteText(childItem, childDecl, childImpl);
 
             if (child.Kind == "property")

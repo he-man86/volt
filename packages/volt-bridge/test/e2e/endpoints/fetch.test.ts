@@ -1,6 +1,6 @@
 /** /fetch — knownItems (unchanged excluded), onlyItems filter, changed/removed/items semantics. */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, requireHealthy, createItem, updateItem, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
+import { bridge, id, fid, cleanup, requireHealthy, createItem, updateItem, ensureCompiles, fetchSource, savePlcPrg, restorePlcPrg, fixPlcPrg, FOLDER, BASE } from "../harness"
 import { fb } from "../fixtures"
 
 describe(`endpoints / fetch (${BASE})`, () => {
@@ -42,6 +42,18 @@ describe(`endpoints / fetch (${BASE})`, () => {
 		const it = f.changed.find((i: any) => i.name === name + ".fb")
 		expect(it).toBeDefined()
 		expect(it.sourceText).toMatch(/x := 777/)
+	})
+
+	it("emptying a POU body CLEARS it in the IDE — no stale body left behind", async () => {
+		// Regression: TwinCAT's WriteText skipped an empty implementation (`!IsNullOrEmpty`), so a POU whose
+		// body was emptied kept its OLD body in the IDE (silent data loss; CODESYS cleared it correctly).
+		// Now both vendors write on `implementation != null`, so "" clears. Verified on BOTH bridges.
+		const name = id("f_emptybody")
+		await createItem(fid("f_emptybody"), fb(name, { body: "x := 42;" }))
+		await ensureCompiles(name)
+		expect(await fetchSource(fid("f_emptybody"))).toMatch(/x := 42/)
+		await updateItem(fid("f_emptybody"), fb(name, { body: "" }))
+		expect(await fetchSource(fid("f_emptybody"))).not.toMatch(/x := 42/)
 	})
 
 	it("onlyItems restricts the walk to the named subset", async () => {
