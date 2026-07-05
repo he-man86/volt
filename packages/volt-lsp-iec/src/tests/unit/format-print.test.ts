@@ -86,7 +86,7 @@ describe("format-print: semantic round-trip (parse ≡ parse∘print)", () => {
 describe("format-print: comment weaving", () => {
 	const fmt = (src: string): string => {
 		const toks = lex(src);
-		return printBody(parseStatements({ kind: "body", tokens: toks, span: { start: 0, end: src.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }).statements, toks, CTX);
+		return printBody(parseStatements({ kind: "body", tokens: toks, span: { start: 0, end: src.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }).statements, toks, CTX, 0, src);
 	};
 	/** Multiset of comment texts, for the preservation invariant. */
 	const comments = (src: string): string[] =>
@@ -131,6 +131,19 @@ describe("format-print: comment weaving", () => {
 		const out = fmt(src);
 		expect(out).toBe("a := 1;\n\n// section\nb := 2;");
 		expect(fmt(out)).toBe(out);
+	});
+
+	it("weaves pragmas ({region}/{endregion}) like comments — no fallback needed", () => {
+		expect(fmt("{region init}\nx:=1;\n{endregion}")).toBe("{region init}\nx := 1;\n{endregion}");
+	});
+
+	it("preserves a %FOLDER bridge marker", () => {
+		expect(fmt("%FOLDER Commands\nx:=1;")).toBe("%FOLDER Commands\nx := 1;");
+	});
+
+	it("does NOT collapse blank lines inside a block comment (verbatim)", () => {
+		const src = "(* line1\n\n\nline2 *)\nx:=1;";
+		expect(fmt(src)).toBe("(* line1\n\n\nline2 *)\nx := 1;"); // internal blanks kept
 	});
 
 	it("is idempotent with comments", () => {

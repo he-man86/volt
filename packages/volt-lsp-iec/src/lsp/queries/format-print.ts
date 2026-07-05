@@ -40,13 +40,22 @@ interface Trivia {
 	ownLine: boolean;
 }
 
-/** Extract comments AND blank-line markers in source order — the trivia the AST drops but a formatter keeps. */
-function extractTrivia(tokens: readonly Token[]): Trivia[] {
+/** Extract everything the AST drops but a formatter must keep — comments, pragmas, `%FOLDER` bridge markers,
+ *  and blank-line runs — in source order. `source` (needed to slice a `%FOLDER` line) may be omitted when the
+ *  body is known to contain none. */
+function extractTrivia(tokens: readonly Token[], source?: string): Trivia[] {
 	const codeLines = new Set<number>(); // lines with a code token seen BEFORE the current scan point
 	const out: Trivia[] = [];
-	for (const t of tokens) {
-		if (t.kind === "line_comment" || t.kind === "block_comment") {
+	for (let k = 0; k < tokens.length; k++) {
+		const t = tokens[k]!;
+		if (t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma") {
+			// Pragmas ({region}, {IF defined}, {attribute}, {warning}) are ignored by the parser — weave them
+			// like comments: own-line preserves them, and the round-trip holds (parse drops them either way).
 			out.push({ kind: "comment", text: t.text, start: t.span.start, startLine: t.span.startLine, ownLine: !codeLines.has(t.span.startLine) });
+		} else if (source !== undefined && t.kind === "punct" && t.text === "%" && tokens[k + 1]?.text.toUpperCase() === "FOLDER") {
+			// `%FOLDER <path>` — bridge folder metadata the parser skips; capture the whole line verbatim.
+			const nl = source.indexOf("\n", t.span.start);
+			out.push({ kind: "comment", text: source.slice(t.span.start, nl === -1 ? source.length : nl).replace(/\s+$/, ""), start: t.span.start, startLine: t.span.startLine, ownLine: true });
 		} else if (t.kind === "whitespace" && (t.text.match(/\n/g)?.length ?? 0) >= 2) {
 			// ≥2 newlines in one whitespace run = at least one blank line. Collapse to a single blank marker.
 			out.push({ kind: "blank", text: "", start: t.span.start, startLine: t.span.startLine, ownLine: true });
@@ -100,18 +109,30 @@ class Weaver {
 	markContent(): void {
 		this.atBlockStart = false;
 	}
+
+	/** Called when entering a nested block body, so a leading blank there is suppressed — this also drops blanks
+	 *  that sat INSIDE a now-collapsed multi-line header (e.g. a blank between `IF …` sub-expressions), which is
+	 *  what keeps re-printing idempotent (two such blanks would otherwise merge into one on re-parse). */
+	enterBlock(): void {
+		this.atBlockStart = true;
+	}
 }
 
-/** Print a full body with its comments woven in. `tokens` is the lexed body; `statements` its parsed tree. */
-export function printBody(statements: StatementList, tokens: readonly Token[], ctx: PrintContext, level = 0): string {
-	const w = new Weaver(extractTrivia(tokens), ctx);
+/** Print a full body with its trivia (comments, pragmas, `%FOLDER`, blank lines) woven in. `tokens` is the
+ *  lexed body; `statements` its parsed tree; `source` (the text the tokens' spans index into) enables
+ *  `%FOLDER` capture. */
+export function printBody(statements: StatementList, tokens: readonly Token[], ctx: PrintContext, level = 0, source?: string): string {
+	const w = new Weaver(extractTrivia(tokens, source), ctx);
 	const out = printStatements(statements, ctx, level, w, Infinity);
 	// Flush any comments after the last statement (trailing block/file comments), then drop trailing blank
 	// lines — body content carries none (spacing around the body is the splice context's concern), and a
 	// trailing blank would break idempotency (a lone `\n` isn't a blank marker on re-parse).
 	const tail = w.leading(Infinity, level);
 	const full = tail === "" ? out : out === "" ? tail : out + ctx.eol + tail;
-	return full.replace(/(?:\r?\n)+$/, "");
+	// Strip leading/trailing blank lines (body content carries none). NOTE: only the ENDS — never collapse
+	// internal blank runs on the whole string, because a multi-line block comment `(* … *)` legitimately
+	// contains blank lines that must survive verbatim. Blank-line dedup is done in the weaver instead.
+	return full.replace(/^(?:\r?\n)+/, "").replace(/(?:\r?\n)+$/, "");
 }
 
 // ─── Expressions ─────────────────────────────────────────────────────────
@@ -216,6 +237,7 @@ function printAssign(s: Assignment): string {
  *  Adds a trailing newline whenever the body produced ANY line (statements OR flushed comments), so the
  *  closing/continuation keyword the caller emits next always lands on its own line. */
 function block(body: StatementList, ctx: PrintContext, level: number, w: Weaver | undefined, rangeEnd: number): string {
+	w?.enterBlock(); // suppress a blank at the body's start (incl. blanks inside a collapsed multi-line header)
 	const inner = printStatements(body, ctx, level + 1, w, rangeEnd);
 	return inner === "" ? "" : inner + ctx.eol;
 }

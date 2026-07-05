@@ -180,23 +180,23 @@ export function formatDocument(args: FormatArgs): TextEdit[] {
 	const ctx: PrintContext = { unit, eol };
 
 	// Baseline: the token re-indenter fixes indentation everywhere and preserves ALL content (declarations,
-	// headers, pragmas, comments). Then each cleanly-parseable POU body is REPLACED with the AST-printed form
-	// (canonical internal spacing, comments + blank lines woven). A body that doesn't parse, is empty, or
-	// carries a pragma (which the AST drops) is left as re-indented — never corrupted.
+	// headers, everything). Then each POU body is REPLACED with the AST-printed form — canonical internal
+	// spacing, with comments, pragmas, `%FOLDER` markers, and blank lines all woven back from the token stream.
+	// ONLY a genuine parse failure falls back to the re-indented baseline (the treewalker is 100% on real code,
+	// so that never happens on the corpus); the printer is otherwise always used — nothing is dropped.
 	const lines = reindentSt(source, options).split(/\r?\n/);
 	const repl: Array<{ from: number; to: number; text: string[] }> = [];
 	for (const u of parseSource(source).units) {
 		const b = getBody(u);
 		if (b === undefined) continue;
 		const st = parseStatements(b);
-		if (!st.ok || st.statements.length === 0) continue; // fallback: leave the re-indented baseline
-		if (b.tokens.some((t) => t.kind === "pragma")) continue; // AST drops pragmas → don't risk losing them
+		if (!st.ok) continue; // genuine parse failure → keep the re-indented baseline
 		const content = b.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "eof");
-		if (content.length === 0) continue;
+		if (content.length === 0) continue; // truly-empty body — nothing to format
 		const first = content[0]!.span.startLine;
 		const last = content[content.length - 1]!.span.endLine;
 		const baseLevel = leadingLevel(lines[first - 1] ?? "", unit);
-		repl.push({ from: first - 1, to: last - 1, text: printBody(st.statements, b.tokens, ctx, baseLevel).split(eol) });
+		repl.push({ from: first - 1, to: last - 1, text: printBody(st.statements, b.tokens, ctx, baseLevel, source).split(eol) });
 	}
 	// Apply bottom-up so earlier splices don't shift later line indices.
 	repl.sort((a, b) => b.from - a.from);
