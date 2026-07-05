@@ -59,7 +59,9 @@ export function checkInterfaceImplementations(
 							span: ifaceName.span,
 							source: "volt-lsp-iec",
 							code: "missing-interface-implementation",
-							message: `FB '${unit.name.text}' implements '${ifaceName.text}' but doesn't provide ${ifaceMember.kind === "interface_method" ? "method" : "property"} '${ifaceMember.name}'.`,
+							// Mirror the compiler exactly (identical on both vendors): it UPPERCASES the member and
+							// interface names here (CODESYS canonicalizes symbol names to upper-case in this message).
+							message: `There is no implementation for ${ifaceMember.kind === "interface_method" ? "method" : "property"} '${ifaceMember.name.toUpperCase()}' defined in interface '${ifaceName.text.toUpperCase()}'`,
 						});
 						continue;
 					}

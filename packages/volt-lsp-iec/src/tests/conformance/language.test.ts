@@ -70,17 +70,15 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string }> = [
 ];
 
 /**
- * Tests where the LSP and the IDE legitimately disagree on whether
- * to flag the code. The disagreement is real but acceptable — adding
- * an LSP rule to close each gap would require functionality outside
- * the LSP's static-analysis scope. Each entry documents WHY.
+ * The divergence ledger — the ONLY opt-out from the test's single rule (the LSP's error+warning message set
+ * must be byte-identical to the compiler's). A fixture listed here is not asserted; everything else must match
+ * exactly. Each entry needs a documented reason, and is removed the moment the LSP is taught to match.
  *
- * The hard `lspFlagged === ideFlagged` assertion is skipped for these
- * tests; the diagnostic-detail snapshot still records what each side
- * emits so regressions surface as snapshot diffs.
- *
- * Add an entry only with a documented reason. Remove an entry when
- * the LSP grows the capability to close that gap.
+ * Two dominant reasons (noted inline per entry):
+ *   - VERDICT — one side flags where the other is silent (a real LSP≠IDE capability gap: a check the LSP
+ *     doesn't have, or an IDE application-config warning that isn't a source-level property).
+ *   - PARSE-CASCADE — the IDE chokes on the input and sprays multiple raw parser errors, where the LSP emits
+ *     one clean semantic message. Faking a parser's error-spray is neither feasible nor desirable.
  */
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 	twincat: new Set<string>([
@@ -98,6 +96,23 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// on BOTH vendors for the same verified reason: 92 such properties in the pro2193 corpus (all
 		// `{attribute 'monitoring'}`) would mass-false-positive offline. Not a TC-specific quirk.
 		"interface_with_property",
+		"type_codesys_vector",            // CS-only __VECTOR: LSP emits its vendor-only-type message; TC parse-errors.
+		"operand_partial_word_in_dword",  // CS-only `.%W`: TC parse-errors; LSP has its own partial-access message.
+		// ── PARSE-CASCADE — the IDE sprays multiple raw parser errors; the LSP emits ONE clean semantic message.
+		//    Reproducing a parser's spray is neither feasible nor desirable (same class as op_sys_*). ──
+		"identifier_double_underscore",
+		"identifier_consecutive_underscores",
+		"deref_on_array_type",
+		"type_deref_non_pointer",
+		"var_non_retain",
+		"operand_uchar_literal",
+		"op_sys_currenttask",
+		"op_sys_varinfo",
+		"op_sys_try_catch",
+		"op_sys_queryinterface",
+		// ── other ──
+		"unresolved_identifier_in_body",  // severity matches (error); IDE emits a 2-error cascade, LSP one message.
+		"literal_string_to_int_assignment", // IDE renders the literal type as `STRING(INT#<len>)`; LSP infers plain STRING.
 	]),
 	codesys: new Set<string>([
 		// CODESYS-specific warnings not surfaced by TC. The LSP defaults
@@ -141,72 +156,19 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
 		// the LSP's pragmaConflict models — that's a different, un-grounded pair
 		// warning that would false-positive on TwinCAT, which is silent here).
 		"pragma_conflicting_pair",
-	]),
-};
-
-// Message-TEXT mirror exceptions. Goal: where the LSP and the IDE both flag the same code, the LSP's message
-// should read IDENTICALLY to the compiler's — so an engineer sees the same words in the editor and the IDE.
-// The replay ENFORCES that by default (asserts the error+warning message sets are equal); this set lists every
-// fixture whose text we do NOT mirror, with the reason. Shrinking this set IS the mirror backlog. Distinct from
-// KNOWN_DIVERGENCES (which is about presence — whether the LSP flags at all); an entry here means "flags the
-// same, but the words differ on purpose (or not yet)".
-const KNOWN_MESSAGE_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-	twincat: new Set<string>([
-		// PARSE-CASCADE mismatch (NOT a wording diff): the IDE emits a spray of raw parser errors from choking on
-		// the input (`Unexpected token '__x'` ×2, `';' expected …`, `Dereference requires Pointer` on top of a
-		// `Cannot convert 'Unknown type: 'x^''` artifact, etc.) while the LSP emits ONE clean semantic message.
-		// Reproducing a parser's cascade is neither feasible nor desirable — same class as op_sys_* below.
+		// ── PARSE-CASCADE (IDE sprays parser errors; LSP emits one semantic message) ──
 		"identifier_double_underscore",
 		"identifier_consecutive_underscores",
 		"deref_on_array_type",
 		"type_deref_non_pointer",
 		"var_non_retain",
 		"operand_uchar_literal",
-		// Parse-cascade: the IDE emits raw parser errors (`';' expected instead of …`) from failing to parse a
-		// CODESYS-only operator; the LSP emits one clean semantic message. Faking a parser's cascade is neither
-		// feasible nor desirable — the plain vendor-only-operator message is the intended mirror of the verdict.
-		"op_sys_currenttask",
-		"op_sys_varinfo",
-		"op_sys_try_catch",
-		"op_sys_queryinterface",
-		// Severity now MATCHES (the LSP errors, promoted once the corpus reached 0 unresolved-id FPs). Residual
-		// divergence is text + cascade: the IDE emits TWO errors (`Identifier 'X' not defined` + a follow-on
-		// `Cannot convert type 'Unknown type: 'X'' to type …`); the LSP emits one clean `'X' is not defined`.
+		"op_sys_try_catch",               // CS: `Identifier 'exc' not defined`; LSP errors with its own wording.
+		// ── other ──
 		"unresolved_identifier_in_body",
-		// The IDE renders a string LITERAL's source type as `STRING(INT#<len>)` (e.g. `STRING(INT#4)`); our
-		// inference yields plain `STRING`, so the type-mismatch text can't match without reproducing CODESYS's
-		// length-tagged literal-type rendering. Borderline "within reason" — revisit if we render literal lengths.
 		"literal_string_to_int_assignment",
-		// Parse-cascade: IDE emits a parse error for the CODESYS-only `__VECTOR` type; the LSP emits its own
-		// semantic vendor-only-type message. Same class as the op_sys_* operators.
-		"type_codesys_vector",
-		// CS-accepts / TC-rejects with vendor-specific text (`'%' is no component of …`); the LSP has its own
-		// partial-access message. Left for the per-vendor decision.
-		"operand_partial_word_in_dword",
-		// Not yet mirrored — plain text-match work, tracked here until done.
-		"interface_missing_implementation",
-	]),
-	codesys: new Set<string>([
-		// Same PARSE-CASCADE set as twincat above — the IDE emits multiple parser errors, the LSP one clean
-		// semantic message. Not a wording diff; can't fake the parser's spray.
-		"identifier_double_underscore",
-		"identifier_consecutive_underscores",
-		"deref_on_array_type",
-		"type_deref_non_pointer",
-		"var_non_retain",
-		"operand_uchar_literal",
-		"unresolved_identifier_in_body",
-		"interface_missing_implementation",
-		// String LITERAL source type rendered as `STRING(INT#<len>)` by CODESYS; our inference yields `STRING`.
-		"literal_string_to_int_assignment",
-		// CODESYS emits an EXTRA warning our external-write check doesn't (`The attribute … is unknown and will
-		// be ignored`) alongside the mirrored `'X' is no input` error → message SETS differ. The error matches;
-		// the surplus IDE warning is a CODESYS-only attribute-lint we don't model.
-		"unknown_attribute_typo",
-		"monitoring_encoding",
-		// CODESYS reports the undefined `exc` as `Identifier 'exc' not defined`; the LSP now also ERRORS but
-		// with its own wording (`'exc' is not defined in any reachable scope`) — text-only divergence.
-		"op_sys_try_catch",
+		"unknown_attribute_typo",         // CS emits an EXTRA `attribute … unknown` warning atop the matched error.
+		"monitoring_encoding",            // same extra CS-only attribute-lint warning.
 	]),
 };
 
@@ -335,53 +297,18 @@ for (const { vendor, filename } of RECORDINGS) {
 					}
 				});
 
-				it(`LSP diagnostics agree with ${vendor}`, () => {
-					const lspDiags = runLsp(test.source, testIdx, vendor);
-					// Compare error+warning presence only — symmetric with the recorder, which drops CODESYS
-					// info-severity noise (`record-language.ts`). The LSP's `information`/`hint` diagnostics
-					// (e.g. `{info}`/`{text}` message pragmas, shadowing) have no ground-truth counterpart, so
-					// counting them would be an unfair asymmetry.
+				it(`LSP diagnostics identical to ${vendor}`, () => {
+					// ONE criterion: the LSP's error+warning message SET must be byte-identical to the compiler's.
+					// Message identity subsumes presence (equal sets ⇒ both flagged the same code) — that's the
+					// whole test. `information`/`hint` severities have no ground truth (the recorder drops CODESYS
+					// info noise), so both sides drop them. KNOWN_DIVERGENCES lists every fixture that legitimately
+					// does NOT match, each with a documented reason — that set is the entire divergence ledger.
+					if (KNOWN_DIVERGENCES[vendor].has(test.name)) return;
 					const significant = (sev: string): boolean => sev === "error" || sev === "warning";
-					const lspFlagged = lspDiags.some((d) => significant(d.severity));
-					const recordedFlagged = recorded.diagnostics.some((d) => significant(d.severity));
-
-					// HARD assertion: did the LSP flag the same code the IDE
-					// flagged? Skipped for documented per-test divergences
-					// (KNOWN_DIVERGENCES). Snapshot below captures
-					// diagnostic detail for regression diffs in either case.
-					const isKnownDivergent = KNOWN_DIVERGENCES[vendor].has(test.name);
-					if (!isKnownDivergent) {
-						expect({
-							lspFlagged,
-							ideFlagged: recordedFlagged,
-						}).toEqual({
-							lspFlagged: recordedFlagged,
-							ideFlagged: recordedFlagged,
-						});
-					}
-
-					// MESSAGE mirror: where both sides flag the same code, enforce that the LSP's error+warning
-					// text reads IDENTICALLY to the compiler's. Skipped for presence-divergent fixtures (nothing
-					// to compare) and for documented text exceptions (KNOWN_MESSAGE_DIVERGENCES — CS≠TC wording,
-					// parse cascades, severity-gated, or not-yet-mirrored). This is what verifies the "mirror the
-					// IDE" hypothesis and holds each fix against regression.
 					const msgSet = (ds: ReadonlyArray<{ severity: string; message: string }>): string[] =>
 						ds.filter((d) => significant(d.severity)).map((d) => `[${d.severity}] ${d.message}`).sort();
-					if (!isKnownDivergent && lspFlagged && recordedFlagged && !KNOWN_MESSAGE_DIVERGENCES[vendor].has(test.name)) {
-						expect(msgSet(lspDiags)).toEqual(msgSet(recorded.diagnostics));
-					}
-
-					expect({
-						name: test.name,
-						vendor,
-						knownDivergent: isKnownDivergent,
-						ideErrors: recorded.diagnostics.filter((d) => d.severity === "error").length,
-						ideWarnings: recorded.diagnostics.filter((d) => d.severity === "warning").length,
-						ideMessages: recorded.diagnostics.map((d) => `[${d.severity}] ${d.message}`),
-						lspErrors: lspDiags.filter((d) => d.severity === "error").length,
-						lspWarnings: lspDiags.filter((d) => d.severity === "warning").length,
-						lspMessages: lspDiags.map((d) => `[${d.severity}] ${d.message}`),
-					}).toMatchSnapshot();
+					const lspDiags = runLsp(test.source, testIdx, vendor);
+					expect(msgSet(lspDiags)).toEqual(msgSet(recorded.diagnostics));
 				});
 			});
 		}

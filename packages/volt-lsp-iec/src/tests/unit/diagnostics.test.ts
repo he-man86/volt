@@ -941,8 +941,8 @@ FUNCTION_BLOCK FB_Motor IMPLEMENTS I_Motor
 END_FUNCTION_BLOCK`);
 		const errs = diags.filter((d) => d.code === "missing-interface-implementation");
 		expect(errs.length).toBeGreaterThan(0);
-		expect(errs[0]?.message).toContain("FB_Motor");
-		expect(errs[0]?.message).toContain("Compute");
+		// Mirrors the compiler exactly (both vendors), UPPERCASING the member + interface names.
+		expect(errs[0]?.message).toBe("There is no implementation for method 'COMPUTE' defined in interface 'I_MOTOR'");
 	});
 
 	it("does NOT fire when the FB provides all required methods", () => {
