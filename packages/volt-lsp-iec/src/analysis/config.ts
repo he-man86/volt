@@ -30,6 +30,11 @@ export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
 export interface LintConfig {
   /** A local declaration shadowing an outer one. */
   shadowing: boolean
+  /**
+   * An `{attribute '<name>'}` whose name is not in the pragma catalog. CODESYS warns on these, but the
+   * check is only as complete as the catalog, so it is opt-in (a missing catalog entry would false-positive).
+   */
+  unknownAttribute: boolean
 }
 
 export interface AnalysisInitOptions {
@@ -48,6 +53,7 @@ export interface ResolvedConfig {
 
 const DEFAULT_LINTS: LintConfig = {
   shadowing: false,
+  unknownAttribute: false,
 }
 
 /** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */

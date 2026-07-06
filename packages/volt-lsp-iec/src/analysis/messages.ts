@@ -39,6 +39,12 @@ export interface Messages {
   /** A conditional-compile pragma (`{ELSE}`/`{ELSIF}`/`{END_IF}`) with no matching `{IF}`: TwinCAT "Pragma", CODESYS "pragma". */
   orphanPragma(directive: string): string
   /**
+   * An `{attribute '<name>'}` the compiler doesn't recognize. CODESYS's exact wording — note the DOUBLE
+   * space before "compiler" and the unquoted name (a compiler quirk, matched byte-for-byte). TwinCAT has no
+   * recording; its wording is provisional (best-effort, bridge-gated).
+   */
+  unknownAttribute(name: string): string
+  /**
    * A constant that overflows its target integer type's range.
    * PROVISIONAL wording — the overflow fixtures have no bridge recording yet, so this is not confirmed
    * byte-identical to either compiler. Confirm/adjust at the D.3 "record" step (T.1 bridge pass).
@@ -87,6 +93,8 @@ export function messagesFor(vendor: Vendor): Messages {
     missingInterfaceImpl: (kind, member, iface) =>
       `There is no implementation for ${kind} '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
+    // CODESYS byte-identical (double space + unquoted name). TC provisional (no recording).
+    unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
     overflow: (value, type) => `Literal '${value}' is out of the valid range of type '${type}'`,
     subrangeOutOfRange: (value, lo, hi) => `Value '${value}' is outside the subrange ${lo}..${hi}`,
     arrayIndexOutOfBounds: (index, lo, hi) => `Array index '${index}' is out of bounds ${lo}..${hi}`,

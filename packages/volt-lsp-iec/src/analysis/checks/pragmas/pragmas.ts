@@ -11,6 +11,7 @@
  * upgrade to branch-aware when a corpus case needs it.
  */
 import { lex } from "../../../syntax/index.js"
+import { isKnownAttribute } from "../../../reference/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -41,6 +42,20 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     if (severity === undefined) continue
     out.push({ severity, span: p.span, source: SOURCE, code: `message-pragma-${dir}`, message: p.messageText })
   }
+
+  // Unknown `{attribute '<name>'}` (opt-in; CODESYS warns, but only as complete as the catalog).
+  if (ctx.config.lints.unknownAttribute) {
+    for (const p of pragmas) {
+      if (p.attributeName === undefined || isKnownAttribute(p.attributeName)) continue
+      out.push({
+        severity: "warning",
+        span: p.span,
+        source: SOURCE,
+        code: "unknown-attribute",
+        message: ctx.messages.unknownAttribute(p.attributeName),
+      })
+    }
+  }
 }
 
 function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive: string }): DiagnosticItem {
@@ -53,14 +68,19 @@ function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive:
   }
 }
 
-/** Extract a pragma's directive (first word) and, for message pragmas, the quoted body. */
-function parsePragma(text: string): { directive: string; messageText?: string } {
+/** Extract a pragma's directive (first word), a message pragma's quoted body, and an attribute's name. */
+function parsePragma(text: string): { directive: string; messageText?: string; attributeName?: string } {
   const m = /^\{\s*([^\s}]+)/.exec(text)
   const directive = m?.[1] ?? ""
   const dir = directive.toLowerCase()
   if (dir === "text" || dir === "info" || dir === "warning" || dir === "error") {
     const body = /^\{\s*\S+\s+'([^']*)'/.exec(text)
     if (body !== null) return { directive, messageText: body[1] }
+  }
+  if (dir === "attribute") {
+    // `{attribute 'name'}` or `{attribute 'name' := 'value'}` — the name is the first quoted string.
+    const name = /^\{\s*attribute\s+'([^']*)'/i.exec(text)
+    if (name !== null) return { directive, attributeName: name[1] }
   }
   return { directive }
 }

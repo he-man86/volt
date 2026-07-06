@@ -27,7 +27,8 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | project struct/FB/enum only; library + namespace bases skip; struct EXTENDS honored |
 | unknown-member (VG) | VG | error | ⏳ | shared code ready; wire after corpus re-harvest (stale fixture blocks 0-FP validation) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
-| conversion-catalog / keyword-pragma catalog | ST | — | ⏳ | F.1 pragma catalog (unblocks unknown-pragma lint) |
+| unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint; byte-identical CODESYS msg; catalog 0-hit on corpus |
+| conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
 | VG narrowing / binary-operator | VG | error | ⏸ | needs per-pair helpers factored out |
 
 ## 0. Clean-room + guardrails (first — before any code)
@@ -159,8 +160,13 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
       qualified (`CAA.HANDLE` — base is not a value → UNKNOWN), and unresolved bases skip. Surfaced+fixed a real
       binder gap: **CODESYS DUT `STRUCT EXTENDS` now links its base scope** (`ingestStruct`/`linkExtends`), so
       inherited fields resolve. Shared `unresolvedMembers` is wired for ST; VG member-access waits on the corpus
-      re-harvest (a stale fixture's struct lags its graphical code, blocking 0-FP validation). Remaining:
-      the keyword/pragma catalogs + per-vendor equivalence (unblocks the opt-in unknown-pragma lint).
+      re-harvest (a stale fixture's struct lags its graphical code, blocking 0-FP validation). **Pragma
+      catalog ✅ DONE** — `reference/pragmas.ts` (`isKnownAttribute`: the CODESYS + TwinCAT `{attribute '…'}`
+      name set, alias-folded) drives the opt-in **`unknown-attribute`** lint: an unrecognized attribute warns
+      byte-identical to CODESYS ("The attribute <n> is unknown and will be ignored by the  compiler." — the
+      double space is the compiler's, matched exactly). Opt-in because completeness-sensitive; gated by a corpus
+      assertion (lint ON ⇒ 0 hits, which surfaced + added the missing `no_explicit_call`). Remaining: the
+      keyword catalog + per-vendor equivalence (hover/completion), and pragma conflict/companion checks.
 - [~] F.2 `graphical` — the VG (FBD/LD) sublanguage at ST-parity for CODE correctness. Spec:
       `data-model.md §graphical` (the full AST), `spec.md §E` (routed-by-content · round-trip is the
       bridge's · **the LSP owns code correctness: infer · undeclared · hover · completion · nav** · wire

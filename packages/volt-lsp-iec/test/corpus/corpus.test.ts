@@ -168,6 +168,27 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     expect(falsePositives).toEqual([])
   })
 
+  // The opt-in unknown-attribute lint is only as complete as the pragma catalog. Enable it across the corpus
+  // and require ZERO hits: every attribute real projects use must be catalogued, else it would false-positive.
+  test("unknown-attribute lint: pragma catalog covers every attribute in the corpus (0 hits)", () => {
+    const config = resolveConfig({ vendor: "codesys", lints: { unknownAttribute: true } })
+    const hits: string[] = []
+    for (const project of readdirSync(CORPUS_ROOT)) {
+      const dir = join(CORPUS_ROOT, project)
+      if (!statSync(dir).isDirectory()) continue
+      const inputs = walk(dir).map((uri) => {
+        const source = readFileSync(uri, "utf8")
+        return { uri, source, parseResult: parseSource(source) }
+      })
+      const scope = buildSymbolTable(inputs)
+      for (const f of inputs) {
+        for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project: scope, config }))
+          if (d.code === "unknown-attribute") hits.push(`${project}${f.uri.slice(dir.length)} ${d.message}`)
+      }
+    }
+    expect(hits).toEqual([])
+  })
+
   // A.3 format-roundtrip gate: `parse(format(x)) ≡ parse(x)` across the whole corpus. Formatting must
   // re-emit valid ST that re-parses to an EQUIVALENT AST (span/token-free, body statements embedded,
   // object-key-order-insensitive). Proves the formatter never changes meaning.
