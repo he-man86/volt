@@ -44,10 +44,23 @@ both. Live test targets: CODESYS AWA on `:8556`, TwinCAT `project11` on `:8555`.
 - [ ] Verify on `project11`: `.library` refs get their element signatures, foldered like CODESYS.
 
 ## 4. GET-only / SET-only property parity (the flagged TC bug)
-- [ ] Reproduce: a GET-only property on TwinCAT emits a phantom `__SETVALUE` (wrongly reported TC-rejected).
-- [ ] Fix in the Beckhoff driver (or Core if the round-trip is shared).
-- [ ] Tests (both bridges): round-trip a GET-only, a SET-only, and a GET+SET property — byte-identical, no phantom
-      accessor. Needs a fixture property (add to `project11` or a committed FakeIde/e2e case).
+- [x] Root cause: NOT a push-side phantom. The READ side dropped ALL interface-property accessors — `Materializer`
+      set `getterCode`/`setterCode` both `null` because interface-accessor COM enumeration crashes TC, so a
+      round-trip deleted whatever accessors existed. The push side was already correct (`RemoveChildIfPresent`
+      deletes any auto-created extra accessor when the pushed source is get-only).
+- [x] Fix (Core, shared): read accessor PRESENCE from the interface's PLCopen export instead of COM enumeration —
+      `PlcOpenDocument.InterfacePropertyAccessors` parses `<Property><GetAccessor>/<SetAccessor>`; `Materializer`
+      emits `getterCode=""`/`setterCode=""` only for the accessors that exist. Throws (no fallback) if the property
+      isn't in its own export.
+- [x] Design refined for vendor parity: added `IProjectTree.InterfacePropertyAccessors` — CODESYS enumerates the
+      accessor children (safe in-process), TwinCAT parses the interface's PLCopen export (COM enumeration crashes).
+      CODESYS's export structures accessors differently, so routing it through the XML parse THREW ("property not
+      found") and dropped the interface from the fetch — caught by running the e2e on `:8556`.
+- [x] Tests (live, BOTH bridges `:8555` + `:8556`): `top-level` interface GET-only asserts `END_GET` + no `END_SET`;
+      `children-cycle` adds interface GET+SET → GET-only (drop setter) AND GET+SET → SET-only (drop getter, the
+      mirror). All green on both vendors; 216 C# unit green.
+- Added reusable read-only `GET /debug?xmlof=NAME` (any item's PLCopen export — fills the gap where `?xml=1` only
+  dumps program/function/FB bodies, skipping interfaces/DUTs).
 
 ## 5. Land
 - [ ] Full bridge suite green on both; `check-divergence` clean; parity asserted by the new tests.

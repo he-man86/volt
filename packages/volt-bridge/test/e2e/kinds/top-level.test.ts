@@ -32,12 +32,16 @@ describe(`kinds / top-level (${BASE})`, () => {
 		expect(await fetchSource(wire)).toContain("INTERFACE")
 	})
 
-	// Interface members test declaration-only method + property create + round-trip.
-	it("interface with a method + property (members inside the block)", async () => {
+	// Interface members test declaration-only method + property create + round-trip. The property is
+	// GET-only: its accessor set must survive read (the enclosing interface's PLCopen export is the safe
+	// source — enumerating interface-accessor COM children can crash TC), with NO phantom SET.
+	it("interface with a method + GET-only property (members inside the block)", async () => {
 		const name = id("k_iface_m"), wire = fid("k_iface_m", "itf")
 		await createItem(wire, iface(name, `METHOD DoIt : INT\nEND_METHOD\nPROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\n`))
 		const s = await fetchSource(wire)
 		expect(s).toContain("METHOD DoIt"); expect(s).toContain("PROPERTY Ready")
+		expect(s).toContain("END_GET")       // the getter must round-trip…
+		expect(s).not.toContain("END_SET")   // …and no auto-created setter may leak back
 	})
 
 	it("creates at the project root and in a nested folder", async () => {

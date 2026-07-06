@@ -114,6 +114,12 @@ public sealed partial class BeckhoffDriver
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 
+    // Enumerating an interface property's accessor COM children can hard-crash TwinCAT — read presence from the
+    // enclosing interface's PLCopen export instead, which lists <GetAccessor>/<SetAccessor> under the property.
+    public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property) =>
+        Volt.Bridge.Core.Graphical.PlcOpenDocument.InterfacePropertyAccessors(
+            _om.ExportPouXml(_om.Parent(property.Native)), _om.GetName(property.Native));
+
     // TwinCAT reports EVERY DUT as one tree type (623, == ItemKind.PlcDutAlias) — the struct/enum/union/alias
     // distinction lives only in the declaration. Refine it from the decl (shared CodeHelper, the same
     // basis CODESYS uses), so the wire kind matches across vendors. Only a DUT pays the extra decl read.

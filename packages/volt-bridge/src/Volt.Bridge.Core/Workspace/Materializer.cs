@@ -193,29 +193,32 @@ public static class Materializer
                     ["declaration"] = ide.ReadDeclaration(child).Trim(),
                 };
 
-                // Interface property accessor children (subtypes 654/655) crash TwinCAT COM
-                // if you try to enumerate their children or read their implementation.
-                // Only note which accessors exist — skip implementation reads entirely.
+                // An interface property's accessors are decl-only, so only PRESENCE matters — the driver reads
+                // it its safe way (getterCode/setterCode = "" for a present accessor, omitted ⇒ absent, which
+                // round-trips to the accessor being deleted). A CLASS/FB property enumerates safely and carries
+                // a real getter/setter body.
                 var isIfaceProp = ide.KindCode(parent) == ItemKind.PlcItf;
-                int accCount = isIfaceProp ? 0 : ide.ChildCount(child);
-                for (int j = 1; j <= accCount; j++)
-                {
-                    var accessor = ide.ChildAt(child, j);
-                    var accName = ide.Name(accessor).ToLowerInvariant();
-                    if (accName is "get" or "set")
-                    {
-                        entry[accName == "get" ? "getterCode" : "setterCode"] = ide.ReadImplementation(accessor)?.Trim() ?? "";
-                        var accDecl = ide.ReadDeclaration(accessor)?.Trim() ?? "";
-                        if (!string.IsNullOrEmpty(accDecl) && !IsEmptyVarBlock(accDecl))
-                            entry[accName == "get" ? "getterDeclaration" : "setterDeclaration"] = accDecl;
-                    }
-                }
                 if (isIfaceProp)
                 {
-                    // Signal existence without touching COM — TC interface accessor
-                    // children crash on enumeration.
-                    entry["getterCode"] = entry.ContainsKey("getterCode") ? "" : null;
-                    entry["setterCode"] = entry.ContainsKey("setterCode") ? "" : null;
+                    var (hasGet, hasSet) = ide.InterfacePropertyAccessors(child);
+                    if (hasGet) entry["getterCode"] = "";
+                    if (hasSet) entry["setterCode"] = "";
+                }
+                else
+                {
+                    int accCount = ide.ChildCount(child);
+                    for (int j = 1; j <= accCount; j++)
+                    {
+                        var accessor = ide.ChildAt(child, j);
+                        var accName = ide.Name(accessor).ToLowerInvariant();
+                        if (accName is "get" or "set")
+                        {
+                            entry[accName == "get" ? "getterCode" : "setterCode"] = ide.ReadImplementation(accessor)?.Trim() ?? "";
+                            var accDecl = ide.ReadDeclaration(accessor)?.Trim() ?? "";
+                            if (!string.IsNullOrEmpty(accDecl) && !IsEmptyVarBlock(accDecl))
+                                entry[accName == "get" ? "getterDeclaration" : "setterDeclaration"] = accDecl;
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(folderPath)) entry["folder"] = folderPath;

@@ -164,6 +164,24 @@ suite("live: IDE → workspace + merge + git", () => {
 		expect((await pull(ws, bridge)).kind).toBe("ok")
 		expect(existsSync(wsPath(rel))).toBe(false)
 	})
+
+	// End-to-end fidelity for an INTERFACE with a GET-only property (the kind that once dropped its accessors
+	// on read): pull must materialize the getter and NO phantom setter, and a SECOND pull must be a clean no-op
+	// — if the bridge round-tripped the accessor set inconsistently, the item would drift on every pull.
+	it("IDE get-only interface property → pull materializes it, re-pull is stable", async () => {
+		const n = `${PREFIX}_iface_prop`
+		const src = `INTERFACE ${n}\nMETHOD DoIt : INT\nEND_METHOD\nPROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n`
+		await ideSet(`${n}.itf`, { folder: "", sourceText: src })
+		const rel = await srcRelOf(`${n}.itf`)
+		expect((await pull(ws, bridge)).kind).toBe("ok"); commit("absorb")
+		const materialized = readWs(rel)
+		expect(materialized).toContain("PROPERTY Ready")
+		expect(materialized).toContain("END_GET")        // getter survives the round-trip…
+		expect(materialized).not.toContain("END_SET")    // …and no auto-created setter leaks back
+		// Re-pull with no changes on either side: must be a no-op with a clean tree (no accessor drift).
+		expect((await pull(ws, bridge)).kind).toBe("ok")
+		expect(git("status", "--porcelain", "--", "src").trim()).toBe("")
+	})
 	it("diff baselines: VOLTIDE = last-synced, BRIDGE = live IDE (what the diff tab compares)", async () => {
 		const n = `${PREFIX}_diffbase`
 		await ideSet(`${n}.fb`, { folder: "", sourceText: fb(n, "n := 1;") })

@@ -22,8 +22,11 @@ namespace Volt.Bridge.Core.Sync;
 /// </summary>
 public static class DebugService
 {
-    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null)
+    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null, string? xmlOf = null)
     {
+        // `?xmlof=NAME` → the raw item-metadata XML (e.g. to inspect how a property lists its accessors).
+        if (!string.IsNullOrEmpty(xmlOf))
+            return new Dictionary<string, object?> { ["xml"] = ide.DebugItemXml(xmlOf) };
         // `?libsig=NAME` (or `?libsig=*` for all): introspect the library signatures instead of the tree — the
         // implemented interfaces + property values of each element, to see how a DUT (alias/struct/enum) is modeled.
         if (libSig != null)

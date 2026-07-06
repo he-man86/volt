@@ -63,6 +63,12 @@ public sealed class FakeIde : IIdeDriver
     public ItemRef GetPlcProjectRoot() => new ItemRef(PlcRootName);
     public ItemRef GetTreeRoot() => new ItemRef(TreeRootName);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new ItemRef(Find(parent).Children![index1Based - 1]);
+    public (bool getter, bool setter) InterfacePropertyAccessors(ItemRef property)
+    {
+        var kids = FindOrNull(property)?.Children ?? System.Array.Empty<string>();
+        return (kids.Any(k => k.Equals("Get", System.StringComparison.OrdinalIgnoreCase)),
+                kids.Any(k => k.Equals("Set", System.StringComparison.OrdinalIgnoreCase)));
+    }
     public ItemRef Parent(ItemRef item) => new ItemRef("<root>");
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? language = null) { Recorded.Add($"create:{name}"); return new ItemRef(name); }
     public void Delete(ItemRef parent, string name) => Recorded.Add($"delete:{name}");
@@ -108,6 +114,7 @@ public sealed class FakeIde : IIdeDriver
     public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() => LibSignatures;
     public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         System.Array.Empty<IReadOnlyDictionary<string, string>>();
+    public string DebugItemXml(string name) => "";
 
     /// <summary>The project POUs CODESYS "compiled" (reachable). Null (default) ⇒ can't determine → the fetch omits
     /// nothing. Set per-test to exercise the `omitDeadCode` flag.</summary>

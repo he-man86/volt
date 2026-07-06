@@ -60,6 +60,20 @@ namespace Volt.Bridge.Core.Graphical
             return string.IsNullOrEmpty(text) ? null : text;
         }
 
+        /// <summary>Which accessors an interface PROPERTY declares — <c>(hasGet, hasSet)</c> — read from the
+        /// enclosing interface's PLCopen export. This is the SAFE source: enumerating an interface property's
+        /// accessor COM children (or reading their text) can hard-crash TwinCAT, but the export lists them as
+        /// <c>&lt;GetAccessor&gt;</c>/<c>&lt;SetAccessor&gt;</c> under the named <c>&lt;Property&gt;</c>. Throws
+        /// (no silent fallback) if the property isn't in its own interface's export — that's a real bug to see.</summary>
+        public static (bool get, bool set) InterfacePropertyAccessors(string xml, string propName)
+        {
+            var prop = XDocument.Parse(xml).Descendants().FirstOrDefault(e =>
+                e.Name.LocalName == "Property" && (string?)e.Attribute("name") == propName)
+                ?? throw new InvalidOperationException($"property '{propName}' not found in interface PLCopen export");
+            bool Has(string tag) => prop.Elements().Any(e => e.Name.LocalName == tag);
+            return (Has("GetAccessor"), Has("SetAccessor"));
+        }
+
         /// <summary>
         /// Replace or insert a graphical body. When the document already has an <c>&lt;FBD&gt;</c>/<c>&lt;LD&gt;</c>
         /// body, the existing body is validated (nothing silently lost) and replaced in-place — the original

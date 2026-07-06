@@ -128,7 +128,8 @@ public sealed class BridgeHttpServer
                 var dbgName = ctx.Request.QueryString["name"];
                 var dbgBodies = ctx.Request.QueryString["xml"] is "1" or "true";
                 var dbgLibSig = ctx.Request.QueryString["libsig"];
-                Write(ctx, 200, _ide.RunOnStaThread(() => (object)DebugService.Handle(_ide, dbgName, dbgBodies, dbgLibSig)));
+                var dbgXmlOf = ctx.Request.QueryString["xmlof"];
+                Write(ctx, 200, _ide.RunOnStaThread(() => (object)DebugService.Handle(_ide, dbgName, dbgBodies, dbgLibSig, dbgXmlOf)));
                 return;
             }
 

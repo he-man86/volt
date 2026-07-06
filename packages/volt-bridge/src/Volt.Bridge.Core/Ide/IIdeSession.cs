@@ -48,6 +48,10 @@ public interface IIdeSession
     /// drivers without a signature model (TwinCAT). Surfaced at <c>GET /debug?libsig=NAME</c>.</summary>
     IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter);
 
+    /// <summary>DEBUG (read-only): the PLCopen export (our normal code-XML transport) for the item named
+    /// <paramref name="name"/>, or "" if unavailable. Surfaced at <c>GET /debug?xmlof=NAME</c>.</summary>
+    string DebugItemXml(string name);
+
     /// <summary>Names of the PROJECT POUs (FB/PRG/FUNCTION) CODESYS actually COMPILED. A project POU absent from
     /// this set is DEAD code (uncalled) — no compiler ground truth, like exclude-from-build. Null ⇒ can't
     /// determine (e.g. no compile context / TwinCAT), so the caller marks nothing.</summary>
