@@ -71,8 +71,11 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    catalog is name-only for the `unknown-attribute` lint). Plus unknown-pragma DIRECTIVE (lint is attribute-only).
 5. **VG services (F.2d/f follow-ons)** — references/rename + semantic tokens across VG bodies; keyword/pragma
    catalogs for hover + completion.
-6. **Optional bridge simplification** — the LSP's POU+member reachability now covers whole-item exclusion, so the
-   bridge's item-level `ExcludeFromBuild` filter (`FetchService`/`RefsService`) could be removed (dumber bridge).
+6. **Bridge item-filter — KEEP (do NOT remove).** Earlier thought it redundant; it is NOT. The bridge's
+   `ExcludeFromBuild` filter drops items EXCLUDED from build regardless of use; LSP reachability only drops
+   UNCALLED items. An excluded-but-REFERENCED item (kept live by reachability) would false-positive without the
+   filter, since excluded code is often broken/WIP. Removing it needs item-level exclusion in the LSP first —
+   not worth it.
 7. **Land** — merge `feat/st-body-ast` → `dev`; archive this change (`openspec archive`).
 
 ## 0. Clean-room + guardrails (first — before any code)
