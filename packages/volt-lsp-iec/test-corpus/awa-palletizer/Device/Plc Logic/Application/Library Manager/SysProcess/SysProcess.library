@@ -1,0 +1,6 @@
+LIBRARY SysProcess
+NAMESPACE SysProcess
+RESOLUTION SysProcess, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysProcess Interfaces, * (System), SysProcess Implementation, SysTypes2 Interfaces, * (System)

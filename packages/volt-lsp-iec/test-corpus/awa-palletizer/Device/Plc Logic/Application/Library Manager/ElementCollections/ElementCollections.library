@@ -1,0 +1,6 @@
+LIBRARY ElementCollections
+NAMESPACE COL
+RESOLUTION Element Collections, 4.0.0.0 (CODESYS)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA FB Factory, StringUtils, SysMem, CmpErrors2 Interfaces, * (System), SysCpuHandling, CmpSchedule, CAA Types, SysTypes2 Interfaces, * (System), CmpEventMgr Implementation, CmpEventMgr Interfaces, * (System), CmpApp, SysTime, 3.5.9.0 (System)

@@ -1,5 +1,0 @@
-LIBRARY L_EtcSlaveConfig
-NAMESPACE L_ECC
-RESOLUTION L_EtcSlaveConfig, 3.33.0.1 (Lenze)
-PLACEHOLDER true
-SYSTEM false

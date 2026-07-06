@@ -1,0 +1,5 @@
+LIBRARY L_MC1P_MotionControlBasic
+NAMESPACE L_MC1P
+RESOLUTION L_MC1P_MotionControlBasic, 3.33.0.92 (Lenze)
+PLACEHOLDER true
+SYSTEM false

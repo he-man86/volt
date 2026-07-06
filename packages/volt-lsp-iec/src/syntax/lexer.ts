@@ -440,10 +440,11 @@ export function lex(src: string): Token[] {
   function lexTypedLiteralBody(): void {
     // Body: depends on the type. We accept any non-whitespace
     // alphanumeric/sign/dot/hash sequence — the parser can
-    // validate against the prefix type later.
+    // validate against the prefix type later. `#` is IN the set: a
+    // typed BASED literal carries a second `#` (`WORD#16#1`, `DWORD#2#1010`).
     while (pos < len) {
       const c = peek()
-      if (isAlnum(c) || c === "_" || c === "." || c === "+" || c === "-") {
+      if (isAlnum(c) || c === "_" || c === "." || c === "+" || c === "-" || c === "#") {
         advance(1)
       } else {
         break

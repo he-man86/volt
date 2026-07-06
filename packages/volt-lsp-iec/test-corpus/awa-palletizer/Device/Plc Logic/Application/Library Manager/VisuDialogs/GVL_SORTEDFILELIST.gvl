@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	FILEELEMENTFACTORY : SortedDirectoryFileElementFactory;
+	SORTEDLISTFACTORY : COL.SortedListFactory;
+END_VAR

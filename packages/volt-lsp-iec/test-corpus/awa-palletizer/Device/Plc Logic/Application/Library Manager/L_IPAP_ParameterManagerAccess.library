@@ -1,5 +1,0 @@
-LIBRARY L_IPAP_ParameterManagerAccess
-NAMESPACE L_IPAP
-RESOLUTION L_IPAP_ParameterManagerAccess, 3.32.0.7 (Lenze)
-PLACEHOLDER true
-SYSTEM false

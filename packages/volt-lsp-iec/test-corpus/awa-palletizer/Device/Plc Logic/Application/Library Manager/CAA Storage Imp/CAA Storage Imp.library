@@ -1,0 +1,6 @@
+LIBRARY CAA Storage Imp
+NAMESPACE STI
+RESOLUTION 3S Storage, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CAA Storage, CAA FB Factory

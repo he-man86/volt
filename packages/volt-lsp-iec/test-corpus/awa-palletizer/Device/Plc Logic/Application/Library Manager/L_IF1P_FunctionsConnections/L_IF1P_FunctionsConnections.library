@@ -1,0 +1,5 @@
+LIBRARY L_IF1P_FunctionsConnections
+NAMESPACE L_IF1P
+RESOLUTION L_IF1P_FunctionsConnections, 3.33.0.2 (Lenze)
+PLACEHOLDER true
+SYSTEM false

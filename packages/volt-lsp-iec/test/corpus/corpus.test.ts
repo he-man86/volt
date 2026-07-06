@@ -166,7 +166,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(falsePositives).toEqual([])
-  })
+  }, 60_000) // heavy: all checks (incl. member-access inference) over every corpus file
 
   // The opt-in unknown-attribute lint is only as complete as the pragma catalog. Enable it across the corpus
   // and require ZERO hits: every attribute real projects use must be catalogued, else it would false-positive.
@@ -187,7 +187,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(hits).toEqual([])
-  })
+  }, 60_000) // heavy: a second full-corpus diagnostic pass with the lint enabled
 
   // A.3 format-roundtrip gate: `parse(format(x)) ≡ parse(x)` across the whole corpus. Formatting must
   // re-emit valid ST that re-parses to an EQUIVALENT AST (span/token-free, body statements embedded,

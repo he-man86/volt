@@ -1,5 +1,0 @@
-LIBRARY TextListUtils
-NAMESPACE TLU
-RESOLUTION TextListUtils, 4.1.0.0 (System)
-PLACEHOLDER true
-SYSTEM false

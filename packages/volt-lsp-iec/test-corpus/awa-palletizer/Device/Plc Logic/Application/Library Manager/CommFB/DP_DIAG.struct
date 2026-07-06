@@ -1,0 +1,10 @@
+TYPE DP_DIAG :
+STRUCT
+	STATUS1 : IIoDrvProfibus.DP_StationStatus1;
+	STATUS2 : IIoDrvProfibus.DP_StationStatus2;
+	STATUS3 : IIoDrvProfibus.DP_StationStatus3;
+	DIAG_MASTER_ADD : USINT;
+	IDENT_NUMBER : UINT;
+	EXTDIAG : ARRAY [0..235] OF BYTE;
+END_STRUCT
+END_TYPE

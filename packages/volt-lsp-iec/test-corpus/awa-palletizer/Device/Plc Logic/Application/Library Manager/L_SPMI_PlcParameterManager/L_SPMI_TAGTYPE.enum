@@ -1,0 +1,11 @@
+TYPE L_SPMI_TAGTYPE :
+(
+	UNKNOWN := 0,
+	ELEMENT := 1,
+	ELEMENT_START := 2,
+	ELEMENT_END := 3,
+	CDATA := 4,
+	COMMENT := 5,
+	XML := 6
+);
+END_TYPE

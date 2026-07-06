@@ -1,0 +1,9 @@
+TYPE JOB_STATE :
+(
+	DORMANT := 0,
+	BUSY := 1,
+	DONE := 2,
+	ABORTED := 3,
+	STATE_ERROR
+);
+END_TYPE

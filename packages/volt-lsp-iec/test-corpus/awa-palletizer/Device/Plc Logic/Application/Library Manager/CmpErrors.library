@@ -1,5 +1,0 @@
-LIBRARY CmpErrors
-NAMESPACE CmpErrors
-RESOLUTION CmpErrors, 3.3.1.40 (System)
-PLACEHOLDER true
-SYSTEM false

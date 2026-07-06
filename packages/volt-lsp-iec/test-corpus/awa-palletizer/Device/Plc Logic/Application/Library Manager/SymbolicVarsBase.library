@@ -1,5 +1,0 @@
-LIBRARY SymbolicVarsBase
-NAMESPACE SymbolicVarsBase
-RESOLUTION SymbolicVarsBase, 4.2.0.0 (System)
-PLACEHOLDER true
-SYSTEM false

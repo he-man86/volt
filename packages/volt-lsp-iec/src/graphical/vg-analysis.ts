@@ -242,7 +242,7 @@ function checkStatements(
 ): void {
   for (const s of statements) {
     if (s.kind === "sink") {
-      if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value)) {
+      if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value) && !isModifierValue(s.value)) {
         checkPair(s.target, s.value, scope, project, messages, out)
       }
     } else if (s.kind === "en_eno_if") {
@@ -255,6 +255,16 @@ function checkStatements(
       })
     }
   }
+}
+
+/**
+ * A sink value that is a bare LD coil/edge MODIFIER word (`out := RESET` = a reset coil), NOT an assigned
+ * expression. The parser leaves it as a plain identifier, and it can COLLIDE with a project enum member of
+ * the same name (`DEVICE_TRANSITION_STATE.RESET`), so the assignment/narrowing rules must skip it — else a
+ * reset coil reads as `enum → BOOL`. (The undeclared check skips the same set.)
+ */
+function isModifierValue(value: Expr): boolean {
+  return value.kind === "ident_expr" && VG_MODIFIER_WORDS.has(value.name.toLowerCase())
 }
 
 /** Run the shared per-pair rules (assignment mismatch → error, narrowing → warning) on one `target := value`. */

@@ -1,0 +1,5 @@
+LIBRARY L_UBUP_BasicUtilities
+NAMESPACE L_UBUP
+RESOLUTION L_UBUP_BasicUtilities, * (Lenze)
+PLACEHOLDER true
+SYSTEM false

@@ -1,0 +1,7 @@
+VAR_GLOBAL
+	ALLCLIENTS : FBAcceptsAllClients;
+	CURRENTCLIENT : FBAcceptsCurrentClient;
+	ONLYTARGETVISU : FBAcceptsTargetVisuOnly;
+	ONLYREMOTETARGETVISU : FBAcceptsRemoteTargetVisuOnly;
+	ONLYWEBVISU : FBAcceptsWebVisuOnly;
+END_VAR

@@ -1,0 +1,6 @@
+TYPE L_ETC_LANGUAGE :
+(
+	ENG,
+	DE
+);
+END_TYPE

@@ -1,5 +1,0 @@
-LIBRARY RecipeManagement
-NAMESPACE Recipe_Management
-RESOLUTION Recipe Management, 4.1.0.0 (System)
-PLACEHOLDER true
-SYSTEM true

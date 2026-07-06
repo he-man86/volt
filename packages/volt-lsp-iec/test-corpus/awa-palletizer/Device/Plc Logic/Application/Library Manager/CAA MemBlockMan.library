@@ -1,5 +1,0 @@
-LIBRARY CAA MemBlockMan
-NAMESPACE MBM
-RESOLUTION CAA Memory Block Manager Extern, 3.5.18.0 (CAA Technical Workgroup)
-PLACEHOLDER true
-SYSTEM false

@@ -1,0 +1,6 @@
+LIBRARY CmpIecVarAccess Implementation
+NAMESPACE CmpIecVarAccess_Implementation
+RESOLUTION CmpIecVarAccess Implementation, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Base Interfaces, * (System), SysTypes2 Interfaces, * (System), IecVarAccess3 Interfaces, * (System), Collections Interfaces, * (System), CmpIecVarAccess Interfaces, * (System)

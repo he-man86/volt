@@ -1,5 +1,0 @@
-LIBRARY SysCpuMultiCore
-NAMESPACE SysCpuMultiCore
-RESOLUTION SysCpuMultiCore, * (System)
-PLACEHOLDER true
-SYSTEM false

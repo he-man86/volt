@@ -1,0 +1,8 @@
+TYPE L_ECC_EC250_CPUNUMBER :
+(
+	NO_CPU := 0,
+	CPU_1 := 1,
+	CPU_2 := 2,
+	CPU_3 := 3
+);
+END_TYPE

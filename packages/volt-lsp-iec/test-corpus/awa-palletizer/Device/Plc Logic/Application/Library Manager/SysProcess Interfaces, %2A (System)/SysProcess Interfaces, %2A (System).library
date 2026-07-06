@@ -1,0 +1,5 @@
+LIBRARY SysProcess Interfaces, * (System)
+NAMESPACE SysProcess_Interfaces
+RESOLUTION SysProcess Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

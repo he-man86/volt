@@ -1,0 +1,6 @@
+LIBRARY RecipeManagement
+NAMESPACE Recipe_Management
+RESOLUTION Recipe Management, 4.5.0.0 (System)
+PLACEHOLDER true
+SYSTEM true
+DEPENDENCIES SysMem, SysDir, CmpLog, Standard, SysSem, StringUtils, SysFile, SysTypes2 Interfaces, * (System), Visu Interfaces, * (System), FloatingPointUtils, Collections, Datasources Interfaces, * (3S - Smart Software Solutions GmbH), TextListUtils, CmpIecTask, CmpErrors2 Interfaces, * (System), Base Interfaces, * (System), VisuUtils

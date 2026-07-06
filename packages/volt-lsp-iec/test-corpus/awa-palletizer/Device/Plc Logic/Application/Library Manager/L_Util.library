@@ -1,5 +1,0 @@
-LIBRARY L_Util
-NAMESPACE L_Util
-RESOLUTION L_Util, 3.32.0.5 (Lenze)
-PLACEHOLDER true
-SYSTEM false

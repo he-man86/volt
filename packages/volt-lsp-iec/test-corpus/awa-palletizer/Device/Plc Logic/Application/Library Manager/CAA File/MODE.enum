@@ -1,6 +1,6 @@
 TYPE MODE :
 (
-	MWRITE,
+	MWRITE := 0,
 	MREAD,
 	MRDWR,
 	MAPPD,

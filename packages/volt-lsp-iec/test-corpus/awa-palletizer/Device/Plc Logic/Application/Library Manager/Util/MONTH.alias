@@ -1,0 +1,2 @@
+TYPE MONTH : UINT (1..12);
+END_TYPE

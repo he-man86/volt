@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	OBJMGR : IecVarAccessObjManager;
+END_VAR

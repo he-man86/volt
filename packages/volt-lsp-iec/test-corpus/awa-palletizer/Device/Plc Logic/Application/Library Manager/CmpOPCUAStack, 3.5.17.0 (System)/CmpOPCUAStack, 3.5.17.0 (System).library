@@ -1,0 +1,5 @@
+LIBRARY CmpOPCUAStack, 3.5.17.0 (System)
+NAMESPACE CmpOPCUAStack
+RESOLUTION CmpOPCUAStack, 3.5.17.0 (System)
+PLACEHOLDER false
+SYSTEM false

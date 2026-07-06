@@ -1,0 +1,5 @@
+LIBRARY L_IMHP_ModuleHandler
+NAMESPACE L_IMHP
+RESOLUTION L_IMHP_ModuleHandler, * (Lenze)
+PLACEHOLDER true
+SYSTEM false

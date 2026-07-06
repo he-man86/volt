@@ -316,6 +316,18 @@ END_FUNCTION_BLOCK`
   expect(d?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")
 })
 
+// Gap found via a re-harvested corpus: a RESET/SET coil value collides with a same-named enum member.
+test("VG: a reset-coil sink (`:= RESET`) is not typed as an enum→BOOL mismatch", () => {
+  const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
+FUNCTION_BLOCK F
+VAR flag : BOOL; END_VAR
+NETWORK 0 LD
+flag := RESET;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).toEqual([])
+})
+
 test("VG: a bad binary operand (MOD on REAL) is flagged like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : REAL; b : REAL; out : REAL; END_VAR

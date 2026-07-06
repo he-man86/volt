@@ -1,0 +1,7 @@
+TYPE OPCUA_EXTENSIONOBJECT_BODY :
+UNION
+	BINARY : OpcUa_ByteString;
+	XML : OpcUa_ByteString;
+	ENCODEABLEOBJECT : OpcUa_EncodeableObjectBody;
+END_UNION
+END_TYPE

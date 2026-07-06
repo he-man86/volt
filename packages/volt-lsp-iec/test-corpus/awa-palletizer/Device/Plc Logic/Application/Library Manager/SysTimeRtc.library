@@ -1,5 +1,0 @@
-LIBRARY SysTimeRtc
-NAMESPACE SysTimeRtc
-RESOLUTION SysTimeRtc, 3.5.20.0 (System)
-PLACEHOLDER true
-SYSTEM false

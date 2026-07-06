@@ -1,0 +1,5 @@
+LIBRARY L_IE1P_ApplicationErrorsTypes
+NAMESPACE L_IE1P_Types
+RESOLUTION L_IE1P_ApplicationErrorsTypes, * (Lenze)
+PLACEHOLDER true
+SYSTEM false

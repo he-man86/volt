@@ -33,6 +33,16 @@ test("literal families", () => {
   expect(code("'hi'")[0].kind).toBe("string_lit")
 })
 
+// Gap found via a re-harvested corpus (IODrvEtherCAT enum): a typed BASED literal carries a SECOND `#`.
+test("a typed based literal (`WORD#16#1`) lexes as one whole typed_lit token", () => {
+  const toks = code("WORD#16#1").filter((t) => t.kind !== "eof")
+  expect(toks).toHaveLength(1)
+  expect(toks[0].kind).toBe("typed_lit")
+  expect(toks[0].text).toBe("WORD#16#1")
+  // As it appears in library enums: `START := WORD#16#1, DONE := DWORD#2#1010`
+  expect(code("DWORD#2#1010")[0].text).toBe("DWORD#2#1010")
+})
+
 test("ExST set/reset assignment operators lex as one punct", () => {
   const toks = code("x S= 1")
   expect(toks[1].kind).toBe("punct")
