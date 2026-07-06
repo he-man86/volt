@@ -9,6 +9,12 @@ namespace Volt.Bridge.Core.Library;
 /// </summary>
 public static class LibraryManifest
 {
+    /// <summary>The canonical RESOLUTION string — <c>name, version (distributor)</c>. CODESYS gets this shape
+    /// pre-formatted from the IDE (EffectiveResolution display name); TwinCAT builds it from parts via this, so
+    /// the one format lives in Core.</summary>
+    public static string Resolution(string name, string version, string distributor) =>
+        $"{name}, {version} ({distributor})";
+
     public static string Build(
         string name,
         string @namespace,

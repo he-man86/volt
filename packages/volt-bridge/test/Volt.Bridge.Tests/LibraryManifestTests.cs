@@ -25,6 +25,13 @@ public class LibraryManifestTests
     }
 
     [Fact]
+    public void Resolution_formats_name_version_distributor()
+    {
+        Assert.Equal("Tc2_System, 3.10.1.0 (Beckhoff Automation GmbH)",
+            LibraryManifest.Resolution("Tc2_System", "3.10.1.0", "Beckhoff Automation GmbH"));
+    }
+
+    [Fact]
     public void Build_omits_the_dependencies_line_when_there_are_none()
     {
         var m = LibraryManifest.Build(

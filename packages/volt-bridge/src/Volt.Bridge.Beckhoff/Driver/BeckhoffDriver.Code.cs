@@ -1,6 +1,9 @@
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Volt.Bridge.Core.Ide;
+using Volt.Bridge.Core.Library;
 
 namespace Volt.Bridge.Beckhoff;
 
@@ -49,6 +52,9 @@ public sealed partial class BeckhoffDriver
         string xml = _om.ProduceXml(item.Native);
         if (string.IsNullOrEmpty(xml)) return $"{kind}\n";
 
+        // A `.library` ref → the SHARED canonical manifest (same shape as CODESYS), built from ProduceXml.
+        if (kind == "library") return LibraryManifestFromXml(xml);
+
         var name = ExtractTag(xml, "ItemName") ?? ExtractTag(xml, "LibItemName") ?? "?";
         var sb = new StringBuilder();
         sb.Append("Name=").Append(name).Append('\n');
@@ -57,14 +63,31 @@ public sealed partial class BeckhoffDriver
             var linked = ExtractTag(xml, "LinkedTask");
             if (linked != null) sb.Append("linked-task=").Append(linked).Append('\n');
         }
-        if (kind == "library")
-        {
-            var ns = ExtractTag(xml, "Namespace"); if (ns != null) sb.Append("namespace=").Append(ns).Append('\n');
-            var def = ExtractTag(xml, "DefaultResolution"); if (def != null) sb.Append("default-resolution=").Append(def).Append('\n');
-            var ver = ExtractTag(xml, "Version"); if (ver != null) sb.Append("version=").Append(ver).Append('\n');
-            var dist = ExtractTag(xml, "Distributor"); if (dist != null) sb.Append("distributor=").Append(dist).Append('\n');
-        }
         return sb.ToString();
+    }
+
+    /// <summary>Map a library ref's item-metadata XML to the canonical <see cref="LibraryManifest"/> — namespace,
+    /// concrete resolution (from EffectiveResolution), placeholder flag, and direct dependencies (a ref's
+    /// &lt;Dependencies&gt;). TwinCAT exposes no system-library flag on a reference, so SYSTEM is false.</summary>
+    private static string LibraryManifestFromXml(string xml)
+    {
+        var root = XDocument.Parse(xml).Root!;
+        string Name(string tag) => root.Descendants(tag).FirstOrDefault()?.Value ?? "";
+
+        var name = Name("ItemName");
+        var ns = root.Descendants("Namespace").FirstOrDefault()?.Value ?? name; // the reference's own namespace
+        var placeholder = Name("ItemSubTypeName").Contains("PLACEHOLDER");
+        // The reference's OWN EffectiveResolution is the first (a dependency's is nested under Dependencies).
+        var eff = root.Descendants("EffectiveResolution").FirstOrDefault();
+        var resolution = eff != null
+            ? LibraryManifest.Resolution(eff.Element("LibraryName")?.Value ?? "", eff.Element("Version")?.Value ?? "", eff.Element("Distributor")?.Value ?? "")
+            : root.Descendants("DefaultResolution").FirstOrDefault()?.Value ?? name;
+        // Direct dependencies, by name — the tree captured as a reference (matches CODESYS's DEPENDENCIES).
+        var deps = root.Descendants("Dependency")
+            .Select(d => d.Element("PlaceholderName")?.Value ?? d.Element("EffectiveResolution")?.Element("LibraryName")?.Value)
+            .Where(s => !string.IsNullOrEmpty(s)).Select(s => s!).ToList();
+
+        return LibraryManifest.Build(name, ns, resolution, placeholder, system: false, deps);
     }
 
     private static string? ExtractTag(string xml, string tag)
