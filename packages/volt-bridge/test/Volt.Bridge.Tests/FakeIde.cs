@@ -30,6 +30,12 @@ public sealed class FakeIde : IIdeDriver
         public static Item MalformedGraphical(string name, string folder = "") =>
             new Item(name, ItemKind.PlcPouProg, folder, true, null, null, "LD",
                 "<project xmlns=\"http://www.plcopen.org/xml/tc6_0200\"><types><pous /></types></project>");
+
+        /// <summary>A referenced-library ref (`.library`). Its body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/…),
+        /// carried here in <c>Declaration</c> and returned by <c>ReadManifest</c>; the default folder is the shared
+        /// Library Manager, where CODESYS reports library refs.</summary>
+        public static Item Library(string name, string manifest, string folder = "Library Manager") =>
+            new Item(name, ItemKind.PlcLibRef, folder, true, manifest, null, null, null);
     }
 
     private readonly List<Item> _items;
@@ -75,7 +81,7 @@ public sealed class FakeIde : IIdeDriver
     public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
     public string ReadXml(ItemRef item) => Find(item).Xml ?? throw new InvalidOperationException("no XML for " + Find(item).Name);
     public void WriteXml(ItemRef item, string xml) { }
-    public string ReadManifest(ItemRef item, string kind) => "";
+    public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
     // ── IIdeSession (session boilerplate; no-op/sensible defaults) ──
     public bool IsConnected => true;
@@ -95,7 +101,16 @@ public sealed class FakeIde : IIdeDriver
     public void FlushPendingWrites() { }
     public bool Build() => true;
     public IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => new List<BridgeDiagnostic>();
-    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() =>
+    /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning
+    /// library's folder(s). Set per-test; empty by default.</summary>
+    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> LibSignatures { get; init; } =
         new List<Volt.Bridge.Core.Library.LibSignature>();
-    public ISet<string>? GetCompiledPouNames() => null;
+    public IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() => LibSignatures;
+    public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
+        System.Array.Empty<IReadOnlyDictionary<string, string>>();
+
+    /// <summary>The project POUs CODESYS "compiled" (reachable). Null (default) ⇒ can't determine → the fetch omits
+    /// nothing. Set per-test to exercise the `omitDeadCode` flag.</summary>
+    public ISet<string>? CompiledPous { get; init; }
+    public ISet<string>? GetCompiledPouNames() => CompiledPous;
 }

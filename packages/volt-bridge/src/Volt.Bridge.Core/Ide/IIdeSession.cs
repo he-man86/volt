@@ -43,6 +43,11 @@ public interface IIdeSession
     /// now (no equivalent surface yet).</summary>
     IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 
+    /// <summary>DEBUG (read-only): each library signature's implemented interfaces + all property values, filtered
+    /// by element name — introspects how the language model represents a DUT (alias/struct/enum/union). Empty on
+    /// drivers without a signature model (TwinCAT). Surfaced at <c>GET /debug?libsig=NAME</c>.</summary>
+    IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter);
+
     /// <summary>Names of the PROJECT POUs (FB/PRG/FUNCTION) CODESYS actually COMPILED. A project POU absent from
     /// this set is DEAD code (uncalled) — no compiler ground truth, like exclude-from-build. Null ⇒ can't
     /// determine (e.g. no compile context / TwinCAT), so the caller marks nothing.</summary>

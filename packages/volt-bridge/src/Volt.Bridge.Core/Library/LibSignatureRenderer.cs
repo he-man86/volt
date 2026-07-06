@@ -9,14 +9,18 @@ namespace Volt.Bridge.Core.Library;
 /// language model exposes, produced deterministically so a library version hashes stably.</summary>
 public static class LibSignatureRenderer
 {
-    // Single-letter direct-address size prefixes (X/B/W/D/L) collide with the ST lexer, and compiler internals
-    // are `__`-prefixed — neither is a usable declaration name/var, so skip them.
+    // Skip only compiler-internal (`__`-prefixed) names — a real declaration/member name is never usable as one.
+    // (A single-letter name like a Point's `X`/`Y` is a VALID identifier and must NOT be dropped — the old
+    // X/B/W/D/L "direct-address prefix" heuristic silently lost such struct fields.)
     private static bool OkName(string n) =>
-        Regex.IsMatch(n, "^[A-Za-z_][A-Za-z0-9_]*$") && !(n.Length == 1 && "XBWDL".Contains(n.ToUpperInvariant())) && !n.Contains("__");
+        Regex.IsMatch(n, "^[A-Za-z_][A-Za-z0-9_]*$") && !n.Contains("__");
 
     private static IEnumerable<string> Block(string kw, IReadOnlyList<LibVar> vs) =>
         vs.Count == 0 ? Enumerable.Empty<string>()
-            : new[] { kw }.Concat(vs.Where(v => OkName(v.Name)).Select(v => $"\t{v.Name} : {v.Type};")).Concat(new[] { "END_VAR" });
+            : new[] { kw }.Concat(vs.Where(v => OkName(v.Name)).Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" });
+
+    // `Name : Type` plus a `:= Initial` default when the model carries one.
+    private static string VarDecl(LibVar v) => $"{v.Name} : {v.Type}" + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}");
 
     /// <summary>The (extension, text) for this signature, or null for a kind we don't materialize (method,
     /// property, and other sub-signatures resolved via their parent).</summary>
@@ -24,6 +28,12 @@ public static class LibSignatureRenderer
     {
         var name = s.Name;
         if (!OkName(name)) return null;
+
+        // A DUT alias (`TYPE HANDLE : __XWORD; END_TYPE`) — render it faithfully, not as an empty struct. The
+        // base can be a `__`-prefixed CODESYS system type (target-specific word), which the LSP resolves.
+        if (!string.IsNullOrEmpty(s.AliasBase))
+            return (".alias", $"TYPE {name} : {s.AliasBase};\nEND_TYPE");
+
         var kind = s.PouType.Contains(".") ? s.PouType.Substring(s.PouType.LastIndexOf('.') + 1) : s.PouType;
 
         switch (kind)
@@ -64,13 +74,19 @@ public static class LibSignatureRenderer
                 // An enum: every member is typed as the container itself. Otherwise a GVL of constants.
                 var isEnum = mem.Count > 0 && mem.All(v => v.Type.Replace(" ", "").ToLowerInvariant() == name.Replace(" ", "").ToLowerInvariant());
                 if (isEnum)
-                    return (".enum", $"TYPE {name} :\n(\n{string.Join(",\n", mem.Select(v => "\t" + v.Name))}\n);\nEND_TYPE");
-                return (".gvl", string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{v.Name} : {v.Type};")).Concat(new[] { "END_VAR" })));
+                {
+                    // Enum members carry their ordinal in Initial (`NO_ERROR := 0, FIRST_ERROR := 5700`).
+                    var members = mem.Select(v => "\t" + v.Name + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}"));
+                    return (".enum", $"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
+                }
+                return (".gvl", string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" })));
             }
             case "Type":
             {
-                var fields = s.Members.Where(v => OkName(v.Name)).Select(v => $"\t{v.Name} : {v.Type};");
-                return (".struct", string.Join("\n", new[] { $"TYPE {name} :", "STRUCT" }.Concat(fields).Concat(new[] { "END_STRUCT", "END_TYPE" })));
+                var fields = s.Members.Where(v => OkName(v.Name)).Select(v => $"\t{VarDecl(v)};");
+                // A UNION shares the struct shape but with UNION/END_UNION (overlapping members); a STRUCT is the default.
+                var (open, close, ext) = s.Flags.Contains("Union") ? ("UNION", "END_UNION", ".union") : ("STRUCT", "END_STRUCT", ".struct");
+                return (ext, string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
             }
             default:
                 return null;

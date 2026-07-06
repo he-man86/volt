@@ -31,6 +31,12 @@ public class FetchRequest
     /// (corpus build) sets it. Extraction is build-free (AllPrecompiledSignatures), so this adds no build cost.</summary>
     [JsonPropertyName("verbose")]
     public bool Verbose { get; set; }
+
+    /// <summary>Opt-in: omit DEAD project POUs (ones CODESYS didn't compile — unreachable/uncalled), mirroring the
+    /// compiler's reachability. OFF by default so ALL code is returned, incl. unused code the LSP can still analyze/
+    /// debug. ON to match compile behavior (e.g. conformance). Requires a build (<c>GetCompiledPouNames</c>).</summary>
+    [JsonPropertyName("omitDeadCode")]
+    public bool OmitDeadCode { get; set; }
 }
 
 public class FetchedItem

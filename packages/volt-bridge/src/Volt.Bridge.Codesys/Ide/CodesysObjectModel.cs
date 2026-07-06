@@ -145,12 +145,12 @@ namespace Volt.Bridge.Codesys
             var getAll = libManIface?.GetMethod("GetAllLibraries");
             if (getAll?.Invoke(iobj, new object[] { false }) is not IEnumerable items) return new List<LibRefNode>();
 
-            // Walk the FULL dependency tree: the top-level references AND their transitive dependencies (each
-            // ILibManItem exposes `GetDependencies()`). Transitive deps carry namespaces the source references
-            // DIRECTLY (e.g. `MEM` from CAA Memory, pulled in as a hidden dependency — HideWhenReferencedAsDependency)
-            // — without them those qualified roots resolve nowhere in the LSP. Dedup by (namespace|name) so a lib
-            // reached via multiple parents (or a dependency cycle) is emitted once. Best-effort per node: a library
-            // ref is READ-ONLY metadata (never a push target), so one malformed entry must not abort the walk.
+            // FLAT: each library once (top-level references + their transitive dependencies, deduped by
+            // namespace|name). Transitive deps carry namespaces the source references DIRECTLY (e.g. `MEM` from CAA
+            // Memory, pulled in as a hidden dependency) — without them those qualified roots resolve nowhere in the
+            // LSP. The dependency HIERARCHY is captured WITHOUT duplication: each ref's manifest lists its DIRECT
+            // dependencies by name (a `DEPENDENCIES` line in ToLibRef), so the tree is reconstructable while every
+            // library — and its signatures — materialize exactly once. Best-effort per node (read-only metadata).
             var byName = new Dictionary<string, LibRefNode>(StringComparer.OrdinalIgnoreCase);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             void Walk(object item)
@@ -167,37 +167,39 @@ namespace Volt.Bridge.Codesys
             return byName.Values.ToList();
         }
 
-        private static LibRefNode ToLibRef(object item)
+        /// <summary>The display name of a library ref — the placeholder name for a placeholder, else its Name. Used
+        /// for the ref's own name AND its dependency names, so a `DEPENDENCIES` entry matches the flat ref it names.</summary>
+        private static string RefDisplayName(object item)
         {
             var name = GetMember(item, "Name") as string ?? "";
-            var ns = GetMember(item, "Namespace") as string ?? "";
-            var system = GetMember(item, "SystemLibrary") is bool b && b;
-
-            bool isPlaceholder = false;
-            foreach (var i in item.GetType().GetInterfaces())
-                if (i.Name == "IPlaceholderLibManItem") { isPlaceholder = true; break; }
-
-            string resolution;
-            if (isPlaceholder)
+            if (item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem"))
             {
                 var ph = GetMember(item, "PlaceholderName") as string;
-                if (!string.IsNullOrEmpty(ph)) name = ph!;          // drop the leading '#'
-                resolution = ManagedLibDisplay(GetMember(item, "EffectiveResolution"))
-                             ?? GetMember(item, "DefaultResolution") as string ?? "";
+                if (!string.IsNullOrEmpty(ph)) return ph!;
             }
-            else
-            {
-                resolution = name;   // managed refs carry "Name, Version (Company)" in Name
-            }
+            return name;
+        }
 
-            // Deterministic manifest — the fetch body AND the version-hash input.
-            var manifest =
-                $"LIBRARY {name}\n" +
-                $"NAMESPACE {ns}\n" +
-                $"RESOLUTION {resolution}\n" +
-                $"PLACEHOLDER {(isPlaceholder ? "true" : "false")}\n" +
-                $"SYSTEM {(system ? "true" : "false")}\n";
+        private static LibRefNode ToLibRef(object item)
+        {
+            var ns = GetMember(item, "Namespace") as string ?? "";
+            var system = GetMember(item, "SystemLibrary") is bool b && b;
+            var isPlaceholder = item.GetType().GetInterfaces().Any(i => i.Name == "IPlaceholderLibManItem");
+            var name = RefDisplayName(item);
+            var resolution = isPlaceholder
+                ? (ManagedLibDisplay(GetMember(item, "EffectiveResolution")) ?? GetMember(item, "DefaultResolution") as string ?? "")
+                : name;   // managed refs carry "Name, Version (Company)" in Name
 
+            // DIRECT dependencies, by display name — the dependency tree captured as a REFERENCE (the deps live once
+            // in the flat list; following these names rebuilds the hierarchy, with no signature duplication).
+            var deps = new List<string>();
+            if (InvokeMethod(item, "GetDependencies") is IEnumerable ds)
+                foreach (var d in ds)
+                    if (d != null) { string dn = ""; try { dn = RefDisplayName(d); } catch { } if (dn.Length > 0) deps.Add(dn); }
+
+            // Deterministic manifest — the fetch body AND the version-hash input. Built by the SHARED Core
+            // formatter so CODESYS and TwinCAT emit the same canonical shape.
+            var manifest = Volt.Bridge.Core.Library.LibraryManifest.Build(name, ns, resolution, isPlaceholder, system, deps);
             return new LibRefNode(name, manifest);
         }
 
@@ -531,7 +533,9 @@ namespace Volt.Bridge.Codesys
                 foreach (var v in coll)
                 {
                     if (GetMember(v, "Name") is not string n || n.Length == 0) continue;
-                    outv.Add(new Volt.Bridge.Core.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL"));
+                    var init = GetMember(v, "Initial")?.ToString();
+                    outv.Add(new Volt.Bridge.Core.Library.LibVar(n, GetMember(v, "Type")?.ToString() ?? "BOOL",
+                        string.IsNullOrEmpty(init) ? null : init));
                 }
                 return outv;
             }
@@ -544,12 +548,88 @@ namespace Volt.Bridge.Codesys
                 if (string.IsNullOrEmpty(name) || name!.Contains("__")) continue;
                 var libPath = GetMember(s, "LibraryPath") as string ?? "";
                 var baseName = GetMember(GetMember(s, "BaseSignature"), "Name") as string;
+                // The DUT sub-kind flag ("Alias"/"Union"/…). An alias is one unnamed variable whose Type is the
+                // base; capture it directly (Vars drops empty-name vars). Its Type may be a `__`-system type.
+                var flags = GetMember(s, "Flags")?.ToString() ?? "";
+                string? aliasBase = null;
+                if (flags.Contains("Alias") && GetMember(s, "AllVariables") is IEnumerable av)
+                    foreach (var v in av) { aliasBase = GetMember(v, "Type")?.ToString(); break; }
                 result.Add(new Volt.Bridge.Core.Library.LibSignature(
                     name, libPath, GetMember(s, "POUType")?.ToString() ?? "",
                     Vars(s, "Inputs"), Vars(s, "Outputs"), Vars(s, "InOuts"), Vars(s, "AllVariables"),
-                    baseName, GetMember(s, "ReturnType")?.ToString()));
+                    baseName, GetMember(s, "ReturnType")?.ToString(), aliasBase, flags));
             }
             return result;
+        }
+
+        /// <summary>DEBUG (read-only): dump every library signature's implemented COM interfaces + all property
+        /// values, optionally filtered by element name. Lets us see how the live language model represents a DUT
+        /// (alias vs struct vs enum vs union) and where an alias's base type lives — the ground truth for fixing
+        /// the signature renderer. Not part of pull/push.</summary>
+        public List<Dictionary<string, string>> DebugLibrarySignatures(string? nameFilter)
+        {
+            var app = FindApplication();
+            if (app != null) { try { Build(app); } catch { /* a failed build still precompiles the libraries */ } }
+            var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr");
+            var outList = new List<Dictionary<string, string>>();
+            if (InvokeMethod(lmm, "AllPrecompiledSignatures", true, true) is not IEnumerable sigs) return outList;
+            // `?libsig=summary` → count of precompiled signatures per owning LibraryPath (which libs have NO sigs).
+            var summary = string.Equals(nameFilter, "summary", StringComparison.OrdinalIgnoreCase);
+            var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in sigs)
+            {
+                if (s == null) continue;
+                if (GetMember(s, "Name") is not string name || name.Length == 0) continue;
+                if (summary)
+                {
+                    var lp = GetMember(s, "LibraryPath") as string ?? "(none)";
+                    counts[lp] = counts.TryGetValue(lp, out var c) ? c + 1 : 1;
+                    continue;
+                }
+                if (!string.IsNullOrEmpty(nameFilter) && !name.Equals(nameFilter, StringComparison.OrdinalIgnoreCase)) continue;
+                var d = new Dictionary<string, string>
+                {
+                    ["Name"] = name,
+                    ["<interfaces>"] = string.Join(", ", s.GetType().GetInterfaces().Select(i => i.Name)),
+                };
+                var seen = new HashSet<string>();
+                foreach (var t in new[] { s.GetType() }.Concat(s.GetType().GetInterfaces()))
+                    foreach (var p in t.GetProperties())
+                    {
+                        if (p.GetIndexParameters().Length > 0 || !seen.Add(p.Name)) continue;
+                        try { d[p.Name] = p.GetValue(s)?.ToString() ?? "null"; }
+                        catch (Exception e) { d[p.Name] = "<err:" + e.GetType().Name + ">"; }
+                    }
+                // Expand the variable collections as name:type — the alias base / struct fields / enum members
+                // live here, so we can see what `OkName` drops and where a base type is carried.
+                foreach (var coll in new[] { "AllVariables", "Inputs", "Outputs", "InOuts", "Locals" })
+                {
+                    if (GetMember(s, coll) is not IEnumerable vs) continue;
+                    var parts = new List<string>();
+                    foreach (var v in vs)
+                        parts.Add($"{GetMember(v, "Name")}:{GetMember(v, "Type")}");
+                    d[coll + "[]"] = string.Join(", ", parts);
+                }
+                // Dump the FIRST member's full property map — the enum-member VALUE (init) lives here somewhere.
+                if (GetMember(s, "AllVariables") is IEnumerable avs)
+                    foreach (var v in avs)
+                    {
+                        if (v == null) continue;
+                        var mp = new List<string>();
+                        var mseen = new HashSet<string>();
+                        foreach (var t in new[] { v.GetType() }.Concat(v.GetType().GetInterfaces()))
+                            foreach (var p in t.GetProperties())
+                                if (p.GetIndexParameters().Length == 0 && mseen.Add(p.Name))
+                                { try { mp.Add($"{p.Name}={p.GetValue(v)}"); } catch { } }
+                        d["member0.props"] = string.Join(" | ", mp);
+                        break;
+                    }
+                outList.Add(d);
+            }
+            if (summary)
+                return counts.OrderByDescending(kv => kv.Value)
+                    .Select(kv => new Dictionary<string, string> { ["lib"] = kv.Key, ["count"] = kv.Value.ToString() }).ToList();
+            return outList;
         }
 
         /// <summary>Names of every PROJECT POU (FB/PRG/FUNCTION) CODESYS actually COMPILED — the reachable call tree.

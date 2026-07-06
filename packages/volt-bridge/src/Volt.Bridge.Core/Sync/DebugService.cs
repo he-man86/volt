@@ -22,8 +22,15 @@ namespace Volt.Bridge.Core.Sync;
 /// </summary>
 public static class DebugService
 {
-    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies)
+    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null)
     {
+        // `?libsig=NAME` (or `?libsig=*` for all): introspect the library signatures instead of the tree — the
+        // implemented interfaces + property values of each element, to see how a DUT (alias/struct/enum) is modeled.
+        if (libSig != null)
+        {
+            var filter = libSig is "" or "*" ? null : libSig;
+            return new Dictionary<string, object?> { ["libsig"] = ide.DebugLibrarySignatures(filter) };
+        }
         ItemRef? found = string.IsNullOrEmpty(name) ? ide.GetPlcProjectRoot() : ide.Lookup(name!);
         if (found is not { } node)
             throw new BridgeException(404, "NOT_FOUND", $"no item named '{name}'");

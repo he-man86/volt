@@ -51,6 +51,10 @@ public abstract class DriverBase : IIdeSession
     public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
     public abstract ISet<string>? GetCompiledPouNames();
 
+    // Debug-only introspection; drivers without a signature model (TwinCAT) inherit this empty default.
+    public virtual IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
+        Array.Empty<IReadOnlyDictionary<string, string>>();
+
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). Best-effort — any probe failure is swallowed
     /// here so a transient IDE hiccup never faults the /health request.</summary>

@@ -35,9 +35,6 @@ public static class FetchService
         // For the verbose fold: normalized library RESOLUTION → the .library ref's (folder, bare name), captured
         // from the ref items in THIS walk, so each element signature is foldered right beside its own .library file.
         var libByResolution = new Dictionary<string, (string Folder, string Name)>(System.StringComparer.OrdinalIgnoreCase);
-        // Every identifier the PROJECT source mentions — the "referenced" set that gates which library element
-        // signatures are materialized (referenced-only). Case-insensitive (IEC identifiers are).
-        var referenced = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         // Project POU items (FB/PRG/FUNCTION), for the dead-code check: a POU CODESYS never compiled is uncalled.
         var pouItems = new List<(string BareName, string FullName)>();
 
@@ -64,15 +61,11 @@ public static class FetchService
             {
                 if (kind == "library")
                 {
-                    // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/…). Capture RESOLUTION →
-                    // (folder, name) so the verbose fold can place each library's signatures under `<folder>/<name>/`.
+                    // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
+                    // RESOLUTION → (folder, name) so the verbose fold places each library's signatures under
+                    // `<folder>/<name>/`, beside its `.library` file.
                     var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
                     if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
-                }
-                else
-                {
-                    // Collect every identifier this project item's source mentions — the referenced-only gate below.
-                    foreach (Match m in IdentifierRx.Matches(mat.Text)) referenced.Add(m.Value);
                 }
                 if (kind == "program" || kind == "function" || kind == "function_block")
                     pouItems.Add((it.Name, fullName));
@@ -83,7 +76,10 @@ public static class FetchService
             changed.Add(new FetchedItem
             {
                 Name = fullName,
-                Folder = it.Folder,
+                // A `.library` ref is nested INTO its own library folder so `<lib>.library` sits beside the
+                // signatures it describes (`Library Manager/<lib>/<lib>.library`). Only the FOLDER changes; the
+                // item NAME (the protocol identity) is untouched, and library refs are read-only (no push impact).
+                Folder = kind == "library" ? LibraryFolder(it.Folder, it.Name) : it.Folder,
                 Version = version,
                 SourceText = mat.Text,
             });
@@ -91,14 +87,15 @@ public static class FetchService
 
         if (request.Verbose)
         {
-            // Referenced-library element signatures ride through as ordinary read-only items.
-            AppendLibrarySignatures(ide, libByResolution, referenced, changed);
+            // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate
+            // — the AI gets the full public API of the used libraries).
+            AppendLibrarySignatures(ide, libByResolution, changed);
 
-            // Dead code: a project POU CODESYS did NOT compile (absent from the compiled model) is uncalled and
-            // has no compiler ground truth — omit it entirely (drop from changed + versions), like an excluded
-            // object. Null ⇒ can't determine (build failed / TwinCAT) → omit nothing.
-            var compiled = ide.GetCompiledPouNames();
-            if (compiled != null)
+            // Dead code (opt-in via `omitDeadCode`): a project POU CODESYS did NOT compile (absent from the compiled
+            // model) is uncalled/unreachable — dropping it MIRRORS the compiler's reachability. OFF by default so ALL
+            // code is returned (the LSP analyzes unused code fine, and can debug it); ON to match compile behavior.
+            // Null compiled set ⇒ can't determine (build failed / TwinCAT) → omit nothing.
+            if (request.OmitDeadCode && ide.GetCompiledPouNames() is { } compiled)
             {
                 var deadFull = new HashSet<string>(
                     pouItems.Where(p => !compiled.Contains(p.BareName)).Select(p => p.FullName));
@@ -123,33 +120,30 @@ public static class FetchService
         };
     }
 
-    private static readonly Regex IdentifierRx = new(@"[A-Za-z_][A-Za-z0-9_]*", RegexOptions.Compiled);
-
-    /// <summary>Render the SIGNATURE (declaration only) of every referenced-library element the PROJECT actually
-    /// names (`referenced`) and add it as a regular read-only <see cref="FetchedItem"/> beside the library's own
-    /// `.library` file: folder <c>&lt;lib folder&gt;/&lt;lib name&gt;</c>, name <c>&lt;Element&gt;&lt;ext&gt;</c>.
-    /// Referenced-only keeps the tree small AND correctly includes used SYSTEM-library elements (e.g. the `BLINK`
-    /// FB a project `EXTENDS`, `StrReplaceA`) that a blanket system-library skip would drop — while excluding the
-    /// thousands of never-referenced elements. Member access into an unmaterialized type is conservatively
-    /// unchecked, so no transitive closure is needed. The library is matched to its `.library` ref by RESOLUTION;
-    /// an unmatched lib falls back to the shared Library Manager folder. Extraction precompiles the libraries first
-    /// (see <c>ExtractLibrarySignatures</c>). TwinCAT returns none. The version is a content hash — read-only, never
-    /// a push target.</summary>
-    private static void AppendLibrarySignatures(IIdeDriver ide, Dictionary<string, (string Folder, string Name)> libByResolution, HashSet<string> referenced, List<FetchedItem> changed)
+    /// <summary>Render the SIGNATURE (declaration only) of EVERY referenced-library element and add it as a
+    /// read-only <see cref="FetchedItem"/> beside its library's `.library` file (folder
+    /// <c>&lt;lib folder&gt;/&lt;lib name&gt;</c>, name <c>&lt;Element&gt;&lt;ext&gt;</c>). No referenced-only gate:
+    /// the full public API of every used library is materialized so the AI/LSP can resolve into any of it. The
+    /// library is matched to its `.library` ref by RESOLUTION; an unmatched lib falls back to the shared Library
+    /// Manager folder. Extraction precompiles the libraries first (see <c>ExtractLibrarySignatures</c>). TwinCAT
+    /// returns none. The version is a content hash — read-only, never a push target.</summary>
+    private static void AppendLibrarySignatures(IIdeDriver ide, Dictionary<string, (string Folder, string Name)> libByResolution, List<FetchedItem> changed)
     {
-        // Fallback folder for a signature whose library didn't match a .library ref (should be rare now that the
-        // full dependency tree is materialized): the folder shared by the known library refs.
-        var fallbackFolder = libByResolution.Values.Select(v => v.Folder).FirstOrDefault(f => f.Length > 0) ?? "";
+        // The Library Manager base folder (all refs share it) — home of the LOUD `(unresolved)` marker below.
+        var libManBase = libByResolution.Values.Select(v => v.Folder).FirstOrDefault(f => f.Length > 0) ?? "";
         foreach (var sig in ide.ExtractLibrarySignatures())
         {
-            if (!referenced.Contains(sig.Name)) continue; // referenced-only: the project source names this element
             if (LibSignatureRenderer.Render(sig) is not { } r) continue;
-            // Join the element's owning library ("name, version (company)") to its .library ref (matched by
-            // RESOLUTION, case-insensitively) for the folder + name; fall back to the raw path segment.
-            var (folder, name) = libByResolution.TryGetValue(sig.LibraryPath, out var lib)
-                ? (lib.Folder, lib.Name)
-                : (fallbackFolder, Sanitize(sig.LibraryPath.Split(',')[0]));
-            var libFolder = $"{folder}/{Sanitize(name)}";
+            string libFolder;
+            if (libByResolution.TryGetValue(sig.LibraryPath, out var lib))
+                // Identified: fold the element beside its library's `.library` file (matched by RESOLUTION).
+                libFolder = LibraryFolder(lib.Folder, lib.Name);
+            else
+                // NOT identified: its owning library matched no `.library` ref by RESOLUTION (CODESYS facade /
+                // Interfaces-Implementation split). Do NOT silently drop it and do NOT guess it into a real
+                // library's folder — surface it LOUD under an explicit `(unresolved)` marker so the matching gap
+                // is impossible to miss (nothing lost, no hidden bug). See openspec bridge-diagnostics-observability.
+                libFolder = LibraryFolder(LibraryFolder(libManBase, "(unresolved)"), Sanitize(sig.LibraryPath.Split(',')[0].Trim()));
             var fileName = $"{Sanitize(sig.Name)}{r.Ext}";
             changed.Add(new FetchedItem
             {
@@ -162,4 +156,10 @@ public static class FetchService
     }
 
     private static string Sanitize(string s) => Regex.Replace(s, "[<>:\"/\\\\|?*]", "_").Trim();
+
+    /// <summary>A library's own workspace folder — its element folder, holding both the `.library` stub and the
+    /// element signatures (`Library Manager/&lt;lib&gt;/`). One definition so the stub and its elements always
+    /// colocate.</summary>
+    private static string LibraryFolder(string? folder, string name) =>
+        string.IsNullOrEmpty(folder) ? Sanitize(name) : $"{folder}/{Sanitize(name)}";
 }
