@@ -50,6 +50,22 @@ export function lookupMember(scope: Scope, name: string): Symbol | undefined {
   return lookupInChain(scope, name)?.symbol
 }
 
+/**
+ * True when `scope` or any of its EXTENDS ancestors names a base that never resolved (`extendsName` set,
+ * `baseScope` undefined) — so its inherited-member set is INCOMPLETE. Conservative member/pin checks use
+ * this to skip (a member could live in the unresolved base) rather than false-positive.
+ */
+export function hasUnresolvedBase(scope: Scope): boolean {
+  const seen = new Set<Scope>()
+  let s: Scope | undefined = scope
+  while (s !== undefined && !seen.has(s)) {
+    seen.add(s)
+    if (s.extendsName !== undefined && s.baseScope === undefined) return true
+    s = s.baseScope
+  }
+  return false
+}
+
 /** A direct child scope of `parent` by name (case-insensitive) — the qualified-navigation step. */
 export function findChildScope(parent: Scope, name: string): Scope | undefined {
   const t = name.toLowerCase()

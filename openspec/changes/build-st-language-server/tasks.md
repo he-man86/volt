@@ -16,11 +16,11 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | overflow · subrange · array-bounds | ST | error | ✅ | const-eval; wording bridge-gated (provisional) |
 | deref-non-pointer (`x^`) | ST | error | ✅ | flags elementary/array bases; pointer/ref/THIS fold quiet |
 | duplicate-declaration | ST | error | ✅ | per-scope, qualified_only-aware |
-| **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs`; **member access ⏸** |
+| **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs` (member access → `unknown-member` below) |
 | **vg-undeclared-identifier** | VG | error | ✅ | shares ST resolver; skips LD `SET/RESET/RISING/FALLING` modifiers |
 | var-section-placement | ST | error | ✅ | section not allowed for POU kind |
 | external-write · lifecycle · abstract-instantiation · interface-implementation | ST | error | ✅ | oop/ group |
-| pragmas (message + orphan-conditional) | ST | error/info | ✅ | unknown/conflict pragma ⏳ (needs pragma catalog, F.1) |
+| pragmas (message + orphan-conditional) | ST | error/info | ✅ | conflict/companion pragma ⏸ (needs catalog `requires`/`forbids`) |
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
 | vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
 | vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |

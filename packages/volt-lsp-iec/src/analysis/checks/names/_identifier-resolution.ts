@@ -12,7 +12,7 @@
  */
 import { walkExpr, type Expr, type MemberExpr, type Span } from "../../../syntax/index.js"
 import { lookupReference } from "../../../reference/index.js"
-import { lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../../../symbols/index.js"
+import { hasUnresolvedBase, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../../../symbols/index.js"
 import { inferExprType } from "../../../types/index.js"
 import type { WorkspaceRefs } from "../../config.js"
 import { isLibrarySymbol } from "../_shared.js"
@@ -149,16 +149,4 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
   if (hasUnresolvedBase(t.scope)) return undefined // an unresolved EXTENDS base could hide the member
   if (lookupMember(t.scope, m.member.name) !== undefined) return undefined
   return { member: m.member.name, typeName: t.name, span: m.member.span }
-}
-
-/** True when `scope` or any EXTENDS ancestor names a base that never resolved (member set is incomplete). */
-function hasUnresolvedBase(scope: Scope): boolean {
-  const seen = new Set<Scope>()
-  let s: Scope | undefined = scope
-  while (s !== undefined && !seen.has(s)) {
-    seen.add(s)
-    if (s.extendsName !== undefined && s.baseScope === undefined) return true
-    s = s.baseScope
-  }
-  return false
 }

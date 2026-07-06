@@ -36,7 +36,7 @@ import {
   type WorkspaceRefs,
 } from "../analysis/index.js"
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
-import type { Scope } from "../symbols/index.js"
+import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
 import type { Document } from "../services/index.js"
 import { analyzeVgBody } from "./vg-analyze.js"
 import type { VgStatement } from "./text/ast.js"
@@ -171,6 +171,7 @@ function checkPins(statements: readonly VgStatement[], scope: Scope, project: Sc
 
 /** An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is unresolved. */
 function pinSet(fbScope: Scope): Set<string> | undefined {
+  if (hasUnresolvedBase(fbScope)) return undefined // an incomplete pin set — don't guess
   const pins = new Set<string>()
   const seen = new Set<Scope>()
   let s: Scope | undefined = fbScope
@@ -181,7 +182,6 @@ function pinSet(fbScope: Scope): Set<string> | undefined {
         if (sym.kind === "property" || isPinSection(sym.varSection)) pins.add(sym.name.toLowerCase())
       }
     }
-    if (s.extendsName !== undefined && s.baseScope === undefined) return undefined // unresolved base → don't guess
     s = s.baseScope
   }
   return pins
