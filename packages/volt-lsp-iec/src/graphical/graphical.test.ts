@@ -301,6 +301,56 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
 })
 
+const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) => d.code === code).length
+
+// vg-undefined-label — a JMP to a label that exists nowhere in the network.
+test("VG: a JMP to an undefined label is flagged; a defined one is not", () => {
+  const bad = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD
+out := TRUE;
+JMP Nowhere;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(bad, "vg-undefined-label")).toBe(1)
+  const good = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD
+Loop:
+out := TRUE;
+JMP Loop;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(good, "vg-undefined-label")).toBe(0)
+})
+
+// vg-unknown-pin — an FB box passing a pin the FB doesn't declare (checked only for resolved project FBs).
+const FB_M = `FUNCTION_BLOCK FB_M
+VAR_INPUT a : BOOL; END_VAR
+END_FUNCTION_BLOCK
+`
+test("VG: an unknown FB pin is flagged; a declared pin is not", () => {
+  const bad = `${FB_M}FUNCTION_BLOCK F
+VAR m : FB_M; x : BOOL; END_VAR
+NETWORK 0 FBD
+m(b := x);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(bad, "vg-unknown-pin")).toBe(1)
+  const good = bad.replace("m(b := x)", "m(a := x)")
+  expect(vgByCode(good, "vg-unknown-pin")).toBe(0)
+})
+
+test("VG: a box on an unresolvable (library/standard) FB is not pin-checked", () => {
+  const src = `FUNCTION_BLOCK F
+VAR tmr : TON; on : BOOL; t : TIME; END_VAR
+NETWORK 0 FBD
+tmr(IN := on, PT := t, MADE_UP := on);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(src, "vg-unknown-pin")).toBe(0) // TON is not a project FB → skipped, no guess
+})
+
 test("VG: wire types are inferred from producers and chain (LET en2 := en1)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : INT; END_VAR

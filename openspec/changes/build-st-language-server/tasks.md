@@ -22,10 +22,11 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | external-write · lifecycle · abstract-instantiation · interface-implementation | ST | error | ✅ | oop/ group |
 | pragmas (message + orphan-conditional) | ST | error/info | ✅ | unknown/conflict pragma ⏳ (needs pragma catalog, F.1) |
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
+| vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
+| vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
 | conversion-catalog / library floor | ST | — | ⏳ | F.1 keyword/pragma + library-signature catalogs |
 | member-access resolution | ST | error | ⏸ | highest-FP surface; separately gated follow-on |
-| vg-undefined-label · vg-unknown-pin | VG | error/warn | ⏳ | legacy had them; port after deref |
 | VG narrowing / binary-operator | VG | error | ⏸ | needs per-pair helpers factored out |
 
 ## 0. Clean-room + guardrails (first — before any code)
@@ -183,8 +184,11 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
         — removed a real BOOL→INT corpus FP). **`vg-undeclared-identifier` ✅ DONE** — shares ST's resolution
         (`unresolvedInExprs`, extracted to `_identifier-resolution.ts`) against each network's POU+wire scope,
         over all operand `Expr`s; skips LD coil/edge MODIFIER words (`SET`/`RESET`/`RISING`/`FALLING`, a
-        corpus-found gap). Error severity ⇒ **corpus 0-FP gate covers VG code diagnostics ✅**. Deferred:
-        `vg-undefined-label` · `vg-unknown-pin` (port after ST deref) + mirroring narrowing/binary-operator
+        corpus-found gap). Error severity ⇒ **corpus 0-FP gate covers VG code diagnostics ✅**. **`vg-undefined-label`
+        ✅ DONE** (JMP → a label in no reachable network statement; labels+jumps gathered across EN/ENO).
+        **`vg-unknown-pin` ✅ DONE** (a box passing a pin the FB doesn't declare — VAR_INPUT/OUTPUT/IN_OUT +
+        properties, inherited included; runs ONLY for a project FB whose whole EXTENDS chain resolved, else
+        skips — 0-FP). Both provisional-worded (VG has no recording). Deferred: mirroring narrowing/binary-operator
         checks (not yet factored into per-pair helpers).
   - [~] F.2d **services** — the graphical branch: `vgResolveAt` (cursor→symbol via the SAME
         `exprAtOffset`/`memberAtOffset` descent + `resolveMemberChain`/`lookup`, wrapping VG operands as
@@ -196,15 +200,16 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
   - [x] F.2e **CFC/SFC marker** — `vgMarkerHover` explains a `(* @volt-graphical: <LANG> *)` body (authored in
         the IDE, no editable text form); wired as the ST-hover fallback. The marker is a comment → not analyzed
         as VG or ST, zero diagnostics (spec L403-413).
-  - [~] F.2f **tests/corpus/conformance** — 28 graphical unit tests (parse · structure · infer · checks ·
-        **undeclared** · hover/def/completion/resolve · marker) + corpus VG parse gate + corpus 0-FP gate (incl.
-        VG sink + undeclared checks) + 3 server e2e (VG diagnostics · VG hover routing). 151 suite green,
-        conformance held (231 TC/228 CS), layering clean, oxlint 0 errors. Pending: live-bridge record pass to
-        lock the PROVISIONAL VG structural messages (batched with the D.3 overflow/subrange lock, T.1).
+  - [~] F.2f **tests/corpus/conformance** — 32 graphical unit tests (parse · structure · infer · checks ·
+        **undeclared · undefined-label · unknown-pin** · hover/def/completion/resolve · marker) + corpus VG parse
+        gate + corpus 0-FP gate (incl. VG sink + undeclared + label + pin checks) + 3 server e2e (VG diagnostics ·
+        VG hover routing). 160 suite green, conformance held (231 TC/228 CS), layering clean, oxlint 0 errors.
+        Pending: live-bridge record pass to lock the PROVISIONAL VG structural/label/pin messages (batched with
+        the D.3 overflow/subrange lock, T.1).
   Status: F.2a·b·e DONE; F.2c·d·f substantially done (the code-correctness layer — infer · sink type-check ·
-  **undeclared-identifier** · hover · def · completion · nav — ships at ST parity). Remaining follow-ons:
-  vg-undefined-label/unknown-pin · references/rename across VG · VG semantic tokens · narrowing/binary VG
-  checks · live-bridge message lock. ST bodies unaffected throughout.
+  **undeclared-identifier · undefined-label · unknown-pin** · hover · def · completion · nav — ships at ST
+  parity). Remaining follow-ons: references/rename across VG · VG semantic tokens · narrowing/binary VG checks ·
+  live-bridge message lock. ST bodies unaffected throughout.
 
 ## G. server
 - [x] G.1 LSP 3.17 / stdio, vendor-keyed; push+pull diagnostics, progress, cancellation, incremental sync.

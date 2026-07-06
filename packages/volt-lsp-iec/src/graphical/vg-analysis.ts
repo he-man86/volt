@@ -23,6 +23,7 @@ import {
   walkStatements,
   type Expr,
 } from "../syntax/index.js"
+import { inferExprType } from "../types/index.js"
 import {
   assignmentPairError,
   unresolvedInExprs,
@@ -54,6 +55,8 @@ export function computeVgDiagnostics(
       for (const [network, scope] of analysis.networkScopes) {
         checkStatements(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
+        checkLabels(network.statements, out)
+        checkPins(network.statements, scope, project, out)
       }
     }
   }
@@ -87,6 +90,106 @@ function checkUndeclared(
       message: messages.undefinedIdentifier(ref.name),
     })
   }
+}
+
+/**
+ * vg-undefined-label: a `JMP` whose target names no `LABEL` in the same network → error. Both compilers
+ * reject it. Labels + jumps are gathered across EN/ENO boxes too (a jump reaches any label in its network).
+ * ponytail: message PROVISIONAL/bridge-gated — VG has no conformance recording yet (like the VG_* codes).
+ */
+function checkLabels(statements: readonly VgStatement[], out: DiagnosticItem[]): void {
+  const labels = new Set<string>()
+  collectLabels(statements, labels)
+  checkJumps(statements, labels, out)
+}
+
+function collectLabels(statements: readonly VgStatement[], labels: Set<string>): void {
+  for (const s of statements) {
+    if (s.kind === "label") labels.add(s.name.text.toLowerCase())
+    else if (s.kind === "en_eno_if") collectLabels(s.body, labels)
+  }
+}
+
+function checkJumps(statements: readonly VgStatement[], labels: ReadonlySet<string>, out: DiagnosticItem[]): void {
+  for (const s of statements) {
+    if (s.kind === "jump") {
+      if (!labels.has(s.target.text.toLowerCase())) {
+        out.push({
+          severity: "error",
+          span: s.target.span,
+          source: SOURCE,
+          code: "vg-undefined-label",
+          message: `Jump target '${s.target.text}' is not a label in this network`,
+        })
+      }
+    } else if (s.kind === "en_eno_if") {
+      checkJumps(s.body, labels, out)
+    }
+  }
+}
+
+/**
+ * vg-unknown-pin: an FB-instance box `inst(PIN := arg, …)` passing a PIN the FB doesn't declare → error
+ * (both compilers reject it). Conservative to a fault (zero-FP): the check runs ONLY when the callee
+ * resolves to a project FB whose ENTIRE `EXTENDS` chain is resolved — an unresolvable base (a library FB) is
+ * an unknown pin set, so the whole call is skipped rather than guessed. Pins = the FB's VAR_INPUT/OUTPUT/
+ * IN_OUT members + PROPERTY accessors (all bare-settable on a box), inherited members included.
+ * ponytail: message PROVISIONAL/bridge-gated (VG has no conformance recording yet).
+ */
+function checkPins(statements: readonly VgStatement[], scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+  for (const s of statements) {
+    if (s.kind === "en_eno_if") {
+      checkPins(s.body, scope, project, out)
+      continue
+    }
+    if (s.kind !== "fb_call" || s.call?.kind !== "call") continue
+    const t = inferExprType(s.call.callee, scope, project)
+    if (t.kind !== "function_block" || t.scope === undefined) continue // not a project FB instance → skip
+    const pins = pinSet(t.scope)
+    if (pins === undefined) continue // an unresolved EXTENDS base → don't guess
+    for (const arg of s.call.args) {
+      if (arg.param === undefined) continue
+      if (!pins.has(arg.param.name.toLowerCase())) {
+        out.push({
+          severity: "error",
+          span: arg.param.span,
+          source: SOURCE,
+          code: "vg-unknown-pin",
+          message: `'${arg.param.name}' is not a pin of '${renderCallee(s.call.callee)}'`,
+        })
+      }
+    }
+  }
+}
+
+/** An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is unresolved. */
+function pinSet(fbScope: Scope): Set<string> | undefined {
+  const pins = new Set<string>()
+  const seen = new Set<Scope>()
+  let s: Scope | undefined = fbScope
+  while (s !== undefined && !seen.has(s)) {
+    seen.add(s)
+    for (const [, syms] of s.symbols) {
+      for (const sym of syms) {
+        if (sym.kind === "property" || isPinSection(sym.varSection)) pins.add(sym.name.toLowerCase())
+      }
+    }
+    if (s.extendsName !== undefined && s.baseScope === undefined) return undefined // unresolved base → don't guess
+    s = s.baseScope
+  }
+  return pins
+}
+
+function isPinSection(section: string | undefined): boolean {
+  return section === "VAR_INPUT" || section === "VAR_OUTPUT" || section === "VAR_IN_OUT"
+}
+
+/** Source-like text of a box callee, for the diagnostic. */
+function renderCallee(e: Expr): string {
+  if (e.kind === "ident_expr") return e.name
+  if (e.kind === "member") return `${renderCallee(e.base)}.${e.member.name}`
+  if (e.kind === "paren") return renderCallee(e.inner)
+  return "instance"
 }
 
 /** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
