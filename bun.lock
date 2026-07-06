@@ -1082,6 +1082,24 @@
         "typescript": "catalog:",
       },
     },
+    "packages/volt-lsp-iec-next": {
+      "name": "@opencode-ai/volt-lsp-iec-next",
+      "version": "0.1.0",
+      "bin": {
+        "volt-lsp-iec": "./dist/bin.js",
+      },
+      "dependencies": {
+        "vscode-languageserver-protocol": "^3.17.5",
+        "vscode-languageserver-textdocument": "^1.0.12",
+      },
+      "devDependencies": {
+        "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/volt-vscode": {
       "name": "volt-vscode",
       "version": "0.1.0",
@@ -2104,6 +2122,8 @@
     "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 
     "@opencode-ai/volt-lsp-iec": ["@opencode-ai/volt-lsp-iec@workspace:packages/volt-lsp-iec"],
+
+    "@opencode-ai/volt-lsp-iec-next": ["@opencode-ai/volt-lsp-iec-next@workspace:packages/volt-lsp-iec-next"],
 
     "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
 

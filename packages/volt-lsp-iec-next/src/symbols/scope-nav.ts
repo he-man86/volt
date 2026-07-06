@@ -1,0 +1,106 @@
+/**
+ * Scope-nav — the ONE scope-tree navigator (Layer B, B.2). Answers "where is this name?"
+ * purely from scope STRUCTURE, independent of the type system (type isolation stays in layer C).
+ *
+ *   - `lookup`        — bare name, innermost-shadow-wins: walk parents outward, each scope + its
+ *                       EXTENDS base chain. Use for go-to-definition.
+ *   - `lookupMember`  — a name within one scope + its EXTENDS base chain (member access once you
+ *                       already hold the member's owning scope).
+ *   - `findChildScope`— a direct child scope by name (GVL block · enum type · namespace · POU),
+ *                       the structural step for qualified `A.B` navigation.
+ *   - `resolveBareEnumMember` — a bare `Member` reachable because its enum is NOT qualified_only.
+ *
+ * Case-insensitive (PLC convention).
+ */
+import type { Span, TopLevel } from "../syntax/index.js"
+import { lookupLocal, type Scope, type Symbol } from "./symbol.js"
+
+export interface LookupResult {
+  symbol: Symbol
+  /** The scope where we found it (innermost match if it shadows). */
+  foundIn: Scope
+}
+
+/** A name in `scope` + its EXTENDS base chain (cycle-guarded). First match wins. */
+function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
+  const seen = new Set<Scope>()
+  let s: Scope | undefined = scope
+  while (s !== undefined && !seen.has(s)) {
+    seen.add(s)
+    const hits = lookupLocal(s, name)
+    if (hits.length > 0) return { symbol: hits[0], foundIn: s }
+    s = s.baseScope
+  }
+  return undefined
+}
+
+/** Walk the parent chain from `start` outward; each scope is checked with its EXTENDS base chain. */
+export function lookup(start: Scope, name: string): LookupResult | undefined {
+  let cur: Scope | undefined = start
+  while (cur !== undefined) {
+    const hit = lookupInChain(cur, name)
+    if (hit !== undefined) return hit
+    cur = cur.parent
+  }
+  return undefined
+}
+
+/** A member name within `scope` + its EXTENDS base chain (does NOT walk outward to parents). */
+export function lookupMember(scope: Scope, name: string): Symbol | undefined {
+  return lookupInChain(scope, name)?.symbol
+}
+
+/** A direct child scope of `parent` by name (case-insensitive) — the qualified-navigation step. */
+export function findChildScope(parent: Scope, name: string): Scope | undefined {
+  const t = name.toLowerCase()
+  return parent.children.find((c) => c.name.toLowerCase() === t)
+}
+
+/** Any scope in the project tree by name (case-insensitive), depth-first. */
+export function findScopeByName(project: Scope, name: string): Scope | undefined {
+  const target = name.toLowerCase()
+  const walk = (scope: Scope): Scope | undefined => {
+    for (const child of scope.children) {
+      if (child.name.toLowerCase() === target) return child
+      const inner = walk(child)
+      if (inner !== undefined) return inner
+    }
+    return undefined
+  }
+  return walk(project)
+}
+
+/**
+ * The scope for a parsed unit — matched by AST-span IDENTITY (a scope's `span` IS the unit's `span`
+ * object, shared at ingest by `makeScope`), which disambiguates same-named methods across FBs. Falls
+ * back to a name walk for scopes built independently of the parsed unit (some tests).
+ */
+export function scopeForUnit(project: Scope, unit: TopLevel): Scope | undefined {
+  const bySpan = matchSpan(project, unit.span)
+  if (bySpan !== undefined) return bySpan
+  const name = "name" in unit ? unit.name.text : undefined
+  return name !== undefined ? findScopeByName(project, name) : undefined
+}
+
+function matchSpan(scope: Scope, span: Span): Scope | undefined {
+  for (const child of scope.children) {
+    if (child.span === span) return child
+    const inner = matchSpan(child, span)
+    if (inner !== undefined) return inner
+  }
+  return undefined
+}
+
+/**
+ * A bare enum member (`StateAutomatic`) reachable because its enum is NOT `{attribute
+ * 'qualified_only'}`. Structural + qualified_only-aware, no type inference — hence layer B.
+ */
+export function resolveBareEnumMember(project: Scope, name: string): Symbol | undefined {
+  const target = name.toLowerCase()
+  for (const child of project.children) {
+    if (child.kind !== "enum" || child.qualifiedOnly === true) continue
+    const syms = child.symbols.get(target)
+    if (syms !== undefined && syms.length > 0) return syms[0]
+  }
+  return undefined
+}
