@@ -303,6 +303,29 @@ END_FUNCTION_BLOCK`
 
 const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) => d.code === code).length
 
+// VG sink pair checks mirror ST via the shared helpers (assignment already tested above).
+test("VG: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
+  const src = `FUNCTION_BLOCK F
+VAR r : REAL; l : LREAL; END_VAR
+NETWORK 0 LD
+r := l;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const d = vgDiags(src).find((x) => x.code === "narrowing-conversion")
+  expect(d?.severity).toBe("warning")
+  expect(d?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")
+})
+
+test("VG: a bad binary operand (MOD on REAL) is flagged like ST", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : REAL; b : REAL; out : REAL; END_VAR
+NETWORK 0 FBD
+out := (a MOD b);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgByCode(src, "binary-op-type-mismatch")).toBe(1)
+})
+
 // vg-undefined-label — a JMP to a label that exists nowhere in the network.
 test("VG: a JMP to an undefined label is flagged; a defined one is not", () => {
   const bad = `FUNCTION_BLOCK F

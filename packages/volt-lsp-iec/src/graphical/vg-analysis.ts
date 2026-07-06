@@ -20,12 +20,15 @@ import {
   unitBodies,
   isGraphicalBody,
   stmtExprs,
+  walkExpr,
   walkStatements,
   type Expr,
 } from "../syntax/index.js"
 import { inferExprType } from "../types/index.js"
 import {
   assignmentPairError,
+  narrowingPairError,
+  binaryOpError,
   unresolvedInExprs,
   SOURCE,
   type DiagnosticItem,
@@ -54,6 +57,7 @@ export function computeVgDiagnostics(
       }
       for (const [network, scope] of analysis.networkScopes) {
         checkStatements(network.statements, scope, project, messages, out)
+        checkBinaryOps(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
         checkLabels(network.statements, out)
         checkPins(network.statements, scope, project, out)
@@ -228,7 +232,7 @@ function operandExprs(statements: readonly VgStatement[]): Expr[] {
   return out
 }
 
-/** Sink assignment type-checks, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
+/** Sink pair type-checks (assignment mismatch + narrowing), recursing into EN/ENO + EXECUTE boxes. */
 function checkStatements(
   statements: readonly VgStatement[],
   scope: Scope,
@@ -239,19 +243,42 @@ function checkStatements(
   for (const s of statements) {
     if (s.kind === "sink") {
       if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value)) {
-        const d = assignmentPairError(s.target, s.value, scope, project, messages)
-        if (d !== undefined) out.push(d)
+        checkPair(s.target, s.value, scope, project, messages, out)
       }
     } else if (s.kind === "en_eno_if") {
       checkStatements(s.body, scope, project, messages, out)
     } else if (s.kind === "execute" && s.ok) {
       walkStatements(s.statements, (st) => {
         if (st.kind === "assign" && st.op === undefined && !isBoxOutput(st.value)) {
-          const d = assignmentPairError(st.target, st.value, scope, project, messages)
-          if (d !== undefined) out.push(d)
+          checkPair(st.target, st.value, scope, project, messages, out)
         }
       })
     }
+  }
+}
+
+/** Run the shared per-pair rules (assignment mismatch → error, narrowing → warning) on one `target := value`. */
+function checkPair(target: Expr, value: Expr, scope: Scope, project: Scope, messages: Messages, out: DiagnosticItem[]): void {
+  const mismatch = assignmentPairError(target, value, scope, project, messages)
+  if (mismatch !== undefined) out.push(mismatch)
+  const narrowing = narrowingPairError(target, value, scope, project, messages)
+  if (narrowing !== undefined) out.push(narrowing)
+}
+
+/** vg binary-operator-type-mismatch: run the shared per-node rule on every binary node in the operands. */
+function checkBinaryOps(
+  statements: readonly VgStatement[],
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  for (const e of operandExprs(statements)) {
+    walkExpr(e, (x) => {
+      if (x.kind !== "binary") return
+      const d = binaryOpError(x, scope, project, messages)
+      if (d !== undefined) out.push(d)
+    })
   }
 }
 

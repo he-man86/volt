@@ -29,7 +29,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
 | unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint; byte-identical CODESYS msg; catalog 0-hit on corpus |
 | conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
-| VG narrowing / binary-operator | VG | error | ⏸ | needs per-pair helpers factored out |
+| VG narrowing / binary-operator | VG | error/warn | ✅ | shared per-pair/per-node helpers; 0-FP on corpus |
 
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
@@ -202,8 +202,10 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
         ✅ DONE** (JMP → a label in no reachable network statement; labels+jumps gathered across EN/ENO).
         **`vg-unknown-pin` ✅ DONE** (a box passing a pin the FB doesn't declare — VAR_INPUT/OUTPUT/IN_OUT +
         properties, inherited included; runs ONLY for a project FB whose whole EXTENDS chain resolved, else
-        skips — 0-FP). Both provisional-worded (VG has no recording). Deferred: mirroring narrowing/binary-operator
-        checks (not yet factored into per-pair helpers).
+        skips — 0-FP). Both provisional-worded (VG has no recording). **VG narrowing + binary-operator ✅ DONE**
+        — the ST checks now expose per-pair `narrowingPairError` / per-node `binaryOpError` (siblings of
+        `assignmentPairError`); VG sinks run the narrowing pair, VG operands run the binary-op node check.
+        Byte-identical wording (shared with ST), 0-FP on corpus — closes VG code-correctness at ST parity.
   - [~] F.2d **services** — the graphical branch: `vgResolveAt` (cursor→symbol via the SAME
         `exprAtOffset`/`memberAtOffset` descent + `resolveMemberChain`/`lookup`, wrapping VG operands as
         synthetic statements) + **hover** (incl. inferred wire type, reference-catalog fallback) · **definition**

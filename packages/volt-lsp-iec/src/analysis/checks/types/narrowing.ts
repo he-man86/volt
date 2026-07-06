@@ -7,6 +7,7 @@
 import { parseStatements, walkStatements, type Expr } from "../../../syntax/index.js"
 import type { Scope } from "../../../symbols/index.js"
 import { inferExprType } from "../../../types/index.js"
+import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -21,18 +22,31 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
 
     walkStatements(parsed.statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined) return
-      const target = elemName(s.target, scope, ctx.project)
-      const value = elemName(s.value, scope, ctx.project)
-      if (target === "REAL" && value === "LREAL") {
-        out.push({
-          severity: "warning",
-          span: s.target.span,
-          source: SOURCE,
-          code: "narrowing-conversion",
-          message: ctx.messages.narrowing("LREAL", "REAL"),
-        })
-      }
+      const diag = narrowingPairError(s.target, s.value, scope, ctx.project, ctx.messages)
+      if (diag !== undefined) out.push(diag)
     })
+  }
+}
+
+/**
+ * The narrowing-conversion WARNING for one `target := value` pair, or undefined. The ONE home for the rule
+ * — the ST assign check and the VG sink check both call it, so the wording stays byte-identical per vendor.
+ * Only the oracle-validated `LREAL`→`REAL` pair fires (wider narrowings await their own recording).
+ */
+export function narrowingPairError(
+  target: Expr,
+  value: Expr,
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+): DiagnosticItem | undefined {
+  if (elemName(target, scope, project) !== "REAL" || elemName(value, scope, project) !== "LREAL") return undefined
+  return {
+    severity: "warning",
+    span: target.span,
+    source: SOURCE,
+    code: "narrowing-conversion",
+    message: messages.narrowing("LREAL", "REAL"),
   }
 }
 
