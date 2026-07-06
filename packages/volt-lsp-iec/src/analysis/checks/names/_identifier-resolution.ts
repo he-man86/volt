@@ -10,10 +10,12 @@
  * `TYPE_CLASS`), a built-in in the reference catalog, a referenced-library namespace or device-tree instance,
  * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
  */
-import type { Expr, Span } from "../../../syntax/index.js"
+import { walkExpr, type Expr, type MemberExpr, type Span } from "../../../syntax/index.js"
 import { lookupReference } from "../../../reference/index.js"
-import { lookup, resolveBareEnumMember, type Scope } from "../../../symbols/index.js"
+import { lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../../../symbols/index.js"
+import { inferExprType } from "../../../types/index.js"
 import type { WorkspaceRefs } from "../../config.js"
+import { isLibrarySymbol } from "../_shared.js"
 
 /** A conversion-operator call shape: `INT_TO_REAL`, `WORD_TO_BYTE`, `TO_STRING`. Not a scope symbol. */
 const CONVERSION_RE = /^(?:[A-Za-z][A-Za-z0-9]*_TO_[A-Za-z]|TO_[A-Za-z])/i
@@ -107,4 +109,56 @@ export function unresolvedInExprs(
     })
   }
   return out
+}
+
+export interface MemberRef {
+  member: string
+  typeName: string
+  span: Span
+}
+
+/**
+ * Member accesses `base.member` in `exprs` where `member` is not declared on the base's type.
+ *
+ * Conservative to a fault (zero-FP is the whole game): a member is flagged ONLY when the base type resolves
+ * to a PROJECT struct/FB/enum with a member scope, that type is NOT library-defined (library signatures may
+ * be lossy), and its EXTENDS chain is fully resolved (else an inherited member could be hiding). Every other
+ * base — unknown/unresolved, elementary, array/pointer, a namespace or type-name root (`CAA.HANDLE`,
+ * `EnumType.Value` — the base is not a value, so it infers to UNKNOWN), a library type — is skipped. This is
+ * why library-typed and namespace-qualified refs never false-positive: their base doesn't reach a checkable
+ * project scope.
+ */
+export function unresolvedMembers(exprs: Iterable<Expr>, scope: Scope, project: Scope): MemberRef[] {
+  const out: MemberRef[] = []
+  for (const e of exprs) {
+    walkExpr(e, (x) => {
+      if (x.kind !== "member") return
+      const ref = checkMember(x, scope, project)
+      if (ref !== undefined) out.push(ref)
+    })
+  }
+  return out
+}
+
+function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | undefined {
+  const t = inferExprType(m.base, scope, project)
+  if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum") return undefined
+  if (t.scope === undefined) return undefined
+  const typeSym = lookupLocal(project, t.name)[0]
+  if (typeSym !== undefined && isLibrarySymbol(typeSym)) return undefined // library type → signatures lossy, skip
+  if (hasUnresolvedBase(t.scope)) return undefined // an unresolved EXTENDS base could hide the member
+  if (lookupMember(t.scope, m.member.name) !== undefined) return undefined
+  return { member: m.member.name, typeName: t.name, span: m.member.span }
+}
+
+/** True when `scope` or any EXTENDS ancestor names a base that never resolved (member set is incomplete). */
+function hasUnresolvedBase(scope: Scope): boolean {
+  const seen = new Set<Scope>()
+  let s: Scope | undefined = scope
+  while (s !== undefined && !seen.has(s)) {
+    seen.add(s)
+    if (s.extendsName !== undefined && s.baseScope === undefined) return true
+    s = s.baseScope
+  }
+  return false
 }

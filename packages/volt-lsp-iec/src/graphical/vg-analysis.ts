@@ -80,6 +80,9 @@ function checkUndeclared(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
+  // ponytail: bare-undeclared only for VG. Member access (`a.b`) is shared + ready (`unresolvedMembers`), but
+  // wiring it here waits on the corpus re-harvest — a stale fixture (lenze-mid) has a struct whose harvested
+  // fields lag the graphical code that reads them, so it can't be validated 0-FP yet. ST member access ships.
   for (const ref of unresolvedInExprs(operandExprs(statements), scope, project, references)) {
     if (VG_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
     out.push({

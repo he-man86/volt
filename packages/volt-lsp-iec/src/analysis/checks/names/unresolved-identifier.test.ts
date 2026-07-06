@@ -81,3 +81,67 @@ test("a body with a conditional-compile pragma is skipped entirely", () => {
   const src = fb(`VAR a : INT; END_VAR\n{IF defined(FOO)}\na := onlyInThatBranch;\n{END_IF}`)
   expect(unresolved(src)).toEqual([])
 })
+
+// ── member access (`a.b`) ────────────────────────────────────────────────────
+const members = (src: string): string[] =>
+  diag(src)
+    .filter((d) => d.code === "unknown-member")
+    .map((d) => d.message)
+
+test("an unknown field of a project STRUCT is flagged", () => {
+  const src = `TYPE Pt : STRUCT x : INT; y : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR p : Pt; i : INT; END_VAR
+i := p.z;
+END_FUNCTION_BLOCK`
+  expect(members(src)).toEqual(["'z' is not a member of 'Pt'"])
+})
+
+test("a declared field of a project STRUCT is not flagged", () => {
+  const src = `TYPE Pt : STRUCT x : INT; y : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR p : Pt; i : INT; END_VAR
+i := p.x;
+END_FUNCTION_BLOCK`
+  expect(members(src)).toEqual([])
+})
+
+test("an inherited member (via EXTENDS) is not flagged", () => {
+  const src = `FUNCTION_BLOCK Base
+VAR_INPUT enable : BOOL; END_VAR
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Derived EXTENDS Base
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK F
+VAR d : Derived; b : BOOL; END_VAR
+d.enable := b;
+END_FUNCTION_BLOCK`
+  expect(members(src)).toEqual([])
+})
+
+// Gap found via conformance (DUT_LANG_struct_extends): a CODESYS DUT struct inherits its base's fields.
+test("an inherited field of an EXTENDS struct is not flagged", () => {
+  const src = `TYPE Base : STRUCT id : INT; END_STRUCT END_TYPE
+TYPE Derived EXTENDS Base : STRUCT extra : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR d : Derived; i : INT; END_VAR
+i := d.id;
+END_FUNCTION_BLOCK`
+  expect(members(src)).toEqual([])
+})
+
+test("a member on an unresolved-base FB is skipped (could be inherited)", () => {
+  // Base is a library/undeclared FB → the member set is incomplete → never flag.
+  const src = `FUNCTION_BLOCK Derived EXTENDS SomeLibraryFB
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK F
+VAR d : Derived; b : BOOL; END_VAR
+d.whatever := b;
+END_FUNCTION_BLOCK`
+  expect(members(src)).toEqual([])
+})
+
+test("a namespace-qualified ref (base is not a value) is not flagged", () => {
+  const src = fb(`VAR i : INT; END_VAR\ni := CAA.HANDLE;`)
+  expect(members(src)).toEqual([]) // CAA infers to UNKNOWN → member skipped
+})

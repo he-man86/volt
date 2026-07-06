@@ -24,9 +24,10 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
 | vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
 | vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
+| unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | project struct/FB/enum only; library + namespace bases skip; struct EXTENDS honored |
+| unknown-member (VG) | VG | error | ⏳ | shared code ready; wire after corpus re-harvest (stale fixture blocks 0-FP validation) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
-| conversion-catalog / library floor | ST | — | ⏳ | F.1 keyword/pragma + library-signature catalogs |
-| member-access resolution | ST | error | ⏸ | highest-FP surface; separately gated follow-on |
+| conversion-catalog / keyword-pragma catalog | ST | — | ⏳ | F.1 pragma catalog (unblocks unknown-pragma lint) |
 | VG narrowing / binary-operator | VG | error | ⏸ | needs per-pair helpers factored out |
 
 ## 0. Clean-room + guardrails (first — before any code)
@@ -94,8 +95,10 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
       abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
       ratchet **231/259 TC · 228/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
-      Deferred: conversion-catalog · unknown/conflict pragmas (the last needs the keyword/pragma catalogs,
-      F.1) · unresolved-identifier MEMBER access (highest-FP; separately gated follow-on). **deref-non-pointer
+      Deferred: conversion-catalog · unknown/conflict pragmas (needs the keyword/pragma catalogs, F.1).
+      **unknown-member (member access) ✅ DONE** — `a.b` type-checked against the base's project scope (library/
+      namespace/unresolved bases skip; DUT `STRUCT EXTENDS` linked in the binder); shared with VG (VG wiring
+      waits on corpus re-harvest). **deref-non-pointer
       ✅ DONE** — `x^` on an elementary/array base errors (byte-identical per vendor: "Dereference requires a
       pointer" / "…Pointer"); pointer/reference bases + the `THIS^`/reference-target infer-fold stay quiet, 0-FP.
       **`unresolved-identifier` ✅ DONE** — bare-reference resolution; the `.library` `NAMESPACE` line + the
@@ -147,12 +150,17 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
       **Scope clarification (`spec.md` L252):** libraries are NOT a hand-built catalog — referenced-library
       element signatures are materialized as ordinary source under `Library Manager/<lib>/` and resolve
       through the normal symbol table; the curated standard-function table is only the FALLBACK for names no
-      mirrored library covers. Remaining, in order of value: (1) **`.library` namespace-root skip ✅ DONE** —
-      `src/workspace-refs.ts` scans each `.library`'s `NAMESPACE` line + each `.device` stem into a
-      `WorkspaceRefs` skip set, so `unresolved-identifier` + `vg-undeclared` no longer flag those roots (the
-      minimal "library floor" that unblocked both checks). Still pending for full fidelity: ingest the library
-      element signatures as source so qualified MEMBER refs (`CAA.HANDLE.field`) type-check, not just the root;
-      (2) the keyword/pragma catalogs + per-vendor equivalence (unblocks the opt-in unknown-pragma lint).
+      mirrored library covers. **Library floor ✅ DONE** — two parts: (a) the `.library` namespace-root +
+      `.device` skip (`src/workspace-refs.ts` → `WorkspaceRefs`), so bare library/device roots never
+      false-positive; (b) **member-access resolution** (`unknown-member`) — since the library ELEMENT signatures
+      are already ingested as ordinary source (`Library Manager/<lib>/*.fb|.struct|.enum|…`), a member `a.b`
+      type-checks against the base's real scope. Conservative to a fault (zero-FP): only a PROJECT (non-`Library
+      Manager`) struct/FB/enum base with a fully-resolved EXTENDS chain is checked; library-typed, namespace-
+      qualified (`CAA.HANDLE` — base is not a value → UNKNOWN), and unresolved bases skip. Surfaced+fixed a real
+      binder gap: **CODESYS DUT `STRUCT EXTENDS` now links its base scope** (`ingestStruct`/`linkExtends`), so
+      inherited fields resolve. Shared `unresolvedMembers` is wired for ST; VG member-access waits on the corpus
+      re-harvest (a stale fixture's struct lags its graphical code, blocking 0-FP validation). Remaining:
+      the keyword/pragma catalogs + per-vendor equivalence (unblocks the opt-in unknown-pragma lint).
 - [~] F.2 `graphical` — the VG (FBD/LD) sublanguage at ST-parity for CODE correctness. Spec:
       `data-model.md §graphical` (the full AST), `spec.md §E` (routed-by-content · round-trip is the
       bridge's · **the LSP owns code correctness: infer · undeclared · hover · completion · nav** · wire

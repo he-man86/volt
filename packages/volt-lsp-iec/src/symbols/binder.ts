@@ -67,7 +67,8 @@ export function buildSymbolTable(files: readonly SymbolTableInput[]): Scope {
 export function linkExtends(project: Scope): void {
   const byName = new Map<string, Scope>()
   for (const c of project.children) {
-    if (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface") byName.set(c.name.toLowerCase(), c)
+    if (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface" || c.kind === "struct")
+      byName.set(c.name.toLowerCase(), c)
   }
   for (const c of project.children) {
     if (c.extendsName === undefined) continue
@@ -290,7 +291,14 @@ function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string, source: string
 }
 
 function ingestStruct(project: Scope, t: TypeDecl, body: StructBody, uri: string): void {
-  const scope = makeScope(project, "struct", t.name.text, t.span)
+  // CODESYS DUT structs may `EXTENDS` a base struct — its fields are inherited (linked in `linkExtends`).
+  const scope = makeScope(
+    project,
+    "struct",
+    t.name.text,
+    t.span,
+    body.extends !== undefined ? { extendsName: body.extends.text.toLowerCase() } : undefined,
+  )
   for (const field of body.fields) ingestVarDecl(scope, field, undefined, uri, /* asField */ true)
 }
 
