@@ -1,5 +1,7 @@
 # ST Language Server — behavior spec
 
+## Purpose
+
 The contracts the `volt-lsp-iec` language server guarantees. It covers three concerns:
 
 1. **The language server** — navigation, diagnostics, symbol resolution over the ST statement/expression AST.
