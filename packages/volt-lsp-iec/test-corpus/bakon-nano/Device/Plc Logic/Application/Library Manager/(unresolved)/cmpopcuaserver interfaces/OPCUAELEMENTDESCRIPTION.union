@@ -1,0 +1,12 @@
+TYPE OPCUAELEMENTDESCRIPTION :
+UNION
+	OBJECT : OpcUaObjectDescription;
+	VARIABLE : OpcUaVariableDescription;
+	UAMETHOD : OpcUaMethodDescription;
+	OBJECTTYPE : OpcUaObjectTypeDescription;
+	VARIABLETYPE : OpcUaVariableTypeDescription;
+	REFERENCETYPE : OpcUaReferenceTypeDescription;
+	DATATYPE : OpcUaDataTypeDescription;
+	VIEW : OpcUaViewDescription;
+END_UNION
+END_TYPE

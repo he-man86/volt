@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	FACTORY : StorageFactory;
+END_VAR

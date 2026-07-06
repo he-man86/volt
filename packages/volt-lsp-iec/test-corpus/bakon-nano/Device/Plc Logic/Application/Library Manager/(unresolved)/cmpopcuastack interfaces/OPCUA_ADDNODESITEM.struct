@@ -1,0 +1,11 @@
+TYPE OPCUA_ADDNODESITEM :
+STRUCT
+	PARENTNODEID : OpcUa_ExpandedNodeId;
+	REFERENCETYPEID : OpcUa_NodeId;
+	REQUESTEDNEWNODEID : OpcUa_ExpandedNodeId;
+	BROWSENAME : OpcUa_QualifiedName;
+	NODECLASS : OpcUa_NodeClass;
+	NODEATTRIBUTES : OpcUa_ExtensionObject;
+	TYPEDEFINITION : OpcUa_ExpandedNodeId;
+END_STRUCT
+END_TYPE

@@ -1,0 +1,19 @@
+FUNCTION_BLOCK L_UMTP_SOLVE_EQUATIONS_CHASINGMETHOD
+VAR_INPUT
+	Q : POINTER TO LREAL;
+	COXDEBOOR : REFERENCE TO L_UMTP_CoxdeBoorCoefficients;
+END_VAR
+VAR_OUTPUT
+	CONTRO_POS : ARRAY [1..3, 1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+END_VAR
+VAR
+	N : INT;
+	M : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr, 1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+	I : INT;
+	J : INT;
+	D : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+	U : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+	L : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+	B : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+END_VAR
+END_FUNCTION_BLOCK

@@ -67,6 +67,16 @@ export function loadDeviceInstances(root: string): Set<string> {
   return collect(root, ".device", (file) => basename(file, extname(file)))
 }
 
+/**
+ * Task-entry PROGRAM names (lowercased), from each `.task` file's `Calls:` line — the PROGRAMs CODESYS
+ * actually runs. Dead-code reachability seeds its roots from THESE (not every PROGRAM), so a PROGRAM that
+ * is not assigned to a task (its only call commented out, "moved elsewhere") is correctly dead. Empty when
+ * there is no task configuration ⇒ the reachability falls back to treating all PROGRAMs as roots (safe).
+ */
+export function loadTaskRoots(root: string): Set<string> {
+  return collect(root, ".task", (file) => readFileSync(file, "utf8").match(/^Calls:\s+(\S+)/m)?.[1])
+}
+
 /** Both reference-file catalogs for a workspace root — the input the unresolved-identifier check skips. */
 export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   if (root.length === 0) return EMPTY_WORKSPACE_REFS

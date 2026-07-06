@@ -1,0 +1,9 @@
+TYPE EFILTERLATCHCONTENT :
+(
+	NOT_SET := -1,
+	DISABLE := 0,
+	STR := 1,
+	IEC := 2,
+	NUMBER := 3
+);
+END_TYPE

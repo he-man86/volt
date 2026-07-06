@@ -1,0 +1,6 @@
+LIBRARY VisuUtils
+NAMESPACE VU
+RESOLUTION Visu Utils, 4.5.0.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES System_VisuElemBase, CmpIecTask, SysTypes2 Interfaces, * (System), SysMem, CmpVisuHandler, CBML, SysSem

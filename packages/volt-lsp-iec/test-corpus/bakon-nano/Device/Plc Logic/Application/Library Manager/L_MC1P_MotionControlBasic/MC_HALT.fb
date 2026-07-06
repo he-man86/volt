@@ -15,7 +15,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 	HALT : L_MC1P_Halt_Internal;
-	XABORTHOMINGALLOWED : BOOL;
+	XABORTHOMINGALLOWED : BOOL := FALSE;
 	_MCCALL : L_UM1P_MCMultipleCall;
 	INPUTDATA : ARRAY [1.._MCCall.c_BufferDepthInput] OF L_MC1P_HaltInput;
 	OUTPUTDATA : ARRAY [1.._MCCall.c_BufferDepthOutput] OF L_MC1P_HaltOutput;

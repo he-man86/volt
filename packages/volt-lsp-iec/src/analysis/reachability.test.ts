@@ -71,6 +71,35 @@ test("an FB kept live by a global instance (GVL) is not dead", () => {
   expect(dead.has("fb_global")).toBe(false)
 })
 
+// Task-root seeding — CODESYS runs only PROGRAMs assigned to a task (`.task` `Calls:`). A PROGRAM not in
+// any task, whose sole call is commented out ("moved elsewhere"), is dead. (Corpus-found: bakon-nano's
+// ControlStatusAGMs.)
+test("a PROGRAM not assigned to a task (call commented out) is dead when task roots are given", () => {
+  const files = [
+    // CyclicTask is the task entry; its call to the other program is commented, so no reference edge.
+    PRG("CyclicTask", "x := 1;\n// ControlStatusAGMs();"),
+    PRG("ControlStatusAGMs", "y := 1;"),
+  ]
+  // Without task roots, every PROGRAM is a root ⇒ nothing dead (the safe fallback).
+  expect(deadPous(files).has("controlstatusagms")).toBe(false)
+  // With task roots = {CyclicTask}, the uncalled PROGRAM is dead.
+  const dead = deadPous(files, new Set(["cyclictask"]))
+  expect(dead.has("controlstatusagms")).toBe(true)
+  expect(dead.has("cyclictask")).toBe(false)
+})
+
+test("a PROGRAM the task entry actually CALLS stays live under task-root seeding", () => {
+  const files = [PRG("CyclicTask", "SubProgram();"), PRG("SubProgram", "y := 1;")]
+  const dead = deadPous(files, new Set(["cyclictask"]))
+  expect(dead.has("subprogram")).toBe(false) // reached via the live call edge
+})
+
+test("task roots that match no PROGRAM fall back to all-programs (safety, never over-kill)", () => {
+  const files = [PRG("Main", "x := 1;"), PRG("Other", "y := 1;")]
+  const dead = deadPous(files, new Set(["nonexistent_task"]))
+  expect(dead.size).toBe(0) // no match ⇒ every PROGRAM is a root, as before
+})
+
 test("ownerPou returns the file's primary POU, undefined for a non-POU file", () => {
   expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK"))).toBe("f")
   expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE"))).toBeUndefined()

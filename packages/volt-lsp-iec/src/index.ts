@@ -24,4 +24,4 @@ export type { InitOptions as InstallCorpusOptions, InitResult as InstallCorpusRe
 
 // Workspace reference-file scan — library namespaces + device instances the unresolved-identifier
 // check skips. FS I/O; sits above the pure analysis layer (server + tests load it, pass it to diagnostics).
-export { loadWorkspaceRefs, loadLibraryNamespaces, loadDeviceInstances } from "./workspace-refs.js"
+export { loadWorkspaceRefs, loadLibraryNamespaces, loadDeviceInstances, loadTaskRoots } from "./workspace-refs.js"

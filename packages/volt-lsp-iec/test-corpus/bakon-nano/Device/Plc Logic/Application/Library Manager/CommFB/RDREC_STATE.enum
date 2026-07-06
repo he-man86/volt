@@ -1,0 +1,9 @@
+TYPE RDREC_STATE :
+(
+	S1_INIT := 1,
+	S2_IDLE := 2,
+	S3_WAITING := 3,
+	S4_HAVEDATA := 4,
+	S5_ERROR := 5
+);
+END_TYPE

@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	G_FILECLASS : FileClass;
+	G_DIRCLASS : DirClass;
+END_VAR

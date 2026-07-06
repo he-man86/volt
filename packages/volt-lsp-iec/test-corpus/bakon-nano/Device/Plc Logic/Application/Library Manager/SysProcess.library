@@ -1,5 +1,0 @@
-LIBRARY SysProcess
-NAMESPACE SysProcess
-RESOLUTION SysProcess, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

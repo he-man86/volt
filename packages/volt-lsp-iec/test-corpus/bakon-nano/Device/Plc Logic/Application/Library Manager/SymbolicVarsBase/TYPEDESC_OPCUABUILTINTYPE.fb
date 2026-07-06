@@ -1,0 +1,6 @@
+FUNCTION_BLOCK TYPEDESC_OPCUABUILTINTYPE EXTENDS TypeDesc
+VAR
+	_BUILTINTYPE : OpcUa_BuiltInType;
+	_SIZES : ARRAY [0..25] OF __XWORD := [0, SIZEOF(OpcUa_Boolean), SIZEOF(OpcUa_SByte), SIZEOF(OpcUa_Byte), SIZEOF(OpcUa_Int16), SIZEOF(OpcUa_UInt16), SIZEOF(OpcUa_Int32), SIZEOF(OpcUa_UInt32), SIZEOF(OpcUa_Int64), SIZEOF(OpcUa_UInt64), SIZEOF(OpcUa_Float), SIZEOF(OpcUa_Double), SIZEOF(OpcUa_String), SIZEOF(OpcUa_DateTime), SIZEOF(OpcUa_Guid), SIZEOF(OpcUa_ByteString), SIZEOF(OpcUa_ByteString), SIZEOF(OpcUa_NodeId), SIZEOF(OpcUa_ExpandedNodeId), SIZEOF(OpcUa_StatusCode), SIZEOF(OpcUa_QualifiedName), SIZEOF(OpcUa_LocalizedText), SIZEOF(OpcUa_ExtensionObject), SIZEOF(OpcUa_DataValue), SIZEOF(OpcUa_Variant), SIZEOF(OpcUa_DiagnosticInfo)];
+END_VAR
+END_FUNCTION_BLOCK

@@ -1,0 +1,6 @@
+TYPE L_MC1P_AXISSLOT :
+(
+	AXISA := 16#0,
+	AXISB := 16#800
+);
+END_TYPE

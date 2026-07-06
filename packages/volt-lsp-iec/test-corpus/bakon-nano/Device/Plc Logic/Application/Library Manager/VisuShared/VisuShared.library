@@ -1,0 +1,6 @@
+LIBRARY VisuShared
+NAMESPACE VisuShared
+RESOLUTION VisuShared, 4.8.0.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpApp, CmpIecTask, SysTypes2 Interfaces, * (System), StringUtils, Collections, CmpLog, Standard, CmpEventMgr Implementation, CmpEventMgr Interfaces, * (System), CmpDynamicText, CmpErrors2 Interfaces, * (System), SysCpuHandling, SysTime, SysTimeRtc, Util

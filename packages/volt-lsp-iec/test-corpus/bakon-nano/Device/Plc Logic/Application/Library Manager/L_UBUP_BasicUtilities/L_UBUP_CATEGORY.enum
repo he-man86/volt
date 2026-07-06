@@ -1,0 +1,9 @@
+TYPE L_UBUP_CATEGORY :
+(
+	UNASSIGNED := 0,
+	JOBMOVE := (L_UBUP_Internal.cdiEnumStartValue + 2),
+	JOBTRACKING := (L_UBUP_Internal.cdiEnumStartValue + 3),
+	JOBTC2P := (L_UBUP_Internal.cdiEnumStartValue + 4),
+	JOBSYS := (L_UBUP_Internal.cdiEnumStartValue + 5)
+);
+END_TYPE

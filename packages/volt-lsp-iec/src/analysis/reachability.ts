@@ -46,8 +46,16 @@ function firstPou(units: readonly TopLevel[]): Pou | undefined {
   return undefined
 }
 
-/** Lowercased names of every dead top-level POU across the workspace. Conservative: uncertain ⇒ live. */
-export function deadPous(files: readonly ReachabilityInput[]): Set<string> {
+/**
+ * Lowercased names of every dead top-level POU across the workspace. Conservative: uncertain ⇒ live.
+ *
+ * `taskRoots` (lowercased PROGRAM names from the `.task` `Calls:` lines) are the entry points CODESYS
+ * actually runs. When supplied and at least one matches a real PROGRAM, ONLY those seed reachability — so a
+ * PROGRAM not assigned to any task (its call commented out / "moved elsewhere") is correctly dead. Absent or
+ * non-matching (a library, or a project whose task config wasn't loaded) ⇒ fall back to ALL PROGRAMs as
+ * roots, preserving the uncertain-⇒-live safety.
+ */
+export function deadPous(files: readonly ReachabilityInput[], taskRoots?: ReadonlySet<string>): Set<string> {
   const pous = new Set<string>() // lc names of all top-level POUs
   const programs: string[] = [] // lc names of PROGRAM roots
   const implementers = new Map<string, string[]>() // lc interface -> lc FBs implementing it
@@ -70,12 +78,17 @@ export function deadPous(files: readonly ReachabilityInput[]): Set<string> {
   // No entry points ⇒ can't determine reachability (e.g. a library) ⇒ mark nothing dead.
   if (programs.length === 0) return new Set()
 
+  // Roots: the task-assigned PROGRAMs when the task config named at least one real PROGRAM; otherwise every
+  // PROGRAM (safe fallback — no task info means we can't rule any out).
+  const taskProgramRoots = taskRoots !== undefined ? programs.filter((p) => taskRoots.has(p)) : []
+  const roots = taskProgramRoots.length > 0 ? taskProgramRoots : programs
+
   // Fixpoint: seed the PROGRAM roots, then repeatedly pull in POUs referenced by any ACTIVE file, plus
   // the implementers of any interface referenced by an active file (dynamic dispatch ⇒ live). A file is
   // active if it's a root (GVL/type — a global instance or typed field) or a POU whose owner is reachable.
   // An interface's own `.itf` file is NEITHER — passive — so an interface is "used" only when a genuinely
   // reachable unit references it as a type, not merely by its own declaration.
-  const reachable = new Set<string>(programs)
+  const reachable = new Set<string>(roots)
   let changed = true
   while (changed) {
     changed = false

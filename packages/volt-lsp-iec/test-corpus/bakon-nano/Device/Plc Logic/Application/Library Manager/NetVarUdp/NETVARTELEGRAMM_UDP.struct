@@ -1,0 +1,6 @@
+TYPE NETVARTELEGRAMM_UDP :
+STRUCT
+	HEADER : NetVarTlgHeader_Udp;
+	PDATA : ARRAY [0..(Parameters.UdpPacketSize - 1)] OF BYTE;
+END_STRUCT
+END_TYPE

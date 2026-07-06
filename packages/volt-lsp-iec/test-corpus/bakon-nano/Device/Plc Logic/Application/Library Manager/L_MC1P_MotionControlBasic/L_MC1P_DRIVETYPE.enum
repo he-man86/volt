@@ -1,0 +1,14 @@
+TYPE L_MC1P_DRIVETYPE :
+(
+	VIRTUAL := 0,
+	HL9400 := 1,
+	I700 := 2,
+	ENCODER := 3,
+	GENERICDRIVE := 4,
+	I500 := 5,
+	I900 := 6,
+	I900DRIVE := 7,
+	I750 := 8,
+	UNIVERSAL := 10
+);
+END_TYPE

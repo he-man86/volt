@@ -1,0 +1,9 @@
+VAR_GLOBAL
+	G_EVENTDISPATCHER : EventDispatcher;
+	G_ALARMSTORAGEMANAGER : AlarmStorageManager;
+	G_ALARMSTORAGEREADER : AlarmStorageReader;
+	G_SQLITEDATABASEACCESS : SQLiteDatabaseAccess;
+	G_ALARMSTORAGEREADERCONSUMER : AlarmServiceAlarmStorageReaderConsumer;
+	G_ROOTPAGEREADWRITEMODEPROVIDER : AlarmRootPageReadWriteModeProvider;
+	G_BDUMMY : BOOL;
+END_VAR

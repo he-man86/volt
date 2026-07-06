@@ -55,7 +55,7 @@ import {
   type Vendor,
   type WorkspaceRefs,
 } from "../analysis/index.js"
-import { loadWorkspaceRefs } from "../workspace-refs.js"
+import { loadWorkspaceRefs, loadTaskRoots } from "../workspace-refs.js"
 import {
   codeActions,
   codeLenses,
@@ -117,6 +117,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // Workspace reference-file names (library namespaces + device instances) — loaded once from the root on
   // initialize; the unresolved-identifier check skips them. Empty until then / when there is no root.
   let workspaceRefs: WorkspaceRefs = EMPTY_WORKSPACE_REFS
+  // Task-entry PROGRAM names (from `.task` `Calls:`) — dead-code reachability seeds its roots from these.
+  let taskRoots: ReadonlySet<string> | undefined
   const messages = messagesFor(vendor)
   const docs = new Map<string, TextDocument>()
   let cachedProject: Scope | undefined
@@ -133,7 +135,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   const workspace = (): Document[] => [...docs.values()].map(toDoc)
   // Dead-POU set, rebuilt once per workspace edit. Empty when dead-code diagnosis is enabled.
   const deadSet = (): Set<string> =>
-    (cachedDead ??= config.diagnoseDeadCode ? new Set() : deadPous(workspace()))
+    (cachedDead ??= config.diagnoseDeadCode ? new Set() : deadPous(workspace(), taskRoots))
   const invalidate = (): void => {
     cachedProject = undefined
     cachedDead = undefined
@@ -178,7 +180,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     const opts = params.initializationOptions as { diagnoseDeadCode?: boolean } | undefined
     if (opts?.diagnoseDeadCode !== undefined) config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
     const root = workspaceRoot(params.rootUri, params.rootPath)
-    if (root !== undefined) workspaceRefs = loadWorkspaceRefs(root)
+    if (root !== undefined) {
+      workspaceRefs = loadWorkspaceRefs(root)
+      taskRoots = loadTaskRoots(root)
+    }
     return {
       capabilities: {
         textDocumentSync: TextDocumentSyncKind.Incremental,

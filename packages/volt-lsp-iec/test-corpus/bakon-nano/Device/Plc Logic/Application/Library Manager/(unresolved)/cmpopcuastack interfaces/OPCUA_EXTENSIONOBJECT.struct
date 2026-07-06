@@ -1,0 +1,8 @@
+TYPE OPCUA_EXTENSIONOBJECT :
+STRUCT
+	TYPEID : OpcUa_ExpandedNodeId;
+	ENCODING : OpcUa_ExtensionObjectEncoding;
+	BODY : OpcUa_ExtensionObject_Body;
+	BODYSIZE : OpcUa_Int32;
+END_STRUCT
+END_TYPE

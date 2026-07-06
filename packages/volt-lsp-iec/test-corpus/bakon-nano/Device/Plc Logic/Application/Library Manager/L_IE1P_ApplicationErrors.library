@@ -1,5 +1,0 @@
-LIBRARY L_IE1P_ApplicationErrors
-NAMESPACE L_IE1P
-RESOLUTION L_IE1P_ApplicationErrors, 3.34.0.1 (Lenze)
-PLACEHOLDER true
-SYSTEM false

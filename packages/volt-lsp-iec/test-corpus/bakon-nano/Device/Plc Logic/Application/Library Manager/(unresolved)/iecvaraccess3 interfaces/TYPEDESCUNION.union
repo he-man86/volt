@@ -1,0 +1,7 @@
+TYPE TYPEDESCUNION :
+UNION
+	_SIMPLE : TypeDescSimpleAsStruct;
+	_ARRAY : TypeDescArrayAsStruct;
+	_STRUCT : TypeDescStructAsStruct;
+END_UNION
+END_TYPE

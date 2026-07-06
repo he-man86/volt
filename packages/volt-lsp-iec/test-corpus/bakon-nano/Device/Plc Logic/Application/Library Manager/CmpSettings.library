@@ -1,5 +1,0 @@
-LIBRARY CmpSettings
-NAMESPACE CmpSettings
-RESOLUTION CmpSettings, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

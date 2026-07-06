@@ -1,0 +1,6 @@
+LIBRARY VisuSymbols, 4.5.0.0 (System)
+NAMESPACE VisuSymbols
+RESOLUTION VisuSymbols, 4.5.0.0 (System)
+PLACEHOLDER false
+SYSTEM false
+DEPENDENCIES System_VisuElems

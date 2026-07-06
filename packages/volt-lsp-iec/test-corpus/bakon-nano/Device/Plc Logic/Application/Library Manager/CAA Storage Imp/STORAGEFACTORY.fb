@@ -1,0 +1,10 @@
+FUNCTION_BLOCK STORAGEFACTORY
+VAR
+	_FACCURSOR : CursorImpFactory;
+	_FACROW : RowImpFactory;
+	_FACROWPLANCHET : RowPlanchetImpFactory;
+	_FACSAVEPOINT : SavepointImpFactory;
+	_FACTABLE : TableImpFactory;
+	_FACTRANSACTION : TransactionImpFactory;
+END_VAR
+END_FUNCTION_BLOCK

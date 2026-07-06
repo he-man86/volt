@@ -1,0 +1,7 @@
+TYPE ASYNCJOB_PARAM :
+UNION
+	TASKPARAM : AsyncJob_TaskParam;
+	EVENTPARAM : AsyncJob_EventParam;
+	HOOKPARAM : AsyncJob_HookParam;
+END_UNION
+END_TYPE

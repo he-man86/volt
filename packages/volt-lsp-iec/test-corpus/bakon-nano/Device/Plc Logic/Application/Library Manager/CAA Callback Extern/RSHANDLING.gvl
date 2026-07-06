@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	G_CALLBACKCLASS : CallbackClass;
+END_VAR

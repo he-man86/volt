@@ -14,7 +14,7 @@ import { extname, join } from "node:path"
 import { isTrivia, parseSource, parseStatements, type BodySpan, type TopLevel } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, deadPous, messagesFor, ownerPou, resolveConfig } from "../../src/analysis/index.js"
-import { loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
 
@@ -144,7 +144,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       const messages = messagesFor("codesys")
       // Dead code rides through in the corpus now (the bridge no longer omits it); the LSP suppresses its
       // diagnostics structurally by default, so match the server and skip a file whose owner POU is dead.
-      const dead = deadPous(inputs)
+      const dead = deadPous(inputs, loadTaskRoots(dir))
       for (const f of inputs) {
         const owner = ownerPou(f.parseResult)
         if (owner !== undefined && dead.has(owner)) continue

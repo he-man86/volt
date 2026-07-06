@@ -1,0 +1,6 @@
+LIBRARY SysDir
+NAMESPACE SysDir
+RESOLUTION SysDir, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System)

@@ -1,0 +1,7 @@
+TYPE FILELIMIT :
+(
+	NOLIMIT := 0,
+	RECORDS := 1,
+	SIZE := 2
+);
+END_TYPE

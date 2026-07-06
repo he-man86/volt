@@ -1,0 +1,7 @@
+TYPE PERIOD :
+(
+	UNKNOWN := 0,
+	STANDARD := 1,
+	DAYLIGHT := 2
+);
+END_TYPE
