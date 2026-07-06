@@ -214,27 +214,31 @@ LSP and bridge MUST agree on validity.
 - **WHEN** the agent writes ST the bridge would reject (e.g. an interface `METHOD` with no `END_METHOD`, if Volt keeps that strict)
 - **THEN** the LSP reports a diagnostic for it — or, if Volt accepts the form, the bridge accepts it too (no divergence)
 
-### Requirement: Diagnostics skip build-excluded objects
+### Requirement: Dead code is detected structurally and its diagnostics are config-gated
 
-The LSP SHALL NOT emit semantic diagnostics for an item whose `excludeFromBuild` flag is `true`. Because
-the LSP analyzes files on disk with no live bridge, that flag reaches it as the in-file
-`(* @volt-exclude-from-build *)` marker written on pull (see "Build-excluded source is marked in content,
-not a side manifest" in section F below), not a separate manifest. Such
-objects are never compiled by the IDE, so their references are never checked and have no ground truth;
-diagnosing them produces false positives against code the toolchain itself ignores. Excluded items
-SHALL still be parsed, indexed, and materialized — only diagnostics are gated. Consequently, the
-coverage invariant "a clean-compiling project yields zero ERROR diagnostics" holds over **built** objects
-only; the coverage harness and its ratchet SHALL measure ERROR precision over built objects (warnings the
-compiler legitimately emits are reported separately and oracle-validated, not ratcheted — see "Diagnostics
-are false-positive-free on valid real code") and report excluded-object counts separately, never ratcheting them.
+Dead (uncalled/unreachable) code IS delivered to the workspace as ordinary source — the bridge does not omit it. The LSP SHALL determine reachability itself, from the project's own structure, and SHALL gate diagnostics on dead code behind a `diagnoseDeadCode` config flag.
 
-#### Scenario: An excluded object produces no diagnostics
-- **WHEN** an item is flagged `excludeFromBuild: true` and its body references identifiers declared nowhere
-- **THEN** the LSP emits no unresolved-identifier (or other semantic) diagnostics for that item
+Reachability SHALL be computed project-wide: the ROOTS are the PROGRAM POUs (IEC entry points — tasks invoke programs), and a unit is REACHABLE if it is in the transitive closure from a root via calls, FB instantiations (`inst : FB_A;` declarations count), `EXTENDS`/`IMPLEMENTS`, and declared-type references. A top-level POU not reachable is DEAD.
 
-#### Scenario: A built sibling is still fully checked
-- **WHEN** a built item (`excludeFromBuild: false`) has a genuine unresolved reference
-- **THEN** the LSP still reports it — exclusion never suppresses diagnostics on built objects
+When `diagnoseDeadCode` is `false` (the default, matching the CODESYS compiler, which never compiles dead code), the LSP SHALL suppress ALL diagnostics whose owning top-level unit is dead. When `true`, the LSP SHALL diagnose every unit, dead or not.
+
+The reachability analysis SHALL be conservative: when reachability is UNCERTAIN — dynamic dispatch, an interface-typed or pointer assignment, or any edge the analysis cannot resolve — the unit SHALL be treated as LIVE. Marking a reachable unit dead would suppress real diagnostics; over-including is the only safe bias. Consequently the coverage invariant "a clean-compiling project yields zero ERROR diagnostics" holds with `diagnoseDeadCode` off, because genuinely dead code (which the compiler never checked) is suppressed while every reachable unit is fully checked.
+
+#### Scenario: A dead POU produces no diagnostics by default
+- **WHEN** an FB is never called or instantiated from any PROGRAM's reachable graph, and its body references an identifier declared nowhere
+- **THEN** with `diagnoseDeadCode` off (default) the LSP emits no diagnostic for it — matching the compiler, which never checked it
+
+#### Scenario: The same dead POU is diagnosed when the flag is on
+- **WHEN** the same dead FB is analyzed with `diagnoseDeadCode` on
+- **THEN** the LSP reports its unresolved reference (and any other real diagnostic) — dead code is fully analyzed
+
+#### Scenario: A reachable POU is always fully checked
+- **WHEN** an FB is instantiated (`m : FB_Motor;`) inside a reachable program and has a genuine error
+- **THEN** the LSP reports it regardless of the flag — instantiation is a reachability edge, and reachable code is never suppressed
+
+#### Scenario: Uncertain reachability resolves to live
+- **WHEN** an FB is only ever reached through an interface-typed variable or other dynamic dispatch the analysis cannot statically resolve
+- **THEN** the LSP treats it as LIVE (never dead), so its diagnostics are never wrongly suppressed
 
 ### Requirement: Graphical CFC/SFC bodies are not diagnosed and carry no read-only marker
 
@@ -485,30 +489,6 @@ from the extension. The kind-based naming SHALL NOT lose kind or access informat
 #### Scenario: A read-only POU is not pushed
 - **WHEN** a `.fb` file whose body begins with `READONLY` (a CFC/SFC body) is edited and a push is attempted
 - **THEN** the CLI refuses it up front from the marker, and the bridge refuses it as a backstop
-
-### Requirement: Build-excluded source is marked in content, not a side manifest
-
-A source item's exclude-from-build state SHALL be recorded IN the file, NOT in a separate excluded-paths
-manifest, because the LSP analyzes files on disk with no live bridge to read the per-item `excludeFromBuild`
-wire flag (see bridge-protocol "Exclude-from-build is a per-item wire flag"). On pull, a source item whose
-`excludeFromBuild` flag is `true` SHALL materialize with a leading `(* @volt-exclude-from-build *)` ST comment
-(idempotent — never duplicated). This marker is Volt-managed, not real IDE source: on push the CLI SHALL strip
-it before sending to the bridge, so it never reaches the IDE's stored source (and does not re-duplicate on the
-next pull). The LSP and coverage harness SHALL read the marker as the on-disk source of the flag — it is how an
-offline workspace or a committed corpus gates diagnostics on excluded objects. Only source-kind files carry it
-(reference kinds are never analyzed and stay read-only by their extension).
-
-#### Scenario: A build-excluded object materializes with the marker
-- **WHEN** the IDE reports an item with `excludeFromBuild: true` and a pull materializes it
-- **THEN** its source file begins with `(* @volt-exclude-from-build *)` — no side manifest records the exclusion
-
-#### Scenario: The marker is stripped on push
-- **WHEN** an excluded source file (leading `(* @volt-exclude-from-build *)`) is pushed back
-- **THEN** the CLI strips the marker so the IDE's stored source is unchanged, and the next pull does not duplicate it
-
-#### Scenario: The LSP reads the marker offline
-- **WHEN** the LSP analyzes an on-disk workspace (or the committed corpus) with no live bridge
-- **THEN** it skips diagnostics on files carrying the marker, exactly as if the wire flag were `true`
 
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree
 

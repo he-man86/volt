@@ -3,23 +3,23 @@
 ## Purpose
 TBD - created by archiving change review-bridge-protocol. Update Purpose after archive.
 ## Requirements
-### Requirement: The bridge returns only items with compiler ground truth
+### Requirement: The bridge omits build-excluded objects and returns everything else
 
-The `/refs` and `/fetch` responses SHALL contain only items the compiler can analyze. An object the IDE
-will not compile (excluded-from-build, accounting for folder inheritance) SHALL be omitted from the response
-entirely — absent from `changed`, `items`, and the aggregate versions. A project POU CODESYS did not compile
-(dead/uncalled code), detectable only on a `verbose` fetch that ran a build, SHALL likewise be omitted. The
-response SHALL NOT carry `excludeFromBuild` or `deadCode` metadata fields, and consumers SHALL NOT write
-in-file ground-truth markers — because a file with no ground truth is never delivered, the LSP never analyzes
-it and cannot false-positive on it. Both vendor bridges SHALL behave identically for the same project state.
+The `/refs` and `/fetch` responses SHALL omit objects the IDE will not compile — excluded-from-build (accounting for folder inheritance) — entirely: absent from `changed`, `items`, and the aggregate versions. Such an object has no compiler ground truth, so delivering it would only produce false positives against code the toolchain itself never checks.
+
+Everything else SHALL be returned as ordinary source, INCLUDING dead/uncalled code (a POU reachable from no task). The bridge SHALL NOT compute reachability, SHALL NOT expose an `omitDeadCode` (or equivalent) flag, and SHALL NOT carry `excludeFromBuild`, `deadCode`, or any ground-truth metadata field, nor write in-file markers — determining what is unreachable is the LSP's job (see `st-language-server` "Dead code is detected structurally and its diagnostics are config-gated"). Both vendor bridges SHALL behave identically for the same project state.
 
 #### Scenario: An excluded-from-build object is not returned
 - **WHEN** a project contains an object flagged "exclude from build" (or inside an excluded folder)
 - **THEN** neither `/refs` nor `/fetch` lists it (no `changed` entry, no `items` version), and the response carries no `excludeFromBuild` field
 
-#### Scenario: A dead (uncompiled) POU is dropped on a verbose fetch
-- **WHEN** a verbose fetch runs a build and a project POU is absent from the compiled model (uncalled)
-- **THEN** that POU is omitted from `changed`/`items`, and the response carries no `deadCode` field
+#### Scenario: A dead (uncalled) POU IS returned as ordinary source
+- **WHEN** a project POU is never called or instantiated from any task's program (dead code)
+- **THEN** the bridge still returns it in `changed`/`items` like any other source item — no `deadCode` field, no omission, no flag required
+
+#### Scenario: No fetch flag governs dead code
+- **WHEN** any client fetches the project (verbose or not)
+- **THEN** the response is identical with respect to dead code — there is no request flag that drops uncalled POUs
 
 ### Requirement: The item name is the wire identity
 
@@ -27,10 +27,11 @@ The bridge wire SHALL key every operation by the **full** item name — the bare
 kind-based extension (e.g. `PLC_PRG.prg`, `FB_Motor.fb`, `Recipe.struct`) — across `/refs`
 (`items`/`folders`), `/fetch` `knownItems`, and every push op, mirroring the "one item per file"
 workspace layout. Item **kind** is not carried on the wire for source items; the bridge recovers it
-from the file content on push. Exclude-from-build IS carried on the wire, as a per-item boolean (see
-"Exclude-from-build is a per-item wire flag"). There is no read-only wire field and no read-only
-content marker: graphical CFC/SFC bodies carry only a non-semantic informational marker, and read-only
-enforcement is the bridge's live IDE state (see the push requirement). The aggregate `structureVersion`
+from the file content on push. Exclude-from-build is NOT carried on the wire: an excluded object is
+omitted from the response entirely (see "The bridge omits build-excluded objects and returns everything
+else"), so exclusion is an internal omission signal, never a per-item wire field. There is no read-only
+wire field and no read-only content marker: graphical CFC/SFC bodies carry only a non-semantic
+informational marker, and read-only enforcement is the bridge's live IDE state (see the push requirement). The aggregate `structureVersion`
 and `projectVersion` hash the sorted **bare** names (extension stripped), so they stay vendor-neutral
 and are unchanged by the kind-based naming. The system SHALL NOT reject duplicate names: same-name
 items collapse last-write-wins. This is acceptable because IEC guarantees unique names for source
