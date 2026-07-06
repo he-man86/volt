@@ -18,12 +18,12 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { PRAGMA_TC_TESTS } from "../packages/volt-lsp-iec/src/tests/conformance/fixtures/pragma-tc.js"
+import { PRAGMA_TC_TESTS } from "../packages/volt-lsp-iec/test/conformance/fixtures/pragma-tc.js"
 
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8555"
 const BASE = `http://127.0.0.1:${PORT}`
 const DRY = process.argv.includes("--dry-run")
-const RECORDINGS = join(dirname(fileURLToPath(import.meta.url)), "../packages/volt-lsp-iec/src/tests/conformance/recordings")
+const RECORDINGS = join(dirname(fileURLToPath(import.meta.url)), "../packages/volt-lsp-iec/test/conformance/recordings")
 const RECORDING_FILE: Record<string, string> = { beckhoff: "expected-tc.json", codesys: "expected-codesys.json" }
 
 type BridgeDiag = { severity: string; message: string; line: number; column: number }
