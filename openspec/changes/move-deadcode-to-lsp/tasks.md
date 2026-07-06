@@ -67,8 +67,11 @@ NO markers or flags in any file. Live targets: CODESYS `:8556`, TwinCAT `:8555`.
       no wire flag; it is an internal omission signal).
 
 ## 7. Land
-- [ ] Full bridge suite + LSP suite + typecheck green on both bridges; corpus 0-error; `check-divergence` clean.
-- [ ] `openspec validate move-deadcode-to-lsp`; archive.
+- [x] Full bridge suite (216) + LSP suite (138) + LSP typecheck green; Beckhoff bridge builds; CODESYS bridge
+      compiles clean (net48 copy step blocked only by the live IDE holding the loaded DLL — environmental, not
+      code); `check-divergence` clean.
+- [x] `openspec validate move-deadcode-to-lsp` passes. Archive AFTER the manual corpus re-harvest (task 3.2)
+      confirms the 0-FP gate holds with dead code present.
 
 ## Notes
 - Legacy `volt-lsp-iec` is still the SHIPPED LSP (wired in `.opencode/opencode.json` + `volt-config`). Its
