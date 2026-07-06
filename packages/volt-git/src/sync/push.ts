@@ -9,7 +9,6 @@ import { loadConfig, verifyBinding } from "../config/workspace.js";
 import { autoCommitSrc, diffRefs, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { isPushable, isReadOnly } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
-import { stripExcludeMarker } from "../translate/exclude-marker.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, countChanges, hasChanges } from "./diff.js";
 import { loadIdeRefs, RANGE, saveIdeRefs, voltIdeHead } from "./refs.js";
@@ -56,8 +55,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 
 	// Content comes from the committed blob (HEAD), not the worktree — the clean-tree guard above
 	// guarantees they're identical, but reading git keeps the engine's source of truth unambiguous.
-	// Strip the Volt exclude-from-build marker so it never reaches the IDE's stored source (re-added on pull).
-	const headSrc = (rel: string): string => stripExcludeMarker(gitShowBytes(root, "HEAD", `src/${rel}`)?.toString("utf-8") ?? "");
+	const headSrc = (rel: string): string => gitShowBytes(root, "HEAD", `src/${rel}`)?.toString("utf-8") ?? "";
 
 	const rows = diffRefs(root, RANGE, "HEAD", "src");
 
