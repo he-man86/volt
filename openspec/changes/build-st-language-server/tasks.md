@@ -76,7 +76,8 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    UNCALLED items. An excluded-but-REFERENCED item (kept live by reachability) would false-positive without the
    filter, since excluded code is often broken/WIP. Removing it needs item-level exclusion in the LSP first —
    not worth it.
-7. **Land** — merge `feat/st-body-ast` → `dev`; archive this change (`openspec archive`).
+7. **Land** — `feat/st-body-ast` → `dev` ✅ MERGED (fast-forward, 2026-07-06). Archive this change once the
+   remaining open items (1–5) close.
 
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
