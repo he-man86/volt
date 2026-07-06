@@ -54,8 +54,8 @@ SHALL be the regression net — a miss it surfaces becomes a new fixture, never 
 
 ### Requirement: Vendor differences are a single toggleable, provenance-tagged registry
 
-Every place CODESYS and TwinCAT differ — per-vendor message wording, vendor-only rules, and documented
-divergences — SHALL be a data entry in ONE registry, NOT a hardcoded `activeVendor` branch scattered across
+Every place CODESYS and TwinCAT differ SHALL be a data entry in ONE registry — per-vendor message wording,
+vendor-only rules, and documented divergences — NOT a hardcoded `activeVendor` branch scattered across
 checks. Each entry SHALL be individually enable/disable-able and tagged with provenance (verified against the
 live compiler vs. suspected bridge artifact vs. deferred). Checks and message builders SHALL read their
 per-vendor output from the registry; disabling an entry SHALL fall back to a single shared behavior. So a
