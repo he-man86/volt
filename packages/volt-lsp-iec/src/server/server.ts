@@ -162,7 +162,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         })
     const diagnostics: Diagnostic[] = [
       ...items.map(toLspDiagnostic),
-      ...(dead ? [] : computeVgDiagnostics(d, project(), messages)).map(toLspDiagnostic),
+      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, workspaceRefs)).map(toLspDiagnostic),
       ...d.parseResult.errors.map((e) => ({
         range: rangeFromSpan(e.span),
         severity: DiagnosticSeverity.Error,

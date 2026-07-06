@@ -10,17 +10,39 @@
  *      the assignments inside EXECUTE boxes are checked too.
  *
  * ponytail: only the assignment type-check is mirrored for VG so far — narrowing/binary-operator checks
- * aren't factored into per-pair helpers yet; adding them is a follow-on. `vg-undeclared-identifier` waits
- * on the library/device catalogs (like ST's unresolved check) to stay false-positive-free.
+ * aren't factored into per-pair helpers yet; adding them is a follow-on.
+ *
+ * vg-undeclared-identifier: an operand naming something declared nowhere reachable — the VG analogue of ST's
+ * unresolved-identifier, sharing its exact resolution rules (`unresolvedInExprs`), against the per-network
+ * scope (POU + `LET` wires). Error severity, so the corpus 0-FP gate covers it.
  */
-import { unitBodies, isGraphicalBody, walkStatements, type Expr } from "../syntax/index.js"
-import { assignmentPairError, SOURCE, type DiagnosticItem, type Messages } from "../analysis/index.js"
+import {
+  unitBodies,
+  isGraphicalBody,
+  stmtExprs,
+  walkStatements,
+  type Expr,
+} from "../syntax/index.js"
+import {
+  assignmentPairError,
+  unresolvedInExprs,
+  SOURCE,
+  type DiagnosticItem,
+  type Messages,
+  type WorkspaceRefs,
+} from "../analysis/index.js"
+import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import type { Scope } from "../symbols/index.js"
 import type { Document } from "../services/index.js"
 import { analyzeVgBody } from "./vg-analyze.js"
 import type { VgStatement } from "./text/ast.js"
 
-export function computeVgDiagnostics(doc: Document, project: Scope, messages: Messages): DiagnosticItem[] {
+export function computeVgDiagnostics(
+  doc: Document,
+  project: Scope,
+  messages: Messages,
+  references: WorkspaceRefs = EMPTY_WORKSPACE_REFS,
+): DiagnosticItem[] {
   const out: DiagnosticItem[] = []
   for (const unit of doc.parseResult.units) {
     for (const body of unitBodies(unit)) {
@@ -31,7 +53,70 @@ export function computeVgDiagnostics(doc: Document, project: Scope, messages: Me
       }
       for (const [network, scope] of analysis.networkScopes) {
         checkStatements(network.statements, scope, project, messages, out)
+        checkUndeclared(network.statements, scope, project, references, messages, out)
       }
+    }
+  }
+  return out
+}
+
+/**
+ * VG operand MODIFIER words (vg-language.md §Modifier words / operand grammar), lowercased. Trailing
+ * `SET`/`RESET` (coil storage) + `RISING`/`FALLING` (edge) are graphical keywords the lean operand parser
+ * leaves in the expression, not identifiers — so the undeclared check must skip them. (`NOT`, the leading
+ * modifier, already resolves via the reference catalog's boolean operator.)
+ */
+const VG_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
+
+/** vg-undeclared-identifier: resolve every operand identifier in the network against its POU+wire scope. */
+function checkUndeclared(
+  statements: readonly VgStatement[],
+  scope: Scope,
+  project: Scope,
+  references: WorkspaceRefs,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  for (const ref of unresolvedInExprs(operandExprs(statements), scope, project, references)) {
+    if (VG_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
+    out.push({
+      severity: "error",
+      span: ref.span,
+      source: SOURCE,
+      code: "vg-undeclared-identifier",
+      message: messages.undefinedIdentifier(ref.name),
+    })
+  }
+}
+
+/** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
+function operandExprs(statements: readonly VgStatement[]): Expr[] {
+  const out: Expr[] = []
+  for (const s of statements) {
+    switch (s.kind) {
+      case "wire_def":
+        if (s.producer !== undefined) out.push(s.producer)
+        break
+      case "sink":
+        if (s.target !== undefined) out.push(s.target)
+        if (s.value !== undefined) out.push(s.value)
+        break
+      case "fb_call":
+        if (s.call !== undefined) out.push(s.call)
+        break
+      case "en_eno_if":
+        if (s.en !== undefined) out.push(s.en)
+        out.push(...operandExprs(s.body))
+        break
+      case "execute":
+        if (s.ok) walkStatements(s.statements, (st) => out.push(...stmtExprs(st)))
+        break
+      case "jump":
+        if (s.condition !== undefined) out.push(s.condition)
+        break
+      case "return":
+        if (s.condition !== undefined) out.push(s.condition)
+        break
     }
   }
   return out

@@ -159,7 +159,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
             falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
         }
         // VG code-correctness checks (sink type-checks) must also be false-positive-free on real graphical code.
-        for (const d of computeVgDiagnostics(f, scope, messages)) {
+        for (const d of computeVgDiagnostics(f, scope, messages, references)) {
           if (d.severity === "error" && !d.code.startsWith("VG_"))
             falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
         }

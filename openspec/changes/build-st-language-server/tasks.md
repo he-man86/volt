@@ -2,6 +2,32 @@ Build order = the layer stack, bottom-up. Invariant for EVERY task: `cd packages
 `bun typecheck` + corpus 0-error + conformance replay green before its commit. Freeze a layer's contract →
 verify → let the next consume it.
 
+## Diagnostic-check status matrix
+
+Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
+(exact byte-identical fixtures): **231/259 TC · 228/259 CS** — floors only ever rise.
+
+| Check (code) | Lang | Severity | Status | Notes |
+|---|---|---|---|---|
+| assignment-type-mismatch | ST·VG | error | ✅ | shared `assignmentPairError`; VG sinks reuse it |
+| narrowing (implicit conversion) | ST | warning | ✅ | vendor-keyed "Possible/possible loss" |
+| binary-op-type-mismatch | ST | error | ✅ | MOD non-int · BOOL-in-arithmetic |
+| conversion-source-mismatch | ST | error | ✅ | `<T>_TO_<U>` source vs arg |
+| overflow · subrange · array-bounds | ST | error | ✅ | const-eval; wording bridge-gated (provisional) |
+| duplicate-declaration | ST | error | ✅ | per-scope, qualified_only-aware |
+| **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs`; **member access ⏸** |
+| **vg-undeclared-identifier** | VG | error | ✅ | shares ST resolver; skips LD `SET/RESET/RISING/FALLING` modifiers |
+| var-section-placement | ST | error | ✅ | section not allowed for POU kind |
+| external-write · lifecycle · abstract-instantiation · interface-implementation | ST | error | ✅ | oop/ group |
+| pragmas (message + orphan-conditional) | ST | error/info | ✅ | unknown/conflict pragma ⏳ (needs pragma catalog, F.1) |
+| VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
+| shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
+| deref (`^` on non-pointer) | ST | error | ⏳ | next |
+| conversion-catalog / library floor | ST | — | ⏳ | F.1 keyword/pragma + library-signature catalogs |
+| member-access resolution | ST | error | ⏸ | highest-FP surface; separately gated follow-on |
+| vg-undefined-label · vg-unknown-pin | VG | error/warn | ⏳ | legacy had them; port after deref |
+| VG narrowing / binary-operator | VG | error | ⏸ | needs per-pair helpers factored out |
+
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
       The existing `packages/volt-lsp-iec` stays UNTOUCHED as the reference/backup (git also preserves it).
@@ -61,19 +87,21 @@ verify → let the next consume it.
       orchestrator is vendor-keyed. **Conformance oracle stood up**: legacy live-IDE recordings reused,
       `replay.test.ts` asserts LSP ⊆ IDE (no false positives) per vendor + an exact-agreement ratchet.)
 - [~] D.2 checks grouped `types/ · declarations/ · names/ · oop/ · pragmas/`, each thin on `compat`/`infer`,
-      each traced to a conformance fixture recorded against CODESYS + TwinCAT. **11 checks across all 5 groups
-      ported**: types/ (assignment · narrowing · binary-operators · conversion), names/ (duplicate-declaration),
-      declarations/ (var-section-placement), oop/ (external-write · lifecycle · abstract-instantiation ·
-      interface-implementation), pragmas/ (message + orphan-conditional). Agreement ratchet **230/259 TC ·
-      227/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining non-agreements are
-      documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings). Deferred: deref ·
-      conversion-catalog · unknown/conflict pragmas (the last needs the keyword/pragma catalogs, F.1).
-      **`unresolved-identifier` is NOT catalog-blocked** — per `spec.md` "resolves library symbols from mirrored
-      signatures + namespace stubs" (L252), referenced-library elements are materialized as ORDINARY source
-      (`Library Manager/<lib>/*.fb|.fun|.enum|.struct|.gvl`) that the binder already ingests, so they resolve
-      like any project symbol (no ambient/catalog machinery). What actually gates it is small: ingest the
-      `.library` stub's `NAMESPACE` line (register the qualified root, e.g. `CAA`) + the `.device`-instance
-      skip. Tracked with F.1's stub ingestion.
+      each traced to a conformance fixture recorded against CODESYS + TwinCAT. **12 checks across all 5 groups
+      ported**: types/ (assignment · narrowing · binary-operators · conversion), names/ (duplicate-declaration ·
+      **unresolved-identifier**), declarations/ (var-section-placement), oop/ (external-write · lifecycle ·
+      abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
+      ratchet **231/259 TC · 228/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
+      non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
+      Deferred: deref · conversion-catalog · unknown/conflict pragmas (the last needs the keyword/pragma catalogs,
+      F.1) · unresolved-identifier MEMBER access (highest-FP; separately gated follow-on).
+      **`unresolved-identifier` ✅ DONE** — bare-reference resolution; the `.library` `NAMESPACE` line + the
+      `.device`-instance skip ship as `src/workspace-refs.ts` (loaders → `WorkspaceRefs`, threaded via
+      `DiagnosticsArgs.references`; the server loads them from `rootUri`, the corpus gate from the project dir).
+      Message byte-identical both vendors (`Identifier '<name>' not defined`); skip surface covers `__`-ops,
+      conversion shape, THIS/SUPER + `IoConfig_Globals`/`TYPE_CLASS`, the reference catalog, library namespaces,
+      device instances, bare enum members. (The referenced-library ELEMENT bodies also resolve as ordinary
+      ingested source per `spec.md` L252 — the namespace root is the only ambient piece, now handled.)
 - [~] D.3 The full type-checker rule set (subrange/overflow/array-bounds/composite-shape/member-count/…) —
       fixture → record → mirror → replay green; corpus 0-error.
       **corpus 0-error ✅ DONE** (committed test: all analysis checks emit ZERO error-severity FPs across the
@@ -116,11 +144,12 @@ verify → let the next consume it.
       **Scope clarification (`spec.md` L252):** libraries are NOT a hand-built catalog — referenced-library
       element signatures are materialized as ordinary source under `Library Manager/<lib>/` and resolve
       through the normal symbol table; the curated standard-function table is only the FALLBACK for names no
-      mirrored library covers. Remaining, in order of value: (1) **`.library` stub ingestion** — a new file
-      kind carrying `NAMESPACE`/`PLACEHOLDER`/`SYSTEM`; register each library's namespace root so qualified
-      refs (`CAA.HANDLE`) resolve and unresolved/vg-undeclared know which roots to skip (this is the real
-      "library floor", and it unblocks `unresolved-identifier` + `vg-undeclared`); (2) the keyword/pragma
-      catalogs + per-vendor equivalence (unblocks the opt-in unknown-pragma lint).
+      mirrored library covers. Remaining, in order of value: (1) **`.library` namespace-root skip ✅ DONE** —
+      `src/workspace-refs.ts` scans each `.library`'s `NAMESPACE` line + each `.device` stem into a
+      `WorkspaceRefs` skip set, so `unresolved-identifier` + `vg-undeclared` no longer flag those roots (the
+      minimal "library floor" that unblocked both checks). Still pending for full fidelity: ingest the library
+      element signatures as source so qualified MEMBER refs (`CAA.HANDLE.field`) type-check, not just the root;
+      (2) the keyword/pragma catalogs + per-vendor equivalence (unblocks the opt-in unknown-pragma lint).
 - [~] F.2 `graphical` — the VG (FBD/LD) sublanguage at ST-parity for CODE correctness. Spec:
       `data-model.md §graphical` (the full AST), `spec.md §E` (routed-by-content · round-trip is the
       bridge's · **the LSP owns code correctness: infer · undeclared · hover · completion · nav** · wire
@@ -149,9 +178,12 @@ verify → let the next consume it.
   - [~] F.2c **checks** — sink assignment type-check runs the SAME `assignmentPairError` as ST (extracted to
         one home → byte-identical wording per vendor), against the wire-aware scope; recurses en-eno-if +
         execute bodies; **skips box-output sinks** (`out := box(...)` is a graph wire, the IDE/bridge's remit
-        — removed a real BOOL→INT corpus FP). **Corpus 0-FP gate now covers VG code diagnostics ✅.** Deferred:
-        `vg-undeclared-identifier` (waits on the F.1 library/device catalogs to stay FP-free, like ST's
-        unresolved check) + mirroring narrowing/binary-operator checks (not yet factored into per-pair helpers).
+        — removed a real BOOL→INT corpus FP). **`vg-undeclared-identifier` ✅ DONE** — shares ST's resolution
+        (`unresolvedInExprs`, extracted to `_identifier-resolution.ts`) against each network's POU+wire scope,
+        over all operand `Expr`s; skips LD coil/edge MODIFIER words (`SET`/`RESET`/`RISING`/`FALLING`, a
+        corpus-found gap). Error severity ⇒ **corpus 0-FP gate covers VG code diagnostics ✅**. Deferred:
+        `vg-undefined-label` · `vg-unknown-pin` (port after ST deref) + mirroring narrowing/binary-operator
+        checks (not yet factored into per-pair helpers).
   - [~] F.2d **services** — the graphical branch: `vgResolveAt` (cursor→symbol via the SAME
         `exprAtOffset`/`memberAtOffset` descent + `resolveMemberChain`/`lookup`, wrapping VG operands as
         synthetic statements) + **hover** (incl. inferred wire type, reference-catalog fallback) · **definition**
@@ -162,15 +194,15 @@ verify → let the next consume it.
   - [x] F.2e **CFC/SFC marker** — `vgMarkerHover` explains a `(* @volt-graphical: <LANG> *)` body (authored in
         the IDE, no editable text form); wired as the ST-hover fallback. The marker is a comment → not analyzed
         as VG or ST, zero diagnostics (spec L403-413).
-  - [~] F.2f **tests/corpus/conformance** — 24 graphical unit tests (parse · structure · infer · checks ·
-        hover/def/completion/resolve · marker) + corpus VG parse gate + corpus 0-FP gate (incl. VG sink checks)
-        + 3 server e2e (VG diagnostics · VG hover routing). 130 suite green, conformance held (230 TC/227 CS),
-        layering clean, oxlint 0 errors. Pending: live-bridge record pass to lock the PROVISIONAL VG structural
-        messages + any vg-undeclared wording (batched with the D.3 overflow/subrange lock, T.1).
+  - [~] F.2f **tests/corpus/conformance** — 28 graphical unit tests (parse · structure · infer · checks ·
+        **undeclared** · hover/def/completion/resolve · marker) + corpus VG parse gate + corpus 0-FP gate (incl.
+        VG sink + undeclared checks) + 3 server e2e (VG diagnostics · VG hover routing). 151 suite green,
+        conformance held (231 TC/228 CS), layering clean, oxlint 0 errors. Pending: live-bridge record pass to
+        lock the PROVISIONAL VG structural messages (batched with the D.3 overflow/subrange lock, T.1).
   Status: F.2a·b·e DONE; F.2c·d·f substantially done (the code-correctness layer — infer · sink type-check ·
-  hover · def · completion · nav — ships at ST parity). Remaining follow-ons: vg-undeclared (needs F.1
-  catalogs) · references/rename across VG · VG semantic tokens · narrowing/binary VG checks · live-bridge
-  message lock. ST bodies unaffected throughout.
+  **undeclared-identifier** · hover · def · completion · nav — ships at ST parity). Remaining follow-ons:
+  vg-undefined-label/unknown-pin · references/rename across VG · VG semantic tokens · narrowing/binary VG
+  checks · live-bridge message lock. ST bodies unaffected throughout.
 
 ## G. server
 - [x] G.1 LSP 3.17 / stdio, vendor-keyed; push+pull diagnostics, progress, cancellation, incremental sync.

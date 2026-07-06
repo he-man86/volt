@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource, unitBodies, isGraphicalBody, walkExpr, type BodySpan, type Expr } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
-import { messagesFor, type DiagnosticItem } from "../analysis/index.js"
+import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
 import {
   parseVgBody,
   computeVgDiagnostics,
@@ -248,6 +248,57 @@ out := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(src)).toEqual([])
+})
+
+// vg-undeclared-identifier — the VG analogue of ST's unresolved-identifier, sharing its resolution rules.
+const vgUndeclared = (src: string, references?: WorkspaceRefs): string[] =>
+  computeVgDiagnostics(doc(src), project(doc(src)), messagesFor("codesys"), references)
+    .filter((d) => d.code === "vg-undeclared-identifier")
+    .map((d) => d.message)
+
+test("VG: an operand declared nowhere IS flagged, byte-identical to the compiler", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD
+out := nope;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgUndeclared(src)).toEqual(["Identifier 'nope' not defined"])
+})
+
+test("VG: declared vars and LET wires resolve (no undeclared diagnostic)", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
+NETWORK 0 FBD
+LET w := (a AND b);
+out := w;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgUndeclared(src)).toEqual([])
+})
+
+// Gap found via corpus: SET/RESET (and RISING/FALLING) are LD coil/edge MODIFIER words, not identifiers.
+test("VG: SET / RESET coil modifiers are not flagged as undeclared", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; a : BOOL; END_VAR
+NETWORK 0 LD
+out := a SET;
+out := a RESET;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgUndeclared(src)).toEqual([])
+})
+
+test("VG: a referenced-library namespace is skipped when supplied", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 FBD
+out := PACK_ML.gFlag;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgUndeclared(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
+  const refs: WorkspaceRefs = { libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }
+  expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
 })
 
 test("VG: wire types are inferred from producers and chain (LET en2 := en1)", () => {
