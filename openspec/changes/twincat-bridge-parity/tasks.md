@@ -2,9 +2,10 @@ TwinCAT ↔ CODESYS bridge parity. Both bridges to the same standard, shared Cor
 both. Live test targets: CODESYS AWA on `:8556`, TwinCAT `project11` on `:8555`.
 
 ## 1. Structure review (do first — freeze the shared/vendor split)
-- [ ] Document the split: SHARED Core = `LibSignature`/`LibVar`, `LibSignatureRenderer`, `FetchService`
-      foldering + `(unresolved)` + `omitDeadCode`, and the NEW `LibraryManifest`. VENDOR = only the extraction
-      (`ExtractLibrarySignatures`, library-ref fields). Confirm no vendor-specific logic leaked into Core.
+- [x] Split as-built: SHARED Core = `LibSignature`/`LibVar`, `LibSignatureRenderer`, `FetchService`
+      foldering + `(unresolved)` + `omitDeadCode`, `LibraryManifest`, and (new here) `PlcOpenDocument`
+      accessor read + `IProjectTree.InterfacePropertyAccessors`. VENDOR = only extraction / the safe
+      accessor read (CODESYS enumerate vs TC PLCopen-parse). No vendor-specific logic in Core.
 
 ## 2. Unify the library manifest (kills the divergent formats) — DONE
 - [x] `Volt.Bridge.Core/Library/LibraryManifest.cs` — `Build(...)` → canonical
@@ -36,12 +37,12 @@ both. Live test targets: CODESYS AWA on `:8556`, TwinCAT `project11` on `:8555`.
   - Only fully-working path = IN-PROCESS like the CODESYS bridge (the embedded CoDeSys engine in TwinCAT XAE
     has the loaded libraries → the same `LanguageModelMgr` reflection). That is a re-architecture of the
     Beckhoff bridge (out-of-process DTE automation → in-process TcXaeShell extension). Big.
-- [ ] DECISION: element signatures are a KNOWN TwinCAT LIMITATION for now (surface it, per no-hidden-bugs —
-      the bridge returns TC library refs/namespaces but not element signatures). Revisit via the in-process
-      re-architecture only if the value justifies it.
-- [ ] Implement `BeckhoffDriver.ExtractLibrarySignatures` → the SAME `LibSignature` records, so the shared
-      renderer/foldering give TC alias/union/enum-value + full-API + `(unresolved)` automatically.
-- [ ] Verify on `project11`: `.library` refs get their element signatures, foldered like CODESYS.
+- [x] DECISION: element signatures are a KNOWN TwinCAT LIMITATION (surfaced, per no-hidden-bugs — the bridge
+      returns TC library refs/namespaces but not element signatures). Not reachable via the out-of-process
+      automation surface (see research above).
+- [~] DEFERRED (blocked by the limitation): `BeckhoffDriver.ExtractLibrarySignatures` → shared `LibSignature`
+      records + `project11` verification. Only feasible via the in-process re-architecture (out-of-process DTE
+      automation → in-process TcXaeShell extension) — tracked as a separate future change, NOT this one.
 
 ## 4. GET-only / SET-only property parity (the flagged TC bug)
 - [x] Root cause: NOT a push-side phantom. The READ side dropped ALL interface-property accessors — `Materializer`
@@ -63,7 +64,8 @@ both. Live test targets: CODESYS AWA on `:8556`, TwinCAT `project11` on `:8555`.
   dumps program/function/FB bodies, skipping interfaces/DUTs).
 
 ## 5. Land
-- [ ] Full bridge suite green on both; `check-divergence` clean; parity asserted by the new tests.
+- [x] Full bridge suite green on both (`:8555` + `:8556`): 67 e2e + 216 C# unit per vendor, 57 volt-git per
+      vendor; `check-divergence` clean; parity asserted by the new interface-accessor tests.
 
 ## Notes
 - `ARCHITECTURE.md`: the wire is the parity boundary; the tree structure (`Library Manager` vs `References`) is a
