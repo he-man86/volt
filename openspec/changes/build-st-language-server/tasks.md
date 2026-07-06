@@ -14,6 +14,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | binary-op-type-mismatch | ST | error | ✅ | MOD non-int · BOOL-in-arithmetic |
 | conversion-source-mismatch | ST | error | ✅ | `<T>_TO_<U>` source vs arg |
 | overflow · subrange · array-bounds | ST | error | ✅ | const-eval; wording bridge-gated (provisional) |
+| deref-non-pointer (`x^`) | ST | error | ✅ | flags elementary/array bases; pointer/ref/THIS fold quiet |
 | duplicate-declaration | ST | error | ✅ | per-scope, qualified_only-aware |
 | **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs`; **member access ⏸** |
 | **vg-undeclared-identifier** | VG | error | ✅ | shares ST resolver; skips LD `SET/RESET/RISING/FALLING` modifiers |
@@ -22,7 +23,6 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | pragmas (message + orphan-conditional) | ST | error/info | ✅ | unknown/conflict pragma ⏳ (needs pragma catalog, F.1) |
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
-| deref (`^` on non-pointer) | ST | error | ⏳ | next |
 | conversion-catalog / library floor | ST | — | ⏳ | F.1 keyword/pragma + library-signature catalogs |
 | member-access resolution | ST | error | ⏸ | highest-FP surface; separately gated follow-on |
 | vg-undefined-label · vg-unknown-pin | VG | error/warn | ⏳ | legacy had them; port after deref |
@@ -87,14 +87,16 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
       orchestrator is vendor-keyed. **Conformance oracle stood up**: legacy live-IDE recordings reused,
       `replay.test.ts` asserts LSP ⊆ IDE (no false positives) per vendor + an exact-agreement ratchet.)
 - [~] D.2 checks grouped `types/ · declarations/ · names/ · oop/ · pragmas/`, each thin on `compat`/`infer`,
-      each traced to a conformance fixture recorded against CODESYS + TwinCAT. **12 checks across all 5 groups
-      ported**: types/ (assignment · narrowing · binary-operators · conversion), names/ (duplicate-declaration ·
+      each traced to a conformance fixture recorded against CODESYS + TwinCAT. **13 checks across all 5 groups
+      ported**: types/ (assignment · narrowing · binary-operators · conversion · deref), names/ (duplicate-declaration ·
       **unresolved-identifier**), declarations/ (var-section-placement), oop/ (external-write · lifecycle ·
       abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
       ratchet **231/259 TC · 228/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
-      Deferred: deref · conversion-catalog · unknown/conflict pragmas (the last needs the keyword/pragma catalogs,
-      F.1) · unresolved-identifier MEMBER access (highest-FP; separately gated follow-on).
+      Deferred: conversion-catalog · unknown/conflict pragmas (the last needs the keyword/pragma catalogs,
+      F.1) · unresolved-identifier MEMBER access (highest-FP; separately gated follow-on). **deref-non-pointer
+      ✅ DONE** — `x^` on an elementary/array base errors (byte-identical per vendor: "Dereference requires a
+      pointer" / "…Pointer"); pointer/reference bases + the `THIS^`/reference-target infer-fold stay quiet, 0-FP.
       **`unresolved-identifier` ✅ DONE** — bare-reference resolution; the `.library` `NAMESPACE` line + the
       `.device`-instance skip ship as `src/workspace-refs.ts` (loaders → `WorkspaceRefs`, threaded via
       `DiagnosticsArgs.references`; the server loads them from `rootUri`, the corpus gate from the project dir).

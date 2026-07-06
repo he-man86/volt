@@ -25,6 +25,8 @@ export interface Messages {
   duplicateDeclaration(name: string, scope: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
+  /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
+  dereferenceRequiresPointer(): string
   /** Instantiating an ABSTRACT FB: "Function block" (CODESYS) vs "Functionblock" (TwinCAT, one word). */
   abstractInstantiation(fb: string): string
   /** A VAR section not allowed for the containing POU: TwinCAT quotes the section name, CODESYS doesn't. */
@@ -71,6 +73,7 @@ export function messagesFor(vendor: Vendor): Messages {
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
+    dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     sectionNotAllowed: (sectionKind) =>
