@@ -2,13 +2,13 @@
   "$schema": "https://json.schemastore.org/tsconfig.json",
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
     "module": "nodenext",
     "declaration": true,
     "moduleResolution": "nodenext",
     "lib": ["es2022"]
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "exclude": ["dist", "node_modules", "**/*.test.ts"]
 }

@@ -5,7 +5,8 @@ verify → let the next consume it.
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
       The existing `packages/volt-lsp-iec` stays UNTOUCHED as the reference/backup (git also preserves it).
-      Scaffold a fresh package `packages/volt-lsp-iec-next` — isolated, so nothing imports it yet and there is
+      Scaffold a fresh package `packages/volt-lsp-iec-next` (SWAP DONE 2026-07-06 — promoted to `packages/volt-lsp-iec`,
+      the old package deleted; git history preserves it) — isolated, so nothing imports it yet and there is
       ZERO breakage while it's built. Mirror the old package config: `package.json` (`type: module`; exports
       `.` → `src/index.ts` + `./conformance`; `bin` `volt-lsp-iec`; deps `vscode-languageserver-protocol` +
       `-textdocument`; devDeps from catalog; scripts build/typecheck/test/record:language); `tsconfig.json`

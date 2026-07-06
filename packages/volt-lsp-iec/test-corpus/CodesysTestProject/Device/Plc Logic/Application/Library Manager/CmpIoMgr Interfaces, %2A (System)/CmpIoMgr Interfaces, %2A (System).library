@@ -1,0 +1,5 @@
+LIBRARY CmpIoMgr Interfaces, * (System)
+NAMESPACE CmpIoMgr_Interfaces
+RESOLUTION CmpIoMgr Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false
