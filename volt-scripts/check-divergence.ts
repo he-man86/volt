@@ -197,7 +197,8 @@ function main(): void {
     return
   }
 
-  const out = execSync(`git diff --name-status ${upstreamRef} HEAD`, { encoding: "utf8" })
+  // maxBuffer well past the default 1 MB — the diff lists every corpus file, thousands of lines.
+  const out = execSync(`git diff --name-status ${upstreamRef} HEAD`, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 })
   const { allowed, violations } = classify(out.split("\n"))
 
   console.log(`Fork divergence vs ${upstreamRef}\n`)
