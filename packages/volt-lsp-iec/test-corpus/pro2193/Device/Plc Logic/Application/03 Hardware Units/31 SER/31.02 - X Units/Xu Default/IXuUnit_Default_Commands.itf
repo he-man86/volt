@@ -12,6 +12,8 @@ END_METHOD
 // The X axis is in a safe position to enter the mould.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForMouldEntry : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

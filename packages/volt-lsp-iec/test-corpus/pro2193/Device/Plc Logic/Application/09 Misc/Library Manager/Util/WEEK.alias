@@ -1,0 +1,2 @@
+TYPE WEEK : UINT (1..53);
+END_TYPE

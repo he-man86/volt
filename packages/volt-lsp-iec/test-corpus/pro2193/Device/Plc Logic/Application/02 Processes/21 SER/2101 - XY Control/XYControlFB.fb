@@ -1,0 +1,957 @@
+{attribute 'symbol' := 'none'}
+{attribute 'monitoring_display' := 'ActState'}
+FUNCTION_BLOCK XYControlFB
+EXTENDS ModuleWithStateFB
+IMPLEMENTS IXYControl_Commands
+VAR_INPUT
+	ButtonSampleShot			: PushButtonLedFB;
+
+	Data						: REFERENCE TO XYControl_Data;
+
+	IMM							: IIMM_Default_XYControl;
+	yUnit						: IYUnit_Default_Commands;
+	xiUnit						: IXUnit_Shared_Commands;
+	xuUnit						: IXUnit_Shared_Commands;
+	placeLabelsInMould			: IModuleStartCommand;
+	takeoutFromMould			: IModuleStartCommand;
+	transferLabels				: IModuleTransferExecute;
+	transferProducts			: IModuleTransferExecute;
+	transferToRejectShute		: IModuleTransferExecute;
+END_VAR
+VAR//VISU
+	{attribute 'symbol' := 'readwrite'}	xSampleshotRequest			: BOOL;
+	{attribute 'symbol' := 'read'}		xSampleshotBusy				: BOOL;
+END_VAR
+VAR
+	result						: ARRAY[1..4] OF BOOL;
+	MouldClosed					: BOOL;
+	startingCycleActive			: BOOL;
+	startingCycleDone			: BOOL;
+	alarmNoLabelsForMould		: BOOL;
+
+	ActState :
+	(
+		StateNone							:= 0,
+		StateFirstCycle_XUnitsToParking		:= 10,
+
+		StateTakeover1PosCheck				:= 100,
+		StateTakeover1PosMove				:= 110,
+		StateTakeover1PosActions			:= 120,
+
+		StateTakeover2PosCheck				:= 200,
+		StateTakeover2PosMove				:= 210,
+		StateTakeover2PosActions			:= 220,
+
+		StateTakeover3PosCheck				:= 300,
+		StateTakeover3PosMove				:= 310,
+		StateTakeover3PosActions			:= 320,
+
+		StateTakeoverLabelPosCheck			:= 400,
+		StateTakeoverLabelPosMove			:= 410,
+		StateTakeoverLabelPosActions		:= 420,
+
+		StateTakeover4PosCheck				:= 450,
+		StateTakeover4PosMove				:= 451,
+		StateTakeover4PosActions			:= 452,
+
+		StateTakeover5PosCheck				:= 460,
+		StateTakeover5PosMove				:= 461,
+		StateTakeover5PosActions			:= 462,
+
+		StateTakeover6PosCheck				:= 470,
+		StateTakeover6PosMove				:= 471,
+		StateTakeover6PosActions			:= 472,
+
+		State_XUnitsToParking				:= 490,
+		StateWaitForMouldClosed				:= 500,
+		StateWaitForMouldOpen				:= 510,
+		StateYUnitEnterMouldArea			:= 520,
+		StateYUnitInPositionInMouldArea		:= 530,
+
+		StateXUnitsDoInMouldActions			:= 600,
+		StateYUnitLeaveMouldArea			:= 610,
+		StateYUnitOnSafetyStrip				:= 620
+	) DINT;
+END_VAR
+
+SUPER^();
+
+END_FUNCTION_BLOCK
+
+METHOD PROTECTED Alarms
+VAR_INST
+	SetError					: ARRAY[1..4] OF SetErrorFB;
+	savedState					: DINT;
+END_VAR
+SetError[1](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= SER_Errors,
+	errorId			:= 3,	// Disable signal: 'Enable operation with robot' (ZB2)
+	alarmCondition	:= IMM.AutoOperation AND ((ActState = StateWaitForMouldClosed AND SER.ActState = PACK_ML.State.Completing) OR SER.ActState = PACK_ML.State.Stopping),
+	alarmDelay		:= 3.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[2](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= SER_Errors,
+	errorId			:= 9,	// Waiting for mould open signal (ZA7)
+	alarmCondition	:= ActState = StateWaitForMouldOpen AND NOT IMM.RequestFullMouldOpen,
+	alarmDelay		:= 20.0,
+	severity		:= enumErrorSeverity.Warning,
+	reaction		:= enumErrorReaction.No_reaction,
+	active			=> );
+
+SetError[3](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= SER_Errors,
+	errorId			:= 4,	// Maximum allowed cycle time exceeded
+	alarmCondition	:= ActState <> StateNone
+					AND ActState = savedState
+					AND SER.OperationMode = SER_OperationModeType.Production
+					AND SER.ActState <> PACK_ML.State.Suspended
+					AND SER.ActState <> PACK_ML.State.Completing,
+	alarmDelay		:= TO_REAL(PersistentVars.BrinkRecipeVars.maximumAllowedCycleTime.value),
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+savedState := ActState;
+
+SetError[4](
+	moduleHandler	:= ModuleHandler,
+	textRefId		:= SER_Errors,
+	errorId			:= 25,	// Waiting for mould open signal (ZA7)
+	alarmCondition	:= alarmNoLabelsForMould,
+	alarmDelay		:= 0.0,
+	severity		:= enumErrorSeverity.Fault,
+	reaction		:= enumErrorReaction.Stop,
+	active			=> );
+
+alarmNoLabelsForMould	R= SetError[4].active;
+END_METHOD
+
+METHOD PROTECTED Cyclic
+State(actState	:= ActState);
+
+ButtonSampleShot();
+
+IF SER.InAutomaticOperation THEN
+	xSampleshotBusy			S= ButtonSampleShot.ButtonPushed OR xSampleshotRequest;
+ELSE
+	xSampleshotRequest		:= FALSE;
+	xSampleshotBusy			:= FALSE;
+END_IF
+
+
+// Enable manual control of Y Unit motor when Xi/Xu Units are in safe position.
+yUnit.ExternalManualControlEnabled	:= xiUnit.InSafePos AND xuUnit.InSafePos;
+
+// Enable manual control of Xi/Xu Units when Y Unit is safe.
+xiUnit.ExternalManualControlEnabled	:= yUnit.InSafePosForXUnits;
+xuUnit.ExternalManualControlEnabled	:= yUnit.InSafePosForXUnits;
+END_METHOD
+
+// Command to reset the module (Statemachine to zero state) in case of E-Stop
+METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+EStop		:= TRUE;
+END_METHOD
+
+// After a state change, this method is called to execute the current state
+METHOD PROTECTED Execute
+IF State.Changed THEN
+	Arrays.Bool_Reset(result);
+END_IF
+
+CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+//	enumExchangeSets.SingleCavSingleTakeover,
+//	enumExchangeSets.TwoCavSingleTakeover:
+//		Execute_Sequence1();
+//	enumExchangeSets.SingleCavDualTakeover:
+//		Execute_Sequence2();
+//	enumExchangeSets.FourCavDualTakeover:
+//		Execute_Sequence3();
+//	ELSE
+//		ShowNoProgramWarning();
+//		Execute_Sequence1();
+	ELSE
+		Execute_Sequence1();
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence1
+// SingleCavSingleTakeover
+CASE ActState OF
+	StateNone:	;
+	StateFirstCycle_XUnitsToParking:	Increment.State(ActState,		XUnitsToParking(),				StateTakeover1PosCheck);
+
+	StateTakeover1PosCheck:				Increment.StateEnum(ActState,	Takeover1PosCheck(),			StateTakeover1PosMove,		StateTakeover2PosCheck);
+	StateTakeover1PosMove:				Increment.State(ActState,		Takeover1PosMove(),				StateTakeover1PosActions);
+	StateTakeover1PosActions:			Increment.State(ActState,		Takeover1PosActions(),			StateTakeover2PosCheck);
+
+	StateTakeover2PosCheck:				Increment.StateEnum(ActState,	Takeover2PosCheck(),			StateTakeover2PosMove,		StateTakeover3PosCheck);
+	StateTakeover2PosMove:				Increment.State(ActState,		Takeover2PosMove(),				StateTakeover2PosActions);
+	StateTakeover2PosActions:			Increment.State(ActState,		Takeover2PosActions(),			StateTakeover3PosCheck);
+
+	StateTakeover3PosCheck:				Increment.StateEnum(ActState,	Takeover3PosCheck(),			StateTakeover3PosMove,		StateTakeover4PosCheck);
+	StateTakeover3PosMove:				Increment.State(ActState,		Takeover3PosMove(),				StateTakeover3PosActions);
+	StateTakeover3PosActions:			Increment.State(ActState,		Takeover3PosActions(),			StateTakeover4PosCheck);
+
+	StateTakeover4PosCheck:				Increment.StateEnum(ActState,	Takeover4PosCheck(),			StateTakeover4PosMove,		StateTakeover5PosCheck);
+	StateTakeover4PosMove:				Increment.State(ActState,		Takeover4PosMove(),				StateTakeover4PosActions);
+	StateTakeover4PosActions:			Increment.State(ActState,		Takeover4PosActions(),			StateTakeover5PosCheck);
+
+	StateTakeover5PosCheck:				Increment.StateEnum(ActState,	Takeover5PosCheck(),			StateTakeover5PosMove,		StateTakeover6PosCheck);
+	StateTakeover5PosMove:				Increment.State(ActState,		Takeover5PosMove(),				StateTakeover5PosActions);
+	StateTakeover5PosActions:			Increment.State(ActState,		Takeover5PosActions(),			StateTakeover6PosCheck);
+
+	StateTakeover6PosCheck:				Increment.StateEnum(ActState,	Takeover6PosCheck(),			StateTakeover6PosMove,		StateTakeoverLabelPosCheck);
+	StateTakeover6PosMove:				Increment.State(ActState,		Takeover6PosMove(),				StateTakeover6PosActions);
+	StateTakeover6PosActions:			Increment.State(ActState,		Takeover6PosActions(),			StateTakeoverLabelPosCheck);
+
+	StateTakeoverLabelPosCheck:			Increment.StateEnum(ActState,	TakeoverLabelPosCheck(),		StateTakeoverLabelPosMove,	State_XUnitsToParking);
+	StateTakeoverLabelPosMove:			Increment.State(ActState,		TakeoverLabelPosMove(),			StateTakeoverLabelPosActions);
+	StateTakeoverLabelPosActions:		Increment.State(ActState,		TakeoverLabelPosActions(),		State_XUnitsToParking);
+
+	State_XUnitsToParking:				Increment.State(ActState,		XUnitsToParking(),				StateWaitForMouldClosed);
+
+	StateWaitForMouldClosed:			Increment.StateEnum(ActState,	WaitForMouldClosed(),			StateWaitForMouldOpen,		StateNone);
+	StateWaitForMouldOpen:				Increment.State(ActState,		WaitForMouldOpen(),				StateYUnitEnterMouldArea);
+	StateYUnitEnterMouldArea:			Increment.State(ActState,		YUnitEnterMouldArea(),			StateYUnitInPositionInMouldArea);
+	StateYUnitInPositionInMouldArea:	Increment.State(ActState,		YUnitInPositionInMouldArea(),	StateXUnitsDoInMouldActions);
+	StateXUnitsDoInMouldActions:		Increment.State(ActState,		XUnitsDoInMouldActions(),		StateYUnitLeaveMouldArea);
+	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
+	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence2
+// FourCavDualTakeover
+CASE ActState OF
+	StateNone:	;
+	StateFirstCycle_XUnitsToParking:	Increment.State(ActState,		FirstCycle_XUnitsToParking(),	StateTakeover1PosCheck);
+
+	StateTakeover1PosCheck:				Increment.StateEnum(ActState,	Takeover1PosCheck_Sequence2(),	StateTakeover1PosMove,		StateTakeover2PosCheck);
+	StateTakeover1PosMove:				Increment.State(ActState,		Takeover1PosMove(),				StateTakeover1PosActions);
+	StateTakeover1PosActions:			Increment.State(ActState,		Takeover1PosActions(),			StateTakeover2PosCheck);
+
+	StateTakeover2PosCheck:				Increment.StateEnum(ActState,	Takeover2PosCheck(),			StateTakeover2PosMove,		StateWaitForMouldClosed);
+	StateTakeover2PosMove:				Increment.State(ActState,		Takeover2PosMove(),				StateTakeover2PosActions);
+	StateTakeover2PosActions:			Increment.State(ActState,		Takeover2PosActions(),			StateWaitForMouldClosed);
+
+	StateWaitForMouldClosed:			Increment.StateEnum(ActState,	WaitForMouldClosed(),			StateWaitForMouldOpen,		StateNone);
+	StateWaitForMouldOpen:				Increment.State(ActState,		WaitForMouldOpen(),				StateYUnitEnterMouldArea);
+	StateYUnitEnterMouldArea:			Increment.State(ActState,		YUnitEnterMouldArea(),			StateYUnitInPositionInMouldArea);
+	StateYUnitInPositionInMouldArea:	Increment.State(ActState,		YUnitInPositionInMouldArea(),	StateXUnitsDoInMouldActions);
+	StateXUnitsDoInMouldActions:		Increment.State(ActState,		XUnitsDoInMouldActions(),		StateYUnitLeaveMouldArea);
+	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
+	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
+END_CASE
+END_METHOD
+
+METHOD PROTECTED Execute_Sequence3
+// FourCavDualTakeover
+CASE ActState OF
+	StateNone:	;
+	StateFirstCycle_XUnitsToParking:	Increment.State(ActState,		FirstCycle_XUnitsToParking(),	StateTakeover1PosCheck);
+
+	StateTakeover1PosCheck:				Increment.StateEnum(ActState,	Takeover1PosCheck_Sequence3(),	StateTakeover1PosMove,		StateTakeover2PosCheck);
+	StateTakeover1PosMove:				Increment.State(ActState,		Takeover1PosMove(),				StateTakeover1PosActions);
+	StateTakeover1PosActions:			Increment.State(ActState,		Takeover1PosActions(),			StateTakeover2PosCheck);
+
+	StateTakeover2PosCheck:				Increment.StateEnum(ActState,	Takeover2PosCheck(),			StateTakeover2PosMove,		StateWaitForMouldClosed);
+	StateTakeover2PosMove:				Increment.State(ActState,		Takeover2PosMove(),				StateTakeover2PosActions);
+	StateTakeover2PosActions:			Increment.State(ActState,		Takeover2PosActions(),			StateWaitForMouldClosed);
+
+	StateWaitForMouldClosed:			Increment.StateEnum(ActState,	WaitForMouldClosed(),			StateWaitForMouldOpen,		StateNone);
+	StateWaitForMouldOpen:				Increment.State(ActState,		WaitForMouldOpen(),				StateYUnitEnterMouldArea);
+	StateYUnitEnterMouldArea:			Increment.State(ActState,		YUnitEnterMouldArea(),			StateYUnitInPositionInMouldArea);
+	StateYUnitInPositionInMouldArea:	Increment.State(ActState,		YUnitInPositionInMouldArea(),	StateXUnitsDoInMouldActions);
+	StateXUnitsDoInMouldActions:		Increment.State(ActState,		XUnitsDoInMouldActions(),		StateYUnitLeaveMouldArea);
+	StateYUnitLeaveMouldArea:			Increment.State(ActState,		YUnitLeaveMouldArea(),			StateYUnitOnSafetyStrip);
+	StateYUnitOnSafetyStrip:			Increment.State(ActState,		YUnitOnSafetyStrip(),			StateTakeover1PosCheck);
+END_CASE
+END_METHOD
+
+METHOD PUBLIC GetSampleShotRequest : BOOL
+%FOLDER Commands
+GetSampleShotRequest	:= xSampleshotBusy;
+xSampleshotBusy			:= FALSE;
+END_METHOD
+
+// Return true if this module should start in this operation mode
+METHOD ShouldStart : BOOL
+VAR_INPUT
+	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
+END_VAR
+%FOLDER Commands
+// Only start automatic cycle when X/Y control is enabled.
+IF NOT Data.Enable THEN
+	ActState := StateNone;
+	ShouldStart := FALSE;
+	RETURN;
+END_IF
+
+CASE operationMode OF
+	SER_OperationModeType.Production:			ShouldStart := TRUE;
+	SER_OperationModeType.SemiAuto:				ShouldStart := TRUE;
+	SER_OperationModeType.CleaningMode:			ShouldStart := TRUE;
+	SER_OperationModeType.OnlyInsertLabels:		ShouldStart := TRUE;
+	SER_OperationModeType.TakeOutOnce:			ShouldStart := TRUE;
+	SER_OperationModeType.AutoTakeoutLabels:	ShouldStart := FALSE;
+	ELSE
+		LogPlc.Error('Unknown operation mode: I dont know if I should start myself.');
+		ShouldStart := FALSE;
+END_CASE
+END_METHOD
+
+// Start automatic operations now! Returns true when module is started.
+METHOD StartCycle : BOOL
+%FOLDER Commands
+IF NOT CommandLock.Request(__POUNAME()) THEN
+	RETURN;
+END_IF
+
+IF CommandLock.FirstCall THEN
+	startingCycleActive		:= TRUE;
+	startingCycleDone		:= FALSE;
+
+	// Use the AlternateCycleCounter counter to create odd / even cycles.
+//	CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
+//		enumExchangeSets.SingleCavSingleTakeover:	transferProducts.AlternateCycleCounter	:= 0;
+//		enumExchangeSets.SingleCavDualTakeover:		transferProducts.AlternateCycleCounter	:= 1;
+//		enumExchangeSets.FourCavDualTakeover:		transferProducts.AlternateCycleCounter	:= 0;
+//		enumExchangeSets.TwoCavSingleTakeover:		transferProducts.AlternateCycleCounter	:= 0;
+//		ELSE										transferProducts.AlternateCycleCounter	:= 0;
+//	END_CASE
+
+	// No alternating cycles
+	transferProducts.AlternateCycleCounter	:= 0;
+END_IF
+
+IF ActState = StateNone THEN
+	ActState := StateFirstCycle_XUnitsToParking;	// FirstCycle_XUnitsToParking		<-- Press F12 here
+END_IF
+
+IF startingCycleDone THEN
+	startingCycleActive		:= FALSE;
+	startingCycleDone		:= FALSE;
+	StartCycle				:= CommandLock.Release(__POUNAME());
+END_IF
+END_METHOD
+
+// Command to stop a module (Statemachine to zero state)
+METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+%FOLDER Commands
+CommandLock.ForceRelease();
+
+ActState	:= StateNone;
+Stop		:= TRUE;
+END_METHOD
+
+// Cycle stop request. Returns true when module finished its active cycle.
+METHOD StopCycle : BOOL
+%FOLDER Commands
+StopCycle				:= ActState = StateNone;
+END_METHOD
+
+METHOD PROTECTED Takeover1PosActions : BOOL
+VAR_INST
+	transferProductsRequired	: BOOL;
+	transferLabelsRequired		: BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(1);
+	transferLabelsRequired		:= transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 1;
+
+	// Copy the AlternateCycleCounter int to the label transfer FB. It can use this counter to check if another label is needed during 'Completing' mode
+	transferLabels.AlternateCycleCounter := transferProducts.AlternateCycleCounter;
+END_IF
+
+IF transferProductsRequired THEN
+	result[1]	:= result[1] OR_ELSE transferProducts.ExecuteTransfer(1);
+ELSE
+	result[1]	:= TRUE;
+END_IF
+
+IF transferLabelsRequired THEN
+	result[2]	:= result[2] OR_ELSE transferLabels.ExecuteTransfer(1);
+ELSE
+	result[2]	:= TRUE;
+END_IF
+
+IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
+	Takeover1PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover1PosCheck : enumResultGeneric
+%FOLDER States
+IF transferProducts.CheckIfTransferIsNeeded(1)
+OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 1)
+THEN
+	Takeover1PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover1PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover1PosCheck_Sequence2 : enumResultGeneric
+%FOLDER States
+IF transferProducts.CheckIfTransferIsNeeded(1)
+AND transferProducts.AlternateCycleCounter = 1
+THEN
+	Takeover1PosCheck_Sequence2 := enumResultGeneric.Success;
+ELSE
+	Takeover1PosCheck_Sequence2 := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover1PosCheck_Sequence3 : enumResultGeneric
+%FOLDER States
+IF transferProducts.CheckIfTransferIsNeeded(1) THEN
+	Takeover1PosCheck_Sequence3 := enumResultGeneric.Success;
+ELSE
+	Takeover1PosCheck_Sequence3 := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover1PosMove : BOOL
+VAR
+	prepareTransfer	: IModuleTransferExecuteWithPrepare;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
+	AND_THEN prepareTransfer.CheckIfTransferIsNeeded(1)
+	THEN
+		prepareTransfer.PrepareTransfer(1);
+	END_IF
+
+	IF __QUERYINTERFACE(transferLabels, prepareTransfer)
+	AND_THEN (prepareTransfer.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 1)
+	THEN
+		prepareTransfer.PrepareTransfer(1);
+	END_IF
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(1)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover1PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover2PosActions : BOOL
+VAR_INST
+	transferProductsRequired	: BOOL;
+	transferLabelsRequired		: BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(2);
+	transferLabelsRequired		:= transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 2;
+
+	// Copy the AlternateCycleCounter int to the label transfer FB. It can use this counter to check if another label is needed during 'Completing' mode
+	transferLabels.AlternateCycleCounter := transferProducts.AlternateCycleCounter;
+END_IF
+
+IF transferProductsRequired THEN
+	result[1]	:= result[1] OR_ELSE transferProducts.ExecuteTransfer(2);
+ELSE
+	result[1]	:= TRUE;
+END_IF
+
+IF transferLabelsRequired THEN
+	result[2]	:= result[2] OR_ELSE transferLabels.ExecuteTransfer(1);
+ELSE
+	result[2]	:= TRUE;
+END_IF
+
+IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
+	Takeover2PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover2PosCheck : enumResultGeneric
+%FOLDER States
+IF transferProducts.CheckIfTransferIsNeeded(2)
+OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 2)
+THEN
+	Takeover2PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover2PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover2PosMove : BOOL
+VAR
+	prepareTransfer	: IModuleTransferExecuteWithPrepare;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
+	AND_THEN prepareTransfer.CheckIfTransferIsNeeded(2)
+	THEN
+		prepareTransfer.PrepareTransfer(2);
+	END_IF
+
+	IF __QUERYINTERFACE(transferLabels, prepareTransfer)
+	AND_THEN (prepareTransfer.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 2)
+	THEN
+		prepareTransfer.PrepareTransfer(1);
+	END_IF
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(2)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover2PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover3PosActions : BOOL
+VAR_INST
+	transferProductsRequired	: BOOL;
+	transferLabelsRequired		: BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	transferProductsRequired	:= transferProducts.CheckIfTransferIsNeeded(3);
+	transferLabelsRequired		:= transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 3;
+
+	// Copy the AlternateCycleCounter int to the label transfer FB. It can use this counter to check if another label is needed during 'Completing' mode
+	transferLabels.AlternateCycleCounter := transferProducts.AlternateCycleCounter;
+END_IF
+
+IF transferProductsRequired THEN
+	result[1]	:= result[1] OR_ELSE transferProducts.ExecuteTransfer(3);
+ELSE
+	result[1]	:= TRUE;
+END_IF
+
+IF transferLabelsRequired THEN
+	result[2]	:= result[2] OR_ELSE transferLabels.ExecuteTransfer(1);
+ELSE
+	result[2]	:= TRUE;
+END_IF
+
+IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
+	Takeover3PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover3PosCheck : enumResultGeneric
+%FOLDER States
+IF transferProducts.CheckIfTransferIsNeeded(3)
+OR (transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 3)
+THEN
+	Takeover3PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover3PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover3PosMove : BOOL
+VAR
+	prepareTransfer	: IModuleTransferExecuteWithPrepare;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	IF __QUERYINTERFACE(transferProducts, prepareTransfer)
+	AND_THEN prepareTransfer.CheckIfTransferIsNeeded(3)
+	THEN
+		prepareTransfer.PrepareTransfer(3);
+	END_IF
+
+	IF __QUERYINTERFACE(transferLabels, prepareTransfer)
+	AND_THEN (prepareTransfer.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 3)
+	THEN
+		prepareTransfer.PrepareTransfer(1);
+	END_IF
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(3)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover3PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover4PosActions : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(3);
+
+IF result[1] AND SER.SemiAutoNextStep THEN
+	Takeover4PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover4PosCheck : enumResultGeneric
+%FOLDER States
+IF transferToRejectShute.CheckIfTransferIsNeeded(3) THEN
+	Takeover4PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover4PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover4PosMove : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(4)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover4PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover5PosActions : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(2);
+
+IF result[1] AND SER.SemiAutoNextStep THEN
+	Takeover5PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover5PosCheck : enumResultGeneric
+%FOLDER States
+IF transferToRejectShute.CheckIfTransferIsNeeded(2) THEN
+	Takeover5PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover5PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover5PosMove : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(5)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover5PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover6PosActions : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+result[1]	:= result[1] OR_ELSE transferToRejectShute.ExecuteTransfer(1);
+
+IF result[1] AND SER.SemiAutoNextStep THEN
+	Takeover6PosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover6PosCheck : enumResultGeneric
+%FOLDER States
+IF transferToRejectShute.CheckIfTransferIsNeeded(1) THEN
+	Takeover6PosCheck := enumResultGeneric.Success;
+ELSE
+	Takeover6PosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED Takeover6PosMove : BOOL
+%FOLDER States
+IF State.Changed THEN
+	;
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(6)))
+AND SER.SemiAutoNextStep
+THEN
+	Takeover6PosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED TakeoverLabelPosActions : BOOL
+%FOLDER States
+IF (result[1] OR_ELSE (result[1] := transferLabels.ExecuteTransfer(1)))
+AND SER.SemiAutoNextStep
+THEN
+	TakeoverLabelPosActions := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED TakeoverLabelPosCheck : enumResultGeneric
+%FOLDER States
+IF transferLabels.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 0 THEN
+	TakeoverLabelPosCheck := enumResultGeneric.Success;
+ELSE
+	TakeoverLabelPosCheck := enumResultGeneric.Error;
+END_IF
+END_METHOD
+
+METHOD PROTECTED TakeoverLabelPosMove : BOOL
+VAR
+	prepareTransfer	: IModuleTransferExecuteWithPrepare;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	IF __QUERYINTERFACE(transferLabels, prepareTransfer)
+	AND_THEN (prepareTransfer.CheckIfTransferIsNeeded(1) AND yUnit.IsLabelTakeoutEqual = 0)
+	THEN
+		prepareTransfer.PrepareTransfer(1);
+	END_IF
+END_IF
+
+
+IF (result[1] OR_ELSE (result[1] := yUnit.MoveToLabelTakeover()))
+AND SER.SemiAutoNextStep
+THEN
+	TakeoverLabelPosMove := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED WaitForMouldClosed : enumResultGeneric
+%FOLDER States
+// Stop automatic cycle when cleaning mode is active.
+IF SER.OperationMode = SER_OperationModeType.CleaningMode THEN
+	WaitForMouldClosed := enumResultGeneric.Error;			//ActState := StateNone;
+
+ELSIF startingCycleActive			// SER State is: Starting, so continue cycle
+OR MouldClosed						// The mould closed, so another cycle is necessary to takeout products
+OR SER.OperationMode = SER_OperationModeType.SemiAuto
+THEN
+	WaitForMouldClosed := enumResultGeneric.Success;		//ActState := StateWaitForMouldOpen;
+
+ELSIF SER.ActState = PACK_ML.State.Completing
+AND NOT IMM.AutoOperation
+THEN								// Mould did not close, so end of cycle is active. Stop state machine.
+	WaitForMouldClosed := enumResultGeneric.Error;			//ActState := StateNone;
+END_IF
+END_METHOD
+
+METHOD PROTECTED WaitForMouldOpen : BOOL
+VAR
+	xuUnitExtended				: IXuUnit_Default_Commands;
+END_VAR
+%FOLDER States
+// Do not start moving towards mould if any X axes is not in position
+IF NOT xiUnit.InSafePos OR NOT xuUnit.InSafePos THEN
+	yUnit.Stop();
+	RETURN;
+END_IF
+
+IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN
+	RETURN;
+END_IF
+
+// Wait here until all XYControls are ready.
+IF NOT IMM.SynchronizeYUnits(instanceNo := InstanceNo) THEN
+	RETURN;
+END_IF
+
+// The 'Starting' state is done when the Y unit has arrived on the waiting position.
+startingCycleDone S= SER.ActState = PACK_ML.State.Starting AND result[2];
+
+IF (SER.ActState = PACK_ML.State.Execute OR SER.ActState = PACK_ML.State.Completing)
+AND (result[2] OR_ELSE (result[2] := yUnit.MoveToWaiting()))
+AND IMM.RequestMouldEntry
+AND SER.SemiAutoNextStep
+AND xuUnit.HasPayload = enumPayload.None
+AND NOT yUnit.IsDecelerating
+THEN
+	WaitForMouldOpen := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED XUnitsDoInMouldActions : BOOL
+VAR_INST
+	allowLabelsInCavities	: BOOL;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	// Only move Xi unit when it has labels
+	allowLabelsInCavities	:= xiUnit.HasPayload = enumPayload._All AND IMM.AllowLabelsInCavities;
+END_IF
+
+IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
+
+	IF allowLabelsInCavities THEN
+		result[1] := result[1] OR_ELSE placeLabelsInMould.StartCommand();
+	ELSE
+		result[1] := TRUE;
+	END_IF
+
+ELSIF InjectionMouldingMachine.Unit.NextCycleHasLabels THEN
+
+	IF allowLabelsInCavities THEN
+		result[1] := result[1] OR_ELSE placeLabelsInMould.StartCommand();
+	ELSE
+		IF State.Changed THEN
+			LogPlc.Error('Can not continue: No label on inlaycores, but the IMM needs labels');
+		END_IF
+		alarmNoLabelsForMould	:= TRUE;
+		RETURN;
+	END_IF
+
+ELSE
+	result[1] := TRUE;
+
+END_IF
+
+(*
+IF allowLabelsInCavities THEN	// Only place labels in the mould cavities if there is no mould cleaning active
+	result[1] := result[1] OR_ELSE placeLabelsInMould.StartCommand();
+ELSE
+	result[1] := TRUE;
+END_IF
+*)
+
+result[2] := result[2] OR_ELSE takeoutFromMould.StartCommand(1);
+result[3] := result[3] OR_ELSE IMM.EjectShot();
+
+IF result[1] AND result[2] AND result[3] AND SER.SemiAutoNextStep THEN
+	XUnitsDoInMouldActions := TRUE;
+END_IF
+
+
+(*
+
+Note: the code above does the same as this sample code:
+
+IF NOT result[1] THEN
+	result[1] := takeoutFromMould.StartCommand(1);
+END_IF
+
+IF NOT result[2] THEN
+	result[2] := IMM.EjectShot();
+END_IF
+
+IF result[1] AND result[2] AND SER.SemiAutoNextStep THEN
+	XUnitsDoInMouldActions := TRUE;
+END_IF
+
+*)
+END_METHOD
+
+METHOD PROTECTED XUnitsToParking : BOOL
+%FOLDER States
+IF  (result[1] OR_ELSE (result[1] := xiUnit.MoveToParking()))
+AND (result[2] OR_ELSE (result[2] := xuUnit.MoveToParking()))
+AND NOT transferLabels.TransferBusy
+AND NOT transferProducts.TransferBusy
+AND NOT transferToRejectShute.TransferBusy
+THEN
+	XUnitsToParking := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitEnterMouldArea : BOOL
+%FOLDER States
+IF State.Changed THEN
+	IMM.InhibitMouldClosing();	// Let the IMM know we're coming in.
+	IMM.EjectShot();			// Start program for the ejectors
+END_IF
+
+result[1] := result[1] OR_ELSE yUnit.MoveInMould();	// Move to position inside mould.
+
+IF  IMM.RequestFullMouldOpen		// Check mould open sensors
+AND NOT yUnit.InSafePos				// Y drive moved off the safety strip
+THEN
+	YUnitEnterMouldArea := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitInPositionInMouldArea : BOOL
+%FOLDER States
+// Xu Unit moves to halfway position during movement of Y Unit.
+result[1]	:= result[1] OR_ELSE takeoutFromMould.StartCommand(0);
+
+IF  (result[2] OR_ELSE (result[2] := yUnit.MoveInMould()))	// Move to position inside mould.
+AND SER.SemiAutoNextStep
+THEN
+	YUnitInPositionInMouldArea := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitLeaveMouldArea : BOOL
+%FOLDER States
+// Do not start moving if any X axes is not in position
+IF NOT xiUnit.InSafePos OR NOT xuUnit.InSafePos THEN
+	yUnit.Stop();
+	RETURN;
+END_IF
+
+// Y Unit starts moving out of the mould area
+IF NOT result[1] THEN
+	CASE transferProducts.AlternateCycleCounter OF
+		0: result[1] := yUnit.MoveToTakeover(1);
+		1: result[1] := yUnit.MoveToTakeover(1);
+		2: result[1] := yUnit.MoveToTakeover(2);
+	END_CASE
+END_IF
+
+
+// When transferProducts.AlternateCycleCounter = 1 then another shot is needed from the IMM to complete the gripper.
+
+IF IMM.ReleaseMouldClosing(
+			mouldClosingIsRequired	:= transferProducts.AlternateCycleCounter = 1,
+			xMouldClosed			=> MouldClosed)
+THEN
+	YUnitLeaveMouldArea := TRUE;
+END_IF
+END_METHOD
+
+METHOD PROTECTED YUnitOnSafetyStrip : BOOL
+VAR
+	xuUnitExtended				: IXuUnit_Default_Commands;
+END_VAR
+%FOLDER States
+IF State.Changed THEN
+	// Copy the product status to the Xu axis now. This is the moment we know that this was the last shot.
+	IF __QUERYINTERFACE(xuUnit, xuUnitExtended) THEN
+		xuUnitExtended.ProductData_Set(IMM.GetProductData(InstanceNo));
+	END_IF
+END_IF
+
+IF NOT xiUnit.InSafePos
+OR NOT xuUnit.InSafePos
+THEN
+	yUnit.Stop();
+	RETURN;
+END_IF
+
+// Y Unit arrived on safety strip
+IF  yUnit.InSafePos
+AND (xuUnit.HasPayload = enumPayload._All OR SER.OperationMode = SER_OperationModeType.SemiAuto)
+THEN
+//	IF transferLabels.CheckIfTransferIsNeeded(1) THEN
+//		xiUnit.MoveToHalfway();		//	Xi move not possible here because the magazine needs to be in position first
+//	END_IF
+	xuUnit.MoveToHalfway();
+	YUnitOnSafetyStrip := TRUE;
+END_IF
+END_METHOD

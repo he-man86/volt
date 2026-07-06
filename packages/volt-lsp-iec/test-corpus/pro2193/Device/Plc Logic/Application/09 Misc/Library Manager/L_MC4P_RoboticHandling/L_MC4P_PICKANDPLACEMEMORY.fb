@@ -1,0 +1,22 @@
+FUNCTION_BLOCK L_MC4P_PICKANDPLACEMEMORY
+VAR_INPUT
+	FB_SEMAMOVEFBS : L_MC1P_CriticalSection;
+	AMC_MOVELINREL : ARRAY [1..3] OF L_MC4P_MoveLinearRelative_Internal;
+	AFB_MOVEELLIPTICAL : ARRAY [1..3] OF L_MC4P_MoveEllipticalAbsolutePnP_Internal;
+	AFB_MOVESPLINE : ARRAY [1..3] OF L_MC4P_MoveSplinePnP_Internal;
+	AMC_MOVELINABS1 : ARRAY [1..10] OF L_MC4P_MoveLinearAbsolute_Internal;
+	AMC_MOVELINABS2 : ARRAY [1..10] OF L_MC4P_MoveLinearAbsolute_Internal;
+	AMC_MOVELINABS3 : ARRAY [1..10] OF L_MC4P_MoveLinearAbsolute_Internal;
+	AMC_MOVELINABS4 : ARRAY [1..3] OF L_MC4P_MoveLinearAbsolute_Internal;
+	AMC_MOVELINABS5 : ARRAY [1..2] OF L_MC4P_MoveLinearAbsolute_Internal;
+	AMC_MOVEDIRABS1 : ARRAY [1..10] OF L_MC4P_MoveDirectAbsolute_Internal;
+	AMC_MOVEDIRABS2 : ARRAY [1..10] OF L_MC4P_MoveDirectAbsolute_Internal;
+	AMC_MOVEDIRREL : ARRAY [1..1] OF L_MC4P_MoveDirectRelative_Internal;
+	AFB_GROUPWAITTIME : ARRAY [1..3] OF L_MC4P_GroupWaitTime_Internal;
+	ASCPROFILEPARMEM : ARRAY [1..10] OF ARRAY [1..10] OF L_MC4P_scPickAndPlaceProfileParState;
+	ASCPROFILETIMEFROMCVTARGET : ARRAY [1..16] OF ARRAY [0..10] OF L_MC4P_MeasuredProfileTime;
+	AIRINGMEMPROFILETIME : ARRAY [1..16] OF ARRAY [1..2] OF INT;
+	FB_SEMA : L_MC1P_CriticalSection;
+	CONVEYORBELTVIRTUAL : ARRAY [1..2] OF AXIS_REF := [STRUCT(UsedAsInternalAxisInstance := TRUE), STRUCT(UsedAsInternalAxisInstance := TRUE)];
+END_VAR
+END_FUNCTION_BLOCK

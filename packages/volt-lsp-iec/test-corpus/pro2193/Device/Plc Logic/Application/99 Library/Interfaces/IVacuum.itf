@@ -10,11 +10,15 @@ END_METHOD
 // Vacuum input is high (after optional timer)
 {attribute 'monitoring':='call'}
 PROPERTY IsHigh : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Get state of the output (Normally you could call Map(), but with vacuums the Map() method may return false if machine runs without vacuums.
 {attribute 'monitoring':='call'}
 PROPERTY IsTurnedOn : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

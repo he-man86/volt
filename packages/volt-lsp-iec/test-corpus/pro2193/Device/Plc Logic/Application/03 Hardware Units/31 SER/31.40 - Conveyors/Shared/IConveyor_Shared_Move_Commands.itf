@@ -33,16 +33,24 @@ END_METHOD
 // Conveyor process determent that the current stack is full and no more products are allowed
 {attribute 'monitoring':='call'}
 PROPERTY CurrentStackFull : BOOL
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 // The conveyor has stacks on it
 {attribute 'monitoring':='call'}
 PROPERTY HasStacks : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
 //{attribute 'monitoring':='call'} Monitoring attribute is not supported for this property :(
 PROPERTY ProductsOnTopOfStack : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor] OF ProductType
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

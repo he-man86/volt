@@ -1,0 +1,6 @@
+LIBRARY MemoryUtils
+NAMESPACE MEMUtils
+RESOLUTION MemoryUtils, 3.5.18.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, SysCpuHandling, CAA MemBlockMan, CAA Types, CAA Callback, SysMem

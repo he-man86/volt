@@ -1,0 +1,9 @@
+TYPE L_MC4P_TOOLSYSTEM :
+(
+	NOTOOL := 0,
+	TOOL_1 := 1,
+	TOOL_2 := 2,
+	TOOL_3 := 3,
+	TOOL_4 := 4
+);
+END_TYPE

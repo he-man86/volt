@@ -1,0 +1,7 @@
+TYPE L_MC4P_TOOLREQUEST :
+(
+	HOLD := 0,
+	ON := 1,
+	OFF := 2
+);
+END_TYPE

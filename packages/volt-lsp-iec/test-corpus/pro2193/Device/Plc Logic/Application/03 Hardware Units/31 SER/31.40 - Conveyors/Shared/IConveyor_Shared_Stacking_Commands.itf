@@ -11,11 +11,15 @@ END_METHOD
 // The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
 {attribute 'monitoring':='call'}
 PROPERTY HighestStackIndex : UINT
+GET
+END_GET
 END_PROPERTY
 
 // The area under the stacking unit is free. The Z Unit is allowed to begin a new stack.
 {attribute 'monitoring':='call'}
 PROPERTY StackingAllowed : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

@@ -1,5 +1,0 @@
-LIBRARY SysTask
-NAMESPACE SysTask
-RESOLUTION SysTask, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

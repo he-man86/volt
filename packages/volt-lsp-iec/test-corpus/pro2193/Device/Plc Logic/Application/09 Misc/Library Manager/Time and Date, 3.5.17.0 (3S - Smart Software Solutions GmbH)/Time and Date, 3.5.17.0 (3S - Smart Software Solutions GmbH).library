@@ -1,0 +1,6 @@
+LIBRARY Time and Date, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+NAMESPACE Time_and_Date
+RESOLUTION Time and Date, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER false
+SYSTEM false
+DEPENDENCIES CAA Types, CAA DTUtility, CAA Tick, CAA TickUtil, CAA RTCLK

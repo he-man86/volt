@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	G_BUFFERCLASS : BufferClass;
+	G_QUEUECLASS : QueueClass;
+END_VAR

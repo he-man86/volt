@@ -1,0 +1,7 @@
+TYPE TCP_WRITE_STATE :
+(
+	IDLE := 0,
+	SENDING,
+	DONE
+);
+END_TYPE

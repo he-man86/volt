@@ -1,0 +1,7 @@
+TYPE PROC_CMD :
+(
+	NONE,
+	EXECUTE,
+	ABORT
+);
+END_TYPE

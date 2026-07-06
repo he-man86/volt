@@ -22,6 +22,8 @@ END_METHOD
 // Products are needed at intake side of chain. High when Xu needs to place products. Low when Xu is finished placing.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ProductsNeeded : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

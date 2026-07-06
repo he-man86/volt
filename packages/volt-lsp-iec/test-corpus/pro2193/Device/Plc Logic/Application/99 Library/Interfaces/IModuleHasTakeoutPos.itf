@@ -4,6 +4,8 @@ INTERFACE IModuleHasTakeoutPos
 // The axis is on Takeout position
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsOnTakeoutPos : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

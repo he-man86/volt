@@ -1,0 +1,6 @@
+TYPE L_CT1P_CA_DEVICEPARAMLIST :
+STRUCT
+	SCITEMS : ARRAY [1..L_CT1P_Constants.gcMaxParItems] OF L_CT1P_CA_DeviceParam;
+	WITEMCOUNT : WORD := L_CT1P_Constants.gcParItemsUsed;
+END_STRUCT
+END_TYPE

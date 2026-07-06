@@ -34,43 +34,61 @@ END_METHOD
 // The current payload status (products or labels) of the unit
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC HasPayload : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Intake is blocked. That means the chains needs new products at the intake.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IntakeIsBlocked : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Oldest product on the chain that is still waiting for a camera result
 {warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC OldestProductWaitingForResult : REFERENCE TO ProductType
+GET
+END_GET
 END_PROPERTY
 
 // Oldest product on the chain that is still waiting for a camera result
 {warning disable C0410} // C0410: COMPATIBILITY WARNING: A write access to a Property of type REFERENCE calls the SET-Accessor for versions < 3.5.10.0 and writes the reference, but calls the GET-Accessor for versions >= 3.5.10.0 and writes the value! Use the operator REF= if you want to assign the reference.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC OldestProductWaitingForTrigger : REFERENCE TO ProductType
+GET
+END_GET
 END_PROPERTY
 
 // Products are needed at intake side of chain
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ProductsNeeded : BOOL
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 // Image buffer is full for too long. Stop the chain and await all results
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC StopToCheckImageBuffer : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Trigger sensor is within a window
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC TriggerSensorValid : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // TRUE: Z Unit is after Reject unit. FALSE: Reject unit is after Z Unit.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

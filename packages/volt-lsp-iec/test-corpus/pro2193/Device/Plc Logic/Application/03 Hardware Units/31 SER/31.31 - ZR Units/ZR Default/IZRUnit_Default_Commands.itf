@@ -36,11 +36,15 @@ END_METHOD
 // In Stacking position to get place products on conveyor
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InStackingPosition : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // In Takeover position to get products from chain
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InTakeoverPosition : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

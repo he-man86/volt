@@ -27,18 +27,26 @@ END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY BoxCanBeFilled : BOOL
+GET
+END_GET
 END_PROPERTY
 
 PROPERTY PUBLIC BoxInFillPosition : IDigitalSensor
+GET
+END_GET
 END_PROPERTY
 
 // Indicates the next item which is needed in the box, or none when box is not ready.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
+GET
+END_GET
 END_PROPERTY
 
 {attribute 'monitoring':='call'}
 PROPERTY LayerIndex : UINT
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

@@ -1,0 +1,6 @@
+LIBRARY SysCpuHandling
+NAMESPACE SysCpuHandling
+RESOLUTION SysCpuHandling, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysMem, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System)

@@ -1,5 +1,0 @@
-LIBRARY L_EtcSlaveConfig_i900
-NAMESPACE L_ECC_i900
-RESOLUTION L_EtcSlaveConfig_i900, 3.32.0.4 (Lenze)
-PLACEHOLDER true
-SYSTEM true

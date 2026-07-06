@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	G_FILELISTPROVIDER : Visu_FbFileListProvider;
+	G_VISUDIALOGSCOMMANDS : Visu_DialogCommands;
+END_VAR

@@ -1,5 +1,0 @@
-LIBRARY L_USPP_SignalProcessing
-NAMESPACE L_USPP
-RESOLUTION L_USPP_SignalProcessing, 3.32.0.4 (Lenze)
-PLACEHOLDER true
-SYSTEM false

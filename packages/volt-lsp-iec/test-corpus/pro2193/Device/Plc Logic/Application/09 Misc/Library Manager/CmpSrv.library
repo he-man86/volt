@@ -1,5 +1,0 @@
-LIBRARY CmpSrv
-NAMESPACE CmpSrv
-RESOLUTION CmpSrv, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

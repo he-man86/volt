@@ -28,6 +28,8 @@ END_METHOD
 // Z unit is ready to receive products
 {attribute 'monitoring':='call'}
 PROPERTY ReadyForTransfer : BOOL;
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

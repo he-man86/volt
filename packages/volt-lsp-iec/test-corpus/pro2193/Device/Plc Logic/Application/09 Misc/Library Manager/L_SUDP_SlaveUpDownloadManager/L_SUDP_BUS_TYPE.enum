@@ -1,0 +1,6 @@
+TYPE L_SUDP_BUS_TYPE :
+(
+	BUS_CAN := 15,
+	BUS_ETC := 64
+);
+END_TYPE

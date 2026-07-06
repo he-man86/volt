@@ -1,0 +1,6 @@
+LIBRARY AlarmManagerToOpcUaConnector
+NAMESPACE AlarmManagerToOpcUaConnector
+RESOLUTION AlarmManagerToOpcUaConnector, 4.7.0.0 (CODESYS)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES AlarmManager, CmpApp, SysTypes2 Interfaces, * (System), CmpEventMgr, StringUtils, SysTask, Component Manager, SysMem, CmpOPCUAStack, 3.5.17.0 (System), Standard, CmpOPCUAProviderAlarmConfiguration Interfaces, * (System), CmpOPCUAServer Interfaces, * (System), CmpDynamicText, CmpOPCUAProviderAlarmConfiguration Implementation, CmpErrors2 Interfaces, * (System)

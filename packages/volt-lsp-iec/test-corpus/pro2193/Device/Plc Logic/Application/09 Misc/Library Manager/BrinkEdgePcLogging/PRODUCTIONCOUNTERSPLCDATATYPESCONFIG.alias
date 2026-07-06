@@ -1,0 +1,2 @@
+TYPE PRODUCTIONCOUNTERSPLCDATATYPESCONFIG : ARRAY [0..GVL_Dashboard.MaxNumberOfCavitiesRobot] OF CavityPlcDataTypes;
+END_TYPE

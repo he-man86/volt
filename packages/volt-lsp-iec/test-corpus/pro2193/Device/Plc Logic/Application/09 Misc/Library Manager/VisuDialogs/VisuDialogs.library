@@ -1,0 +1,6 @@
+LIBRARY VisuDialogs
+NAMESPACE VisuDialogs
+RESOLUTION VisuDialogs, 4.8.0.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, SysDir, SysFile, SysTypes2 Interfaces, * (System), Standard64, Datasources Interfaces, * (3S - Smart Software Solutions GmbH), CmpErrors2 Interfaces, * (System), ElementCollections, StringUtils, System_VisuElemBase, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, System_VisuInputs, CAA FB Factory, CAA Types

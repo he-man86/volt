@@ -1,0 +1,6 @@
+LIBRARY StringUtils
+NAMESPACE Stu
+RESOLUTION StringUtils, 3.5.18.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, SysMem, SysTimeRtc, CmpErrors2 Interfaces, * (System), Component Manager

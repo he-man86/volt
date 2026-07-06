@@ -44,6 +44,8 @@ END_METHOD
 // Product transfer is complete, ready for stacking (or something else)
 {attribute 'monitoring':='call'}
 PROPERTY ReadyForStacking : BOOL;
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

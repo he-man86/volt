@@ -8,6 +8,8 @@ END_METHOD
 
 // During transfer products on gripper
 PROPERTY HasProductForTransfer : ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

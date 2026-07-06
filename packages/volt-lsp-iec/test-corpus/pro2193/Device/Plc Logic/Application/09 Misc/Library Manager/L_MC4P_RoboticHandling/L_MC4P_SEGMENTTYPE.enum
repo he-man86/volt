@@ -1,0 +1,14 @@
+TYPE L_MC4P_SEGMENTTYPE :
+(
+	UNDEF := 0,
+	P1 := 1,
+	P5 := 5,
+	CIRC := 10,
+	ELLIPSE := 20,
+	CUBICSPLINE := 30,
+	PTP := 100,
+	WAITTIME := 200,
+	GROUPSTOP := -1,
+	STOPALL := -2
+);
+END_TYPE

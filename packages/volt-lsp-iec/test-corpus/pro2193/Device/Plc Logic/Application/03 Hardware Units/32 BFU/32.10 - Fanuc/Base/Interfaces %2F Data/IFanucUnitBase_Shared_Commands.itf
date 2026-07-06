@@ -2,6 +2,8 @@ INTERFACE IFanucUnitBase_Shared_Commands
 EXTENDS IModuleManualControlEnabled, IModuleWithCommandLock
 
 PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

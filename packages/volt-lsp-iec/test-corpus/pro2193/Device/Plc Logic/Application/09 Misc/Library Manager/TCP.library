@@ -1,5 +1,0 @@
-LIBRARY TCP
-NAMESPACE TCP
-RESOLUTION TCP, 3.5.19.0 (3S - Smart Software Solutions GmbH)
-PLACEHOLDER true
-SYSTEM false

@@ -4,6 +4,10 @@ INTERFACE IXuUnit_Default_Config
 // Enable or disable certain vacuums circuits
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC EnableVacuums : WORD
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 END_INTERFACE

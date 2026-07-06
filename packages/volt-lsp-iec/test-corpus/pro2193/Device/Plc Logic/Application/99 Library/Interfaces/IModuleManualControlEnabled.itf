@@ -4,6 +4,8 @@ INTERFACE IModuleManualControlEnabled
 // Manual control of hardware is enabled from external context
 {attribute 'monitoring':='call'}
 PROPERTY ExternalManualControlEnabled : BOOL
+SET
+END_SET
 END_PROPERTY
 
 END_INTERFACE

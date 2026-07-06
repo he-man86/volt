@@ -1,6 +1,6 @@
 TYPE ERROR :
 (
-	NO_ERROR,
+	NO_ERROR := 0,
 	NO_MEMORY
 );
 END_TYPE

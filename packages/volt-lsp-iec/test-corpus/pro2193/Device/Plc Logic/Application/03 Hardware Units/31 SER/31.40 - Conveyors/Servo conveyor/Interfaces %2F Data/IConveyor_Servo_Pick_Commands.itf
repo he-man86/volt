@@ -13,6 +13,8 @@ END_METHOD
 // The conveyor has stacks on it
 {attribute 'monitoring':='call'}
 PROPERTY HasStacks : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

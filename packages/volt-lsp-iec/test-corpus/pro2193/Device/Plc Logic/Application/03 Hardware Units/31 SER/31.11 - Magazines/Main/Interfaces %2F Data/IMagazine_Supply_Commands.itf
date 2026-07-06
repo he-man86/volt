@@ -26,11 +26,15 @@ END_METHOD
 // When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
 {attribute 'monitoring':='call'}
 PROPERTY AnotherLabelNeeded : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // When high, the magazine should get another label even if the cycle is in 'completing' mode. Another label is needed to complete the gripper.
 {attribute 'monitoring':='call'}
 PROPERTY BlowBetweenLabelsRequest : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

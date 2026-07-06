@@ -21,6 +21,8 @@ END_METHOD
 // Used by modules like: Z and M units, true when module is in a position where gate is free to open.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForGate : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

@@ -4,6 +4,8 @@ INTERFACE IModuleHasSafePosForChain
 // Used by modules like: Xi and Z units, true when chain is free to move.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForChain : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

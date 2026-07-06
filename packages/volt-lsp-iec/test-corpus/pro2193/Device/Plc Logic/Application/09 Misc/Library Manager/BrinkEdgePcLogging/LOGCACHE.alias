@@ -1,0 +1,2 @@
+TYPE LOGCACHE : ARRAY [1..QueuesInCache] OF LogQueue;
+END_TYPE

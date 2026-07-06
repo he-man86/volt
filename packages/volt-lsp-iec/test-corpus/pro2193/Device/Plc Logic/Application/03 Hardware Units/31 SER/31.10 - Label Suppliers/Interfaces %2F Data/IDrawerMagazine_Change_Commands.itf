@@ -18,6 +18,8 @@ END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY HoodIsAcknowledged : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

@@ -30,11 +30,15 @@ END_METHOD
 // Position where the Z Unit gets products from Chain. 1 is Top positon (17-22). 4 is Bottom position (20-25).
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC SelectedZUnitPosition : USINT(1..ZUnits.NumberOfTakeoverPositions)
+GET
+END_GET
 END_PROPERTY
 
 // TRUE: Z Unit is after Reject unit. FALSE: Reject unit is after Z Unit.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

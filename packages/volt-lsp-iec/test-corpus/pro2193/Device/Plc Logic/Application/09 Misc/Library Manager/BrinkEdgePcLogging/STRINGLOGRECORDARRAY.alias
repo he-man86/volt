@@ -1,0 +1,2 @@
+TYPE STRINGLOGRECORDARRAY : ARRAY [1..GVL_Dashboard.StringLogQueueLength] OF StringLogRecord;
+END_TYPE

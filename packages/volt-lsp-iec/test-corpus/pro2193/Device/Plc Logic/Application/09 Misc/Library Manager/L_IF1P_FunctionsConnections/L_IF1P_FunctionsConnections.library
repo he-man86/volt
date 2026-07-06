@@ -1,0 +1,6 @@
+LIBRARY L_IF1P_FunctionsConnections
+NAMESPACE L_IF1P
+RESOLUTION L_IF1P_FunctionsConnections, 3.32.0.32 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpEventMgr, Standard, L_IMHP_ModuleHandler, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IE1P_ApplicationErrorsTypes, CmpErrors2 Interfaces, * (System), IoDrvBase, SysMem, CmpApp, SysTypes2 Interfaces, * (System), IoDriver2 Interfaces, * (System), IoStandard, IoDriver Parameter Interfaces, * (System)

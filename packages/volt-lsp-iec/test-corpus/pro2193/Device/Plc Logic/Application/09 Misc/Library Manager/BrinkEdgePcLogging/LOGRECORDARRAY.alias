@@ -1,0 +1,2 @@
+TYPE LOGRECORDARRAY : ARRAY [1..GVL_Dashboard.LogQueueLength] OF LogRecord;
+END_TYPE

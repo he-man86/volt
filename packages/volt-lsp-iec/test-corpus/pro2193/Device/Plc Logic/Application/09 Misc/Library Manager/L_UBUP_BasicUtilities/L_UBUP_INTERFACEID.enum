@@ -1,0 +1,27 @@
+TYPE L_UBUP_INTERFACEID :
+(
+	L_UBUP_IUNKNOWN := 0,
+	L_UBUP_IREFCOUNTER := (L_UBUP_Internal.cdiEnumStartValue + 2),
+	L_UBUP_ICATEGORY := (L_UBUP_Internal.cdiEnumStartValue + 3),
+	L_UBUP_IINSTANCE := (L_UBUP_Internal.cdiEnumStartValue + 4),
+	L_UBUP_IPOOLINSTANCE := (L_UBUP_Internal.cdiEnumStartValue + 5),
+	L_UBUP_IJOBCOLLECTION := (L_UBUP_Internal.cdiEnumStartValue + 6),
+	L_UBUP_ISTRINGCOLLECTION := (L_UBUP_Internal.cdiEnumStartValue + 7),
+	L_UBUP_IJOBRECEIVER := (L_UBUP_Internal.cdiEnumStartValue + 8),
+	L_UBUP_ILIST := (L_UBUP_Internal.cdiEnumStartValue + 9),
+	L_UBUP_IPLCOPENSTATUS := (L_UBUP_Internal.cdiEnumStartValue + 10),
+	L_UBUP_IMAPSTATE := (L_UBUP_Internal.cdiEnumStartValue + 11),
+	L_UBUP_IJOBACTION := (L_UBUP_Internal.cdiEnumStartValue + 12),
+	L_UBUP_ISTATECLIENT := (L_UBUP_Internal.cdiEnumStartValue + 13),
+	L_UBUP_IJOBREPORT := (L_UBUP_Internal.cdiEnumStartValue + 14),
+	L_UBUP_ICOMMAND := (L_UBUP_Internal.cdiEnumStartValue + 15),
+	L_UBUP_ILISTCONTROL := (L_UBUP_Internal.cdiEnumStartValue + 16),
+	L_UBUP_IITERATOR := (L_UBUP_Internal.cdiEnumStartValue + 17),
+	L_UMTP_IFFTDATA := (L_UBUP_Internal.cdiEnumStartValue + 18),
+	L_UBUP_IPOINTERCOLLECTION := (L_UBUP_Internal.cdiEnumStartValue + 19),
+	L_MC4P_ITOOLINFO := (L_UBUP_Internal.cdiEnumStartValue + 20),
+	L_MC4P_ISEGMENTINFO := (L_UBUP_Internal.cdiEnumStartValue + 21),
+	L_TX2P_IPNPFORERUNNER := (L_UBUP_Internal.cdiEnumStartValue + 33),
+	L_UBUP_ICHECKER := (L_UBUP_Internal.cdiEnumStartValue + 34)
+);
+END_TYPE

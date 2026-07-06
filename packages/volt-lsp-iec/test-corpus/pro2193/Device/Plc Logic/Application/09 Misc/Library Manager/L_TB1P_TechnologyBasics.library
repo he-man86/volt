@@ -1,5 +1,0 @@
-LIBRARY L_TB1P_TechnologyBasics
-NAMESPACE L_TB1P
-RESOLUTION L_TB1P_TechnologyBasics, 3.32.0.1 (Lenze)
-PLACEHOLDER true
-SYSTEM false

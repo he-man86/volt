@@ -1,0 +1,7 @@
+TYPE ITEMQUALITY :
+(
+	NEW,
+	GOOD,
+	BAD
+);
+END_TYPE

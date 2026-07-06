@@ -1,0 +1,6 @@
+LIBRARY VisuUserManagement
+NAMESPACE VisuUserManagement
+RESOLUTION VisuUserMgmt, 4.8.0.0 (System)
+PLACEHOLDER true
+SYSTEM true
+DEPENDENCIES Standard, SysDir, SysFile, CmpEventMgr, CmpApp, StringUtils, SysSem, SysMem, CAA Memory, CmpLog, VisuDialogs, SysTypes2 Interfaces, * (System), SysTimeRtc, SysTimeCore, VisuUserMgmt3 Interfaces, * (System), CmpErrors2 Interfaces, * (System), System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, System_VisuInputs, CmpUserMgr, 3.5.17.0 (System)

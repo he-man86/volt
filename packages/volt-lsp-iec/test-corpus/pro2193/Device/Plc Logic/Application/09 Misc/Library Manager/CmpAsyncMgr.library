@@ -1,5 +1,0 @@
-LIBRARY CmpAsyncMgr
-NAMESPACE CmpAsyncMgr
-RESOLUTION CmpAsyncMgr, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

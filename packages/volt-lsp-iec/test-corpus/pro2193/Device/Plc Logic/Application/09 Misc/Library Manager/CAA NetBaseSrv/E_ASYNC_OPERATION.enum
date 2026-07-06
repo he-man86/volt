@@ -1,0 +1,7 @@
+TYPE E_ASYNC_OPERATION :
+(
+	NONE := 0,
+	ABORT := 1,
+	CYCLIC_ACT := 2
+);
+END_TYPE

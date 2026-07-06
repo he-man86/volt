@@ -10,9 +10,13 @@ END_METHOD
 
 {attribute 'monitoring':='call'}
 PROPERTY StackIndex : USINT
+GET
+END_GET
 END_PROPERTY
 
 PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

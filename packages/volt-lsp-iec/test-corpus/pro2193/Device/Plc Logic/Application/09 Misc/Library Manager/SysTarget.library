@@ -1,5 +1,0 @@
-LIBRARY SysTarget
-NAMESPACE SysTarget
-RESOLUTION SysTarget, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

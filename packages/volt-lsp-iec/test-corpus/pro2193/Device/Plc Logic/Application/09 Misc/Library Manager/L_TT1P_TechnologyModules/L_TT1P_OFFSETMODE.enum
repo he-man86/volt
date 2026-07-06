@@ -1,0 +1,7 @@
+TYPE L_TT1P_OFFSETMODE :
+(
+	X_ZERO := 0,
+	DIRECT := 1,
+	RAMP_IN := 2
+);
+END_TYPE

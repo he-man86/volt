@@ -12,6 +12,8 @@ END_METHOD
 // Homing (or reference) sensor of the servo drive
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC HomingSensor : BOOL
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

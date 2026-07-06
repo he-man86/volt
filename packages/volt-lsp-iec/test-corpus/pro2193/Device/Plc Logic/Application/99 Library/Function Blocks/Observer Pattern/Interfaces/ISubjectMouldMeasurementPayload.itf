@@ -4,17 +4,33 @@ EXTENDS ISubjectBasePayload
 
 {attribute 'monitoring' := 'call'}
 PROPERTY Cavity : INT
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 PROPERTY Classification : enumMouldMeasurementResult
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 {attribute 'monitoring' := 'call'}
 PROPERTY PeakValue : REAL
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 {attribute 'monitoring' := 'call'}
 PROPERTY ShortShotTreshold : REAL
+GET
+END_GET
+SET
+END_SET
 END_PROPERTY
 
 END_INTERFACE

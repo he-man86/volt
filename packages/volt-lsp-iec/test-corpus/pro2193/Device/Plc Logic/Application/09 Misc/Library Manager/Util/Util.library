@@ -1,0 +1,6 @@
+LIBRARY Util
+NAMESPACE Util
+RESOLUTION Util, 3.5.19.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, SysMem, SysTypes2 Interfaces, * (System), CBML, SysTimeRtc, CmpErrors2 Interfaces, * (System)

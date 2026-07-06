@@ -5,11 +5,15 @@ EXTENDS ISubjectBasePayload
 // Binary state of the button: either pushed or not pushed
 {attribute 'monitoring' := 'call'}
 PROPERTY ButtonState : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Enumeration which button is pushed
 {attribute 'monitoring' := 'call'}
 PROPERTY ButtonType : enumHWButtons
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

@@ -1,5 +1,0 @@
-LIBRARY SysExcept
-NAMESPACE SysExcept
-RESOLUTION SysExcept, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

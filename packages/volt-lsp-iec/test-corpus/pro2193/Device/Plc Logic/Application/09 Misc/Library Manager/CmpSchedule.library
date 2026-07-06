@@ -1,5 +1,0 @@
-LIBRARY CmpSchedule
-NAMESPACE CmpSchedule
-RESOLUTION CmpSchedule, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

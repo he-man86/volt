@@ -1,0 +1,6 @@
+LIBRARY OMAC_PackML_State_Machine
+NAMESPACE PACK_ML
+RESOLUTION OMAC PackML State Machine, 1.0.0.4 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs

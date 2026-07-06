@@ -1,0 +1,6 @@
+LIBRARY 3SLicense
+NAMESPACE _3S_LICENSE
+RESOLUTION 3SLicense, 3.5.19.10 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpLog, CAA Types, Standard, Component Manager, CmpApp, CmpCodeMeter, CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System), SysCpuHandling, CmpEventMgr

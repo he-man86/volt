@@ -1,5 +1,0 @@
-LIBRARY Util
-NAMESPACE Util
-RESOLUTION Util, 3.5.19.0 (System)
-PLACEHOLDER true
-SYSTEM false

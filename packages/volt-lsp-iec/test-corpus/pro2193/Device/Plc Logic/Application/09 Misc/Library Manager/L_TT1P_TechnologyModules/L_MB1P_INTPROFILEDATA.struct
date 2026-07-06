@@ -1,0 +1,10 @@
+TYPE L_MB1P_INTPROFILEDATA :
+STRUCT
+	PHASE1 : L_MB1P_ProfilePhaseData;
+	PHASE2 : L_MB1P_ProfilePhaseData;
+	PHASE3 : L_MB1P_ProfilePhaseData;
+	PHASE5 : L_MB1P_ProfilePhaseData;
+	PHASE6 : L_MB1P_ProfilePhaseData;
+	PHASE7 : L_MB1P_ProfilePhaseData;
+END_STRUCT
+END_TYPE

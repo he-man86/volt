@@ -27,15 +27,21 @@ END_METHOD
 // The Y Drive is in a position where the X units are allowed to move (in manual mode)
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC InSafePosForXUnits : BOOL
+GET
+END_GET
 END_PROPERTY
 
 PROPERTY PUBLIC IsDecelerating : BOOL
+GET
+END_GET
 END_PROPERTY
 
 // Returns 0 when Label Takeover not equal to any Takeover position.
 // Otherwise returns number of first Takeover position that Label Takeover is equal to.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC IsLabelTakeoutEqual : USINT
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

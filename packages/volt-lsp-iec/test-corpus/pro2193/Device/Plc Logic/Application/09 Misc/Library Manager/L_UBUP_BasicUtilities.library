@@ -1,5 +1,0 @@
-LIBRARY L_UBUP_BasicUtilities
-NAMESPACE L_UBUP
-RESOLUTION L_UBUP_BasicUtilities, 3.32.0.36 (Lenze)
-PLACEHOLDER true
-SYSTEM false

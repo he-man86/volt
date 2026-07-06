@@ -1,0 +1,6 @@
+LIBRARY CmpIecVarAccess
+NAMESPACE CmpIecVarAccess
+RESOLUTION CmpIecVarAccess, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpIecVarAccess Interfaces, * (System), CmpIecVarAccess Implementation

@@ -1,0 +1,6 @@
+LIBRARY CmpEventMgr
+NAMESPACE CmpEventMgr
+RESOLUTION CmpEventMgr, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpEventMgr Interfaces, * (System), CmpEventMgr Implementation, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System)

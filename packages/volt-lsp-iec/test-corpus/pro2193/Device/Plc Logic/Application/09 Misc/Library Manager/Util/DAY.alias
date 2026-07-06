@@ -1,0 +1,2 @@
+TYPE DAY : UINT (1..31);
+END_TYPE

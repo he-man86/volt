@@ -1,0 +1,16 @@
+FUNCTION_BLOCK L_IC1P_SYMBOLCONFIG
+VAR
+	_VARACCESSIBASE : IecVarAccessLibrary.IBase;
+	_PPIVARACCESS3 : POINTER TO IecVarAccessLibrary.IIecVarAccess3;
+	_VARACCESS3 : IecVarAccessLibrary.IIecVarAccess3;
+	_PPIVARACCESS4 : POINTER TO IecVarAccessLibrary.IIecVarAccess4;
+	_VARACCESS4 : IecVarAccessLibrary.IIecVarAccess4;
+	_PPIVARACCESS5 : POINTER TO IecVarAccessLibrary.IIecVarAccess5;
+	_VARACCESS5 : IecVarAccessLibrary.IIecVarAccess5;
+	_PPIVARACCESS7 : POINTER TO IecVarAccessLibrary.IIecVarAccess7;
+	_VARACCESS7 : IecVarAccessLibrary.IIecVarAccess7;
+	_SSYMBOL : STRING(255);
+	_HNODE : IecVarAccessLibrary.ICollections.IBaseTreeNode;
+	_VARINFO : VariableInformationStruct;
+END_VAR
+END_FUNCTION_BLOCK

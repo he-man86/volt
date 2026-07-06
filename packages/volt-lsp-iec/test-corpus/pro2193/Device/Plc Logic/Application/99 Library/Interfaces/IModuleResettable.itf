@@ -9,11 +9,15 @@ END_METHOD
 // The order in which the modules are homed.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ResetCondition1 : IModuleResettable
+GET
+END_GET
 END_PROPERTY
 
 // The order in which the modules are homed.
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ResetCondition2 : IModuleResettable
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

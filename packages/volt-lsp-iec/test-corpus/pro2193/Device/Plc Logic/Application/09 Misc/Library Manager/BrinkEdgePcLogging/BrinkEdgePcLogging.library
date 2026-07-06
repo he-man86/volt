@@ -1,0 +1,6 @@
+LIBRARY BrinkEdgePcLogging
+NAMESPACE EdgePcLogging
+RESOLUTION Brink EdgePc Logging, 2.0.7 (Brink Automation)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA NetBaseSrv, StringUtils, Standard, SysTimeRtc, MemoryUtils, CAA Types, SysExcept, L_PLCLoggingAccess

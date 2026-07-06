@@ -1,5 +1,0 @@
-LIBRARY SysDir
-NAMESPACE SysDir
-RESOLUTION SysDir, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

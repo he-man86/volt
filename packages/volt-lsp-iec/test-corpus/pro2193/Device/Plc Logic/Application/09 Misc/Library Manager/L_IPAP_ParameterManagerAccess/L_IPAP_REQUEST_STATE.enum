@@ -1,0 +1,9 @@
+TYPE L_IPAP_REQUEST_STATE :
+(
+	UNKNOWN := 0,
+	ERROR := 1,
+	WAIT := 2,
+	BUSY := 3,
+	DONE := 4
+);
+END_TYPE

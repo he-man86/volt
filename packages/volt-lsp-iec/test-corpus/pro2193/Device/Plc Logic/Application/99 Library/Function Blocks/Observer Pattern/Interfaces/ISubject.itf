@@ -19,6 +19,8 @@ END_METHOD
 // The actual number of observers that are receiving events
 {attribute 'monitoring':='call'}
 PROPERTY ObserverCount : UINT
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

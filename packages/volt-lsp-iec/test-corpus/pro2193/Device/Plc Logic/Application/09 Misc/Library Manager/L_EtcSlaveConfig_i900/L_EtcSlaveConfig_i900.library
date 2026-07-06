@@ -1,0 +1,6 @@
+LIBRARY L_EtcSlaveConfig_i900
+NAMESPACE L_ECC_i900
+RESOLUTION L_EtcSlaveConfig_i900, 3.32.0.4 (Lenze)
+PLACEHOLDER true
+SYSTEM true
+DEPENDENCIES CAA File, IoStandard, CAA Tick, CAA Types, Standard, L_EtcSlaveConfig, L_SUDP_SlaveUpDownloadManager, CmpLog, IODrvEtherCAT, L_EtcSlaveConfig_i700, SysTypes2 Interfaces, * (System), L_SEMP_ErrorManagement, L_IMHP_ModuleHandler

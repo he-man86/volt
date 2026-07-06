@@ -1,0 +1,6 @@
+LIBRARY CAA NetBaseSrv
+NAMESPACE NBS
+RESOLUTION CAA Net Base Services, 3.5.19.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CAA Behaviour Model, CAA SegBufMan, CAA List And Tree, CAA Tick, CAA TickUtil, SysSocket, TCP, UDP, Standard, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), CmpAsyncMgr, SysTask, SysSem

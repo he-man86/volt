@@ -29,6 +29,8 @@ END_METHOD
 // Current state of magazine
 {attribute 'monitoring':='call'}
 PROPERTY ActState : enumMagazineState
+GET
+END_GET
 END_PROPERTY
 
 END_INTERFACE

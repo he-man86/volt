@@ -1,0 +1,6 @@
+TYPE OS :
+(
+	ANYSYSTEM := 0,
+	LINUX
+);
+END_TYPE

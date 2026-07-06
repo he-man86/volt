@@ -1,0 +1,8 @@
+TYPE OPCUA_READVALUEID :
+STRUCT
+	NODEID : OpcUa_NodeId;
+	ATTRIBUTEID : OpcUa_Attributes;
+	INDEXRANGE : OpcUa_String;
+	DATAENCODING : OpcUa_QualifiedName;
+END_STRUCT
+END_TYPE

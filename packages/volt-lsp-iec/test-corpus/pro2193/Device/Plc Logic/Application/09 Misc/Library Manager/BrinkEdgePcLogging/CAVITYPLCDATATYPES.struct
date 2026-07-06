@@ -1,0 +1,9 @@
+TYPE CAVITYPLCDATATYPES :
+STRUCT
+	PRODUCED : PlcDataType := -1;
+	UNCOUNTEDREJECT : PlcDataType := -1;
+	REJECTED : PlcDataType := -1;
+	REJECTREASONS : ARRAY [0..20] OF PlcDataType := [21(-1)];
+	STACKED : PlcDataType := -1;
+END_STRUCT
+END_TYPE

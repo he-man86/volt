@@ -1,0 +1,6 @@
+LIBRARY L_MC2P_MotionControlCam
+NAMESPACE L_MC2P
+RESOLUTION L_MC2P_MotionControlCam, 3.32.1.10 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES L_MC1P_MotionControlBasic, SysFile, CAA Tick, SysTime, CmpApp, CmpEventMgr, L_IOM_IOModules, VisuDialogs, L_SSYP_CmpLenzeIPCSystem, L_IE1P_ApplicationErrors, Standard, CAA Mathematics, L_IMHP_ModuleHandler, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_UMTP_Mathematics, CmpIoMgr Interfaces, * (System), CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System)

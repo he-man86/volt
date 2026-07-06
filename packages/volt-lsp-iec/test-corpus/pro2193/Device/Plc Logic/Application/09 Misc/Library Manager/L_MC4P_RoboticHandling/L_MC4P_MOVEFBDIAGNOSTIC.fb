@@ -1,0 +1,50 @@
+FUNCTION_BLOCK L_MC4P_MOVEFBDIAGNOSTIC
+VAR_INPUT
+	XEXECUTEWRITETEXTFILE : BOOL;
+	XENABLE : BOOL;
+END_VAR
+VAR_OUTPUT
+	XWRITEFILEDONE : BOOL;
+	XWRITEFILEBUSY : BOOL;
+	XWRITEFILEERROR : BOOL;
+	XBUSY : BOOL;
+END_VAR
+VAR
+	ASCPARAMS : ARRAY [0..wDepth] OF L_MC4P_Parameter_MCMove;
+	ADWTIMESTAMP : ARRAY [0..wDepth] OF DWORD;
+	ASINSTANCESTR : ARRAY [0..wDepth] OF STRING;
+	WCURRENTPOS : WORD := 0;
+	SCPARAMDUMMY : L_MC4P_Parameter_MCMove;
+	XTESTINMOTIONTASK : BOOL := FALSE;
+	XFREETASKBUSY_INT : BOOL;
+	XFREETASKDONE_INT : BOOL;
+	XFREETASKERROR_INT : BOOL;
+	EFREETASKEERRORID_INT : L_IE1P_Error;
+	XEXECUTEWRITETEXTFILE_OLD : BOOL;
+	SEXCELFILENAME : STRING(255);
+	RES : SYSFILE.RTS_IEC_ResULT;
+	HFILE : SYSFILE.RTS_IEC_HANDLE;
+	XWFSIZE : __XWORD;
+	XWRESULTWRITESTRING : __XWORD;
+	ASHEADLINEPARAMS : ARRAY [1..iMaxHeadLine] OF STRING := ['TimeStamp', 'sInstanceStr', 'SegmentType', 'xMoveRel', 'Position', 'Distance', 'CircMode', 'AuxPoint', 'PathChoice', 'lrSemiMajorAxis', 'lrSemiMinorAxis', 'ascIntermediatePointSpline', 'Velocity', 'Acceleration', 'Deceleration', 'Jerk', 'alrVelocityPTP', 'alrAccelerationPTP', 'alrDecelerationPTP', 'alrJerkPTP', 'alrVelocityAux', 'alrAccelerationAux', 'alrDecelerationAux', 'alrJerkAux', 'CoordSystem', 'CoordRef', 'BufferMode', 'TransitionMode', 'TransitionParameter', 'aeAuxMode', 'alrAxisLimitVel', 'alrAxisLimitAcc', 'alrAxisLimitJerk', 'aiTargetConfiguration', 'eOrientationMode', 'aeDirection'];
+	STABULATOR : STRING(2) := '$T';
+	SLINEFEED : STRING(2) := '$N';
+	SZEILE : STRING(255);
+	WSTEPWF : WORD := 0;
+	XAGERROR : BOOL;
+	WLOOKAHEADHORIZON : WORD;
+	DWTASKCYCLE_US : DWORD;
+	EACTIVEERRORID : L_IE1P_Error;
+	SAXESGROUPNAME : STRING;
+	VERSION : VERSION;
+	WDEPTH : WORD := 50;
+	IMAXHEADLINE : INT := 40;
+	ACTIVEERRORID : WORD;
+	AGERROR : BOOL;
+	AXESGROUPNAME : STRING;
+	LOOKAHEADHORIZON : WORD;
+	TASKCYCLE_US : DWORD;
+	VERSIONMC4P : VERSION;
+	XWRITEINMOTIONTASK : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
