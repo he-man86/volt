@@ -49,7 +49,6 @@ public abstract class DriverBase : IIdeSession
     public abstract bool Build();
     public abstract IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
     public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
-    public abstract ISet<string>? GetCompiledPouNames();
 
     // Debug-only introspection; drivers without a signature model (TwinCAT) inherit this empty default.
     public virtual IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>

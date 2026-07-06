@@ -18,11 +18,15 @@ export interface LintConfig {
 export interface AnalysisInitOptions {
   vendor?: VendorSetting
   lints?: Partial<LintConfig>
+  /** Diagnose dead (unreachable) code. Default OFF — matches the compiler, which never checks code it
+   *  doesn't compile. When off, diagnostics on structurally-dead units are suppressed. */
+  diagnoseDeadCode?: boolean
 }
 
 export interface ResolvedConfig {
   vendor: Vendor
   lints: LintConfig
+  diagnoseDeadCode: boolean
 }
 
 const DEFAULT_LINTS: LintConfig = {
@@ -32,5 +36,5 @@ const DEFAULT_LINTS: LintConfig = {
 /** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */
 export function resolveConfig(opts: AnalysisInitOptions = {}): ResolvedConfig {
   const vendor: Vendor = opts.vendor === "twincat" ? "twincat" : "codesys"
-  return { vendor, lints: { ...DEFAULT_LINTS, ...opts.lints } }
+  return { vendor, lints: { ...DEFAULT_LINTS, ...opts.lints }, diagnoseDeadCode: opts.diagnoseDeadCode ?? false }
 }

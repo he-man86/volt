@@ -14,10 +14,10 @@ namespace Volt.Bridge.Core.Sync;
 /// Aggregate versions (projectVersion, structureVersion) use bare-name keys — same as /refs and
 /// PushService conflict detection. The wire Items and Changed[].Name use full-name keys.
 ///
-/// The bridge only returns items that have compiler ground truth: an object the IDE won't compile
-/// (excluded-from-build) or a POU CODESYS never compiled (dead/uncalled code, detectable only on a
-/// <c>verbose</c> fetch that ran a build) is OMITTED entirely — the LSP can't analyze it without false
-/// positives, and there is no side-channel marker field. Everything the bridge returns is analyzable.</summary>
+/// The bridge omits objects the IDE won't compile (excluded-from-build) — they have no compiler ground
+/// truth, so the LSP would only false-positive on them, and there is no side-channel marker field. Dead
+/// (uncalled) code IS returned as ordinary source; the LSP decides reachability itself. Everything the
+/// bridge returns is analyzable.</summary>
 public static class FetchService
 {
     public static FetchResponse Handle(IIdeDriver ide, FetchRequest request)
@@ -35,8 +35,6 @@ public static class FetchService
         // For the verbose fold: normalized library RESOLUTION → the .library ref's (folder, bare name), captured
         // from the ref items in THIS walk, so each element signature is foldered right beside its own .library file.
         var libByResolution = new Dictionary<string, (string Folder, string Name)>(System.StringComparer.OrdinalIgnoreCase);
-        // Project POU items (FB/PRG/FUNCTION), for the dead-code check: a POU CODESYS never compiled is uncalled.
-        var pouItems = new List<(string BareName, string FullName)>();
 
         foreach (var it in ide.WalkItems())
         {
@@ -67,8 +65,6 @@ public static class FetchService
                     var res = Regex.Match(mat.Text, @"^RESOLUTION (.+)$", RegexOptions.Multiline).Groups[1].Value.Trim();
                     if (res.Length > 0) libByResolution[res] = (it.Folder ?? "", it.Name);
                 }
-                if (kind == "program" || kind == "function" || kind == "function_block")
-                    pouItems.Add((it.Name, fullName));
             }
 
             if (knownItems.TryGetValue(fullName, out var known) && known == version) continue;
@@ -90,22 +86,6 @@ public static class FetchService
             // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate
             // — the AI gets the full public API of the used libraries).
             AppendLibrarySignatures(ide, libByResolution, changed);
-
-            // Dead code (opt-in via `omitDeadCode`): a project POU CODESYS did NOT compile (absent from the compiled
-            // model) is uncalled/unreachable — dropping it MIRRORS the compiler's reachability. OFF by default so ALL
-            // code is returned (the LSP analyzes unused code fine, and can debug it); ON to match compile behavior.
-            // Null compiled set ⇒ can't determine (build failed / TwinCAT) → omit nothing.
-            if (request.OmitDeadCode && ide.GetCompiledPouNames() is { } compiled)
-            {
-                var deadFull = new HashSet<string>(
-                    pouItems.Where(p => !compiled.Contains(p.BareName)).Select(p => p.FullName));
-                if (deadFull.Count > 0)
-                {
-                    changed.RemoveAll(c => deadFull.Contains(c.Name));
-                    foreach (var p in pouItems)
-                        if (deadFull.Contains(p.FullName)) { versions.Remove(p.BareName); fullVersions.Remove(p.FullName); }
-                }
-            }
         }
 
         var removed = knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();

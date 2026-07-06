@@ -5,10 +5,10 @@ using Xunit;
 
 namespace Volt.Bridge.Tests;
 
-/// <summary>The bridge only returns items with compiler ground truth: an excluded-from-build object has none,
-/// so it is omitted from /fetch and /refs entirely (no changed entry, no version) — the client never tracks a
-/// file the LSP would false-positive on, and there is no side-channel marker field. (Dead-code omission needs a
-/// build result — <c>GetCompiledPouNames</c> — which the FakeIde can't produce, so it's covered live, not here.)</summary>
+/// <summary>The bridge omits excluded-from-build objects (no compiler ground truth) from /fetch and /refs
+/// entirely (no changed entry, no version) — the client never tracks a file the LSP would false-positive on,
+/// and there is no side-channel marker field. Dead (uncalled) code, by contrast, is returned as ordinary
+/// source; reachability is the LSP's job now, not the bridge's.</summary>
 public class FetchExclusionTests
 {
     private static FakeIde.Item Pou(string name, bool excluded = false) =>
@@ -25,20 +25,16 @@ public class FetchExclusionTests
         Assert.DoesNotContain(resp.Items.Keys, k => k.StartsWith("Bad"));
     }
 
-    /// <summary>Dead (uncompiled/unreachable) project POUs are RETURNED by default (the LSP can analyze/debug unused
-    /// code) and omitted ONLY with `omitDeadCode` — which mirrors the CODESYS compiler for diagnostic-parity runs.</summary>
+    /// <summary>Dead (uncalled) project POUs are ordinary source now — the bridge always returns them. Reachability
+    /// moved to the LSP, so there is no fetch flag and no compiled-POU dependency to drop them.</summary>
     [Fact]
-    public void Dead_code_returned_by_default_and_omitted_only_with_the_flag()
+    public void Dead_code_is_always_returned()
     {
-        var ide = new FakeIde(Pou("Live"), Pou("Dead"))
-        { CompiledPous = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "Live" } };
+        var ide = new FakeIde(Pou("Live"), Pou("Dead"));
 
-        var byDefault = FetchService.Handle(ide, new FetchRequest { Verbose = true });
-        Assert.Contains(byDefault.Changed, c => c.Name.StartsWith("Dead")); // unused code still returned
-
-        var matched = FetchService.Handle(ide, new FetchRequest { Verbose = true, OmitDeadCode = true });
-        Assert.DoesNotContain(matched.Changed, c => c.Name.StartsWith("Dead")); // mirror the compiler
-        Assert.Contains(matched.Changed, c => c.Name.StartsWith("Live"));
+        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true });
+        Assert.Contains(resp.Changed, c => c.Name.StartsWith("Live"));
+        Assert.Contains(resp.Changed, c => c.Name.StartsWith("Dead"));
     }
 
     [Fact]

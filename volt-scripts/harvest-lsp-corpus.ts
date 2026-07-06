@@ -15,12 +15,12 @@ if (!outDir) {
 	process.exit(1)
 }
 
-// `verbose` = full library-element signatures; `omitDeadCode` = drop uncompiled/unreachable project POUs to
-// mirror the CODESYS compiler, so the corpus is clean-compiling and LSP diagnostics compare 1:1 with the IDE.
+// `verbose` = full library-element signatures. Dead (uncalled) code rides through as ordinary source now —
+// the LSP suppresses its diagnostics structurally, so the corpus stays clean-compiling without a bridge flag.
 const res = await fetch(`http://127.0.0.1:${port}/fetch`, {
 	method: "POST",
 	headers: { "content-type": "application/json" },
-	body: JSON.stringify({ knownItems: {}, verbose: true, omitDeadCode: true }),
+	body: JSON.stringify({ knownItems: {}, verbose: true }),
 })
 if (!res.ok) {
 	console.error(`/fetch failed: ${res.status} ${await res.text()}`)

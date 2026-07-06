@@ -108,6 +108,44 @@ test("server: didOpen pushes VG diagnostics for a graphical body", async () => {
   client.dispose()
 })
 
+test("server: a dead FB's diagnostics are suppressed by default, emitted with diagnoseDeadCode", async () => {
+  // FB_Dead is never called/instantiated by the PROGRAM → structurally dead. Its genuine type error must
+  // NOT surface by default (matches the compiler, which never compiles it).
+  const mainSrc = `PROGRAM Main\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const deadUri = "file:///FB_Dead.fb"
+
+  async function diagsFor(diagnoseDeadCode: boolean): Promise<{ code?: unknown }[]> {
+    const client = connect()
+    const got = new Promise<{ diagnostics: { code?: unknown }[] }>((resolve) => {
+      client.onNotification(PublishDiagnosticsNotification.type, (p) => {
+        if ((p as { uri: string }).uri === deadUri) resolve(p as never)
+      })
+    })
+    await client.sendRequest(InitializeRequest.type, {
+      processId: null,
+      rootUri: null,
+      capabilities: {},
+      initializationOptions: { diagnoseDeadCode },
+    })
+    await client.sendNotification(DidOpenTextDocumentNotification.type, {
+      textDocument: { uri: "file:///Main.prg", languageId: "iecst", version: 1, text: mainSrc },
+    })
+    await client.sendNotification(DidOpenTextDocumentNotification.type, {
+      textDocument: { uri: deadUri, languageId: "iecst", version: 1, text: deadSrc },
+    })
+    const params = await got
+    client.dispose()
+    return params.diagnostics
+  }
+
+  const suppressed = await diagsFor(false)
+  expect(suppressed.some((d) => d.code === "assignment-type-mismatch")).toBe(false)
+
+  const emitted = await diagsFor(true)
+  expect(emitted.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+})
+
 test("server: hover inside a VG body resolves a wire's inferred type", async () => {
   const client = connect()
   const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\nNETWORK 0 LD\nLET g := (a AND b);\nout := g;\nEND_NETWORK\nEND_FUNCTION_BLOCK`

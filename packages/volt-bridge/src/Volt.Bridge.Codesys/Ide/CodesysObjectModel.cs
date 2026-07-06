@@ -632,31 +632,6 @@ namespace Volt.Bridge.Codesys
             return outList;
         }
 
-        /// <summary>Names of every PROJECT POU (FB/PRG/FUNCTION) CODESYS actually COMPILED — the reachable call tree.
-        /// A project POU ABSENT from this set is DEAD code (uncalled): CODESYS never compiles it, so its diagnostics
-        /// have no ground truth, exactly like an exclude-from-build object. The compiled model
-        /// (<c>GetCompileContext(appGuid).GetAllSignaturesFlat()</c>) omits dead POUs — verified live. Builds first
-        /// (empty otherwise); returns null if there's no compile context (build failed) so the caller marks nothing.</summary>
-        public ISet<string>? GetCompiledPouNames()
-        {
-            var app = FindApplication();
-            if (app == null) return null;
-            Build(app);
-            var lmm = GetStaticMember("_3S.CoDeSys.Core.SystemInstances", "LanguageModelMgr");
-            var ctx = InvokeMethod(lmm, "GetCompileContext", GuidOf(app));
-            if (InvokeMethod(ctx, "GetAllSignaturesFlat") is not IEnumerable sigs) return null;
-            var live = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var s in sigs)
-            {
-                if (GetMember(s, "IsLibraryObject") as bool? == true) continue; // project POUs only
-                var name = GetMember(s, "Name") as string;
-                if (string.IsNullOrEmpty(name) || name!.Contains("__")) continue;
-                var pou = GetMember(s, "POUType")?.ToString() ?? "";
-                if (pou.Contains("FunctionBlock") || pou.Contains("Program") || pou.Contains("Function")) live.Add(name);
-            }
-            return live;
-        }
-
         private static string SeverityToString(object? sev)
         {
             var s = sev?.ToString() ?? "";

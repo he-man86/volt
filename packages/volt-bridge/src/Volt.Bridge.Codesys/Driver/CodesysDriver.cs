@@ -66,8 +66,6 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override IReadOnlyList<System.Collections.Generic.IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         _om.DebugLibrarySignatures(nameFilter);
 
-    public override System.Collections.Generic.ISet<string>? GetCompiledPouNames() => _om.GetCompiledPouNames();
-
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
         _om.GetBuildDiagnostics().Select(d =>
         {

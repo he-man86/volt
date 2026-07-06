@@ -113,8 +113,6 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     // TwinCAT has no resolved-library-signature surface yet — return none (parity boundary is the wire).
     public override IReadOnlyList<Volt.Bridge.Core.Library.LibSignature> ExtractLibrarySignatures() =>
         new List<Volt.Bridge.Core.Library.LibSignature>();
-    // No compiled-model dead-code signal yet — null ⇒ mark nothing (documented parity gap).
-    public override System.Collections.Generic.ISet<string>? GetCompiledPouNames() => null;
     // DEBUG (read-only): the PLCopen export (ExportPouXml — our normal code-XML transport) of a named item,
     // to inspect e.g. whether an interface property's Get/Set accessors survive the export.
     public override string DebugItemXml(string name) =>

@@ -45,7 +45,9 @@ import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import {
   computeSemanticDiagnostics,
+  deadPous,
   messagesFor,
+  ownerPou,
   resolveConfig,
   type DiagnosticItem,
   type Vendor,
@@ -94,10 +96,12 @@ const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
 
 export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  const config = resolveConfig({ vendor })
+  // Reassigned on initialize once the client's initializationOptions arrive (e.g. `diagnoseDeadCode`).
+  let config = resolveConfig({ vendor })
   const messages = messagesFor(vendor)
   const docs = new Map<string, TextDocument>()
   let cachedProject: Scope | undefined
+  let cachedDead: Set<string> | undefined
 
   const project = (): Scope => (cachedProject ??= rebuild())
   const rebuild = (): Scope =>
@@ -108,8 +112,12 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
       }),
     )
   const workspace = (): Document[] => [...docs.values()].map(toDoc)
+  // Dead-POU set, rebuilt once per workspace edit. Empty when dead-code diagnosis is enabled.
+  const deadSet = (): Set<string> =>
+    (cachedDead ??= config.diagnoseDeadCode ? new Set() : deadPous(workspace()))
   const invalidate = (): void => {
     cachedProject = undefined
+    cachedDead = undefined
   }
 
   function doc(uri: string): Document | undefined {
@@ -120,15 +128,21 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   function pushDiagnostics(uri: string): void {
     const d = doc(uri)
     if (d === undefined) return
-    const items = computeSemanticDiagnostics({
-      parseResult: d.parseResult,
-      source: d.source,
-      project: project(),
-      config,
-    })
+    // Suppress semantic diagnostics on a structurally-dead unit (the compiler never checks it either).
+    // Parse errors always ride through — a genuinely broken parse is a real problem, not a dead-code FP.
+    const owner = ownerPou(d.parseResult)
+    const dead = owner !== undefined && deadSet().has(owner)
+    const items = dead
+      ? []
+      : computeSemanticDiagnostics({
+          parseResult: d.parseResult,
+          source: d.source,
+          project: project(),
+          config,
+        })
     const diagnostics: Diagnostic[] = [
       ...items.map(toLspDiagnostic),
-      ...computeVgDiagnostics(d, project(), messages).map(toLspDiagnostic),
+      ...(dead ? [] : computeVgDiagnostics(d, project(), messages)).map(toLspDiagnostic),
       ...d.parseResult.errors.map((e) => ({
         range: rangeFromSpan(e.span),
         severity: DiagnosticSeverity.Error,
@@ -140,9 +154,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   }
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
-  conn.onRequest(
-    InitializeRequest.type,
-    (): InitializeResult => ({
+  conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
+    const opts = params.initializationOptions as { diagnoseDeadCode?: boolean } | undefined
+    if (opts?.diagnoseDeadCode !== undefined) config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
+    return {
       capabilities: {
         textDocumentSync: TextDocumentSyncKind.Incremental,
         hoverProvider: true,
@@ -168,8 +183,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         },
       },
       serverInfo: { name: "volt-lsp-iec", version: "0.1.0" },
-    }),
-  )
+    }
+  })
 
   // ─── document sync ───────────────────────────────────────────────────────
   conn.onNotification(DidOpenTextDocumentNotification.type, (p) => {

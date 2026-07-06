@@ -115,9 +115,4 @@ public sealed class FakeIde : IIdeDriver
     public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         System.Array.Empty<IReadOnlyDictionary<string, string>>();
     public string DebugItemXml(string name) => "";
-
-    /// <summary>The project POUs CODESYS "compiled" (reachable). Null (default) ⇒ can't determine → the fetch omits
-    /// nothing. Set per-test to exercise the `omitDeadCode` flag.</summary>
-    public ISet<string>? CompiledPous { get; init; }
-    public ISet<string>? GetCompiledPouNames() => CompiledPous;
 }
