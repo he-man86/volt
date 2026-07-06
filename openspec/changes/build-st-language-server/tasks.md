@@ -25,11 +25,55 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
 | vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
 | unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | project struct/FB/enum only; library + namespace bases skip; struct EXTENDS honored |
-| unknown-member (VG) | VG | error | ⏳ | shared code ready; wire after corpus re-harvest (stale fixture blocks 0-FP validation) |
+| unknown-member (VG) | VG | error | ⏸ | shared code ready but HELD — a lenze anomaly (see Open items #1) can't validate 0-FP |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
 | unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint; byte-identical CODESYS msg; catalog 0-hit on corpus |
 | conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
 | VG narrowing / binary-operator | VG | error/warn | ✅ | shared per-pair/per-node helpers; 0-FP on corpus |
+
+**Dead-code suppression (what makes real-project checks 0-FP)** — the compiler never checks code it doesn't compile, so the LSP suppresses the same, at three granularities:
+| Mechanism | Status | Notes |
+|---|---|---|
+| POU-level reachability (`deadPous`) | ✅ | seed PROGRAM roots → fixpoint over identifier edges + interface dispatch; whole file suppressed |
+| task-root seeding (`.task` `Calls:`) | ✅ | roots = task-assigned PROGRAMs only, so an uncalled PROGRAM (call commented out) is dead; fallback all-programs |
+| member-level reachability (`deadMemberSpans`) | ✅ | excluded/uncalled methods inside a LIVE FB; per-diagnostic suppression; whitelist lifecycle/property/interface (uncertain⇒live) |
+
+## Corpus / harvest status (real-project 0-FP gate — `test/corpus/`)
+
+Harvested from live headless CODESYS (`codesys-bridge.ps1 up -Project … ; harvest-lsp-corpus.ts`). Source `.project`
+files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (library signatures + `.task`/
+`.library`/`.device` reference files). Ratchet: conformance **231/259 TC · 228/259 CS**.
+
+| Fixture | Files | State |
+|---|---|---|
+| CodesysTestProject | 594 | fresh |
+| awa-palletizer | 4087 | ✅ refreshed, clean |
+| bakon-nano | 6678 | ✅ refreshed, clean (task-root reachability suppresses uncalled ControlStatusAGMs) |
+| pro2193 | 8095 | ✅ refreshed, clean (member-level dead-code + interface-impl abstract-skip) |
+| lenze-mid | 8048 | ⚠️ OLD harvest, passes — a fresh re-harvest fails (Open items #1); keep old until #1 resolved |
+
+## Open items (todos)
+
+1. **VG unknown-member — HELD on a genuine anomaly (do NOT patch; needs the IDE).** Wiring `unresolvedMembers`
+   into VG → 172 FPs, all `Mach1.GenFlags` (lenze). Root cause is NOT stale/excluded/harvest-bug: `/debug` on
+   the struct `sUDT_HMIVar_Mach1` shows the IDE's OWN declaration has NO `GenFlags` field (only a commented
+   line), yet task-reachable BUILT code (`Mach1_MIDS`, called by task PROGRAM `General`) reads `Mach1.GenFlags.*`
+   and `/build` returns `success:True`. Prime suspect: a shipped **precompile cache** (`*_project.precompilecache`)
+   masking genuinely-broken code — so the project doesn't truly compile clean. TO RESOLVE: open lenze in CODESYS
+   → **Clean + Rebuild** (bypass cache). If it ERRORS on `Mach1.GenFlags`, the code is broken → the check is right
+   (exclude/fix that project, ship VG unknown-member). If it still builds, CODESYS has a member-resolution path we
+   miss → adjust the check. Note: this also gauges latent FP risk in the already-shipped ST `unknown-member`.
+2. **Live-bridge message-record pass** — lock the PROVISIONAL messages (VG label/pin, `unknown-member`, overflow/
+   subrange, TwinCAT `unknown-attribute`) to byte-identical + let the ratchet rise. Needs the recorder RECREATED
+   in `volt-lsp-iec` (removed with volt-agent) then a `record:language` pass against the `:8556`/`:8555` bridges.
+3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
+4. **pragma conflict/companion checks** — needs the pragma catalog's `requires`/`forbids` metadata (currently the
+   catalog is name-only for the `unknown-attribute` lint). Plus unknown-pragma DIRECTIVE (lint is attribute-only).
+5. **VG services (F.2d/f follow-ons)** — references/rename + semantic tokens across VG bodies; keyword/pragma
+   catalogs for hover + completion.
+6. **Optional bridge simplification** — the LSP's POU+member reachability now covers whole-item exclusion, so the
+   bridge's item-level `ExcludeFromBuild` filter (`FetchService`/`RefsService`) could be removed (dumber bridge).
+7. **Land** — merge `feat/st-body-ast` → `dev`; archive this change (`openspec archive`).
 
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
@@ -112,7 +156,9 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 - [~] D.3 The full type-checker rule set (subrange/overflow/array-bounds/composite-shape/member-count/…) —
       fixture → record → mirror → replay green; corpus 0-error.
       **corpus 0-error ✅ DONE** (committed test: all analysis checks emit ZERO error-severity FPs across the
-      4-project corpus, ~1500 files that compile clean — the offline half of the gate). Surfaced+fixed a real
+      5-project corpus, ~30k files after the verbose re-harvests — the offline half of the gate; dead-code
+      suppression at POU/task/member granularity makes real projects clean, see the status tables above).
+      Surfaced+fixed a real
       FP: enum member → LREAL is a valid int-widening, so `compat` isolates an enum only from BOOL/STRING/
       TIME/DATE, not from real. **overflow ✅ implemented** (const-eval range check, unit-tested, 0-FP on
       corpus) — its message is PROVISIONAL: the overflow fixtures have no bridge recording, so byte-identical
@@ -159,8 +205,8 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
       Manager`) struct/FB/enum base with a fully-resolved EXTENDS chain is checked; library-typed, namespace-
       qualified (`CAA.HANDLE` — base is not a value → UNKNOWN), and unresolved bases skip. Surfaced+fixed a real
       binder gap: **CODESYS DUT `STRUCT EXTENDS` now links its base scope** (`ingestStruct`/`linkExtends`), so
-      inherited fields resolve. Shared `unresolvedMembers` is wired for ST; VG member-access waits on the corpus
-      re-harvest (a stale fixture's struct lags its graphical code, blocking 0-FP validation). **Pragma
+      inherited fields resolve. Shared `unresolvedMembers` is wired for ST; VG member-access is HELD on the
+      lenze anomaly (Open items #1) — do NOT patch it, needs a live-IDE clean-rebuild to decide. **Pragma
       catalog ✅ DONE** — `reference/pragmas.ts` (`isKnownAttribute`: the CODESYS + TwinCAT `{attribute '…'}`
       name set, alias-folded) drives the opt-in **`unknown-attribute`** lint: an unrecognized attribute warns
       byte-identical to CODESYS ("The attribute <n> is unknown and will be ignored by the  compiler." — the
