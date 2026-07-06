@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
-import { deadPous, ownerPou, type ReachabilityInput } from "./reachability.js"
+import { deadPous, deadMemberSpans, ownerPou, type ReachabilityInput } from "./reachability.js"
 
 /** Build a reachability input from a file's bare name + source (uri drives GVL naming, not needed here). */
 function file(name: string, source: string): ReachabilityInput {
@@ -98,6 +98,72 @@ test("task roots that match no PROGRAM fall back to all-programs (safety, never 
   const files = [PRG("Main", "x := 1;"), PRG("Other", "y := 1;")]
   const dead = deadPous(files, new Set(["nonexistent_task"]))
   expect(dead.size).toBe(0) // no match ⇒ every PROGRAM is a root, as before
+})
+
+// Member-level dead code — a LIVE FB can still contain excluded/uncalled methods (CODESYS excludes methods
+// individually; corpus-found: pro2193's Execute_Sequence2/3). The finer suppression targets those.
+/** Lowercased names of the dead MEMBERS across `files`. */
+function deadMembers(files: ReachabilityInput[]): Set<string> {
+  const spans = deadMemberSpans(files, deadPous(files, new Set(["main"])))
+  const names = new Set<string>()
+  for (const f of files) {
+    const dm = spans.get(f.uri)
+    if (dm === undefined) continue
+    for (const u of f.parseResult.units)
+      if (
+        (u.kind === "method" || u.kind === "action" || u.kind === "property") &&
+        dm.some((d) => u.span.start >= d.start && u.span.start < d.end)
+      )
+        names.add(u.name.text.toLowerCase())
+  }
+  return names
+}
+
+test("an uncalled method island (in a LIVE FB) is dead; the called chain stays live", () => {
+  const src = `FUNCTION_BLOCK F
+Live1();
+END_FUNCTION_BLOCK
+METHOD Live1
+Live2();
+END_METHOD
+METHOD Live2
+x := 1;
+END_METHOD
+METHOD Island1
+Island2();
+END_METHOD
+METHOD Island2
+y := 1;
+END_METHOD`
+  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)])
+  expect(dead.has("island1")).toBe(true)
+  expect(dead.has("island2")).toBe(true)
+  expect(dead.has("live1")).toBe(false)
+  expect(dead.has("live2")).toBe(false)
+})
+
+// SAFETY: implicitly-called members must NEVER be reported dead, else a real error in them is hidden.
+test("a lifecycle method (FB_Init) with no explicit caller is NOT dead (whitelisted)", () => {
+  const src = `FUNCTION_BLOCK F
+END_FUNCTION_BLOCK
+METHOD FB_Init : BOOL
+VAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR
+x := 1;
+END_METHOD`
+  expect(deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)]).has("fb_init")).toBe(false)
+})
+
+test("a method matching an interface method (dispatch) is NOT dead", () => {
+  const iface = file("IGo.itf", "INTERFACE IGo\nMETHOD Go\nEND_METHOD\nEND_INTERFACE")
+  const fb = file("F.fb", `FUNCTION_BLOCK F IMPLEMENTS IGo\nEND_FUNCTION_BLOCK\nMETHOD Go\nx := 1;\nEND_METHOD`)
+  // Main references IGo (keeps the interface + implementer live); Go is never called by name.
+  const dead = deadMembers([PRG("Main", "VAR p : IGo; i : F; END_VAR\ni();"), iface, fb])
+  expect(dead.has("go")).toBe(false)
+})
+
+test("a method of a DEAD FB is not double-reported (whole file already suppressed)", () => {
+  const dead = deadMembers([PRG("Main", "x := 1;"), file("Orphan.fb", `FUNCTION_BLOCK Orphan\nEND_FUNCTION_BLOCK\nMETHOD M\ny();\nEND_METHOD`)])
+  expect(dead.has("m")).toBe(false) // Orphan is dead at the POU level; its members aren't separately listed
 })
 
 test("ownerPou returns the file's primary POU, undefined for a non-POU file", () => {

@@ -42,11 +42,13 @@ import {
 } from "vscode-languageserver-protocol/node.js"
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
-import { parseSource } from "../syntax/index.js"
+import { parseSource, type Span } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import {
   computeSemanticDiagnostics,
   deadPous,
+  deadMemberSpans,
+  inDeadMember,
   EMPTY_WORKSPACE_REFS,
   messagesFor,
   ownerPou,
@@ -123,6 +125,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   const docs = new Map<string, TextDocument>()
   let cachedProject: Scope | undefined
   let cachedDead: Set<string> | undefined
+  let cachedDeadMembers: Map<string, Span[]> | undefined
 
   const project = (): Scope => (cachedProject ??= rebuild())
   const rebuild = (): Scope =>
@@ -136,9 +139,13 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // Dead-POU set, rebuilt once per workspace edit. Empty when dead-code diagnosis is enabled.
   const deadSet = (): Set<string> =>
     (cachedDead ??= config.diagnoseDeadCode ? new Set() : deadPous(workspace(), taskRoots))
+  // Dead-MEMBER spans per URI (excluded/uncalled methods inside a LIVE FB) — same on/off gate as deadSet.
+  const deadMembers = (): Map<string, Span[]> =>
+    (cachedDeadMembers ??= config.diagnoseDeadCode ? new Map() : deadMemberSpans(workspace(), deadSet()))
   const invalidate = (): void => {
     cachedProject = undefined
     cachedDead = undefined
+    cachedDeadMembers = undefined
   }
 
   function doc(uri: string): Document | undefined {
@@ -153,6 +160,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     // Parse errors always ride through — a genuinely broken parse is a real problem, not a dead-code FP.
     const owner = ownerPou(d.parseResult)
     const dead = owner !== undefined && deadSet().has(owner)
+    // Excluded/uncalled methods inside this (live) file — their diagnostics are suppressed too.
+    const dm = dead ? undefined : deadMembers().get(uri)
     const items = dead
       ? []
       : computeSemanticDiagnostics({
@@ -161,10 +170,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
           project: project(),
           config,
           references: workspaceRefs,
-        })
+        }).filter((it) => !inDeadMember(it.span, dm))
     const diagnostics: Diagnostic[] = [
       ...items.map(toLspDiagnostic),
-      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, workspaceRefs)).map(toLspDiagnostic),
+      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, workspaceRefs)).filter((it) => !inDeadMember(it.span, dm)).map(toLspDiagnostic),
       ...d.parseResult.errors.map((e) => ({
         range: rangeFromSpan(e.span),
         severity: DiagnosticSeverity.Error,

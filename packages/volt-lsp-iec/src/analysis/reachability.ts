@@ -15,7 +15,15 @@
  * drops those), which is exactly the safe direction here. Upgrade to a resolved graph only if the
  * corpus shows a dead unit staying live because of a coincidental name collision.
  */
-import { lex, type Function, type FunctionBlock, type ParseResult, type Program, type TopLevel } from "../syntax/index.js"
+import {
+  lex,
+  type Function,
+  type FunctionBlock,
+  type ParseResult,
+  type Program,
+  type Span,
+  type TopLevel,
+} from "../syntax/index.js"
 
 export interface ReachabilityInput {
   uri: string
@@ -115,6 +123,100 @@ export function deadPous(files: readonly ReachabilityInput[], taskRoots?: Readon
   const dead = new Set<string>()
   for (const name of pous) if (!reachable.has(name)) dead.add(name)
   return dead
+}
+
+/**
+ * Dead MEMBERS — methods/actions of a LIVE POU that are unreachable from live code (the finer granularity
+ * beyond `deadPous`). CODESYS excludes individual methods from build; an excluded method (its calls
+ * commented out, "moved elsewhere") forms a closed island referenced only from other excluded members — the
+ * compiler skips it, so the LSP must too. Returns each dead member's full declaration span, per URI, for
+ * per-diagnostic suppression (a live FB can still contain dead methods).
+ *
+ * Same fixpoint as `deadPous`, one level down: seed the live refs from each live POU's OWN body (methods
+ * are separate top-level units after it), then pull in every member whose name a live node references, and
+ * propagate that member's own refs. SAFETY (uncertain ⇒ live): properties (implicit accessors), lifecycle
+ * methods (`FB_Init`/`FB_Exit`/`FB_ReInit`, runtime-called), and any method whose name matches an interface
+ * method (dynamic dispatch) are ALWAYS live — never reported dead, so a real error in them is never hidden.
+ * The identifier scan over-connects (a bare name is an edge), the safe direction here.
+ */
+export function deadMemberSpans(
+  files: readonly ReachabilityInput[],
+  deadPouNames: ReadonlySet<string>,
+): Map<string, Span[]> {
+  const LIFECYCLE = new Set(["fb_init", "fb_exit", "fb_reinit"])
+  const ifaceMethods = new Set<string>()
+  for (const f of files)
+    for (const u of f.parseResult.units)
+      if (u.kind === "interface") for (const m of u.methods) ifaceMethods.add(m.name.text.toLowerCase())
+
+  interface MemberNode {
+    uri: string
+    name: string
+    span: Span
+    refs: ReadonlySet<string>
+    live: boolean
+  }
+  const members: MemberNode[] = []
+  const liveRefs = new Set<string>() // identifier names (lc) referenced by live code
+
+  for (const f of files) {
+    const owner = ownerPou(f.parseResult)
+    if (owner !== undefined && deadPouNames.has(owner)) continue // whole file already suppressed
+    const byUnit = bucketIdentifiers(f.source, f.parseResult.units)
+    for (const u of f.parseResult.units) {
+      const refs = byUnit.get(u) ?? new Set<string>()
+      if (isPou(u)) {
+        for (const r of refs) liveRefs.add(r) // the owner POU's own body seeds the live set
+        continue
+      }
+      if (u.kind !== "method" && u.kind !== "action" && u.kind !== "property") continue
+      const name = u.name.text.toLowerCase()
+      const whitelisted = u.kind === "property" || LIFECYCLE.has(name) || ifaceMethods.has(name)
+      if (whitelisted) for (const r of refs) liveRefs.add(r)
+      members.push({ uri: f.uri, name, span: u.span, refs, live: whitelisted })
+    }
+  }
+
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const m of members) {
+      if (m.live || !liveRefs.has(m.name)) continue
+      m.live = true
+      for (const r of m.refs) liveRefs.add(r)
+      changed = true
+    }
+  }
+
+  const out = new Map<string, Span[]>()
+  for (const m of members)
+    if (!m.live) {
+      const arr = out.get(m.uri)
+      if (arr !== undefined) arr.push(m.span)
+      else out.set(m.uri, [m.span])
+    }
+  return out
+}
+
+/** True when `span` falls inside any of a file's dead-member spans — the per-diagnostic suppression test. */
+export function inDeadMember(span: Span, deadSpans: readonly Span[] | undefined): boolean {
+  if (deadSpans === undefined) return false
+  for (const d of deadSpans) if (span.start >= d.start && span.start < d.end) return true
+  return false
+}
+
+/** Identifier names (lc) per top-level unit — one span-ordered pass (units + tokens both sorted by start). */
+function bucketIdentifiers(source: string, units: readonly TopLevel[]): Map<TopLevel, Set<string>> {
+  const ordered = [...units].filter((u) => "span" in u).sort((a, b) => a.span.start - b.span.start)
+  const map = new Map<TopLevel, Set<string>>()
+  for (const u of ordered) map.set(u, new Set())
+  let ui = 0
+  for (const tok of lex(source)) {
+    if (tok.kind !== "identifier") continue
+    while (ui < ordered.length && ordered[ui].span.end <= tok.span.start) ui++
+    if (ui < ordered.length && ordered[ui].span.start <= tok.span.start) map.get(ordered[ui])!.add(tok.text.toLowerCase())
+  }
+  return map
 }
 
 /** A file with no POU is an always-active root iff it declares a global (GVL) or a type — either can

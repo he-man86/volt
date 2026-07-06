@@ -13,7 +13,15 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
 import { isTrivia, parseSource, parseStatements, type BodySpan, type TopLevel } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
-import { computeSemanticDiagnostics, deadPous, messagesFor, ownerPou, resolveConfig } from "../../src/analysis/index.js"
+import {
+  computeSemanticDiagnostics,
+  deadPous,
+  deadMemberSpans,
+  inDeadMember,
+  messagesFor,
+  ownerPou,
+  resolveConfig,
+} from "../../src/analysis/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
@@ -145,9 +153,11 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       // Dead code rides through in the corpus now (the bridge no longer omits it); the LSP suppresses its
       // diagnostics structurally by default, so match the server and skip a file whose owner POU is dead.
       const dead = deadPous(inputs, loadTaskRoots(dir))
+      const deadMembers = deadMemberSpans(inputs, dead)
       for (const f of inputs) {
         const owner = ownerPou(f.parseResult)
         if (owner !== undefined && dead.has(owner)) continue
+        const dm = deadMembers.get(f.uri) // spans of this file's excluded/uncalled methods
         for (const d of computeSemanticDiagnostics({
           parseResult: f.parseResult,
           source: f.source,
@@ -155,12 +165,12 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
           config,
           references,
         })) {
-          if (d.severity === "error")
+          if (d.severity === "error" && !inDeadMember(d.span, dm))
             falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
         }
         // VG code-correctness checks (sink type-checks) must also be false-positive-free on real graphical code.
         for (const d of computeVgDiagnostics(f, scope, messages, references)) {
-          if (d.severity === "error" && !d.code.startsWith("VG_"))
+          if (d.severity === "error" && !d.code.startsWith("VG_") && !inDeadMember(d.span, dm))
             falsePositives.push(`${project}${f.uri.slice(dir.length)} [${d.code}] ${d.message}`)
         }
       }
