@@ -23,7 +23,6 @@ export const CONVERSION_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "INT_TO_REAL with an INT argument — correct shape",
     fromDoc: "04-type-conversion.md#naming-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_itr_v : FB_LANG_conversion_int_to_real_valid;",
     plcPrgBody: "fb_itr_v.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_int_to_real_valid
@@ -46,7 +45,6 @@ END_METHOD
     kind: "function_block",
     feature: "REAL_TO_INT with a REAL argument — correct shape",
     fromDoc: "04-type-conversion.md#naming-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_rti_v : FB_LANG_conversion_real_to_int_valid;",
     plcPrgBody: "fb_rti_v.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_real_to_int_valid
@@ -71,7 +69,6 @@ END_METHOD
     kind: "function_block",
     feature: "INT_TO_REAL called with a REAL — source type mismatch",
     fromDoc: "04-type-conversion.md#critical-rules",
-    expectTcAccepts: false,
     note: "TC behavior CONFIRMED VIA SOLO PUSH: `[error] Cannot convert type 'REAL' to type 'INT'`. In the 69-test batch recording, this error went missing — proves the bridge BuildHandler's pane scanner drops diagnostics under load (truncation, regex format variation, or TC's own per-POU attribution gets fuzzy). Conformance failure is the correct signal: don't trust the batch recording for THIS test; use solo-push to confirm. Future work: dump raw pane text in batch mode to fix the bridge scanner.",
     plcPrgVar: "fb_itr_w : FB_LANG_conversion_int_to_real_wrong_source;",
     plcPrgBody: "fb_itr_w.Convert();",
@@ -95,7 +92,6 @@ END_METHOD
     kind: "function_block",
     feature: "DINT_TO_INT called with an INT — source type mismatch",
     fromDoc: "04-type-conversion.md#critical-rules",
-    expectTcAccepts: true,
     note: "Implicit upgrade INT→DINT may be auto-coerced by TC. LSP conversionSourceMismatch surfaces the intent error.",
     plcPrgVar: "fb_dti_w : FB_LANG_conversion_dint_to_int_wrong_source;",
     plcPrgBody: "fb_dti_w.Convert();",
@@ -121,7 +117,6 @@ END_METHOD
     kind: "function_block",
     feature: "Direct assignment DINT → INT — implicit narrowing, per docs not permitted",
     fromDoc: "04-type-conversion.md#critical-rules",
-    expectTcAccepts: false,
     note: "Per docs §1 'Implicit conversion from larger to smaller types is NOT permitted'. Earlier small-batch recording confirmed TC errors. Full 69-test batch reports clean — same bridge-scanner batch-fidelity issue as conversion_int_to_real_wrong_source.",
     plcPrgVar: "fb_idi : FB_LANG_conversion_implicit_dint_to_int;",
     plcPrgBody: "fb_idi.Convert();",
@@ -147,7 +142,6 @@ END_METHOD
     kind: "function_block",
     feature: "BOOL_TO_INT — explicit BOOL → INT widening (FALSE→0, TRUE→1)",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_b2i : FB_LANG_conversion_bool_to_int_valid;",
     plcPrgBody: "fb_b2i.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_bool_to_int_valid
@@ -170,7 +164,6 @@ END_METHOD
     kind: "function_block",
     feature: "INT_TO_BOOL — explicit INT → BOOL (0→FALSE, non-zero→TRUE)",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_i2b : FB_LANG_conversion_int_to_bool_valid;",
     plcPrgBody: "fb_i2b.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_int_to_bool_valid
@@ -195,7 +188,6 @@ END_METHOD
     kind: "function_block",
     feature: "TIME_TO_DWORD — read TIME's underlying millisecond count",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_t2d : FB_LANG_conversion_time_to_dword;",
     plcPrgBody: "fb_t2d.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_time_to_dword
@@ -218,7 +210,6 @@ END_METHOD
     kind: "function_block",
     feature: "DATE_TO_STRING — format a DATE as 'YYYY-MM-DD'",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_d2s : FB_LANG_conversion_date_to_string;",
     plcPrgBody: "fb_d2s.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_date_to_string
@@ -241,7 +232,6 @@ END_METHOD
     kind: "function_block",
     feature: "DT_TO_DATE — drop the time component from a DT",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_dt2d : FB_LANG_conversion_dt_to_date;",
     plcPrgBody: "fb_dt2d.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_dt_to_date
@@ -266,7 +256,6 @@ END_METHOD
     kind: "function_block",
     feature: "TRUNC — REAL → DINT truncation toward zero",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_tr : FB_LANG_conversion_trunc;",
     plcPrgBody: "fb_tr.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_trunc
@@ -289,7 +278,6 @@ END_METHOD
     kind: "function_block",
     feature: "TRUNC_INT — REAL → INT truncation toward zero",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_tri : FB_LANG_conversion_trunc_int;",
     plcPrgBody: "fb_tri.Convert();",
     source: `FUNCTION_BLOCK FB_LANG_conversion_trunc_int
@@ -314,7 +302,6 @@ END_METHOD
     kind: "function_block",
     feature: "TO_INT(<any>) — overloaded conversion (source type inferred)",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true,
     note: "TO_<type> form accepts any compatible source — TC infers based on operand type.",
     plcPrgVar: "fb_to : FB_LANG_conversion_overloaded_to_int;",
     plcPrgBody: "fb_to.Convert();",
@@ -339,7 +326,6 @@ END_METHOD
     kind: "function_block",
     feature: "Implicit LREAL→REAL assignment — narrowing (drives whether narrowingConversion enables)",
     fromDoc: "04-type-conversion.md",
-    expectTcAccepts: true, // it COMPILES — a warning at most, never an error
     note: "Oracle check: does the compiler emit a 'possible loss of information' WARNING on implicit LREAL→REAL? Ground truth decides whether the narrowing-conversion check matches the compiler.",
     plcPrgVar: "fb_n : FB_LANG_narrowing_lreal_to_real;",
     plcPrgBody: "fb_n.Narrow();",

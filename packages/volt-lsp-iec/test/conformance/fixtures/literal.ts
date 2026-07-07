@@ -22,7 +22,6 @@ export const LITERAL_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "Hex literal 16#FF assigned to WORD",
     fromDoc: "05-operands.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lh : FB_LANG_literal_hex;",
     plcPrgBody: "fb_lh.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_hex
@@ -44,7 +43,6 @@ END_METHOD
     kind: "function_block",
     feature: "Binary literal 2#1010 assigned to BYTE",
     fromDoc: "05-operands.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lb : FB_LANG_literal_binary;",
     plcPrgBody: "fb_lb.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_binary
@@ -66,7 +64,6 @@ END_METHOD
     kind: "function_block",
     feature: "Octal literal 8#77 assigned to BYTE",
     fromDoc: "05-operands.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lo : FB_LANG_literal_octal;",
     plcPrgBody: "fb_lo.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_octal
@@ -88,7 +85,6 @@ END_METHOD
     kind: "function_block",
     feature: "Typed-literal form INT#42 (explicit numeric type prefix)",
     fromDoc: "05-operands.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lti : FB_LANG_literal_typed_int_hash;",
     plcPrgBody: "fb_lti.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_typed_int_hash
@@ -110,7 +106,6 @@ END_METHOD
     kind: "function_block",
     feature: "REAL literal in scientific notation: 1.5e3",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lrs : FB_LANG_literal_real_scientific;",
     plcPrgBody: "fb_lrs.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_real_scientific
@@ -134,7 +129,6 @@ END_METHOD
     kind: "function_block",
     feature: "TIME literal T#5s500ms",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lt : FB_LANG_literal_time;",
     plcPrgBody: "fb_lt.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_time
@@ -156,7 +150,6 @@ END_METHOD
     kind: "function_block",
     feature: "DATE literal D#2024-12-25",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ld : FB_LANG_literal_date;",
     plcPrgBody: "fb_ld.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_date
@@ -178,7 +171,6 @@ END_METHOD
     kind: "function_block",
     feature: "TIME_OF_DAY literal TOD#12:30:45",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ltod : FB_LANG_literal_tod;",
     plcPrgBody: "fb_ltod.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_tod
@@ -202,7 +194,6 @@ END_METHOD
     kind: "function_block",
     feature: "STRING literal 'hello' (single-quoted)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lssq : FB_LANG_literal_string_single_quoted;",
     plcPrgBody: "fb_lssq.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_string_single_quoted
@@ -224,7 +215,6 @@ END_METHOD
     kind: "function_block",
     feature: 'WSTRING literal "hello" (double-quoted)',
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lwdq : FB_LANG_literal_wstring_double_quoted;",
     plcPrgBody: "fb_lwdq.Init();",
     source: `FUNCTION_BLOCK FB_LANG_literal_wstring_double_quoted
@@ -248,8 +238,6 @@ END_METHOD
     kind: "function_block",
     feature: "STRING literal assigned to INT — TC should error",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "Mismatched literal type. Marked recordIsolated because the parse-style error may otherwise short-circuit other tests in the batch.",
     plcPrgVar: "fb_lsia : FB_LANG_literal_string_to_int_assignment;",
     plcPrgBody: "fb_lsia.Init();",

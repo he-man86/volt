@@ -22,7 +22,6 @@ export const KEYWORD_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "IF / ELSIF / ELSE / END_IF",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_if : FB_LANG_ctrl_if_elsif_else;",
     plcPrgBody: "fb_if.Classify();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_if_elsif_else
@@ -53,7 +52,6 @@ END_METHOD
     kind: "function_block",
     feature: "CASE / OF with ELSE default",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_case : FB_LANG_ctrl_case_of;",
     plcPrgBody: "fb_case.Pick();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_case_of
@@ -84,7 +82,6 @@ END_METHOD
     kind: "function_block",
     feature: "FOR / TO / BY / DO / END_FOR",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_for : FB_LANG_ctrl_for_loop;",
     plcPrgBody: "fb_for.Sum();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_for_loop
@@ -112,7 +109,6 @@ END_METHOD
     kind: "function_block",
     feature: "WHILE / DO / END_WHILE",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_w : FB_LANG_ctrl_while_do;",
     plcPrgBody: "fb_w.Drain();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_while_do
@@ -138,7 +134,6 @@ END_METHOD
     kind: "function_block",
     feature: "REPEAT / UNTIL / END_REPEAT",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_r : FB_LANG_ctrl_repeat_until;",
     plcPrgBody: "fb_r.Step();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_repeat_until
@@ -165,7 +160,6 @@ END_METHOD
     kind: "function_block",
     feature: "EXIT statement breaks out of an enclosing loop",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_exit : FB_LANG_ctrl_exit;",
     plcPrgBody: "fb_exit.Run();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_exit
@@ -193,7 +187,6 @@ END_METHOD
     kind: "function_block",
     feature: "CONTINUE statement skips to the next loop iteration",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_c : FB_LANG_ctrl_continue;",
     plcPrgBody: "fb_c.Count();",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_continue
@@ -221,7 +214,6 @@ END_METHOD
     kind: "function_block",
     feature: "RETURN statement exits a METHOD early",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ret : FB_LANG_ctrl_return;",
     plcPrgBody: "fb_ret.Check(iValue := -1);",
     source: `FUNCTION_BLOCK FB_LANG_ctrl_return
@@ -252,7 +244,6 @@ END_METHOD
     kind: "function_block",
     feature: "THIS^ — explicit dereference to access the current instance",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     note: "THIS is a POINTER TO <self FB>; THIS^ dereferences it to access the instance's own fields.",
     plcPrgVar: "fb_this : FB_LANG_keyword_this;",
     plcPrgBody: "fb_this.Inc();",
@@ -287,7 +278,6 @@ END_METHOD
     kind: "function_block",
     feature: "NULL — explicit null-pointer initializer / comparison",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_n : FB_LANG_keyword_null;",
     plcPrgBody: "fb_n.Reset();",
     source: `FUNCTION_BLOCK FB_LANG_keyword_null

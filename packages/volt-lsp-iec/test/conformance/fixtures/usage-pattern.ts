@@ -23,7 +23,6 @@ export const USAGE_PATTERN_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "Parameterless method called on an FB instance",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_umna : FB_LANG_use_method_no_args;",
     plcPrgBody: "fb_umna.Tick();",
     source: `FUNCTION_BLOCK FB_LANG_use_method_no_args
@@ -45,7 +44,6 @@ END_METHOD
     kind: "function_block",
     feature: "Method with single VAR_INPUT called positionally",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_umoi : FB_LANG_use_method_one_input;",
     plcPrgBody: "fb_umoi.AddOne(5);",
     source: `FUNCTION_BLOCK FB_LANG_use_method_one_input
@@ -70,7 +68,6 @@ END_METHOD
     kind: "function_block",
     feature: "Method with multiple inputs called with named args",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_umna2 : FB_LANG_use_method_named_args;",
     plcPrgBody: "fb_umna2.Configure(iWidth := 10, iHeight := 20);",
     source: `FUNCTION_BLOCK FB_LANG_use_method_named_args
@@ -96,7 +93,6 @@ END_METHOD
     kind: "function_block",
     feature: "Method with return type used in assignment RHS",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_umrv : FB_LANG_use_method_returns_value;\n\tiResult : INT;",
     plcPrgBody: "iResult := fb_umrv.Compute(7);",
     source: `FUNCTION_BLOCK FB_LANG_use_method_returns_value
@@ -117,7 +113,6 @@ END_METHOD
     kind: "function_block",
     feature: "Read an FB property via dot-access",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_upr : FB_LANG_use_property_read;\n\tiOut : INT;",
     plcPrgBody: "iOut := fb_upr.Value;",
     source: `FUNCTION_BLOCK FB_LANG_use_property_read
@@ -141,7 +136,6 @@ END_PROPERTY
     kind: "function_block",
     feature: "Write to an FB property via dot-access",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_upw : FB_LANG_use_property_write;",
     plcPrgBody: "fb_upw.Threshold := 100;",
     source: `FUNCTION_BLOCK FB_LANG_use_property_write
@@ -165,7 +159,6 @@ END_PROPERTY
     kind: "function_block",
     feature: "FB instance invoked like a function (FB body call)",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_uc : FB_LANG_use_callable;",
     plcPrgBody: "fb_uc(iIn := 3);",
     source: `FUNCTION_BLOCK FB_LANG_use_callable
@@ -189,7 +182,6 @@ END_FUNCTION_BLOCK
     kind: "structure",
     feature: "STRUCT field accessed via dot-notation in PLC_PRG",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "dut_usm : DUT_LANG_use_struct_member;",
     plcPrgBody: "dut_usm.iValue := 42;",
     source: `TYPE DUT_LANG_use_struct_member :
@@ -208,7 +200,6 @@ END_TYPE
     kind: "structure",
     feature: "STRUCT inner record — nested inside use_struct_nested_member",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     source: `TYPE DUT_LANG_use_struct_inner :
 STRUCT
 	iValue : INT;
@@ -224,7 +215,6 @@ END_TYPE
     kind: "structure",
     feature: "Nested STRUCT field access (outer.inner.field), separate inner DUT item",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "dut_uso : DUT_LANG_use_struct_outer;",
     plcPrgBody: "dut_uso.inner.iValue := 1;",
     source: `TYPE DUT_LANG_use_struct_outer :
@@ -242,7 +232,6 @@ END_TYPE
     kind: "gvl",
     feature: "GVL field accessed via qualified dot-notation",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: undefined,
     plcPrgBody: "GVL_LANG_use_field_access.gValue := 99;",
     source: `{attribute 'qualified_only'}
@@ -260,7 +249,6 @@ END_VAR
     kind: "function_block",
     feature: "Method body uses THIS^.field to access the FB's own data",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_utm : FB_LANG_use_this_member;",
     plcPrgBody: "fb_utm.Bump();",
     source: `FUNCTION_BLOCK FB_LANG_use_this_member
@@ -284,7 +272,6 @@ END_METHOD
     kind: "function",
     feature: "Top-level FUNCTION called from PLC_PRG with an argument",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "iFcOut : INT;",
     plcPrgBody: "iFcOut := FUN_LANG_use_function_call(5);",
     source: `FUNCTION FUN_LANG_use_function_call : INT
@@ -305,7 +292,6 @@ END_FUNCTION
     kind: "function_block",
     feature: "Method call on array element: arr[i].Method()",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "arr_uai : ARRAY[0..1] OF FB_LANG_use_array_indexed;",
     plcPrgBody: "arr_uai[0].Tick();",
     source: `FUNCTION_BLOCK FB_LANG_use_array_indexed
@@ -329,7 +315,6 @@ END_METHOD
     kind: "function_block",
     feature: "POINTER TO STRUCT dereferenced + field access (pInst^.field)",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_upd : FB_LANG_use_pointer_deref;",
     plcPrgBody: "fb_upd.SetTarget();",
     source: `FUNCTION_BLOCK FB_LANG_use_pointer_deref
@@ -355,7 +340,6 @@ END_METHOD
     kind: "function_block",
     feature: "FB method body calls another method on the same FB",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_usc : FB_LANG_use_self_call;",
     plcPrgBody: "fb_usc.Outer();",
     source: `FUNCTION_BLOCK FB_LANG_use_self_call
@@ -383,7 +367,6 @@ END_METHOD
     kind: "function_block",
     feature: "Method with ARRAY-typed VAR_INPUT — sig-help renders the array type in the parameter label",
     fromDoc: "usage-pattern",
-    expectTcAccepts: true,
     plcPrgVar: "fb_uap : FB_LANG_use_array_param;\n\tarr_in : ARRAY[0..3] OF INT;",
     plcPrgBody: "fb_uap.Sum(arr_in);",
     source: `FUNCTION_BLOCK FB_LANG_use_array_param

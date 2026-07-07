@@ -22,7 +22,6 @@ export const OOP_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "Base FB with a method — scaffolding for inheritance tests",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_base : FB_LANG_oop_base;",
     plcPrgBody: "fb_base.Greet();",
     source: `FUNCTION_BLOCK FB_LANG_oop_base
@@ -44,7 +43,6 @@ END_METHOD
     kind: "function_block",
     feature: "FB EXTENDS base — inherits its method",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_extsimple : FB_LANG_oop_extends_simple;",
     plcPrgBody: "fb_extsimple.Greet();",
     source: `FUNCTION_BLOCK FB_LANG_oop_extends_simple EXTENDS FB_LANG_oop_base
@@ -62,7 +60,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "FB EXTENDS base + OVERRIDE the inherited method",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_extover : FB_LANG_oop_extends_with_override;",
     plcPrgBody: "fb_extover.Greet();",
     source: `FUNCTION_BLOCK FB_LANG_oop_extends_with_override EXTENDS FB_LANG_oop_base
@@ -84,7 +81,6 @@ END_METHOD
     kind: "function_block",
     feature: "OVERRIDE method that calls SUPER^.Greet()",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_extsuper : FB_LANG_oop_extends_with_super;",
     plcPrgBody: "fb_extsuper.Greet();",
     source: `FUNCTION_BLOCK FB_LANG_oop_extends_with_super EXTENDS FB_LANG_oop_base
@@ -107,7 +103,6 @@ END_METHOD
     kind: "function_block",
     feature: "FINAL FB — cannot be extended",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_final : FB_LANG_oop_final_fb;",
     plcPrgBody: "fb_final();",
     source: `FUNCTION_BLOCK FINAL FB_LANG_oop_final_fb
@@ -125,7 +120,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "ABSTRACT FB — can't be directly instantiated",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     note: "ABSTRACT declaration alone is fine; PLC_PRG only references this FB indirectly (no direct instance), so TC accepts. A direct instantiation would error.",
     plcPrgVar: undefined,
     plcPrgBody: undefined,
@@ -144,8 +138,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "Trying to instantiate ABSTRACT FB — TC accepts (no compile-time enforcement)",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC ACCEPTS direct instantiation of an ABSTRACT FB at compile time, even though the OO contract says it shouldn't be allowed. Enforcement likely happens at runtime when an abstract method is called, but the compile passes cleanly. Catalog encodes recorded TC reality, not the OO ideal.",
     plcPrgVar: "fb_absinst : FB_LANG_oop_abstract_instantiated;",
     plcPrgBody: "fb_absinst.Inner();",
@@ -170,7 +162,6 @@ END_METHOD
     kind: "function_block",
     feature: "FB with an ACTION sibling — exercises action branch in document-symbol",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_oab : FB_LANG_oop_action_block;",
     plcPrgBody: "fb_oab.DoIt();",
     source: `FUNCTION_BLOCK FB_LANG_oop_action_block

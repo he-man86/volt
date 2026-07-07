@@ -30,8 +30,6 @@ function varAttr(slug: string, attr: string, varDecl: string, note?: string): La
     kind: "function_block",
     feature: `{attribute '${attr}'} on a variable is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
-    expectTcAccepts: true,
-    recordIsolated: true,
     ...(note ? { note } : {}),
     source: `FUNCTION_BLOCK ${pou}\nVAR\n\t{attribute '${attr}'}\n\t${varDecl}\nEND_VAR\n\nEND_FUNCTION_BLOCK\n`,
   }
@@ -46,8 +44,6 @@ function methodAttr(slug: string, attr: string): LanguageTest {
     kind: "function_block",
     feature: `{attribute '${attr}'} on a method is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
-    expectTcAccepts: true,
-    recordIsolated: true,
     source:
       `FUNCTION_BLOCK ${pou}\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n` +
       `{attribute '${attr}'}\nMETHOD DoRpc : BOOL\nVAR_INPUT\nEND_VAR\nDoRpc := TRUE;\nEND_METHOD\n`,
@@ -63,8 +59,6 @@ function structAttr(slug: string, attr: string): LanguageTest {
     kind: "structure",
     feature: `{attribute '${attr}'} on a DUT is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
-    expectTcAccepts: true,
-    recordIsolated: true,
     source: `{attribute '${attr}'}\nTYPE ${dut} :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n`,
   }
 }
@@ -117,8 +111,6 @@ export const PRAGMA_TC_TESTS: readonly LanguageTest[] = [
     kind: "gvl",
     feature: "{attribute 'Tc2GvlVarNames'} on a GVL is a TwinCAT-only Tc attribute",
     fromDoc: "07-pragmas.md#tc-attributes",
-    expectTcAccepts: true,
-    recordIsolated: true,
     source: `{attribute 'Tc2GvlVarNames'}\nVAR_GLOBAL\n\tgVal : INT;\nEND_VAR\n`,
   },
 ]

@@ -25,7 +25,6 @@ export const OPERATOR_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "INT + INT → INT, baseline arithmetic",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_oast : FB_LANG_op_arithmetic_same_type;",
     plcPrgBody: "fb_oast.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_arithmetic_same_type
@@ -49,7 +48,6 @@ END_METHOD
     kind: "function_block",
     feature: "INT + DINT — auto-promotion test",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     note: "Result type promotes to the wider operand. Assigning back to DINT should be fine.",
     plcPrgVar: "fb_oapd : FB_LANG_op_arithmetic_int_plus_dint;",
     plcPrgBody: "fb_oapd.Compute();",
@@ -74,7 +72,6 @@ END_METHOD
     kind: "function_block",
     feature: "INT + REAL — int auto-coerces to REAL",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_oapr : FB_LANG_op_arithmetic_int_plus_real;",
     plcPrgBody: "fb_oapr.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_arithmetic_int_plus_real
@@ -98,7 +95,6 @@ END_METHOD
     kind: "function_block",
     feature: "REAL MOD REAL — should error per spec (MOD is integer-only)",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
     note: "MOD operator is defined for integer types only. Applying to REAL should error.",
     plcPrgVar: "fb_omor : FB_LANG_op_modulo_on_real;",
     plcPrgBody: "fb_omor.Compute();",
@@ -125,7 +121,6 @@ END_METHOD
     kind: "function_block",
     feature: "INT = INT comparison → BOOL",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ociv : FB_LANG_op_comparison_int_vs_int;",
     plcPrgBody: "fb_ociv.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_comparison_int_vs_int
@@ -151,7 +146,6 @@ END_METHOD
     kind: "function_block",
     feature: "AND / OR / NOT on BOOL — standard logical ops",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_olb : FB_LANG_op_logical_bool;",
     plcPrgBody: "fb_olb.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_logical_bool
@@ -175,7 +169,6 @@ END_METHOD
     kind: "function_block",
     feature: "AND / OR / XOR on integer types are BITWISE (same keywords as logical)",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_oboi : FB_LANG_op_bitwise_on_int;",
     plcPrgBody: "fb_oboi.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_bitwise_on_int
@@ -199,7 +192,6 @@ END_METHOD
     kind: "function_block",
     feature: "SHL (shift left) on integer type",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_osl : FB_LANG_op_shift_left;",
     plcPrgBody: "fb_osl.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_shift_left
@@ -224,7 +216,6 @@ END_METHOD
     kind: "function_block",
     feature: "BOOL + INT — should error (no auto-coercion across BOOL/numeric boundary)",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
     note: "BOOL is distinct from numeric types in IEC 61131-3. Arithmetic across the boundary should error.",
     plcPrgVar: "fb_oabp : FB_LANG_op_arithmetic_bool_plus_int;",
     plcPrgBody: "fb_oabp.Compute();",
@@ -251,7 +242,6 @@ END_METHOD
     kind: "function_block",
     feature: "SEL(<bool>, <ifFalse>, <ifTrue>) — ternary-like picker",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_sel : FB_LANG_op_sel;",
     plcPrgBody: "fb_sel.Pick();",
     source: `FUNCTION_BLOCK FB_LANG_op_sel
@@ -274,7 +264,6 @@ END_METHOD
     kind: "function_block",
     feature: "MUX(<index>, <opt0>, <opt1>, <opt2>) — N-way selector",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_mux : FB_LANG_op_mux;",
     plcPrgBody: "fb_mux.Pick();",
     source: `FUNCTION_BLOCK FB_LANG_op_mux
@@ -297,7 +286,6 @@ END_METHOD
     kind: "function_block",
     feature: "MIN(a, b) / MAX(a, b) — variadic min/max",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_mm : FB_LANG_op_min_max;",
     plcPrgBody: "fb_mm.Pick();",
     source: `FUNCTION_BLOCK FB_LANG_op_min_max
@@ -323,7 +311,6 @@ END_METHOD
     kind: "function_block",
     feature: "LIMIT(<min>, <value>, <max>) — clamp value into range",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lim : FB_LANG_op_limit;",
     plcPrgBody: "fb_lim.Clamp();",
     source: `FUNCTION_BLOCK FB_LANG_op_limit
@@ -348,7 +335,6 @@ END_METHOD
     kind: "function_block",
     feature: "ABS(<numeric>) — absolute value",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_abs : FB_LANG_op_math_abs;",
     plcPrgBody: "fb_abs.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_abs
@@ -371,7 +357,6 @@ END_METHOD
     kind: "function_block",
     feature: "SQRT(<real>) — square root",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_sq : FB_LANG_op_math_sqrt;",
     plcPrgBody: "fb_sq.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_sqrt
@@ -394,7 +379,6 @@ END_METHOD
     kind: "function_block",
     feature: "LN(<real>) — natural logarithm",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ln : FB_LANG_op_math_ln;",
     plcPrgBody: "fb_ln.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_ln
@@ -417,7 +401,6 @@ END_METHOD
     kind: "function_block",
     feature: "LOG(<real>) — base-10 logarithm",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_lg : FB_LANG_op_math_log;",
     plcPrgBody: "fb_lg.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_log
@@ -440,7 +423,6 @@ END_METHOD
     kind: "function_block",
     feature: "EXP(<real>) — e^x exponential",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ex : FB_LANG_op_math_exp;",
     plcPrgBody: "fb_ex.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_exp
@@ -463,7 +445,6 @@ END_METHOD
     kind: "function_block",
     feature: "ASIN / ACOS / ATAN — inverse trig functions on REAL",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_itrig : FB_LANG_op_math_inverse_trig;",
     plcPrgBody: "fb_itrig.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_inverse_trig
@@ -490,7 +471,6 @@ END_METHOD
     kind: "function_block",
     feature: "SIN / COS / TAN — trigonometric functions on REAL",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_trig : FB_LANG_op_math_trig;",
     plcPrgBody: "fb_trig.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_trig
@@ -517,7 +497,6 @@ END_METHOD
     kind: "function_block",
     feature: "EXPT(base, exp) — exponentiation",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_expt : FB_LANG_op_math_expt;",
     plcPrgBody: "fb_expt.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_expt
@@ -542,7 +521,6 @@ END_METHOD
     kind: "function_block",
     feature: "SHR — logical right shift",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_shr : FB_LANG_op_shift_right;",
     plcPrgBody: "fb_shr.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_shift_right
@@ -565,7 +543,6 @@ END_METHOD
     kind: "function_block",
     feature: "ROL — bitwise rotate left",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_rol : FB_LANG_op_rotate_left;",
     plcPrgBody: "fb_rol.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_rotate_left
@@ -588,7 +565,6 @@ END_METHOD
     kind: "function_block",
     feature: "ROR — bitwise rotate right",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ror : FB_LANG_op_rotate_right;",
     plcPrgBody: "fb_ror.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_rotate_right
@@ -617,7 +593,6 @@ END_METHOD
     kind: "function_block",
     feature: "__ISVALIDREF — check that a REFERENCE TO is bound to a valid target",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ivr : FB_LANG_op_sys_isvalidref;",
     plcPrgBody: "fb_ivr.Check();",
     source: `FUNCTION_BLOCK FB_LANG_op_sys_isvalidref
@@ -642,8 +617,6 @@ END_METHOD
     kind: "function_block",
     feature: "__VARINFO — CODESYS-only; TC rejects (platform-dependent)",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC rejects __VARINFO — CODESYS-only system operator. Use TwinCAT's specific introspection facilities instead.",
     plcPrgVar: "fb_vi : FB_LANG_op_sys_varinfo;",
     plcPrgBody: "fb_vi.Inspect();",
@@ -667,8 +640,6 @@ END_METHOD
     kind: "function_block",
     feature: "__CURRENTTASK — CODESYS-only; TC rejects (platform-dependent)",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC rejects __CURRENTTASK. TwinCAT exposes task context via TwinCAT.Standard's GetCurTaskIndex() helpers instead.",
     plcPrgVar: "fb_ct : FB_LANG_op_sys_currenttask;",
     plcPrgBody: "fb_ct.Inspect();",
@@ -691,8 +662,6 @@ END_METHOD
     kind: "function_block",
     feature: "__TRY / __CATCH / __FINALLY / __ENDTRY — CODESYS-only; TC rejects",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC rejects structured-exception-handling pragmas. CODESYS-only feature; TC uses simpler error-flag patterns or PLC_Exception traps.",
     plcPrgVar: "fb_tc : FB_LANG_op_sys_try_catch;",
     plcPrgBody: "fb_tc.Guarded();",
@@ -722,8 +691,6 @@ END_METHOD
     kind: "function_block",
     feature: "__NEW / __DELETE — dynamic allocation under `{attribute 'enable_dynamic_creation'}`",
     fromDoc: "03-operators.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "TC accepts __NEW / __DELETE when the FB carries `{attribute 'enable_dynamic_creation'}`. Without that attribute TC rejects the operators; the attribute is the documented opt-in (CODESYS supports the operators unconditionally, TC requires the explicit opt-in).",
     plcPrgVar: "fb_nd : FB_LANG_op_sys_new_delete;",
     plcPrgBody: "fb_nd.Alloc();",
@@ -750,8 +717,6 @@ END_METHOD
     kind: "function_block",
     feature: "__QUERYINTERFACE — CODESYS-only runtime interface query; TC rejects",
     fromDoc: "03-operators.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC rejects __QUERYINTERFACE. CODESYS-only; TC has its own runtime-interface query primitives in TwinCAT.SystemBase.",
     plcPrgVar: "fb_qi : FB_LANG_op_sys_queryinterface;",
     plcPrgBody: "fb_qi.Query();",

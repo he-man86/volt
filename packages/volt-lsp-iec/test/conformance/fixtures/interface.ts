@@ -20,7 +20,6 @@ export const INTERFACE_TESTS: readonly LanguageTest[] = [
     kind: "interface",
     feature: "Empty INTERFACE — declaration without methods or properties",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     // Interfaces can't be instantiated directly. PLC_PRG must
     // reference at least one FB that implements them, otherwise
     // TC may drop the interface as unused. We include a tiny
@@ -44,7 +43,6 @@ END_INTERFACE
     kind: "function_block",
     feature: "FB that IMPLEMENTS the empty interface ITF_LANG_empty",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iei_called : FB_LANG_interface_empty_impl;",
     plcPrgBody: "fb_iei_called();",
     source: `FUNCTION_BLOCK FB_LANG_interface_empty_impl IMPLEMENTS ITF_LANG_empty
@@ -62,7 +60,6 @@ END_FUNCTION_BLOCK
     kind: "interface",
     feature: "INTERFACE with one method declaration",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iwm : FB_LANG_interface_with_method_impl;",
     plcPrgBody: "fb_iwm.Compute();",
     source: `INTERFACE ITF_LANG_with_method
@@ -80,7 +77,6 @@ END_INTERFACE
     kind: "function_block",
     feature: "FB that IMPLEMENTS ITF_LANG_with_method (must define Compute)",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iwm_called : FB_LANG_interface_with_method_impl;",
     plcPrgBody: "fb_iwm_called.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_interface_with_method_impl IMPLEMENTS ITF_LANG_with_method
@@ -102,7 +98,6 @@ END_METHOD
     kind: "function_block",
     feature: "FB IMPLEMENTS interface but doesn't define a required method — TC should error",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: false,
     note: "Standard OO contract: implementing FB must provide all interface methods. TC errors with 'method not implemented'. Must record in BATCH mode (not isolated) so ITF_LANG_with_method is present in the project at the time TC compiles this FB — isolating it pushes the FB alone and TC errors with the wrong message ('No definition found for interface').",
     plcPrgVar: "fb_imi : FB_LANG_interface_missing_implementation;",
     plcPrgBody: "fb_imi();",
@@ -123,7 +118,6 @@ END_FUNCTION_BLOCK
     kind: "interface",
     feature: "INTERFACE EXTENDS another interface — extends loop in find-identifier",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iea : FB_LANG_iea_impl;",
     plcPrgBody: "fb_iea.ExtraDo();",
     source: `INTERFACE ITF_LANG_extends_another EXTENDS ITF_LANG_empty
@@ -141,7 +135,6 @@ END_INTERFACE
     kind: "function_block",
     feature: "FB that IMPLEMENTS an interface which EXTENDS another (must provide all methods)",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: undefined,
     plcPrgBody: undefined,
     source: `FUNCTION_BLOCK FB_LANG_iea_impl IMPLEMENTS ITF_LANG_extends_another
@@ -159,7 +152,6 @@ END_METHOD
     kind: "interface",
     feature: "INTERFACE METHOD with a return type — returnType branch in find-identifier",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_imr : FB_LANG_method_returns_impl;\n\tiOut : INT;",
     plcPrgBody: "iOut := fb_imr.GetCount();",
     source: `INTERFACE ITF_LANG_method_returns
@@ -177,7 +169,6 @@ END_INTERFACE
     kind: "function_block",
     feature: "FB implementing an interface whose method has a return type",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: undefined,
     plcPrgBody: undefined,
     source: `FUNCTION_BLOCK FB_LANG_method_returns_impl IMPLEMENTS ITF_LANG_method_returns
@@ -199,7 +190,6 @@ END_METHOD
     kind: "interface",
     feature: "INTERFACE with a PROPERTY declaration — property branch in find-identifier",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iwp : FB_LANG_with_property_impl;\n\tiPv : INT;",
     plcPrgBody: "iPv := fb_iwp.Value;",
     source: `INTERFACE ITF_LANG_with_property
@@ -218,7 +208,6 @@ END_INTERFACE
     feature:
       "FB implementing an interface property (GET-only) — TC rejects because property accessors require both GET and SET when the interface contract is symmetric",
     fromDoc: "10-keywords.md",
-    expectTcAccepts: true,
     note: "DISCOVERY (verified live 2026-05-30): TC errors with 'no implementation for method __SETVALUE defined in interface' even when only GET is needed by the consumer. A complete property impl must define both GET and SET — covered by the existing `oop_property_get_set` tests elsewhere. Catalog entry kept as a known-quirk record.",
     plcPrgVar: undefined,
     plcPrgBody: undefined,

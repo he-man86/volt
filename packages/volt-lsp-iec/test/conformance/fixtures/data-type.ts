@@ -21,7 +21,6 @@ export const DATA_TYPE_TESTS: readonly LanguageTest[] = [
     kind: "structure",
     feature: "STRUCT — simple record with two fields",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_simple : DUT_LANG_struct_simple;",
     plcPrgBody: "dut_simple.x := 42;\ndut_simple.y := 7;",
     source: `TYPE DUT_LANG_struct_simple :
@@ -43,7 +42,6 @@ END_TYPE
     kind: "structure",
     feature: "STRUCT base record — extended by type_dut_struct_extends",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     source: `TYPE DUT_LANG_struct_base :
 STRUCT
 	id : INT;
@@ -59,7 +57,6 @@ END_TYPE
     kind: "structure",
     feature: "STRUCT EXTENDS — derived record over a separate base DUT item",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     note: "Pure DUT inheritance — no FB involved. Both CODESYS (doc 06 L299) and TC support `EXTENDS DUT_Base`. Base is a separate item (DUT_LANG_struct_base).",
     plcPrgVar: "dut_ext : DUT_LANG_struct_extends;",
     plcPrgBody: "dut_ext.id := 1;\ndut_ext.label := 'hi';",
@@ -78,7 +75,6 @@ END_TYPE
     kind: "structure",
     feature: "STRUCT inner record — nested inside type_dut_struct_nested",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     source: `TYPE DUT_LANG_struct_inner :
 STRUCT
 	x : INT;
@@ -94,7 +90,6 @@ END_TYPE
     kind: "structure",
     feature: "STRUCT with a nested STRUCT field (separate inner DUT item)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_nest : DUT_LANG_struct_nested;",
     plcPrgBody: "dut_nest.position.x := 10;",
     source: `TYPE DUT_LANG_struct_nested :
@@ -114,7 +109,6 @@ END_TYPE
     kind: "structure",
     feature: "ENUM — simple value list (default INT base)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_enum : DUT_LANG_enum_simple;",
     plcPrgBody: "dut_enum := DUT_LANG_enum_simple.Running;",
     source: `TYPE DUT_LANG_enum_simple :
@@ -133,7 +127,6 @@ END_TYPE
     kind: "structure",
     feature: "ENUM with explicit BYTE base type",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_enum_b : DUT_LANG_enum_with_base;",
     plcPrgBody: "dut_enum_b := DUT_LANG_enum_with_base.LevelB;",
     source: `TYPE DUT_LANG_enum_with_base :
@@ -152,7 +145,6 @@ END_TYPE
     kind: "structure",
     feature: "ENUM with explicit value assignments",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_enum_e : DUT_LANG_enum_explicit_values;",
     plcPrgBody: "dut_enum_e := DUT_LANG_enum_explicit_values.Pressed;",
     source: `TYPE DUT_LANG_enum_explicit_values :
@@ -173,7 +165,6 @@ END_TYPE
     kind: "structure",
     feature: "ALIAS — UDINT alias",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_alias_id : DUT_LANG_alias_int;",
     plcPrgBody: "dut_alias_id := 1234;",
     source: `TYPE DUT_LANG_alias_int : UDINT;
@@ -187,7 +178,6 @@ END_TYPE
     kind: "structure",
     feature: "ALIAS — STRING(80) alias",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_alias_str : DUT_LANG_alias_string;",
     plcPrgBody: "dut_alias_str := 'hello';",
     source: `TYPE DUT_LANG_alias_string : STRING(80);
@@ -203,7 +193,6 @@ END_TYPE
     kind: "structure",
     feature: "UNION — overlapping variants",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_u : DUT_LANG_union;",
     plcPrgBody: "dut_u.iWord := 16#ABCD;",
     source: `TYPE DUT_LANG_union :
@@ -223,7 +212,6 @@ END_TYPE
     kind: "structure",
     feature: "SUBRANGE — INT constrained to 0..100",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_pct : DUT_LANG_subrange := 50;",
     plcPrgBody: "dut_pct := 75;",
     source: `TYPE DUT_LANG_subrange : INT(0..100);
@@ -241,8 +229,6 @@ END_TYPE
     kind: "function",
     feature: "ANY function input — accepts arbitrary typed argument (CODESYS generic)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "ANY exposes the value as a struct {typeclass, pvalue, diSize}. TC support depends on __SYSTEM.AnyType being defined in the project. Catalog records recorded reality.",
     plcPrgVar: "iSrc : INT := 5;\niReturned : DINT;",
     plcPrgBody: "iReturned := FUN_LANG_any_input(iSrc);",
@@ -262,8 +248,6 @@ END_FUNCTION
     kind: "function",
     feature: "ANY_INT — restricts a generic input to integer-family types",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "ANY_<type> family (ANY_INT, ANY_NUM, ANY_BIT, ANY_REAL, ANY_DATE) narrows ANY to a type group. TC support varies.",
     plcPrgVar: "iSrc : INT := 5;\niReturned : DINT;",
     plcPrgBody: "iReturned := FUN_LANG_any_int(iSrc);",
@@ -285,8 +269,6 @@ END_FUNCTION
     kind: "function_block",
     feature: "__XINT — CODESYS platform-portable signed integer (16 / 32 / 64-bit per target)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "CODESYS-only extension. TC support is platform-dependent — catalog records actual behavior.",
     plcPrgVar: "fb_xi : FB_LANG_codesys_xint;",
     plcPrgBody: "fb_xi.Compute();",
@@ -309,8 +291,6 @@ END_METHOD
     kind: "function_block",
     feature: "__UXINT — CODESYS platform-portable unsigned integer",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "CODESYS-only extension. TC support platform-dependent.",
     plcPrgVar: "fb_ux : FB_LANG_codesys_uxint;",
     plcPrgBody: "fb_ux.Compute();",
@@ -333,8 +313,6 @@ END_METHOD
     kind: "function_block",
     feature: "__XWORD — CODESYS platform-portable bitstring (pointer-sized)",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "CODESYS-only extension. Width matches platform pointer width.",
     plcPrgVar: "fb_xw : FB_LANG_codesys_xword;",
     plcPrgBody: "fb_xw.Compute();",
@@ -357,8 +335,6 @@ END_METHOD
     kind: "function_block",
     feature: "__VECTOR — CODESYS-only SIMD type; TC rejects",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: false,
-    recordIsolated: true,
     note: "DISCOVERY (verified live 2026-05-29): TC rejects `__VECTOR[N] OF T` with 'Type definition expected instead of __VECTOR'. CODESYS-only extension; TC has no SIMD primitive — use plain ARRAY[0..N-1] OF T. LSP parses the syntax (maps to array_type) so the user sees their code in the IDE; the vendor-only-operator check needs widening to include type-position keywords if we want LSP to flag this too.",
     plcPrgVar: "fb_v : FB_LANG_codesys_vector;",
     plcPrgBody: "fb_v.Compute();",
@@ -381,8 +357,6 @@ END_METHOD
     kind: "function_block",
     feature: "VERSION — CODESYS library/POU version-metadata type",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
-    recordIsolated: true,
     note: "CODESYS metadata type. TC support depends on library-package machinery.",
     plcPrgVar: "fb_ver : FB_LANG_codesys_version;",
     plcPrgBody: "fb_ver.Inspect();",
@@ -407,7 +381,6 @@ END_METHOD
     kind: "function_block",
     feature: "Implicit ENUM declared inline in a VAR section — no TYPE block",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     note: "CODESYS 'Implicit Enumeration' — inline `(Idle, Running, Halted)` as a variable's type. No TYPE/END_TYPE wrapper; the enum values are scoped to the FB.",
     plcPrgVar: "fb_ie : FB_LANG_implicit_enum;",
     plcPrgBody: "fb_ie.Step();",
@@ -430,7 +403,6 @@ END_METHOD
     kind: "structure",
     feature: "STRUCT with BIT fields — packed flags",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     note: "BIT is only allowed in STRUCT field declarations (not standalone VAR), per the CODESYS BIT page.",
     plcPrgVar: "dut_flags : DUT_LANG_struct_bit_fields;",
     plcPrgBody: "dut_flags.bFlagA := TRUE;",
@@ -454,7 +426,6 @@ END_TYPE
     kind: "structure",
     feature: "TYPE alias with initial value — alias body init path in DUT parser",
     fromDoc: "06-data-types.md",
-    expectTcAccepts: true,
     plcPrgVar: "dut_awi : DUT_LANG_alias_with_init;",
     plcPrgBody: "dut_awi := dut_awi + 1;",
     source: `TYPE DUT_LANG_alias_with_init : INT := 42;

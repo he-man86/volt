@@ -39,7 +39,6 @@ export const PRAGMA_TESTS: readonly LanguageTest[] = [
     kind: "function_block",
     feature: "{attribute 'hide'} on a variable hides it from online monitoring",
     fromDoc: "07-pragmas.md#hide",
-    expectTcAccepts: false,
     plcPrgVar: "fb_hide : FB_LANG_hide_var;",
     plcPrgBody: "fb_hide.iSecret := 1;\nfb_hide.iVisible := 2;",
     source: `FUNCTION_BLOCK FB_LANG_hide_var
@@ -59,7 +58,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'call_after_init'} on a method runs after FB instantiation",
     fromDoc: "07-pragmas.md#call_after_init",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cai : FB_LANG_call_after_init;",
     plcPrgBody: "fb_cai();",
     source: `FUNCTION_BLOCK FB_LANG_call_after_init
@@ -86,7 +84,6 @@ END_METHOD
     kind: "function_block",
     feature: "{warning 'msg'} pragma emits a TC warning (C0373), not an error",
     fromDoc: "07-pragmas.md#message-pragmas",
-    expectTcAccepts: true,
     plcPrgVar: "fb_warn : FB_LANG_warning_message;",
     plcPrgBody: "fb_warn();",
     note: "TC should accept (build succeeds) but emit a warning diagnostic.",
@@ -108,7 +105,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'noinit'} skips implicit zero-init for a variable",
     fromDoc: "07-pragmas.md#noinit",
-    expectTcAccepts: false,
     plcPrgVar: "fb_noinit : FB_LANG_noinit;",
     plcPrgBody: "fb_noinit.iRetain := fb_noinit.iRetain + 1;",
     source: `FUNCTION_BLOCK FB_LANG_noinit
@@ -127,7 +123,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'init_on_onlchange'} re-inits a var on every online change",
     fromDoc: "07-pragmas.md#init_on_onlchange",
-    expectTcAccepts: false,
     plcPrgVar: "fb_ioc : FB_LANG_init_on_onlchange;",
     plcPrgBody: "fb_ioc.iVar := 1;",
     source: `FUNCTION_BLOCK FB_LANG_init_on_onlchange
@@ -146,7 +141,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'displaymode' := 'hex'} overrides monitor format",
     fromDoc: "07-pragmas.md#displaymode",
-    expectTcAccepts: false,
     plcPrgVar: "fb_dm : FB_LANG_displaymode_hex;",
     plcPrgBody: "fb_dm.iHex := 16#FF;",
     source: `FUNCTION_BLOCK FB_LANG_displaymode_hex
@@ -165,7 +159,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'no_copy'} prevents the var from being copied during online change",
     fromDoc: "07-pragmas.md#no_copy",
-    expectTcAccepts: false,
     plcPrgVar: "fb_nc : FB_LANG_no_copy;",
     plcPrgBody: "fb_nc.iLocal := 42;",
     source: `FUNCTION_BLOCK FB_LANG_no_copy
@@ -186,7 +179,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'linkalways'} forces the POU to be linked even if uncalled",
     fromDoc: "07-pragmas.md#linkalways",
-    expectTcAccepts: true,
     plcPrgVar: "fb_la : FB_LANG_linkalways;",
     plcPrgBody: "fb_la();",
     source: `{attribute 'linkalways'}
@@ -205,7 +197,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'no_check'} suppresses implicit-check function calls",
     fromDoc: "07-pragmas.md#no_check",
-    expectTcAccepts: true,
     plcPrgVar: "fb_nck : FB_LANG_no_check;",
     plcPrgBody: "fb_nck();",
     source: `{attribute 'no_check'}
@@ -225,7 +216,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'no_instance_in_retain'} forbids the FB as a RETAIN variable",
     fromDoc: "07-pragmas.md#no_instance_in_retain",
-    expectTcAccepts: true,
     plcPrgVar: "fb_nir : FB_LANG_no_instance_in_retain;",
     plcPrgBody: "fb_nir();",
     source: `{attribute 'no_instance_in_retain'}
@@ -244,7 +234,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'hide_all_locals'} hides all local vars from CODESYS UI",
     fromDoc: "07-pragmas.md#hide_all_locals",
-    expectTcAccepts: true,
     plcPrgVar: "fb_hal : FB_LANG_hide_all_locals;",
     plcPrgBody: "fb_hal();",
     source: `{attribute 'hide_all_locals'}
@@ -264,7 +253,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'no_assign'} errors on FB instance-to-instance assignment",
     fromDoc: "07-pragmas.md#no_assign",
-    expectTcAccepts: true,
     note: "POSITIVE case: declaring the attribute on the FB is fine. A separate test that actually attempts inst1 := inst2 would trigger the error case.",
     plcPrgVar: "fb_na : FB_LANG_no_assign;",
     plcPrgBody: "fb_na();",
@@ -284,7 +272,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'reflection'} marks the FB for compile-time attribute scan",
     fromDoc: "07-pragmas.md#reflection",
-    expectTcAccepts: true,
     plcPrgVar: "fb_refl : FB_LANG_reflection;",
     plcPrgBody: "fb_refl();",
     source: `{attribute 'reflection'}
@@ -309,7 +296,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "Typo in attribute name — TC ignores, LSP should warn",
     fromDoc: "07-pragmas.md#attribute-pragma-catalog",
-    expectTcAccepts: false,
     plcPrgVar: "fb_unk : FB_LANG_unknown_attribute_typo;",
     plcPrgBody: "fb_unk.iX := 1;",
     note: "TC silently ignores unknown attributes; LSP `unknownPragma` warning is the value-add.",
@@ -331,7 +317,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'enable_dynamic_creation'} required for __NEW operator on FB",
     fromDoc: "07-pragmas.md#enable_dynamic_creation",
-    expectTcAccepts: true,
     plcPrgVar: "fb_edc : FB_LANG_enable_dynamic_creation;",
     plcPrgBody: "fb_edc();",
     source: `{attribute 'enable_dynamic_creation'}
@@ -350,7 +335,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'const_replaced'} forces a constant to be inlined",
     fromDoc: "07-pragmas.md#const_replaced--const_non_replaced",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cr : FB_LANG_const_replaced;",
     plcPrgBody: "fb_cr();",
     source: `FUNCTION_BLOCK FB_LANG_const_replaced
@@ -372,7 +356,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'const_non_replaced'} keeps a constant as a symbol",
     fromDoc: "07-pragmas.md#const_replaced--const_non_replaced",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cnr : FB_LANG_const_non_replaced;",
     plcPrgBody: "fb_cnr();",
     source: `FUNCTION_BLOCK FB_LANG_const_non_replaced
@@ -394,7 +377,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'global_init_slot' := '49000'} overrides init order",
     fromDoc: "07-pragmas.md#global_init_slot",
-    expectTcAccepts: true,
     plcPrgVar: "fb_gis : FB_LANG_global_init_slot;",
     plcPrgBody: "fb_gis();",
     source: `{attribute 'global_init_slot' := '49000'}
@@ -413,7 +395,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'monitoring_display' := '<member>'} shows member in monitor",
     fromDoc: "07-pragmas.md#monitoring_display",
-    expectTcAccepts: false,
     plcPrgVar: "fb_md : FB_LANG_monitoring_display;",
     plcPrgBody: "fb_md.iStatus := 1;",
     source: `{attribute 'monitoring_display' := 'iStatus'}
@@ -432,7 +413,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'monitoring_encoding' := 'UTF8'} marks a STRING as UTF-8",
     fromDoc: "07-pragmas.md#monitoring_encoding",
-    expectTcAccepts: false,
     plcPrgVar: "fb_me : FB_LANG_monitoring_encoding;",
     plcPrgBody: "fb_me.sValue := 'hello';",
     source: `FUNCTION_BLOCK FB_LANG_monitoring_encoding
@@ -451,7 +431,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'subsequent'} allocates VAR section contiguously",
     fromDoc: "07-pragmas.md#subsequent",
-    expectTcAccepts: false,
     plcPrgVar: "fb_sub : FB_LANG_subsequent;",
     plcPrgBody: "fb_sub.iA := 1; fb_sub.iB := 2;",
     source: `FUNCTION_BLOCK FB_LANG_subsequent
@@ -472,7 +451,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'suppress_warning' := '<id>'} hides specific TC warnings within the POU",
     fromDoc: "07-pragmas.md#suppress_warning",
-    expectTcAccepts: true,
     plcPrgVar: "fb_sw : FB_LANG_suppress_warning;",
     plcPrgBody: "fb_sw();",
     source: `{attribute 'suppress_warning' := '0125'}
@@ -491,7 +469,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'conditionalshow' := '<text>'} hides identifiers conditionally",
     fromDoc: "07-pragmas.md#conditionalshow",
-    expectTcAccepts: false,
     plcPrgVar: "fb_cs : FB_LANG_conditionalshow;",
     plcPrgBody: "fb_cs.iHidden := 1;",
     source: `FUNCTION_BLOCK FB_LANG_conditionalshow
@@ -510,7 +487,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'pingroup' := '<name>'} groups FB pins in graphical editors",
     fromDoc: "07-pragmas.md#pingroup",
-    expectTcAccepts: true,
     plcPrgVar: "fb_pg : FB_LANG_pingroup;",
     plcPrgBody: "fb_pg(iInputA := 1, iInputB := 2);",
     source: `FUNCTION_BLOCK FB_LANG_pingroup
@@ -533,7 +509,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{info 'msg'} emits a TC informational message (filterable)",
     fromDoc: "07-pragmas.md#message-pragmas",
-    expectTcAccepts: true,
     plcPrgVar: "fb_info : FB_LANG_info_message;",
     plcPrgBody: "fb_info();",
     note: "TC should accept and emit an info-level diagnostic.",
@@ -553,7 +528,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{text 'msg'} emits a TC plain-text message (no severity)",
     fromDoc: "07-pragmas.md#message-pragmas",
-    expectTcAccepts: true,
     plcPrgVar: "fb_text : FB_LANG_text_message;",
     plcPrgBody: "fb_text();",
     source: `FUNCTION_BLOCK FB_LANG_text_message
@@ -574,7 +548,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'instance-path'} STRING var inside a {attribute 'reflection'} FB",
     fromDoc: "07-pragmas.md#instance-path",
-    expectTcAccepts: true,
     note: "Compound attribute setup: instance-path requires reflection on the FB + noinit on the STRING.",
     plcPrgVar: "fb_ipr : FB_LANG_instance_path_with_reflection;",
     plcPrgBody: "fb_ipr();",
@@ -596,7 +569,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'displaymode' := 'bin'} variant value",
     fromDoc: "07-pragmas.md#displaymode",
-    expectTcAccepts: false,
     plcPrgVar: "fb_dmb : FB_LANG_displaymode_bin;",
     plcPrgBody: "fb_dmb.iBits := 2#1010;",
     source: `FUNCTION_BLOCK FB_LANG_displaymode_bin
@@ -615,7 +587,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'displaymode' := 'dec'} variant value (the default, made explicit)",
     fromDoc: "07-pragmas.md#displaymode",
-    expectTcAccepts: false,
     plcPrgVar: "fb_dmd : FB_LANG_displaymode_dec;",
     plcPrgBody: "fb_dmd.iDec := 42;",
     source: `FUNCTION_BLOCK FB_LANG_displaymode_dec
@@ -634,7 +605,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'displaymode' := 'xyz'} invalid value — should warn",
     fromDoc: "07-pragmas.md#displaymode",
-    expectTcAccepts: false,
     note: "Only valid values are bin/binary/dec/decimal/hex/hexadecimal. TC may silently ignore; LSP could validate the value enum.",
     plcPrgVar: "fb_dmi : FB_LANG_displaymode_invalid_value;",
     plcPrgBody: "fb_dmi.iVal := 1;",
@@ -654,7 +624,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'suppress_warning' := '<id1>','<id2>'} with multiple warning IDs",
     fromDoc: "07-pragmas.md#suppress_warning",
-    expectTcAccepts: true,
     plcPrgVar: "fb_swm : FB_LANG_suppress_warning_multi;",
     plcPrgBody: "fb_swm();",
     source: `{attribute 'suppress_warning' := '0125','0033'}
@@ -673,7 +642,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "noinit / no_init / no-init — all three alias forms",
     fromDoc: "07-pragmas.md#noinit",
-    expectTcAccepts: false,
     note: "Per docs, three spellings of the same attribute. TC + LSP must accept all three identically.",
     plcPrgVar: "fb_nia : FB_LANG_no_init_aliases;",
     plcPrgBody: "fb_nia.iA := fb_nia.iA + 1;",
@@ -697,7 +665,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'linkalways'} on an FB that PLC_PRG doesn't call",
     fromDoc: "07-pragmas.md#linkalways",
-    expectTcAccepts: true,
     note: "The whole point of linkalways: force compile even when uncalled. PLC_PRG entry intentionally absent.",
     plcPrgVar: undefined,
     plcPrgBody: undefined,
@@ -719,7 +686,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'conditionalshow_all_locals' := '<text>'} — FB-level locals hide",
     fromDoc: "07-pragmas.md#conditionalshow_all_locals",
-    expectTcAccepts: true,
     plcPrgVar: "fb_csal : FB_LANG_conditionalshow_all_locals;",
     plcPrgBody: "fb_csal();",
     source: `{attribute 'conditionalshow_all_locals' := 'maintainer_only'}
@@ -739,7 +705,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'pin_presentation_order_inputs' := '...'} reorders FBD/LD pins",
     fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ppo : FB_LANG_pin_presentation_order;",
     plcPrgBody: "fb_ppo(iB := 1, iA := 2);",
     source: `{attribute 'pin_presentation_order_inputs' := 'iB,iA'}
@@ -759,7 +724,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'estimated-stack-usage' := '<bytes>'} on a recursive method",
     fromDoc: "07-pragmas.md#estimated-stack-usage",
-    expectTcAccepts: true,
     plcPrgVar: "fb_esu : FB_LANG_estimated_stack_usage;",
     plcPrgBody: "fb_esu.Recurse(iN := 5);",
     source: `FUNCTION_BLOCK FB_LANG_estimated_stack_usage
@@ -785,7 +749,6 @@ END_METHOD
     kind: "function_block",
     feature: "{attribute 'no_virtual_actions'} prevents SFC action overrides in subclasses",
     fromDoc: "07-pragmas.md#no_virtual_actions",
-    expectTcAccepts: true,
     plcPrgVar: "fb_nva : FB_LANG_no_virtual_actions;",
     plcPrgBody: "fb_nva();",
     source: `{attribute 'no_virtual_actions'}
@@ -804,7 +767,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'io_function_block'} marks FB as I/O-channel eligible",
     fromDoc: "07-pragmas.md#io_function_block-io_function_block_mapping",
-    expectTcAccepts: true,
     plcPrgVar: "fb_iofb : FB_LANG_io_function_block;",
     plcPrgBody: "fb_iofb();",
     source: `{attribute 'io_function_block'}
@@ -824,7 +786,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'call_after_global_init_slot' := '<slot>'} on a method",
     fromDoc: "07-pragmas.md#call_after_global_init_slot",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cagis : FB_LANG_call_after_global_init_slot;",
     plcPrgBody: "fb_cagis();",
     source: `FUNCTION_BLOCK FB_LANG_call_after_global_init_slot
@@ -847,7 +808,6 @@ END_METHOD
     kind: "function_block",
     feature: "{warning disable <id>} / {warning restore <id>} pair around a code block",
     fromDoc: "07-pragmas.md#warning-disable-warning-restore",
-    expectTcAccepts: true,
     plcPrgVar: "fb_wdr : FB_LANG_warning_disable_restore;",
     plcPrgBody: "fb_wdr();",
     source: `FUNCTION_BLOCK FB_LANG_warning_disable_restore
@@ -869,7 +829,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'call_after_online_change_slot' := '<slot>'} on a function",
     fromDoc: "07-pragmas.md#call_after_online_change_slot",
-    expectTcAccepts: true,
     plcPrgVar: "fb_caocs : FB_LANG_call_after_online_change_slot;",
     plcPrgBody: "fb_caocs();",
     source: `FUNCTION_BLOCK FB_LANG_call_after_online_change_slot
@@ -892,7 +851,6 @@ END_METHOD
     kind: "function_block",
     feature: "{attribute 'call_before_global_exit_slot' := '<slot>'} on a function",
     fromDoc: "07-pragmas.md#call_before_global_exit_slot",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cbges : FB_LANG_call_before_global_exit_slot;",
     plcPrgBody: "fb_cbges();",
     source: `FUNCTION_BLOCK FB_LANG_call_before_global_exit_slot
@@ -915,7 +873,6 @@ END_METHOD
     kind: "function_block",
     feature: "{attribute 'call_on_type_change' := '<fb>'} on a method tracking referenced FB type",
     fromDoc: "07-pragmas.md#call_on_type_change",
-    expectTcAccepts: true,
     plcPrgVar: "fb_cotc : FB_LANG_call_on_type_change;",
     plcPrgBody: "fb_cotc();",
     source: `FUNCTION_BLOCK FB_LANG_call_on_type_change
@@ -939,7 +896,6 @@ END_METHOD
     kind: "function_block",
     feature: "{attribute 'pin_presentation_order_outputs' := '...'} reorders FB output pins",
     fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ppoo : FB_LANG_pin_presentation_order_outputs;",
     plcPrgBody: "fb_ppoo();",
     source: `{attribute 'pin_presentation_order_outputs' := 'oResult,oStatus'}
@@ -959,7 +915,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{attribute 'pin_presentation_order_inputs'} with `*` placeholder for unspecified",
     fromDoc: "07-pragmas.md#pin_presentation_order_inputs-pin_presentation_order_outputs",
-    expectTcAccepts: true,
     plcPrgVar: "fb_ppow : FB_LANG_pin_presentation_order_wildcard;",
     plcPrgBody: "fb_ppow();",
     source: `{attribute 'pin_presentation_order_inputs' := 'iLast,*'}
@@ -996,7 +951,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{region 'name'} / {end_region} pair — source folding only",
     fromDoc: "07-pragmas.md#region-pragma",
-    expectTcAccepts: true,
     plcPrgVar: "fb_rb : FB_LANG_region_basic;",
     plcPrgBody: "fb_rb();",
     source: `FUNCTION_BLOCK FB_LANG_region_basic
@@ -1019,7 +973,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{error 'msg'} pragma should cause TC to fail the build",
     fromDoc: "07-pragmas.md#message-pragmas",
-    expectTcAccepts: false,
     plcPrgVar: "fb_err : FB_LANG_error_message;",
     plcPrgBody: "fb_err();",
     note: "Per docs, {error 'msg'} is an explicit compile error. Verify TC emits error AND LSP recognises it.",
@@ -1039,7 +992,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "{region 'name'} ... {end_region} — folding metadata (no semantic effect)",
     fromDoc: "07-pragmas.md#region-pragma",
-    expectTcAccepts: true,
     note: "Region pragmas are pure source-folding metadata; the code inside compiles normally.",
     plcPrgVar: "fb_reg : FB_LANG_region_pragma;",
     plcPrgBody: "fb_reg.Run();",
@@ -1067,7 +1019,6 @@ END_METHOD
     kind: "function_block",
     feature: "Nested {region}/{end_region} blocks — docs say nesting is supported",
     fromDoc: "07-pragmas.md#region-pragma",
-    expectTcAccepts: true,
     plcPrgVar: "fb_rn : FB_LANG_region_nested;",
     plcPrgBody: "fb_rn.Run();",
     source: `FUNCTION_BLOCK FB_LANG_region_nested
@@ -1097,7 +1048,6 @@ END_METHOD
     kind: "function_block",
     feature: "Unknown {DIRECTIVE} that no recognizer matches — exercises directive-not-found fallthrough",
     fromDoc: "07-pragmas.md",
-    expectTcAccepts: true,
     note: "TC silently ignores unrecognized {DIRECTIVE}-style pragmas; LSP's unknownPragma check is OFF by default but the recognizer still walks past, hitting the no-match branch.",
     plcPrgVar: "fb_pud : FB_LANG_pragma_unknown_directive;",
     plcPrgBody: "fb_pud();",
@@ -1117,7 +1067,6 @@ END_FUNCTION_BLOCK
     kind: "function_block",
     feature: "Two mutually-exclusive attribute pragmas on the same FB — triggers pragmaConflict check",
     fromDoc: "07-pragmas.md",
-    expectTcAccepts: true,
     note: "`pin_presentation_order_inputs` and `pingroup` are listed as mutually exclusive in src/reference/pragmas.ts; TC accepts both individually so the file builds, but the LSP pragmaConflict check (default ON) flags the pair.",
     plcPrgVar: "fb_pcp : FB_LANG_pragma_conflicting_pair;",
     plcPrgBody: "fb_pcp();",

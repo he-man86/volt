@@ -27,8 +27,6 @@ export interface LanguageTest {
   source: string
   /** Anchor in the reference doc. Format: `<filename>#<section>` or `<filename>:L<line>`. */
   fromDoc: string
-  /** Whether TwinCAT is expected to accept this code (no errors). */
-  expectTcAccepts: boolean
   /**
    * VAR section snippet for PLC_PRG (e.g. `"fb : FB_LANG_hide_var;"`).
    * TwinCAT only analyzes code reachable from the program entry point —
@@ -40,21 +38,6 @@ export interface LanguageTest {
   plcPrgVar?: string
   /** PLC_PRG body snippet — e.g. `"fb();"` — that exercises the instantiation. */
   plcPrgBody?: string
-  /**
-   * Force per-test isolated recording. Each isolated test gets its
-   * own push + build + cleanup cycle, with no other test POUs in
-   * the project. Use for tests that:
-   *   - produce PARSE errors (TC short-circuits semantic analysis on
-   *     the whole project once any POU has parse errors, so errors
-   *     in OTHER tests get silently dropped from the build pane)
-   *   - produce so many errors that the pane buffer overflows
-   *
-   * Trade-off: each isolated test costs an extra full push+build
-   * cycle (~2-3s) vs amortized over the mega-batch. Default false —
-   * set only when conformance evidence shows the test loses
-   * fidelity in batch mode.
-   */
-  recordIsolated?: boolean
   /**
    * Skip this test in the recorder's TC/CODESYS push pass. The LSP's
    * replay still consumes it — useful for fixtures that exercise
