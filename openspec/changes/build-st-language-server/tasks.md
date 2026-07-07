@@ -64,16 +64,21 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    fixed, bare `Mach1` → the GVL block and `Mach1.Genflags.*` fully resolves; VG FPs 197 → 0. The held check is
    wired as `vg-unknown-member` (shares `unresolvedMembers` + `notAMember` with ST); corpus 0-FP holds, conformance
    unchanged (228/259). Regression tests: the collision, the commented attribute, a real VG miss, the Mach1 chain.
-2. **Live-bridge message-lock pass — LARGELY DONE (2026-07-07).** Instead of recreating the recorder, drove the
-   live `:8556`/`:8555` bridges directly via the volt-bridge e2e harness (`createItem`+`instantiateInPlcPrg`+
-   `/build`), diffed each error case, and LOCKED the real wording: **`unknown-member`** (`'x' is no component of
-   'T'`; TwinCAT uppercases the type), **`array-index-out-of-bounds`** (`The constant index 'i' is not within the
-   range from 'lo' to 'hi'`, identical both vendors), **`unterminated-conditional-pragma`** (`Unexpected
-   End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`, identical). Also confirmed **TwinCAT emits NOTHING**
-   for an unknown `{attribute}` → the `unknown-attribute` lint is now CODESYS-gated (was a latent TC FP). Still
-   PROVISIONAL: **overflow/subrange** — live /build shows CODESYS reports these as type-CONVERSION errors, not
-   range diagnostics, so reconciling the dedicated checks is a design question (deferred, not a wording tweak);
-   **VG label/pin** — need a graphical push to record (harder). The harness IS the reusable record path now.
+2. **Live-bridge message-lock + full check audit — DONE (2026-07-07).** **Recorder RECREATED** as
+   `scripts/record-language.ts` (self-contained wire driver; the volt-agent one was removed) + `diff-recordings.ts`
+   + `audit-check.ts` (LSP-vs-live-IDE differ). Re-recorded both vendors: **229/259 matched the committed ground
+   truth exactly** (recordings validated accurate) and **14 range fixtures had no recording** (the replay was
+   silently skipping them) — now merged. Ratchet raised **228→233 CS · 231→236 TC**. Locked wording:
+   `unknown-member` (`'x' is no component of 'T'`; TC uppercases type), `array-index-out-of-bounds`, and
+   `unterminated-conditional-pragma`. `unknown-attribute` gated to CODESYS (TC ignores unknowns — latent FP fixed).
+   **AUDIT FINDINGS:** (a) **`constant-overflow` REMOVED** — proven to false-positive: CODESYS *accepts*
+   out-of-range untyped literals (`INT:=40000`, `30000+10000` build clean with a conversion WARNING). This was
+   the one genuinely-wrong check. (b) An **FP-bait battery** (compiler-accepted near-miss code) proved every
+   OTHER type check (assignment/narrowing/conversion/binary-op/deref) has **zero false positives** — committed as
+   a regression test. (c) **subrange** kept (never FPs) but its wording is a documented KNOWN_DIVERGENCE (both
+   compilers use the conversion form). **REMAINING GAP (miss, not FP):** CODESYS emits signed/unsigned
+   **implicit-conversion WARNINGS** (`WORD→INT`, `INT→UINT`) the LSP doesn't — a whole safe-to-add category
+   (future `implicit-conversion-warning` check). **VG label/pin** wording still needs a graphical push to record.
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
 4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
    unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
