@@ -31,7 +31,7 @@
     "build": "tsc",
     "prepare": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsgo --noEmit && tsgo --noEmit -p scripts/tsconfig.json",
+    "typecheck": "tsgo --noEmit -p tsconfig.test.json && tsgo --noEmit -p scripts/tsconfig.json",
     "lint": "bun run scripts/check-layering.ts",
     "test": "bun test",
     "record:language": "bun run scripts/record-language.ts",

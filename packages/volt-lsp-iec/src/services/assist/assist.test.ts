@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test"
+import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import { parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
 import type { Document } from "../shared/index.js"
@@ -157,7 +158,7 @@ test("code-actions: 'wrap in TO_<type>' quick fix for an assignment type mismatc
     range: rangeFromSpan(mismatch!.span),
     code: mismatch!.code,
     message: mismatch!.message,
-    severity: 1,
+    severity: DiagnosticSeverity.Error,
   }
   const actions = codeActions(doc, project, [lspDiag])
   expect(actions).toHaveLength(1)

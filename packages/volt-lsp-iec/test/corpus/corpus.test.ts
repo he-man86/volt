@@ -42,7 +42,7 @@ function walk(dir: string): string[] {
 /** Every declaration body held by a unit (POU body + property accessors + nested namespace units). */
 function bodiesOf(u: TopLevel): BodySpan[] {
   const out: BodySpan[] = []
-  const anyU = u as Record<string, unknown>
+  const anyU = u as unknown as Record<string, unknown>
   // Only a token BodySpan (POU body) — NOT TypeDecl's structured DutBody, which also lives on `.body`.
   const b = anyU.body as { kind?: string } | undefined
   if (b?.kind === "body") out.push(b as BodySpan)
