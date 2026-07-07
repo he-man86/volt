@@ -2,7 +2,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
 import type { Document } from "../shared/index.js"
-import { definition, typeDefinition, references, documentHighlights, prepareRename, rename } from "./index.js"
+import { definition, typeDefinition, references, documentHighlights, prepareRename, rename, implementation } from "./index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src)
@@ -24,6 +24,29 @@ VAR
 END_VAR
 count := count + 1;
 END_FUNCTION_BLOCK`
+
+const IFACE = `INTERFACE IThing
+METHOD Run : BOOL
+END_METHOD
+END_INTERFACE
+FUNCTION_BLOCK Doer IMPLEMENTS IThing
+END_FUNCTION_BLOCK
+METHOD Run : BOOL
+END_METHOD`
+
+test("implementation: interface → implementing FB; interface method → concrete method", () => {
+  const { doc, project } = setup(IFACE)
+  const onIface = implementation([doc], project, doc, at(IFACE, "INTERFACE IThing") + "INTERFACE ".length)
+  expect(onIface?.map((l) => l.range.start.line)).toEqual([4]) // the `Doer` name on line 5
+
+  const onMethod = implementation([doc], project, doc, at(IFACE, "METHOD Run") + "METHOD ".length)
+  expect(onMethod).toHaveLength(1) // Doer's concrete Run
+})
+
+test("implementation: a plain variable resolves to nothing", () => {
+  const { doc, project } = setup(FB)
+  expect(implementation([doc], project, doc, at(FB, "count", 1))).toBeUndefined()
+})
 
 test("definition: a body usage lands on the declaration", () => {
   const { doc, project } = setup(FB)
