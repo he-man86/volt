@@ -38,6 +38,18 @@ ConversionKind =
 lattice facts, and is the SINGLE owner of the relation. `isAssignable` (already exists) becomes
 `classify(...) !== "incompatible"`; `isNarrowing` becomes `classify(...) === "narrow"`. No second table.
 
+### This COLLAPSES existing duplication — it is not a new layer
+
+The current `types/compat.ts` already splits one relation into two functions that each recompute the lattice:
+`isAssignable` (via `elementaryAssignable`) does the `rr <= lr` rank comparison, and `isNarrowing` does the
+`rr > lr` half — the same math, written twice. And both **ignore `signed`**, which `elementary.ts` already
+carries — that unused fact is exactly why sign-change is missed today. `classifyConversion` is the common core
+those two are each half-implementing: after it, `isAssignable`/`isNarrowing` are one-liners over it, the rank
+math lives in ONE place, and `signed` finally gets read. The `analysis` checks already delegate to `compat`
+(`assignment.ts` → `isAssignable`, `narrowing.ts` → `isNarrowing`), so they don't duplicate anything — they
+keep delegating and just map the returned kind to a severity/message. Net: fewer moving parts than today, not
+more. No parallel type, no second lattice, nothing "on top".
+
 ### From kind to diagnostic
 
 The `analysis` layer maps a kind at an assignment/operation site to a diagnostic via `messages` (per-vendor
