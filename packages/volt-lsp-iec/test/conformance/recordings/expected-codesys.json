@@ -4,7 +4,7 @@
   "recorded": {
     "at": "2026-07-05T09:05:00Z",
     "bridgeVersion": "1.0.0",
-    "testCount": 245
+    "testCount": 259
   },
   "tests": {
     "hide_var": {
@@ -1629,6 +1629,157 @@
         {
           "severity": "warning",
           "message": "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+          "line": 0
+        }
+      ]
+    },
+    "subrange_init_in_range": {
+      "buildSuccess": true,
+      "durationMs": 313,
+      "diagnostics": []
+    },
+    "subrange_init_above_range": {
+      "buildSuccess": false,
+      "durationMs": 247,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type '200' to type 'INT (1..100)'",
+          "line": 0
+        }
+      ]
+    },
+    "subrange_init_below_range": {
+      "buildSuccess": false,
+      "durationMs": 238,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type '-20' to type 'INT (-10..10)'",
+          "line": 0
+        }
+      ]
+    },
+    "subrange_assign_const_out": {
+      "buildSuccess": false,
+      "durationMs": 268,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type '200' to type 'INT (INT#1..100)'",
+          "line": 0
+        }
+      ]
+    },
+    "array_index_const_in_bounds": {
+      "buildSuccess": true,
+      "durationMs": 319,
+      "diagnostics": []
+    },
+    "array_index_const_out_of_bounds": {
+      "buildSuccess": false,
+      "durationMs": 262,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "The constant index '20' is not within the range from '1' to '10'",
+          "line": 0
+        }
+      ]
+    },
+    "array_index_const_below_bounds": {
+      "buildSuccess": false,
+      "durationMs": 258,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "The constant index '0' is not within the range from '1' to '10'",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_int_at_max": {
+      "buildSuccess": true,
+      "durationMs": 260,
+      "diagnostics": []
+    },
+    "overflow_int_above_max": {
+      "buildSuccess": true,
+      "durationMs": 274,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign",
+          "line": 0
+        },
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_sint_above_max": {
+      "buildSuccess": true,
+      "durationMs": 279,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : Possible change of sign",
+          "line": 0
+        },
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : Possible change of sign",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_byte_above_max": {
+      "buildSuccess": false,
+      "durationMs": 231,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'INT' to type 'BYTE'",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_word_above_max": {
+      "buildSuccess": false,
+      "durationMs": 276,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Cannot convert type 'DINT' to type 'WORD'",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_uint_negative": {
+      "buildSuccess": true,
+      "durationMs": 274,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign",
+          "line": 0
+        },
+        {
+          "severity": "warning",
+          "message": "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign",
+          "line": 0
+        }
+      ]
+    },
+    "overflow_typed_literal_int": {
+      "buildSuccess": false,
+      "durationMs": 232,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "message": "Constant 'INT#40000' too large for type 'INT'",
           "line": 0
         }
       ]

@@ -46,15 +46,30 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // (unresolved-identifier): 231 TC / 228 CS of 259. Remaining non-agreements are documented IDE-only
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
-  { vendor: "twincat", filename: "expected-tc.json", floor: 231 },
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 228 },
+  { vendor: "twincat", filename: "expected-tc.json", floor: 236 },
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 233 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
+// overflow/subrange divergence (confirmed via live /build re-record 2026-07-07): both compilers model an
+// out-of-range CONSTANT as a type-CONVERSION diagnostic, not a dedicated range error — an untyped over-max
+// literal (`INT := 40000`) even builds SUCCESS with only a signed/unsigned WARNING. Our dedicated overflow/
+// subrange checks emit a range ERROR with different wording, so they diverge. Reconciling the checks to the
+// conversion model is deferred (a check-shape change, not a wording tweak); until then these are excluded
+// from the ratchet. array-index-out-of-bounds is NOT here — its wording was locked byte-identical.
+const OVERFLOW_SUBRANGE_DIVERGENCES = [
+  "subrange_init_above_range",
+  "subrange_init_below_range",
+  "overflow_int_above_max",
+  "overflow_sint_above_max",
+  "overflow_byte_above_max",
+  "overflow_word_above_max",
+  "overflow_uint_negative",
+]
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-  twincat: new Set<string>(),
-  codesys: new Set<string>(),
+  twincat: new Set<string>(OVERFLOW_SUBRANGE_DIVERGENCES),
+  codesys: new Set<string>(OVERFLOW_SUBRANGE_DIVERGENCES),
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs are visible to the others
