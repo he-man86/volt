@@ -21,7 +21,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../src/analysis/index.js"
+import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
+import { computeVgDiagnostics } from "../../src/graphical/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 
 interface RecordedDiagnostic {
@@ -47,7 +48,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
   { vendor: "twincat", filename: "expected-tc.json", floor: 247 },
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 245 },
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 246 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -61,7 +62,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
 // on them; they read as honest "not-yet-implemented" misses (conversion-warning detection is future work).
 const SUBRANGE_DIVERGENCES = ["subrange_init_above_range", "subrange_init_below_range"]
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-  twincat: new Set<string>(SUBRANGE_DIVERGENCES),
+  // TwinCAT does NOT flag a VG JMP to a missing label (CODESYS does) — confirmed live 2026-07-07.
+  twincat: new Set<string>([...SUBRANGE_DIVERGENCES, "cc_vg_undefined_label"]),
   codesys: new Set<string>(SUBRANGE_DIVERGENCES),
 }
 
@@ -116,6 +118,8 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   if (plc) {
     diags.push(...computeSemanticDiagnostics({ parseResult: plc.parseResult, source: plc.source, project, config }))
   }
+  // Graphical (VG) bodies: the semantic pass skips them; run the VG checks too so VG fixtures are covered.
+  diags.push(...computeVgDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
   const msgs = diags
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => `[${d.severity}] ${d.message}`)

@@ -140,7 +140,9 @@ function checkJumps(statements: readonly VgStatement[], labels: ReadonlySet<stri
           span: s.target.span,
           source: SOURCE,
           code: "vg-undefined-label",
-          message: `Jump target '${s.target.text}' is not a label in this network`,
+          // CODESYS wording, confirmed live (label UPPERCASED). TwinCAT does NOT flag a VG JMP to a missing
+          // label at all — so the fixture is a TwinCAT KNOWN_DIVERGENCE in the conformance replay.
+          message: `No such label '${s.target.text.toUpperCase()}' within the scope of the JMP statement`,
         })
       }
     } else if (s.kind === "en_eno_if") {
@@ -176,7 +178,9 @@ function checkPins(statements: readonly VgStatement[], scope: Scope, project: Sc
           span: arg.param.span,
           source: SOURCE,
           code: "vg-unknown-pin",
-          message: `'${arg.param.name}' is not a pin of '${renderCallee(s.call.callee)}'`,
+          // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live). Use the FB's
+          // TYPE name (t.name), not the instance expression.
+          message: `'${arg.param.name}' is no input of '${t.name.toUpperCase()}'`,
         })
       }
     }
