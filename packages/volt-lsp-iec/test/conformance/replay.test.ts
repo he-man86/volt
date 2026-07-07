@@ -47,24 +47,21 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // (unresolved-identifier): 231 TC / 228 CS of 259. Remaining non-agreements are documented IDE-only
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
-  { vendor: "twincat", filename: "expected-tc.json", floor: 250 },
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 249 },
+  { vendor: "twincat", filename: "expected-tc.json", floor: 252 },
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 251 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
-// subrange divergence (confirmed via live /build 2026-07-07): both compilers report a subrange violation as
-// a type-CONVERSION error (`Cannot convert type '200' to type 'INT (1..100)'`); our check emits a clear range
-// message instead. It never false-positives (a subrange violation IS an error on both), so it's kept for the
-// user's benefit but excluded from the byte-identical ratchet. array-index-out-of-bounds is NOT here — its
-// wording was locked byte-identical. The overflow fixtures are NO LONGER here: the `constant-overflow` check
-// was REMOVED (it false-positived — CODESYS accepts out-of-range untyped literals), so the LSP is now silent
-// on them; they read as honest "not-yet-implemented" misses (conversion-warning detection is future work).
-const SUBRANGE_DIVERGENCES = ["subrange_init_above_range", "subrange_init_below_range"]
+// subrange is NO LONGER a divergence: the check now emits the compilers' own type-CONVERSION wording
+// (`Cannot convert type '200' to type 'INT (1..100)'`, folded onto `cannotConvert`) — byte-identical on both,
+// so it's in the ratchet. array-index-out-of-bounds is likewise byte-identical. The overflow fixtures are NOT
+// here: the `constant-overflow` check was REMOVED (it false-positived — CODESYS accepts out-of-range untyped
+// literals), so the LSP is silent on them; they read as honest "not-yet-implemented" misses.
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // TwinCAT does NOT flag a VG JMP to a missing label (CODESYS does) — confirmed live 2026-07-07.
-  twincat: new Set<string>([...SUBRANGE_DIVERGENCES, "cc_vg_undefined_label"]),
-  codesys: new Set<string>(SUBRANGE_DIVERGENCES),
+  twincat: new Set<string>(["cc_vg_undefined_label"]),
+  codesys: new Set<string>(),
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs are visible to the others

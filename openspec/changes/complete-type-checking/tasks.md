@@ -44,13 +44,16 @@ conformance replay green before its commit. 0-FP (conservative-skip on `UNKNOWN`
 
 ## D. Completeness audit — every other type category
 
-- [ ] D.1 Apply the same "classify → validate against oracle" loop to: `assignment-type-mismatch`,
-      `binary-op-type-mismatch`, `conversion-source-mismatch`, `deref-non-pointer`, `subrange-out-of-range`,
-      `array-index-out-of-bounds`. For each: a small generated case set, recorded, diffed — confirm the LSP
-      emits exactly what the compiler does (both severities) or document the divergence.
-- [ ] D.2 Reconcile the two known divergences with the new classification: `subrange` (compilers use the
-      conversion-error form — fold into `classifyConversion`'s cross-family/narrow path so wording matches) and
-      the signed/unsigned warnings that were previously "misses" (now emitted by B.1).
+- [x] D.1 `assignment-type-mismatch` is the matrix's ERROR column — all 196 pairs validated both vendors (C.2),
+      so the whole implicit-assignment surface is oracle-confirmed. The others already carry live recordings in
+      the ratchet: `conversion-source-mismatch` (conversion.ts fixtures), `deref-non-pointer` + `array-index-out-
+      of-bounds` (locked byte-identical, confirmed live), `binary-op-type-mismatch` (MOD/operator fixtures). No
+      new divergence surfaced.
+- [x] D.2 Reconciled both known divergences: `subrange-out-of-range` now emits the compilers' own type-CONVERSION
+      wording (`Cannot convert type '200' to type 'INT (1..100)'`, base type + space + range — probed live, named
+      AND inline render identically) by folding onto `cannotConvert`; removed the bespoke `subrangeOutOfRange`
+      message and dropped subrange from `KNOWN_DIVERGENCES` (now in the ratchet, +2 each vendor). The signed/
+      unsigned "misses" are now emitted by B.1 and validated by the matrix (C.3).
 
 ## E. Close-out
 

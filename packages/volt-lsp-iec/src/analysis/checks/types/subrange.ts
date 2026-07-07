@@ -3,8 +3,9 @@
  * type's `(lo..hi)` bounds (`x : INT(0..100) := 150`). Uniquely enabled by the structured subrange node
  * (A.2) + `const-eval`. Conservative: only foldable `bigint` bounds + value are checked → zero-FP.
  *
- * NOTE: the message is PROVISIONAL (the range-bounds fixtures have no bridge recording) — locked at the
- * T.1 bridge pass, exactly like `overflow`.
+ * Both compilers report this as a type-CONVERSION error against the subrange target — confirmed live
+ * byte-identical (`Cannot convert type '200' to type 'INT (1..100)'`, note the SPACE before the paren and the
+ * base type name, NOT any alias). So it reuses the shared `cannotConvert` wording, not a bespoke message.
  */
 import { constEval } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -29,7 +30,8 @@ export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
           span: decl.init.span,
           source: SOURCE,
           code: "subrange-out-of-range",
-          message: ctx.messages.subrangeOutOfRange(value.toString(), lo.toString(), hi.toString()),
+          // The compilers render the target as `<BASE> (<lo>..<hi>)` (space before the paren, base type name).
+          message: ctx.messages.cannotConvert(value.toString(), `${decl.type.name.text} (${lo}..${hi})`),
         })
       }
     }

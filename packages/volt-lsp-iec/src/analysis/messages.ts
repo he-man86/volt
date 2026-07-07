@@ -48,10 +48,6 @@ export interface Messages {
    * recording; its wording is provisional (best-effort, bridge-gated).
    */
   unknownAttribute(name: string): string
-  /** A constant outside a subrange type's `(lo..hi)` bounds. Non-byte-identical: both compilers report this
-   *  as a type-CONVERSION error (`Cannot convert type 'v' to type 'INT (lo..hi)'`); ours is a clear range
-   *  message but is a documented KNOWN_DIVERGENCE. It never false-positives (a subrange violation IS an error). */
-  subrangeOutOfRange(value: string, lo: string, hi: string): string
   /** A constant array index outside the dimension's `lo..hi` bounds. PROVISIONAL (bridge-gated). */
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
 }
@@ -102,9 +98,6 @@ export function messagesFor(vendor: Vendor): Messages {
     // CODESYS byte-identical (double space + unquoted name). TwinCAT never emits this (live /build: compiles
     // an unknown attribute clean), so the lint is CODESYS-gated and this builder is CODESYS-only in practice.
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
-    // subrange: our own clear wording; both compilers instead report a type-CONVERSION error. Kept because it
-    // never false-positives (a subrange violation IS an error on both); tracked as a KNOWN_DIVERGENCE.
-    subrangeOutOfRange: (value, lo, hi) => `Value '${value}' is outside the subrange ${lo}..${hi}`,
     // Confirmed byte-identical on both vendors via live /build (2026-07-07).
     arrayIndexOutOfBounds: (index, lo, hi) =>
       `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
