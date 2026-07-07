@@ -5,14 +5,14 @@ conformance replay green before its commit. 0-FP (conservative-skip on `UNKNOWN`
 
 ## A. The classification function (proven core — `types/`)
 
-- [ ] A.1 Add `ConversionKind` + `classifyConversion(src: Type, dst: Type): ConversionKind` to `types/`
+- [x] A.1 Add `ConversionKind` + `classifyConversion(src: Type, dst: Type): ConversionKind` to `types/`
       (co-located with `elementary`/`compat`). Reads ONLY lattice facts (family, bits, signed, rank).
       Implements the IEC 61131-3 hierarchy: identity; widen (rank↑, same discipline); narrow (width↓, same
       family); sign-change (same width, signed↔unsigned); cross-family; incompatible. `UNKNOWN` on either side
       → a skip kind (no diagnostic).
-- [ ] A.2 Re-express `isAssignable` = `classify(...) !== "incompatible"` and `isNarrowing` = `classify(...) ===
+- [x] A.2 Re-express `isAssignable` = `classify(...) !== "incompatible"` and `isNarrowing` = `classify(...) ===
       "narrow"` — delete the duplicate logic, keep the public signatures. Existing type tests stay green.
-- [ ] A.3 Unit-test `classifyConversion` exhaustively over the elementary lattice (a golden table): every pair
+- [x] A.3 Unit-test `classifyConversion` exhaustively over the elementary lattice (a golden table): every pair
       → expected kind. This is the offline spec of our classification, independent of the bridge.
 
 ## B. Generalize the check (`analysis/`)

@@ -11,6 +11,7 @@ import {
   isIsolated,
   isKnown,
   isNarrowing,
+  classifyConversion,
   isNumericType,
   numericRank,
   renderType,
@@ -197,13 +198,29 @@ test("isAssignable: widening, narrowing, isolation, enums", () => {
   expect(isAssignable(T("INT"), UNKNOWN)).toBe(true) // unknown → skip
 })
 
-test("isNarrowing: wider numeric into narrower", () => {
+test("isNarrowing: an implicit LOSSY narrowing (a warning, not an error)", () => {
   const p = proj("")
   const T = (n: string) => resolveNamedType(n, p)
-  expect(isNarrowing(T("INT"), T("DINT"))).toBe(true)
-  expect(isNarrowing(T("REAL"), T("LREAL"))).toBe(true)
-  expect(isNarrowing(T("DINT"), T("INT"))).toBe(false)
-  expect(isNarrowing(T("INT"), UNKNOWN)).toBe(false)
+  // isNarrowing = classifyConversion === "narrow" — only the implicit lossy narrowings the compiler WARNS on.
+  expect(isNarrowing(T("REAL"), T("LREAL"))).toBe(true) // LREAL→REAL: possible loss (implicit, warns)
+  expect(isNarrowing(T("INT"), T("DINT"))).toBe(false) // DINT→INT is NOT implicit — it's an ERROR (needs X_TO_Y)
+  expect(isNarrowing(T("DINT"), T("INT"))).toBe(false) // INT→DINT widens
+  expect(isNarrowing(T("INT"), UNKNOWN)).toBe(false) // conservative skip
+})
+
+test("classifyConversion: identity / widen / narrow / sign-change / incompatible", () => {
+  const p = proj("")
+  const T = (n: string) => resolveNamedType(n, p)
+  expect(classifyConversion(T("INT"), T("INT"))).toBe("identity")
+  expect(classifyConversion(T("INT"), T("SINT"))).toBe("widen") // narrower rank → wider
+  expect(classifyConversion(T("REAL"), T("INT"))).toBe("widen") // int → real is implicit
+  expect(classifyConversion(T("REAL"), T("LREAL"))).toBe("narrow") // real narrowing warns
+  expect(classifyConversion(T("INT"), T("WORD"))).toBe("sign-change") // 16-bit unsigned → signed
+  expect(classifyConversion(T("UINT"), T("INT"))).toBe("sign-change") // 16-bit signed → unsigned
+  expect(classifyConversion(T("INT"), T("DINT"))).toBe("incompatible") // integer narrowing → error
+  expect(classifyConversion(T("INT"), T("REAL"))).toBe("incompatible") // real → int needs explicit
+  expect(classifyConversion(T("BOOL"), T("INT"))).toBe("incompatible") // BOOL isolated
+  expect(classifyConversion(T("INT"), UNKNOWN)).toBe("identity") // conservative skip
 })
 
 // ─── C.5 render ───

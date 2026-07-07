@@ -1,60 +1,75 @@
 /**
- * compat — the ONE type-compatibility relation (Layer C, C.5): assignability + narrowing over the
- * rich `Type`. Oracle-calibrated (ports the CODESYS/TwinCAT-verified rules from the legacy assignment
- * + narrowing checks) but expressed on facts, not name strings — it reads `elem.rank`/`family` directly.
+ * compat — the ONE type-conversion relation (Layer C, C.5). `classifyConversion(lhs, rhs)` is the single
+ * owner: it returns HOW a value of type `rhs` converts into a target of type `lhs`, over the rich `Type`,
+ * reading only the elementary lattice facts (`family`/`bits`/`signed`/`rank` from `elementary`). The
+ * severity/message is the `analysis` layer's job — it maps the returned kind, never re-deciding.
  *
- * Conservative: `unknown` on either side, or a non-checkable category (struct/FB/composite), returns
- * `true` (assignable) — we'd rather miss a bug than flag valid code. The `analysis` checks decide
- * WHICH results to surface (e.g. only LREAL→REAL narrowing is currently oracle-emitted).
+ * `isAssignable` and `isNarrowing` are thin views over `classifyConversion` (no second rank/sign table).
+ * Conservative: `unknown` on either side, or a non-checkable category (struct/FB/composite), classifies as
+ * `identity` (no diagnostic) — we'd rather miss a bug than flag valid code (0-FP is the floor).
+ *
+ * Rules are the IEC 61131-3 hierarchy + the reference compilers' behavior, oracle-calibrated:
+ *   - widen (rank up, or same-rank same-sign)             → no diagnostic
+ *   - narrow (real→smaller real, e.g. LREAL→REAL)          → WARNING "possible loss of information"
+ *   - sign-change (same width, signed↔unsigned)           → WARNING "change of sign"
+ *   - incompatible (integer narrowing, isolated mismatch, real→int, …) → ERROR (explicit X_TO_Y required)
  */
-import { canonicalElem, isIsolated, numericRank } from "./elementary.js"
+import { canonicalElem, elementaryType, isIsolated } from "./elementary.js"
 import type { Type } from "./type.js"
 
-/** IEC assignment compatibility: can a value of type `rhs` be assigned to a target of type `lhs`? */
-export function isAssignable(lhs: Type, rhs: Type): boolean {
-  if (lhs.kind === "unknown" || rhs.kind === "unknown") return true
+/** How `rhs` converts into `lhs`. `identity` also covers the conservative skips (unknown / non-elementary). */
+export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "incompatible"
 
-  // Enum rules: two different enums are incompatible; enum ↔ scalar is a NUMERIC relation — an enum
-  // member is a compile-time integer, freely widened to any numeric (int/bitstring/real, e.g. a corpus
-  // `lreal := Enum.Member`). Only the truly isolated families (BOOL/STRING/TIME/DATE) reject it.
+/** Classify an implicit conversion of `rhs` → `lhs`. The single source of truth for every conversion decision. */
+export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
+  if (lhs.kind === "unknown" || rhs.kind === "unknown") return "identity" // conservative skip
+
+  // Enum rules: two different enums are incompatible; enum ↔ scalar is a NUMERIC relation — an enum member is a
+  // compile-time integer, freely widened to any numeric (int/bitstring/real). Only isolated families reject it.
   if (lhs.kind === "enum" || rhs.kind === "enum") {
-    if (lhs.kind === "enum" && rhs.kind === "enum") return sameName(lhs.name, rhs.name)
+    if (lhs.kind === "enum" && rhs.kind === "enum") return sameName(lhs.name, rhs.name) ? "identity" : "incompatible"
     const scalar = lhs.kind === "enum" ? rhs : lhs
-    return scalar.kind === "elementary" ? !isIsolated(scalar.name) : true
+    if (scalar.kind !== "elementary") return "identity"
+    return isIsolated(scalar.name) ? "incompatible" : "widen"
   }
 
-  if (lhs.kind === "elementary" && rhs.kind === "elementary") return elementaryAssignable(lhs.name, rhs.name)
-
-  // struct / FB / array / pointer / reference — not value-checked here (conservative).
-  return true
+  if (lhs.kind !== "elementary" || rhs.kind !== "elementary") return "identity" // struct/FB/array/pointer → skip
+  return classifyElementary(lhs.name, rhs.name)
 }
 
-/** Elementary assignability: same type, BIT↔BOOL, REAL↔LREAL, numeric widening up the rank lattice. */
-function elementaryAssignable(lName: string, rName: string): boolean {
-  // BIT is 1-bit boolean storage — freely compatible with BOOL (CODESYS treats them as such).
+/** Elementary classification, over the lattice facts only. */
+function classifyElementary(lName: string, rName: string): ConversionKind {
+  // BIT is 1-bit boolean storage — CODESYS treats it as BOOL.
   const l = bitToBool(canonicalElem(lName))
   const r = bitToBool(canonicalElem(rName))
-  if (l === r) return true
-  // REAL ↔ LREAL both ways: LREAL→REAL is a narrowing WARNING (code compiles), not an assignment error.
-  if ((l === "REAL" && r === "LREAL") || (l === "LREAL" && r === "REAL")) return true
+  if (l === r) return "identity"
   // Isolated families (BOOL/STRING/TIME/DATE) accept only themselves.
-  if (isIsolated(l) || isIsolated(r)) return false
-  const lr = numericRank(l)
-  const rr = numericRank(r)
-  if (lr === undefined || rr === undefined) return true // not both numeric — don't flag
-  return rr <= lr // narrower (or equal) rank flows into wider
+  if (isIsolated(l) || isIsolated(r)) return "incompatible"
+
+  const lt = elementaryType(l)
+  const rt = elementaryType(r)
+  const lr = lt?.rank
+  const rr = rt?.rank
+  if (lt === undefined || rt === undefined || lr === undefined || rr === undefined) return "identity" // not both numeric → skip
+
+  if (rr < lr) return "widen" // narrower rank flows into wider — safe
+  if (rr > lr) {
+    // Wider → narrower. REAL narrowing (LREAL→REAL) is an implicit WARNING; integer narrowing needs an
+    // explicit X_TO_Y and is an ERROR (e.g. `INT := someDINT` → "Cannot convert type 'DINT' to type 'INT'").
+    return lt.family === "real" && rt.family === "real" ? "narrow" : "incompatible"
+  }
+  // Same rank (same width): a signed↔unsigned crossing is a "change of sign" warning; same discipline is safe.
+  return lt.signed !== rt.signed ? "sign-change" : "widen"
 }
 
-/**
- * True when assigning `rhs` to `lhs` loses information (a wider numeric into a narrower one, or
- * LREAL→REAL). The relation; the analysis layer gates which narrowings are actually emitted.
- */
+/** IEC assignment compatibility: can a value of type `rhs` be implicitly assigned to a `lhs` target? */
+export function isAssignable(lhs: Type, rhs: Type): boolean {
+  return classifyConversion(lhs, rhs) !== "incompatible"
+}
+
+/** True when assigning `rhs` to `lhs` is an implicit lossy narrowing (a WARNING, not an error) — e.g. LREAL→REAL. */
 export function isNarrowing(lhs: Type, rhs: Type): boolean {
-  if (lhs.kind !== "elementary" || rhs.kind !== "elementary") return false
-  const lr = numericRank(canonicalElem(lhs.name))
-  const rr = numericRank(canonicalElem(rhs.name))
-  if (lr === undefined || rr === undefined) return false
-  return rr > lr
+  return classifyConversion(lhs, rhs) === "narrow"
 }
 
 function bitToBool(name: string): string {
