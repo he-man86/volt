@@ -5,7 +5,7 @@ verify → let the next consume it.
 ## Diagnostic-check status matrix
 
 Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
-(exact byte-identical fixtures): **236/259 TC · 233/259 CS** — floors only ever rise.
+(exact byte-identical fixtures): **247/274 TC · 245/274 CS** — floors only ever rise.
 
 | Check (code) | Lang | Severity | Status | Notes |
 |---|---|---|---|---|
@@ -42,7 +42,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 
 Harvested from live headless CODESYS (`codesys-bridge.ps1 up -Project … ; packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts`). Source `.project`
 files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (library signatures + `.task`/
-`.library`/`.device` reference files). Ratchet: conformance **236/259 TC · 233/259 CS**.
+`.library`/`.device` reference files). Ratchet: conformance **247/274 TC · 245/274 CS**.
 
 | Fixture | Files | State |
 |---|---|---|
@@ -80,17 +80,16 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    **implicit-conversion WARNINGS** (`WORD→INT`, `INT→UINT`) the LSP doesn't — a whole safe-to-add category
    (future `implicit-conversion-warning` check). **VG label/pin** wording still needs a graphical push to record.
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
-3b. **Conformance-fixture coverage gap (found 2026-07-07 by mapping every check code against the fixtures).**
-   14/22 checks have IDE-recorded conformance fixtures; **8 do not** (unit-tested only): ST `unknown-member`,
-   `external-non-input-write`, `abstract-instantiation`, `unterminated-conditional-pragma`; VG
-   `vg-undeclared-identifier`, `vg-undefined-label`, `vg-unknown-pin`, `vg-unknown-member`. So "no fixture
-   changes ≠ complete" — the overflow FP was caught OUTSIDE the fixtures (by the audit tool), not by them.
-   **Blocker to fix cleanly:** the recorder runs each fixture ISOLATED, so a fixture that needs a sibling
-   declaration (`unknown-member` needs a TYPE; the VG checks need a graphical body push) can't be recorded as-is
-   — the recorder needs multi-unit / resident-context support first. The 3 self-contained ST ones
-   (`unterminated-conditional-pragma` wording already live-locked, `external-non-input-write`,
-   `abstract-instantiation`) are recordable today; do them once a bridge session is open. Until then their
-   FP-safety is guarded by src unit tests + the FP-bait battery.
+3b. **Conformance-fixture coverage — 18/22, ALL ST checks covered (closed 2026-07-07).** Mapping every check
+   code against the fixtures showed a gap (started 14/22 → recount 16/22 once PLC_PRG triggers were counted).
+   Closed it: added a `check-coverage.ts` fixture file — `unterminated-conditional-pragma`, `unknown-member`
+   (self-contained struct+FB; the recorder gained multi-unit `splitItems`), and a **FP-BAIT battery** (12
+   compiler-ACCEPTED near-miss cases — the permanent guard against the `constant-overflow`-class false positive).
+   All recorded live + merged (`RECORD_ONLY`); ratchet 233→245 CS / 236→247 TC across 274 fixtures. The
+   remaining **4 are VG** (`vg-undeclared-identifier`/`vg-undefined-label`/`vg-unknown-pin`/`vg-unknown-member`)
+   — **legitimately NOT conformance-recordable**: the bridge stores graphical bodies as PlcOpen XML (a push of
+   our VG text form is rejected), and the compiler's graphical error model differs from our text-based checks.
+   They stay unit-tested (+ VG corpus 0-FP gate). Not a papered-over gap — a hard infrastructure boundary.
 4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
    unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
    unterminated `{region}`, orphan `{endregion}`, and an unknown-pragma-DIRECTIVE lint all build CLEAN on CODESYS
@@ -174,7 +173,7 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       ported**: types/ (assignment · narrowing · binary-operators · conversion · deref), names/ (duplicate-declaration ·
       **unresolved-identifier**), declarations/ (var-section-placement), oop/ (external-write · lifecycle ·
       abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
-      ratchet **236/259 TC · 233/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
+      ratchet **247/274 TC · 245/274 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
       Deferred: conversion-catalog · unknown/conflict pragmas (needs the keyword/pragma catalogs, F.1).
       **unknown-member (member access) ✅ DONE** — `a.b` type-checked against the base's project scope (library/

@@ -5,10 +5,12 @@
  *   VOLT_BRIDGE_PORT=8556 VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
  *   VOLT_BRIDGE_PORT=8555 VOLT_VENDOR=tc       bun run scripts/record-language.ts        # TwinCAT
  *
- * Each fixture is recorded ISOLATED (push → instantiate in PLC_PRG → build → capture → restore), so no
- * cross-fixture batch short-circuit can drop diagnostics. Writes to `expected-<vendor>.new.json` by default
- * (non-destructive); pass `--write` to overwrite the trusted recording. Only error+warning severities are
- * kept (info/"Compile complete" dropped), matching the committed format the replay consumes.
+ * Each fixture is recorded ISOLATED (push its unit(s) → instantiate in PLC_PRG → build → capture → restore),
+ * so no cross-fixture batch short-circuit can drop diagnostics. Multi-unit fixtures (e.g. a struct + FB) are
+ * SPLIT into one bridge item per top-level unit (see splitItems). Writes to `expected-<vendor>.new.json` by
+ * default (non-destructive) + auto-diffs vs committed; `--write` adopts it; `RECORD_ONLY=a,b` records just
+ * those and MERGES them into the committed file. Only error+warning severities are kept (info dropped).
+ * NOTE: graphical (VG) bodies can't be recorded — the bridge stores them as PlcOpen XML, not pushable text.
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
