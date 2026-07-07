@@ -22,8 +22,8 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | external-write · lifecycle · abstract-instantiation · interface-implementation | ST | error | ✅ | oop/ group |
 | pragmas (message + orphan-conditional + unterminated-conditional) | ST | error/info | ✅ | unterminated-`{IF}` wording locked live (both vendors); region/unknown-directive checks proven invalid live (build clean) so not built |
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
-| vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
-| vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
+| vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording LOCKED (CODESYS `No such label…`); TwinCAT doesn't flag → TC divergence |
+| vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; wording LOCKED both vendors (`'<pin>' is no input of '<FB UPPER>'`) |
 | unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | wording locked live (`'x' is no component of 'T'`; TC uppercases type); library + namespace bases skip; struct EXTENDS honored |
 | unknown-member (VG, `vg-unknown-member`) | VG | error | ✅ | shares `unresolvedMembers` + `notAMember` with ST; 0-FP on corpus after the qualified_only binder fix (Open items #1) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
