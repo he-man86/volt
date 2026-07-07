@@ -132,4 +132,67 @@ public class PushServiceTests
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
+
+    // ── Negative / AI-mistake coverage ──────────────────────────────────────────────────
+    // What an AI editing via Volt can actually send the bridge is a `set` op with CONTENT — the file
+    // extension is a volt-git concern that never reaches here (kind is derived from the source text,
+    // not the extension). These pin that malformed content an AI might paste is REJECTED cleanly and
+    // never half-applied, and that a correctly-authored DUT lands (the bridge was never the blocker).
+
+    [Fact]
+    public void Create_struct_from_valid_content_lands_as_a_dut()
+    {
+        // The exact thing the PackML session wanted: a struct pushed as canonical ST. The bridge reads the
+        // kind from the CONTENT (TYPE…STRUCT…END_TYPE ⇒ structure), independent of any file extension.
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var src = "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = src });
+        Assert.True(resp.Accepted);
+        Assert.Contains("create:ST_Foo", ide.Recorded);
+    }
+
+    [Fact]
+    public void Create_enum_from_valid_content_lands_as_a_dut()
+    {
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var src = "{attribute 'qualified_only'}\nTYPE E_Mode :\n(\n\tIDLE := 0,\n\tRUN := 1\n) USINT;\nEND_TYPE\n";
+        var resp = Push(ide, pv, new SetItemOp { Name = "E_Mode.enum", IfVersion = null, SourceText = src });
+        Assert.True(resp.Accepted);
+        Assert.Contains("create:E_Mode", ide.Recorded);
+    }
+
+    [Fact]
+    public void Create_with_empty_sourceText_is_rejected_before_any_mutation()
+    {
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = "   " });
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);   // rejected up front — nothing created/written
+    }
+
+    [Fact]
+    public void Create_without_sourceText_is_rejected()
+    {
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = null });
+        Assert.False(resp.Accepted);
+        Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("needs sourceText"));
+        Assert.Empty(ide.Recorded);
+    }
+
+    [Fact]
+    public void Create_with_unclassifiable_content_is_rejected_not_crashed()
+    {
+        // An AI that pastes prose or a wrong-language body instead of ST: reject with a structured error,
+        // never a half-created item. ParseCodeHeader throws INVALID_CODE_HEADER before any IDE mutation.
+        var ide = new FakeIde();
+        var pv = RefsService.Handle(ide).ProjectVersion!;
+        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.struct", IfVersion = null, SourceText = "this is not structured text at all" });
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);
+    }
 }
