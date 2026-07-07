@@ -103,11 +103,35 @@ rather than failing wholesale.
 
 ### Requirement: The workspace is cross-indexed
 
-The server SHALL cross-index the whole workspace so that types declared in unopened files resolve.
+The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.struct`, `.enum`, `.union`, `.alias`, `.gvl`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
 
 #### Scenario: A type in an unopened file resolves
 - **WHEN** a file references a DUT declared in another, unopened file
 - **THEN** go-to-definition and type resolution succeed
+
+#### Scenario: Cross-file resolution works with only the referencing file open
+- **WHEN** the client has opened only `PLC_PRG.prg`, which references `E_Mode` declared in an unopened sibling `E_Mode.enum`
+- **THEN** `E_Mode` resolves and no `Identifier 'E_Mode' not defined` diagnostic is produced
+
+#### Scenario: An open buffer overrides the on-disk version
+- **WHEN** a file is open with unsaved edits that differ from disk
+- **THEN** analysis, resolution, and diagnostics reflect the open buffer, not the on-disk copy
+
+### Requirement: The workspace index stays fresh on file changes
+
+The server SHALL declare and handle `workspace/didChangeWatchedFiles` for kind-named source files and for the reference files it crawls (`.library`, `.device`, `.task`). On a create, change, or delete of a watched file, the server SHALL re-index so that subsequent queries reflect the new on-disk state without requiring the affected file to be opened, and SHALL invalidate any cached project scope. The reference-name crawl (library namespaces, device instance names, task program roots) SHALL be re-runnable on these events, not performed only at `initialize`.
+
+#### Scenario: A newly added source file becomes resolvable without opening it
+- **WHEN** a new `.struct` file is added on disk (e.g. by `volt pull`) and a watched-files change event is delivered
+- **THEN** references to the new type resolve without the file being opened in the editor
+
+#### Scenario: A deleted source file stops resolving
+- **WHEN** a source file is deleted on disk and a watched-files change event is delivered
+- **THEN** the types it declared are no longer in the project scope and references to them are reported unresolved
+
+#### Scenario: A changed library reference is picked up without restart
+- **WHEN** a `.library` file changes on disk and a watched-files change event is delivered
+- **THEN** the refreshed library namespaces are reflected in resolution without restarting the server
 
 ### Requirement: ST POU bodies are parsed into a statement/expression AST
 
@@ -168,6 +192,18 @@ stricter than the compiler SHALL ship off-by-default. Each check is individually
 - **WHEN** the default configuration is used
 - **THEN** a lint that TwinCAT would accept is not reported unless explicitly enabled
 
+### Requirement: Diagnostics traverse every ST body through one shared iterator
+
+The diagnostics engine SHALL iterate Structured Text bodies through a single shared body iterator, used by both the analysis checks and the language services, so there is one definition of "for each ST body, with its unit, scope, and parsed statements." The iterator SHALL cover every ST body of a unit — function block, program, function, method, action, and **property getter/setter accessors** — not only the primary POU body. Introducing the shared iterator SHALL NOT change the diagnostics produced on the committed real-project corpora below their current floors (parse-clean, ingest, and per-corpus ERROR floors), preserving the zero-false-positive guarantee.
+
+#### Scenario: A property accessor body is diagnosed
+- **WHEN** a property `GET` or `SET` accessor body contains a checkable error (e.g. an assignment type mismatch)
+- **THEN** the diagnostic is produced for the accessor body (previously accessor bodies were skipped by the analysis checks)
+
+#### Scenario: Corpus floors hold under the unified iterator
+- **WHEN** the checks run over the four corpora through the shared iterator
+- **THEN** parse-clean / ingest / per-corpus ERROR floors are greater-than-or-equal to their current baselines
+
 ### Requirement: Type-aware diagnostics resolve through compound expressions
 
 The assignment-type, binary-operator, and conversion diagnostics SHALL evaluate operand types via the type-inference walker rather than a single-token heuristic, so that member access, indexing, dereference, calls, and nested expressions are typed rather than skipped. These diagnostics SHALL NOT raise a false-positive ERROR on any built object of the committed corpora.
@@ -182,11 +218,15 @@ The assignment-type, binary-operator, and conversion diagnostics SHALL evaluate 
 
 ### Requirement: Call arguments are checked against the callee signature
 
-The language server SHALL check a call expression against the resolved callee's declared parameters: the argument count SHALL be within the callee's required/optional input range, each positional and named argument's inferred type SHALL be assignment-compatible with its parameter, and a named argument SHALL name a parameter the callee actually declares. When the callee or a parameter type cannot be resolved, the affected check SHALL be skipped (no false positive). A call that MIXES a named argument with a positional one SHALL NOT bind the positional argument by index — that mapping is ambiguous, so positional type-checking runs only on all-positional calls.
+The language server SHALL check a call expression against the resolved callee's declared parameters: the argument count SHALL be within the callee's required/optional input range, each positional and named argument's inferred type SHALL be assignment-compatible with its parameter, and a named argument SHALL name a parameter the callee actually declares. When the callee or a parameter type cannot be resolved, the affected check SHALL be skipped (no false positive). A call that MIXES a named argument with a positional one SHALL NOT bind the positional argument by index — that mapping is ambiguous, so positional type-checking runs only on all-positional calls. Omitting inputs SHALL NOT be flagged for callables whose inputs are optional (a function block retains its inputs between calls); a too-few-arguments error applies only where the callable requires them (e.g. a FUNCTION).
 
 #### Scenario: Wrong argument type is flagged
 - **WHEN** a function block input declared `INT` is called with a `STRING` argument
 - **THEN** a call-argument-type diagnostic is raised
+
+#### Scenario: Too many positional arguments is flagged
+- **WHEN** a call passes more positional arguments than the callee declares inputs
+- **THEN** a call-argument-count diagnostic is raised
 
 #### Scenario: Unknown named parameter is flagged
 - **WHEN** a call uses `paramX := value` and the callee declares no `paramX`
@@ -195,6 +235,10 @@ The language server SHALL check a call expression against the resolved callee's 
 #### Scenario: A mixed named+positional call does not false-positive
 - **WHEN** a call passes a named argument and then a positional one (`fb(In := x, y)`)
 - **THEN** the positional `y` is NOT type-checked against parameter 0; the named argument is still checked by name
+
+#### Scenario: Omitting an optional function-block input is allowed
+- **WHEN** a function block with several inputs is called with only some of them
+- **THEN** no call-argument-count diagnostic is raised (FB inputs are optional)
 
 ### Requirement: Narrowing-conversion diagnostic
 
@@ -344,6 +388,42 @@ References, rename, and document-highlight SHALL resolve the symbol at the curso
 #### Scenario: Member calls appear in call-hierarchy
 - **WHEN** call-hierarchy is computed for a method invoked as `fb.method()`
 - **THEN** that call site is included
+
+### Requirement: Call hierarchy is exposed
+
+The language server SHALL support call hierarchy: `textDocument/prepareCallHierarchy` at a callable SHALL return its hierarchy item; `callHierarchy/incomingCalls` SHALL return the callers whose call site resolves — type-aware — to that exact callable; `callHierarchy/outgoingCalls` SHALL return the callables invoked in its body. A same-named method on a different type SHALL NOT be reported as a caller.
+
+#### Scenario: Incoming calls are type-aware
+- **WHEN** `prepareCallHierarchy` targets method `Step` on FB `A`, and both `A.Step()` and an unrelated `B.Step()` exist
+- **THEN** `incomingCalls` reports the caller of `A.Step()` and NOT the caller of `B.Step()`
+
+#### Scenario: Outgoing calls list invoked callables
+- **WHEN** `outgoingCalls` is requested for a POU whose body calls two function blocks
+- **THEN** both callees are returned with the call-site ranges
+
+### Requirement: Type hierarchy is exposed
+
+The language server SHALL support type hierarchy: `textDocument/prepareTypeHierarchy` at a function block or interface SHALL return its item; `typeHierarchy/supertypes` SHALL return its `EXTENDS` base and `IMPLEMENTS` interfaces; `typeHierarchy/subtypes` SHALL return every workspace type that extends or implements it.
+
+#### Scenario: Supertypes follow EXTENDS and IMPLEMENTS
+- **WHEN** `supertypes` is requested for an FB that `EXTENDS Base IMPLEMENTS I`
+- **THEN** both `Base` and `I` are returned
+
+#### Scenario: Subtypes span the workspace
+- **WHEN** `subtypes` is requested for an interface implemented by two FBs in different files
+- **THEN** both FBs are returned
+
+### Requirement: Workspace symbol search is exposed
+
+The language server SHALL support `workspace/symbol`: given a query string, it SHALL return matching top-level symbols across the indexed workspace as `SymbolInformation`, using the same symbol-kind mapping as document symbols.
+
+#### Scenario: A type is found by name across files
+- **WHEN** the client issues `workspace/symbol` with a query matching a DUT declared in an unopened file
+- **THEN** the DUT is returned with its location and kind
+
+#### Scenario: Query narrows the result set
+- **WHEN** the query matches a subset of symbol names
+- **THEN** only matching symbols are returned
 
 ### Requirement: Bare enum members have full navigation
 
