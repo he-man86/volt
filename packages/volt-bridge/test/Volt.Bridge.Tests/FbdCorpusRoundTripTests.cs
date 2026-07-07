@@ -85,6 +85,12 @@ public class FbdCorpusRoundTripTests
                 // falsely flagged as edited (scaffolding we add: localIds/positions/xhtml/typeNames).
                 Assert.True(vg0 == VgWriter.Write(PlcOpenReader.ReadBody(PlcOpenDocument.FindFbdLdBody(spliced)!)),
                     $"{Path.GetFileName(file)}: hash drift — round-trip changed the VG");
+                // FULL push-gate guard, incl. Invariant 5 (VG_PLCOPEN_DRIFT: the graph→PLCopen→graph fixed
+                // point that the hash-drift guard above does NOT check). A real IDE-produced body's canonical
+                // VG must pass EVERY GraphicalCode.Validate invariant; a body that oscillated through the
+                // PLCopen round-trip would be refused here. This is the accept-path coverage for the one VG
+                // invariant that otherwise had no test.
+                GraphicalCode.Validate(vg0);
             }
         }
 
