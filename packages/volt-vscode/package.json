@@ -4,7 +4,7 @@
   "displayName": "Volt",
   "icon": "icons/volt.png",
   "description": "Language intelligence for PLC code — Structured Text (IEC 61131-3) and VG (Volt Graphical, the textual form of FBD/LD) — plus one-click sync with your live CODESYS/TwinCAT IDE.",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "publisher": "volt-ai",
   "private": true,
   "license": "MIT",
@@ -258,12 +258,12 @@
     "configuration": {
       "title": "Volt",
       "properties": {
-        "volt.structuredText.lspServer": {
+        "volt.iec.server": {
           "type": "string",
           "default": "",
-          "description": "Override the path to the volt-lsp-iec bin. When empty (default), the extension auto-discovers it via Node module resolution from the workspace."
+          "description": "Override the path to the volt-lsp-iec server module. When empty (default), the extension auto-discovers it (packaged bundle, then the installed dep, then the dev workspace)."
         },
-        "volt.structuredText.trace": {
+        "volt.iec.trace": {
           "type": "string",
           "enum": [
             "off",
@@ -273,7 +273,7 @@
           "default": "off",
           "description": "LSP trace level for debugging."
         },
-        "volt.structuredText.vendor": {
+        "volt.iec.vendor": {
           "type": "string",
           "enum": [
             "codesys",
@@ -283,77 +283,77 @@
           "default": "auto",
           "description": "Which vendor's ST dialect this project targets. `auto` scans the workspace for vendor signals (.TcPOU, Tc-prefix pragmas → twincat; .project, OSCAT → codesys). Affects hover/completion filtering and the wrong-vendor-pragma diagnostic."
         },
-        "volt.structuredText.hover.showSource": {
+        "volt.iec.hover.showSource": {
           "type": "boolean",
           "default": true,
           "description": "Append the CODESYS documentation source URL to hover content."
         },
-        "volt.structuredText.completion.snippetSupport": {
+        "volt.iec.completion.snippetSupport": {
           "type": "boolean",
           "default": true,
           "description": "Use snippet expansions for completion items (e.g., pragmas with placeholder values)."
         },
-        "volt.structuredText.diagnostics.reservedKeyword": {
+        "volt.iec.diagnostics.reservedKeyword": {
           "type": "boolean",
           "default": true,
           "description": "Flag identifiers that collide with CODESYS reserved keywords."
         },
-        "volt.structuredText.diagnostics.doubleUnderscore": {
+        "volt.iec.diagnostics.doubleUnderscore": {
           "type": "boolean",
           "default": true,
           "description": "Flag identifiers starting with __ (reserved for system-generated names)."
         },
-        "volt.structuredText.diagnostics.consecutiveUnderscores": {
+        "volt.iec.diagnostics.consecutiveUnderscores": {
           "type": "boolean",
           "default": true,
           "description": "Flag identifiers containing multiple consecutive underscores."
         },
-        "volt.structuredText.diagnostics.duplicateDeclaration": {
+        "volt.iec.diagnostics.duplicateDeclaration": {
           "type": "boolean",
           "default": true,
           "description": "Flag two declarations with the same name in the same scope."
         },
-        "volt.structuredText.diagnostics.unresolvedIdentifier": {
+        "volt.iec.diagnostics.unresolvedIdentifier": {
           "type": "boolean",
           "default": true,
           "description": "Warn on identifiers in bodies that don't resolve in any reachable scope. Can false-positive on library-imported symbols."
         },
-        "volt.structuredText.diagnostics.unknownPragma": {
+        "volt.iec.diagnostics.unknownPragma": {
           "type": "boolean",
           "default": true,
           "description": "Warn on pragma names not in either vendor's catalog."
         },
-        "volt.structuredText.diagnostics.wrongVendorPragma": {
+        "volt.iec.diagnostics.wrongVendorPragma": {
           "type": "boolean",
           "default": true,
           "description": "Warn when a pragma is known but belongs to the OTHER vendor (e.g. {attribute 'TcRpcEnable'} in a CODESYS project). Includes equivalent suggestion when available."
         },
-        "volt.structuredText.diagnostics.pragmaMissingCompanion": {
+        "volt.iec.diagnostics.pragmaMissingCompanion": {
           "type": "boolean",
           "default": true,
           "description": "Error when a pragma is missing its required companion (e.g., instance-path requires reflection)."
         },
-        "volt.structuredText.diagnostics.pragmaConflict": {
+        "volt.iec.diagnostics.pragmaConflict": {
           "type": "boolean",
           "default": true,
           "description": "Warn on mutually-exclusive pragmas applied to the same target."
         },
-        "volt.structuredText.diagnostics.fbLifecycleSignature": {
+        "volt.iec.diagnostics.fbLifecycleSignature": {
           "type": "boolean",
           "default": true,
           "description": "Validate FB_Init / FB_Reinit / FB_Exit signatures."
         },
-        "volt.structuredText.diagnostics.shadowingDeclaration": {
+        "volt.iec.diagnostics.shadowingDeclaration": {
           "type": "boolean",
           "default": true,
           "description": "Inform when a declaration shadows a same-name symbol in an outer scope."
         },
-        "volt.structuredText.diagnostics.initSlotCollision": {
+        "volt.iec.diagnostics.initSlotCollision": {
           "type": "boolean",
           "default": true,
           "description": "Warn when {attribute 'global_init_slot' := 'N'} collides with a CODESYS-reserved slot."
         },
-        "volt.structuredText.diagnostics.conversionSourceMismatch": {
+        "volt.iec.diagnostics.conversionSourceMismatch": {
           "type": "boolean",
           "default": true,
           "description": "Warn when a type-conversion function (e.g. INT_TO_DINT) is called with an argument whose declared type doesn't match the function's expected source type. Includes a suggested replacement (e.g. STRING_TO_DINT)."
@@ -379,7 +379,50 @@
         }
       }
     },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "volt",
+          "title": "Volt",
+          "icon": "icons/volt-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "volt": [
+        {
+          "id": "volt.views.sync",
+          "name": "IDE Sync",
+          "icon": "icons/volt-activitybar.svg",
+          "contextualTitle": "Volt — IDE Sync"
+        },
+        {
+          "id": "volt.views.diagnostics",
+          "name": "Diagnostics",
+          "icon": "$(warning)",
+          "contextualTitle": "Volt — Diagnostics"
+        },
+        {
+          "id": "volt.views.bridge",
+          "name": "Bridge",
+          "icon": "$(plug)",
+          "contextualTitle": "Volt — Bridge"
+        },
+        {
+          "id": "volt.views.reference",
+          "name": "Reference & Agent",
+          "icon": "$(book)",
+          "contextualTitle": "Volt — Reference & Agent"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "volt.openProblems",
+        "title": "Volt: Open Problems (LSP diagnostics)",
+        "category": "Volt",
+        "icon": "$(list-flat)"
+      },
       {
         "command": "volt.openAgent",
         "title": "Volt: Open Agent",
@@ -497,7 +540,7 @@
     ],
     "submenus": [
       {
-        "id": "volt.scm.more",
+        "id": "volt.more",
         "label": "More Volt Actions…",
         "icon": "$(ellipsis)"
       }
@@ -515,34 +558,44 @@
           "when": "false"
         }
       ],
-      "scm/title": [
+      "view/title": [
         {
           "command": "volt.pull",
-          "when": "scmProvider == volt && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
           "group": "navigation@1"
         },
         {
           "command": "volt.push",
-          "when": "scmProvider == volt && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
           "group": "navigation@2"
         },
         {
           "command": "volt.build",
-          "when": "scmProvider == volt && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
           "group": "navigation@3"
         },
         {
           "command": "volt.refresh",
-          "when": "scmProvider == volt && volt.workspaceInitialized",
+          "when": "view == volt.views.sync && volt.workspaceInitialized",
           "group": "navigation@4"
         },
         {
-          "submenu": "volt.scm.more",
-          "when": "scmProvider == volt",
+          "submenu": "volt.more",
+          "when": "view == volt.views.sync",
           "group": "navigation@99"
+        },
+        {
+          "command": "volt.openProblems",
+          "when": "view == volt.views.diagnostics",
+          "group": "navigation@1"
+        },
+        {
+          "command": "volt.refresh",
+          "when": "view == volt.views.bridge",
+          "group": "navigation@1"
         }
       ],
-      "volt.scm.more": [
+      "volt.more": [
         {
           "command": "volt.openSettings",
           "group": "1_init@1"
@@ -570,18 +623,18 @@
     },
     "viewsWelcome": [
       {
-        "view": "scm",
+        "view": "volt.views.sync",
         "contents": "$(check) TwinCAT IDE connected.\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
         "when": "!volt.workspaceInitialized && volt.twincatLive"
       },
       {
-        "view": "scm",
+        "view": "volt.views.sync",
         "contents": "$(check) CODESYS IDE connected.\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)",
         "when": "!volt.workspaceInitialized && volt.codesysLive"
       },
       {
-        "view": "scm",
-        "contents": "$(circle-slash) No PLC IDE connected.\nOpen a project in TwinCAT or CODESYS and start its bridge — the button appears here.",
+        "view": "volt.views.sync",
+        "contents": "$(plug) No PLC IDE detected yet.\nOpen a project in CODESYS or TwinCAT and start its bridge, then set up this folder.\n[$(rocket) Set Up Workspace](command:volt.setup)\n[$(plug) Initialize for CODESYS](command:volt.initCodesys)\n[$(plug) Initialize for TwinCAT](command:volt.initTwincat)",
         "when": "!volt.workspaceInitialized && !volt.twincatLive && !volt.codesysLive"
       }
     ]

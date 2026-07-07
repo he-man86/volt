@@ -2,6 +2,7 @@ import { createResource, createSignal, Show, type JSX } from "solid-js"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon } from "@opencode-ai/ui/icon"
 import type { StatusResult } from "@opencode-ai/volt-control"
+import { healthDisplay } from "@opencode-ai/volt-control/display" // Node-free — the shared display model
 import "./ipc" // window.volt augmentation
 
 /**
@@ -149,18 +150,22 @@ function WrenchIcon() {
 }
 
 function HealthDot(props: { result: StatusResult | undefined }) {
-  // inline the kind check — isBridgeOnline lives in a Node module (node:http), unimportable here
-  const online = () => {
-    const k = props.result?.health.kind
-    return k === "connected" || k === "degraded"
+  // Render the shared display model (Node-free) instead of re-inlining the health→label mapping.
+  const d = () => (props.result !== undefined ? healthDisplay(props.result.health) : undefined)
+  const color = () => {
+    switch (d()?.tone) {
+      case "ok":
+        return "var(--icon-diff-add-base)"
+      case "warn":
+        return "var(--text-warning, var(--text-error))"
+      default:
+        return "var(--text-error)"
+    }
   }
   return (
     <span class="inline-flex items-center gap-1.5">
-      <span
-        class="w-1.5 h-1.5 rounded-full"
-        style={{ background: online() ? "var(--icon-diff-add-base)" : "var(--text-error)" }}
-      />
-      <span>bridge: {online() ? "connected" : (props.result?.error ?? "offline")}</span>
+      <span class="w-1.5 h-1.5 rounded-full" style={{ background: color() }} />
+      <span>{d()?.label ?? props.result?.error ?? "Probing IDE…"}</span>
     </span>
   )
 }

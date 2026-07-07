@@ -51,4 +51,4 @@ The safe zone for user code is the same in both: **above 1000 and below 49989** 
 
 ## LSP behavior
 
-The `init-slot-collision` diagnostic fires when a slot number matches an entry in `reference/init-slots.ts`. The TC entries in that file use the ranges above. Set `volt.structuredText.vendor = "twincat"` (or use `"auto"` with a TC workspace) so the LSP applies TC-specific reserved ranges rather than CODESYS ones.
+The `init-slot-collision` diagnostic fires when a slot number matches an entry in `reference/init-slots.ts`. The TC entries in that file use the ranges above. Set `volt.iec.vendor = "twincat"` (or use `"auto"` with a TC workspace) so the LSP applies TC-specific reserved ranges rather than CODESYS ones.

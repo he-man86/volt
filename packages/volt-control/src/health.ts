@@ -79,15 +79,8 @@ export async function probeHealth(port: number, timeoutMs = 2_000): Promise<Heal
 	})
 }
 
-export function healthLabel(state: HealthState): string {
-	switch (state.kind) {
-		case "unknown": return "Probing IDE..."
-		case "connected": return `${state.health.ideName ?? "IDE"} \u2014 ${state.health.plcProjectName ?? state.health.projectName ?? "(no project)"}`
-		case "degraded": return `Degraded: ${state.health.degradedReason ?? "previous call failed"}`
-		case "disconnected": return "No project loaded"
-		case "unreachable": return `Bridge unreachable: ${state.reason.slice(0, 80)}`
-	}
-}
+// healthLabel now lives in display.ts (Node-free, so the sandboxed renderer can import it too);
+// it reaches the package barrel via index.ts's `export * from "./display.js"`.
 
 export type VendorProbe = { vendor: "twincat" | "codesys"; port: number; state: HealthState }
 

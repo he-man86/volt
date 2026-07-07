@@ -9,7 +9,7 @@
  * Called from:
  *   - `volt init` (volt-agent) — to write the detected vendor into
  *     `.volt/config.json`
- *   - VS Code extension — to resolve `volt.structuredText.vendor: "auto"`
+ *   - VS Code extension — to resolve `volt.iec.vendor: "auto"`
  */
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
