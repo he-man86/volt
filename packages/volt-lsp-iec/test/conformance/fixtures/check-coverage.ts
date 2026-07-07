@@ -26,6 +26,18 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   // ── positive: unterminated {IF} (had no conformance fixture — wording live-locked 2026-07-07) ──
   fb("cc_unterminated_if", "unterminated {IF} conditional-compile block → compiler error", "x : INT;", "{IF defined(FOO)}\nx := 1;"),
 
+  // ── positive: unknown-member — a self-contained struct + FB (two units; the recorder splits them) ──
+  {
+    name: "cc_unknown_member",
+    pouName: "FB_LANG_cc_unknown_member",
+    kind: "function_block",
+    feature: "reading a non-member of a project struct → compiler error",
+    fromDoc: "check-coverage",
+    plcPrgVar: "inst_cc_um : FB_LANG_cc_unknown_member;",
+    plcPrgBody: "inst_cc_um();",
+    source: `TYPE DUT_LANG_cc_um_pt :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_unknown_member\nVAR\n\tp : DUT_LANG_cc_um_pt;\n\ty : INT;\nEND_VAR\ny := p.nope;\nEND_FUNCTION_BLOCK\n`,
+  },
+
   // ── FP-bait: the compiler ACCEPTS all of these (a warning at most) — the LSP must NOT emit an error ──
   fb("cc_fp_overflow_untyped", "untyped over-max literal → conversion warning, NOT a range error", "x : INT := 40000;"),
   fb("cc_fp_overflow_expr", "const-expr over max → accepted", "x : INT := 30000 + 10000;"),

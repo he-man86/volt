@@ -13,11 +13,33 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
+import { parseSource } from "../src/syntax/index.js"
+
+// The bridge stores ONE item per top-level unit. A multi-unit fixture (e.g. a struct + an FB that uses it,
+// for unknown-member) must therefore be pushed as SEPARATE items — else the splitter mangles all but the
+// first. Group each fixture source into items: a top-level POU/type/gvl starts one; trailing method/action/
+// property units append to it (they are that POU's members).
+const TOP = new Set(["function_block", "program", "function", "interface", "global_var_list", "type_decl", "namespace"])
+function unitExt(u: any): string {
+  if (u.kind === "type_decl") {
+    const bk = u.body?.kind
+    return bk === "struct_body" ? "struct" : bk === "enum_body" ? "enum" : bk === "union_body" ? "union" : "alias"
+  }
+  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }[u.kind as string] ?? "fb"
+}
+function splitItems(source: string): { wire: string; src: string }[] {
+  // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
+  // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
+  const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
+  return tops.map((u, i) => ({
+    wire: `${(u as any).name.text}.${unitExt(u)}`,
+    src: source.slice(u.span.start, i + 1 < tops.length ? tops[i + 1]!.span.start : source.length).trimEnd() + "\n",
+  }))
+}
 
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
 const WRITE = process.argv.includes("--write")
 const BASE = `http://127.0.0.1:${PORT}`
-const EXT: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", structure: "struct", interface: "itf" }
 
 const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
 const post = async (p: string, body: unknown): Promise<any> =>
@@ -59,9 +81,9 @@ let done = 0
 const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 for (const t of ALL_TESTS) {
   if (t.recorderSkip || (ONLY && !ONLY.has(t.name))) continue
-  const wire = `${t.pouName}.${EXT[t.kind] ?? "fb"}`
+  const items = splitItems(t.source)
   try {
-    await pushOps([{ op: "set", name: wire, toFolder: plcFolder, sourceText: t.source, ifVersion: null }])
+    await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {
       await setPlcPrg(`PROGRAM PLC_PRG\nVAR\n${t.plcPrgVar ?? ""}\nEND_VAR\n${t.plcPrgBody ?? ""}\nEND_PROGRAM\n`)
     }
@@ -75,8 +97,8 @@ for (const t of ALL_TESTS) {
   } catch (e) {
     console.warn(`  ${t.name}: ERROR ${(e as Error).message}`)
   } finally {
-    // restore: delete the fixture, put PLC_PRG back
-    await pushOps([{ op: "deleteItem", name: wire, ifVersion: await version(wire) }])
+    // restore: delete every item this fixture created, put PLC_PRG back
+    for (const it of items) await pushOps([{ op: "deleteItem", name: it.wire, ifVersion: await version(it.wire) }])
     if (plcOriginal !== undefined) await setPlcPrg(plcOriginal)
   }
   if (++done % 25 === 0) console.log(`  …${done} recorded`)
