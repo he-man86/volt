@@ -149,8 +149,9 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
       Deferred: conversion-catalog · unknown/conflict pragmas (needs the keyword/pragma catalogs, F.1).
       **unknown-member (member access) ✅ DONE** — `a.b` type-checked against the base's project scope (library/
-      namespace/unresolved bases skip; DUT `STRUCT EXTENDS` linked in the binder); shared with VG (VG wiring
-      waits on corpus re-harvest). **deref-non-pointer
+      namespace/unresolved bases skip; DUT `STRUCT EXTENDS` linked in the binder); **shared with VG as
+      `vg-unknown-member`, wired 2026-07-07** after the qualified_only binder fix (bare `Mach1` no longer binds a
+      qualified-only GVL member — see Open items #1). **deref-non-pointer
       ✅ DONE** — `x^` on an elementary/array base errors (byte-identical per vendor: "Dereference requires a
       pointer" / "…Pointer"); pointer/reference bases + the `THIS^`/reference-target infer-fold stay quiet, 0-FP.
       **`unresolved-identifier` ✅ DONE** — bare-reference resolution; the `.library` `NAMESPACE` line + the
@@ -274,12 +275,13 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
   - [x] F.2e **CFC/SFC marker** — `vgMarkerHover` explains a `(* @volt-graphical: <LANG> *)` body (authored in
         the IDE, no editable text form); wired as the ST-hover fallback. The marker is a comment → not analyzed
         as VG or ST, zero diagnostics (spec L403-413).
-  - [~] F.2f **tests/corpus/conformance** — 32 graphical unit tests (parse · structure · infer · checks ·
-        **undeclared · undefined-label · unknown-pin** · hover/def/completion/resolve · marker) + corpus VG parse
-        gate + corpus 0-FP gate (incl. VG sink + undeclared + label + pin checks) + 3 server e2e (VG diagnostics ·
-        VG hover routing). 160 suite green, conformance held (231 TC/228 CS), layering clean, oxlint 0 errors.
-        Pending: live-bridge record pass to lock the PROVISIONAL VG structural/label/pin messages (batched with
-        the D.3 overflow/subrange lock, T.1).
+  - [~] F.2f **tests/corpus/conformance** — VG unit tests (parse · structure · infer · checks · **undeclared ·
+        unknown-member · undefined-label · unknown-pin** · hover/def/completion/resolve · **cross-body
+        references/rename** · marker) + corpus VG parse gate + corpus 0-FP gate (incl. VG sink + undeclared +
+        member + label + pin checks) + server e2e (VG diagnostics · VG hover routing). **239 suite green**,
+        conformance held (231 TC/228 CS), layering clean, oxlint 0 errors. Pending: live-bridge record pass to
+        lock the PROVISIONAL VG structural/label/pin/**member** messages (batched with the D.3 overflow/subrange
+        lock, T.1).
   Status: F.2a·b·e DONE; F.2c·d·f substantially done (the code-correctness layer — infer · sink type-check ·
   **undeclared-identifier · undefined-label · unknown-pin** · hover · def · completion · nav · **references/rename
   across VG** — ships at ST parity). Remaining follow-ons: VG semantic tokens (cosmetic, deferred) · narrowing/binary
