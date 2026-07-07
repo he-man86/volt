@@ -2,6 +2,10 @@ Build order = the layer stack, bottom-up. Invariant for EVERY task: `cd packages
 `bun typecheck` + corpus 0-error + conformance replay green before its commit. Freeze a layer's contract →
 verify → let the next consume it.
 
+> **STATUS (2026-07-07): every diagnostics/LSP deliverable is DONE and validated against the live compilers.**
+> The single remaining task is **X.1 (Rust transpiler) — DEFERRED and held by decision**. The change stays
+> active only as X.1's tracker; archive it when X.1 lands or is spun into its own change.
+
 ## Diagnostic-check status matrix
 
 Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
@@ -120,9 +124,13 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    UNCALLED items. An excluded-but-REFERENCED item (kept live by reachability) would false-positive without the
    filter, since excluded code is often broken/WIP. Removing it needs item-level exclusion in the LSP first —
    not worth it.
-7. **Land** — `feat/st-body-ast` → `dev` ✅ MERGED (fast-forward, 2026-07-06). Open items 1·4·5 ✅ CLOSED, 2
-   LARGELY DONE (only overflow/subrange check-shape + VG label/pin left, both deferred with rationale). The one
-   still-open topic is **#3 conversion-catalog** (bridge recordings). Archive once #3 + the two #2 remainders close.
+7. **Land** — `feat/st-body-ast` → `dev` ✅ MERGED (fast-forward, 2026-07-06). Open items 1·2·3·3b·3c·4·5·6 ✅ ALL
+   CLOSED. **#3 conversion-catalog CLOSED** (2026-07-07) by the `complete-type-checking` change: `classifyConversion`
+   is the single conversion relation, oracle-calibrated 196/196 on BOTH vendors, sign-change + int→real-loss
+   warnings shipped, subrange folded onto the compilers' conversion wording (no longer a KNOWN_DIVERGENCE). The #2
+   remainders also closed there (overflow removed, subrange reconciled, VG label/pin locked). **Every diagnostics/LSP
+   deliverable is DONE.** The ONLY remaining task is **X.1 (Rust transpiler) — DEFERRED and held by decision**; the
+   change stays active as its tracker and is archived when X.1 lands or is spun into its own change.
 
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
@@ -341,10 +349,16 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       (Pull diagnostics + progress/cancellation are protocol-surface follow-ons; push + incremental sync done.)
 
 ## Testing · backend
-- [ ] T.1 `test/conformance/` (catalog · record · recordings · replay) + `test/corpus/` ratchet + co-located
-      unit tests. Message parity byte-identical per vendor is the single criterion.
-- [ ] X.1 (future) `transpile/rust/` + `test/exec/` — transpile a POU, build, drive scan cycles, assert I/O.
+- [x] T.1 `test/conformance/` (catalog · record · recordings · replay) + `test/corpus/` ratchet + co-located
+      unit tests — all three layers shipped and green (268 unit · 8 corpus 0-FP · replay 251 CS / 252 TC).
+      Message parity byte-identical per vendor is the enforced criterion; the recorder (`scripts/record-language.ts`)
+      + matrix oracle (`scripts/conversion-matrix.ts`) keep it honest against the live compilers.
+- [ ] X.1 (DEFERRED — the only remaining item, held by decision) `transpile/rust/` + `test/exec/` — transpile a
+      POU, build, drive scan cycles, assert I/O. A separate epic (not a diagnostics/LSP task); tracked here so the
+      change stays open as its home. Nothing else blocks on it.
 
 ## Land
-- [ ] Z.1 Full suite + typecheck + corpus 0-error + conformance replay green; `check-divergence` clean; sync the
-      `st-language-server` spec + archive.
+- [x] Z.1 Full suite + typecheck + corpus 0-error + conformance replay green; `check-divergence` clean; the
+      `st-language-server` spec is synced (complete-type-checking archived into it). **Archive HELD** — the change
+      stays active only as the tracker for the deferred X.1 (Rust transpiler); every diagnostics/LSP deliverable is
+      done. Archive when X.1 lands or is spun out into its own change.
