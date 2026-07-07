@@ -3,7 +3,7 @@
  * NO filtering, NO materialization: every item the bridge returns (KIND source + referenced-library
  * signatures + `.library`/`.device`/… reference files) is written to `<outDir>/<folder>/<name>` exactly
  * as the bridge encoded it. For refreshing `packages/volt-lsp-iec/test-corpus/<name>`.
- *   bun volt-scripts/harvest-lsp-corpus.ts <outDir> [port]
+ *   bun packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts <outDir> [port]
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"

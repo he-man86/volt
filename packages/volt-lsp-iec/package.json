@@ -31,10 +31,12 @@
     "build": "tsc",
     "prepare": "tsc",
     "dev": "tsc --watch",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "tsgo --noEmit && tsgo --noEmit -p scripts/tsconfig.json",
     "lint": "bun run scripts/check-layering.ts",
     "test": "bun test",
-    "record:language": "bun run scripts/record-language.ts"
+    "record:language": "bun run scripts/record-language.ts",
+    "harvest:corpus": "bun run scripts/harvest-lsp-corpus.ts",
+    "audit:check": "bun run scripts/audit-check.ts"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

@@ -5,7 +5,7 @@ verify → let the next consume it.
 ## Diagnostic-check status matrix
 
 Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
-(exact byte-identical fixtures): **231/259 TC · 228/259 CS** — floors only ever rise.
+(exact byte-identical fixtures): **236/259 TC · 233/259 CS** — floors only ever rise.
 
 | Check (code) | Lang | Severity | Status | Notes |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | narrowing (implicit conversion) | ST | warning | ✅ | vendor-keyed "Possible/possible loss" |
 | binary-op-type-mismatch | ST | error | ✅ | MOD non-int · BOOL-in-arithmetic |
 | conversion-source-mismatch | ST | error | ✅ | `<T>_TO_<U>` source vs arg |
-| overflow · subrange · array-bounds | ST | error | ✅ | const-eval; wording bridge-gated (provisional) |
+| subrange · array-bounds | ST | error | ✅ | const-eval; array-bounds wording locked live, subrange a wording KNOWN_DIVERGENCE. **`constant-overflow` REMOVED** — it false-positived (CODESYS accepts out-of-range untyped literals) |
 | deref-non-pointer (`x^`) | ST | error | ✅ | flags elementary/array bases; pointer/ref/THIS fold quiet |
 | duplicate-declaration | ST | error | ✅ | per-scope, qualified_only-aware |
 | **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs` (member access → `unknown-member` below) |
@@ -40,9 +40,9 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 
 ## Corpus / harvest status (real-project 0-FP gate — `test/corpus/`)
 
-Harvested from live headless CODESYS (`codesys-bridge.ps1 up -Project … ; harvest-lsp-corpus.ts`). Source `.project`
+Harvested from live headless CODESYS (`codesys-bridge.ps1 up -Project … ; packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts`). Source `.project`
 files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (library signatures + `.task`/
-`.library`/`.device` reference files). Ratchet: conformance **231/259 TC · 228/259 CS**.
+`.library`/`.device` reference files). Ratchet: conformance **236/259 TC · 233/259 CS**.
 
 | Fixture | Files | State |
 |---|---|---|
@@ -163,7 +163,7 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       ported**: types/ (assignment · narrowing · binary-operators · conversion · deref), names/ (duplicate-declaration ·
       **unresolved-identifier**), declarations/ (var-section-placement), oop/ (external-write · lifecycle ·
       abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
-      ratchet **231/259 TC · 228/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
+      ratchet **236/259 TC · 233/259 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
       Deferred: conversion-catalog · unknown/conflict pragmas (needs the keyword/pragma catalogs, F.1).
       **unknown-member (member access) ✅ DONE** — `a.b` type-checked against the base's project scope (library/

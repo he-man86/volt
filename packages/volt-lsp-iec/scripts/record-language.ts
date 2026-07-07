@@ -10,12 +10,11 @@
  * (non-destructive); pass `--write` to overwrite the trusted recording. Only error+warning severities are
  * kept (info/"Compile complete" dropped), matching the committed format the replay consumes.
  */
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
-const VENDOR = process.env.VOLT_VENDOR ?? "codesys"
 const WRITE = process.argv.includes("--write")
 const BASE = `http://127.0.0.1:${PORT}`
 const EXT: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", structure: "struct", interface: "itf" }
@@ -23,6 +22,10 @@ const EXT: Record<string, string> = { function_block: "fb", function: "fun", pro
 const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
 const post = async (p: string, body: unknown): Promise<any> =>
   (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json()
+
+// Vendor (→ recording file) is auto-detected from the bridge's reported platform; VOLT_VENDOR overrides.
+const health = await get("/health")
+const VENDOR = process.env.VOLT_VENDOR ?? (health.platform === "beckhoff" ? "tc" : "codesys")
 
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })
@@ -36,8 +39,11 @@ const version = async (name: string): Promise<string | null> => (await get("/ref
 
 // Resolve PLC_PRG (CODESYS) / MAIN (TwinCAT) + its folder; save the original body for restore.
 const refs0 = await get("/refs")
-const plcName = ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n])
-if (plcName === undefined) throw new Error("no PLC_PRG/MAIN in project")
+const plcName: string =
+  ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n]) ??
+  (() => {
+    throw new Error("no PLC_PRG/MAIN in project")
+  })()
 const plcItem0 = await fetchItem(plcName)
 const plcFolder = plcItem0.folder ?? ""
 const plcOriginal: string = plcItem0.sourceText
@@ -79,7 +85,21 @@ const out = {
   recorded: { at: new Date().toISOString(), bridgeVersion: (await get("/health")).version ?? "1.0.0", testCount: Object.keys(tests).length },
   tests,
 }
-const file = `expected-${VENDOR === "tc" ? "tc" : VENDOR}.${WRITE ? "" : "new."}json`
-const path = join(import.meta.dir, "..", "test", "conformance", "recordings", file)
+const stem = VENDOR === "tc" ? "tc" : VENDOR
+const dir = join(import.meta.dir, "..", "test", "conformance", "recordings")
+const path = join(dir, `expected-${stem}.${WRITE ? "" : "new."}json`)
 writeFileSync(path, JSON.stringify(out, null, 2) + "\n")
 console.log(`\nWrote ${Object.keys(tests).length} tests → ${path}`)
+
+// Non-destructive by default → auto-diff the fresh recording against the committed one (signal only:
+// message + severity + buildSuccess, ignoring durationMs/line). Re-run with --write to adopt it.
+if (!WRITE) {
+  const committed = JSON.parse(readFileSync(join(dir, `expected-${stem}.json`), "utf8")) as typeof out
+  const sig = (r: any): string =>
+    r === undefined ? "<none>" : `${r.buildSuccess} | ${(r.diagnostics ?? []).map((d: any) => `[${d.severity}] ${d.message}`).sort().join(" ~ ")}`
+  const names = new Set([...Object.keys(committed.tests), ...Object.keys(tests)])
+  const diffs = [...names].filter((n) => sig((committed.tests as any)[n]) !== sig((tests as any)[n]))
+  console.log(`\ndiff vs committed: ${names.size - diffs.length}/${names.size} identical, ${diffs.length} changed`)
+  for (const n of diffs) console.log(`● ${n}\n   committed: ${sig((committed.tests as any)[n])}\n   fresh:     ${sig((tests as any)[n])}`)
+  console.log(diffs.length ? "\nrun with --write to adopt these changes." : "\nrecordings are up to date.")
+}
