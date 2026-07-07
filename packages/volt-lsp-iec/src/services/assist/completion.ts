@@ -10,10 +10,24 @@
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import { findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
 import { resolveTypeExpr, type Type } from "../../types/index.js"
+import { KNOWN_ATTRIBUTE_NAMES, pragmaHelp } from "../../reference/index.js"
 import { humanKind, scopeAtOffset, type Document } from "../shared/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
+  const attrs = attributeCompletions(doc.source, offset)
+  if (attrs !== undefined) return attrs
   return completionAtScope(scopeAtOffset(doc, project, offset), project, doc.source, offset)
+}
+
+/** Inside `{attribute '<partial>'}` → the known attribute names (the `unknown-attribute` catalog as an oracle). */
+function attributeCompletions(src: string, offset: number): CompletionItem[] | undefined {
+  const open = src.lastIndexOf("{", offset - 1)
+  if (open === -1 || !/^\{\s*attribute\s+'[^'}]*$/i.test(src.slice(open, offset))) return undefined
+  return KNOWN_ATTRIBUTE_NAMES.map((name) => ({
+    label: name,
+    kind: CompletionItemKind.EnumMember,
+    ...(pragmaHelp(name) !== undefined ? { detail: pragmaHelp(name) } : {}),
+  }))
 }
 
 /**

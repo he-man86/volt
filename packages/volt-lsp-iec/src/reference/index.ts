@@ -1,4 +1,4 @@
 // Layer F — reference. Language data catalogs (built-in types/operators/functions).
 // Ranges derive from types/elementary; never a second copy.
 export * from "./reference.js"
-export { isKnownAttribute } from "./pragmas.js"
+export { isKnownAttribute, pragmaHelp, KNOWN_ATTRIBUTE_NAMES } from "./pragmas.js"

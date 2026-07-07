@@ -38,6 +38,8 @@ export interface Messages {
   missingInterfaceImpl(kind: "method" | "property", member: string, iface: string): string
   /** A conditional-compile pragma (`{ELSE}`/`{ELSIF}`/`{END_IF}`) with no matching `{IF}`: TwinCAT "Pragma", CODESYS "pragma". */
   orphanPragma(directive: string): string
+  /** A `{IF}` conditional-compile block never closed by `{END_IF}`. Byte-identical on both vendors (confirmed against live :8556/:8555). */
+  unterminatedConditional(): string
   /**
    * An `{attribute '<name>'}` the compiler doesn't recognize. CODESYS's exact wording — note the DOUBLE
    * space before "compiler" and the unquoted name (a compiler quirk, matched byte-for-byte). TwinCAT has no
@@ -93,6 +95,8 @@ export function messagesFor(vendor: Vendor): Messages {
     missingInterfaceImpl: (kind, member, iface) =>
       `There is no implementation for ${kind} '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
+    // Confirmed byte-identical on both vendors via live /build (:8556 CODESYS + :8555 TwinCAT, 2026-07-07).
+    unterminatedConditional: () => `Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`,
     // CODESYS byte-identical (double space + unquoted name). TC provisional (no recording).
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
     overflow: (value, type) => `Literal '${value}' is out of the valid range of type '${type}'`,

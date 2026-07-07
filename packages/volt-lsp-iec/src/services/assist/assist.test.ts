@@ -2,7 +2,8 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
 import type { Document } from "../shared/index.js"
-import { hover } from "./hover.js"
+import { hover, pragmaHover } from "./hover.js"
+import { completion } from "./completion.js"
 import { signatureHelp } from "./signature-help.js"
 import { inlayHints } from "./inlay-hints.js"
 import { codeLenses } from "./code-lens.js"
@@ -58,6 +59,38 @@ test("hover: a built-in type falls back to the reference catalog", () => {
 test("hover: whitespace / unknown token yields nothing", () => {
   const { doc, project } = setup(SRC)
   expect(hover(doc, project, SRC.indexOf("VAR\n") - 1)).toBeUndefined()
+})
+
+test("pragma hover: an {attribute '<name>'} name describes the attribute", () => {
+  const src = `{attribute 'qualified_only'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const h = pragmaHover(doc, src.indexOf("qualified_only") + 2)
+  expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
+})
+
+test("pragma hover: a directive word describes the directive; an unknown one yields nothing", () => {
+  const src = `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n{IF defined(FOO)}\nx := 1;\n{END_IF}\nEND_FUNCTION_BLOCK`
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const onIf = pragmaHover(doc, src.indexOf("{IF") + 1)
+  expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
+  expect(pragmaHover(doc, src.indexOf("x : INT"))).toBeUndefined() // not a pragma
+})
+
+test("completion: inside {attribute '…'} offers the known attribute names, not scope symbols", () => {
+  const src = `{attribute 'qual'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const project = buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const items = completion(doc, project, src.indexOf("qual") + 4)
+  const labels = items.map((i) => i.label)
+  expect(labels).toContain("qualified_only")
+  expect(labels).toContain("pack_mode")
+  expect(labels).not.toContain("F") // NOT scope completion
+})
+
+test("completion: outside a pragma falls back to scope completion", () => {
+  const { doc, project } = setup(SRC)
+  const items = completion(doc, project, SRC.indexOf("r := lib") )
+  expect(items.some((i) => i.label === "lib")).toBe(true) // scope symbol, not an attribute
 })
 
 test("signature-help: shows the callee signature + active parameter", () => {

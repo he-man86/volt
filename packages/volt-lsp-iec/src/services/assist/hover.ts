@@ -5,7 +5,8 @@
  * (Reference-catalog hover for built-ins like `INT` / `{attribute}` lands with Layer F.)
  */
 import type { Hover } from "vscode-languageserver-protocol"
-import { lookupReference, renderReferenceHover } from "../../reference/index.js"
+import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
+import { lex } from "../../syntax/index.js"
 import type { Scope, Symbol, SymbolKind } from "../../symbols/index.js"
 import { renderTypeExpr } from "../../types/index.js"
 import { humanKind, rangeFromSpan, resolveAt, tokenAtOffset, type Document } from "../shared/index.js"
@@ -23,6 +24,32 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
     if (entry !== undefined) return { contents: { kind: "markdown", value: renderReferenceHover(entry) }, ...range }
   }
   return undefined
+}
+
+/**
+ * Hover for a pragma — the directive (`{IF …}`, `{region …}`) or the `{attribute '<name>'}` name under the
+ * cursor, described from the reference catalog. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
+ * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback (like `vgMarkerHover`).
+ */
+export function pragmaHover(doc: Document, offset: number): Hover | undefined {
+  for (const t of lex(doc.source)) {
+    if (t.kind !== "pragma" || offset < t.span.start || offset >= t.span.end) continue
+    // Cursor on the attribute NAME inside `{attribute 'NAME'}` → describe the attribute.
+    const am = /^\{\s*attribute\s+'([^']*)'/i.exec(t.text)
+    if (am?.[1] !== undefined) {
+      const nameStart = t.span.start + am[0].length - am[1].length - 1 // just inside the closing quote-less name
+      if (offset >= nameStart && offset < nameStart + am[1].length) return pragmaMd(am[1])
+    }
+    // Otherwise the leading directive word.
+    const dm = /^\{\s*([A-Za-z_]\w*)/.exec(t.text)
+    return dm?.[1] !== undefined ? pragmaMd(dm[1]) : undefined
+  }
+  return undefined
+}
+
+function pragmaMd(word: string): Hover | undefined {
+  const help = pragmaHelp(word)
+  return help !== undefined ? { contents: { kind: "markdown", value: `\`{${word}}\`\n\n${help}` } } : undefined
 }
 
 /** The markdown hover for a resolved symbol — a declaration line + kind label. Shared by ST and VG hover. */

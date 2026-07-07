@@ -20,18 +20,29 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     .filter((t) => t.kind === "pragma")
     .map((t) => ({ span: t.span, ...parsePragma(t.text) }))
 
-  // Orphan conditional-compile pragmas — track {IF} depth in source order.
-  let ifDepth = 0
+  // Conditional-compile balance — track the open {IF} stack in source order. An {END_IF}/{ELSE}/{ELSIF}
+  // with no open {IF} is an orphan; any {IF} still open at the end is unterminated (both compiler errors,
+  // wording confirmed against live :8556/:8555).
+  const ifStack: { span: DiagnosticItem["span"] }[] = []
   for (const p of pragmas) {
     const dir = p.directive.toLowerCase()
     if (dir === "if") {
-      ifDepth += 1
+      ifStack.push(p)
     } else if (dir === "end_if") {
-      if (ifDepth === 0) out.push(orphan(ctx, p))
-      else ifDepth -= 1
-    } else if ((dir === "else" || dir === "elsif") && ifDepth === 0) {
+      if (ifStack.length === 0) out.push(orphan(ctx, p))
+      else ifStack.pop()
+    } else if ((dir === "else" || dir === "elsif") && ifStack.length === 0) {
       out.push(orphan(ctx, p))
     }
+  }
+  for (const openIf of ifStack) {
+    out.push({
+      severity: "error",
+      span: openIf.span,
+      source: SOURCE,
+      code: "unterminated-conditional-pragma",
+      message: ctx.messages.unterminatedConditional(),
+    })
   }
 
   // Message pragmas — only error/warning have IDE ground truth (info/text are hint-level, no oracle).

@@ -44,3 +44,45 @@ test("the lint is OFF by default (nothing flagged even on a typo)", () => {
 test("an attribute with a value payload resolves its name", () => {
   expect(attrs(`{attribute 'pack_mode' := '1'}\nTYPE T : STRUCT x : INT; END_STRUCT END_TYPE`, true)).toEqual([])
 })
+
+// ─── conditional-compile balance ({IF}/{ELSIF}/{ELSE}/{END_IF}) — wording confirmed against live CODESYS + TwinCAT ───
+
+function condDiags(src: string, vendor: "codesys" | "twincat" = "codesys") {
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) }).filter(
+    (d) => d.code === "unterminated-conditional-pragma" || d.code === "orphan-conditional-pragma",
+  )
+}
+
+const withBody = (body: string) => `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK`
+
+test("an unterminated {IF} is flagged, byte-identical to the compiler", () => {
+  const d = condDiags(withBody(`{IF defined(FOO)}\nx := 1;`))
+  expect(d).toHaveLength(1)
+  expect(d[0]?.code).toBe("unterminated-conditional-pragma")
+  expect(d[0]?.severity).toBe("error")
+  expect(d[0]?.message).toBe("Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected")
+})
+
+test("the unterminated-{IF} message is identical on both vendors (confirmed live)", () => {
+  const cs = condDiags(withBody(`{IF defined(FOO)}\nx := 1;`), "codesys")
+  const tc = condDiags(withBody(`{IF defined(FOO)}\nx := 1;`), "twincat")
+  expect(tc[0]?.message).toBe(cs[0]?.message)
+})
+
+test("a balanced {IF}…{END_IF} (incl. {ELSE}) is not flagged", () => {
+  expect(condDiags(withBody(`{IF defined(FOO)}\nx := 1;\n{ELSE}\nx := 2;\n{END_IF}`))).toEqual([])
+})
+
+test("nested {IF} blocks balance correctly", () => {
+  const src = withBody(`{IF defined(A)}\n{IF defined(B)}\nx := 1;\n{END_IF}\n{END_IF}`)
+  expect(condDiags(src)).toEqual([])
+})
+
+test("each unclosed {IF} in a nest is flagged; an orphan {END_IF} is separate", () => {
+  expect(condDiags(withBody(`{IF defined(A)}\n{IF defined(B)}\nx := 1;\n{END_IF}`))).toHaveLength(1) // outer IF unclosed
+  const orphan = condDiags(withBody(`x := 1;\n{END_IF}`))
+  expect(orphan).toHaveLength(1)
+  expect(orphan[0]?.code).toBe("orphan-conditional-pragma")
+})

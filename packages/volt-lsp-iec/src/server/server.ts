@@ -70,6 +70,7 @@ import {
   hover,
   implementation,
   inlayHints,
+  pragmaHover,
   offsetFromPosition,
   rangeFromSpan,
   selectionRange,
@@ -256,7 +257,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   conn.onRequest(HoverRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inVgBody(d, o) ? vgHover(d, project(), o) : (hover(d, project(), o) ?? vgMarkerHover(d, o)),
+      inVgBody(d, o) ? vgHover(d, project(), o) : (hover(d, project(), o) ?? pragmaHover(d, o) ?? vgMarkerHover(d, o)),
     ),
   )
   conn.onRequest(DefinitionRequest.type, (p) =>

@@ -72,6 +72,30 @@ test("selection: expands token → expr → statement outward", () => {
   expect(steps).toBeGreaterThan(0) // there is a real expansion chain
 })
 
+test("semantic tokens: color VG operand text (whole-doc pass covers graphical bodies)", () => {
+  // A VG (LD) body's operands are ordinary lexer tokens, so the whole-document semantic pass colors them —
+  // no VG-specific pass needed. Guards that graphical bodies produce valid tokens over their operand region.
+  const src = `FUNCTION_BLOCK F
+VAR
+	a : BOOL; b : BOOL; out : BOOL;
+END_VAR
+NETWORK 0 LD
+out := (a AND b);
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const { doc, project } = setup(src)
+  const { data } = semanticTokens(doc, project)
+  expect(data.length % 5).toBe(0)
+  // a token lands on the `out` operand line inside the network (line index 5, 0-based)
+  let line = 0
+  const lines: number[] = []
+  for (let i = 0; i < data.length; i += 5) {
+    line += data[i]! // deltaLine is cumulative in the LSP encoding
+    lines.push(line)
+  }
+  expect(lines).toContain(5) // the `out := (a AND b);` operand line is tokenized
+})
+
 test("semantic tokens: emits 5-int tuples with valid type indices", () => {
   const { doc, project } = setup(SRC)
   const { data } = semanticTokens(doc, project)
