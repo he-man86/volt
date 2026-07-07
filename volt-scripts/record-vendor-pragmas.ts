@@ -88,8 +88,7 @@ async function main() {
 				.filter((d) => !(d.severity === "info" && d.line === 0))
 				.map((d) => ({ severity: d.severity, message: d.message, line: d.line, object: t.pouName, section: null })),
 		}
-		const mark = build.success === t.expectTcAccepts ? "✓" : "✗ MISMATCH"
-		console.log(`  ${mark} ${t.name}: build=${build.success} (expect ${t.expectTcAccepts}), ${build.diagnostics.length} diag(s)`)
+		console.log(`  ${t.name}: build=${build.success}, ${build.diagnostics.length} diag(s)`)
 	}
 
 	if (DRY) return
