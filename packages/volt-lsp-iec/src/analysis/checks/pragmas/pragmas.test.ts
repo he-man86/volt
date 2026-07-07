@@ -32,6 +32,11 @@ test("a known attribute is not flagged", () => {
   expect(attrs(withAttr("TcRetain"), true)).toEqual([]) // TwinCAT family, case-insensitive
 })
 
+test("alias spellings of a known attribute are recognized (not flagged)", () => {
+  // Guards the alias-folding in the catalog — dropping one would false-positive on valid code.
+  for (const a of ["no_init", "no-init", "TcLinkToOSO", "tc_no_symbol"]) expect(attrs(withAttr(a), true)).toEqual([])
+})
+
 test("the lint is OFF by default (nothing flagged even on a typo)", () => {
   expect(attrs(withAttr("qualifid_only"), false)).toEqual([])
 })

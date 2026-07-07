@@ -142,6 +142,29 @@ END_METHOD`
   expect(dead.has("live2")).toBe(false)
 })
 
+test("a dead ACTION (uncalled) is dead; a called action stays live", () => {
+  const src = `FUNCTION_BLOCK F
+LiveAction;
+END_FUNCTION_BLOCK
+ACTION LiveAction
+x := 1;
+END_ACTION
+ACTION DeadAction
+y := 1;
+END_ACTION`
+  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)])
+  expect(dead.has("deadaction")).toBe(true)
+  expect(dead.has("liveaction")).toBe(false)
+})
+
+test("a member called CROSS-FILE (fbB.Method) stays live; a truly-unused sibling is dead", () => {
+  const a = file("FB_A.fb", `FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nb.DoThing();\nEND_FUNCTION_BLOCK`)
+  const b = file("FB_B.fb", `FUNCTION_BLOCK FB_B\nEND_FUNCTION_BLOCK\nMETHOD DoThing\nz := 1;\nEND_METHOD\nMETHOD Unused\nw := 1;\nEND_METHOD`)
+  const dead = deadMembers([PRG("Main", "VAR a : FB_A; END_VAR\na();"), a, b])
+  expect(dead.has("dothing")).toBe(false) // reached via the cross-file call edge
+  expect(dead.has("unused")).toBe(true)
+})
+
 // SAFETY: implicitly-called members must NEVER be reported dead, else a real error in them is hidden.
 test("a lifecycle method (FB_Init) with no explicit caller is NOT dead (whitelisted)", () => {
   const src = `FUNCTION_BLOCK F

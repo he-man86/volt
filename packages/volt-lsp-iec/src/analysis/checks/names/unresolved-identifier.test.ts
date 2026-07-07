@@ -145,3 +145,39 @@ test("a namespace-qualified ref (base is not a value) is not flagged", () => {
   const src = fb(`VAR i : INT; END_VAR\ni := CAA.HANDLE;`)
   expect(members(src)).toEqual([]) // CAA infers to UNKNOWN → member skipped
 })
+
+test("member access on a LIBRARY-typed base is not flagged (signatures may be lossy)", () => {
+  // The struct type lives under a `Library Manager/` uri → isLibrarySymbol → the member check must skip it.
+  const libSrc = "TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE"
+  const useSrc = `FUNCTION_BLOCK F\nVAR p : Pt; i : INT; END_VAR\ni := p.z;\nEND_FUNCTION_BLOCK`
+  const libPr = parseSource(libSrc)
+  const usePr = parseSource(useSrc)
+  const project = buildSymbolTable([
+    { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.struct", parseResult: libPr, source: libSrc },
+    { uri: "F.fb", parseResult: usePr, source: useSrc },
+  ])
+  const diags = computeSemanticDiagnostics({ parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(diags.filter((d) => d.code === "unknown-member")).toEqual([]) // Pt is library-defined → skipped
+})
+
+test("member resolution works through nested chains, array elements, and derefs", () => {
+  const nested = `TYPE Inner : STRUCT val : INT; END_STRUCT END_TYPE
+TYPE Outer : STRUCT inner : Inner; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR o : Outer; i : INT; END_VAR
+i := o.inner.val;
+END_FUNCTION_BLOCK`
+  expect(members(nested)).toEqual([]) // whole chain valid — no FP
+  expect(members(nested.replace("o.inner.val", "o.inner.nope"))).toEqual(["'nope' is not a member of 'Inner'"])
+
+  const arr = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR a : ARRAY[0..3] OF Pt; p : POINTER TO Pt; i : INT; END_VAR
+i := a[0].z;
+i := p^.z;
+END_FUNCTION_BLOCK`
+  expect(members(arr)).toEqual([
+    "'z' is not a member of 'Pt'", // through the array-element type
+    "'z' is not a member of 'Pt'", // through the pointer target type
+  ])
+})

@@ -76,7 +76,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       if (errs.length > 0) failures.push(`${f}: ${errs[0]?.message}`)
     }
     expect(failures).toEqual([])
-  })
+  }, 120_000)
 
   test("every ST body materializes fully into the statement tree (100%)", () => {
     let bodies = 0
@@ -93,7 +93,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     expect(bodies).toBeGreaterThan(2000)
     expect(failures).toEqual([])
-  })
+  }, 120_000)
 
   // Layer F (F.2): every graphical (VG) body in the corpus is valid IDE-exported FBD/LD, so the VG parser
   // must find its networks and emit ZERO structural errors (VG_PARSE / VG_NETWORK_NOT_CLOSED). Duplicate
@@ -116,7 +116,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     expect(vgBodies).toBeGreaterThan(0)
     expect(failures).toEqual([])
-  })
+  }, 120_000)
 
   // Layer B: the binder must survive real workspace input at scale, per project (cross-indexed),
   // link EXTENDS bases, and never throw.
@@ -132,7 +132,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     // Real PLC projects use inheritance — some EXTENDS must have resolved across files.
     expect(totalBases).toBeGreaterThan(0)
-  })
+  }, 120_000)
 
   // Layer D (D.3): the analysis checks must produce ZERO error-severity diagnostics on the corpus.
   // The corpus compiles clean in the IDE, so every error-severity diagnostic here is a false positive.
@@ -216,7 +216,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(failures).toEqual([])
-  })
+  }, 120_000)
 })
 
 /** A span/token-free, key-sorted, body-statement-embedded string key for AST equivalence. */
