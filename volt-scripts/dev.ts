@@ -5,7 +5,7 @@
  * `bun run dev` starts opencode with `--cwd packages/opencode`, so opencode's
  * project directory becomes `packages/opencode`. The volt LSP is registered in
  * `.opencode/opencode.jsonc` with a repo-root-relative command
- * (`./packages/volt-lsp-iec/dist/bin.js`), which opencode resolves against the
+ * (`./packages/volt-lsp-iec/dist/src/bin.js`), which opencode resolves against the
  * project directory — so under plain `bun run dev` it never resolves and the
  * LSP silently fails to start.
  *
@@ -39,7 +39,7 @@ const passthrough = hasDir ? args.slice(1) : args
 // Opening the repo itself uses the repo-relative dist LSP — guard it's built, else opencode starts fine
 // but the LSP silently never attaches. An external PLC project uses its own `.opencode/` (written by
 // `volt init`), so this guard doesn't apply there.
-const lspBin = resolve(repoRoot, "packages/volt-lsp-iec/dist/bin.js")
+const lspBin = resolve(repoRoot, "packages/volt-lsp-iec/dist/src/bin.js")
 if (projectDir === repoRoot && !existsSync(lspBin)) {
   console.error(`volt LSP not built: ${lspBin}\nRun: bun --cwd packages/volt-lsp-iec run build`)
   process.exit(1)

@@ -60,14 +60,14 @@ check(".opencode/tool/volt.ts exists (volt CLI custom tool)", () =>
 // The st-reference skill is GENERATED into a consumer project by `volt init`
 // (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
 // assert the installer that produces it is built rather than a committed file.
-check("volt-lsp-iec skill installer built (dist/init.js)", () =>
-	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/dist/init.js"))
+check("volt-lsp-iec skill installer built (dist/src/init.js)", () =>
+	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/init.js"))
 		|| "not built — run: bun run --cwd packages/volt-lsp-iec build"
 );
 
 console.log("\nBuilt binaries");
-check("volt-lsp-iec dist/bin.js", () => {
-	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/bin.js");
+check("volt-lsp-iec dist/src/bin.js", () => {
+	const path = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/bin.js");
 	return existsSync(path) || "not built — run: bun run --cwd packages/volt-lsp-iec build";
 });
 check("volt CLI dist/bin.js", () => {
@@ -126,7 +126,7 @@ check("shared .opencode/ ↔ volt-config/ files are in sync (no drift)", () => {
 
 console.log("\nRuntime smoke test");
 check("volt-lsp-iec --version exits 0", () => {
-	const binJs = join(REPO_ROOT, "packages/volt-lsp-iec/dist/bin.js");
+	const binJs = join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/bin.js");
 	if (!existsSync(binJs)) return "dist not built";
 	const r = spawnSync("node", [binJs, "--version"], { encoding: "utf-8", timeout: 10_000 });
 	return r.status === 0 || `exit ${r.status}: ${(r.stderr || r.stdout).trim()}`;

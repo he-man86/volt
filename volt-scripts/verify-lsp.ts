@@ -28,7 +28,7 @@ import { join, resolve } from "node:path"
 const repoRoot = resolve(import.meta.dirname, "..")
 const ocEntry = resolve(repoRoot, "packages/opencode/src/index.ts")
 
-const lspBin = resolve(repoRoot, "packages/volt-lsp-iec/dist/bin.js")
+const lspBin = resolve(repoRoot, "packages/volt-lsp-iec/dist/src/bin.js")
 if (!existsSync(lspBin)) {
   console.error(`✗ volt LSP not built: ${lspBin}\n  Run: bun --cwd packages/volt-lsp-iec run build`)
   process.exit(1)
