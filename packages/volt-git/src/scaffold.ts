@@ -1,14 +1,19 @@
 /**
- * Workspace scaffold — turns a Volt-bound directory into a proper Bun project (package.json,
- * tsconfig, bunfig, README, .vscode, example test) so engineers can `bun install`/`bun test` alongside
- * their PLC code. Idempotent: existing files are kept unless `force`.
+ * Workspace scaffold — turns a Volt-bound directory into a standard Cargo (Rust) project under `rust/`
+ * (Cargo.toml, src/lib.rs, an example test) plus a README and VS Code settings, so the Rust the LSP
+ * transpiles from Structured Text has a place to compile and the engineer can `cargo test` + add crates.
+ * Deliberately simple for the user: one plain crate in `rust/`, no workspace — the PLC `src/` (the IDE
+ * mirror) is left untouched because Cargo only ever looks under `rust/`. Idempotent: existing files are
+ * kept unless `force`.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const FALLBACK = "plc-workspace";
-function toPackageName(plcProjectName: string): string {
-	const s = plcProjectName.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+const FALLBACK = "plc_workspace";
+function toCrateName(plcProjectName: string): string {
+	let s = plcProjectName.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+	// A Cargo library name can't start with a digit (it becomes a Rust identifier); prefix if so.
+	if (/^[0-9]/.test(s)) s = `plc-${s}`;
 	return s.length > 0 ? s : FALLBACK;
 }
 
@@ -17,15 +22,14 @@ export interface ScaffoldReport {
 	skipped: string[];
 }
 
-export function writeWorkspaceScaffold(root: string, plcProjectName: string, agentVersion: string, force = false): ScaffoldReport {
-	const name = toPackageName(plcProjectName);
+export function writeWorkspaceScaffold(root: string, plcProjectName: string, force = false): ScaffoldReport {
+	const name = toCrateName(plcProjectName);
 	const files: Array<{ path: string; content: string }> = [
 		{ path: ".vscode/settings.json", content: vscodeSettings() },
 		{ path: "README.md", content: readme(plcProjectName) },
-		{ path: "bunfig.toml", content: '[test]\nroot = "tests"\n' },
-		{ path: "package.json", content: packageJson(name, agentVersion) },
-		{ path: "tests/example.test.ts", content: exampleTest() },
-		{ path: "tsconfig.json", content: tsconfig() },
+		{ path: "rust/Cargo.toml", content: cargoToml(name) },
+		{ path: "rust/src/lib.rs", content: libRs(plcProjectName) },
+		{ path: "rust/tests/smoke.rs", content: smokeTest() },
 	];
 	const created: string[] = [];
 	const skipped: string[] = [];
@@ -42,41 +46,38 @@ export function writeWorkspaceScaffold(root: string, plcProjectName: string, age
 	return { created, skipped };
 }
 
-function packageJson(name: string, agentVersion: string): string {
-	return (
-		JSON.stringify(
-			{
-				name,
-				private: true,
-				type: "module",
-				scripts: { test: "bun test", typecheck: "tsc --noEmit" },
-				devDependencies: {
-					"@opencode-ai/volt-git": `^${agentVersion}`,
-					"@tsconfig/bun": "1.0.9",
-					"@types/bun": "1.3.13",
-					typescript: "5.8.2",
-				},
-			},
-			null,
-			2,
-		) + "\n"
-	);
+function cargoToml(name: string): string {
+	return [
+		"[package]",
+		`name = "${name}"`,
+		'version = "0.1.0"',
+		'edition = "2021"',
+		"",
+		"# Add crates that help your project here, then `cargo build`.",
+		"[dependencies]",
+		"",
+	].join("\n");
 }
 
-function tsconfig(): string {
-	return (
-		JSON.stringify(
-			{
-				$schema: "https://json.schemastore.org/tsconfig.json",
-				extends: "@tsconfig/bun/tsconfig.json",
-				compilerOptions: { strict: true, noEmit: true, types: ["bun-types"] },
-				include: ["tests/**/*.ts", "scripts/**/*.ts"],
-				exclude: ["node_modules", "src", ".claude"],
-			},
-			null,
-			2,
-		) + "\n"
-	);
+function libRs(plcProjectName: string): string {
+	return [
+		`//! Rust for the "${plcProjectName}" PLC project.`,
+		"//!",
+		"//! The Volt language server transpiles this project's Structured Text into Rust modules here.",
+		"//! Add your own code and pull in crates via `Cargo.toml`, then run `cargo test`.",
+		"",
+	].join("\n");
+}
+
+function smokeTest(): string {
+	return [
+		"// Proves the Rust project is wired up. Run: `cargo test` (from the `rust/` folder).",
+		"#[test]",
+		"fn wired_up() {",
+		"    assert_eq!(2 + 2, 4);",
+		"}",
+		"",
+	].join("\n");
 }
 
 function vscodeSettings(): string {
@@ -97,18 +98,15 @@ function vscodeSettings(): string {
 					"*.alias": "structured-text",
 					"*.gvl": "structured-text",
 				},
-				"files.watcherExclude": { "**/node_modules/**": true },
-				"search.exclude": { "**/node_modules": true },
-				"typescript.tsdk": "node_modules/typescript/lib",
+				// Let rust-analyzer find the crate when the repo root is opened (it lives under rust/).
+				"rust-analyzer.linkedProjects": ["rust/Cargo.toml"],
+				"files.watcherExclude": { "**/rust/target/**": true },
+				"search.exclude": { "**/rust/target": true },
 			},
 			null,
 			2,
 		) + "\n"
 	);
-}
-
-function exampleTest(): string {
-	return ['import { test, expect } from "bun:test";', "", 'test("workspace is wired up", () => {', "\texpect(1 + 1).toBe(2);", "});", ""].join("\n");
 }
 
 function readme(plcProjectName: string): string {
@@ -121,15 +119,39 @@ function readme(plcProjectName: string): string {
 		"- **`volt pull` / `volt push`** sync `src/` with the live IDE (the machine).",
 		"- **`git commit` / `git push`** version the text + share with the team. Commit before pulling.",
 		"",
-		"`src/` mirrors the IDE — edit the kind-named source files locally (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/…;",
-		"FBD/LD graphical bodies ride in those files too, editable as VG text); `volt push` writes them back. `.cfc`/`.sfc` are read-only",
+		"`src/` mirrors the IDE — edit the kind-named source files locally; `volt push` writes them back.",
+		"FBD/LD graphical bodies ride in those files too, editable as VG text. `.cfc`/`.sfc` are read-only",
 		"views of graphical bodies (don't hand-edit).",
+		"",
+		"## File extensions — name every item by its KIND",
+		"",
+		"An item's extension IS its kind. A DUT is **not** one `.dut` file — it's split by kind. There is no",
+		"`.dut` extension in Volt; using one means the item never syncs to the IDE.",
+		"",
+		"| Kind | Extension | | Kind | Extension |",
+		"|---|---|---|---|---|",
+		"| Program | `.prg` | | Struct | `.struct` |",
+		"| Function | `.fun` | | Enum | `.enum` |",
+		"| Function block | `.fb` | | Union | `.union` |",
+		"| Interface | `.itf` | | Alias | `.alias` |",
+		"| Global var list | `.gvl` | | | |",
+		"",
+		"## Rust",
+		"The Volt language server transpiles your Structured Text into Rust under **`rust/`** — a normal Cargo",
+		"project. Install [rustup](https://rustup.rs) once, then from the `rust/` folder:",
+		"",
+		"```sh",
+		"cargo test      # run the Rust tests",
+		"cargo build     # compile",
+		"```",
+		"",
+		"Add crates that help your project to `rust/Cargo.toml` under `[dependencies]`.",
 		"",
 		"## What lives where",
 		"- `.git/`    a normal git repo — Volt keeps its binding + IDE baseline in `.git/volt/`",
 		"- `.claude/` AI language reference for ST (committed)",
-		"- `src/`     synced from the IDE",
-		"- `tests/`   your tests (`.test.ts`)",
+		"- `src/`     synced from the IDE (leave to Volt — don't put Rust here)",
+		"- `rust/`    your Rust: the transpiled code, your crates, and `cargo test`",
 		"",
 	].join("\n");
 }

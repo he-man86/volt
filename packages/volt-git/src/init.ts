@@ -1,14 +1,13 @@
 /**
  * volt-git init — bind the workspace to the bridge's loaded project, git-init the project root, write
- * `.git/volt/config.json` + `.gitignore`/`.gitattributes`, scaffold the Bun project, install the LSP
- * language-reference corpus, and do the first pull.
+ * `.git/volt/config.json` + `.gitignore`/`.gitattributes`, scaffold the Cargo (Rust) project, install
+ * the LSP language-reference corpus, and do the first pull.
  */
-import { mkdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-iec";
 import type { Remote } from "./bridge/types.js";
-import { saveConfig, type WorkspaceConfig } from "./config/workspace.js";
+import { configExists, saveConfig, type WorkspaceConfig } from "./config/workspace.js";
 import { gitInit, isInsideRepo, commitAll } from "./git/plumbing.js";
 import { writeWorkspaceScaffold } from "./scaffold.js";
 import { pull } from "./sync/pull.js";
@@ -21,6 +20,12 @@ export type InitResult =
 export async function init(workspace: string, bridge: Remote): Promise<InitResult> {
 	const root = resolve(workspace);
 	mkdirSync(root, { recursive: true });
+
+	// Already bound? Refuse rather than silently re-pull+merge. A second `init` on a live workspace used to
+	// stack `volt: IDE @` / `merge IDE @` commits (confusing history for no gain) — sync is `pull`'s job.
+	if (configExists(root)) {
+		return { kind: "error", reason: "this workspace is already initialized — run `volt-git pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)" };
+	}
 
 	const health = await bridge.getHealth();
 	if (health.projectName === undefined || health.projectName === null || health.projectName === "" || health.plcProjectName === undefined || health.plcProjectName === null || health.plcProjectName === "") {
@@ -39,7 +44,7 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	};
 	saveConfig(root, cfg);
 
-	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName, agentVersion());
+	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName);
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
 
 	// The agent toolchain (LSP + `volt` tool + agent + theme + permissions) ships globally via
@@ -57,15 +62,6 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	const base = { project, gitCreated, scaffold: scaffold.created.length, corpus };
 	if (pulled.kind === "ok") return { kind: "ok", ...base, pulled: pulled.synced.length };
 	return { kind: "ok", ...base, pulled: 0, note: pulled.kind === "refused" ? pulled.reason : "first pull hit a conflict — resolve and re-run" };
-}
-
-function agentVersion(): string {
-	try {
-		const pkg = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8");
-		return /"version"\s*:\s*"([^"]+)"/.exec(pkg)?.[1] ?? "0.1.0";
-	} catch {
-		return "0.1.0";
-	}
 }
 
 function vendorFor(platform: string): DetectedVendor {
