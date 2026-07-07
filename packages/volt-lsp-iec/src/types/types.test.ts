@@ -217,6 +217,14 @@ test("classifyConversion: identity / widen / narrow / sign-change / incompatible
   expect(classifyConversion(T("REAL"), T("LREAL"))).toBe("narrow") // real narrowing warns
   expect(classifyConversion(T("INT"), T("WORD"))).toBe("sign-change") // 16-bit unsigned → signed
   expect(classifyConversion(T("UINT"), T("INT"))).toBe("sign-change") // 16-bit signed → unsigned
+  // Oracle-calibrated (scripts/conversion-matrix.ts, live CODESYS): signed → WIDER unsigned still changes sign
+  // (negatives don't fit), but a wider SIGNED target holds every unsigned value, so that one stays a safe widen.
+  expect(classifyConversion(T("UINT"), T("SINT"))).toBe("sign-change") // signed → wider unsigned
+  expect(classifyConversion(T("DINT"), T("USINT"))).toBe("widen") // unsigned → wider signed: fits
+  // integer → real is safe until the integer needs more bits than the mantissa holds (REAL 24, LREAL 53).
+  expect(classifyConversion(T("REAL"), T("DINT"))).toBe("narrow") // 32-bit int > 24-bit mantissa → loss
+  expect(classifyConversion(T("LREAL"), T("DINT"))).toBe("widen") // 32-bit int fits the 53-bit mantissa
+  expect(classifyConversion(T("LREAL"), T("LINT"))).toBe("narrow") // 64-bit int > 53-bit mantissa → loss
   expect(classifyConversion(T("INT"), T("DINT"))).toBe("incompatible") // integer narrowing → error
   expect(classifyConversion(T("INT"), T("REAL"))).toBe("incompatible") // real → int needs explicit
   expect(classifyConversion(T("BOOL"), T("INT"))).toBe("incompatible") // BOOL isolated

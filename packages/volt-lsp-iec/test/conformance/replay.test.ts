@@ -47,8 +47,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // (unresolved-identifier): 231 TC / 228 CS of 259. Remaining non-agreements are documented IDE-only
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
-  { vendor: "twincat", filename: "expected-tc.json", floor: 248 },
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 247 },
+  { vendor: "twincat", filename: "expected-tc.json", floor: 250 },
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 249 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

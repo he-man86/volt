@@ -342,4 +342,52 @@ rDst := lrSrc;
 END_METHOD
 `,
   },
+
+  // ─── Sign-change — signed → WIDER unsigned (oracle: warns even while widening) ───
+  {
+    name: "sign_change_sint_to_uint",
+    pouName: "FB_LANG_sign_change_sint_to_uint",
+    kind: "function_block",
+    feature: "Implicit SINT→UINT — signed into a WIDER unsigned still changes sign (negatives don't fit)",
+    fromDoc: "04-type-conversion.md",
+    note: "Oracle-calibrated (scripts/conversion-matrix.ts): the compilers warn 'change of sign' for signed→unsigned at ANY width, not only same-width — classifyConversion matches.",
+    plcPrgVar: "fb_sc : FB_LANG_sign_change_sint_to_uint;",
+    plcPrgBody: "fb_sc.Widen();",
+    source: `FUNCTION_BLOCK FB_LANG_sign_change_sint_to_uint
+VAR
+	uiDst : UINT;
+	siSrc : SINT := -1;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Widen
+uiDst := siSrc;
+END_METHOD
+`,
+  },
+
+  // ─── Loss — large integer → REAL exceeds the 24-bit mantissa (oracle: warns) ───
+  {
+    name: "loss_dint_to_real",
+    pouName: "FB_LANG_loss_dint_to_real",
+    kind: "function_block",
+    feature: "Implicit DINT→REAL — a 32-bit int can't be held exactly in REAL's 24-bit mantissa",
+    fromDoc: "04-type-conversion.md",
+    note: "Oracle-calibrated (scripts/conversion-matrix.ts): the compilers warn 'possible loss of information' for int→real when the int is wider than the float mantissa (REAL 24, LREAL 53) — classifyConversion matches.",
+    plcPrgVar: "fb_lo : FB_LANG_loss_dint_to_real;",
+    plcPrgBody: "fb_lo.Widen();",
+    source: `FUNCTION_BLOCK FB_LANG_loss_dint_to_real
+VAR
+	rDst : REAL;
+	diSrc : DINT := 16777217;
+END_VAR
+
+END_FUNCTION_BLOCK
+
+METHOD Widen
+rDst := diSrc;
+END_METHOD
+`,
+  },
 ]

@@ -28,17 +28,19 @@ conformance replay green before its commit. 0-FP (conservative-skip on `UNKNOWN`
 
 ## C. The oracle (validate, don't invent — `test/conformance/` + `scripts/`)
 
-- [ ] C.1 Generate the conversion matrix as `LanguageTest`s: every elementary pair × contexts (plain assign,
-      typed-literal, untyped literal, arithmetic result, comparison). Auto-generated in `fixtures/` (a
-      generator, not 200 hand-written entries).
-- [ ] C.2 Record the matrix against live CODESYS + TwinCAT (`RECORD_ONLY`/merge). The recording is the vendor
-      ground truth (severity + exact wording per pair).
-- [ ] C.3 Diff `classifyConversion` + `messages` against the recording via `replay.test.ts`. Resolve EVERY
-      disagreement: fix the classification (a real bug) or encode a vendor quirk (per-vendor rule). Lock the
-      wordings from PROVISIONAL to confirmed.
-- [ ] C.4 Commit a representative slice as fixtures (a dozen per family — widen/narrow/sign-change/cross/
-      incompatible exemplars); keep the full generated matrix reproducible from the generator, not committed
-      wholesale. Ratchet floors rise.
+- [x] C.1 `scripts/conversion-matrix.ts` generates the full N×N elementary-numeric matrix (196 pairs) as ONE
+      instantiated probe FB and builds it live — a *generator+validator*, not 196 committed fixtures (the pairs
+      are reproducible on demand; only a representative slice is committed, per C.4).
+- [x] C.2 Ran the matrix against live CODESYS (:8556) AND TwinCAT (:8555). Matches diagnostics back to each
+      pair by the type names in the message (the bridge reports line 0 for build diagnostics, so line-mapping is
+      impossible). Both vendors: **196/196** severity-identical.
+- [x] C.3 The first CODESYS run exposed 21 real classification gaps (all `classify=widen` where the compiler
+      WARNS): signed→WIDER-unsigned is still a change-of-sign, and integer→real loses information once the int
+      exceeds the float mantissa (REAL 24, LREAL 53). Fixed `classifyElementary` — both use the EXISTING
+      sign-change / loss messages (confirmed byte-identical live). Re-ran: 196/196 both vendors.
+- [x] C.4 Committed a representative slice as fixtures (`sign_change_sint_to_uint`, `loss_dint_to_real`), recorded
+      live on both vendors; the full 196-pair matrix stays reproducible from `conversion-matrix.ts`, not committed
+      wholesale. Ratchet rose: CODESYS 247→249, TwinCAT 248→250. Golden `classifyConversion` table extended.
 
 ## D. Completeness audit — every other type category
 

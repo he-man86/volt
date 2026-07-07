@@ -37,29 +37,48 @@ export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
   return classifyElementary(lhs.name, rhs.name)
 }
 
-/** Elementary classification, over the lattice facts only. */
+// A REAL holds 24 mantissa bits, an LREAL 53 (IEEE-754 single/double). An integer wider than that can't be
+// represented exactly, so the compilers warn "possible loss of information" (DINT→REAL, LINT→LREAL, …).
+const MANTISSA_BITS: Record<string, number> = { REAL: 24, LREAL: 53 }
+
+/**
+ * Elementary classification, over the lattice facts only — every rule is calibrated against the live compilers
+ * by `scripts/conversion-matrix.ts` (the full N×N numeric matrix agrees severity-for-severity).
+ */
 function classifyElementary(lName: string, rName: string): ConversionKind {
   // BIT is 1-bit boolean storage — CODESYS treats it as BOOL.
-  const l = bitToBool(canonicalElem(lName))
-  const r = bitToBool(canonicalElem(rName))
+  const l = bitToBool(canonicalElem(lName)) // destination
+  const r = bitToBool(canonicalElem(rName)) // source
   if (l === r) return "identity"
   // Isolated families (BOOL/STRING/TIME/DATE) accept only themselves.
   if (isIsolated(l) || isIsolated(r)) return "incompatible"
 
-  const lt = elementaryType(l)
-  const rt = elementaryType(r)
-  const lr = lt?.rank
-  const rr = rt?.rank
-  if (lt === undefined || rt === undefined || lr === undefined || rr === undefined) return "identity" // not both numeric → skip
+  const dst = elementaryType(l)
+  const src = elementaryType(r)
+  if (dst === undefined || src === undefined || dst.rank === undefined || src.rank === undefined) return "identity" // not both numeric → skip
 
-  if (rr < lr) return "widen" // narrower rank flows into wider — safe
-  if (rr > lr) {
-    // Wider → narrower. REAL narrowing (LREAL→REAL) is an implicit WARNING; integer narrowing needs an
-    // explicit X_TO_Y and is an ERROR (e.g. `INT := someDINT` → "Cannot convert type 'DINT' to type 'INT'").
-    return lt.family === "real" && rt.family === "real" ? "narrow" : "incompatible"
+  const dstReal = dst.family === "real"
+  const srcReal = src.family === "real"
+
+  if (dstReal) {
+    // real → real: wider mantissa is safe, LREAL→REAL loses precision (a WARNING).
+    if (srcReal) return src.rank <= dst.rank ? "widen" : "narrow"
+    // integer → real: safe unless the integer needs more bits than the mantissa holds.
+    return src.bits > (MANTISSA_BITS[l] ?? 24) ? "narrow" : "widen"
   }
-  // Same rank (same width): a signed↔unsigned crossing is a "change of sign" warning; same discipline is safe.
-  return lt.signed !== rt.signed ? "sign-change" : "widen"
+  // real → integer needs an explicit X_TO_Y — an ERROR (e.g. `INT := someREAL`).
+  if (srcReal) return "incompatible"
+
+  // Both integer/bitstring. A wider source narrows into the destination → an ERROR (explicit conversion needed).
+  if (src.rank > dst.rank) return "incompatible"
+  // The source fits width-wise. A signedness crossing is a "change of sign" WARNING — but only when the target
+  // can't represent the source's range: signed→unsigned always can go negative; unsigned→signed only clashes at
+  // the SAME width (a wider signed target holds every unsigned value). Same discipline → safe widen.
+  if (src.signed !== dst.signed) {
+    if (src.signed) return "sign-change" // signed → unsigned: negatives don't fit, any width
+    return src.rank === dst.rank ? "sign-change" : "widen" // unsigned → signed: only same-width overflows
+  }
+  return "widen"
 }
 
 /** IEC assignment compatibility: can a value of type `rhs` be implicitly assigned to a `lhs` target? */
