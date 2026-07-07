@@ -14,4 +14,9 @@ export {
   vgTypeDefinition,
   vgCompletion,
   vgResolveAt,
+  resolveAnywhere,
+  allReferences,
+  referencesAnywhere,
+  prepareRenameAnywhere,
+  renameAnywhere,
 } from "./vg-services.js"

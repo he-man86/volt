@@ -8,14 +8,16 @@
  * The server routes a position query to these when the offset is inside a graphical body (`inVgBody`),
  * else to the ST services.
  */
-import type { CompletionItem, Hover, Location } from "vscode-languageserver-protocol"
+import type { CompletionItem, Hover, Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
 import {
   exprAtOffset,
   isGraphicalBody,
   memberAtOffset,
   unitBodies,
+  walkAllExprs,
   type BodySpan,
   type Expr,
+  type IdentExpr,
   type Statement,
   type TopLevel,
 } from "../syntax/index.js"
@@ -24,10 +26,15 @@ import { resolveMemberChain } from "../types/index.js"
 import { lookupReference, renderReferenceHover } from "../reference/index.js"
 import {
   completionAtScope,
+  findReferences,
   locationOf,
+  rangeFromSpan,
+  resolveAt,
   symbolHover,
+  toLocations,
   tokenAtOffset,
   type Document,
+  type Ref,
 } from "../services/index.js"
 import { analyzeVgBody, vgNetworkAt, wireDefs } from "./vg-analyze.js"
 import type { VgStatement } from "./text/ast.js"
@@ -105,6 +112,96 @@ export function vgCompletion(doc: Document, project: Scope, offset: number): Com
   const analysis = analyzeVgBody(found.unit, found.body, project, doc.uri)
   const scope = vgNetworkAt(analysis, offset)?.scope ?? analysis.pou
   return completionAtScope(scope, project, doc.source, offset)
+}
+
+// ─── cross-body references / rename (F.2d follow-on) ───────────────────────────
+//
+// A symbol can be used in BOTH ST and VG bodies, so references/rename must span both — a rename that
+// missed a VG operand would leave it pointing at the old name (data corruption). These compose the ST
+// `findReferences` (declaration + ST body uses) with a walk over VG operand networks, and resolve the
+// cursor from whichever body kind it sits in. The server routes ALL references/rename here.
+
+/** Resolve the symbol under the cursor whether it lands in an ST or a VG body. */
+export function resolveAnywhere(doc: Document, project: Scope, offset: number): Symbol | undefined {
+  return inVgBody(doc, offset) ? vgResolveAt(doc, project, offset) : resolveAt(doc, project, offset)
+}
+
+/** Every occurrence of `target` across ST bodies (via `findReferences`) AND VG operand networks. */
+export function allReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
+  const all = [...docs] // iterated twice (ST pass, then VG pass)
+  const out = findReferences(all, project, target)
+  for (const doc of all) {
+    for (const body of vgBodies(doc)) {
+      const analysis = analyzeVgBody(body.unit, body.body, project, doc.uri)
+      for (const [network, scope] of analysis.networkScopes) {
+        const stmts = operandStatements(network.statements)
+        const memberNames = new Set<IdentExpr>()
+        walkAllExprs(stmts, (e) => {
+          if (e.kind === "member") memberNames.add(e.member)
+        })
+        walkAllExprs(stmts, (e) => {
+          if (e.kind === "member") {
+            if (resolveMemberChain(e, scope, project) === target)
+              out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
+          } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
+            const s = lookup(scope, e.name)?.symbol ?? resolveBareEnumMember(project, e.name)
+            if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
+          }
+        })
+      }
+    }
+  }
+  return out
+}
+
+/** references (ST + VG) — the target resolved from either body kind. */
+export function referencesAnywhere(
+  docs: Iterable<Document>,
+  project: Scope,
+  doc: Document,
+  offset: number,
+  includeDeclaration = true,
+): Location[] | undefined {
+  const sym = resolveAnywhere(doc, project, offset)
+  if (sym === undefined) return undefined
+  const refs = allReferences(docs, project, sym)
+  const kept = includeDeclaration
+    ? refs
+    : refs.filter(
+        (r) =>
+          !(r.uri === sym.uri && r.range.start.line === sym.span.startLine - 1 && r.range.start.character === sym.span.startCol),
+      )
+  return toLocations(kept)
+}
+
+/** prepareRename (ST + VG) — the editable range for a renameable cursor. */
+export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
+  if (resolveAnywhere(doc, project, offset) === undefined) return undefined
+  const tok = tokenAtOffset(doc.source, offset)
+  return tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword") ? rangeFromSpan(tok.span) : undefined
+}
+
+/** rename (ST + VG) — one edit per occurrence across both body kinds. */
+export function renameAnywhere(
+  docs: Iterable<Document>,
+  project: Scope,
+  doc: Document,
+  offset: number,
+  newName: string,
+): WorkspaceEdit | undefined {
+  const sym = resolveAnywhere(doc, project, offset)
+  if (sym === undefined) return undefined
+  const changes: Record<string, TextEdit[]> = {}
+  for (const r of allReferences(docs, project, sym)) (changes[r.uri] ??= []).push({ range: r.range, newText: newName })
+  return { changes }
+}
+
+/** Every VG body (with its unit) in a document. */
+function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
+  const out: { unit: TopLevel; body: BodySpan }[] = []
+  for (const unit of doc.parseResult.units)
+    for (const body of unitBodies(unit)) if (isGraphicalBody(body)) out.push({ unit, body })
+  return out
 }
 
 // ─── resolution ──────────────────────────────────────────────────────────────

@@ -71,10 +71,7 @@ import {
   implementation,
   inlayHints,
   offsetFromPosition,
-  prepareRename,
   rangeFromSpan,
-  references,
-  rename,
   selectionRange,
   semanticTokens,
   SEMANTIC_TOKEN_TYPES,
@@ -86,6 +83,9 @@ import {
   computeVgDiagnostics,
   documentSymbolsWithVg,
   inVgBody,
+  prepareRenameAnywhere,
+  referencesAnywhere,
+  renameAnywhere,
   vgCompletion,
   vgDefinition,
   vgHover,
@@ -276,7 +276,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     at(
       p.textDocument.uri,
       p.position,
-      (d, o) => references(workspace(), project(), d, o, p.context.includeDeclaration) ?? null,
+      (d, o) => referencesAnywhere(workspace(), project(), d, o, p.context.includeDeclaration) ?? null,
     ),
   )
   conn.onRequest(DocumentHighlightRequest.type, (p) =>
@@ -295,10 +295,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     at(p.textDocument.uri, p.position, (d, o) => signatureHelp(d, project(), o)),
   )
   conn.onRequest(PrepareRenameRequest.type, (p) =>
-    at(p.textDocument.uri, p.position, (d, o) => prepareRename(d, project(), o)),
+    at(p.textDocument.uri, p.position, (d, o) => prepareRenameAnywhere(d, project(), o)),
   )
   conn.onRequest(RenameRequest.type, (p) =>
-    at(p.textDocument.uri, p.position, (d, o) => rename(workspace(), project(), d, o, p.newName) ?? null),
+    at(p.textDocument.uri, p.position, (d, o) => renameAnywhere(workspace(), project(), d, o, p.newName) ?? null),
   )
   conn.onRequest(SelectionRangeRequest.type, (p) => {
     const d = doc(p.textDocument.uri)

@@ -12,6 +12,8 @@ import {
   vgCompletion,
   vgResolveAt,
   vgMarkerHover,
+  referencesAnywhere,
+  renameAnywhere,
 } from "./index.js"
 import type { Document } from "../services/index.js"
 
@@ -495,4 +497,43 @@ test("VG: a CFC/SFC marker hover explains the read-only graphical body (F.2e)", 
   expect(value).toContain("IDE")
   // a CFC marker body is a comment — not analyzed as VG or ST (no diagnostics)
   expect(vgDiags(src)).toEqual([])
+})
+
+// ─── cross-body references / rename: a symbol used in BOTH ST and VG bodies ─────
+
+/** A multi-file project: a GVL global read by one FB's ST body and another FB's VG (LD) body. */
+function crossBodyProject() {
+  const files: Record<string, string> = {
+    "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
+    "file:///FB_ST.fb": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
+    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nNETWORK 0 LD\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
+  }
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
+  return { docs, project: buildSymbolTable(docs), by: (uri: string) => docs.find((d) => d.uri === uri)! }
+}
+
+test("VG references: a global read in a VG operand is found from an ST cursor", () => {
+  const { docs, project, by } = crossBodyProject()
+  const st = by("file:///FB_ST.fb")
+  const locs = referencesAnywhere(docs, project, st, st.source.indexOf("Flag"))
+  const uris = new Set(locs?.map((l) => l.uri))
+  // declaration (GVL) + the ST use + the VG operand use — the VG body must not be missed
+  expect(uris).toEqual(new Set(["file:///G.gvl", "file:///FB_ST.fb", "file:///FB_VG.fb"]))
+})
+
+test("VG rename: renaming from a VG operand edits every ST and VG occurrence", () => {
+  const { docs, project, by } = crossBodyProject()
+  const vg = by("file:///FB_VG.fb")
+  const edit = renameAnywhere(docs, project, vg, vg.source.indexOf("Flag"), "Enabled")
+  const changed = Object.keys(edit?.changes ?? {}).sort()
+  expect(changed).toEqual(["file:///FB_ST.fb", "file:///FB_VG.fb", "file:///G.gvl"])
+  // the VG operand edit lands on `Flag` within the LD network
+  const vgEdits = edit!.changes!["file:///FB_VG.fb"]!
+  expect(vgEdits.every((e) => e.newText === "Enabled")).toBe(true)
+})
+
+test("VG references: a cursor outside any symbol resolves to nothing", () => {
+  const { docs, project, by } = crossBodyProject()
+  const vg = by("file:///FB_VG.fb")
+  expect(referencesAnywhere(docs, project, vg, vg.source.indexOf("NETWORK"))).toBeUndefined()
 })
