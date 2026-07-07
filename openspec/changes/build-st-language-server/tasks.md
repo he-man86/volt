@@ -86,10 +86,24 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    (self-contained struct+FB; the recorder gained multi-unit `splitItems`), and a **FP-BAIT battery** (12
    compiler-ACCEPTED near-miss cases — the permanent guard against the `constant-overflow`-class false positive).
    All recorded live + merged (`RECORD_ONLY`); ratchet 233→245 CS / 236→247 TC across 274 fixtures. The
-   remaining **4 are VG** (`vg-undeclared-identifier`/`vg-undefined-label`/`vg-unknown-pin`/`vg-unknown-member`)
-   — **legitimately NOT conformance-recordable**: the bridge stores graphical bodies as PlcOpen XML (a push of
-   our VG text form is rejected), and the compiler's graphical error model differs from our text-based checks.
-   They stay unit-tested (+ VG corpus 0-FP gate). Not a papered-over gap — a hard infrastructure boundary.
+   remaining **4 are VG** (`vg-undeclared-identifier`/`vg-undefined-label`/`vg-unknown-pin`/`vg-unknown-member`).
+   **CORRECTION (2026-07-07): these ARE recordable** — an earlier claim of "can't push VG" was WRONG. The bridge
+   fully supports pushing FBD/LD (`PushService`→`GraphicalCode.Write` via PLCopen); a CANONICAL VG body (2-space
+   indent, `LET` wires) is accepted, compiles, and the compiler emits errors that even match our wording
+   (`Identifier 'nope' not defined`, `'nope' is no component of 'TON'`, `No such label 'MISSING'…`). The first
+   probe was rejected only because it was non-canonical (`VG_NOT_CANONICAL`). TO ADD: wire `computeVgDiagnostics`
+   into the replay's `runLsp`, author canonical VG fixtures, record. Deferred pending the parity concern (#3c).
+3c. **Bridge↔LSP VG parity — NOT bulletproof (found 2026-07-07).** Two VG implementations: the bridge's C#
+   `VgParser`/`VgWriter` + canonical/round-trip gate (`VG_NOT_CANONICAL`/`VG_PLCOPEN_DRIFT`/`VG_LEAF_*`), and the
+   LSP's TS parser + structural subset (`VG_PARSE`/`NOT_CLOSED`/`DUPLICATE`) + semantic checks. By design the LSP
+   DEFERS the canonical gate to the bridge (`graphical/text/ast.ts:120`). CONCRETE DIVERGENCE: the LSP ACCEPTS a
+   non-canonical VG body (0 diagnostics) that the bridge REJECTS (`VG_NOT_CANONICAL`) — an LSP-backed editor
+   shows a VG edit as fine, then the push fails. The bridge gate is CORRECT (leading indent is part of the
+   canonical form; `Canon()` only trims trailing ws), so it's an LSP gap, not a bridge bug. Options: (a) LSP
+   implements a canonical/round-trip check (a TS `VgWriter` — the big duplicate the design avoided), or (b) treat
+   the bridge as authority + surface its refusal in the editor. The SHARED structural checks (parse/not-closed/
+   duplicate) are also duplicated across C#+TS and can drift — the right guard is a shared VG parity corpus fed
+   to BOTH layers (the wire-parity principle). A substantial, separate workstream.
 4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
    unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
    unterminated `{region}`, orphan `{endregion}`, and an unknown-pragma-DIRECTIVE lint all build CLEAN on CODESYS
