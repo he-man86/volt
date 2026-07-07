@@ -52,6 +52,6 @@ cd packages/volt-lsp-iec
 bun test                       # all three layers, offline
 bun test src/types             # just the type unit tests
 bun test test/conformance      # just conformance replay
-bun typecheck                  # src + scripts
+bun typecheck                  # everything: src + test (incl. *.test.ts) + scripts (tsconfig.json). Build = tsconfig.build.json
 bun run lint                   # layering check
 ```

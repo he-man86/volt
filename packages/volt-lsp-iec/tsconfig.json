@@ -1,14 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig.json",
   "extends": "@tsconfig/node22/tsconfig.json",
+  "comment": "The typecheck + editor config: covers EVERYTHING (src + test incl. *.test.ts + scripts), node+bun types, no emit. The build is tsconfig.build.json.",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
     "module": "nodenext",
-    "declaration": true,
     "moduleResolution": "nodenext",
-    "lib": ["es2022"]
+    "lib": ["es2022"],
+    "types": ["node", "bun"],
+    "noEmit": true,
+    "skipLibCheck": true
   },
-  "include": ["src", "test"],
-  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+  "include": ["src", "test", "scripts"],
+  "exclude": ["dist", "node_modules"]
 }

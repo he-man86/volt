@@ -28,10 +28,10 @@
     "docs"
   ],
   "scripts": {
-    "build": "tsc",
-    "prepare": "tsc",
-    "dev": "tsc --watch",
-    "typecheck": "tsgo --noEmit -p tsconfig.test.json && tsgo --noEmit -p scripts/tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsgo --noEmit",
     "lint": "bun run scripts/check-layering.ts",
     "test": "bun test",
     "record:language": "bun run scripts/record-language.ts",
