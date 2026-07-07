@@ -20,14 +20,14 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | **vg-undeclared-identifier** | VG | error | ✅ | shares ST resolver; skips LD `SET/RESET/RISING/FALLING` modifiers |
 | var-section-placement | ST | error | ✅ | section not allowed for POU kind |
 | external-write · lifecycle · abstract-instantiation · interface-implementation | ST | error | ✅ | oop/ group |
-| pragmas (message + orphan-conditional) | ST | error/info | ✅ | conflict/companion pragma ⏸ (needs catalog `requires`/`forbids`) |
+| pragmas (message + orphan-conditional + unterminated-conditional) | ST | error/info | ✅ | unterminated-`{IF}` wording locked live (both vendors); region/unknown-directive checks proven invalid live (build clean) so not built |
 | VG structural (`VG_PARSE`/`_NOT_CLOSED`/`_DUPLICATE_*`) | VG | error | ✅ | LSP-ownable subset; canonical/round-trip stays bridge's |
 | vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
 | vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
-| unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | project struct/FB/enum only; library + namespace bases skip; struct EXTENDS honored |
+| unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | wording locked live (`'x' is no component of 'T'`; TC uppercases type); library + namespace bases skip; struct EXTENDS honored |
 | unknown-member (VG, `vg-unknown-member`) | VG | error | ✅ | shares `unresolvedMembers` + `notAMember` with ST; 0-FP on corpus after the qualified_only binder fix (Open items #1) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
-| unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint; byte-identical CODESYS msg; catalog 0-hit on corpus |
+| unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint, **CODESYS-gated** (TwinCAT ignores unknowns — confirmed live); byte-identical CODESYS msg; catalog 0-hit on corpus. Hover + completion over the catalog ✅ |
 | conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
 | VG narrowing / binary-operator | VG | error/warn | ✅ | shared per-pair/per-node helpers; 0-FP on corpus |
 
@@ -64,23 +64,36 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    fixed, bare `Mach1` → the GVL block and `Mach1.Genflags.*` fully resolves; VG FPs 197 → 0. The held check is
    wired as `vg-unknown-member` (shares `unresolvedMembers` + `notAMember` with ST); corpus 0-FP holds, conformance
    unchanged (228/259). Regression tests: the collision, the commented attribute, a real VG miss, the Mach1 chain.
-2. **Live-bridge message-record pass** — lock the PROVISIONAL messages (VG label/pin, `unknown-member`, overflow/
-   subrange, TwinCAT `unknown-attribute`) to byte-identical + let the ratchet rise. Needs the recorder RECREATED
-   in `volt-lsp-iec` (removed with volt-agent) then a `record:language` pass against the `:8556`/`:8555` bridges.
+2. **Live-bridge message-lock pass — LARGELY DONE (2026-07-07).** Instead of recreating the recorder, drove the
+   live `:8556`/`:8555` bridges directly via the volt-bridge e2e harness (`createItem`+`instantiateInPlcPrg`+
+   `/build`), diffed each error case, and LOCKED the real wording: **`unknown-member`** (`'x' is no component of
+   'T'`; TwinCAT uppercases the type), **`array-index-out-of-bounds`** (`The constant index 'i' is not within the
+   range from 'lo' to 'hi'`, identical both vendors), **`unterminated-conditional-pragma`** (`Unexpected
+   End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`, identical). Also confirmed **TwinCAT emits NOTHING**
+   for an unknown `{attribute}` → the `unknown-attribute` lint is now CODESYS-gated (was a latent TC FP). Still
+   PROVISIONAL: **overflow/subrange** — live /build shows CODESYS reports these as type-CONVERSION errors, not
+   range diagnostics, so reconciling the dedicated checks is a design question (deferred, not a wording tweak);
+   **VG label/pin** — need a graphical push to record (harder). The harness IS the reusable record path now.
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
-4. **pragma conflict/companion checks** — needs the pragma catalog's `requires`/`forbids` metadata (currently the
-   catalog is name-only for the `unknown-attribute` lint). Plus unknown-pragma DIRECTIVE (lint is attribute-only).
-5. **VG services (F.2d/f follow-ons)** — references/rename across VG bodies ✅ DONE (2026-07-07; cross-body
-   compose in the graphical layer, server routes all references/rename through it). Remaining: VG semantic tokens
-   (deferred — cosmetic, whole-doc lexer already colors operand text) + keyword/pragma catalogs for hover +
-   completion (part of F.1).
+4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
+   unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
+   unterminated `{region}`, orphan `{endregion}`, and an unknown-pragma-DIRECTIVE lint all build CLEAN on CODESYS
+   (regions are editor-only; unknown directives are silently ignored, unlike unknown attributes) — so they were
+   NOT built (would have been FPs). Attribute-level `requires`/`forbids` conflict/companion remains hypothetical
+   (no documented CODESYS conflict set; the constructible directive-pairing cases are non-errors), so not pursued.
+5. **VG services (F.2d/f follow-ons) — ✅ CLOSED.** references/rename across VG bodies ✅ (cross-body compose in
+   the graphical layer). **Pragma/attribute hover ✅** (`pragmaHover` — re-lex like the VG marker hover; directive
+   + `{attribute '<name>'}` descriptions from a reference catalog). **Attribute completion ✅** (inside
+   `{attribute '<partial>'}` offers the known-attribute catalog). VG semantic tokens: covered by the whole-doc
+   `semanticTokens` pass (operands are ordinary tokens) + a guard test — a VG-specific pass is cosmetic, not built.
 6. **Bridge item-filter — KEEP (do NOT remove).** Earlier thought it redundant; it is NOT. The bridge's
    `ExcludeFromBuild` filter drops items EXCLUDED from build regardless of use; LSP reachability only drops
    UNCALLED items. An excluded-but-REFERENCED item (kept live by reachability) would false-positive without the
    filter, since excluded code is often broken/WIP. Removing it needs item-level exclusion in the LSP first —
    not worth it.
-7. **Land** — `feat/st-body-ast` → `dev` ✅ MERGED (fast-forward, 2026-07-06). Archive this change once the
-   remaining open items (1–5) close.
+7. **Land** — `feat/st-body-ast` → `dev` ✅ MERGED (fast-forward, 2026-07-06). Open items 1·4·5 ✅ CLOSED, 2
+   LARGELY DONE (only overflow/subrange check-shape + VG label/pin left, both deferred with rationale). The one
+   still-open topic is **#3 conversion-catalog** (bridge recordings). Archive once #3 + the two #2 remainders close.
 
 ## 0. Clean-room + guardrails (first — before any code)
 - [x] 0.0 **CLEAN-ROOM — build in a NEW package; do NOT patch or build inside the existing `volt-lsp-iec`.**
