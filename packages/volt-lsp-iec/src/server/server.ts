@@ -27,6 +27,7 @@ import {
   DocumentDiagnosticReportKind,
   DocumentFormattingRequest,
   DocumentHighlightRequest,
+  DocumentOnTypeFormattingRequest,
   DocumentRangeFormattingRequest,
   DocumentSymbolRequest,
   ExitNotification,
@@ -37,6 +38,7 @@ import {
   InitializeRequest,
   InlayHintRefreshRequest,
   InlayHintRequest,
+  LinkedEditingRangeRequest,
   PrepareRenameRequest,
   PublishDiagnosticsNotification,
   ReferencesRequest,
@@ -241,6 +243,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         codeActionProvider: true,
         documentFormattingProvider: true,
         documentRangeFormattingProvider: true,
+        documentOnTypeFormattingProvider: { firstTriggerCharacter: ";", moreTriggerCharacter: ["\n"] },
+        linkedEditingRangeProvider: true,
         semanticTokensProvider: {
           legend: { tokenTypes: [...SEMANTIC_TOKEN_TYPES], tokenModifiers: [] },
           full: { delta: true },
@@ -513,6 +517,24 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   )
   conn.onRequest(DocumentRangeFormattingRequest.type, (p) =>
     whole(p.textDocument.uri, (d) => formatRange(d, p.range, p.options)),
+  )
+  // Format-on-type: reformat the line the trigger character landed on (reuses range formatting).
+  conn.onRequest(DocumentOnTypeFormattingRequest.type, (p) =>
+    whole(p.textDocument.uri, (d) => {
+      const lineLen = (d.source.split("\n")[p.position.line] ?? "").length
+      const range = {
+        start: { line: p.position.line, character: 0 },
+        end: { line: p.position.line, character: lineLen },
+      }
+      return formatRange(d, range, p.options)
+    }),
+  )
+  // Linked editing: the occurrences of the identifier at the cursor, edited together (reuses highlights).
+  conn.onRequest(LinkedEditingRangeRequest.type, (p) =>
+    at(p.textDocument.uri, p.position, (d, o) => {
+      const ranges = documentHighlights(d, project(), o)
+      return ranges !== undefined && ranges.length > 0 ? { ranges } : null
+    }),
   )
 
   conn.listen()

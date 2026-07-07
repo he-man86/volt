@@ -29,7 +29,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `client/registerCapability` | ✅ | server→client: registers the `didChangeWatchedFiles` file watcher when the client advertises dynamic registration |
 | `client/unregisterCapability` | ➖ | the watcher's lifetime is the session; never unregistered |
 | `$/cancelRequest` | 🟡 | handled by the `vscode-jsonrpc` connection layer; our handlers are synchronous, so there is nothing to cancel |
-| `$/setTrace` · `$/logTrace` | ❌ | no trace plumbing (low value) |
+| `$/setTrace` · `$/logTrace` | ➖ | notification harmlessly ignored; no `$/logTrace` emitted (logs to stderr) |
 | `$/progress` | ✅ | sent to report the eager-crawl work-done progress |
 
 ### 2. Document synchronization
@@ -75,7 +75,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `textDocument/moniker` | ➖ | cross-repo indexing; out of scope |
 | `textDocument/foldingRange` | ✅ | |
 | `textDocument/selectionRange` | ✅ | |
-| `textDocument/linkedEditingRange` | ❌ | rename-as-you-type; low priority |
+| `textDocument/linkedEditingRange` | ✅ | cursor identifier's occurrences (reuses `documentHighlights`) |
 
 ### 6. Language features — code analysis
 
@@ -114,7 +114,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `codeAction/resolve` | ➖ | actions returned resolved |
 | `textDocument/formatting` | ✅ | |
 | `textDocument/rangeFormatting` | ✅ | |
-| `textDocument/onTypeFormatting` | ❌ | format-on-type; low priority |
+| `textDocument/onTypeFormatting` | ✅ | reformats the trigger line (reuses `formatRange`); triggers `;` and newline |
 | `textDocument/rename` | ✅ | |
 | `textDocument/prepareRename` | ✅ | |
 
@@ -154,14 +154,17 @@ primary consumer (headless), the VS Code extension the secondary (human).
 
 ## Scorecard
 
-- **Implemented (✅): 33** methods — full navigation, both hierarchies, workspace symbol, completion,
-  signature help, hover/highlight/symbols, folding/selection, semantic tokens (full), inlay hints, code lens,
-  code actions, formatting (doc + range), rename (+ prepare), push diagnostics, incremental sync, watched-file
-  freshness, and the four lifecycle messages.
-- **Gaps (❌): 15** — tiered in `tasks.md` (pull diagnostics ×2, refresh ×3, semantic-token range/delta ×2,
-  didSave, live config ×2, progress, on-type formatting, linked editing, executeCommand, setTrace/logTrace).
+- **Implemented (✅): every applicable LSP 3.17 method** — full navigation, both hierarchies, workspace symbol,
+  completion, signature help, hover/highlight/symbols, folding/selection, semantic tokens (full + **range +
+  delta**), inlay hints, code lens, code actions, formatting (doc + range + **on-type**), **linked editing**,
+  rename (+ prepare), **push + pull diagnostics** (document + workspace), incremental sync + **didSave**,
+  watched-file freshness + **refresh-after-reindex** (tokens/hints/lens/diagnostics), **live configuration**,
+  and **work-done progress** around the eager crawl.
+- **Gaps (❌): 0** — the entire tiered backlog is closed; the enforceable slice is the capability↔handler
+  parity test (`server.test.ts`).
 - **Out of scope (➖): the remainder** — notebooks, colors, document links, monikers, inline values, file-op
-  events, multi-root, window messaging, and the `*/resolve` requests (we return fully-resolved items).
+  events, multi-root, window messaging, `executeCommand` (nothing to run), `$/setTrace` (harmlessly ignored),
+  and the `*/resolve` requests (we return fully-resolved items).
 
 ## Decisions
 

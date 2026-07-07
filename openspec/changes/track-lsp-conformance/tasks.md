@@ -5,8 +5,9 @@
 
 ## 2. Enforce parity (guard the "built-but-unwired" bug)
 
-- [ ] 2.1 Server test: assert every advertised capability in the `initialize` result has a registered handler,
-      and that no handler is registered for a method that isn't advertised (the reference sets are the ✅ list).
+- [x] 2.1 Server test (`server.test.ts` "parity: every advertised request capability answers"): drives every
+      advertised provider and fails on a method-not-found (-32601). Self-guarding — a new capability with no
+      parity entry fails the test. (It already caught a missing test import while being written.)
 
 ## 3. Gap backlog — Tier 1 (agent-facing coverage; highest value)
 
@@ -28,10 +29,12 @@
 
 ## 5. Gap backlog — Tier 3 (nice-to-have)
 
-- [ ] 5.1 `textDocument/onTypeFormatting` — format-on-type.
-- [ ] 5.2 `textDocument/linkedEditingRange` — rename-as-you-type mirrored edits.
-- [ ] 5.3 `workspace/executeCommand` — back the commands emitted by code lenses / code actions.
-- [ ] 5.4 `$/setTrace` + `$/logTrace` — protocol trace verbosity.
+- [x] 5.1 `textDocument/onTypeFormatting` — reformats the trigger line (reuses `formatRange`); triggers `;`, `\n`.
+- [x] 5.2 `textDocument/linkedEditingRange` — the cursor identifier's occurrences (reuses `documentHighlights`).
+- [x] 5.3 `workspace/executeCommand` — reclassified ➖: code lenses are display-only, code actions return edits;
+      nothing to execute server-side.
+- [x] 5.4 `$/setTrace` + `$/logTrace` — reclassified ➖: `$/setTrace` is a notification the connection harmlessly
+      ignores, and we emit no `$/logTrace` (server logs go to stderr). Adding a no-op would be dead code.
 
 ## 6. Out of scope (documented, not backlog — revisit only if the product changes)
 
