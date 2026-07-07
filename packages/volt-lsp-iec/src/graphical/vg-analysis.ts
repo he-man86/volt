@@ -30,6 +30,7 @@ import {
   narrowingPairError,
   binaryOpError,
   unresolvedInExprs,
+  unresolvedMembers,
   SOURCE,
   type DiagnosticItem,
   type Messages,
@@ -75,7 +76,13 @@ export function computeVgDiagnostics(
  */
 const VG_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
 
-/** vg-undeclared-identifier: resolve every operand identifier in the network against its POU+wire scope. */
+/**
+ * vg-undeclared-identifier + vg-unknown-member: resolve every operand identifier in the network against its
+ * POU+wire scope (bare names), then type-check every member access (`a.b`) against the base's type — the SAME
+ * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so VG matches ST byte-for-byte. Member access was
+ * held pending a corpus re-harvest; the blocker was actually a binder bug (qualified_only GVL members leaking
+ * into the bare namespace — the lenze `Mach1` collision), now fixed, so it ships at 0-FP.
+ */
 function checkUndeclared(
   statements: readonly VgStatement[],
   scope: Scope,
@@ -84,10 +91,8 @@ function checkUndeclared(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  // ponytail: bare-undeclared only for VG. Member access (`a.b`) is shared + ready (`unresolvedMembers`), but
-  // wiring it here waits on the corpus re-harvest — a stale fixture (lenze-mid) has a struct whose harvested
-  // fields lag the graphical code that reads them, so it can't be validated 0-FP yet. ST member access ships.
-  for (const ref of unresolvedInExprs(operandExprs(statements), scope, project, references)) {
+  const exprs = operandExprs(statements)
+  for (const ref of unresolvedInExprs(exprs, scope, project, references)) {
     if (VG_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
     out.push({
       severity: "error",
@@ -95,6 +100,15 @@ function checkUndeclared(
       source: SOURCE,
       code: "vg-undeclared-identifier",
       message: messages.undefinedIdentifier(ref.name),
+    })
+  }
+  for (const ref of unresolvedMembers(exprs, scope, project)) {
+    out.push({
+      severity: "error",
+      span: ref.span,
+      source: SOURCE,
+      code: "vg-unknown-member",
+      message: messages.notAMember(ref.member, ref.typeName),
     })
   }
 }

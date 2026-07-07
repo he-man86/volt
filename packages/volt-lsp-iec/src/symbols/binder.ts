@@ -27,6 +27,7 @@ import type {
   VarSection,
   VarSectionKind,
 } from "../syntax/index.js"
+import { lex } from "../syntax/index.js"
 import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
 
 export interface SymbolTableInput {
@@ -38,6 +39,17 @@ export interface SymbolTableInput {
 }
 
 const QUALIFIED_ONLY = /\{attribute\s+'qualified_only'\}/i
+
+/**
+ * True when the file carries an ACTIVE `{attribute 'qualified_only'}` pragma. Detected via the lexer, not
+ * a raw-source regex: a commented-out `//{attribute 'qualified_only'}` lexes as a comment (not a `pragma`
+ * token), so it is correctly ignored — a raw regex would match it and wrongly hide the GVL/enum's members
+ * from bare access (the lenze `LST_General` case: commented attribute → bare `FF100ms` must still resolve).
+ */
+function hasQualifiedOnly(source: string): boolean {
+  for (const tok of lex(source)) if (tok.kind === "pragma" && QUALIFIED_ONLY.test(tok.text)) return true
+  return false
+}
 
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them. */
 export function buildSymbolTable(files: readonly SymbolTableInput[]): Scope {
@@ -316,7 +328,7 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string, so
     "enum",
     t.name.text,
     t.span,
-    QUALIFIED_ONLY.test(source) ? { qualifiedOnly: true } : undefined,
+    hasQualifiedOnly(source) ? { qualifiedOnly: true } : undefined,
   )
   for (const v of body.values) {
     defineSymbol(scope, {
@@ -332,7 +344,7 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string, so
 }
 
 function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, source: string): void {
-  const qualifiedOnly = QUALIFIED_ONLY.test(source)
+  const qualifiedOnly = hasQualifiedOnly(source)
 
   // Register the GVL block itself under the URI basename — ST has no in-source name for the block,
   // the file basename IS the identifier (CODESYS convention). Lets `GvlName.field` resolve.

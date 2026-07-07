@@ -303,6 +303,38 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
 })
 
+// vg-unknown-member — the VG analogue of ST's `a.b` member check (wired once the qualified_only binder
+// bug that caused the lenze `Mach1` FPs was fixed). Shares `unresolvedMembers` + `notAMember` wording.
+test("VG: an unknown struct member IS flagged; a real one stays quiet (vg-unknown-member)", () => {
+  const src = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR p : Pt; out : INT; END_VAR
+NETWORK 0 FBD
+out := p.x;
+out := p.nope;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const msgs = vgDiags(src).filter((d) => d.code === "vg-unknown-member").map((d) => d.message)
+  expect(msgs).toEqual(["'nope' is not a member of 'Pt'"]) // p.x quiet, p.nope flagged
+})
+
+test("VG: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regression)", () => {
+  // bare `Mach1` binds to the GVL block (not HMI's qualified-only member), so `Mach1.Genflags.bReady`
+  // resolves cleanly through the GVL global's struct type — zero unknown-member FPs.
+  const files: Record<string, string> = {
+    "file:///Mach1.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tGenflags : UDT_GeneralFlags;\nEND_VAR`,
+    "file:///HMI.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tMach1 : sUDT_HMIVar_Mach1;\nEND_VAR`,
+    "file:///Types.dut": `TYPE UDT_GeneralFlags : STRUCT bReady : BOOL; END_STRUCT END_TYPE\nTYPE sUDT_HMIVar_Mach1 : STRUCT other : BOOL; END_STRUCT END_TYPE`,
+    "file:///FB_User.fb": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nNETWORK 0 FBD\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
+  }
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
+  const proj = buildSymbolTable(docs)
+  const fbDoc = docs.find((d) => d.uri === "file:///FB_User.fb")!
+  const diags = computeVgDiagnostics(fbDoc, proj, messagesFor("codesys"))
+  expect(diags.filter((d) => d.code === "vg-unknown-member")).toEqual([])
+  expect(diags.filter((d) => d.code === "vg-undeclared-identifier")).toEqual([])
+})
+
 const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) => d.code === code).length
 
 // VG sink pair checks mirror ST via the shared helpers (assignment already tested above).

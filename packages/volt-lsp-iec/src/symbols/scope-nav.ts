@@ -21,14 +21,20 @@ export interface LookupResult {
   foundIn: Scope
 }
 
-/** A name in `scope` + its EXTENDS base chain (cycle-guarded). First match wins. */
+/**
+ * A name in `scope` + its EXTENDS base chain (cycle-guarded). First match wins. `qualified_only` gvl_vars
+ * are skipped: this is UNQUALIFIED resolution (bare `lookup` + struct-member `lookupMember`), and a member
+ * of a `{attribute 'qualified_only'}` GVL is reachable ONLY as `GvlName.member` (via `resolveGvlMember`,
+ * which uses `lookupLocal` directly). Without this, a qualified-only global leaks into the bare namespace
+ * and can shadow a same-named GVL block (the lenze `Mach1` collision → 197 spurious unknown-member FPs).
+ */
 function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
   const seen = new Set<Scope>()
   let s: Scope | undefined = scope
   while (s !== undefined && !seen.has(s)) {
     seen.add(s)
-    const hits = lookupLocal(s, name)
-    if (hits.length > 0) return { symbol: hits[0], foundIn: s }
+    const hit = lookupLocal(s, name).find((h) => h.qualifiedOnly !== true)
+    if (hit !== undefined) return { symbol: hit, foundIn: s }
     s = s.baseScope
   }
   return undefined

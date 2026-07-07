@@ -85,6 +85,29 @@ test("GVL vars are gvl_var symbols on the project; qualified_only is flagged", (
   expect(v?.qualifiedOnly).toBe(true)
 })
 
+test("qualified_only GVL members are not bare-accessible and never shadow a same-named GVL block", () => {
+  // The lenze `Mach1` collision: a qualified_only GVL `HMI` has a member `Mach1 : sUDT`, and a GVL block
+  // is also named `Mach1`. Bare `Mach1` must resolve to the block (so `Mach1.Field` works), never to the
+  // qualified-only member (which is reachable ONLY as `HMI.Mach1`) — else 197 spurious unknown-member FPs.
+  const project = build(
+    { uri: "Mach1.gvl", src: `{attribute 'qualified_only'}\nVAR_GLOBAL\n Flags : BOOL;\nEND_VAR` },
+    { uri: "HMI.gvl", src: `{attribute 'qualified_only'}\nVAR_GLOBAL\n Mach1 : BOOL;\nEND_VAR` },
+  )
+  expect(lookup(project, "Mach1")?.symbol.kind).toBe("gvl_block") // bare → the block, not HMI's member
+  // the qualified-only member is still present for `HMI.Mach1` resolution (just not bare-reachable)
+  expect(lookupLocal(project, "Mach1").some((s) => s.kind === "gvl_var" && s.qualifiedOnly === true)).toBe(true)
+})
+
+test("a commented-out qualified_only attribute is ignored — members stay bare-accessible", () => {
+  // lenze `LST_General.gvl` header is `//{attribute 'qualified_only'}` — commented, so bare `FF100ms` is valid.
+  const project = build({
+    uri: "LST_General.gvl",
+    src: `//{attribute 'qualified_only'}\nVAR_GLOBAL\n FF100ms : BOOL;\nEND_VAR`,
+  })
+  expect(lookupLocal(project, "FF100ms")[0]?.qualifiedOnly).toBeUndefined() // NOT flagged qualified_only
+  expect(lookup(project, "FF100ms")?.symbol.kind).toBe("gvl_var") // bare-reachable
+})
+
 test("implicit enumeration introduces bare value constants into the enclosing scope", () => {
   const project = build({
     uri: "F.fb",
