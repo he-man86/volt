@@ -80,6 +80,17 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    **implicit-conversion WARNINGS** (`WORD→INT`, `INT→UINT`) the LSP doesn't — a whole safe-to-add category
    (future `implicit-conversion-warning` check). **VG label/pin** wording still needs a graphical push to record.
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
+3b. **Conformance-fixture coverage gap (found 2026-07-07 by mapping every check code against the fixtures).**
+   14/22 checks have IDE-recorded conformance fixtures; **8 do not** (unit-tested only): ST `unknown-member`,
+   `external-non-input-write`, `abstract-instantiation`, `unterminated-conditional-pragma`; VG
+   `vg-undeclared-identifier`, `vg-undefined-label`, `vg-unknown-pin`, `vg-unknown-member`. So "no fixture
+   changes ≠ complete" — the overflow FP was caught OUTSIDE the fixtures (by the audit tool), not by them.
+   **Blocker to fix cleanly:** the recorder runs each fixture ISOLATED, so a fixture that needs a sibling
+   declaration (`unknown-member` needs a TYPE; the VG checks need a graphical body push) can't be recorded as-is
+   — the recorder needs multi-unit / resident-context support first. The 3 self-contained ST ones
+   (`unterminated-conditional-pragma` wording already live-locked, `external-non-input-write`,
+   `abstract-instantiation`) are recordable today; do them once a bridge session is open. Until then their
+   FP-safety is guarded by src unit tests + the FP-bait battery.
 4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
    unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
    unterminated `{region}`, orphan `{endregion}`, and an unknown-pragma-DIRECTIVE lint all build CLEAN on CODESYS
