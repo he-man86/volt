@@ -17,13 +17,13 @@ conformance replay green before its commit. 0-FP (conservative-skip on `UNKNOWN`
 
 ## B. Generalize the check (`analysis/`)
 
-- [ ] B.1 `narrowing.ts` → `implicit-conversion.ts`: walk assignment/init/arg sites, call `classifyConversion`,
+- [x] B.1 `narrowing.ts` → `implicit-conversion.ts`: walk assignment/init/arg sites, call `classifyConversion`,
       map `narrow`→"possible loss" WARNING and `sign-change`→"change of sign" WARNING via `messages`
       (per-vendor). The single confirmed pair (`LREAL→REAL`) becomes one row of the general rule.
-- [ ] B.2 Wire the conversion-warning messages into `messages.ts` (CODESYS + TwinCAT wording, incl. the
+- [x] B.2 Wire the conversion-warning messages into `messages.ts` (CODESYS + TwinCAT wording, incl. the
       `'unsigned Type X' to 'signed Type Y' : Possible change of sign` form already recorded live). Provisional
       until locked by the matrix pass (C.2).
-- [ ] B.3 Confirm the ERROR kinds still route to the existing checks (`assignment-type-mismatch`,
+- [x] B.3 Confirm the ERROR kinds still route to the existing checks (`assignment-type-mismatch`,
       `conversion-source-mismatch`) with no double-emit — one site, one diagnostic.
 
 ## C. The oracle (validate, don't invent — `test/conformance/` + `scripts/`)

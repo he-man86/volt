@@ -15,6 +15,8 @@ export interface Messages {
   cannotConvert(from: string, to: string): string
   /** Implicit narrowing (`LREAL`→`REAL`): CODESYS capitalizes "Possible", TwinCAT lowercases it; no period. */
   narrowing(fromType: string, toType: string): string
+  /** A same-width signed↔unsigned conversion — WARNING "change of sign". `sign` is "signed"/"unsigned". */
+  signChange(fromSign: string, fromType: string, toSign: string, toType: string): string
   /** Writing an FB's non-input member from outside — identical wording on both vendors. */
   noInput(member: string, fb: string): string
   /** A lifecycle method (`FB_Init`/`FB_Exit`/`FB_ReInit`) with the wrong signature — wording differs per vendor. */
@@ -63,6 +65,9 @@ export function messagesFor(vendor: Vendor): Messages {
     cannotConvert: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
     narrowing: (fromType, toType) =>
       `Implicit conversion from '${fromType}' to '${toType}': ${possible} loss of information`,
+    // Confirmed live both vendors (only "Possible"/"possible" differs) — note the SPACE before the colon.
+    signChange: (fromSign, fromType, toSign, toType) =>
+      `Implicit conversion from ${fromSign} Type '${fromType}' to ${toSign} Type '${toType}' : ${possible} change of sign`,
     noInput: (member, fb) => `'${member}' is no input of '${fb}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
