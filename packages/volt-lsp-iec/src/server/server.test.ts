@@ -15,6 +15,7 @@ import {
   DefinitionRequest,
   DidChangeTextDocumentNotification,
   DidChangeWatchedFilesNotification,
+  DocumentDiagnosticRequest,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DocumentFormattingRequest,
@@ -41,6 +42,7 @@ import {
   TypeHierarchyPrepareRequest,
   TypeHierarchySubtypesRequest,
   TypeHierarchySupertypesRequest,
+  WorkspaceDiagnosticRequest,
   WorkspaceSymbolRequest,
   type CallHierarchyItem,
   type TypeHierarchyItem,
@@ -213,7 +215,10 @@ test("server: completion returns items in scope", async () => {
 test("server: references + documentHighlight cover every binding", async () => {
   const client = connect()
   await openF(client)
-  const refs = (await client.sendRequest(ReferencesRequest.type, { ...atCount, context: { includeDeclaration: true } })) as unknown[]
+  const refs = (await client.sendRequest(ReferencesRequest.type, {
+    ...atCount,
+    context: { includeDeclaration: true },
+  })) as unknown[]
   expect(refs.length).toBe(3) // decl + two uses
   const hl = (await client.sendRequest(DocumentHighlightRequest.type, atCount)) as unknown[]
   expect(hl.length).toBe(3)
@@ -225,7 +230,9 @@ test("server: prepareRename + rename produce a workspace edit", async () => {
   await openF(client)
   const range = await client.sendRequest(PrepareRenameRequest.type, atCount)
   expect(range).toBeDefined()
-  const edit = (await client.sendRequest(RenameRequest.type, { ...atCount, newName: "tally" })) as { changes: Record<string, unknown[]> }
+  const edit = (await client.sendRequest(RenameRequest.type, { ...atCount, newName: "tally" })) as {
+    changes: Record<string, unknown[]>
+  }
   expect(edit.changes[URI]?.length).toBe(3)
   client.dispose()
 })
@@ -233,7 +240,10 @@ test("server: prepareRename + rename produce a workspace edit", async () => {
 test("server: structural requests (selectionRange, foldingRange, semanticTokens, codeLens) respond", async () => {
   const client = connect()
   await openF(client)
-  const sel = (await client.sendRequest(SelectionRangeRequest.type, { ...td, positions: [{ line: 4, character: 0 }] })) as unknown[]
+  const sel = (await client.sendRequest(SelectionRangeRequest.type, {
+    ...td,
+    positions: [{ line: 4, character: 0 }],
+  })) as unknown[]
   expect(sel.length).toBe(1)
   const folds = (await client.sendRequest(FoldingRangeRequest.type, td)) as unknown[]
   expect(folds.length).toBeGreaterThan(0)
@@ -251,11 +261,21 @@ test("server: assist requests (signatureHelp, typeDefinition, implementation, in
   await client.sendRequest(SignatureHelpRequest.type, atCount)
   await client.sendRequest(TypeDefinitionRequest.type, atCount)
   await client.sendRequest(ImplementationRequest.type, atCount)
-  const hints = (await client.sendRequest(InlayHintRequest.type, { ...td, range: { start: { line: 0, character: 0 }, end: { line: 6, character: 0 } } })) as unknown[]
+  const hints = (await client.sendRequest(InlayHintRequest.type, {
+    ...td,
+    range: { start: { line: 0, character: 0 }, end: { line: 6, character: 0 } },
+  })) as unknown[]
   expect(Array.isArray(hints)).toBe(true)
-  const actions = (await client.sendRequest(CodeActionRequest.type, { ...td, range: { start: { line: 4, character: 0 }, end: { line: 4, character: 5 } }, context: { diagnostics: [] } })) as unknown[]
+  const actions = (await client.sendRequest(CodeActionRequest.type, {
+    ...td,
+    range: { start: { line: 4, character: 0 }, end: { line: 4, character: 5 } },
+    context: { diagnostics: [] },
+  })) as unknown[]
   expect(Array.isArray(actions)).toBe(true)
-  const edits = (await client.sendRequest(DocumentFormattingRequest.type, { ...td, options: { tabSize: 2, insertSpaces: true } })) as unknown[]
+  const edits = (await client.sendRequest(DocumentFormattingRequest.type, {
+    ...td,
+    options: { tabSize: 2, insertSpaces: true },
+  })) as unknown[]
   expect(Array.isArray(edits)).toBe(true)
   client.dispose()
 })
@@ -538,6 +558,37 @@ test("server: type hierarchy — supertypes and subtypes span the workspace", as
   }[]
   expect(subs.map((s) => s.name)).toContain("Derived")
   client.dispose()
+})
+
+test("server: textDocument/diagnostic pulls the same diagnostics as the push channel", async () => {
+  const client = connect()
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
+  })
+  const report = (await client.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: URI } })) as {
+    kind: string
+    items: { code?: unknown }[]
+  }
+  expect(report.kind).toBe("full")
+  expect(report.items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  client.dispose()
+})
+
+test("server: workspace/diagnostic reports errors in unopened files (eager index)", async () => {
+  const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const dir = tempWorkspace({ "F.fb": badFb })
+  const client = connect()
+  await initInDir(client, dir) // crawls F.fb without opening it
+  const report = (await client.sendRequest(WorkspaceDiagnosticRequest.type, { previousResultIds: [] })) as {
+    items: { uri: string; items: { code?: unknown }[] }[]
+  }
+  const fUri = pathToFileURL(join(dir, "F.fb")).href
+  const fReport = report.items.find((r) => r.uri === fUri)
+  expect(fReport?.items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test("server: workspaceSymbol finds a DUT in an unopened file and narrows by query", async () => {

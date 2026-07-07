@@ -10,11 +10,11 @@
 
 ## 3. Gap backlog — Tier 1 (agent-facing coverage; highest value)
 
-- [ ] 3.1 `workspace/diagnostic` (pull): project-wide, on-demand error pull so the agent can ask "all errors in
-      the project" without opening every file. Reuses `computeSemanticDiagnostics` over the eager index.
-- [ ] 3.2 `textDocument/diagnostic` (pull): per-document pull variant of the same, for clients that prefer pull.
-- [ ] 3.3 `workspace/semanticTokens/refresh` + `workspace/inlayHint/refresh` + `workspace/codeLens/refresh`:
-      after a re-index (`volt pull` / watched-file event) tell the client to refresh these, not just diagnostics.
+- [x] 3.1 `workspace/diagnostic` (pull): project-wide, on-demand error pull over the eager index. Shares the
+      new `server/diagnostics.ts` `documentDiagnostics()` with the push channel.
+- [x] 3.2 `textDocument/diagnostic` (pull): per-document pull variant of the same.
+- [x] 3.3 `workspace/semanticTokens/refresh` + `workspace/inlayHint/refresh` + `workspace/codeLens/refresh`:
+      sent from `reindex()` (client-capability-guarded) so open files un-stale after a `volt pull`.
 
 ## 4. Gap backlog — Tier 2 (editor UX)
 

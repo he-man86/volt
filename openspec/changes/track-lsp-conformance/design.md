@@ -95,8 +95,8 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | Method | Status | Notes |
 |---|---|---|
 | `textDocument/publishDiagnostics` | ✅ | **push**, on open/change and after a re-index |
-| `textDocument/diagnostic` (pull) | ❌ | on-demand per-document pull — some clients prefer it |
-| `workspace/diagnostic` (pull) | ❌ | **project-wide** pull — high value for an agent that wants "all errors in the project" |
+| `textDocument/diagnostic` (pull) | ✅ | shares `documentDiagnostics()` with the push channel |
+| `workspace/diagnostic` (pull) | ✅ | **project-wide** pull over the eager index |
 
 ### 8. Language features — completion & signature
 
@@ -135,12 +135,12 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `workspace/didChangeConfiguration` | ❌ | no live config reload (e.g. toggle `diagnoseDeadCode` without restart) |
 | `workspace/workspaceFolders` · `didChangeWorkspaceFolders` | ➖ | single-root (`rootUri`) by design |
 | `workspace/willCreateFiles` … `didDeleteFiles` (6) | ➖ | file lifecycle handled via watched files; no cross-file rename-refactor |
-| `workspace/executeCommand` | ❌ | no server commands (would back codeLens/codeAction commands) |
+| `workspace/executeCommand` | ➖ | code lenses are display-only (empty command); code actions return edits directly — nothing to execute |
 | `workspace/applyEdit` | ➖ | server→client; edits are returned inline from rename/codeAction |
-| `workspace/semanticTokens/refresh` | ❌ | after a re-index we re-publish diagnostics but do not refresh tokens |
-| `workspace/inlayHint/refresh` | ❌ | same: hints go stale until the file is touched |
-| `workspace/codeLens/refresh` | ❌ | same |
-| `workspace/diagnostic/refresh` | ➖ | push model; N/A unless pull diagnostics land |
+| `workspace/semanticTokens/refresh` | ✅ | sent from `reindex()` (client-capability-guarded) |
+| `workspace/inlayHint/refresh` | ✅ | sent from `reindex()` |
+| `workspace/codeLens/refresh` | ✅ | sent from `reindex()` |
+| `workspace/diagnostic/refresh` | ✅ | sent from `reindex()` so pull-mode clients re-pull |
 | `workspace/inlineValue/refresh` | ➖ | `inlineValue` is out of scope |
 
 ### 12. Window features

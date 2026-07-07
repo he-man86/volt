@@ -15,11 +15,13 @@ import {
   CompletionRequest,
   createProtocolConnection,
   DefinitionRequest,
-  DiagnosticSeverity,
+  DiagnosticRefreshRequest,
   DidChangeTextDocumentNotification,
   DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
+  DocumentDiagnosticRequest,
+  DocumentDiagnosticReportKind,
   DocumentFormattingRequest,
   DocumentHighlightRequest,
   DocumentRangeFormattingRequest,
@@ -30,6 +32,7 @@ import {
   ImplementationRequest,
   InitializedNotification,
   InitializeRequest,
+  InlayHintRefreshRequest,
   InlayHintRequest,
   PrepareRenameRequest,
   PublishDiagnosticsNotification,
@@ -37,6 +40,7 @@ import {
   RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
+  SemanticTokensRefreshRequest,
   SemanticTokensRequest,
   ShutdownRequest,
   SignatureHelpRequest,
@@ -47,24 +51,20 @@ import {
   TypeHierarchyPrepareRequest,
   TypeHierarchySubtypesRequest,
   TypeHierarchySupertypesRequest,
+  WorkspaceDiagnosticRequest,
   WorkspaceSymbolRequest,
+  CodeLensRefreshRequest,
   CodeLensRequest,
-  type Diagnostic,
+  type DocumentDiagnosticReport,
   type InitializeResult,
+  type WorkspaceDiagnosticReport,
 } from "vscode-languageserver-protocol/node.js"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import {
-  computeSemanticDiagnostics,
-  inDeadMember,
-  messagesFor,
-  ownerPou,
-  resolveConfig,
-  type DiagnosticItem,
-  type Vendor,
-} from "../analysis/index.js"
+import { messagesFor, resolveConfig, type Vendor } from "../analysis/index.js"
 import { scanWorkspace, SOURCE_EXTENSIONS } from "../workspace-refs.js"
 import type { Scope, Symbol } from "../symbols/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
+import { documentDiagnostics } from "./diagnostics.js"
 import {
   callIncoming,
   callOutgoing,
@@ -83,7 +83,6 @@ import {
   prepareCallHierarchy,
   prepareTypeHierarchy,
   offsetFromPosition,
-  rangeFromSpan,
   selectionRange,
   semanticTokens,
   SEMANTIC_TOKEN_TYPES,
@@ -96,7 +95,6 @@ import {
   type HierItem,
 } from "../services/index.js"
 import {
-  computeVgDiagnostics,
   documentSymbolsWithVg,
   inVgBody,
   prepareRenameAnywhere,
@@ -121,13 +119,6 @@ function workspaceRoot(rootUri: string | null | undefined, rootPath: string | nu
   return rootPath != null && rootPath.length > 0 ? rootPath : undefined
 }
 
-const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
-  error: DiagnosticSeverity.Error,
-  warning: DiagnosticSeverity.Warning,
-  information: DiagnosticSeverity.Information,
-  hint: DiagnosticSeverity.Hint,
-}
-
 export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
   const messages = messagesFor(vendor)
@@ -135,6 +126,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
   let clientWatchDynReg = false
+  // Which derived data the client will re-request when we send a refresh (after a re-index).
+  const clientRefresh = { semanticTokens: false, inlayHint: false, codeLens: false, diagnostics: false }
 
   const project = () => store.project()
   const workspace = (): Document[] => store.workspace()
@@ -151,41 +144,21 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     store.taskRoots = scan.taskRoots
     store.seedDisk(scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source })))
     for (const uri of store.openUris()) pushDiagnostics(uri)
+    // A re-index can change tokens/hints/lenses in already-open files; ask the client to re-request them
+    // (diagnostics we pushed above; these have no push channel, so a refresh is the only way to un-stale them).
+    if (clientRefresh.semanticTokens) void conn.sendRequest(SemanticTokensRefreshRequest.type).catch(() => {})
+    if (clientRefresh.inlayHint) void conn.sendRequest(InlayHintRefreshRequest.type).catch(() => {})
+    if (clientRefresh.codeLens) void conn.sendRequest(CodeLensRefreshRequest.type).catch(() => {})
+    if (clientRefresh.diagnostics) void conn.sendRequest(DiagnosticRefreshRequest.type).catch(() => {}) // pull-mode clients re-pull
   }
 
   function pushDiagnostics(uri: string): void {
     const d = doc(uri)
     if (d === undefined) return
-    // Suppress semantic diagnostics on a structurally-dead unit (the compiler never checks it either).
-    // Parse errors always ride through — a genuinely broken parse is a real problem, not a dead-code FP.
-    const owner = ownerPou(d.parseResult)
-    const dead = owner !== undefined && store.deadSet().has(owner)
-    // Excluded/uncalled methods inside this (live) file — their diagnostics are suppressed too. Keyed by the
-    // resolved doc's URI (`d.uri`), which is the disk-crawl URI for a closed-but-on-disk file, not the raw
-    // client URI — the deadMembers map is keyed the same way, so `uri` (client) would miss after a close.
-    const dm = dead ? undefined : store.deadMembers().get(d.uri)
-    const items = dead
-      ? []
-      : computeSemanticDiagnostics({
-          parseResult: d.parseResult,
-          source: d.source,
-          project: project(),
-          config: store.config,
-          references: store.workspaceRefs,
-        }).filter((it) => !inDeadMember(it.span, dm))
-    const diagnostics: Diagnostic[] = [
-      ...items.map(toLspDiagnostic),
-      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, store.workspaceRefs))
-        .filter((it) => !inDeadMember(it.span, dm))
-        .map(toLspDiagnostic),
-      ...d.parseResult.errors.map((e) => ({
-        range: rangeFromSpan(e.span),
-        severity: DiagnosticSeverity.Error,
-        source: "volt-lsp-iec",
-        message: e.message,
-      })),
-    ]
-    void conn.sendNotification(PublishDiagnosticsNotification.type, { uri, diagnostics })
+    void conn.sendNotification(PublishDiagnosticsNotification.type, {
+      uri,
+      diagnostics: documentDiagnostics(store, messages, d),
+    })
   }
 
   // ─── lifecycle ───────────────────────────────────────────────────────────
@@ -194,7 +167,12 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     if (opts?.diagnoseDeadCode !== undefined)
       store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
     root = workspaceRoot(params.rootUri, params.rootPath)
-    clientWatchDynReg = params.capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration === true
+    const ws = params.capabilities.workspace
+    clientWatchDynReg = ws?.didChangeWatchedFiles?.dynamicRegistration === true
+    clientRefresh.semanticTokens = ws?.semanticTokens?.refreshSupport === true
+    clientRefresh.inlayHint = ws?.inlayHint?.refreshSupport === true
+    clientRefresh.codeLens = ws?.codeLens?.refreshSupport === true
+    clientRefresh.diagnostics = ws?.diagnostics?.refreshSupport === true
     return {
       capabilities: {
         textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -222,6 +200,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
           legend: { tokenTypes: [...SEMANTIC_TOKEN_TYPES], tokenModifiers: [] },
           full: true,
         },
+        // Pull diagnostics: our diagnostics span the project (a sibling type changes a file's errors), and we
+        // answer workspace-wide pulls too.
+        diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true },
       },
       serverInfo: { name: "volt-lsp-iec", version: "0.1.0" },
     }
@@ -270,6 +251,26 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // ─── watched files (freshness): re-index on create/change/delete of source + reference files ──
   // A full rescan reflects creates, deletes, and reference-file edits in one path (reads current disk).
   conn.onNotification(DidChangeWatchedFilesNotification.type, () => reindex())
+
+  // ─── pull diagnostics (same compute as the push transport) ─────────────────
+  conn.onRequest(DocumentDiagnosticRequest.type, (p): DocumentDiagnosticReport => {
+    const d = doc(p.textDocument.uri)
+    return {
+      kind: DocumentDiagnosticReportKind.Full,
+      items: d !== undefined ? documentDiagnostics(store, messages, d) : [],
+    }
+  })
+  conn.onRequest(
+    WorkspaceDiagnosticRequest.type,
+    (): WorkspaceDiagnosticReport => ({
+      items: store.workspace().map((d) => ({
+        kind: DocumentDiagnosticReportKind.Full,
+        uri: d.uri,
+        version: null,
+        items: documentDiagnostics(store, messages, d),
+      })),
+    }),
+  )
 
   // ─── position-based queries ──────────────────────────────────────────────
   const at = <T>(
@@ -427,14 +428,4 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   )
 
   conn.listen()
-}
-
-function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
-  return {
-    range: rangeFromSpan(item.span),
-    severity: SEVERITY[item.severity],
-    source: item.source,
-    code: item.code,
-    message: item.message,
-  }
 }
