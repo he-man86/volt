@@ -1,15 +1,32 @@
 import { test, expect } from "bun:test"
 import { PassThrough } from "node:stream"
 import {
+  CodeActionRequest,
+  CodeLensRequest,
+  CompletionRequest,
   createProtocolConnection,
   DefinitionRequest,
+  DidChangeTextDocumentNotification,
+  DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
+  DocumentFormattingRequest,
+  DocumentHighlightRequest,
   DocumentSymbolRequest,
+  FoldingRangeRequest,
   HoverRequest,
+  ImplementationRequest,
   InitializeRequest,
+  InlayHintRequest,
+  PrepareRenameRequest,
   PublishDiagnosticsNotification,
+  ReferencesRequest,
+  RenameRequest,
+  SelectionRangeRequest,
+  SemanticTokensRequest,
+  SignatureHelpRequest,
   StreamMessageReader,
   StreamMessageWriter,
+  TypeDefinitionRequest,
 } from "vscode-languageserver-protocol/node.js"
 import { runServer } from "./server.js"
 
@@ -158,5 +175,88 @@ test("server: hover inside a VG body resolves a wire's inferred type", async () 
     position: { line: 5, character: 7 }, // the `g` use in `out := g;`
   })
   expect((h as { contents: { value: string } })?.contents.value).toContain("g : BOOL")
+  client.dispose()
+})
+
+// ─── remaining protocol handlers: drive each once so the routing + response shape is covered ───
+
+const td = { textDocument: { uri: URI } }
+const atCount = { ...td, position: { line: 4, character: 0 } } // the `count :=` usage
+
+test("server: completion returns items in scope", async () => {
+  const client = connect()
+  await openF(client)
+  const items = (await client.sendRequest(CompletionRequest.type, atCount)) as { label: string }[]
+  expect(Array.isArray(items)).toBe(true)
+  expect(items.some((i) => i.label === "count")).toBe(true)
+  client.dispose()
+})
+
+test("server: references + documentHighlight cover every binding", async () => {
+  const client = connect()
+  await openF(client)
+  const refs = (await client.sendRequest(ReferencesRequest.type, { ...atCount, context: { includeDeclaration: true } })) as unknown[]
+  expect(refs.length).toBe(3) // decl + two uses
+  const hl = (await client.sendRequest(DocumentHighlightRequest.type, atCount)) as unknown[]
+  expect(hl.length).toBe(3)
+  client.dispose()
+})
+
+test("server: prepareRename + rename produce a workspace edit", async () => {
+  const client = connect()
+  await openF(client)
+  const range = await client.sendRequest(PrepareRenameRequest.type, atCount)
+  expect(range).toBeDefined()
+  const edit = (await client.sendRequest(RenameRequest.type, { ...atCount, newName: "tally" })) as { changes: Record<string, unknown[]> }
+  expect(edit.changes[URI]?.length).toBe(3)
+  client.dispose()
+})
+
+test("server: structural requests (selectionRange, foldingRange, semanticTokens, codeLens) respond", async () => {
+  const client = connect()
+  await openF(client)
+  const sel = (await client.sendRequest(SelectionRangeRequest.type, { ...td, positions: [{ line: 4, character: 0 }] })) as unknown[]
+  expect(sel.length).toBe(1)
+  const folds = (await client.sendRequest(FoldingRangeRequest.type, td)) as unknown[]
+  expect(folds.length).toBeGreaterThan(0)
+  const tokens = (await client.sendRequest(SemanticTokensRequest.type, td)) as { data: number[] }
+  expect(tokens.data.length % 5).toBe(0)
+  const lenses = (await client.sendRequest(CodeLensRequest.type, td)) as unknown[]
+  expect(Array.isArray(lenses)).toBe(true)
+  client.dispose()
+})
+
+test("server: assist requests (signatureHelp, typeDefinition, implementation, inlayHint, codeAction, formatting) respond without error", async () => {
+  const client = connect()
+  await openF(client)
+  // These may legitimately return null/empty for this source — the point is the handler runs + routes.
+  await client.sendRequest(SignatureHelpRequest.type, atCount)
+  await client.sendRequest(TypeDefinitionRequest.type, atCount)
+  await client.sendRequest(ImplementationRequest.type, atCount)
+  const hints = (await client.sendRequest(InlayHintRequest.type, { ...td, range: { start: { line: 0, character: 0 }, end: { line: 6, character: 0 } } })) as unknown[]
+  expect(Array.isArray(hints)).toBe(true)
+  const actions = (await client.sendRequest(CodeActionRequest.type, { ...td, range: { start: { line: 4, character: 0 }, end: { line: 4, character: 5 } }, context: { diagnostics: [] } })) as unknown[]
+  expect(Array.isArray(actions)).toBe(true)
+  const edits = (await client.sendRequest(DocumentFormattingRequest.type, { ...td, options: { tabSize: 2, insertSpaces: true } })) as unknown[]
+  expect(Array.isArray(edits)).toBe(true)
+  client.dispose()
+})
+
+test("server: didChange re-parses; didClose clears diagnostics", async () => {
+  const client = connect()
+  await openF(client)
+  // change the body so `count` becomes `total` — a hover on the old name no longer resolves
+  await client.sendNotification(DidChangeTextDocumentNotification.type, {
+    textDocument: { uri: URI, version: 2 },
+    contentChanges: [{ text: SRC.replace(/count/g, "total") }],
+  })
+  const h = await client.sendRequest(HoverRequest.type, { ...td, position: { line: 4, character: 0 } })
+  expect((h as { contents: { value: string } })?.contents.value).toContain("total")
+  // close → server publishes empty diagnostics for the uri
+  const cleared = new Promise<{ diagnostics: unknown[] }>((res) =>
+    client.onNotification(PublishDiagnosticsNotification.type, (p) => p.uri === URI && res(p)),
+  )
+  await client.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri: URI } })
+  expect((await cleared).diagnostics).toEqual([])
   client.dispose()
 })
