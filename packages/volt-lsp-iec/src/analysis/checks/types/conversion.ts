@@ -5,23 +5,17 @@
  * acceptance is `compat.isAssignable(source, arg)` (the arg may widen into the source). Only a single
  * elementary-typed positional argument is checked; everything else skips (zero-FP).
  */
-import { parseStatements, walkAllExprs } from "../../../syntax/index.js"
+import { walkAllExprs } from "../../../syntax/index.js"
+import { bodies } from "../../../symbols/index.js"
 import { elementaryType, inferExprType, isAssignable, resolveNamedType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const CONV_NAME = /^([A-Za-z]+)_TO_[A-Za-z]+$/
 
 export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkAllExprs(parsed.statements, (e) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkAllExprs(statements, (e) => {
       if (e.kind !== "call" || e.callee.kind !== "ident_expr") return
       const m = CONV_NAME.exec(e.callee.name)
       if (m === null) return

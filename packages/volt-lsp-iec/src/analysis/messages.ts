@@ -50,6 +50,10 @@ export interface Messages {
   unknownAttribute(name: string): string
   /** A constant array index outside the dimension's `lo..hi` bounds. PROVISIONAL (bridge-gated). */
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
+  /** More positional arguments than the callee declares inputs. PROVISIONAL (no bridge recording yet). */
+  tooManyArguments(callee: string, max: number): string
+  /** A `name := value` naming no declared parameter of the callee. PROVISIONAL (no bridge recording yet). */
+  unknownNamedArgument(name: string, callee: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -101,5 +105,8 @@ export function messagesFor(vendor: Vendor): Messages {
     // Confirmed byte-identical on both vendors via live /build (2026-07-07).
     arrayIndexOutOfBounds: (index, lo, hi) =>
       `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
+    // Call-argument wording is PROVISIONAL — no live-bridge recording yet (like arrayIndexOutOfBounds was).
+    tooManyArguments: (callee, max) => `Too many arguments for '${callee}' (expected at most ${max})`,
+    unknownNamedArgument: (name, callee) => `'${name}' is not a parameter of '${callee}'`,
   }
 }

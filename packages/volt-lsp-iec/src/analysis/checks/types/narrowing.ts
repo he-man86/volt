@@ -5,23 +5,16 @@
  * relation — this check only maps the returned kind to a severity + per-vendor wording, it does not re-decide.
  * The vendor-specific capitalization ("Possible"/"possible") comes from `messages`, not an `if` here.
  */
-import { parseStatements, walkStatements, type Expr } from "../../../syntax/index.js"
-import type { Scope } from "../../../symbols/index.js"
+import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { bodies, type Scope } from "../../../symbols/index.js"
 import { classifyConversion, elementaryType, inferExprType, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkStatements(parsed.statements, (s) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined) return
       const diag = narrowingPairError(s.target, s.value, scope, ctx.project, ctx.messages)
       if (diag !== undefined) out.push(diag)

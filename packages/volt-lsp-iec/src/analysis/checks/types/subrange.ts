@@ -7,14 +7,15 @@
  * byte-identical (`Cannot convert type '200' to type 'INT (1..100)'`, note the SPACE before the paren and the
  * base type name, NOT any alias). So it reuses the shared `cannotConvert` wording, not a bespoke message.
  */
+import { scopeForUnit } from "../../../symbols/index.js"
 import { constEval } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
     if (!("varSections" in unit)) continue
-    const scope = findScopeForUnit(ctx.project, unit)
+    const scope = scopeForUnit(ctx.project, unit)
     if (scope === undefined) continue
     for (const section of unit.varSections) {
       for (const decl of section.decls) {

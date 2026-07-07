@@ -4,23 +4,16 @@
  * `types/compat` + `types/infer`; conservative — any side that isn't a checkable category
  * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
  */
-import { parseStatements, walkStatements, type Expr } from "../../../syntax/index.js"
-import { lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
+import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { bodies, lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
 import { inferExprType, isAssignable, renderType, resolveMemberChain, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue // body-AST is 100% on real code; a non-parsing body skips (zero-FP)
-
-    walkStatements(parsed.statements, (s) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined) return // S=/R=/REF= have different rules
       const diag = assignmentPairError(s.target, s.value, scope, ctx.project, ctx.messages)
       if (diag !== undefined) out.push(diag)

@@ -8,7 +8,17 @@
  */
 import type { Scope, Symbol } from "../symbols/index.js"
 import { lookup, lookupLocal } from "../symbols/index.js"
-import type { BinaryExpr, CallExpr, Expr, Literal } from "../syntax/index.js"
+import type {
+  BinaryExpr,
+  CallExpr,
+  Expr,
+  FunctionBlock,
+  Identifier,
+  Literal,
+  Method,
+  TypeExpr,
+  VarSection,
+} from "../syntax/index.js"
 import { canonicalElem, elementaryType, isDatetime, isDuration } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
@@ -77,6 +87,112 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
     default:
       return undefined
   }
+}
+
+export interface CalleeInfo {
+  /** The resolved callable symbol (FB / function / method). */
+  sym: Symbol
+  /** VAR_INPUT parameters in declared order, base-first through the EXTENDS chain (name + declared type). */
+  params: { name: Identifier; type: TypeExpr }[]
+  /** Count of positionally-bindable parameters (VAR_INPUT + VAR_IN_OUT; VAR_OUTPUT is never bound by
+   *  position) across the whole chain — the upper bound for the too-many-arguments check. */
+  positionalArity: number
+  /** Every declared parameter name (VAR_INPUT/OUTPUT/IN_OUT) across the chain, lowercased. */
+  paramNames: Set<string>
+  /** The callee's member scope (FB-instance calls only). A named argument may also bind a PROPERTY, which
+   *  isn't a var-section param — resolving the name through this scope + its EXTENDS chain catches those.
+   *  Undefined for a direct function/method/program call (no members beyond its params). */
+  scope?: Scope
+  /** True iff the entire EXTENDS chain resolved to project (non-library) FBs, so `params`/`positionalArity`/
+   *  `paramNames` are COMPLETE. When false (an unresolved or library base), a consumer must not treat a
+   *  count/unknown-name as an error — inherited params it can't see may cover it. */
+  complete: boolean
+}
+
+/**
+ * Resolve a call's callee to its callable symbol, ordered VAR_INPUT parameters (base-first across EXTENDS),
+ * positional arity, and parameter-name set — the ONE resolution signature-help and the call-argument check
+ * share. Handles a DIRECT callable (function / method / program owns its var sections) and an FB-INSTANCE
+ * call (`fbInst(…)`: sections come from the FB type and its base chain). Undefined when the callee doesn't
+ * resolve to a callable — both consumers then skip (zero false positives).
+ */
+export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): CalleeInfo | undefined {
+  const sym = resolveMemberChain(call.callee, scope, project)
+  if (sym === undefined) return undefined
+  // Direct callable — a function/method/program declares its own var sections (no inheritance).
+  const direct = (sym.ast as Partial<Method>).varSections
+  if (Array.isArray(direct)) return calleeInfo(sym, direct, true, undefined)
+  // Instance call — the callee is a variable typed as an FB; gather the FB declaration's sections plus every
+  // base's via the EXTENDS chain (so inherited inputs count and resolve), and carry the member scope for
+  // property-name binding.
+  const t = inferExprType(call.callee, scope, project)
+  if (t.kind === "function_block" && t.scope?.parent !== undefined) {
+    const fbSym = lookupLocal(t.scope.parent, t.name).find((s) => s.kind === "function_block")
+    if (fbSym !== undefined && (fbSym.ast as { kind: string }).kind === "function_block") {
+      const chain = fbChainSections(fbSym.ast as FunctionBlock, fbSym.owner)
+      return calleeInfo(fbSym, chain.sections, chain.complete, t.scope)
+    }
+  }
+  return undefined
+}
+
+/**
+ * The var sections of an FB and its EXTENDS base chain, BASE-FIRST (matching positional-binding order), plus
+ * whether the chain is fully resolved to project source. `complete` goes false on a cycle, an unresolvable
+ * base, or a base from a referenced library (whose flattened signature can't be trusted for arity).
+ */
+function fbChainSections(fb: FunctionBlock, definedIn: Scope): { sections: VarSection[]; complete: boolean } {
+  const chain: (readonly VarSection[])[] = []
+  const seen = new Set<string>()
+  let cur: FunctionBlock | undefined = fb
+  let where: Scope = definedIn
+  let complete = true
+  while (cur !== undefined) {
+    chain.push(cur.varSections)
+    const baseName: string | undefined = cur.extends?.text
+    if (baseName === undefined) break
+    if (seen.has(baseName.toLowerCase())) {
+      complete = false // cycle
+      break
+    }
+    seen.add(baseName.toLowerCase())
+    const baseSym: Symbol | undefined = lookup(where, baseName)?.symbol
+    // A library base's uri sits under "Library Manager"; its signature flattens sections, so it can't be
+    // trusted for arity (mirrors `isLibrarySymbol`, which layer C can't import from analysis).
+    if (baseSym === undefined || baseSym.uri.includes("Library Manager") || baseSym.ast.kind !== "function_block") {
+      complete = false
+      break
+    }
+    cur = baseSym.ast
+    where = baseSym.owner
+  }
+  const sections: VarSection[] = []
+  for (let i = chain.length - 1; i >= 0; i--) sections.push(...chain[i]) // base-first
+  return { sections, complete }
+}
+
+const POSITIONAL_SECTIONS = new Set(["VAR_INPUT", "VAR_IN_OUT"]) // VAR_OUTPUT is never bound by position
+const PARAM_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"]) // the name-bindable formal params
+
+function calleeInfo(
+  sym: Symbol,
+  sections: readonly VarSection[],
+  complete: boolean,
+  scope: Scope | undefined,
+): CalleeInfo {
+  const paramNames = new Set<string>()
+  const params: { name: Identifier; type: TypeExpr }[] = []
+  let positionalArity = 0
+  for (const sec of sections) {
+    if (!PARAM_SECTIONS.has(sec.sectionKind)) continue // VAR/VAR_TEMP/VAR_STAT locals aren't parameters
+    for (const d of sec.decls)
+      for (const id of d.names) {
+        paramNames.add(id.text.toLowerCase())
+        if (POSITIONAL_SECTIONS.has(sec.sectionKind)) positionalArity++
+        if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type })
+      }
+  }
+  return { sym, params, positionalArity, paramNames, scope, complete }
 }
 
 /** The member scope of a scoped type (enum/struct/FB), or undefined. */

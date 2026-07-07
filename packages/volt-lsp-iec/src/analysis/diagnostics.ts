@@ -25,6 +25,7 @@ import { checkConversionCalls } from "./checks/types/conversion.js"
 import { checkDeref } from "./checks/types/deref.js"
 import { checkSubrange } from "./checks/types/subrange.js"
 import { checkArrayBounds } from "./checks/types/array-bounds.js"
+import { checkCallArguments } from "./checks/calls/call-arguments.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
@@ -60,6 +61,8 @@ const CHECKS: readonly Check[] = [
   checkDeref,
   checkSubrange,
   checkArrayBounds,
+  // calls/
+  checkCallArguments,
   // names/
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,

@@ -9,13 +9,13 @@
  * opt-in style lints, off by default: the compilers parse-cascade on them, so a single clean message
  * would never match the IDE's error spray.)
  */
-import { type Scope, type Symbol } from "../../../symbols/index.js"
+import { scopeForUnit, type Scope, type Symbol } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkDuplicateDeclarations(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
-    const scope = findScopeForUnit(ctx.project, unit)
+    const scope = scopeForUnit(ctx.project, unit)
     if (scope !== undefined) walkScopeForDuplicates(scope, ctx, out)
   }
 }

@@ -6,21 +6,15 @@
  *
  * NOTE: the message is PROVISIONAL (bridge-gated), like `overflow`/`subrange`.
  */
-import { parseStatements, walkAllExprs } from "../../../syntax/index.js"
+import { walkAllExprs } from "../../../syntax/index.js"
+import { bodies } from "../../../symbols/index.js"
 import { constEval, inferExprType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkArrayBounds(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkAllExprs(parsed.statements, (e) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkAllExprs(statements, (e) => {
       if (e.kind !== "index") return
       const base = inferExprType(e.base, scope, ctx.project)
       if (base.kind !== "array") return

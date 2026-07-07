@@ -17,6 +17,7 @@ import type {
   Namespace,
   Program,
   Property,
+  PropertyAccessor,
   Method,
   ParseResult,
   StructBody,
@@ -236,6 +237,18 @@ function ingestStandaloneProperty(project: Scope, p: Property, uri: string, memb
     typeExpr: p.dataType,
     ast: p,
   })
+  // A property scope, parented to the host so member vars + the property name (defined on the host above)
+  // resolve, and matched by `p.span` identity so `scopeForUnit(project, propertyUnit)` finds it — without it
+  // accessor bodies resolve against the project scope and every member reference is a false "not defined".
+  // Each accessor gets its OWN child scope keyed by its body span so getter and setter locals never share a
+  // scope: a shared scope would false-positive `duplicate-declaration` (two `tmp`) and mistype a same-named
+  // local across accessors. `bodies()` resolves each accessor body to its child scope by body-span identity.
+  const propScope = makeScope(host, "accessor", p.name.text, p.span)
+  for (const a of [p.getter, p.setter] as (PropertyAccessor | undefined)[]) {
+    if (a === undefined) continue
+    const accessorScope = makeScope(propScope, "accessor", p.name.text, a.body.span)
+    ingestVarSections(accessorScope, a.varSections, uri, /* asParams */ true)
+  }
 }
 
 function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {

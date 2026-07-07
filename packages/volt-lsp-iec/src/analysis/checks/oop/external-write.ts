@@ -8,22 +8,15 @@
  * (library sections flatten — unreliable), and whose section is neither input nor output. Anything
  * uncertain skips → zero FP.
  */
-import { parseStatements, walkStatements, type Expr } from "../../../syntax/index.js"
-import type { Scope } from "../../../symbols/index.js"
+import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { bodies, type Scope } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkStatements(parsed.statements, (s) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined) return // plain `:=` only
       if (s.target.kind !== "member") return
       if (isInternalBase(s.target.base)) return // writing your own member (THIS/SUPER) is legal

@@ -9,21 +9,15 @@
  * identity), and `unknown` (unresolved / computed base — can't decide). The corpus compiles clean, so any
  * flag on it is a false positive; skipping the fold cases is what keeps `THIS^`/ref derefs quiet.
  */
-import { parseStatements, walkAllExprs } from "../../../syntax/index.js"
+import { walkAllExprs } from "../../../syntax/index.js"
+import { bodies } from "../../../symbols/index.js"
 import { inferExprType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkDeref(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkAllExprs(parsed.statements, (e) => {
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    walkAllExprs(statements, (e) => {
       if (e.kind !== "deref") return
       const base = inferExprType(e.base, scope, ctx.project)
       if (base.kind !== "elementary" && base.kind !== "array") return // derefable or undecidable → skip

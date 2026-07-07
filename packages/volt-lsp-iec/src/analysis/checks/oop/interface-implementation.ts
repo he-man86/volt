@@ -11,8 +11,8 @@
  *     chain is abstract). A flat presence-check can't model that, so don't guess.
  * Only the PRESENCE check is ported; per-signature mismatch used LSP-custom wording that never matched.
  */
-import { findScopeByName, findScopeForUnit, SOURCE, type DiagnosticItem } from "../_shared.js"
-import { lookupLocal, type Scope } from "../../../symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { findScopeByName, lookupLocal, scopeForUnit, type Scope } from "../../../symbols/index.js"
 import type { FunctionBlock } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 
@@ -22,7 +22,7 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
     if (unit.abstract === true) continue // an abstract FB may leave interface members abstract/deferred
     const implementsList = unit.implements
     if (implementsList === undefined || implementsList.length === 0) continue
-    const fbScope = findScopeForUnit(ctx.project, unit)
+    const fbScope = scopeForUnit(ctx.project, unit)
     if (fbScope === undefined) continue
 
     const members = collectProvidedMembers(fbScope, ctx.project)

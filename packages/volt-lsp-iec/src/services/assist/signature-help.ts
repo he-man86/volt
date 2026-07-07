@@ -4,17 +4,9 @@
  * callee to a callable symbol, and renders its VAR_INPUT parameters.
  */
 import type { SignatureHelp, SignatureInformation } from "vscode-languageserver-protocol"
-import {
-  isGraphicalBody,
-  parseStatements,
-  unitBodies,
-  varInputParams,
-  walkAllExprs,
-  type CallExpr,
-  type Method,
-} from "../../syntax/index.js"
-import { scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
-import { renderTypeExpr, resolveMemberChain } from "../../types/index.js"
+import { isGraphicalBody, parseStatements, unitBodies, walkAllExprs, type CallExpr } from "../../syntax/index.js"
+import { scopeForUnit, type Scope } from "../../symbols/index.js"
+import { renderTypeExpr, resolveCallee } from "../../types/index.js"
 import { spanContains, type Document } from "../shared/index.js"
 
 export function signatureHelp(doc: Document, project: Scope, offset: number): SignatureHelp | undefined {
@@ -27,12 +19,11 @@ export function signatureHelp(doc: Document, project: Scope, offset: number): Si
       if (!parsed.ok) continue
       const call = innermostCallAt(parsed.statements, offset)
       if (call === undefined) continue
-      const sym = resolveMemberChain(call.callee, scope, project)
-      if (sym === undefined) return undefined
-      const labels = paramLabels(sym)
-      if (labels.length === 0) return undefined
+      const callee = resolveCallee(call, scope, project)
+      if (callee === undefined || callee.params.length === 0) return undefined
+      const labels = callee.params.map((p) => `${p.name.text} : ${renderTypeExpr(p.type)}`)
       const sig: SignatureInformation = {
-        label: `${sym.name}(${labels.join(", ")})`,
+        label: `${callee.sym.name}(${labels.join(", ")})`,
         parameters: labels.map((l) => ({ label: l })),
       }
       return { signatures: [sig], activeSignature: 0, activeParameter: activeParam(call, offset) }
@@ -55,11 +46,4 @@ function innermostCallAt(statements: Parameters<typeof walkAllExprs>[0], offset:
 function activeParam(call: CallExpr, offset: number): number {
   const idx = call.args.findIndex((a) => offset <= a.span.end)
   return idx < 0 ? Math.max(0, call.args.length - 1) : idx
-}
-
-/** `name : Type` labels for a callable's VAR_INPUT params (via the shared `varInputParams`). */
-function paramLabels(sym: Symbol): string[] {
-  const sections = (sym.ast as Partial<Method>).varSections
-  if (!Array.isArray(sections)) return []
-  return varInputParams(sections).map((p) => `${p.name.text} : ${renderTypeExpr(p.type)}`)
 }

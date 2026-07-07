@@ -15,10 +15,16 @@ import {
   unitBodies,
   type BodySpan,
   type ParseResult,
-  type StatementList,
-  type TopLevel,
 } from "../../syntax/index.js"
-import { lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
+import {
+  bodies,
+  lookup,
+  resolveBareEnumMember,
+  scopeForUnit,
+  type Scope,
+  type Symbol,
+  type UnitBody,
+} from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
 import { spanContains } from "./positions.js"
 import { tokenAtOffset } from "./token-scan.js"
@@ -30,22 +36,12 @@ export interface Document {
 }
 
 /**
- * Iterate every cleanly-parsed ST body of a document with its unit + scope + statement tree — the ONE
- * "walk the POU bodies" loop the nav/assist/structure features share (references, hierarchy, folding, …).
- * Graphical bodies and bodies that don't parse are skipped (conservative).
+ * Every cleanly-parsed ST body of a document with its unit + scope + statement tree — the ONE "walk the
+ * POU bodies" loop the nav/assist/structure features share (references, hierarchy, folding, …). A thin
+ * adapter over the shared `symbols/bodies` iterator (graphical + non-parsing bodies skipped there).
  */
-export function* stBodies(
-  doc: Document,
-  project: Scope,
-): Generator<{ unit: TopLevel; scope: Scope; statements: StatementList }> {
-  for (const unit of doc.parseResult.units) {
-    const scope = scopeForUnit(project, unit) ?? project
-    for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) continue
-      const parsed = parseStatements(body)
-      if (parsed.ok) yield { unit, scope, statements: parsed.statements }
-    }
-  }
+export function stBodies(doc: Document, project: Scope): Generator<UnitBody> {
+  return bodies(doc.parseResult.units, project)
 }
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {

@@ -13,25 +13,19 @@
  * compilers strip dead branches before analysis but we have no preprocessor, so checking would
  * false-positive on stripped-branch references.
  */
-import { parseStatements, stmtExprs, walkStatements, type BodySpan } from "../../../syntax/index.js"
+import { stmtExprs, walkStatements, type BodySpan } from "../../../syntax/index.js"
+import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { findScopeForUnit, getBody, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 import { unresolvedInExprs, unresolvedMembers } from "./_identifier-resolution.js"
 
 /** `{IF ...}` / `{ELSIF ...}` / `{ELSE}` / `{END_IF}` — permissive on inner leading whitespace. */
 const CONDITIONAL_PRAGMA_RE = /^\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i
 
 export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const unit of ctx.parseResult.units) {
-    const body = getBody(unit)
-    if (body === undefined) continue
-    const scope = findScopeForUnit(ctx.project, unit)
-    if (scope === undefined) continue
+  for (const { body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     if (bodyHasConditionalPragma(body)) continue
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-
-    walkStatements(parsed.statements, (stmt) => {
+    walkStatements(statements, (stmt) => {
       const exprs = stmtExprs(stmt)
       for (const ref of unresolvedInExprs(exprs, scope, ctx.project, ctx.references)) {
         out.push({
