@@ -8,7 +8,7 @@ import { pull } from "../sync/pull.js";
 import { push } from "../sync/push.js";
 import { status } from "../sync/status.js";
 import { merge } from "../merge.js";
-import { build } from "../build.js";
+import { build, unpushedCount } from "../build.js";
 import { show } from "../show.js";
 import { log } from "../log.js";
 import { isMerging } from "../git/plumbing.js";
@@ -148,6 +148,43 @@ describe("volt-git sync", () => {
 		const r = await push(root, bridge);
 		expect(r.kind).toBe("rejected");
 		if (r.kind === "rejected") expect(r.reason).toContain("read-only");
+	});
+
+	test("7c. unpushedCount reflects local divergence from the IDE (the build-on-stale-state hint)", async () => {
+		// build runs against the IDE's current project, not local src/. This count is what the CLI uses to
+		// warn "this build reflects the IDE, not your workspace" — proven here to track the real divergence.
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		expect(unpushedCount(root)).toBe(0); // in sync after init
+		writeSrc(root, "A.fb", "a1\nlocal\n");
+		commitAll(root, "edit A");
+		expect(unpushedCount(root)).toBeGreaterThan(0); // local work not yet pushed
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("ok");
+		expect(unpushedCount(root)).toBe(0); // push advanced volt/ide → back in sync
+	});
+
+	test("7b. an unrecognized extension (.dut) is rejected loud — not silently dropped as 'nothing to push'", async () => {
+		// The PackML incident: an AI names a struct `.dut` (CODESYS's term) instead of `.struct`. The bug was
+		// that push silently skipped it and reported "nothing to push — the IDE already matches your workspace",
+		// so the item never reached the IDE and nothing said why — the AI then flailed guessing extensions.
+		const bridge = await setup([{ name: "A.fb", sourceText: "a1\n" }]);
+		writeSrc(root, "E_PackML_State.dut", "TYPE E_PackML_State :\n(\n\tIDLE := 0\n) USINT;\nEND_TYPE\n");
+		const r = await push(root, bridge);
+		expect(r.kind).toBe("rejected"); // the old bug returned kind:"ok" ("nothing to push") here
+		if (r.kind === "rejected") {
+			expect(r.reason).toContain("E_PackML_State.dut"); // names the offender
+			expect(r.reason).toContain(".enum"); // and tells the AI the right extension
+		}
+		expect(bridge.pushCalls.length).toBe(0); // nothing reached the IDE
+		expect(Object.keys((await bridge.getRefs()).items)).toEqual(["A.fb"]); // no PackML item created
+		expect(git(root, "ls-files", "src/E_PackML_State.dut")).toBe(""); // and it was NOT committed — no refs touched
+
+		// Recovery: rename to the correct extension → clean push, the item lands in the IDE.
+		rmSync(srcFile(root, "E_PackML_State.dut"));
+		writeSrc(root, "E_PackML_State.enum", "TYPE E_PackML_State :\n(\n\tIDLE := 0\n) USINT;\nEND_TYPE\n");
+		const r2 = await push(root, bridge);
+		expect(r2.kind).toBe("ok");
+		expect(Object.keys((await bridge.getRefs()).items)).toContain("E_PackML_State.enum");
 	});
 
 	test("8. push is rejected when the IDE drifted", async () => {

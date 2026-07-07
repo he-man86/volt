@@ -6,8 +6,8 @@
  */
 import type { PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
-import { autoCommitSrc, diffRefs, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
-import { isPushable, isReadOnly } from "../registry/extensions.js";
+import { autoCommitSrc, diffRefs, diffWorktree, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
+import { isPushable, isReadOnly, isTrackedPath } from "../registry/extensions.js";
 import { pathToItem } from "../translate/materialize.js";
 import { stripSrcPrefix } from "../workspace/files.js";
 import { computeIncoming, countChanges, hasChanges } from "./diff.js";
@@ -31,6 +31,27 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	const voltHead = voltIdeHead(gitDir);
 	if (sidecar === undefined || voltHead === undefined) {
 		return { kind: "rejected", reason: "no IDE baseline yet — run `volt-git pull` once before pushing" };
+	}
+
+	// Unrecognized-extension guard (BEFORE committing anything). A file like `Foo.dut` isn't in the
+	// extension registry, so the op-builder below silently skips it (pathToItem === undefined) and — if it's
+	// the only change — push would falsely report "nothing to push". This is exactly how an AI that names a
+	// struct `.dut` (CODESYS's term) instead of `.struct` loses its work with no signal. Fail loud instead:
+	// name the offenders + the valid kind extensions, touch no refs, and don't even commit them (so a later
+	// rename to a valid extension is a clean add, not a rename off an unknown old path). Mirrors the
+	// read-only guard below, but pre-commit and keyed on "not a tracked path at all".
+	const foreign = diffWorktree(root, RANGE, "src")
+		.filter((r) => r.kind !== "delete")
+		.map((r) => stripSrcPrefix(r.kind === "rename" ? r.newPath : r.path))
+		.filter((rel) => !isTrackedPath(rel));
+	if (foreign.length > 0) {
+		return {
+			kind: "rejected",
+			reason:
+				`unrecognized file extension — these can't sync to the IDE and were NOT pushed. Rename each to its ` +
+				`Volt kind extension (struct→.struct, enum→.enum, union→.union, alias→.alias; ` +
+				`POUs .fb/.prg/.fun/.itf; global var list .gvl):\n${foreign.map((p) => `  ${p}`).join("\n")}`,
+		};
 	}
 
 	// Simple flow (auto-commit-on-push): commit any working changes, then push the committed branch. A
@@ -95,8 +116,15 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 		} else if (row.kind === "rename") {
 			const newRel = stripSrcPrefix(row.newPath);
 			if (!isPushable(newRel)) continue; // folder marker / foreign file
-			const o = pathToItem(stripSrcPrefix(row.oldPath))!;
+			const o = pathToItem(stripSrcPrefix(row.oldPath));
 			const n = pathToItem(newRel)!;
+			if (o === undefined) {
+				// The old side was never an IDE item (e.g. a foreign-extension file that slipped into HEAD
+				// out-of-band, now renamed to a valid kind). Treat it as a plain create of the new item —
+				// not a rename off a nonexistent identity (which would crash on o.name).
+				setForChange(newRel);
+				continue;
+			}
 			const ver = guardItems[o.name];
 			if (ver === undefined) throw new Error(`renamed item '${o.name}' has no known IDE version — run \`volt-git pull\` first`);
 			ops.push({

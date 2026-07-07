@@ -5,7 +5,7 @@
  */
 import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
-import { build } from "./build.js";
+import { build, unpushedCount } from "./build.js";
 import { configuredBridgePort } from "./config/workspace.js";
 import { diff } from "./diff.js";
 import { init } from "./init.js";
@@ -118,6 +118,9 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "build": {
+			const pending = unpushedCount(root);
+			if (pending > 0 && !args.has("--json"))
+				console.log(`note: ${pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run \`volt-git push\` first.`);
 			const r = await build(bridge, args.has("--full"));
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
