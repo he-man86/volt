@@ -7,12 +7,12 @@ a type or constant, and import from the owning layer instead of re-creating it.
 The layer stack, imports point **downward only**:
 
 ```
-G  server        LSP 3.17 / stdio · dispatch · capabilities · diagnostics
+G  server        LSP 3.17 / stdio · dispatch · capabilities · diagnostics · eager workspace index + watch
 F  reference · graphical   language catalogs · FBD/LD sublanguage (by reuse)
 E  services      navigation · hover/completion · semantic-tokens · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · checks
 C  types         elementary · Type · resolve · const-eval · infer · compat · render
-B  symbols       symbol · scope · binder · scope-nav
+B  symbols       symbol · scope · binder · scope-nav · bodies (the shared ST-body iterator)
 A  syntax        tokens · lexer · complete AST · parser + treewalker
                      ↘ transpile (Rust backend) consumes A·B·C directly
 ```

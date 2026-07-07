@@ -1,22 +1,35 @@
 /**
- * Workspace reference-file scan (node I/O — app tier, above the pure analysis layers).
+ * Workspace scan (node I/O — app tier, above the pure analysis layers).
  *
- * `volt pull` mirrors the IDE project, including read-only reference files whose names are valid
- * identifiers that resolve OUTSIDE the project symbol table — so the unresolved-identifier check must
- * SKIP them, not flag them:
+ * `volt pull` mirrors the IDE project as text files. This module crawls that tree once and returns:
  *
- *   - `.library` files (under a Library Manager) carry a `NAMESPACE <name>` line — the root of a
- *     qualified library reference (`PACK_ML.State`, `L_MC4P.Foo`).
- *   - `.device` files (mirroring the device tree) are named after a device-tree instance — an implicit
- *     global the source reads bare (`MagazineAxes`, `EtherCAT_Master`, the drives + axes).
+ *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.struct`/`.enum`/`.union`/`.alias`/`.gvl`) — the
+ *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
+ *   - **reference names** the unresolved-identifier check must SKIP (they resolve OUTSIDE the project):
+ *       - `.library` files carry a `NAMESPACE <name>` line — the root of a qualified library reference.
+ *       - `.device` files are named after a device-tree instance the source reads bare.
+ *   - **task roots** — the `.task` `Calls:` PROGRAM names dead-code reachability seeds from.
  *
- * Kept as two loaders on purpose: same shape today, but different sources, and if devices ever gain real
- * types they become project symbols while library namespaces stay skips. Names are lowercased (PLC
- * identifiers are case-insensitive). Empty when there are none / the tree is unreadable ⇒ nothing known.
+ * Library namespaces stay skips while devices may one day gain real types, so the two ref sets stay
+ * separate. Names are lowercased (PLC identifiers are case-insensitive). Unreadable files/dirs are
+ * skipped, never thrown ⇒ an empty scan means "nothing known", which degrades safely.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
 import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./analysis/index.js"
+
+/** Kind-named source extensions the binder cross-indexes (CFC/SFC read-only bodies are not here). */
+export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".fb",
+  ".prg",
+  ".fun",
+  ".itf",
+  ".struct",
+  ".enum",
+  ".union",
+  ".alias",
+  ".gvl",
+])
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
 function walkFiles(root: string): string[] {
@@ -41,6 +54,12 @@ function walkFiles(root: string): string[] {
   return out
 }
 
+// ─── per-extension name extractors (shared by the single-file loaders + scanWorkspace) ───
+const libraryNamespaceOf = (file: string): string | undefined =>
+  readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
+const deviceInstanceOf = (file: string): string => basename(file, extname(file))
+const taskRootOf = (file: string): string | undefined => readFileSync(file, "utf8").match(/^Calls:\s+(\S+)/m)?.[1]
+
 /** Scan `<root>` for files with `ext`, map each to a name (undefined ⇒ skip), collect them lowercased. */
 function collect(root: string, ext: string, nameOf: (path: string) => string | undefined): Set<string> {
   const out = new Set<string>()
@@ -59,12 +78,12 @@ function collect(root: string, ext: string, nameOf: (path: string) => string | u
 
 /** Referenced-library namespaces, from each `.library` file's `NAMESPACE` line. */
 export function loadLibraryNamespaces(root: string): Set<string> {
-  return collect(root, ".library", (file) => readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim())
+  return collect(root, ".library", libraryNamespaceOf)
 }
 
 /** Device-tree instance names, from each `.device` file's stem (the instance name is the filename). */
 export function loadDeviceInstances(root: string): Set<string> {
-  return collect(root, ".device", (file) => basename(file, extname(file)))
+  return collect(root, ".device", deviceInstanceOf)
 }
 
 /**
@@ -74,11 +93,50 @@ export function loadDeviceInstances(root: string): Set<string> {
  * there is no task configuration ⇒ the reachability falls back to treating all PROGRAMs as roots (safe).
  */
 export function loadTaskRoots(root: string): Set<string> {
-  return collect(root, ".task", (file) => readFileSync(file, "utf8").match(/^Calls:\s+(\S+)/m)?.[1])
+  return collect(root, ".task", taskRootOf)
 }
 
 /** Both reference-file catalogs for a workspace root — the input the unresolved-identifier check skips. */
 export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   if (root.length === 0) return EMPTY_WORKSPACE_REFS
   return { libraryNamespaces: loadLibraryNamespaces(root), deviceInstances: loadDeviceInstances(root) }
+}
+
+export interface WorkspaceScan {
+  refs: WorkspaceRefs
+  taskRoots: Set<string>
+  sources: { path: string; source: string }[]
+}
+
+/**
+ * One directory walk yielding everything the live server seeds: source files (for the disk layer),
+ * reference-name skip sets, and task roots. Re-runnable — the server calls this at `initialized` and on
+ * every watched-file event so `volt pull` changes are picked up without a restart.
+ */
+export function scanWorkspace(root: string): WorkspaceScan {
+  const empty: WorkspaceScan = { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [] }
+  if (root.length === 0) return empty
+  const libraryNamespaces = new Set<string>()
+  const deviceInstances = new Set<string>()
+  const taskRoots = new Set<string>()
+  const sources: { path: string; source: string }[] = []
+  for (const file of walkFiles(root)) {
+    const ext = extname(file).toLowerCase()
+    try {
+      if (ext === ".library") {
+        const ns = libraryNamespaceOf(file)
+        if (ns) libraryNamespaces.add(ns.toLowerCase())
+      } else if (ext === ".device") {
+        deviceInstances.add(deviceInstanceOf(file).toLowerCase())
+      } else if (ext === ".task") {
+        const p = taskRootOf(file)
+        if (p) taskRoots.add(p.toLowerCase())
+      } else if (SOURCE_EXTENSIONS.has(ext)) {
+        sources.push({ path: file, source: readFileSync(file, "utf8") })
+      }
+    } catch {
+      continue // unreadable file — skip
+    }
+  }
+  return { refs: { libraryNamespaces, deviceInstances }, taskRoots, sources }
 }

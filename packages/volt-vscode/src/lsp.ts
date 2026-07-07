@@ -35,7 +35,11 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: LANGUAGE_IDS.map((id) => ({ language: id })),
 		synchronize: {
-			fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{fb,prg,fun,itf,struct,enum,union,alias,gvl}"),
+			// Source kinds + the reference files (.library/.device/.task) so the server re-indexes after a
+			// `volt pull` without a restart (open buffers still win over disk).
+			fileEvents: vscode.workspace.createFileSystemWatcher(
+				"**/*.{fb,prg,fun,itf,struct,enum,union,alias,gvl,library,device,task}",
+			),
 		},
 		// Forward the declared settings the server may consume (the `diagnostics.*` subtree resolves
 		// to a nested object). Was reading nonexistent `volt.lsp.*` keys.

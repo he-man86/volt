@@ -1,25 +1,36 @@
 import { test, expect } from "bun:test"
 import { PassThrough } from "node:stream"
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import {
+  CallHierarchyIncomingCallsRequest,
+  CallHierarchyOutgoingCallsRequest,
+  CallHierarchyPrepareRequest,
   CodeActionRequest,
   CodeLensRequest,
   CompletionRequest,
   createProtocolConnection,
   DefinitionRequest,
   DidChangeTextDocumentNotification,
+  DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DocumentFormattingRequest,
   DocumentHighlightRequest,
   DocumentSymbolRequest,
+  FileChangeType,
   FoldingRangeRequest,
   HoverRequest,
   ImplementationRequest,
+  InitializedNotification,
   InitializeRequest,
   InlayHintRequest,
   PrepareRenameRequest,
   PublishDiagnosticsNotification,
   ReferencesRequest,
+  RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
   SemanticTokensRequest,
@@ -27,6 +38,12 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   TypeDefinitionRequest,
+  TypeHierarchyPrepareRequest,
+  TypeHierarchySubtypesRequest,
+  TypeHierarchySupertypesRequest,
+  WorkspaceSymbolRequest,
+  type CallHierarchyItem,
+  type TypeHierarchyItem,
 } from "vscode-languageserver-protocol/node.js"
 import { runServer } from "./server.js"
 
@@ -36,6 +53,7 @@ function connect(vendor: "codesys" | "twincat" = "codesys") {
   const s2c = new PassThrough()
   runServer(c2s, s2c, vendor) // server reads c2s, writes s2c
   const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
+  client.onRequest(RegistrationRequest.type, () => null) // ack the file-watcher dynamic registration
   client.listen()
   return client
 }
@@ -259,4 +277,281 @@ test("server: didChange re-parses; didClose clears diagnostics", async () => {
   await client.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri: URI } })
   expect((await cleared).diagnostics).toEqual([])
   client.dispose()
+})
+
+// ─── eager workspace index: cross-file resolution from disk + freshness on file events ──────────
+
+/** The next PublishDiagnostics for `uri`. Register BEFORE the action that triggers the publish. */
+function onceDiag(client: ReturnType<typeof connect>, uri: string): Promise<{ message: string }[]> {
+  return new Promise((res) => {
+    const d = client.onNotification(PublishDiagnosticsNotification.type, (p) => {
+      if (p.uri === uri) {
+        d.dispose()
+        res(p.diagnostics as { message: string }[])
+      }
+    })
+  })
+}
+const notDefined = (diags: { message: string }[], name: string) =>
+  diags.some((x) => x.message === `Identifier '${name}' not defined`)
+
+/** initialize + `initialized` (which runs the eager crawl) against a real workspace dir. */
+async function initInDir(client: ReturnType<typeof connect>, root: string) {
+  await client.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: pathToFileURL(root).href,
+    capabilities: { workspace: { didChangeWatchedFiles: { dynamicRegistration: true } } },
+  })
+  await client.sendNotification(InitializedNotification.type, {})
+}
+
+function tempWorkspace(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), "volt-ws-"))
+  for (const [name, content] of Object.entries(files)) {
+    const p = join(dir, name)
+    mkdirSync(join(p, ".."), { recursive: true })
+    writeFileSync(p, content)
+  }
+  return dir
+}
+
+const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nmode := E_Mode.Idle;\nEND_PROGRAM`
+const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
+
+test("server: a type in an unopened sibling file resolves (eager disk index)", async () => {
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
+  const client = connect()
+  await initInDir(client, dir)
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const diags = onceDiag(client, prgUri)
+  // Open ONLY the referencing file; E_Mode lives in an unopened sibling on disk.
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  expect(notDefined(await diags, "E_Mode")).toBe(false)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("server: an open buffer overrides the on-disk version", async () => {
+  // Disk declares E_Mode; the open buffer renames it away → the reference no longer resolves.
+  const dir = tempWorkspace({ "E_Mode.enum": ENUM })
+  const client = connect()
+  await initInDir(client, dir)
+  const uri = pathToFileURL(join(dir, "E_Mode.enum")).href
+  const diags = onceDiag(client, uri)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri, languageId: "iecst", version: 1, text: `TYPE E_Other : (Idle, Run); END_TYPE` },
+  })
+  await diags // just ensure the buffer is analyzed, not disk
+  // Now a referencing file should NOT see E_Mode (the buffer shadows the disk decl).
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgDiags = onceDiag(client, prgUri)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  expect(notDefined(await prgDiags, "E_Mode")).toBe(true)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("server: a newly added file re-indexes on didChangeWatchedFiles (create)", async () => {
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG }) // no E_Mode yet
+  const client = connect()
+  await initInDir(client, dir)
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const before = onceDiag(client, prgUri)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  expect(notDefined(await before, "E_Mode")).toBe(true) // unresolved until the enum lands
+
+  const enumPath = join(dir, "E_Mode.enum")
+  writeFileSync(enumPath, ENUM)
+  const after = onceDiag(client, prgUri) // reindex re-publishes for open docs
+  await client.sendNotification(DidChangeWatchedFilesNotification.type, {
+    changes: [{ uri: pathToFileURL(enumPath).href, type: FileChangeType.Created }],
+  })
+  expect(notDefined(await after, "E_Mode")).toBe(false)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", async () => {
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
+  const client = connect()
+  await initInDir(client, dir)
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const before = onceDiag(client, prgUri)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  expect(notDefined(await before, "E_Mode")).toBe(false)
+
+  const enumPath = join(dir, "E_Mode.enum")
+  rmSync(enumPath)
+  const after = onceDiag(client, prgUri)
+  await client.sendNotification(DidChangeWatchedFilesNotification.type, {
+    changes: [{ uri: pathToFileURL(enumPath).href, type: FileChangeType.Deleted }],
+  })
+  expect(notDefined(await after, "E_Mode")).toBe(true)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("server: a closed declaring file stays indexed from disk", async () => {
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
+  const client = connect()
+  await initInDir(client, dir)
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const enumUri = pathToFileURL(join(dir, "E_Mode.enum")).href
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: enumUri, languageId: "iecst", version: 1, text: ENUM },
+  })
+  // Close the declaring file — its disk copy must keep E_Mode resolvable in PLC_PRG.
+  await client.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri: enumUri } })
+  const diags = onceDiag(client, prgUri)
+  await client.sendNotification(DidChangeTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, version: 2 },
+    contentChanges: [{ text: PRG }], // touch to force a re-publish
+  })
+  expect(notDefined(await diags, "E_Mode")).toBe(false)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("server: a file open AND on disk contributes its symbols once (definition is single)", async () => {
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
+  const client = connect()
+  await initInDir(client, dir)
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const enumUri = pathToFileURL(join(dir, "E_Mode.enum")).href
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
+  })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: enumUri, languageId: "iecst", version: 1, text: ENUM },
+  })
+  const def = await client.sendRequest(DefinitionRequest.type, {
+    textDocument: { uri: prgUri },
+    position: { line: 2, character: 9 }, // the `E_Mode` type ref in `mode : E_Mode;`
+  })
+  // One declaration, not two — the merge keyed the open buffer and its disk file to one entry.
+  const locations = Array.isArray(def) ? def : def ? [def] : []
+  expect(locations.length).toBe(1)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+// ─── workspace navigation: call/type hierarchy + workspace symbol ───────────────────────────────
+
+const CALLS = `FUNCTION Helper : INT
+Helper := 1;
+END_FUNCTION
+FUNCTION Caller : INT
+Caller := Helper();
+END_FUNCTION`
+const CALLS_URI = "file:///Calls.fun"
+
+async function openCalls(client: ReturnType<typeof connect>) {
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: CALLS_URI, languageId: "iecst", version: 1, text: CALLS },
+  })
+}
+
+test("server: initialize advertises hierarchy + workspaceSymbol providers", async () => {
+  const client = connect()
+  const init = await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  expect(init.capabilities.callHierarchyProvider).toBe(true)
+  expect(init.capabilities.typeHierarchyProvider).toBe(true)
+  expect(init.capabilities.workspaceSymbolProvider).toBe(true)
+  client.dispose()
+})
+
+test("server: call hierarchy — incoming reports the caller with ranges (from/fromRanges)", async () => {
+  const client = connect()
+  await openCalls(client)
+  const prep = (await client.sendRequest(CallHierarchyPrepareRequest.type, {
+    textDocument: { uri: CALLS_URI },
+    position: { line: 0, character: 11 }, // the `Helper` in `FUNCTION Helper`
+  })) as CallHierarchyItem[]
+  expect(prep[0]?.name).toBe("Helper")
+  const incoming = (await client.sendRequest(CallHierarchyIncomingCallsRequest.type, { item: prep[0]! })) as {
+    from: { name: string }
+    fromRanges: unknown[]
+  }[]
+  expect(incoming[0]?.from.name).toBe("Caller")
+  expect(incoming[0]?.fromRanges.length).toBeGreaterThan(0)
+  client.dispose()
+})
+
+test("server: call hierarchy — outgoing lists the callee (to/fromRanges)", async () => {
+  const client = connect()
+  await openCalls(client)
+  const prep = (await client.sendRequest(CallHierarchyPrepareRequest.type, {
+    textDocument: { uri: CALLS_URI },
+    position: { line: 3, character: 11 }, // the `Caller` in `FUNCTION Caller`
+  })) as CallHierarchyItem[]
+  expect(prep[0]?.name).toBe("Caller")
+  const outgoing = (await client.sendRequest(CallHierarchyOutgoingCallsRequest.type, { item: prep[0]! })) as {
+    to: { name: string }
+    fromRanges: unknown[]
+  }[]
+  expect(outgoing.map((o) => o.to.name)).toContain("Helper")
+  expect(outgoing[0]?.fromRanges.length).toBeGreaterThan(0)
+  client.dispose()
+})
+
+const OOP = `FUNCTION_BLOCK Base
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Derived EXTENDS Base
+END_FUNCTION_BLOCK`
+const OOP_URI = "file:///Oop.fb"
+
+test("server: type hierarchy — supertypes and subtypes span the workspace", async () => {
+  const client = connect()
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: OOP_URI, languageId: "iecst", version: 1, text: OOP },
+  })
+  // Prepare on Derived → its supertype is Base.
+  const prepDerived = (await client.sendRequest(TypeHierarchyPrepareRequest.type, {
+    textDocument: { uri: OOP_URI },
+    position: { line: 2, character: 17 }, // the `Derived` in `FUNCTION_BLOCK Derived`
+  })) as TypeHierarchyItem[]
+  expect(prepDerived[0]?.name).toBe("Derived")
+  const supers = (await client.sendRequest(TypeHierarchySupertypesRequest.type, { item: prepDerived[0]! })) as {
+    name: string
+  }[]
+  expect(supers.map((s) => s.name)).toContain("Base")
+  // Prepare on Base → its subtype is Derived.
+  const prepBase = (await client.sendRequest(TypeHierarchyPrepareRequest.type, {
+    textDocument: { uri: OOP_URI },
+    position: { line: 0, character: 16 }, // the `Base` in `FUNCTION_BLOCK Base`
+  })) as TypeHierarchyItem[]
+  const subs = (await client.sendRequest(TypeHierarchySubtypesRequest.type, { item: prepBase[0]! })) as {
+    name: string
+  }[]
+  expect(subs.map((s) => s.name)).toContain("Derived")
+  client.dispose()
+})
+
+test("server: workspaceSymbol finds a DUT in an unopened file and narrows by query", async () => {
+  const dir = tempWorkspace({ "E_Mode.enum": ENUM, "PLC_PRG.prg": PRG })
+  const client = connect()
+  await initInDir(client, dir) // eager crawl indexes both files without opening them
+  const all = (await client.sendRequest(WorkspaceSymbolRequest.type, { query: "E_Mode" })) as {
+    name: string
+    location: { uri: string }
+  }[]
+  expect(all.some((s) => s.name === "E_Mode")).toBe(true)
+  // The query narrows — an unrelated substring returns no E_Mode.
+  const narrowed = (await client.sendRequest(WorkspaceSymbolRequest.type, { query: "zzz" })) as { name: string }[]
+  expect(narrowed.some((s) => s.name === "E_Mode")).toBe(false)
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })

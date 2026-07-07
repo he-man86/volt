@@ -8,57 +8,66 @@
  */
 import type { Readable, Writable } from "node:stream"
 import {
+  CallHierarchyIncomingCallsRequest,
+  CallHierarchyOutgoingCallsRequest,
+  CallHierarchyPrepareRequest,
   CodeActionRequest,
   CompletionRequest,
   createProtocolConnection,
   DefinitionRequest,
   DiagnosticSeverity,
   DidChangeTextDocumentNotification,
+  DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DocumentFormattingRequest,
   DocumentHighlightRequest,
   DocumentRangeFormattingRequest,
   DocumentSymbolRequest,
+  ExitNotification,
   FoldingRangeRequest,
   HoverRequest,
   ImplementationRequest,
+  InitializedNotification,
   InitializeRequest,
   InlayHintRequest,
   PrepareRenameRequest,
   PublishDiagnosticsNotification,
   ReferencesRequest,
+  RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
   SemanticTokensRequest,
+  ShutdownRequest,
   SignatureHelpRequest,
   StreamMessageReader,
   StreamMessageWriter,
   TextDocumentSyncKind,
   TypeDefinitionRequest,
+  TypeHierarchyPrepareRequest,
+  TypeHierarchySubtypesRequest,
+  TypeHierarchySupertypesRequest,
+  WorkspaceSymbolRequest,
   CodeLensRequest,
   type Diagnostic,
   type InitializeResult,
 } from "vscode-languageserver-protocol/node.js"
-import { TextDocument } from "vscode-languageserver-textdocument"
-import { fileURLToPath } from "node:url"
-import { parseSource, type Span } from "../syntax/index.js"
-import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import {
   computeSemanticDiagnostics,
-  deadPous,
-  deadMemberSpans,
   inDeadMember,
-  EMPTY_WORKSPACE_REFS,
   messagesFor,
   ownerPou,
   resolveConfig,
   type DiagnosticItem,
   type Vendor,
-  type WorkspaceRefs,
 } from "../analysis/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../workspace-refs.js"
+import { scanWorkspace, SOURCE_EXTENSIONS } from "../workspace-refs.js"
+import type { Scope, Symbol } from "../symbols/index.js"
+import { WorkspaceStore } from "./workspace-store.js"
 import {
+  callIncoming,
+  callOutgoing,
   codeActions,
   codeLenses,
   completion,
@@ -71,6 +80,8 @@ import {
   implementation,
   inlayHints,
   pragmaHover,
+  prepareCallHierarchy,
+  prepareTypeHierarchy,
   offsetFromPosition,
   rangeFromSpan,
   selectionRange,
@@ -78,7 +89,11 @@ import {
   SEMANTIC_TOKEN_TYPES,
   signatureHelp,
   typeDefinition,
+  typeSubtypes,
+  typeSupertypes,
+  workspaceSymbols,
   type Document,
+  type HierItem,
 } from "../services/index.js"
 import {
   computeVgDiagnostics,
@@ -115,43 +130,27 @@ const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
 
 export function runServer(input: Readable, output: Writable, vendor: Vendor = "codesys"): void {
   const conn = createProtocolConnection(new StreamMessageReader(input), new StreamMessageWriter(output))
-  // Reassigned on initialize once the client's initializationOptions arrive (e.g. `diagnoseDeadCode`).
-  let config = resolveConfig({ vendor })
-  // Workspace reference-file names (library namespaces + device instances) — loaded once from the root on
-  // initialize; the unresolved-identifier check skips them. Empty until then / when there is no root.
-  let workspaceRefs: WorkspaceRefs = EMPTY_WORKSPACE_REFS
-  // Task-entry PROGRAM names (from `.task` `Calls:`) — dead-code reachability seeds its roots from these.
-  let taskRoots: ReadonlySet<string> | undefined
   const messages = messagesFor(vendor)
-  const docs = new Map<string, TextDocument>()
-  let cachedProject: Scope | undefined
-  let cachedDead: Set<string> | undefined
-  let cachedDeadMembers: Map<string, Span[]> | undefined
+  const store = new WorkspaceStore(resolveConfig({ vendor }))
+  // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
+  let root: string | undefined
+  let clientWatchDynReg = false
 
-  const project = (): Scope => (cachedProject ??= rebuild())
-  const rebuild = (): Scope =>
-    buildSymbolTable(
-      [...docs.values()].map((td) => {
-        const source = td.getText()
-        return { uri: td.uri, source, parseResult: parseSource(source) }
-      }),
-    )
-  const workspace = (): Document[] => [...docs.values()].map(toDoc)
-  // Dead-POU set, rebuilt once per workspace edit. Empty when dead-code diagnosis is enabled.
-  const deadSet = (): Set<string> =>
-    (cachedDead ??= config.diagnoseDeadCode ? new Set() : deadPous(workspace(), taskRoots))
-  // Dead-MEMBER spans per URI (excluded/uncalled methods inside a LIVE FB) — same on/off gate as deadSet.
-  const deadMembers = (): Map<string, Span[]> =>
-    (cachedDeadMembers ??= config.diagnoseDeadCode ? new Map() : deadMemberSpans(workspace(), deadSet()))
-  const invalidate = (): void => {
-    cachedProject = undefined
-    cachedDead = undefined
-    cachedDeadMembers = undefined
-  }
+  const project = () => store.project()
+  const workspace = (): Document[] => store.workspace()
+  const doc = (uri: string): Document | undefined => store.doc(uri)
 
-  function doc(uri: string): Document | undefined {
-    const td = docs.get(uri)
-    return td !== undefined ? toDoc(td) : undefined
+  /** Re-crawl the workspace (source files + reference names + task roots) into the store, then refresh
+   *  diagnostics for open documents. Run at `initialized` and on every watched-file event.
+   *  ponytail: full rescan per event batch (client debounces); go incremental only if a project is big
+   *  enough that a re-read stutters. */
+  function reindex(): void {
+    if (root === undefined) return
+    const scan = scanWorkspace(root)
+    store.workspaceRefs = scan.refs
+    store.taskRoots = scan.taskRoots
+    store.seedDisk(scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source })))
+    for (const uri of store.openUris()) pushDiagnostics(uri)
   }
 
   function pushDiagnostics(uri: string): void {
@@ -160,21 +159,25 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     // Suppress semantic diagnostics on a structurally-dead unit (the compiler never checks it either).
     // Parse errors always ride through — a genuinely broken parse is a real problem, not a dead-code FP.
     const owner = ownerPou(d.parseResult)
-    const dead = owner !== undefined && deadSet().has(owner)
-    // Excluded/uncalled methods inside this (live) file — their diagnostics are suppressed too.
-    const dm = dead ? undefined : deadMembers().get(uri)
+    const dead = owner !== undefined && store.deadSet().has(owner)
+    // Excluded/uncalled methods inside this (live) file — their diagnostics are suppressed too. Keyed by the
+    // resolved doc's URI (`d.uri`), which is the disk-crawl URI for a closed-but-on-disk file, not the raw
+    // client URI — the deadMembers map is keyed the same way, so `uri` (client) would miss after a close.
+    const dm = dead ? undefined : store.deadMembers().get(d.uri)
     const items = dead
       ? []
       : computeSemanticDiagnostics({
           parseResult: d.parseResult,
           source: d.source,
           project: project(),
-          config,
-          references: workspaceRefs,
+          config: store.config,
+          references: store.workspaceRefs,
         }).filter((it) => !inDeadMember(it.span, dm))
     const diagnostics: Diagnostic[] = [
       ...items.map(toLspDiagnostic),
-      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, workspaceRefs)).filter((it) => !inDeadMember(it.span, dm)).map(toLspDiagnostic),
+      ...(dead ? [] : computeVgDiagnostics(d, project(), messages, store.workspaceRefs))
+        .filter((it) => !inDeadMember(it.span, dm))
+        .map(toLspDiagnostic),
       ...d.parseResult.errors.map((e) => ({
         range: rangeFromSpan(e.span),
         severity: DiagnosticSeverity.Error,
@@ -188,12 +191,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // ─── lifecycle ───────────────────────────────────────────────────────────
   conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
     const opts = params.initializationOptions as { diagnoseDeadCode?: boolean } | undefined
-    if (opts?.diagnoseDeadCode !== undefined) config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
-    const root = workspaceRoot(params.rootUri, params.rootPath)
-    if (root !== undefined) {
-      workspaceRefs = loadWorkspaceRefs(root)
-      taskRoots = loadTaskRoots(root)
-    }
+    if (opts?.diagnoseDeadCode !== undefined)
+      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode })
+    root = workspaceRoot(params.rootUri, params.rootPath)
+    clientWatchDynReg = params.capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration === true
     return {
       capabilities: {
         textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -205,6 +206,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         documentHighlightProvider: true,
         documentSymbolProvider: true,
         renameProvider: { prepareProvider: true },
+        callHierarchyProvider: true,
+        typeHierarchyProvider: true,
+        workspaceSymbolProvider: true,
         completionProvider: { triggerCharacters: ["."] },
         signatureHelpProvider: { triggerCharacters: ["(", ","] },
         foldingRangeProvider: true,
@@ -223,25 +227,49 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     }
   })
 
+  // `initialized` follows the handshake — do the heavy eager crawl here so the InitializeResult stays
+  // instant, then register the file watcher so `volt pull` changes re-index without a restart.
+  conn.onNotification(InitializedNotification.type, () => {
+    reindex()
+    if (root !== undefined && clientWatchDynReg) {
+      const exts = [...SOURCE_EXTENSIONS, ".library", ".device", ".task"]
+      conn
+        .sendRequest(RegistrationRequest.type, {
+          registrations: [
+            {
+              id: "volt-watch",
+              method: DidChangeWatchedFilesNotification.method,
+              registerOptions: { watchers: exts.map((ext) => ({ globPattern: `**/*${ext}` })) },
+            },
+          ],
+        })
+        .catch(() => {}) // a client that advertised dynamicRegistration but can't register — degrade to fresh-at-init
+    }
+  })
+  conn.onRequest(ShutdownRequest.type, () => null)
+  conn.onNotification(ExitNotification.type, () => process.exit(0))
+
   // ─── document sync ───────────────────────────────────────────────────────
   conn.onNotification(DidOpenTextDocumentNotification.type, (p) => {
     const t = p.textDocument
-    docs.set(t.uri, TextDocument.create(t.uri, t.languageId, t.version, t.text))
-    invalidate()
+    store.openDocument(t.uri, t.languageId, t.version, t.text)
     pushDiagnostics(t.uri)
   })
   conn.onNotification(DidChangeTextDocumentNotification.type, (p) => {
-    const td = docs.get(p.textDocument.uri)
-    if (td === undefined) return
-    docs.set(p.textDocument.uri, TextDocument.update(td, p.contentChanges, p.textDocument.version ?? td.version))
-    invalidate()
+    if (!store.changeDocument(p.textDocument.uri, p.textDocument.version, p.contentChanges)) return
     pushDiagnostics(p.textDocument.uri)
   })
   conn.onNotification(DidCloseTextDocumentNotification.type, (p) => {
-    docs.delete(p.textDocument.uri)
-    invalidate()
-    void conn.sendNotification(PublishDiagnosticsNotification.type, { uri: p.textDocument.uri, diagnostics: [] })
+    store.closeDocument(p.textDocument.uri)
+    // The file may still be in the disk index; re-publish so any diagnostics reflect the on-disk copy.
+    pushDiagnostics(p.textDocument.uri)
+    if (doc(p.textDocument.uri) === undefined)
+      void conn.sendNotification(PublishDiagnosticsNotification.type, { uri: p.textDocument.uri, diagnostics: [] })
   })
+
+  // ─── watched files (freshness): re-index on create/change/delete of source + reference files ──
+  // A full rescan reflects creates, deletes, and reference-file edits in one path (reads current disk).
+  conn.onNotification(DidChangeWatchedFilesNotification.type, () => reindex())
 
   // ─── position-based queries ──────────────────────────────────────────────
   const at = <T>(
@@ -309,6 +337,57 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     )
   })
 
+  // ─── call / type hierarchy ─────────────────────────────────────────────────
+  // The client re-sends the prepared item on the follow-up call; re-resolve it to its Symbol by mapping the
+  // item's (uri, selectionRange) back to a document offset and running the same prepare — one resolution path.
+  const reResolve = (
+    item: HierItem,
+    prepare: (d: Document, project: Scope, o: number) => { sym: Symbol } | undefined,
+  ): { d: Document; sym: Symbol } | undefined => {
+    const d = doc(item.uri)
+    if (d === undefined) return undefined
+    const off = offsetFromPosition(d.source, item.selectionRange.start)
+    if (off < 0) return undefined
+    const p = prepare(d, project(), off)
+    return p !== undefined ? { d, sym: p.sym } : undefined
+  }
+
+  conn.onRequest(CallHierarchyPrepareRequest.type, (p) =>
+    at(p.textDocument.uri, p.position, (d, o) => {
+      const r = prepareCallHierarchy(d, project(), o)
+      return r !== undefined ? [r.item] : null
+    }),
+  )
+  conn.onRequest(CallHierarchyIncomingCallsRequest.type, (p) => {
+    const r = reResolve(p.item, prepareCallHierarchy)
+    return r === undefined
+      ? null
+      : callIncoming(workspace(), project(), r.sym).map((c) => ({ from: c.item, fromRanges: c.ranges }))
+  })
+  conn.onRequest(CallHierarchyOutgoingCallsRequest.type, (p) => {
+    const r = reResolve(p.item, prepareCallHierarchy)
+    return r === undefined
+      ? null
+      : callOutgoing(r.d, project(), r.sym).map((c) => ({ to: c.item, fromRanges: c.ranges }))
+  })
+
+  conn.onRequest(TypeHierarchyPrepareRequest.type, (p) =>
+    at(p.textDocument.uri, p.position, (d, o) => {
+      const r = prepareTypeHierarchy(d, project(), o)
+      return r !== undefined ? [r.item] : null
+    }),
+  )
+  conn.onRequest(TypeHierarchySupertypesRequest.type, (p) => {
+    const r = reResolve(p.item, prepareTypeHierarchy)
+    return r === undefined ? null : typeSupertypes(project(), r.sym)
+  })
+  conn.onRequest(TypeHierarchySubtypesRequest.type, (p) => {
+    const r = reResolve(p.item, prepareTypeHierarchy)
+    return r === undefined ? null : typeSubtypes(workspace(), r.sym)
+  })
+
+  conn.onRequest(WorkspaceSymbolRequest.type, (p) => workspaceSymbols(project(), p.query))
+
   // ─── document-wide queries ───────────────────────────────────────────────
   const whole = <T>(uri: string, fn: (d: Document) => T): T | null => {
     const d = doc(uri)
@@ -348,11 +427,6 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   )
 
   conn.listen()
-}
-
-function toDoc(td: TextDocument): Document {
-  const source = td.getText()
-  return { uri: td.uri, source, parseResult: parseSource(source) }
 }
 
 function toLspDiagnostic(item: DiagnosticItem): Diagnostic {
