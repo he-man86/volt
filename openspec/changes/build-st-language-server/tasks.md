@@ -92,18 +92,18 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    indent, `LET` wires) is accepted, compiles, and the compiler emits errors that even match our wording
    (`Identifier 'nope' not defined`, `'nope' is no component of 'TON'`, `No such label 'MISSING'…`). The first
    probe was rejected only because it was non-canonical (`VG_NOT_CANONICAL`). TO ADD: wire `computeVgDiagnostics`
-   into the replay's `runLsp`, author canonical VG fixtures, record. Deferred pending the parity concern (#3c).
-3c. **Bridge↔LSP VG parity — NOT bulletproof (found 2026-07-07).** Two VG implementations: the bridge's C#
-   `VgParser`/`VgWriter` + canonical/round-trip gate (`VG_NOT_CANONICAL`/`VG_PLCOPEN_DRIFT`/`VG_LEAF_*`), and the
-   LSP's TS parser + structural subset (`VG_PARSE`/`NOT_CLOSED`/`DUPLICATE`) + semantic checks. By design the LSP
-   DEFERS the canonical gate to the bridge (`graphical/text/ast.ts:120`). CONCRETE DIVERGENCE: the LSP ACCEPTS a
-   non-canonical VG body (0 diagnostics) that the bridge REJECTS (`VG_NOT_CANONICAL`) — an LSP-backed editor
-   shows a VG edit as fine, then the push fails. The bridge gate is CORRECT (leading indent is part of the
-   canonical form; `Canon()` only trims trailing ws), so it's an LSP gap, not a bridge bug. Options: (a) LSP
-   implements a canonical/round-trip check (a TS `VgWriter` — the big duplicate the design avoided), or (b) treat
-   the bridge as authority + surface its refusal in the editor. The SHARED structural checks (parse/not-closed/
-   duplicate) are also duplicated across C#+TS and can drift — the right guard is a shared VG parity corpus fed
-   to BOTH layers (the wire-parity principle). A substantial, separate workstream.
+   into the replay's `runLsp`, author canonical VG fixtures, record. Can proceed independently of #3c.
+3c. **Bridge↔LSP VG responsibilities — BY DESIGN, no conflict (clarified 2026-07-07).** Earlier framed as a
+   "parity gap"; the design intent resolves it: the **bridge's VG checks exist ONLY to prevent CORRUPT ladder/
+   FBD logic** (can the body be stored + round-tripped without drift — `VG_NOT_CANONICAL`/`VG_PLCOPEN_DRIFT`/
+   `VG_LEAF_*`), NOT to validate working code. **Validating the CODE is the LSP's job** (semantic checks). So the
+   observed "divergence" — the LSP accepts a non-canonical body the bridge refuses — is NOT a conflict: the body
+   is semantically valid (LSP right) AND not safely storable as-is (bridge right); the push error returns the
+   canonical form. No corruption, no correctness bug → **no new openspec needed, not a blocker for LSP tests.**
+   Residual (low-risk): the SHARED structural checks (`VG_PARSE`/`NOT_CLOSED`/`DUPLICATE`) are coded twice (C#+TS)
+   and could drift — but the bridge still catches any corruption on push, so it's convenience-drift only. A
+   shared VG parity corpus (feed the same bodies to both, assert identical STRUCTURAL verdicts) is a nice-to-have
+   guard, not required.
 4. **pragma checks — ✅ CLOSED (2026-07-07).** The live IDE pruned the speculative ones before they shipped:
    unterminated `{IF}` is a real error (shipped as `unterminated-conditional-pragma`, wording locked); but
    unterminated `{region}`, orphan `{endregion}`, and an unknown-pragma-DIRECTIVE lint all build CLEAN on CODESYS
