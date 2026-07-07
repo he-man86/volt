@@ -49,6 +49,27 @@ test("hover: a named unit shows its declaring keyword", () => {
   expect((h?.contents as { value: string }).value).toContain("FUNCTION_BLOCK Lib")
 })
 
+test("hover: each unit kind reconstructs its declaring keyword", () => {
+  // Covers the declKeyword rendering for typeExpr-less symbols (program/interface/type/method/action/…).
+  const src = `PROGRAM P
+END_PROGRAM
+INTERFACE I
+END_INTERFACE
+TYPE T : STRUCT x : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK FB
+END_FUNCTION_BLOCK
+METHOD M
+END_METHOD`
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const project = buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const kw = (needle: string, prefix: string) =>
+    (hover(doc, project, src.indexOf(needle) + prefix.length)?.contents as { value: string } | undefined)?.value ?? ""
+  expect(kw("PROGRAM P", "PROGRAM ")).toContain("PROGRAM P")
+  expect(kw("INTERFACE I", "INTERFACE ")).toContain("INTERFACE I")
+  expect(kw("TYPE T", "TYPE ")).toContain("TYPE T")
+  expect(kw("METHOD M", "METHOD ")).toContain("METHOD M") // return-less method → declKeyword path
+})
+
 test("hover: a built-in type falls back to the reference catalog", () => {
   const { doc, project } = setup(SRC)
   const h = hover(doc, project, SRC.indexOf("r : INT") + "r : ".length)
