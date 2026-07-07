@@ -14,6 +14,32 @@ const codes = (src: string, v: Vendor): string[] =>
     .map((d) => d.code)
     .sort()
 
+// FP-bait battery: code the live compilers ACCEPT (verified against :8556/:8555, 2026-07-07). Each must
+// produce ZERO error-severity diagnostics — these are the near-miss cases where a type check is most likely
+// to over-fire. This is what caught the (now-removed) overflow check's false positives.
+test("type checks do not false-positive on compiler-accepted code", () => {
+  const accepts = [
+    "x : REAL;\nEND_VAR\nx := 5;", // int literal → REAL
+    "x : LREAL;\nEND_VAR\nx := 5;", // int literal → LREAL
+    "x : INT; y : DINT;\nEND_VAR\ny := x;", // widening
+    "w : WORD;\nEND_VAR\nw := 16#FF;", // hex → WORD
+    "x : INT; w : WORD;\nEND_VAR\nx := w;", // WORD → INT (compiler warns, never errors)
+    "s : STRING;\nEND_VAR\ns := 'abc';", // string literal
+    "t : TIME;\nEND_VAR\nt := T#1S;", // time literal
+    "x : INT; y : DINT; z : DINT;\nEND_VAR\nz := x + y;", // mixed-width arithmetic
+    "x : REAL; y : INT; z : REAL;\nEND_VAR\nz := x + y;", // real + int
+    "x : BYTE; y : WORD; z : WORD;\nEND_VAR\nz := x AND y;", // bitwise mixed width
+    "x : INT := 40000;", // out-of-range literal — compiler accepts (conversion), not an error
+    "x : INT := 30000 + 10000;", // const-expr over max — compiler accepts
+    "p : POINTER TO INT; x : INT;\nEND_VAR\nx := p^;", // valid deref
+  ]
+  for (const decls of accepts) {
+    const src = `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_FUNCTION_BLOCK`
+    const errs = diag(src, "codesys").filter((d) => d.severity === "error")
+    expect(errs.map((d) => `${decls} → ${d.code}`)).toEqual([])
+  }
+})
+
 test("clean code produces no diagnostics (no false positives)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n a : INT; b : INT;\nEND_VAR\na := b + 1;\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys")).toEqual([])

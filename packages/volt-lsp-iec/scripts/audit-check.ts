@@ -19,8 +19,10 @@ const VENDOR: Vendor = PORT === "8555" ? "twincat" : "codesys"
 const get = async (p: string): Promise<any> => (await fetch(BASE + p)).json()
 const post = async (p: string, b: unknown): Promise<any> =>
   (await fetch(BASE + p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) })).json()
-async function pushOps(ops: unknown[]): Promise<void> {
-  await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })
+async function pushOps(ops: unknown[]): Promise<boolean> {
+  const r = await post("/push", { expectedProjectVersion: (await get("/refs")).projectVersion, ops })
+  if (!r.accepted) console.warn("  push rejected:", JSON.stringify(r.conflicts ?? r).slice(0, 160))
+  return !!r.accepted
 }
 const ver = async (n: string): Promise<string | null> => (await get("/refs")).items[n] ?? null
 
@@ -47,6 +49,39 @@ const BATTERIES: Record<string, Case[]> = {
     { name: "at_bound", decls: "x : INT(0..10) := 10;" },
     { name: "assign_out", decls: "x : INT(0..10);", body: "x := 20;" },
   ],
+  // FP-bait: things that LOOK type-mismatched but the compiler ACCEPTS.
+  assign: [
+    { name: "int_lit_to_int", decls: "x : INT;", body: "x := 5;" },
+    { name: "int_lit_to_real", decls: "x : REAL;", body: "x := 5;" },
+    { name: "int_lit_to_lreal", decls: "x : LREAL;", body: "x := 5;" },
+    { name: "widen_int_to_dint", decls: "x : INT; y : DINT;", body: "y := x;" },
+    { name: "narrow_dint_to_int", decls: "x : INT; y : DINT;", body: "x := y;" },
+    { name: "int_to_byte", decls: "x : INT; b : BYTE;", body: "b := x;" },
+    { name: "hex_to_word", decls: "w : WORD;", body: "w := 16#FF;" },
+    { name: "bool_from_int_lit", decls: "b : BOOL;", body: "b := 1;" },
+    { name: "real_to_int", decls: "x : INT; r : REAL;", body: "x := r;" },
+    { name: "time_lit", decls: "t : TIME;", body: "t := T#1S;" },
+    { name: "string_lit", decls: "s : STRING;", body: "s := 'abc';" },
+    { name: "byte_to_int", decls: "x : INT; b : BYTE;", body: "x := b;" },
+    { name: "word_to_int", decls: "x : INT; w : WORD;", body: "x := w;" },
+  ],
+  binop: [
+    { name: "int_plus_int", decls: "x : INT; y : INT; z : INT;", body: "z := x + y;" },
+    { name: "int_plus_dint", decls: "x : INT; y : DINT; z : DINT;", body: "z := x + y;" },
+    { name: "real_plus_int", decls: "x : REAL; y : INT; z : REAL;", body: "z := x + y;" },
+    { name: "mod_on_real", decls: "x : REAL; y : REAL; z : REAL;", body: "z := x MOD y;" },
+    { name: "int_and_int", decls: "x : INT; y : INT; z : INT;", body: "z := x AND y;" },
+    { name: "bool_and_bool", decls: "a : BOOL; b : BOOL; c : BOOL;", body: "c := a AND b;" },
+    { name: "byte_and_word", decls: "x : BYTE; y : WORD; z : WORD;", body: "z := x AND y;" },
+    { name: "int_eq_dint", decls: "x : INT; y : DINT; b : BOOL;", body: "b := x = y;" },
+    { name: "real_gt_int", decls: "x : REAL; y : INT; b : BOOL;", body: "b := x > y;" },
+    { name: "time_plus_time", decls: "a : TIME; b : TIME; c : TIME;", body: "c := a + b;" },
+  ],
+  deref: [
+    { name: "ptr_deref", decls: "p : POINTER TO INT; x : INT;", body: "x := p^;" },
+    { name: "ref_deref", decls: "r : REFERENCE TO INT; x : INT;", body: "x := r^;" },
+    { name: "int_deref", decls: "x : INT; y : INT;", body: "y := x^;" },
+  ],
 }
 
 const key = (d: any): string => `[${d.severity}] ${d.message}`
@@ -71,8 +106,12 @@ console.log(`\n### ${battery} — LSP(${VENDOR}) vs live /build :${PORT}\n`)
 for (const c of cases) {
   const wire = `Scratch_${c.name}.fb`
   const src = `FUNCTION_BLOCK Scratch_${c.name}\nVAR\n${c.decls ?? ""}\nEND_VAR\n${c.body ?? ""}\nEND_FUNCTION_BLOCK`
-  await pushOps([{ op: "set", name: wire, toFolder: plcFolder, sourceText: src, ifVersion: null }])
-  await pushOps([{ op: "set", name: plcName, toFolder: "", sourceText: `PROGRAM PLC_PRG\nVAR\n\ti_${c.name} : Scratch_${c.name};\nEND_VAR\nEND_PROGRAM\n`, ifVersion: await ver(plcName) }])
+  // ONE atomic push (scratch + PLC_PRG together) — separate pushes raced and CODESYS built a half-state.
+  const ok = await pushOps([
+    { op: "set", name: wire, toFolder: plcFolder, sourceText: src, ifVersion: null },
+    { op: "set", name: plcName, toFolder: "", sourceText: `PROGRAM PLC_PRG\nVAR\n\ti_${c.name} : Scratch_${c.name};\nEND_VAR\nEND_PROGRAM\n`, ifVersion: await ver(plcName) },
+  ])
+  if (!ok) { console.log(`— ${c.name}  [PUSH-REJECTED — skipped]`); continue }
   const r = await post("/build", { buildType: "incremental" })
   const ide = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map(key).sort()
   const L = lsp(c)
