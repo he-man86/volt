@@ -98,7 +98,8 @@ export function messagesFor(vendor: Vendor): Messages {
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
     // Confirmed byte-identical on both vendors via live /build (:8556 CODESYS + :8555 TwinCAT, 2026-07-07).
     unterminatedConditional: () => `Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`,
-    // CODESYS byte-identical (double space + unquoted name). TC provisional (no recording).
+    // CODESYS byte-identical (double space + unquoted name). TwinCAT never emits this (live /build: compiles
+    // an unknown attribute clean), so the lint is CODESYS-gated and this builder is CODESYS-only in practice.
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
     // overflow/subrange: PROVISIONAL — live /build shows CODESYS reports these as type-CONVERSION errors
     // (`Cannot convert type 'DINT' to type 'INT'`), not dedicated range diagnostics. Reconciling our

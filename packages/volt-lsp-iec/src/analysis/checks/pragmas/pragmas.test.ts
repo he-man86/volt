@@ -41,6 +41,16 @@ test("the lint is OFF by default (nothing flagged even on a typo)", () => {
   expect(attrs(withAttr("qualifid_only"), false)).toEqual([])
 })
 
+test("the lint is CODESYS-only — TwinCAT compiles unknown attributes clean (confirmed live)", () => {
+  const parseResult = parseSource(withAttr("qualifid_only"))
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: withAttr("qualifid_only") }])
+  const config = resolveConfig({ vendor: "twincat", lints: { unknownAttribute: true } })
+  const d = computeSemanticDiagnostics({ parseResult, source: withAttr("qualifid_only"), project, config }).filter(
+    (x) => x.code === "unknown-attribute",
+  )
+  expect(d).toEqual([]) // TwinCAT emits nothing even with the lint on
+})
+
 test("an attribute with a value payload resolves its name", () => {
   expect(attrs(`{attribute 'pack_mode' := '1'}\nTYPE T : STRUCT x : INT; END_STRUCT END_TYPE`, true)).toEqual([])
 })
