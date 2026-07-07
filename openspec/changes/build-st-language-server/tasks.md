@@ -5,15 +5,15 @@ verify → let the next consume it.
 ## Diagnostic-check status matrix
 
 Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
-(exact byte-identical fixtures): **247/278 TC · 246/278 CS** — floors only ever rise.
+(exact byte-identical fixtures): **252/280 TC · 251/280 CS** — floors only ever rise.
 
 | Check (code) | Lang | Severity | Status | Notes |
 |---|---|---|---|---|
 | assignment-type-mismatch | ST·VG | error | ✅ | shared `assignmentPairError`; VG sinks reuse it |
-| narrowing (implicit conversion) | ST | warning | ✅ | vendor-keyed "Possible/possible loss" |
+| implicit-conversion (narrowing + sign-change) | ST | warning | ✅ | one `classifyConversion` relation; loss ("Possible/possible loss": real-narrow + int-wider-than-mantissa) + change-of-sign (signed→unsigned any width, unsigned→signed same width). **Matrix-verified 196/196 both vendors** (`scripts/conversion-matrix.ts`) |
 | binary-op-type-mismatch | ST | error | ✅ | MOD non-int · BOOL-in-arithmetic |
 | conversion-source-mismatch | ST | error | ✅ | `<T>_TO_<U>` source vs arg |
-| subrange · array-bounds | ST | error | ✅ | const-eval; array-bounds wording locked live, subrange a wording KNOWN_DIVERGENCE. **`constant-overflow` REMOVED** — it false-positived (CODESYS accepts out-of-range untyped literals) |
+| subrange · array-bounds | ST | error | ✅ | const-eval; BOTH wordings locked live — subrange now emits the compilers' conversion form (`Cannot convert type '200' to type 'INT (1..100)'`, folded onto `cannotConvert`, no longer a KNOWN_DIVERGENCE). **`constant-overflow` REMOVED** — it false-positived (CODESYS accepts out-of-range untyped literals) |
 | deref-non-pointer (`x^`) | ST | error | ✅ | flags elementary/array bases; pointer/ref/THIS fold quiet |
 | duplicate-declaration | ST | error | ✅ | per-scope, qualified_only-aware |
 | **unresolved-identifier** | ST | error | ✅ | bare refs; `.library`/`.device` skip via `workspace-refs` (member access → `unknown-member` below) |
@@ -28,7 +28,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | unknown-member (VG, `vg-unknown-member`) | VG | error | ✅ | shares `unresolvedMembers` + `notAMember` with ST; 0-FP on corpus after the qualified_only binder fix (Open items #1) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
 | unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint, **CODESYS-gated** (TwinCAT ignores unknowns — confirmed live); byte-identical CODESYS msg; catalog 0-hit on corpus. Hover + completion over the catalog ✅ |
-| conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
+| conversion-catalog | ST | — | ✅ | full elementary numeric matrix oracle-calibrated (complete-type-checking): `classifyConversion` = single source of truth, 196/196 severity-identical both vendors |
 | VG narrowing / binary-operator | VG | error/warn | ✅ | shared per-pair/per-node helpers; 0-FP on corpus |
 
 **Dead-code suppression (what makes real-project checks 0-FP)** — the compiler never checks code it doesn't compile, so the LSP suppresses the same, at three granularities:

@@ -57,7 +57,9 @@ conformance replay green before its commit. 0-FP (conservative-skip on `UNKNOWN`
 
 ## E. Close-out
 
-- [ ] E.1 Corpus 0-error holds (warnings never counted in the ERROR floor); full suite + typecheck green;
-      conformance replay green with the raised floors; `check-divergence` clean.
-- [ ] E.2 Update `st-language-server` spec (this change's deltas) + the `build-st-language-server` matrix rows;
-      note the remaining non-goals (no invented range analysis).
+- [x] E.1 Corpus 0-error holds (8/8, warnings not in the ERROR floor); full suite green (268 pass); typecheck
+      clean; conformance replay green at the raised floors (251 CS / 252 TC); `check-divergence` clean.
+- [x] E.2 Updated the change's `st-language-server` spec deltas to the AS-BUILT rules (sign-change at any width
+      signed→unsigned, int→real mantissa loss, no `cross-family` kind, subrange folded onto `cannotConvert`) and
+      refreshed the `build-st-language-server` status matrix rows + ratchet counts. Non-goal held: NO invented
+      range/value analysis — only the type-lattice classification the compilers themselves apply.

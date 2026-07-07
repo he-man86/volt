@@ -3,10 +3,16 @@
 ### Requirement: Narrowing-conversion diagnostic
 
 The language server SHALL emit a WARNING for EVERY implicit type conversion the compiler warns on — not only
-`LREAL→REAL`, but the whole family: narrowing / loss-of-precision (higher width → lower, e.g. `DINT→INT`,
-`LREAL→REAL`) reported as "possible loss of information", and signed↔unsigned "change of sign" (same width
-across the signed/unsigned boundary, e.g. `WORD→INT`, `INT→UINT`). Each warning SHALL be produced from the one
-`classifyConversion` function (see "Type conversion is classified by a single function"), mapped to its
+`LREAL→REAL`, but the whole family, exactly as calibrated against the live compilers by the conversion matrix:
+- **loss of information** — a real target that can't hold the source exactly: real narrowing (`LREAL→REAL`) and
+  an integer wider than the float mantissa (REAL 24 bits, LREAL 53 bits: `DINT→REAL`, `LINT→LREAL`, …).
+- **change of sign** — crossing the signed/unsigned boundary where the target can't represent the source's
+  range: signed → unsigned at ANY width (`INT→WORD`, `SINT→UINT` — a negative never fits), and unsigned → signed
+  only at the SAME width (`WORD→INT`; a WIDER signed target holds every unsigned value, so it stays a safe widen).
+
+Integer NARROWING (`DINT→INT`) is NOT a warning — the compilers reject it as an ERROR (`Cannot convert type …`);
+that severity likewise comes from `classifyConversion` (kind `incompatible`). Each warning SHALL be produced from
+the one `classifyConversion` function (see "Type conversion is classified by a single function"), mapped to its
 per-vendor wording via `messages`, and enabled by default only where a recorded conformance fixture confirms
 both compilers emit it. The check SHALL remain conservative — an `UNKNOWN` operand yields no diagnostic — and,
 being warnings (the code still compiles), these SHALL be validated by the conformance oracle and reported
@@ -17,8 +23,14 @@ separately by the corpus harness, never counted in the zero-ERROR precision floo
 - **THEN** a narrowing-conversion warning is raised, matching the compiler's warning on the same site
 
 #### Scenario: Signed/unsigned conversion warns with "change of sign"
-- **WHEN** a `WORD` (unsigned) value is assigned to an `INT` (signed) target, or an `INT` to a `UINT`
+- **WHEN** a `WORD` (unsigned) value is assigned to an `INT` (signed) target, or a signed value to a WIDER
+  unsigned target (e.g. `SINT→UINT`)
 - **THEN** a warning is raised with the compiler's "Possible change of sign" wording — not silence
+
+#### Scenario: A large integer assigned to a real warns "loss of information"
+- **WHEN** an integer wider than the target real's mantissa is assigned (e.g. `DINT→REAL`, `LINT→LREAL`)
+- **THEN** a "possible loss of information" warning is raised, matching the compiler; but a fitting int (`INT→REAL`,
+  `DINT→LREAL`) is a silent safe widen
 
 #### Scenario: An unknown operand suppresses the warning
 - **WHEN** either side of a conversion resolves to `UNKNOWN` (an unresolved library/user type)
@@ -28,10 +40,10 @@ separately by the corpus harness, never counted in the zero-ERROR precision floo
 
 ### Requirement: Type conversion is classified by a single function
 
-The type system SHALL own ONE total function `classifyConversion(src, dst)` that returns a conversion kind
-(`identity` / `widen` / `narrow` / `sign-change` / `cross-family` / `incompatible`) computed from the
-elementary type lattice (family, bit width, signedness, widening rank) per the IEC 61131-3 conversion hierarchy
-and the reference-compiler behavior. This function SHALL be the single source of truth for conversion decisions:
+The type system SHALL own ONE total function `classifyConversion(dst, src)` that returns a conversion kind
+(`identity` / `widen` / `narrow` / `sign-change` / `incompatible`) computed from the elementary type lattice
+(family, bit width, signedness, widening rank) per the IEC 61131-3 conversion hierarchy and the reference-compiler
+behavior (cross-family int↔real folds into the same widen/narrow/incompatible kinds — no separate category). This function SHALL be the single source of truth for conversion decisions:
 `isAssignable` is `classifyConversion(...) !== "incompatible"`, `isNarrowing` is `classifyConversion(...) ===
 "narrow"`, and every conversion diagnostic (the narrowing/sign-change WARNINGS and the assignment /
 conversion-source ERRORS) SHALL derive its severity from the returned kind rather than a second, duplicated
