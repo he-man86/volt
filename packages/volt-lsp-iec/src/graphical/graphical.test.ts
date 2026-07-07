@@ -315,7 +315,7 @@ out := p.nope;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const msgs = vgDiags(src).filter((d) => d.code === "vg-unknown-member").map((d) => d.message)
-  expect(msgs).toEqual(["'nope' is not a member of 'Pt'"]) // p.x quiet, p.nope flagged
+  expect(msgs).toEqual(["'nope' is no component of 'Pt'"]) // p.x quiet, p.nope flagged
 })
 
 test("VG: a qualified_only GVL chain does NOT false-positive (lenze Mach1 regression)", () => {

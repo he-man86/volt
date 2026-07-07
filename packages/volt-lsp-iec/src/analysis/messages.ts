@@ -85,7 +85,8 @@ export function messagesFor(vendor: Vendor): Messages {
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
-    notAMember: (member, type) => `'${member}' is not a member of '${type}'`,
+    // Confirmed via live /build (:8556 + :8555): both say "is no component of"; TwinCAT uppercases the type name.
+    notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     sectionNotAllowed: (sectionKind) =>
@@ -99,8 +100,13 @@ export function messagesFor(vendor: Vendor): Messages {
     unterminatedConditional: () => `Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`,
     // CODESYS byte-identical (double space + unquoted name). TC provisional (no recording).
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,
+    // overflow/subrange: PROVISIONAL — live /build shows CODESYS reports these as type-CONVERSION errors
+    // (`Cannot convert type 'DINT' to type 'INT'`), not dedicated range diagnostics. Reconciling our
+    // dedicated checks with that shape is deferred (not a wording tweak); wording stays best-effort.
     overflow: (value, type) => `Literal '${value}' is out of the valid range of type '${type}'`,
     subrangeOutOfRange: (value, lo, hi) => `Value '${value}' is outside the subrange ${lo}..${hi}`,
-    arrayIndexOutOfBounds: (index, lo, hi) => `Array index '${index}' is out of bounds ${lo}..${hi}`,
+    // Confirmed byte-identical on both vendors via live /build (2026-07-07).
+    arrayIndexOutOfBounds: (index, lo, hi) =>
+      `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
   }
 }

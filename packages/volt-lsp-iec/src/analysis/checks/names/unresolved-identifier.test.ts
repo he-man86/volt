@@ -94,7 +94,24 @@ FUNCTION_BLOCK F
 VAR p : Pt; i : INT; END_VAR
 i := p.z;
 END_FUNCTION_BLOCK`
-  expect(members(src)).toEqual(["'z' is not a member of 'Pt'"])
+  expect(members(src)).toEqual(["'z' is no component of 'Pt'"]) // CODESYS wording (confirmed live)
+})
+
+test("unknown-member wording is per-vendor: TwinCAT uppercases the type name (confirmed live)", () => {
+  const src = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
+FUNCTION_BLOCK F
+VAR p : Pt; i : INT; END_VAR
+i := p.z;
+END_FUNCTION_BLOCK`
+  const tc = computeSemanticDiagnostics({
+    parseResult: parseSource(src),
+    source: src,
+    project: buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src), source: src }]),
+    config: resolveConfig({ vendor: "twincat" }),
+  })
+    .filter((d) => d.code === "unknown-member")
+    .map((d) => d.message)
+  expect(tc).toEqual(["'z' is no component of 'PT'"]) // TwinCAT uppercases the type
 })
 
 test("a declared field of a project STRUCT is not flagged", () => {
@@ -168,7 +185,7 @@ VAR o : Outer; i : INT; END_VAR
 i := o.inner.val;
 END_FUNCTION_BLOCK`
   expect(members(nested)).toEqual([]) // whole chain valid — no FP
-  expect(members(nested.replace("o.inner.val", "o.inner.nope"))).toEqual(["'nope' is not a member of 'Inner'"])
+  expect(members(nested.replace("o.inner.val", "o.inner.nope"))).toEqual(["'nope' is no component of 'Inner'"])
 
   const arr = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
 FUNCTION_BLOCK F
@@ -177,7 +194,7 @@ i := a[0].z;
 i := p^.z;
 END_FUNCTION_BLOCK`
   expect(members(arr)).toEqual([
-    "'z' is not a member of 'Pt'", // through the array-element type
-    "'z' is not a member of 'Pt'", // through the pointer target type
+    "'z' is no component of 'Pt'", // through the array-element type
+    "'z' is no component of 'Pt'", // through the pointer target type
   ])
 })
