@@ -110,6 +110,27 @@ test("const-eval: literals, arithmetic, const-ref folding, non-const → undefin
   expect(evalConst("", "10 / 0")).toBeUndefined() // div by zero
 })
 
+test("const-eval: unary, MOD/**, comparisons, and real arithmetic", () => {
+  // unary
+  expect(evalConst("", "-(2 + 3)")).toBe(-5n)
+  expect(evalConst("", "NOT (5 > 3)")).toBe(false)
+  expect(evalConst("", "+(4)")).toBe(4n)
+  // integer MOD / power (+ their undefined cases)
+  expect(evalConst("", "10 MOD 3")).toBe(1n)
+  expect(evalConst("", "2 ** 8")).toBe(256n)
+  expect(evalConst("", "10 MOD 0")).toBeUndefined()
+  expect(evalConst("", "2 ** -1")).toBeUndefined()
+  // comparisons across the operator set
+  expect(evalConst("", "5 = 5")).toBe(true)
+  expect(evalConst("", "4 <> 4")).toBe(false)
+  expect(evalConst("", "3 <= 3")).toBe(true)
+  expect(evalConst("", "5 >= 9")).toBe(false)
+  expect(evalConst("", "2 < 1")).toBe(false)
+  // real arithmetic
+  expect(evalConst("", "7.5 - 2.5")).toBe(5)
+  expect(evalConst("", "9.0 / 2.0")).toBe(4.5)
+})
+
 // ─── C.4 infer ───
 
 function lastExpr(fb: FunctionBlock): Expr {

@@ -2,6 +2,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
 import type { Document } from "../shared/index.js"
+import { hover } from "./hover.js"
 import { signatureHelp } from "./signature-help.js"
 import { inlayHints } from "./inlay-hints.js"
 import { codeLenses } from "./code-lens.js"
@@ -32,6 +33,32 @@ VAR
 END_VAR
 r := lib.Compute(1, 2);
 END_FUNCTION_BLOCK`
+
+test("hover: a variable shows its reconstructed declaration + kind label", () => {
+  const { doc, project } = setup(SRC)
+  const h = hover(doc, project, SRC.indexOf("r : INT") )
+  const value = (h?.contents as { value: string }).value
+  expect(value).toContain("r : INT")
+  expect(value).toContain("_variable_")
+})
+
+test("hover: a named unit shows its declaring keyword", () => {
+  const { doc, project } = setup(SRC)
+  const h = hover(doc, project, SRC.indexOf("FUNCTION_BLOCK Lib") + "FUNCTION_BLOCK ".length)
+  expect((h?.contents as { value: string }).value).toContain("FUNCTION_BLOCK Lib")
+})
+
+test("hover: a built-in type falls back to the reference catalog", () => {
+  const { doc, project } = setup(SRC)
+  const h = hover(doc, project, SRC.indexOf("r : INT") + "r : ".length)
+  expect(h).toBeDefined()
+  expect((h?.contents as { value: string }).value).toMatch(/INT/)
+})
+
+test("hover: whitespace / unknown token yields nothing", () => {
+  const { doc, project } = setup(SRC)
+  expect(hover(doc, project, SRC.indexOf("VAR\n") - 1)).toBeUndefined()
+})
 
 test("signature-help: shows the callee signature + active parameter", () => {
   const { doc, project } = setup(SRC)

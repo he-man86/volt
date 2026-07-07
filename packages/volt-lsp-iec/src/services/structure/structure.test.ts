@@ -2,7 +2,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
 import type { Document } from "../shared/index.js"
-import { foldingRanges, selectionRange, semanticTokens, SEMANTIC_TOKEN_TYPES } from "./index.js"
+import { documentSymbols, foldingRanges, selectionRange, semanticTokens, SEMANTIC_TOKEN_TYPES } from "./index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src)
@@ -20,6 +20,30 @@ FOR i := 0 TO 10 DO
 	total := total + i;
 END_FOR
 END_FUNCTION_BLOCK`
+
+const docOf = (src: string, uri = "file:///F.fb"): Document => ({ uri, source: src, parseResult: parseSource(src) })
+const names = (syms: { name: string }[]) => syms.map((s) => s.name)
+
+test("document-symbol: an FB outlines with its VAR members as children", () => {
+  const syms = documentSymbols(docOf(SRC))
+  expect(names(syms)).toEqual(["F"])
+  expect(names(syms[0].children ?? [])).toEqual(["i", "total"])
+})
+
+test("document-symbol: struct fields, enum members, and interface methods appear as children", () => {
+  const struct = documentSymbols(docOf(`TYPE Pt : STRUCT x : INT; y : INT; END_STRUCT END_TYPE`))
+  expect(names(struct[0].children ?? [])).toEqual(["x", "y"])
+  const en = documentSymbols(docOf(`TYPE E : (A, B, C); END_TYPE`))
+  expect(names(en[0].children ?? [])).toEqual(["A", "B", "C"])
+  const itf = documentSymbols(docOf(`INTERFACE I\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE`))
+  expect(names(itf[0].children ?? [])).toEqual(["M"])
+})
+
+test("document-symbol: a GVL is named from its file and lists its globals", () => {
+  const gvl = documentSymbols(docOf(`VAR_GLOBAL g : INT; h : BOOL; END_VAR`, "file:///MyGlobals.gvl"))
+  expect(gvl[0].name).toBe("MyGlobals")
+  expect(names(gvl[0].children ?? [])).toEqual(["g", "h"])
+})
 
 test("folding: unit + VAR section + FOR block are foldable", () => {
   const { doc } = setup(SRC)
