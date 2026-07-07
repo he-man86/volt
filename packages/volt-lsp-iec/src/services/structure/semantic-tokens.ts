@@ -6,7 +6,7 @@
  * ponytail: identifier classification is by scope NAME lookup (not full chain resolution) — fast and
  * good enough for coloring; a mis-colored deep member is cosmetic, never wrong data.
  */
-import type { SemanticTokens } from "vscode-languageserver-protocol"
+import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
 import { lex, type Token, type TokenKind } from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { scopeAtOffset, type Document } from "../shared/index.js"
@@ -34,25 +34,78 @@ export const SEMANTIC_TOKEN_TYPES = [
 
 const TYPE_INDEX = new Map<string, number>(SEMANTIC_TOKEN_TYPES.map((t, i) => [t, i]))
 
-export function semanticTokens(doc: Document, project: Scope): SemanticTokens {
-  const data: number[] = []
-  let prevLine = 0
-  let prevChar = 0
+/** One classified token in absolute coordinates — the shared substrate for full / range / delta. */
+interface TokenRecord {
+  line: number
+  char: number
+  length: number
+  typeIdx: number
+  start: number // byte offset of the token (for range filtering)
+}
 
+/** Every classified token of a document, in order, absolute-positioned. */
+function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
+  const out: TokenRecord[] = []
   for (const tok of lex(doc.source)) {
     const type = classify(tok, doc, project)
     if (type === undefined) continue
     // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.
-    const line = tok.span.startLine - 1
-    const char = tok.span.startCol
-    const length = tok.span.end - tok.span.start
-    const deltaLine = line - prevLine
-    const deltaChar = deltaLine === 0 ? char - prevChar : char
-    data.push(deltaLine, deltaChar, length, TYPE_INDEX.get(type) ?? 1, 0)
-    prevLine = line
-    prevChar = char
+    out.push({
+      line: tok.span.startLine - 1,
+      char: tok.span.startCol,
+      length: tok.span.end - tok.span.start,
+      typeIdx: TYPE_INDEX.get(type) ?? 1,
+      start: tok.span.start,
+    })
   }
-  return { data }
+  return out
+}
+
+/** LSP delta-encode a token-record list into the flat `[Δline, Δchar, len, typeIdx, mods]×n` stream. */
+function encode(records: readonly TokenRecord[]): number[] {
+  const data: number[] = []
+  let prevLine = 0
+  let prevChar = 0
+  for (const r of records) {
+    const deltaLine = r.line - prevLine
+    const deltaChar = deltaLine === 0 ? r.char - prevChar : r.char
+    data.push(deltaLine, deltaChar, r.length, r.typeIdx, 0)
+    prevLine = r.line
+    prevChar = r.char
+  }
+  return data
+}
+
+/** The full delta-encoded token stream (no `resultId` — the server assigns one for delta tracking). */
+export function semanticTokensData(doc: Document, project: Scope): number[] {
+  return encode(tokenRecords(doc, project))
+}
+
+/** Full semantic tokens for a document. */
+export function semanticTokens(doc: Document, project: Scope): SemanticTokens {
+  return { data: semanticTokensData(doc, project) }
+}
+
+/** Tokens whose start falls within `[startOffset, endOffset)` — the viewport a `range` request asks for. */
+export function semanticTokensRange(
+  doc: Document,
+  project: Scope,
+  startOffset: number,
+  endOffset: number,
+): SemanticTokens {
+  const records = tokenRecords(doc, project).filter((r) => r.start >= startOffset && r.start < endOffset)
+  return { data: encode(records) }
+}
+
+/** The single edit that turns `prev` into `next` (common-prefix/suffix diff) — the body of a delta response. */
+export function diffSemanticTokens(prev: readonly number[], next: readonly number[]): SemanticTokensEdit[] {
+  const min = Math.min(prev.length, next.length)
+  let p = 0
+  while (p < min && prev[p] === next[p]) p++
+  let s = 0
+  while (s < min - p && prev[prev.length - 1 - s] === next[next.length - 1 - s]) s++
+  if (p === prev.length && p === next.length) return [] // identical
+  return [{ start: p, deleteCount: prev.length - p - s, data: next.slice(p, next.length - s) }]
 }
 
 function classify(tok: Token, doc: Document, project: Scope): string | undefined {

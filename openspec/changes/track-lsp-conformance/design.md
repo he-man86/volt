@@ -30,7 +30,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `client/unregisterCapability` | ➖ | the watcher's lifetime is the session; never unregistered |
 | `$/cancelRequest` | 🟡 | handled by the `vscode-jsonrpc` connection layer; our handlers are synchronous, so there is nothing to cancel |
 | `$/setTrace` · `$/logTrace` | ❌ | no trace plumbing (low value) |
-| `$/progress` | ❌ | see `window/workDoneProgress` |
+| `$/progress` | ✅ | sent to report the eager-crawl work-done progress |
 
 ### 2. Document synchronization
 
@@ -40,7 +40,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `textDocument/didChange` | ✅ | **Incremental** sync |
 | `textDocument/didClose` | ✅ | leaves the on-disk copy indexed |
 | `textDocument/willSave` · `willSaveWaitUntil` | ➖ | no pre-save edits |
-| `textDocument/didSave` | ❌ | not needed today (open buffers + watched files cover freshness); a fallback if a client emits no watch events |
+| `textDocument/didSave` | ✅ | re-validates on save (fallback for clients without watch events) |
 | `notebookDocument/didOpen` · `didChange` · `didSave` · `didClose` | ➖ | PLC projects have no notebooks |
 
 ### 3. Language features — navigation
@@ -82,8 +82,8 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | Method | Status | Notes |
 |---|---|---|
 | `textDocument/semanticTokens/full` | ✅ | |
-| `textDocument/semanticTokens/full/delta` | ❌ | perf: re-sends the full set on every edit |
-| `textDocument/semanticTokens/range` | ❌ | perf: whole-doc tokens even for a viewport request |
+| `textDocument/semanticTokens/full/delta` | ✅ | prefix/suffix diff vs a per-URI cached result id |
+| `textDocument/semanticTokens/range` | ✅ | viewport-only via shared `tokenRecords` |
 | `textDocument/inlineValue` | ➖ | debug-adapter feature; no live values |
 | `textDocument/inlayHint` | ✅ | |
 | `inlayHint/resolve` | ➖ | hints returned fully resolved |
@@ -131,8 +131,8 @@ primary consumer (headless), the VS Code extension the secondary (human).
 | `workspace/symbol` | ✅ | project-wide over the eager index |
 | `workspaceSymbol/resolve` | ➖ | symbols returned with their location |
 | `workspace/didChangeWatchedFiles` | ✅ | dynamic registration; drives freshness after `volt pull` |
-| `workspace/configuration` | ❌ | config taken once via `initializationOptions` — no live pull |
-| `workspace/didChangeConfiguration` | ❌ | no live config reload (e.g. toggle `diagnoseDeadCode` without restart) |
+| `workspace/configuration` | ✅ | pulls the `volt` section on a config change |
+| `workspace/didChangeConfiguration` | ✅ | live `diagnoseDeadCode` toggle + re-publish |
 | `workspace/workspaceFolders` · `didChangeWorkspaceFolders` | ➖ | single-root (`rootUri`) by design |
 | `workspace/willCreateFiles` … `didDeleteFiles` (6) | ➖ | file lifecycle handled via watched files; no cross-file rename-refactor |
 | `workspace/executeCommand` | ➖ | code lenses are display-only (empty command); code actions return edits directly — nothing to execute |
@@ -149,7 +149,7 @@ primary consumer (headless), the VS Code extension the secondary (human).
 |---|---|---|
 | `window/showMessage` · `showMessageRequest` · `logMessage` | ➖ | headless agent surface; no user dialogs |
 | `window/showDocument` | ➖ | |
-| `window/workDoneProgress/create` + `$/progress` + `workDoneProgress/cancel` | ❌ | no progress; the eager crawl could report "Indexing workspace…" |
+| `window/workDoneProgress/create` + `$/progress` | ✅ | brackets the eager crawl (client-guarded) |
 | `telemetry/event` | ➖ | |
 
 ## Scorecard

@@ -13,11 +13,13 @@ import {
   CompletionRequest,
   createProtocolConnection,
   DefinitionRequest,
+  DidChangeConfigurationNotification,
   DidChangeTextDocumentNotification,
   DidChangeWatchedFilesNotification,
   DocumentDiagnosticRequest,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
+  DidSaveTextDocumentNotification,
   DocumentFormattingRequest,
   DocumentHighlightRequest,
   DocumentSymbolRequest,
@@ -34,6 +36,8 @@ import {
   RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
+  SemanticTokensDeltaRequest,
+  SemanticTokensRangeRequest,
   SemanticTokensRequest,
   SignatureHelpRequest,
   StreamMessageReader,
@@ -560,6 +564,37 @@ test("server: type hierarchy — supertypes and subtypes span the workspace", as
   client.dispose()
 })
 
+test("server: semanticTokens/range returns tokens for the viewport only (multiple of 5)", async () => {
+  const client = connect()
+  await openF(client)
+  const tokens = (await client.sendRequest(SemanticTokensRangeRequest.type, {
+    textDocument: { uri: URI },
+    range: { start: { line: 0, character: 0 }, end: { line: 3, character: 0 } },
+  })) as { data: number[] }
+  expect(tokens.data.length).toBeGreaterThan(0)
+  expect(tokens.data.length % 5).toBe(0)
+  client.dispose()
+})
+
+test("server: semanticTokens/full/delta returns edits against the prior result id", async () => {
+  const client = connect()
+  await openF(client)
+  const full = (await client.sendRequest(SemanticTokensRequest.type, td)) as { resultId: string; data: number[] }
+  expect(typeof full.resultId).toBe("string")
+  // Change a declared type (INT→REAL) so the token stream actually differs.
+  await client.sendNotification(DidChangeTextDocumentNotification.type, {
+    textDocument: { uri: URI, version: 2 },
+    contentChanges: [{ text: SRC.replace("INT", "REAL") }],
+  })
+  const delta = (await client.sendRequest(SemanticTokensDeltaRequest.type, {
+    textDocument: { uri: URI },
+    previousResultId: full.resultId,
+  })) as { resultId: string; edits?: { start: number; deleteCount: number; data: number[] }[]; data?: number[] }
+  expect(typeof delta.resultId).toBe("string")
+  expect(Array.isArray(delta.edits)).toBe(true) // matched the prior id → a diff, not a full set
+  client.dispose()
+})
+
 test("server: textDocument/diagnostic pulls the same diagnostics as the push channel", async () => {
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
@@ -573,6 +608,42 @@ test("server: textDocument/diagnostic pulls the same diagnostics as the push cha
   }
   expect(report.kind).toBe("full")
   expect(report.items.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  client.dispose()
+})
+
+test("server: didSave re-publishes diagnostics for the saved document", async () => {
+  const client = connect()
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const first = onceDiag(client, URI)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
+  })
+  await first
+  const onSave = onceDiag(client, URI)
+  await client.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri: URI } })
+  const diags = (await onSave) as { code?: unknown }[]
+  expect(diags.some((d) => d.code === "assignment-type-mismatch")).toBe(true)
+  client.dispose()
+})
+
+test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)", async () => {
+  const client = connect()
+  const mainSrc = `PROGRAM Main\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const deadUri = "file:///FB_Dead.fb"
+  await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
+  const initial = onceDiag(client, deadUri)
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: "file:///Main.prg", languageId: "iecst", version: 1, text: mainSrc },
+  })
+  await client.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: { uri: deadUri, languageId: "iecst", version: 1, text: deadSrc },
+  })
+  expect(((await initial) as { code?: unknown }[]).some((d) => d.code === "assignment-type-mismatch")).toBe(false) // suppressed
+  const afterCfg = onceDiag(client, deadUri)
+  await client.sendNotification(DidChangeConfigurationNotification.type, { settings: { diagnoseDeadCode: true } })
+  expect(((await afterCfg) as { code?: unknown }[]).some((d) => d.code === "assignment-type-mismatch")).toBe(true) // now emitted
   client.dispose()
 })
 

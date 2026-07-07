@@ -13,13 +13,16 @@ import {
   CallHierarchyPrepareRequest,
   CodeActionRequest,
   CompletionRequest,
+  ConfigurationRequest,
   createProtocolConnection,
   DefinitionRequest,
   DiagnosticRefreshRequest,
+  DidChangeConfigurationNotification,
   DidChangeTextDocumentNotification,
   DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
+  DidSaveTextDocumentNotification,
   DocumentDiagnosticRequest,
   DocumentDiagnosticReportKind,
   DocumentFormattingRequest,
@@ -40,6 +43,8 @@ import {
   RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
+  SemanticTokensDeltaRequest,
+  SemanticTokensRangeRequest,
   SemanticTokensRefreshRequest,
   SemanticTokensRequest,
   ShutdownRequest,
@@ -51,6 +56,8 @@ import {
   TypeHierarchyPrepareRequest,
   TypeHierarchySubtypesRequest,
   TypeHierarchySupertypesRequest,
+  WorkDoneProgress,
+  WorkDoneProgressCreateRequest,
   WorkspaceDiagnosticRequest,
   WorkspaceSymbolRequest,
   CodeLensRefreshRequest,
@@ -84,7 +91,9 @@ import {
   prepareTypeHierarchy,
   offsetFromPosition,
   selectionRange,
-  semanticTokens,
+  diffSemanticTokens,
+  semanticTokensData,
+  semanticTokensRange,
   SEMANTIC_TOKEN_TYPES,
   signatureHelp,
   typeDefinition,
@@ -126,8 +135,13 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
   let clientWatchDynReg = false
+  let clientConfigPull = false
+  let clientProgress = false
   // Which derived data the client will re-request when we send a refresh (after a re-index).
   const clientRefresh = { semanticTokens: false, inlayHint: false, codeLens: false, diagnostics: false }
+  // Latest semantic-token result per URI (for `full/delta` diffing) + a monotonic result-id source.
+  const semTok = new Map<string, { resultId: string; data: number[] }>()
+  let semTokSeq = 0
 
   const project = () => store.project()
   const workspace = (): Document[] => store.workspace()
@@ -161,6 +175,35 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     })
   }
 
+  /** Live-apply a config change (`diagnoseDeadCode`) and re-publish open diagnostics. Returns false when the
+   *  settings blob doesn't carry a recognized key (so the caller can fall back to a `workspace/configuration`
+   *  pull). Vendor is fixed at launch, so only the dead-code toggle is live. */
+  function applyConfig(settings: unknown): boolean {
+    if (settings === null || typeof settings !== "object" || !("diagnoseDeadCode" in settings)) return false
+    store.config = resolveConfig({
+      vendor,
+      diagnoseDeadCode: (settings as { diagnoseDeadCode?: unknown }).diagnoseDeadCode === true,
+    })
+    store.invalidate()
+    for (const uri of store.openUris()) pushDiagnostics(uri)
+    return true
+  }
+
+  let progressSeq = 0
+  /** Run the eager crawl, bracketed by a work-done progress token when the client supports it. */
+  async function crawlWithProgress(): Promise<void> {
+    if (root === undefined || !clientProgress) return reindex()
+    const token = `volt-index-${++progressSeq}`
+    try {
+      await conn.sendRequest(WorkDoneProgressCreateRequest.type, { token })
+    } catch {
+      return reindex() // client couldn't create the token — index without progress
+    }
+    conn.sendProgress(WorkDoneProgress.type, token, { kind: "begin", title: "Indexing workspace" })
+    reindex()
+    conn.sendProgress(WorkDoneProgress.type, token, { kind: "end" })
+  }
+
   // ─── lifecycle ───────────────────────────────────────────────────────────
   conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
     const opts = params.initializationOptions as { diagnoseDeadCode?: boolean } | undefined
@@ -173,9 +216,11 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     clientRefresh.inlayHint = ws?.inlayHint?.refreshSupport === true
     clientRefresh.codeLens = ws?.codeLens?.refreshSupport === true
     clientRefresh.diagnostics = ws?.diagnostics?.refreshSupport === true
+    clientConfigPull = ws?.configuration === true
+    clientProgress = params.capabilities.window?.workDoneProgress === true
     return {
       capabilities: {
-        textDocumentSync: TextDocumentSyncKind.Incremental,
+        textDocumentSync: { openClose: true, change: TextDocumentSyncKind.Incremental, save: { includeText: false } },
         hoverProvider: true,
         definitionProvider: true,
         typeDefinitionProvider: true,
@@ -198,7 +243,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
         documentRangeFormattingProvider: true,
         semanticTokensProvider: {
           legend: { tokenTypes: [...SEMANTIC_TOKEN_TYPES], tokenModifiers: [] },
-          full: true,
+          full: { delta: true },
+          range: true,
         },
         // Pull diagnostics: our diagnostics span the project (a sibling type changes a file's errors), and we
         // answer workspace-wide pulls too.
@@ -210,8 +256,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   // `initialized` follows the handshake — do the heavy eager crawl here so the InitializeResult stays
   // instant, then register the file watcher so `volt pull` changes re-index without a restart.
-  conn.onNotification(InitializedNotification.type, () => {
-    reindex()
+  conn.onNotification(InitializedNotification.type, async () => {
+    await crawlWithProgress()
     if (root !== undefined && clientWatchDynReg) {
       const exts = [...SOURCE_EXTENSIONS, ".library", ".device", ".task"]
       conn
@@ -246,6 +292,19 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     pushDiagnostics(p.textDocument.uri)
     if (doc(p.textDocument.uri) === undefined)
       void conn.sendNotification(PublishDiagnosticsNotification.type, { uri: p.textDocument.uri, diagnostics: [] })
+  })
+  // A save re-validates (a fallback for clients that don't emit watched-file events); the open buffer is
+  // already current, so this is just a re-publish.
+  conn.onNotification(DidSaveTextDocumentNotification.type, (p) => pushDiagnostics(p.textDocument.uri))
+
+  // ─── live configuration ────────────────────────────────────────────────────
+  conn.onNotification(DidChangeConfigurationNotification.type, (p) => {
+    if (applyConfig(p.settings)) return // config pushed with the notification
+    if (clientConfigPull)
+      void conn
+        .sendRequest(ConfigurationRequest.type, { items: [{ section: "volt" }] })
+        .then((res) => applyConfig(Array.isArray(res) ? res[0] : undefined))
+        .catch(() => {})
   })
 
   // ─── watched files (freshness): re-index on create/change/delete of source + reference files ──
@@ -396,7 +455,36 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   }
   conn.onRequest(DocumentSymbolRequest.type, (p) => whole(p.textDocument.uri, documentSymbolsWithVg))
   conn.onRequest(FoldingRangeRequest.type, (p) => whole(p.textDocument.uri, foldingRanges))
-  conn.onRequest(SemanticTokensRequest.type, (p) => whole(p.textDocument.uri, (d) => semanticTokens(d, project())))
+  conn.onRequest(SemanticTokensRequest.type, (p) =>
+    whole(p.textDocument.uri, (d) => {
+      const data = semanticTokensData(d, project())
+      const resultId = String(++semTokSeq)
+      semTok.set(p.textDocument.uri, { resultId, data })
+      return { resultId, data }
+    }),
+  )
+  conn.onRequest(SemanticTokensRangeRequest.type, (p) => {
+    const d = doc(p.textDocument.uri)
+    if (d === undefined) return null
+    return semanticTokensRange(
+      d,
+      project(),
+      offsetFromPosition(d.source, p.range.start),
+      offsetFromPosition(d.source, p.range.end),
+    )
+  })
+  conn.onRequest(SemanticTokensDeltaRequest.type, (p) =>
+    whole(p.textDocument.uri, (d) => {
+      const data = semanticTokensData(d, project())
+      const resultId = String(++semTokSeq)
+      const prev = semTok.get(p.textDocument.uri)
+      semTok.set(p.textDocument.uri, { resultId, data })
+      // Diff against the client's prior result if it's the one we cached; else fall back to a full set.
+      return prev !== undefined && prev.resultId === p.previousResultId
+        ? { resultId, edits: diffSemanticTokens(prev.data, data) }
+        : { resultId, data }
+    }),
+  )
   conn.onRequest(CodeLensRequest.type, (p) => whole(p.textDocument.uri, (d) => codeLenses(workspace(), project(), d)))
   conn.onRequest(InlayHintRequest.type, (p) => {
     const d = doc(p.textDocument.uri)

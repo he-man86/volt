@@ -18,12 +18,13 @@
 
 ## 4. Gap backlog — Tier 2 (editor UX)
 
-- [ ] 4.1 `textDocument/semanticTokens/range` — tokens for the requested viewport only (large-file perf).
-- [ ] 4.2 `textDocument/semanticTokens/full/delta` — incremental token edits instead of a full re-send.
-- [ ] 4.3 `textDocument/didSave` — a freshness fallback when a client emits no watched-file events.
-- [ ] 4.4 `workspace/didChangeConfiguration` + `workspace/configuration` — live config (e.g. toggle
-      `diagnoseDeadCode`) without a restart.
-- [ ] 4.5 `window/workDoneProgress/create` + `$/progress` — report "Indexing workspace…" during the eager crawl.
+- [x] 4.1 `textDocument/semanticTokens/range` — viewport-only tokens (via the shared `tokenRecords` + `encode`).
+- [x] 4.2 `textDocument/semanticTokens/full/delta` — prefix/suffix diff against a per-URI cached result id.
+- [x] 4.3 `textDocument/didSave` — re-validates on save (fallback when a client emits no watched-file events);
+      `textDocumentSync` advertised in object form with `save`.
+- [x] 4.4 `workspace/didChangeConfiguration` + `workspace/configuration` — live `diagnoseDeadCode` toggle
+      (`applyConfig` + re-publish; pulls the `volt` section when the config isn't pushed with the notification).
+- [x] 4.5 `window/workDoneProgress/create` + `$/progress` — brackets the eager crawl (client-capability-guarded).
 
 ## 5. Gap backlog — Tier 3 (nice-to-have)
 
