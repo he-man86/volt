@@ -69,8 +69,10 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
 4. **pragma conflict/companion checks** — needs the pragma catalog's `requires`/`forbids` metadata (currently the
    catalog is name-only for the `unknown-attribute` lint). Plus unknown-pragma DIRECTIVE (lint is attribute-only).
-5. **VG services (F.2d/f follow-ons)** — references/rename + semantic tokens across VG bodies; keyword/pragma
-   catalogs for hover + completion.
+5. **VG services (F.2d/f follow-ons)** — references/rename across VG bodies ✅ DONE (2026-07-07; cross-body
+   compose in the graphical layer, server routes all references/rename through it). Remaining: VG semantic tokens
+   (deferred — cosmetic, whole-doc lexer already colors operand text) + keyword/pragma catalogs for hover +
+   completion (part of F.1).
 6. **Bridge item-filter — KEEP (do NOT remove).** Earlier thought it redundant; it is NOT. The bridge's
    `ExcludeFromBuild` filter drops items EXCLUDED from build regardless of use; LSP reachability only drops
    UNCALLED items. An excluded-but-REFERENCED item (kept live by reachability) would false-positive without the
@@ -261,8 +263,13 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
         synthetic statements) + **hover** (incl. inferred wire type, reference-catalog fallback) · **definition**
         · **type-definition** · **completion** (POU vars + network wires + members + keywords). Reuses the ST
         cores (`symbolHover`, `completionAtScope`, `locationOf`). Server routes position queries by `inVgBody`.
-        Outline ✅. Deferred: references/highlight/rename ACROSS VG bodies (need VG occurrence scanning) +
-        semantic tokens for VG.
+        Outline ✅. **references/rename ACROSS VG bodies ✅ DONE** — `allReferences`/`referencesAnywhere`/
+        `renameAnywhere`/`prepareRenameAnywhere` (graphical layer, may import services) compose ST `findReferences`
+        with a walk over VG operand networks and resolve the cursor from either body kind; the server routes ALL
+        references/rename here (a rename that missed a VG operand = data corruption). Cross-body test:
+        a global read in one FB's ST body + another's VG (LD) body renames in all three files.
+        Not built: VG **semantic tokens** — the whole-doc lexer already colors VG operand text; only LET-wire
+        refinement is missing, which is cosmetic (a mis-colored wire is never wrong data).
   - [x] F.2e **CFC/SFC marker** — `vgMarkerHover` explains a `(* @volt-graphical: <LANG> *)` body (authored in
         the IDE, no editable text form); wired as the ST-hover fallback. The marker is a comment → not analyzed
         as VG or ST, zero diagnostics (spec L403-413).
@@ -273,9 +280,9 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
         Pending: live-bridge record pass to lock the PROVISIONAL VG structural/label/pin messages (batched with
         the D.3 overflow/subrange lock, T.1).
   Status: F.2a·b·e DONE; F.2c·d·f substantially done (the code-correctness layer — infer · sink type-check ·
-  **undeclared-identifier · undefined-label · unknown-pin** · hover · def · completion · nav — ships at ST
-  parity). Remaining follow-ons: references/rename across VG · VG semantic tokens · narrowing/binary VG checks ·
-  live-bridge message lock. ST bodies unaffected throughout.
+  **undeclared-identifier · undefined-label · unknown-pin** · hover · def · completion · nav · **references/rename
+  across VG** — ships at ST parity). Remaining follow-ons: VG semantic tokens (cosmetic, deferred) · narrowing/binary
+  VG checks · live-bridge message lock. ST bodies unaffected throughout.
 
 ## G. server
 - [x] G.1 LSP 3.17 / stdio, vendor-keyed; push+pull diagnostics, progress, cancellation, incremental sync.
