@@ -292,6 +292,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   })
   conn.onNotification(DidCloseTextDocumentNotification.type, (p) => {
     store.closeDocument(p.textDocument.uri)
+    semTok.delete(p.textDocument.uri) // drop the semantic-token result cache for the closed doc
     // The file may still be in the disk index; re-publish so any diagnostics reflect the on-disk copy.
     pushDiagnostics(p.textDocument.uri)
     if (doc(p.textDocument.uri) === undefined)
