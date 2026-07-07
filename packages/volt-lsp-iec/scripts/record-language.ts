@@ -54,8 +54,11 @@ async function setPlcPrg(src: string): Promise<void> {
 
 const tests: Record<string, { buildSuccess: boolean; durationMs: number; diagnostics: { severity: string; message: string; line: number }[] }> = {}
 let done = 0
+// RECORD_ONLY=name1,name2 → record just those fixtures and MERGE into the committed recording (safe: leaves
+// every other fixture's ground truth untouched — the way to add new fixtures without a risky full re-record).
+const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 for (const t of ALL_TESTS) {
-  if (t.recorderSkip) continue
+  if (t.recorderSkip || (ONLY && !ONLY.has(t.name))) continue
   const wire = `${t.pouName}.${EXT[t.kind] ?? "fb"}`
   try {
     await pushOps([{ op: "set", name: wire, toFolder: plcFolder, sourceText: t.source, ifVersion: null }])
@@ -87,6 +90,18 @@ const out = {
 }
 const stem = VENDOR === "tc" ? "tc" : VENDOR
 const dir = join(import.meta.dir, "..", "test", "conformance", "recordings")
+
+// RECORD_ONLY → merge just the recorded fixtures into the committed file (leave the rest untouched).
+if (ONLY) {
+  const committed = JSON.parse(readFileSync(join(dir, `expected-${stem}.json`), "utf8"))
+  for (const [name, rec] of Object.entries(tests)) committed.tests[name] = rec
+  committed.recorded.at = out.recorded.at
+  committed.recorded.testCount = Object.keys(committed.tests).length
+  writeFileSync(join(dir, `expected-${stem}.json`), JSON.stringify(committed, null, 2) + "\n")
+  console.log(`\nMerged ${Object.keys(tests).length} fixture(s) into expected-${stem}.json: ${[...ONLY].join(", ")}`)
+  process.exit(0)
+}
+
 const path = join(dir, `expected-${stem}.${WRITE ? "" : "new."}json`)
 writeFileSync(path, JSON.stringify(out, null, 2) + "\n")
 console.log(`\nWrote ${Object.keys(tests).length} tests → ${path}`)

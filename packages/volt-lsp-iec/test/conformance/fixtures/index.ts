@@ -28,6 +28,7 @@ import { SEMANTIC_TESTS } from "./semantic.js"
 import { SHADOWING_TESTS } from "./shadowing.js"
 import { USAGE_PATTERN_TESTS } from "./usage-pattern.js"
 import { VARIABLE_SECTION_TESTS } from "./variable-section.js"
+import { CHECK_COVERAGE_TESTS } from "./check-coverage.js"
 
 export interface CategoryGroup {
   name: string
@@ -57,6 +58,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   // ── Theoretical-gap catalog (coverage-matrix.md rows D3/D9/D10 …) — awaiting oracle recording ──
   { name: "range-bounds", tests: RANGE_BOUNDS_TESTS },
   { name: "overflow", tests: OVERFLOW_TESTS },
+  // ── deliberate per-check coverage + FP-bait (compiler-accepted near-miss code) ──
+  { name: "check-coverage", tests: CHECK_COVERAGE_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

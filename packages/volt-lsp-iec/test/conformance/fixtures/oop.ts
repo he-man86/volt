@@ -136,9 +136,9 @@ END_FUNCTION_BLOCK
     name: "oop_abstract_instantiated",
     pouName: "FB_LANG_oop_abstract_instantiated",
     kind: "function_block",
-    feature: "Trying to instantiate ABSTRACT FB — TC accepts (no compile-time enforcement)",
+    feature: "Trying to instantiate ABSTRACT FB — both compilers reject it",
     fromDoc: "10-keywords.md",
-    note: "DISCOVERY (verified live 2026-05-29): TC ACCEPTS direct instantiation of an ABSTRACT FB at compile time, even though the OO contract says it shouldn't be allowed. Enforcement likely happens at runtime when an abstract method is called, but the compile passes cleanly. Catalog encodes recorded TC reality, not the OO ideal.",
+    note: "Re-record 2026-07-07: BOTH CODESYS and TwinCAT ERROR on direct instantiation of an ABSTRACT FB ('is ABSTRACT and cannot be instantiated'). (An earlier note claimed TC accepted it — the recording contradicts that; the check `abstract-instantiation` is correct.)",
     plcPrgVar: "fb_absinst : FB_LANG_oop_abstract_instantiated;",
     plcPrgBody: "fb_absinst.Inner();",
     source: `FUNCTION_BLOCK ABSTRACT FB_LANG_oop_abstract_instantiated
