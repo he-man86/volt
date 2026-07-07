@@ -5,7 +5,7 @@ verify → let the next consume it.
 ## Diagnostic-check status matrix
 
 Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pending. Conformance agreement ratchet
-(exact byte-identical fixtures): **247/274 TC · 245/274 CS** — floors only ever rise.
+(exact byte-identical fixtures): **247/278 TC · 246/278 CS** — floors only ever rise.
 
 | Check (code) | Lang | Severity | Status | Notes |
 |---|---|---|---|---|
@@ -42,7 +42,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 
 Harvested from live headless CODESYS (`codesys-bridge.ps1 up -Project … ; packages/volt-lsp-iec/scripts/harvest-lsp-corpus.ts`). Source `.project`
 files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (library signatures + `.task`/
-`.library`/`.device` reference files). Ratchet: conformance **247/274 TC · 245/274 CS**.
+`.library`/`.device` reference files). Ratchet: conformance **247/278 TC · 246/278 CS**.
 
 | Fixture | Files | State |
 |---|---|---|
@@ -80,19 +80,19 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
    **implicit-conversion WARNINGS** (`WORD→INT`, `INT→UINT`) the LSP doesn't — a whole safe-to-add category
    (future `implicit-conversion-warning` check). **VG label/pin** wording still needs a graphical push to record.
 3. **conversion-catalog** — narrowing conversions beyond the recorded `LREAL→REAL` (each needs a bridge recording).
-3b. **Conformance-fixture coverage — 18/22, ALL ST checks covered (closed 2026-07-07).** Mapping every check
-   code against the fixtures showed a gap (started 14/22 → recount 16/22 once PLC_PRG triggers were counted).
-   Closed it: added a `check-coverage.ts` fixture file — `unterminated-conditional-pragma`, `unknown-member`
-   (self-contained struct+FB; the recorder gained multi-unit `splitItems`), and a **FP-BAIT battery** (12
-   compiler-ACCEPTED near-miss cases — the permanent guard against the `constant-overflow`-class false positive).
-   All recorded live + merged (`RECORD_ONLY`); ratchet 233→245 CS / 236→247 TC across 274 fixtures. The
-   remaining **4 are VG** (`vg-undeclared-identifier`/`vg-undefined-label`/`vg-unknown-pin`/`vg-unknown-member`).
-   **CORRECTION (2026-07-07): these ARE recordable** — an earlier claim of "can't push VG" was WRONG. The bridge
-   fully supports pushing FBD/LD (`PushService`→`GraphicalCode.Write` via PLCopen); a CANONICAL VG body (2-space
-   indent, `LET` wires) is accepted, compiles, and the compiler emits errors that even match our wording
-   (`Identifier 'nope' not defined`, `'nope' is no component of 'TON'`, `No such label 'MISSING'…`). The first
-   probe was rejected only because it was non-canonical (`VG_NOT_CANONICAL`). TO ADD: wire `computeVgDiagnostics`
-   into the replay's `runLsp`, author canonical VG fixtures, record. Can proceed independently of #3c.
+3b. **Conformance-fixture coverage — ✅ 22/22, EVERY check covered (closed 2026-07-07).** Mapping every check
+   code against the fixtures showed a gap (started 14/22 → 16/22 once PLC_PRG triggers were counted). Fully
+   closed it via a `check-coverage.ts` fixture file, all recorded live + merged (`RECORD_ONLY`):
+   - ST: `unterminated-conditional-pragma`, `unknown-member` (self-contained struct+FB; the recorder gained
+     multi-unit `splitItems`), + a **FP-BAIT battery** (12 compiler-ACCEPTED near-miss cases — the permanent
+     guard against the `constant-overflow`-class false positive).
+   - **VG (all 4):** wired `computeVgDiagnostics` into the replay's `runLsp`, authored CANONICAL FBD/LD bodies
+     (the recorder pushes them as real graphical POUs — an earlier "can't push VG" claim was WRONG; the bridge
+     fully supports it via `GraphicalCode.Write`). `vg-undeclared`/`vg-unknown-member` matched our wording;
+     **`vg-unknown-pin` LOCKED** to `'<pin>' is no input of '<FB-TYPE UPPER>'`; **`vg-undefined-label` LOCKED**
+     to CODESYS `No such label '<LABEL UPPER>'…` with a TwinCAT divergence (TC doesn't flag VG jump labels).
+   Ratchet **246/247 across 278 fixtures**, zero false positives. So "no fixture changes ≠ complete" is now moot
+   — every diagnostic the LSP emits is backed by a live-IDE recording.
 3c. **Bridge↔LSP VG responsibilities — BY DESIGN, no conflict (clarified 2026-07-07).** Earlier framed as a
    "parity gap"; the design intent resolves it: the **bridge's VG checks exist ONLY to prevent CORRUPT ladder/
    FBD logic** (can the body be stored + round-tripped without drift — `VG_NOT_CANONICAL`/`VG_PLCOPEN_DRIFT`/
@@ -187,7 +187,7 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
       ported**: types/ (assignment · narrowing · binary-operators · conversion · deref), names/ (duplicate-declaration ·
       **unresolved-identifier**), declarations/ (var-section-placement), oop/ (external-write · lifecycle ·
       abstract-instantiation · interface-implementation), pragmas/ (message + orphan-conditional). Agreement
-      ratchet **247/274 TC · 245/274 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
+      ratchet **247/278 TC · 246/278 CS**, zero false positives, all wording per-vendor via `messages`. Remaining
       non-agreements are documented IDE-only divergences (parse cascades, `op_sys_*`, app-config warnings).
       Deferred: conversion-catalog · unknown/conflict pragmas (needs the keyword/pragma catalogs, F.1).
       **unknown-member (member access) ✅ DONE** — `a.b` type-checked against the base's project scope (library/
