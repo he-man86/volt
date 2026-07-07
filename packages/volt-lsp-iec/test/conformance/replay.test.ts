@@ -52,24 +52,17 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
-// overflow/subrange divergence (confirmed via live /build re-record 2026-07-07): both compilers model an
-// out-of-range CONSTANT as a type-CONVERSION diagnostic, not a dedicated range error — an untyped over-max
-// literal (`INT := 40000`) even builds SUCCESS with only a signed/unsigned WARNING. Our dedicated overflow/
-// subrange checks emit a range ERROR with different wording, so they diverge. Reconciling the checks to the
-// conversion model is deferred (a check-shape change, not a wording tweak); until then these are excluded
-// from the ratchet. array-index-out-of-bounds is NOT here — its wording was locked byte-identical.
-const OVERFLOW_SUBRANGE_DIVERGENCES = [
-  "subrange_init_above_range",
-  "subrange_init_below_range",
-  "overflow_int_above_max",
-  "overflow_sint_above_max",
-  "overflow_byte_above_max",
-  "overflow_word_above_max",
-  "overflow_uint_negative",
-]
+// subrange divergence (confirmed via live /build 2026-07-07): both compilers report a subrange violation as
+// a type-CONVERSION error (`Cannot convert type '200' to type 'INT (1..100)'`); our check emits a clear range
+// message instead. It never false-positives (a subrange violation IS an error on both), so it's kept for the
+// user's benefit but excluded from the byte-identical ratchet. array-index-out-of-bounds is NOT here — its
+// wording was locked byte-identical. The overflow fixtures are NO LONGER here: the `constant-overflow` check
+// was REMOVED (it false-positived — CODESYS accepts out-of-range untyped literals), so the LSP is now silent
+// on them; they read as honest "not-yet-implemented" misses (conversion-warning detection is future work).
+const SUBRANGE_DIVERGENCES = ["subrange_init_above_range", "subrange_init_below_range"]
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-  twincat: new Set<string>(OVERFLOW_SUBRANGE_DIVERGENCES),
-  codesys: new Set<string>(OVERFLOW_SUBRANGE_DIVERGENCES),
+  twincat: new Set<string>(SUBRANGE_DIVERGENCES),
+  codesys: new Set<string>(SUBRANGE_DIVERGENCES),
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs are visible to the others

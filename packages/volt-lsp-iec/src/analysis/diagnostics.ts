@@ -23,7 +23,6 @@ import { checkNarrowingConversion } from "./checks/types/narrowing.js"
 import { checkBinaryOperators } from "./checks/types/binary-operators.js"
 import { checkConversionCalls } from "./checks/types/conversion.js"
 import { checkDeref } from "./checks/types/deref.js"
-import { checkConstantOverflow } from "./checks/types/overflow.js"
 import { checkSubrange } from "./checks/types/subrange.js"
 import { checkArrayBounds } from "./checks/types/array-bounds.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
@@ -59,7 +58,6 @@ const CHECKS: readonly Check[] = [
   checkBinaryOperators,
   checkConversionCalls,
   checkDeref,
-  checkConstantOverflow,
   checkSubrange,
   checkArrayBounds,
   // names/

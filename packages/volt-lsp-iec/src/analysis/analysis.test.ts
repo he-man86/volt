@@ -62,30 +62,12 @@ test("assignment type mismatch, duplicate declaration, external write fire with 
   expect(codes(ext, "codesys")).toContain("external-non-input-write")
 })
 
-test("constant overflow detection (message provisional pending bridge recording)", () => {
-  // 40000 > INT max (32767) → overflow; a foldable const-ref that fits does NOT.
-  expect(codes(`FUNCTION_BLOCK F\nVAR\n v : INT := 40000;\nEND_VAR\nEND_FUNCTION_BLOCK`, "codesys")).toContain(
-    "constant-overflow",
-  )
-  expect(codes(`FUNCTION_BLOCK F\nVAR\n v : INT := -40000;\nEND_VAR\nEND_FUNCTION_BLOCK`, "codesys")).toContain(
-    "constant-overflow",
-  )
-  expect(codes(`FUNCTION_BLOCK F\nVAR\n v : BYTE := 300;\nEND_VAR\nEND_FUNCTION_BLOCK`, "codesys")).toContain(
-    "constant-overflow",
-  )
-  // In-range and const-ref folding within range → no overflow.
-  expect(codes(`FUNCTION_BLOCK F\nVAR\n v : INT := 30000;\nEND_VAR\nEND_FUNCTION_BLOCK`, "codesys")).not.toContain(
-    "constant-overflow",
-  )
-  expect(
-    codes(
-      `FUNCTION_BLOCK F\nVAR CONSTANT\n Base : INT := 100;\nEND_VAR\nVAR\n v : INT := Base * 2;\nEND_VAR\nEND_FUNCTION_BLOCK`,
-      "codesys",
-    ),
-  ).not.toContain("constant-overflow")
-})
+// constant-overflow was REMOVED (2026-07-07): live /build proved CODESYS accepts out-of-range untyped
+// literals (`INT := 40000` builds clean with a signed/unsigned conversion WARNING, `30000 + 10000` builds
+// clean) — our range check false-positived. The genuine cases are type-conversion errors, owned by the
+// conversion/assignment checks, not a dedicated overflow rule.
 
-test("subrange + array-bounds detection (const-eval; messages provisional)", () => {
+test("subrange + array-bounds detection (const-eval)", () => {
   // subrange: INT(0..100) init out of range
   expect(codes(`FUNCTION_BLOCK F\nVAR\n x : INT(0..100) := 150;\nEND_VAR\nEND_FUNCTION_BLOCK`, "codesys")).toContain(
     "subrange-out-of-range",
