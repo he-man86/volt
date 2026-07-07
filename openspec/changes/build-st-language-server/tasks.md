@@ -25,7 +25,7 @@ Legend: ✅ shipped (0-FP on corpus) · ⏸ deferred (noted follow-on) · ⏳ pe
 | vg-undefined-label (JMP → missing label) | VG | error | ✅ | per-network, recurses EN/ENO; wording provisional |
 | vg-unknown-pin (box → undeclared pin) | VG | error | ✅ | project FBs only; skips unresolved EXTENDS bases; provisional |
 | unknown-member (`a.b` not on `a`'s type) | ST | error | ✅ | project struct/FB/enum only; library + namespace bases skip; struct EXTENDS honored |
-| unknown-member (VG) | VG | error | ⏸ | shared code ready but HELD — a lenze anomaly (see Open items #1) can't validate 0-FP |
+| unknown-member (VG, `vg-unknown-member`) | VG | error | ✅ | shares `unresolvedMembers` + `notAMember` with ST; 0-FP on corpus after the qualified_only binder fix (Open items #1) |
 | shadowing | ST | warning | ✅ | opt-in lint (default OFF) |
 | unknown-attribute (`{attribute 'typo'}`) | ST | warning | ✅ | opt-in lint; byte-identical CODESYS msg; catalog 0-hit on corpus |
 | conversion-catalog | ST | — | ⏳ | narrowing-conversion catalog (own follow-on) |
@@ -50,19 +50,20 @@ files in `C:\Users\marce\Documents\codesysproject\`. All harvests are VERBOSE (l
 | awa-palletizer | 4087 | ✅ refreshed, clean |
 | bakon-nano | 6678 | ✅ refreshed, clean (task-root reachability suppresses uncalled ControlStatusAGMs) |
 | pro2193 | 8095 | ✅ refreshed, clean (member-level dead-code + interface-impl abstract-skip) |
-| lenze-mid | 8048 | ⚠️ OLD harvest, passes — a fresh re-harvest fails (Open items #1); keep old until #1 resolved |
+| lenze-mid | 8048 | ✅ clean, incl. `vg-unknown-member` — the FPs were binder bugs (qualified_only leak + commented-pragma), not a harvest problem; see Open items #1 |
 
 ## Open items (todos)
 
-1. **VG unknown-member — HELD on a genuine anomaly (do NOT patch; needs the IDE).** Wiring `unresolvedMembers`
-   into VG → 172 FPs, all `Mach1.GenFlags` (lenze). Root cause is NOT stale/excluded/harvest-bug: `/debug` on
-   the struct `sUDT_HMIVar_Mach1` shows the IDE's OWN declaration has NO `GenFlags` field (only a commented
-   line), yet task-reachable BUILT code (`Mach1_MIDS`, called by task PROGRAM `General`) reads `Mach1.GenFlags.*`
-   and `/build` returns `success:True`. Prime suspect: a shipped **precompile cache** (`*_project.precompilecache`)
-   masking genuinely-broken code — so the project doesn't truly compile clean. TO RESOLVE: open lenze in CODESYS
-   → **Clean + Rebuild** (bypass cache). If it ERRORS on `Mach1.GenFlags`, the code is broken → the check is right
-   (exclude/fix that project, ship VG unknown-member). If it still builds, CODESYS has a member-resolution path we
-   miss → adjust the check. Note: this also gauges latent FP risk in the already-shipped ST `unknown-member`.
+1. **VG unknown-member — ✅ RESOLVED + SHIPPED (2026-07-07).** The `Mach1.GenFlags` "anomaly" (197 VG FPs) was
+   NOT a broken project or a precompile cache — it was two binder bugs, found by inspecting the real decls:
+   (a) `qualified_only` GVL members leaked into the bare namespace, so bare `Mach1` bound to the qualified-only
+   member `HMI_Var.Mach1 : sUDT_HMIVar_Mach1` (a struct with no GenFlags) instead of the GVL block `Mach1.gvl` —
+   `lookupInChain` now skips qualified_only symbols (reachable only as `Gvl.member`); (b) the qualified_only
+   pragma was matched by a raw regex that also hit a commented `//{attribute 'qualified_only'}` (`LST_General`),
+   wrongly hiding bare `FF100ms` — now detected via the lexer (a commented pragma lexes as a comment). With both
+   fixed, bare `Mach1` → the GVL block and `Mach1.Genflags.*` fully resolves; VG FPs 197 → 0. The held check is
+   wired as `vg-unknown-member` (shares `unresolvedMembers` + `notAMember` with ST); corpus 0-FP holds, conformance
+   unchanged (228/259). Regression tests: the collision, the commented attribute, a real VG miss, the Mach1 chain.
 2. **Live-bridge message-record pass** — lock the PROVISIONAL messages (VG label/pin, `unknown-member`, overflow/
    subrange, TwinCAT `unknown-attribute`) to byte-identical + let the ratchet rise. Needs the recorder RECREATED
    in `volt-lsp-iec` (removed with volt-agent) then a `record:language` pass against the `:8556`/`:8555` bridges.
