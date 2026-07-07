@@ -25,13 +25,14 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ## The stack
 
 ```
-G  server        LSP 3.17 / stdio · dispatch · capabilities · push+pull diagnostics · progress · cancellation
+G  server        LSP 3.17 / stdio · dispatch · capabilities · WorkspaceStore (eager index + watched-file
+                 freshness) · push+pull diagnostics · progress
 F  reference · graphical      language data catalogs · the FBD/LD sublanguage (native, by reuse)
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
 C  types         elementary facts · Type model · resolve · const-eval · infer · compat · render
-B  symbols       symbol table · binder · scope-nav
+B  symbols       symbol table · binder · scope-nav · bodies (the shared ST-body iterator)
 A  syntax        tokens · lexer · complete AST · parser + treewalker
                       ↘ transpile (Rust backend) consumes A·B·C directly — headless test execution
 ```
@@ -49,8 +50,10 @@ NOT a fully-lossless CST — enough for round-trip/formatting without the CST's 
 tree-rewriting refactors are needed).
 
 ### B — `symbols/`
-The binder: `symbol` · `scope`, `binder` (AST → scope tree, workspace cross-indexed), and `scope-nav` (the one
-scope-tree navigator). Contract: name → declaring symbol/scope.
+The binder: `symbol` · `scope`, `binder` (AST → scope tree, workspace cross-indexed; property getter/setter
+each bind their own accessor scope), `scope-nav` (the one scope-tree navigator), and `bodies` (the one
+scope-aware "walk every ST body" iterator — POU bodies **and** property accessor bodies — shared by every
+analysis check and the language services). Contract: name → declaring symbol/scope.
 
 ### C — `types/`
 The type system, the clean core: `elementary` (the type-facts source of truth — family, bits, signed, `bigint`
@@ -61,7 +64,8 @@ fallback); `resolve` (TypeExpr → Type); `const-eval` (Expr → value); `infer`
 
 ### D — `analysis/`
 `diagnostics` (the orchestrator, vendor-keyed config), `messages` (per-vendor builders), and `checks/` — thin
-rules on the type system, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `pragmas/`. Each
+rules on the type system, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` ·
+`pragmas/`. Every body-walking check iterates through `symbols/bodies` (one loop, not a per-check copy). Each
 check traces to a conformance fixture recorded against the live compiler.
 
 ### E — `services/`
@@ -81,9 +85,21 @@ a second stack.
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,
-capabilities, push **and** pull diagnostics (with related-information links — "duplicate: first declared
-here"), progress + cancellation, incremental document sync, and file-operation events (`didRename` a POU file →
-update its references, since it is one item per file).
+capabilities, and lifecycle. Thin handlers over the layers below; the state and the non-trivial compute live in
+three server modules:
+- `workspace-store` — the **WorkspaceStore**: the open-buffer and on-disk source layers merged by normalized
+  URI (open buffer wins), a `(uri, version)` parse cache, the memoized project symbol table, and the
+  reference-crawl state. Backs the eager whole-workspace index (crawled on `initialized`) and stays fresh via
+  `workspace/didChangeWatchedFiles` (freshness comes from watched-file events, **not** file-operation events —
+  those are out of scope; one item per file makes a rename just a delete+create the watcher already reports).
+- `diagnostics` — the one `documentDiagnostics(store, messages, doc)` compute shared by the **push** transport
+  (`publishDiagnostics` on open/change) and the **pull** transport (`textDocument/diagnostic` ·
+  `workspace/diagnostic`), so the two can never diverge.
+- `server` — the dispatch itself: incremental document sync, semantic tokens (full · range · delta),
+  refresh-after-reindex, live configuration, and work-done progress around the crawl.
+
+Every advertised capability has a registered handler — an invariant guarded by a parity test (see `spec.md`,
+"The LSP-3.17 conformance surface is declared and kept in capability↔handler parity").
 
 ### Backend — `transpile/`
 A compiler backend, sibling consumer of the frontend (`syntax ← symbols ← types`), not of the LSP. It lowers
@@ -121,6 +137,8 @@ constant, look it up here; if it exists, import it — never redefine.
 | AST node types | `syntax/ast` |
 | Symbols, scopes | `symbols/` |
 | Scope-tree navigation | `symbols/scope-nav` |
+| **"Walk every ST body"** (unit + scope + parsed statements, incl. property accessors) | `symbols/bodies` — the one iterator shared by checks + services |
+| Call → callee + parameters (VAR_INPUT, base-first through EXTENDS) | `types/infer` `resolveCallee` — shared by signature-help + the call-argument check |
 | **Elementary type facts** (ranges, families, bits, signed, rank, aliases) | `types/elementary` — the type-facts SSOT |
 | The `Type` model | `types/type` |
 | Type compatibility (assignable/narrowing/arith/conversion) | `types/compat` |
@@ -131,6 +149,8 @@ constant, look it up here; if it exists, import it — never redefine.
 | Cursor → symbol resolution | `services/shared/resolve-at` |
 | Symbol → Location | `services/shared/locations` |
 | Symbol-kind labels | `services/shared/symbol-kinds` (one `humanKind`) |
+| Document → LSP diagnostics (push **and** pull) | `server/diagnostics` `documentDiagnostics` |
+| Live document + project state (open/disk layers, parse cache, eager index) | `server/workspace-store` `WorkspaceStore` |
 | Language reference data (types/operators/pragmas/…) | `reference/` |
 
 **2. Per-layer barrels.** Each layer exposes its public surface through one `index.ts`; consumers import
