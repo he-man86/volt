@@ -1,0 +1,6 @@
+LIBRARY CAA Device Diagnosis
+NAMESPACE DED
+RESOLUTION CAA Device Diagnosis, 3.5.21.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES IoStandard, CAA Types, CmpEventMgr, IoDriver Interfaces, * (System), Base Interfaces, * (System), CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System), CmpAsyncMgr, CommFB

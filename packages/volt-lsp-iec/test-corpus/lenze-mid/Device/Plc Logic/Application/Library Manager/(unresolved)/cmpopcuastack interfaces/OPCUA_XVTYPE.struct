@@ -1,0 +1,6 @@
+TYPE OPCUA_XVTYPE :
+STRUCT
+	X : OpcUa_Double;
+	VALUE : OpcUa_Float;
+END_STRUCT
+END_TYPE

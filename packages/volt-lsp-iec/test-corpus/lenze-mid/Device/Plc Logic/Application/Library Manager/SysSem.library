@@ -1,5 +1,0 @@
-LIBRARY SysSem
-NAMESPACE SysSem
-RESOLUTION SysSem, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

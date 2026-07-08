@@ -1,0 +1,6 @@
+VAR_GLOBAL
+	FILTERBYLATCH : MonitorFilterByLatch;
+	FILTERBYDATETIME : MonitorFilterByDateTime;
+	DBSTATUS : MonitorDBStatus;
+	COMPILECHECKONLY : BOOL;
+END_VAR

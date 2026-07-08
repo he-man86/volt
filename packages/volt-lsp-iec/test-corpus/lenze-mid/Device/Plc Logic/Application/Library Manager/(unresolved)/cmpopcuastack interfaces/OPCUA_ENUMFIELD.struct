@@ -1,0 +1,8 @@
+TYPE OPCUA_ENUMFIELD :
+STRUCT
+	VALUE : OpcUa_Int64;
+	DISPLAYNAME : OpcUa_LocalizedText;
+	DESCRIPTION : OpcUa_LocalizedText;
+	NAME : OpcUa_String;
+END_STRUCT
+END_TYPE

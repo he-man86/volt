@@ -1,5 +1,0 @@
-LIBRARY L_IMHP_ModuleHandler
-NAMESPACE L_IMHP
-RESOLUTION L_IMHP_ModuleHandler, 3.34.0.11 (Lenze)
-PLACEHOLDER true
-SYSTEM false

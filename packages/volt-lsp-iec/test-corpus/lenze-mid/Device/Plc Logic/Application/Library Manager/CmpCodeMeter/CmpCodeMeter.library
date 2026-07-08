@@ -1,0 +1,6 @@
+LIBRARY CmpCodeMeter
+NAMESPACE CmpCodeMeter
+RESOLUTION CmpCodeMeter, 3.5.18.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), CmpEventMgr Interfaces, * (System)

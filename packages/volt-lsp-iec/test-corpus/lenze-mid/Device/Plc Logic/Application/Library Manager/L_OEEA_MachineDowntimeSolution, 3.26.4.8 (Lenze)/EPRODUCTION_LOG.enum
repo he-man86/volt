@@ -1,0 +1,6 @@
+TYPE EPRODUCTION_LOG :
+(
+	TEXT := 0,
+	JSON := 1
+);
+END_TYPE

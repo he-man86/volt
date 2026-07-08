@@ -1,6 +1,0 @@
-TYPE ERROR :
-(
-	NO_ERROR,
-	TIME_OUT
-);
-END_TYPE

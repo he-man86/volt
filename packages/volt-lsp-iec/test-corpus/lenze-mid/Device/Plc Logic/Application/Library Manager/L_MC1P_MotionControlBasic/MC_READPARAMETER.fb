@@ -13,7 +13,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 	READ : L_MC1P_ReadParameter_Internal;
-	TCYCLETIME : TIME;
+	TCYCLETIME : TIME := TIME#1ms;
 	_MCCALL : L_UM1P_MCMultipleCall;
 	INPUTDATA : ARRAY [1.._MCCall.c_BufferDepthInput] OF L_MC1P_ReadParameterInput;
 	OUTPUTDATA : ARRAY [1.._MCCall.c_BufferDepthOutput] OF L_MC1P_ReadParameterOutput;

@@ -1,0 +1,7 @@
+TYPE EDBTYPE :
+(
+	NOT_DEFINED := 0,
+	SQL,
+	MEMORY
+);
+END_TYPE

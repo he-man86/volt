@@ -1,5 +1,0 @@
-LIBRARY System_VisuElemsWinControls
-NAMESPACE VisuElemsWinControls
-RESOLUTION VisuElemsWinControls, 3.4.0.0 (System)
-PLACEHOLDER true
-SYSTEM true

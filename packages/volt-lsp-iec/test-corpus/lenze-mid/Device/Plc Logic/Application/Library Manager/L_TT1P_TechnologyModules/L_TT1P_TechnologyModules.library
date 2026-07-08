@@ -1,0 +1,6 @@
+LIBRARY L_TT1P_TechnologyModules
+NAMESPACE L_TT1P
+RESOLUTION L_TT1P_TechnologyModules_LM, 3.32.0.11 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTarget, SysTask, CAA Mathematics, L_MC4P_RoboticHandling, L_IE1P_ApplicationErrors, L_TB1P_TechnologyBasics, L_MC2P_MotionControlCam, L_USPP_SignalProcessing, L_MC1P_MotionControlBasic, L_CT1P_ControlToolbox, VisuDialogs, Standard, L_UMTP_Mathematics, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, SysTypes2 Interfaces, * (System)

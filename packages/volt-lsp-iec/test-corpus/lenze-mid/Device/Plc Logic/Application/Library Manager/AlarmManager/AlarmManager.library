@@ -1,0 +1,6 @@
+LIBRARY AlarmManager
+NAMESPACE AlarmManager
+RESOLUTION AlarmManager, 4.8.0.0 (Intern)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, SysMem, CmpVisuHandler, CmpDynamicText, SysProcess, SysSem, CmpLog, StringUtils, SysTimeRtc, SysTimeCore, CmpEventMgr, CmpApp, SysTask, Component Manager, CAA Types, CAA Storage, CAA Storage Imp, Collections, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), SysFile, CmpBinTagUtilIec, CmpSrv, CDSV3ProtocolUtils, Datasources Interfaces, * (3S - Smart Software Solutions GmbH), Base Interfaces, * (System), Alarm Manager Interfaces, * (Intern), Alarm Manager Internal Interfaces, * (Intern), ElementCollections, CmpIecTask, SysCpuHandling, VisuShared, 3SLicense

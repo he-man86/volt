@@ -1,5 +1,0 @@
-LIBRARY CmpEventMgr
-NAMESPACE CmpEventMgr
-RESOLUTION CmpEventMgr, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

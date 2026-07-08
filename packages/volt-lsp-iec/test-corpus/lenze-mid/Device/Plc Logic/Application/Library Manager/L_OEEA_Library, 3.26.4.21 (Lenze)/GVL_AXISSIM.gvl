@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	FEEDERAXIS : AXIS_REF_SIM := STRUCT(eTraversingRange := 1, lrCycleLength := 1000.0, lrFeedConstant := 1000.0, dwGearNumerator := 100, dwGearDenominator := 1, eMctrlMode := 0, wNoOfHTLPeriods := 128);
+END_VAR

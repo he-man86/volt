@@ -1,0 +1,10 @@
+VAR_GLOBAL
+	OPCUA_SECURITYPOLICY_NONE : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#None';
+	OPCUA_SECURITYPOLICY_BASIC128RSA15 : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15';
+	OPCUA_SECURITYPOLICY_BASIC256 : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#Basic256';
+	OPCUA_SECURITYPOLICY_BASIC256SHA256 : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256';
+	OPCUA_SECURITYPOLICY_AES128SHA256RSAOAEP : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep';
+	OPCUA_SECURITYPOLICY_AES256SHA256RSAPSS : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss';
+	OPCUA_SECURITYPOLICY_PUBSUBAES128CTR : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#PubSub-Aes128-CTR';
+	OPCUA_SECURITYPOLICY_PUBSUBAES256CTR : STRING := 'http://opcfoundation.org/UA/SecurityPolicy#PubSub-Aes256-CTR';
+END_VAR

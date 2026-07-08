@@ -1,0 +1,6 @@
+LIBRARY L_IOM_IOModules
+NAMESPACE L_IOM
+RESOLUTION L_IOM_IOModules, 3.34.0.4 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Base Interfaces, * (System), L_SSYP_CmpLenzeIPCSystem, IoDrvBase, IoStandard, IODrvEtherCAT, CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System), IoDriver2 Interfaces, * (System), IoDriver Parameter2 Interfaces, * (System), L_UM1P_MulticoreBasic

@@ -1,5 +1,0 @@
-LIBRARY CAA DTUtility
-NAMESPACE DTU
-RESOLUTION CAA DTUtil Extern, 3.5.17.0 (CAA Technical Workgroup)
-PLACEHOLDER true
-SYSTEM false

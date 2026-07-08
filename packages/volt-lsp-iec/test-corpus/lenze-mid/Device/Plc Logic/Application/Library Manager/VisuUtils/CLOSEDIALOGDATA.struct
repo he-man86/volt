@@ -1,0 +1,7 @@
+TYPE CLOSEDIALOGDATA :
+STRUCT
+	DLGMANAGER : VisuElemBase.IDialogManager;
+	VISUDIALOG : VisuElemBase.IVisualisationDialog;
+	DIALOGRESULT : VisuElemBase.Visu_DialogResult;
+END_STRUCT
+END_TYPE

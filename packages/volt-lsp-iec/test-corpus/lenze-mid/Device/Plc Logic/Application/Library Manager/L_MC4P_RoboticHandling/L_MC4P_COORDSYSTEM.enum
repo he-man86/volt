@@ -1,0 +1,23 @@
+TYPE L_MC4P_COORDSYSTEM :
+(
+	ACS := -1,
+	WCS := 0,
+	PCS_1 := 1,
+	PCS_2 := 2,
+	PCS_3 := 3,
+	PCS_4 := 4,
+	PCS_5 := 5,
+	PCS_6 := 6,
+	PCS_7 := 7,
+	PCS_8 := 8,
+	PCS_9 := 9,
+	PCS_10 := 10,
+	PCS_11 := 11,
+	PCS_12 := 12,
+	PCS_13 := 13,
+	PCS_14 := 14,
+	PCS_15 := 15,
+	PCS_16 := 16,
+	MCS := 1000
+);
+END_TYPE

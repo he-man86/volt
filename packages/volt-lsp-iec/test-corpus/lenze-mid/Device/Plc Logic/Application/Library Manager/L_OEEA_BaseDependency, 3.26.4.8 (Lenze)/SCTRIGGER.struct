@@ -1,6 +1,6 @@
 TYPE SCTRIGGER :
 STRUCT
-	ERRFREQ : enumRunRateFrequence;
-	TTRIGGER_SETTINGS : TIME;
+	ERRFREQ : enumRunRateFrequence := enumRunRateFrequence.hour_4x;
+	TTRIGGER_SETTINGS : TIME := TIME#60m0s0ms;
 END_STRUCT
 END_TYPE

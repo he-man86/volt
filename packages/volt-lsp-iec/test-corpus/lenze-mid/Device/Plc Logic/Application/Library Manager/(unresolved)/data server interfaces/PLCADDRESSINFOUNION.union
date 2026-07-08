@@ -1,0 +1,7 @@
+TYPE PLCADDRESSINFOUNION :
+UNION
+	COMMON : PlcAddressInfo;
+	ABSOLUTE : PlcAbsoluteAddressInfo;
+	PROPBYCALL : PlcPropertyByCallAddressInfo;
+END_UNION
+END_TYPE

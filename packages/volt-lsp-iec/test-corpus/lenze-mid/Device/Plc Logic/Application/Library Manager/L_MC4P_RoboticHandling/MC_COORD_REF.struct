@@ -1,0 +1,11 @@
+TYPE MC_COORD_REF :
+STRUCT
+	COORDTYPE : L_MC4P_CoordType := L_MC4P_CoordType.Cartesian;
+	X : LREAL;
+	Y : LREAL;
+	Z : LREAL;
+	A : LREAL;
+	B : LREAL;
+	C : LREAL;
+END_STRUCT
+END_TYPE

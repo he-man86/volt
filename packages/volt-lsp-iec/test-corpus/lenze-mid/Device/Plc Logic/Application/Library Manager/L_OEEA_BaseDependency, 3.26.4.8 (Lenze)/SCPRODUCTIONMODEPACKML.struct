@@ -1,5 +1,5 @@
 TYPE SCPRODUCTIONMODEPACKML :
 STRUCT
-	ASMODE : ARRAY [0..uiNoOfProductionModes] OF STRING;
+	ASMODE : ARRAY [0..uiNoOfProductionModes] OF STRING := ['Undefined', 'Clearing', 'Stopped', 'Starting', 'Idle', 'Suspended', 'Execute', 'Stopping', 'Aborting', 'Aborted', 'Holding', 'Held', 'Unholding', 'Suspending', 'Unsuspending', 'Resetting', 'Completing', 'Complete', 'Reserved_1', 'Reserved_2', 'Break'];
 END_STRUCT
 END_TYPE

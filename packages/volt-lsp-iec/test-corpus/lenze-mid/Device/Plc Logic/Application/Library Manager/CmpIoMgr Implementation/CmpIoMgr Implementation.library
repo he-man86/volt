@@ -1,0 +1,6 @@
+LIBRARY CmpIoMgr Implementation
+NAMESPACE CmpIoMgr_Implementation
+RESOLUTION CmpIoMgr Implementation, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System), CmpIoMgr Interfaces, * (System), Base Interfaces, * (System)

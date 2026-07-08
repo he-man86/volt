@@ -1,0 +1,5 @@
+TYPE L_UBUP_CLASSID :
+(
+	UNASSIGNED := (L_UBUP_Internal.cdiEnumStartValue + 0)
+);
+END_TYPE

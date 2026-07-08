@@ -1,0 +1,12 @@
+TYPE L_MC4P_LA_SEGMENTTYPE :
+(
+	LA_SEG_00 := 0,
+	LA_SEG_1A := 1,
+	LA_SEG_1B := 2,
+	LA_SEG_1C := 3,
+	LA_SEG_1D := 4,
+	LA_SEG_2B := 5,
+	LA_SEG_2C := 6,
+	LA_SEG_D := 7
+);
+END_TYPE

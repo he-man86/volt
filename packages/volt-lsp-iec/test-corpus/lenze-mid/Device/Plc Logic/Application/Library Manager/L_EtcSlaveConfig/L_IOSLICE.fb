@@ -1,0 +1,12 @@
+FUNCTION_BLOCK L_IOSLICE
+VAR
+	MODULEHANDLERBASE : L_IMHP_ModuleHandler := STRUCT(CompActiveDefault := TRUE, Layer := L_IMHP_Layer.Communication, CompType := L_IMHP_ComponentType.EtherCATSlave, DefaultRelationship := L_IMHP_RelationshipID.CommunicationView);
+	MODULEID : L_ECC_eDeviceType;
+	UIACTUALERROR : UINT;
+	REGISTERONCOMPONENTDIRECTORY : L_IC1P_RegisterOnComponentDirectory;
+	MYWMODULETYPE : UINT;
+	MYDWINSTANCE : UDINT;
+	MYPCONNECTOR : POINTER TO IoConfigConnector;
+	MODULEHANDLER : L_IMHP_IModuleHandler;
+END_VAR
+END_FUNCTION_BLOCK

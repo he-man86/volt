@@ -1,0 +1,36 @@
+FUNCTION_BLOCK L_UMTP_PENTADIAGONALSOLVER
+VAR_INPUT
+	PLRCHASINGPOINTS : POINTER TO LREAL;
+	UDINCP : UDINT;
+	UDIDIM : UDINT;
+	COXDEBOOR : REFERENCE TO L_UMTP_CoxdeBoorCoefficients;
+END_VAR
+VAR_OUTPUT
+	X : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1), 1..3] OF LREAL;
+	U : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+	V : ARRAY [1..L_UMTP_Constants.gc_CtrlPtMaxNr] OF LREAL;
+END_VAR
+VAR
+	UDIDEGREE : DINT := 3;
+	A : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1), 1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	B : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1), 1..3] OF LREAL;
+	D : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	E : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	F : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	G : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	H : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	ALPHA : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	DELTA : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	C : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1), 1..3] OF LREAL;
+	BET : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	GAM : ARRAY [1..(L_UMTP_Constants.gc_iMaxNumOfGivenPts + 1)] OF LREAL;
+	I : INT;
+	J : INT;
+	K : INT;
+	N : INT;
+	STSTARTTIME : SysTime;
+	STENDTIME : SysTime;
+	STCALCULATETIME : SysTime;
+	MATRIXTEST : ARRAY [1..7, 1..7] OF LREAL;
+END_VAR
+END_FUNCTION_BLOCK

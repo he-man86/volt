@@ -1,0 +1,8 @@
+TYPE SCVISUSHIFTHISTORY :
+STRUCT
+	ISHIFT : ARRAY [0..(uiNoOfShifts - 1)] OF INT;
+	SSHIFT : ARRAY [0..(uiNoOfShifts - 1)] OF STRING(uiShiftName);
+	ROEERT : ARRAY [0..(uiNoOfShifts - 1)] OF REAL;
+	LRQUANTITYOK : ARRAY [0..(uiNoOfShifts - 1)] OF LREAL;
+END_STRUCT
+END_TYPE

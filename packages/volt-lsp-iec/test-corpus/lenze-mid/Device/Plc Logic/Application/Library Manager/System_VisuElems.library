@@ -1,5 +1,0 @@
-LIBRARY System_VisuElems
-NAMESPACE VisuElems
-RESOLUTION VisuElems, 4.1.0.0 (System)
-PLACEHOLDER true
-SYSTEM true

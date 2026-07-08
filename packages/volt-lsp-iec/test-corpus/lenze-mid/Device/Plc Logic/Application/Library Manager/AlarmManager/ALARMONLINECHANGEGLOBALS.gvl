@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	G_ACTIVEALARMSSTORAGE : ActiveAlarmsTempStorage;
+END_VAR

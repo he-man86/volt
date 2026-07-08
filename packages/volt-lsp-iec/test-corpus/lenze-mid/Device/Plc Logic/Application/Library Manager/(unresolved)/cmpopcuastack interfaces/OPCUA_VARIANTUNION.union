@@ -1,0 +1,29 @@
+TYPE OPCUA_VARIANTUNION :
+UNION
+	BOOLEAN : OpcUa_Boolean;
+	SBYTE : OpcUa_SByte;
+	BYTE_CDS : OpcUa_Byte;
+	INT16 : OpcUa_Int16;
+	UINT16 : OpcUa_UInt16;
+	INT32 : OpcUa_Int32;
+	UINT32 : OpcUa_UInt32;
+	INT64 : OpcUa_Int64;
+	UINT64 : OpcUa_UInt64;
+	FLOAT : OpcUa_Float;
+	DOUBLE : OpcUa_Double;
+	DATETIME : OpcUa_DateTime;
+	STRING_CDS : OpcUa_String;
+	GUID : POINTER TO OpcUa_Guid;
+	BYTESTRING : OpcUa_ByteString;
+	XMLELEMENT : OpcUa_ByteString;
+	NODEID : POINTER TO OpcUa_NodeId;
+	EXPANDEDNODEID : POINTER TO OpcUa_ExpandedNodeId;
+	STATUSCODE : OpcUa_StatusCode;
+	QUALIFIEDNAME : POINTER TO OpcUa_QualifiedName;
+	LOCALIZEDTEXT : POINTER TO OpcUa_LocalizedText;
+	EXTENSIONOBJECT : POINTER TO OpcUa_ExtensionObject;
+	DATAVALUE : POINTER TO BYTE;
+	ARRAY_CDS : OpcUa_VariantArrayValue;
+	MATRIX : OpcUa_VariantMatrixValue;
+END_UNION
+END_TYPE

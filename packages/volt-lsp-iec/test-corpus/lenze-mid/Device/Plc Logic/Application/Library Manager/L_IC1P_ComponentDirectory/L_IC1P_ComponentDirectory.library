@@ -1,0 +1,6 @@
+LIBRARY L_IC1P_ComponentDirectory
+NAMESPACE L_IC1P
+RESOLUTION L_IC1P_ComponentDirectory, 3.32.0.3 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, StringUtils, CmpErrors2 Interfaces, * (System), Base Interfaces, * (System), L_IPAP_ParameterManagerAccess, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, CmpApp, CmpEventMgr, IecVarAccess3 Interfaces, * (System), IecVarAccess, SysTypes2 Interfaces, * (System)

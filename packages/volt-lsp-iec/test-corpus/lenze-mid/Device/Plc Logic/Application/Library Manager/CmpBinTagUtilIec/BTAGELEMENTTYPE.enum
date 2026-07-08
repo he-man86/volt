@@ -1,0 +1,7 @@
+TYPE BTAGELEMENTTYPE :
+(
+	STARTTAG := 0,
+	ENDTAG := 1,
+	EOF := 2
+);
+END_TYPE

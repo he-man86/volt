@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	GC_USIMAXNETID : USINT := 9;
+	M_ISTACK : ARRAY [0..gc_usiMaxNetId] OF CS.ICanOpenStack;
+END_VAR

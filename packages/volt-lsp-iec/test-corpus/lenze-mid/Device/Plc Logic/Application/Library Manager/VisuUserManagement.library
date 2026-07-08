@@ -1,5 +1,0 @@
-LIBRARY VisuUserManagement
-NAMESPACE VisuUserManagement
-RESOLUTION VisuUserMgmt, 4.8.0.0 (System)
-PLACEHOLDER true
-SYSTEM true

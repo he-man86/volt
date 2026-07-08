@@ -1,0 +1,10 @@
+FUNCTION_BLOCK VISUUSERMGMTCYCLICCALL
+VAR
+	_BINIT : BOOL := TRUE;
+	_NCOUNTER : INT;
+	_CLIENTLISTENER : VisuFbClientManagerListener;
+	M_ITFCLIENTMANAGERLISTENER : VisuElems.IClientManagerListener := _ClientListener;
+	_DIALOGLISTENER : VisuUserMgmtDialogManagerListener;
+	M_ITFDIALOGMANAGERLISTENER : VisuElems.IDialogManagerListener := _DialogListener;
+END_VAR
+END_FUNCTION_BLOCK

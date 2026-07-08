@@ -1,5 +1,0 @@
-LIBRARY L_TF2P_TechModulesFollowingPositioning
-NAMESPACE L_TF2P
-RESOLUTION L_TF2P_TechModulesFollowingPositioning, 3.34.0.18 (Lenze)
-PLACEHOLDER true
-SYSTEM false

@@ -1,0 +1,6 @@
+LIBRARY CAA Callback Extern
+NAMESPACE CB
+RESOLUTION CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CAA ResMan

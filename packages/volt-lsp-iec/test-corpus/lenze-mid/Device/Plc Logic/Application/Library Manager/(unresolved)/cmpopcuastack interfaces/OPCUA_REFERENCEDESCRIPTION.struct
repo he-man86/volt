@@ -1,0 +1,11 @@
+TYPE OPCUA_REFERENCEDESCRIPTION :
+STRUCT
+	REFERENCETYPEID : OpcUa_NodeId;
+	ISFORWARD : OpcUa_Boolean;
+	NODEID : OpcUa_ExpandedNodeId;
+	BROWSENAME : OpcUa_QualifiedName;
+	DISPLAYNAME : OpcUa_LocalizedText;
+	NODECLASS : OpcUa_NodeClass;
+	TYPEDEFINITION : OpcUa_ExpandedNodeId;
+END_STRUCT
+END_TYPE

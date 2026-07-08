@@ -1,5 +1,0 @@
-LIBRARY CmpBinTagUtilIec
-NAMESPACE CmpBinTagUtilIec
-RESOLUTION CmpBinTagUtilIec, 3.5.17.0 (System)
-PLACEHOLDER true
-SYSTEM false

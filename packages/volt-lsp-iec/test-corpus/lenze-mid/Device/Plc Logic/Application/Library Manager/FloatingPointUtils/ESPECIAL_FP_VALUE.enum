@@ -1,0 +1,10 @@
+TYPE ESPECIAL_FP_VALUE :
+(
+	NAN := 0,
+	POSINF := 1,
+	NEGINF := 2,
+	EPS := 3,
+	MAXVAL := 4,
+	MINVAL := 5
+);
+END_TYPE

@@ -1,5 +1,0 @@
-LIBRARY VisuShared
-NAMESPACE VisuShared
-RESOLUTION VisuShared, 4.8.0.0 (System)
-PLACEHOLDER true
-SYSTEM false

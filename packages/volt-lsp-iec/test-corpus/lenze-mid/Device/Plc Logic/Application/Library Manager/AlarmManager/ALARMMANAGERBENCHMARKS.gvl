@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	ALARMSTORAGESTATISTICS : AlarmManagerRealValueStatistics;
+END_VAR

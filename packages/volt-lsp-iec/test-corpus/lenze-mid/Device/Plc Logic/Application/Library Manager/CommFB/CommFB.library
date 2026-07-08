@@ -1,0 +1,6 @@
+LIBRARY CommFB
+NAMESPACE CommFB
+RESOLUTION CommFB, 3.5.21.0 (CODESYS)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysMem, IoDriver Profibus2 Interfaces, * (System)

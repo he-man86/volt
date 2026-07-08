@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	ALIGN42 : BTagAlignment := STRUCT(uiModulus := 4, uiRemainder := 2);
+	ALIGN40 : BTagAlignment := STRUCT(uiModulus := 4, uiRemainder := 0);
+END_VAR

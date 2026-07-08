@@ -6,8 +6,8 @@ VAR_INPUT
 	ESEVERITY : L_IE1P_SeverityLevel;
 	WTEXTREFID : WORD;
 	WERRORID : WORD;
-	EREACTION : L_IE1P_Reaction;
-	EGROUP : L_IE1P_Group;
+	EREACTION : L_IE1P_Reaction := L_IE1P_Reaction.No_Reaction;
+	EGROUP : L_IE1P_Group := L_IE1P_Group.ManufacturerGroup;
 	TEXTPLACEHOLDER : L_IE1P_ITextPlaceHolder;
 	ATTRIBUTES : L_IE1P_IAttributes;
 END_VAR

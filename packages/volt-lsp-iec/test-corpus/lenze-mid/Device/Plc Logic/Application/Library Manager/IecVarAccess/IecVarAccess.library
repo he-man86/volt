@@ -1,0 +1,6 @@
+LIBRARY IecVarAccess
+NAMESPACE IecVarAccessLibrary
+RESOLUTION IecVarAccess, 4.6.0.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Component Manager, SymbolicVarsBase, Base Interfaces, * (System), SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), IecVarAccess3 Interfaces, * (System), Collections Interfaces, * (System), CmpIecVarAccess, CmpOPCUAServer Interfaces, * (System), CmpOPCUAStack Interfaces, * (System), IecVarAccessOpcUaMetaData Interfaces, * (System), CmpUserMgr, 3.5.17.0 (System), Standard, CmpLog, CmpApp, SysMem, AlarmManagerToOpcUaConnector

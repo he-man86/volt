@@ -1,0 +1,9 @@
+TYPE ACKNOWLEDGEMETHOD :
+(
+	ACK := 1,
+	REP := 2,
+	REP_ACK := 3,
+	ACK_REP := 6,
+	ACK_REP_ACK := 7
+);
+END_TYPE

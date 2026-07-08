@@ -1,0 +1,6 @@
+LIBRARY BreakpointLogging
+NAMESPACE BPLog
+RESOLUTION Breakpoint Logging Functions, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM true
+DEPENDENCIES CmpLog, SysTypes2 Interfaces, * (System)

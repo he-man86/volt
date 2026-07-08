@@ -1,0 +1,6 @@
+LIBRARY L_OEEA_Library, 3.26.4.21 (Lenze)
+NAMESPACE L_OEEA_Lib
+RESOLUTION L_OEEA_Library, 3.26.4.21 (Lenze)
+PLACEHOLDER false
+SYSTEM false
+DEPENDENCIES CAA Types, CAA Behaviour Model, CAA FB Factory, Standard, CAA RTCLK, CAA DTUtility, SysTimeCore, 3.5.17.0 (System), System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, VisuSymbols, 3.5.17.0 (System), Util, L_OEEA_BaseDependency, 3.26.4.8 (Lenze), L_OEEA_MachineDowntimeSolution, 3.26.4.8 (Lenze), L_OEEA_MachinePerformanceSolution, 3.26.4.18 (Lenze), L_OEEA_ShiftScheduler, 3.26.4.12 (Lenze)

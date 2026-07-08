@@ -1,3 +1,0 @@
-VAR_GLOBAL
-	WURL : WSTRING(99) := "svn://server04/LibrariesV3Source/branches/V3.5.17.0/System/SysLibs/CmpIecVarAccess/CmpIecVarAccess/";
-END_VAR

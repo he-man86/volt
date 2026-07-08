@@ -1,6 +1,0 @@
-TYPE SCCATEGORYSTRUCT :
-STRUCT
-	ASSTR : ARRAY [0..uiNoOfDowntimeCategories] OF STRING(55);
-	AXERROR : ARRAY [0..uiNoOfDowntimeCategories] OF BOOL;
-END_STRUCT
-END_TYPE
