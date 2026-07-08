@@ -1,6 +1,11 @@
-# @opencode-ai/volt-web
+# @opencode-ai/volt-landing
 
-> Volt's public landing/marketing site (`volt.ai`) — the one frontend Volt fully owns. **Scaffold.**
+> Volt's public landing/signup site (`volt.ai`) — the one frontend Volt fully owns. **Skeleton wired; design pending.**
+
+**Status update:** the SolidStart skeleton + the load-bearing backend wiring now exist (framework
+config, OpenAuth login flow, Lite Stripe-checkout action reusing `console-core`). The landing
+*design* (branding/copy/pricing) is still `commercial-landing`'s job. Run `bun install` before
+`bun dev` (adds the new deps). Auth/billing need the same SST `Resource.*` links as `console/app`.
 
 Volt's own **website** — the `volt.ai` landing/marketing page. It's the single frontend Volt fully owns; everything else (the agent GUI, the backend) is reused from opencode and kept in sync. **Status: scaffold** — this package reserves the workspace slot and records the plan; the UI isn't built yet.
 
@@ -14,7 +19,7 @@ Volt is a white-label of opencode (root `CLAUDE.md` → "Fork surface"). The gui
 | **Agent GUI** | `app` + `ui` + `desktop` | **Keep + sync as upstream deps** — _this is the product_ (chat/sessions/tools), improved daily; customize only via minimal branding seams (logo, app name), never fork. |
 | **Backend** | `@opencode-ai/console-core` | **Reuse as-is** — point its SST `Resource.*` at Volt's Stripe keys/prices, SES domain, DB. Config, not code. |
 
-So `volt-web` (this) and opencode's `console/app` become two parallel frontends over one shared backend (`console-core`).
+So `volt-landing` (this) and opencode's `console/app` become two parallel frontends over one shared backend (`console-core`).
 
 ## How it works (planned)
 

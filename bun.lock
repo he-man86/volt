@@ -1064,6 +1064,26 @@
         "typescript": "catalog:",
       },
     },
+    "packages/volt-landing": {
+      "name": "@opencode-ai/volt-landing",
+      "version": "0.1.0",
+      "dependencies": {
+        "@openauthjs/openauth": "catalog:",
+        "@opencode-ai/console-core": "workspace:*",
+        "@opencode-ai/console-resource": "workspace:*",
+        "@solidjs/meta": "catalog:",
+        "@solidjs/router": "catalog:",
+        "@solidjs/start": "catalog:",
+        "nitro": "3.0.1-alpha.1",
+        "solid-js": "catalog:",
+        "vite": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@typescript/native-preview": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/volt-lsp-iec": {
       "name": "@opencode-ai/volt-lsp-iec",
       "version": "0.1.0",
@@ -1084,7 +1104,7 @@
     },
     "packages/volt-vscode": {
       "name": "volt-vscode",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "dependencies": {
         "@opencode-ai/volt-control": "workspace:*",
         "@opencode-ai/volt-lsp-iec": "workspace:*",
@@ -1098,10 +1118,6 @@
         "@vscode/vsce": "^3.0.0",
         "typescript": "catalog:",
       },
-    },
-    "packages/volt-web": {
-      "name": "@opencode-ai/volt-web",
-      "version": "0.1.0",
     },
     "packages/web": {
       "name": "@opencode-ai/web",
@@ -2103,9 +2119,9 @@
 
     "@opencode-ai/volt-git": ["@opencode-ai/volt-git@workspace:packages/volt-git"],
 
-    "@opencode-ai/volt-lsp-iec": ["@opencode-ai/volt-lsp-iec@workspace:packages/volt-lsp-iec"],
+    "@opencode-ai/volt-landing": ["@opencode-ai/volt-landing@workspace:packages/volt-landing"],
 
-    "@opencode-ai/volt-web": ["@opencode-ai/volt-web@workspace:packages/volt-web"],
+    "@opencode-ai/volt-lsp-iec": ["@opencode-ai/volt-lsp-iec@workspace:packages/volt-lsp-iec"],
 
     "@opencode-ai/web": ["@opencode-ai/web@workspace:packages/web"],
 

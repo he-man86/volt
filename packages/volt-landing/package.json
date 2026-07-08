@@ -1,0 +1,33 @@
+{
+  "name": "@opencode-ai/volt-landing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Volt's public landing/signup site (volt.ai). SolidStart, reuses @opencode-ai/console-core for auth + billing.",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "vite start",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@openauthjs/openauth": "catalog:",
+    "@opencode-ai/console-core": "workspace:*",
+    "@opencode-ai/console-resource": "workspace:*",
+    "@solidjs/meta": "catalog:",
+    "@solidjs/router": "catalog:",
+    "@solidjs/start": "catalog:",
+    "nitro": "3.0.1-alpha.1",
+    "solid-js": "catalog:",
+    "vite": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
