@@ -38,7 +38,11 @@ public sealed partial class BeckhoffDriver
             try { name = _om.GetName(child); } catch { continue; }
             int itemType = ClassifiedKind(child);
 
-            if (itemType == ItemKind.PlcFolder || itemType == ItemKind.PlcLibMan)
+            // A plain folder OR a container-manager (library / recipe / visualization manager) is a FOLDER, not a
+            // file: recurse its children under a folder named after it, emit no item for the container itself.
+            // (The library manager was already handled this way; container-managers now share one rule across
+            // both drivers — the wire parity boundary.)
+            if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
                 WalkInner(child, nested, items);

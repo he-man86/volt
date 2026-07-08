@@ -26,6 +26,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     private string? _cachedPlcProjectName;
     private bool? _cachedProjectDirty;
     private long _cachedAtMs;
+    private bool _everProbed;
+    private long _lastChangeRaisedMs;
 
     public override bool IsConnected => _om.IsConnected;
 
@@ -65,20 +67,63 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     {
         var r = RunOnStaThread(() =>
         {
-            if (!_om.IsAttached) { try { Connect(); } catch { } }   // (re)attach when TwinCAT appears
-            bool alive = _om.ProbeIdeAlive();
-            if (!alive && _om.IsAttached) { try { Disconnect(); } catch { } }
-            else if (alive && IsDegraded) ClearDegraded();
-            return (alive, _om.ProjectName, _om.PlcProjectName, _om.ProjectDirty());
+            // 1) No DTE yet → (re)bind + resolve the selected project. "No project selected" is expected until
+            //    the user picks one (never a silent auto-attach); keep it as the reason instead of thrashing.
+            if (!_om.IsAttached)
+            {
+                try { Connect(); }
+                catch (NoProjectSelectedException ex) { MarkDegraded(ex.Message); }
+                catch (Exception ex) { MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
+            }
+
+            bool ideAlive = _om.ProbeIdeAlive();
+            if (!ideAlive)
+            {
+                // The IDE itself went away → drop everything; the next probe re-binds when it returns.
+                if (_om.IsAttached) { try { _om.Disconnect(); } catch { } }
+            }
+            else if (_om.IsConnected)
+            {
+                // We hold a project binding — is it STILL the open project? A close/switch leaves stale COM refs
+                // that would otherwise report a false "connected" with the old project name (the bug this fixes).
+                if (!_om.ProbeProjectAlive())
+                {
+                    try { _om.DropProject(); } catch { }                 // stop reporting the stale project
+                    try { _om.ReattachProject(); } catch { /* not open → fall to "no project" */ }
+                }
+                if (_om.IsConnected && IsDegraded) ClearDegraded();
+            }
+            else if (_om.IsAttached)
+            {
+                // DTE alive but no project bound (a prior close, or the project opened after we attached the DTE)
+                // → re-resolve the SELECTED project under the existing DTE, no full re-attach, no IDE restart.
+                try { _om.ReattachProject(); } catch { /* still not open → stay "no project" */ }
+                if (_om.IsConnected && IsDegraded) ClearDegraded();
+            }
+
+            return (alive: ideAlive, project: _om.ProjectName, plc: _om.PlcProjectName, dirty: _om.ProjectDirty());
         });
+        bool raise;
         lock (_cacheLock)
         {
+            // TwinCAT has no cheaply-bindable DTE change event via our late-bound COM, so the probe IS the change
+            // source. Raise on any dirty/project-identity TRANSITION immediately; ALSO raise while the project
+            // stays dirty (at most every 30s) — `dirty` is a level, so a second unsaved edit doesn't re-transition
+            // it, and this catches those consecutive edits without a per-probe refresh storm. Coarser than
+            // CODESYS's per-edit events, but behind the identical wire.
+            var now = Environment.TickCount64;
+            raise = _everProbed && r.alive && (
+                _cachedProjectDirty != r.dirty || _cachedProjectName != r.project || _cachedPlcProjectName != r.plc
+                || (r.dirty == true && now - _lastChangeRaisedMs > 30_000));
+            if (raise) _lastChangeRaisedMs = now;
+            _everProbed = true;
             _cachedIdeAlive = r.alive;
-            _cachedProjectName = r.Item2;
-            _cachedPlcProjectName = r.Item3;
-            _cachedProjectDirty = r.Item4;
+            _cachedProjectName = r.project;
+            _cachedPlcProjectName = r.plc;
+            _cachedProjectDirty = r.dirty;
             _cachedAtMs = Environment.TickCount64;
         }
+        if (raise) RaiseProjectChanged();
     });
 
     // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs; those (and only those)

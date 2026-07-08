@@ -1,5 +1,10 @@
 using Volt.Bridge.Beckhoff;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Wire;
+
+// Durable logs → %LOCALAPPDATA%\Volt\logs\twincat-<date>.log (survives crashes/reboots; readable via the
+// connector's log window + collect-diagnostics).
+VoltLog.Init("twincat");
 
 // Standalone headless worker. ExternalAttach: don't crash if TwinCAT isn't open yet (the connector
 // starts us at login, before any IDE). Start DEGRADED and let the health probe attach when TwinCAT
@@ -10,6 +15,7 @@ var sta = new Thread(() =>
 {
     ComMessageFilter.Register();
     try { driver.Connect(); }
+    catch (NoProjectSelectedException ex) { driver.MarkDegraded(ex.Message); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE ({ex.Message})"); }
     driver.RunStaMessageLoop(cts.Token);
 })

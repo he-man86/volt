@@ -8,6 +8,14 @@ using Volt.Bridge.Core.Workspace;
 
 namespace Volt.Bridge.Beckhoff;
 
+/// <summary>Thrown by <see cref="TcObjectModel.Connect"/> when no attach target is selected — the worker must
+/// not guess a project. Surfaced as the driver's degraded reason; health then reports "no project loaded".</summary>
+public sealed class NoProjectSelectedException : InvalidOperationException
+{
+    public NoProjectSelectedException()
+        : base("No project selected — pick a TwinCAT instance/project from the Volt tray (or set VOLT_TC_PROJECT).") { }
+}
+
 /// <summary>
 /// Access to the live TwinCAT/Beckhoff project through the XAE automation model — the DTE plus the
 /// system manager and PLC tree — reached out-of-process over COM. The COM objects are late-bound through
@@ -30,7 +38,10 @@ internal sealed class TcObjectModel
     private string? _ideVersion;
 
     public bool IsAttached => _dte != null;
-    public bool IsConnected => _dte != null && _sysManager != null && _plcProjectPath != null;
+    // "Connected" = a live project is bound. Keyed on the resolved PLC node (not just _plcProjectPath, which can
+    // linger as a stale string after the project is closed), so a close/reopen is reflected once the probe drops
+    // the node. These are plain field reads — safe to call off the STA thread (health serves from the cache).
+    public bool IsConnected => _dte != null && _sysManager != null && _plcNode != null;
     public string? IdeProgId => _ideProgId;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
@@ -44,7 +55,14 @@ internal sealed class TcObjectModel
     {
         var targetInstance = Environment.GetEnvironmentVariable("VOLT_TC_INSTANCE");
         var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
-        var targetPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
+
+        // NO silent auto-attach: with nothing selected, do NOT bind whatever the ROT lists first — that would
+        // silently pick the wrong project when two solutions are open, and pull/push would then run against it.
+        // The user selects an instance/project from the Volt tray (or forces one via VOLT_TC_* env / the
+        // control-plane select route, e.g. for tests). Until then the worker stays unattached (health reports
+        // "no project loaded").
+        if (string.IsNullOrEmpty(targetInstance) && string.IsNullOrEmpty(targetProject))
+            throw new NoProjectSelectedException();
 
         // Attach to the requested instance, else fall back to the first running one. BOTH paths go through
         // the Running Object Table (RotInstances), which matches any "VisualStudio.DTE.*" / "TcXaeShell.DTE.*"
@@ -62,6 +80,16 @@ internal sealed class TcObjectModel
         _ideProgId = instanceId == null ? null : RotInstances.ProgId(instanceId);
         try { _ideVersion = (string?)_dte!.Version; } catch { /* version is cosmetic */ }
 
+        ResolveSelectedProject();
+    }
+
+    /// <summary>Resolve the selected project + PLC project under the current DTE (from the VOLT_TC_* target).
+    /// Shared by first <see cref="Connect"/> and the soft re-resolve <see cref="ReattachProject"/>; throws if
+    /// the requested project isn't currently open.</summary>
+    private void ResolveSelectedProject()
+    {
+        var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
+        var targetPlc = Environment.GetEnvironmentVariable("VOLT_TC_PLC");
         FindTwinCatProject(string.IsNullOrEmpty(targetProject) ? null : targetProject);
         FindPlcProject(string.IsNullOrEmpty(targetPlc) ? null : targetPlc);
     }
@@ -146,9 +174,28 @@ internal sealed class TcObjectModel
 
     public void Disconnect()
     {
-        if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
+        DropProject();
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
+    }
+
+    /// <summary>Drop the project binding but KEEP the DTE — for a project close/switch while the IDE stays open,
+    /// so the next probe can re-resolve the selected project without a full re-attach. Nulls the fields
+    /// <see cref="IsConnected"/> reads, so it correctly reports "not connected" until re-resolved.</summary>
+    public void DropProject()
+    {
+        if (_plcNode != null) { try { Marshal.ReleaseComObject(_plcNode); } catch { } _plcNode = null; }
+        if (_sysManager != null) { try { Marshal.ReleaseComObject(_sysManager); } catch { } _sysManager = null; }
         _projectName = null; _plcProjectPath = null;
+    }
+
+    /// <summary>Re-resolve the selected project under the CURRENT DTE (no re-bind). Called only when a target was
+    /// selected (so <see cref="_dte"/> is bound) — never a silent first attach. Throws if the project isn't open
+    /// yet, leaving the worker in the "no project" state until it is.</summary>
+    public void ReattachProject()
+    {
+        if (_dte == null) throw new InvalidOperationException("no IDE bound");
+        DropProject();
+        ResolveSelectedProject();
     }
 
     // ── health ──────────────────────────────────────────────────────
@@ -157,6 +204,25 @@ internal sealed class TcObjectModel
         if (_dte == null) return false;
         try { var _ = (int)_dte.Solution.Count; return true; }
         catch { return false; }
+    }
+
+    /// <summary>Whether the bound project is STILL the open project. Touches the PLC node — a closed/reloaded
+    /// project leaves a stale COM ref that throws here, which is how a close is detected (the DTE-level
+    /// <see cref="ProbeIdeAlive"/> stays true through a project close, so it can't). Must run on the STA thread.</summary>
+    public bool ProbeProjectAlive()
+    {
+        if (_plcNode == null) return false;
+        try { var _ = (string)_plcNode.Name; return true; }
+        catch (COMException com)
+        {
+            // A momentarily busy IDE (mid-build / modal / reload) is NOT a closed project — ComMessageFilter
+            // usually retries these before they surface, but if one leaks through, treat it as "still alive,
+            // just busy" so a build doesn't flap us to "no project". Anything else = the ref is gone (closed).
+            var hr = unchecked((uint)com.HResult);
+            return hr == 0x8001010Au   // RPC_E_SERVERCALL_RETRYLATER
+                || hr == 0x80010001u;  // RPC_E_CALL_REJECTED
+        }
+        catch { return false; }        // non-COM read failure → treat as gone and re-resolve (self-heals)
     }
 
     /// <summary>Whether the solution has unsaved changes, or null if it can't be read.</summary>

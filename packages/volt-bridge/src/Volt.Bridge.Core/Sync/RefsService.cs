@@ -25,6 +25,9 @@ public static class RefsService
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
+            // A container-manager is a folder, never a tracked item (matches /fetch + both driver walks) — the
+            // Core backstop that keeps the "a pure container is a folder" invariant vendor-agnostic.
+            if (ItemKind.IsContainerManager(it.KindCode)) continue;
             // Excluded-from-build objects have no compiler ground truth — omit them (matches /fetch), so the
             // client never tracks a file the LSP would false-positive on.
             if (it.ExcludeFromBuild) continue;

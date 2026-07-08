@@ -77,25 +77,27 @@ public sealed partial class CodesysDriver : IDebugIntrospect
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
             if (ItemKind.IsInlinedInPou(code)) continue;        // collected inside the POU
 
-            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
+            // A container-manager (library / recipe / visualization manager) is a FOLDER, not a file: it groups
+            // its children and has no content of its own, so we emit NO stub item for it — only its children,
+            // nested under a folder named after it. This matches the Beckhoff walk and fixes the redundant
+            // `<Manager>.<kind>` stub (which also duplicated when two same-named managers exist at different tree
+            // levels — e.g. a project-level and an Application-level "Library Manager").
+            if (ItemKind.IsContainerManager(code))
+            {
+                var managerFolder = FolderPath.Append(folderPath, name);
+                if (code == ItemKind.PlcLibMan)
+                    // The library manager's children are SYNTHESIZED from ILibManObject (not tree children).
+                    // A placeholder library's name can carry a Windows-illegal char (the '*' wildcard version,
+                    // e.g. "SysTypes2 Interfaces, * (System)") — encode it so the .library file still materializes.
+                    foreach (var lib in _om.GetLibraryRefs(child))
+                        items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, false, managerFolder));
+                else
+                    // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
+                    Walk(child, managerFolder, items);
+                continue;
+            }
 
-            // The Library Manager additionally yields its individual library references, nested under a folder
-            // named after the manager (mirroring CODESYS, and matching the Beckhoff walk).
-            if (code == ItemKind.PlcLibMan)
-            {
-                var libFolder = FolderPath.Append(folderPath, name);
-                foreach (var lib in _om.GetLibraryRefs(child))
-                    // A placeholder library's name can contain a Windows-illegal char (the '*' wildcard version,
-                    // e.g. "SysTypes2 Interfaces, * (System)"). Encode it so the .library file materializes —
-                    // otherwise that library (and its namespace) is silently dropped on Windows.
-                    items.Add(new ProjectItem(FolderPath.EncodeName(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, false, libFolder));
-            }
-            // The Recipe Manager holds its recipe DEFINITIONs as children (emitted as `.recipe` variable lists).
-            // Like the Library Manager, recurse it so they materialize nested under a folder named after it.
-            else if (code == ItemKind.PlcRecipeMan)
-            {
-                Walk(child, FolderPath.Append(folderPath, name), items);
-            }
+            items.Add(new ProjectItem(name, new ItemRef(child), code, ItemKind.IsTopLevelCrud(code), folderPath, _om.IsExcludedFromBuild(child)));
         }
     }
 

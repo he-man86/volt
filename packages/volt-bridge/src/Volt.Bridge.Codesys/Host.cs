@@ -1,4 +1,5 @@
 using System;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Wire;
 
 namespace Volt.Bridge.Codesys;
@@ -26,6 +27,11 @@ public static class Host
         {
             if (IsRunning) return $"Volt bridge already running on http://127.0.0.1:{Port}";
 
+            // Durable logs → %LOCALAPPDATA%\Volt\logs\codesys-<date>.log. Critical here: the in-proc bridge's
+            // Console output otherwise vanishes into the IDE, so a field issue left no trace.
+            VoltLog.Init("codesys");
+            VoltLog.Info($"in-proc bridge starting on http://127.0.0.1:{Port}");
+
             _driver = new CodesysDriver(projects);
             _driver.Connect();   // snapshot on the primary thread (we are on it now)
 
@@ -44,6 +50,7 @@ public static class Host
         {
             if (_server == null || !_server.IsRunning) return "Volt bridge was not running";
             _server.Stop();
+            _driver?.Disconnect(); // remove change-event handlers from the singleton ObjectManager (no leak on restart)
             _server = null;
             _driver = null;
             return "Volt bridge stopped";

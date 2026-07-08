@@ -41,6 +41,10 @@ namespace Volt.Bridge.Codesys
 
         public bool HasProjects => _projects != null;
         public bool HasObjectManager => _objMgr != null;
+        // Whether a project is actually OPEN — a live lookup (unlike HasProjects, which only checks the
+        // persistent projects collection). Must be read on the primary thread; the driver caches the result so
+        // health can report it off-thread. This is what makes a project close/reopen reflect correctly.
+        public bool HasPrimaryProject => PrimaryProject != null;
 
         // ── tree navigation (typed-.NET members on the scripting objects) ──────
         public object? PrimaryProject => Unwrap(GetMember(_projects, "primary"));
@@ -126,6 +130,103 @@ namespace Volt.Bridge.Codesys
             if (iobject == null) return set;
             foreach (var i in iobject.GetType().GetInterfaces()) set.Add(i.Name);
             return set;
+        }
+
+        // ── project-change events (→ the driver's debounced ProjectChanged → SSE) ──
+        private Action? _onChange;
+        private bool _changeSubscribed;
+        private readonly List<(System.Reflection.EventInfo Ev, Delegate Del)> _changeHandlers = new();
+
+        /// <summary>Subscribe once to the IObjectManager's change events so a live IDE edit signals the driver
+        /// (which debounces → SSE /events). The ObjectManager is a process singleton, so one subscription lasts
+        /// the session. The handler shapes vary (ObjectModifiedEventHandler, ObjectEventHandler, …); we bind our
+        /// generic <see cref="OnIdeChange"/> to each via delegate variance, skipping any that won't bind.</summary>
+        public void SubscribeChanges(Action onChange)
+        {
+            _onChange = onChange;
+            if (_changeSubscribed || _objMgr == null) return;
+            _changeSubscribed = true;
+            var t = _objMgr.GetType();
+            var handler = typeof(CodesysObjectModel).GetMethod(nameof(OnIdeChange),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            foreach (var name in new[] { "ObjectModified", "ObjectAdded", "ObjectRemoved", "ObjectRenamed", "ObjectMoved", "ObjectPropertyModified" })
+            {
+                var ev = t.GetEvent(name);
+                if (ev?.EventHandlerType == null || handler == null) continue;
+                try
+                {
+                    var del = Delegate.CreateDelegate(ev.EventHandlerType, this, handler);
+                    ev.AddEventHandler(_objMgr, del);
+                    _changeHandlers.Add((ev, del)); // keep the delegate so we can remove it on teardown
+                }
+                catch { /* this handler shape won't bind to our generic method — skip it */ }
+            }
+        }
+
+        /// <summary>Remove the change-event handlers from the (process-singleton) ObjectManager. Call on teardown
+        /// so a restarted / replacement driver does not leak stale handlers that fire on the dead instance
+        /// forever (and keep it alive).</summary>
+        public void UnsubscribeChanges()
+        {
+            if (_objMgr != null)
+                foreach (var (ev, del) in _changeHandlers)
+                    try { ev.RemoveEventHandler(_objMgr, del); } catch { /* already gone */ }
+            _changeHandlers.Clear();
+            _onChange = null;
+            _changeSubscribed = false;
+        }
+
+        // Bound (via variance) to every subscribed change event; ignores the args, just pings the driver.
+        private void OnIdeChange(object sender, object args) => _onChange?.Invoke();
+
+        // ── DEBUG: reflect the change-detection surface (read-only investigation) ──
+        /// <summary>Dump the type / interfaces / change-related members of a target object-model member, to see
+        /// what "changed" signal CODESYS exposes (a modification stamp, a version, a change event). READ-ONLY.</summary>
+        public string ReflectMembers(string target)
+        {
+            object? obj = target switch
+            {
+                "objmgr" => _objMgr,
+                "object" => SampleObject(),
+                _ => PrimaryProject,
+            };
+            if (obj == null) return $"<null target: {target}>";
+            var t = obj.GetType();
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"TARGET {target}");
+            sb.AppendLine($"TYPE {t.FullName}");
+            foreach (var i in t.GetInterfaces()) sb.AppendLine($"IFACE {i.FullName}");
+            foreach (var e in t.GetEvents()) sb.AppendLine($"EVENT {e.Name} : {e.EventHandlerType?.Name}");
+            foreach (var p in t.GetProperties()) if (Relevant(p.Name)) sb.AppendLine($"PROP {p.Name} : {p.PropertyType.Name}");
+            foreach (var m in Distinct(t.GetMethods())) if (Relevant(m)) sb.AppendLine($"METHOD {m}");
+            foreach (var i in t.GetInterfaces())
+            {
+                foreach (var e in i.GetEvents()) sb.AppendLine($"IFACE-EVENT {i.Name}.{e.Name}");
+                foreach (var p in i.GetProperties()) if (Relevant(p.Name)) sb.AppendLine($"IFACE-PROP {i.Name}.{p.Name}");
+                foreach (var m in Distinct(i.GetMethods())) if (Relevant(m)) sb.AppendLine($"IFACE-METHOD {i.Name}.{m}");
+            }
+            return sb.ToString();
+        }
+
+        private object? SampleObject()
+        {
+            var p = PrimaryProject;
+            if (p == null) return null;
+            var kids = GetChildren(p);
+            return kids.Count > 0 ? ReadObject(kids[0]) : null;
+        }
+
+        private static System.Collections.Generic.IEnumerable<string> Distinct(System.Reflection.MethodInfo[] ms)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var m in ms) if (seen.Add(m.Name)) yield return m.Name;
+        }
+
+        private static bool Relevant(string n)
+        {
+            foreach (var k in new[] { "change", "modif", "dirty", "version", "timestamp", "date", "event", "listen", "subscribe", "notify", "stamp", "revision", "save" })
+                if (n.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
         }
 
         // ── library references (LibManObject → ILibManItem[]) ──────────────────

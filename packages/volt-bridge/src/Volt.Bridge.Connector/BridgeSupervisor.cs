@@ -18,19 +18,15 @@ namespace Volt.Bridge.Connector
         private readonly Dictionary<string, Process> _workers = new();
         private readonly object _gate = new();
 
-        public string LogDir { get; }
-
-        public BridgeSupervisor()
-        {
-            LogDir = Path.Combine(Path.GetTempPath(), "volt-connector");
-            Directory.CreateDirectory(LogDir);
-        }
+        /// <summary>The shared durable log store (<c>%LOCALAPPDATA%\Volt\logs</c>) — same place the bridges log,
+        /// so one folder holds everything the log window + collect-diagnostics read.</summary>
+        public string LogDir => Log.Dir;
 
         /// <summary>Ensure the vendor's worker is running (spawn if absent or crashed).
         /// No-op for in-IDE vendors or when the worker binary can't be found.</summary>
         public void EnsureWorker(VendorProvider p)
         {
-            if (p.Archetype != Archetype.ExternalAttach || !p.Enabled) return;
+            if (p.Archetype != Archetype.ExternalAttach) return;
             if (string.IsNullOrEmpty(p.WorkerExe) || !File.Exists(p.WorkerExe)) return;
 
             lock (_gate)
@@ -42,7 +38,6 @@ namespace Volt.Bridge.Connector
                     _workers.Remove(p.Id);
                 }
 
-                var log = Path.Combine(LogDir, $"{p.Id}.log");
                 var psi = new ProcessStartInfo
                 {
                     FileName = p.WorkerExe,
@@ -61,15 +56,17 @@ namespace Volt.Bridge.Connector
                 }
                 Process? proc;
                 try { proc = Process.Start(psi); }
-                catch (Exception ex) { AppendLog(log, $"[connector] spawn failed: {ex.Message}"); return; }
+                catch (Exception ex) { Log.Error($"spawn {p.Id} failed: {ex.Message}"); return; }
                 if (proc == null) return;
 
-                proc.OutputDataReceived += (_, e) => AppendLog(log, e.Data);
-                proc.ErrorDataReceived += (_, e) => AppendLog(log, e.Data);
+                // Capture the worker's stdout/stderr into the shared store, tagged with its source (belt-and-
+                // suspenders: the worker self-logs via VoltLog too, but this catches anything it prints directly).
+                proc.OutputDataReceived += (_, e) => Log.Raw(p.Id, e.Data);
+                proc.ErrorDataReceived += (_, e) => Log.Raw(p.Id, e.Data);
                 proc.BeginOutputReadLine();
                 proc.BeginErrorReadLine();
                 _workers[p.Id] = proc;
-                AppendLog(log, $"[connector] started {Path.GetFileName(p.WorkerExe)} (pid {proc.Id})");
+                Log.Info($"started {Path.GetFileName(p.WorkerExe)} for {p.Id} (pid {proc.Id})");
             }
         }
 
@@ -125,12 +122,6 @@ namespace Volt.Bridge.Connector
         private static void KillTree(Process proc)
         {
             try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch { /* already gone */ }
-        }
-
-        private static void AppendLog(string path, string? line)
-        {
-            if (string.IsNullOrEmpty(line)) return;
-            try { File.AppendAllText(path, line + Environment.NewLine); } catch { /* best effort */ }
         }
     }
 }

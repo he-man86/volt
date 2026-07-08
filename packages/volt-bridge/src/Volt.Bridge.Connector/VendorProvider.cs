@@ -29,7 +29,6 @@ namespace Volt.Bridge.Connector
         public required string DisplayName { get; init; }   // "TwinCAT", "CODESYS"
         public required int Port { get; init; }             // the bridge's HTTP port
         public required Archetype Archetype { get; init; }
-        public bool Enabled { get; set; } = true;
 
         // ── ExternalAttach: the headless worker process ──
         public string? WorkerExe { get; set; }
@@ -86,9 +85,8 @@ namespace Volt.Bridge.Connector
                 DisplayName = "CODESYS",
                 Port = 8556,
                 Archetype = Archetype.InIdeLoad,
-                // Opt-in: enable from the tray menu when you use CODESYS, so an
-                // unused vendor doesn't keep the aggregate tray icon red.
-                Enabled = false,
+                // No enable flag: an unused vendor (CODESYS not launched) reads as "not applicable" in the
+                // aggregate tray icon, so it never paints the icon a fault color — no opt-in toggle needed.
                 Installs = installs,
                 IdeExe = installs.Count > 0 ? installs[0].ExePath : null,
                 IdeLaunchArgs = BuildCodesysLaunchArgs(),

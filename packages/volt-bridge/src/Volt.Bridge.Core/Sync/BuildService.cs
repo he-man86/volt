@@ -11,13 +11,15 @@ namespace Volt.Bridge.Core.Sync;
 /// is reported as a failed BuildResponse (the client wants the diagnostics, not a 500).</summary>
 public static class BuildService
 {
-    public static BuildResponse Handle(IIdeDriver ide, BuildRequest request)
+    public static BuildResponse Handle(IIdeDriver ide, BuildRequest request, Action<ProgressFrame>? onProgress = null)
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
         var sw = Stopwatch.StartNew();
         try
         {
+            // A build is opaque to the bridge (one IDE call), so progress is indeterminate — a phase, no fraction.
+            onProgress?.Invoke(new ProgressFrame { Operation = "build", Phase = "building" });
             ide.FlushPendingWrites();
             var success = ide.Build();
             sw.Stop();

@@ -23,6 +23,35 @@ servers:
     description: CODESYS bridge
 
 paths:
+  # ── /events ───────────────────────────────────────────────────────────────
+  /events:
+    get:
+      operationId: subscribeEvents
+      summary: SSE stream of project-change events (reactive, no polling)
+      description: |
+        A Server-Sent Events stream the client opens ONCE. The bridge pushes a
+        `change` event whenever the loaded project is edited in the IDE — debounced,
+        so a burst of edits is one event — plus periodic `: keep-alive` comments (which
+        also serve as the client's liveness signal). On a `change` the client re-runs its
+        normal status refresh (`/refs` + diff); the event itself carries no payload.
+
+        Detection is centralized in the bridge (CODESYS `IObjectManager` events;
+        TwinCAT probe) and never leaks to the wire — the stream is identical per vendor.
+      responses:
+        "200":
+          description: An event stream (stays open).
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                : connected
+
+                event: change
+                data: {}
+
+                : keep-alive
+
   # ── /health ───────────────────────────────────────────────────────────────
   /health:
     get:
@@ -162,6 +191,20 @@ paths:
         (StAssembler output) — ready to write directly to the workspace.
 
         Uses the single shared project-tree walker (same as /refs and /push).
+
+        **Streaming (progress):** send `Accept: application/x-ndjson` to receive the
+        operation as a newline-delimited JSON stream — zero or more
+        `{"progress":{operation,done,total,phase}}` frames followed by exactly one
+        terminal `{"result": <FetchResponse>}` (or `{"error":{code,message}}`). Without
+        that header the response is the single JSON body below (backward-compatible).
+      parameters:
+        - in: header
+          name: Accept
+          required: false
+          schema:
+            type: string
+            enum: ["application/json", "application/x-ndjson"]
+          description: application/x-ndjson opts into streamed progress frames.
       requestBody:
         required: true
         content:
@@ -186,8 +229,14 @@ paths:
                   onlyItems: ["PLC_PRG"]
       responses:
         "200":
-          description: Changed items since client's known versions
+          description: |
+            Changed items since client's known versions. `application/json` = the single
+            body; `application/x-ndjson` = progress frames then a terminal result frame
+            (see the streaming note above).
           content:
+            application/x-ndjson:
+              schema:
+                $ref: "#/components/schemas/NdjsonStream"
             application/json:
               schema:
                 $ref: "#/components/schemas/FetchResponse"
@@ -264,8 +313,14 @@ paths:
                       ifVersion: "a1b2c3d4e5f60005"
       responses:
         "200":
-          description: Batch result — accepted or rejected with conflicts
+          description: |
+            Batch result — accepted or rejected with conflicts. With
+            `Accept: application/x-ndjson` the response streams `{progress}` frames then
+            a terminal `{result: <PushResponse>}` (or `{error}`).
           content:
+            application/x-ndjson:
+              schema:
+                $ref: "#/components/schemas/NdjsonStream"
             application/json:
               schema:
                 $ref: "#/components/schemas/PushResponse"
@@ -316,8 +371,14 @@ paths:
                   buildType: "full"
       responses:
         "200":
-          description: Build result with diagnostics
+          description: |
+            Build result with diagnostics. With `Accept: application/x-ndjson` the
+            response streams an indeterminate `{progress:{phase:"building"}}` frame then a
+            terminal `{result: <BuildResponse>}` (or `{error}`).
           content:
+            application/x-ndjson:
+              schema:
+                $ref: "#/components/schemas/NdjsonStream"
             application/json:
               schema:
                 $ref: "#/components/schemas/BuildResponse"
@@ -338,6 +399,34 @@ paths:
 # ── Schemas ─────────────────────────────────────────────────────────────────
 components:
   schemas:
+    # ── Progress streaming (Accept: application/x-ndjson) ──────────────
+    ProgressFrame:
+      type: object
+      required: [operation, done]
+      properties:
+        operation: { type: string, enum: [fetch, push, build] }
+        done: { type: integer, description: units completed }
+        total: { type: [integer, "null"], description: total units; null when indeterminate (build) }
+        phase: { type: [string, "null"], description: coarse phase label, e.g. reading / rendering libraries / building }
+    NdjsonStream:
+      description: |
+        A newline-delimited JSON stream returned when the client sends
+        `Accept: application/x-ndjson`: zero or more `{progress}` frames then exactly
+        one terminal `{result}` (the endpoint's normal body) or `{error}`.
+      oneOf:
+        - type: object
+          required: [progress]
+          properties: { progress: { $ref: "#/components/schemas/ProgressFrame" } }
+        - type: object
+          required: [result]
+          properties: { result: { description: the endpoint's normal response body (FetchResponse / PushResponse / BuildResponse) } }
+        - type: object
+          required: [error]
+          properties:
+            error:
+              type: object
+              properties: { code: { type: string }, message: { type: string } }
+
     # ── Health ─────────────────────────────────────────────────────────
     HealthResponse:
       type: object

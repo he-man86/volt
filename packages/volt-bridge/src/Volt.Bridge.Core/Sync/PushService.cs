@@ -15,7 +15,7 @@ namespace Volt.Bridge.Core.Sync;
 /// <c>/refs</c> exactly.</summary>
 public static class PushService
 {
-    public static PushResponse Handle(IIdeDriver ide, PushRequest request)
+    public static PushResponse Handle(IIdeDriver ide, PushRequest request, Action<ProgressFrame>? onProgress = null)
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
@@ -43,6 +43,9 @@ public static class PushService
             return PushResponse.RejectedResult(conflicts, currentProjectVersion);
 
         var parent = ide.GetPlcProjectRoot();
+        var applied = 0;
+        var opTotal = request.Ops.Count;
+        onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = 0, Total = opTotal, Phase = "applying" });
         foreach (var op in request.Ops)
         {
             try { ApplyOp(ide, parent, itemCache, op); }
@@ -55,6 +58,8 @@ public static class PushService
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
                     currentProjectVersion);
             }
+            // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
+            onProgress?.Invoke(new ProgressFrame { Operation = "push", Done = ++applied, Total = opTotal });
         }
 
         ide.FlushPendingWrites();

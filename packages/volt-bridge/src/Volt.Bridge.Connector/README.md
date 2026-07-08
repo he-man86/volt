@@ -27,12 +27,20 @@ descriptor + a worker binary.
 
 ## What it does
 
-- **Tray icon** colour = aggregate bridge state (green connected · amber degraded ·
-  orange no-project · red not-running · grey unknown), read from the same `/health`
-  the CLI and VS Code extension consume.
-- **Context menu**: per-vendor status + actions (Restart/Stop a worker; "Open CODESYS
-  (Volt)" launches CODESYS with `--runscript` so its in-proc bridge auto-loads;
-  per-vendor Enable toggle), Open logs, Exit.
+- **Tray icon** colour = aggregate bridge state: green (something connected) · amber
+  (a live channel degraded) · orange (up, waiting for a project) · grey (nothing
+  running / vendor not in use). A vendor with no IDE running is **neutral grey, never a
+  fault colour** — that's why there's no per-vendor "enable" toggle: an unused vendor
+  simply doesn't alarm. Read from the same `/health` the CLI and VS Code extension consume.
+- **Context menu**: per-vendor status + actions — for TwinCAT, **"Connect to" picks the
+  instance/project** (Restart/Stop the worker); for CODESYS, "Open CODESYS (Volt)"
+  launches it with `--runscript` so its in-proc bridge auto-loads. **Show logs**,
+  **Collect diagnostics**, Exit.
+- **Project selection is explicit (TwinCAT).** The worker never auto-attaches to an
+  arbitrary open project — with nothing selected it stays unattached and reports
+  "no project loaded" (orange). The user picks from "Connect to". For tests/dev a target
+  can be forced non-interactively via `VOLT_TC_INSTANCE`/`VOLT_TC_PROJECT`/`VOLT_TC_PLC`
+  env or the control-plane `POST /bridges/{id}/select`.
 - **Balloon toasts** on state changes ("TwinCAT bridge not running", "… connected").
 - **Supervises**: spawns workers on start, respawns on crash, kills its own child tree
   on exit (never a broad process-name kill — that could take down a live IDE).
@@ -47,6 +55,27 @@ descriptor + a worker binary.
 | `VOLT_CODESYS_SCRIPT` | path to `start_bridge.py` passed to `--runscript` |
 
 Ports: TwinCAT `8555`, CODESYS `8556` (Siemens `8557`, Allen-Bradley `8558` reserved).
+
+## Diagnostics & logs
+
+Every Volt component writes to ONE durable store — **`%LOCALAPPDATA%\Volt\logs`** — in daily per-source files
+(`connector-<date>.log`, `twincat-<date>.log`, `codesys-<date>.log`, …), pruned after 14 days. Lines are
+`[timestamp][source][level] message`. The bridges log via Core's zero-dependency `VoltLog`; the connector via its
+own tiny `Log` (same location + format — it stays Core-free by design). This is a deliberate ~50-line file logger,
+not a logging framework: our need is "append a line to a rotating file", and a framework would only add
+dependencies and risk assembly conflicts inside the in-proc CODESYS (net48) host.
+
+- **Show logs** — a live, filterable window (by source + level, searchable) over that store, with a Collect button.
+- **Collect diagnostics** — zips the whole log store plus a snapshot (each bridge's `/health`, which carries its
+  wire + app version, the OS/runtime, and the connector version) to `volt-diagnostics-<stamp>.zip` on the Desktop.
+
+### Runbook — debugging a customer bridge session
+
+1. Ask the customer for **one file**: tray → **Collect diagnostics** → the `volt-diagnostics-*.zip` on their Desktop.
+2. Open `snapshot.txt` first: it shows each bridge's `/health` — `connected`/`degraded`/`degradedReason`, the
+   attached project, and the **`wireVersion`** (a mismatch vs. the shipped client is the "stale bridge" class).
+3. Read `logs/<source>-<date>.log`: `degraded:` lines carry the reason (e.g. "no project selected"), `error` lines
+   carry stack traces from the HTTP boundary. The in-proc CODESYS bridge now logs here too (previously lost).
 
 ## Dev
 

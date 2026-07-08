@@ -115,4 +115,9 @@ public sealed class FakeIde : IIdeDriver
     public IReadOnlyList<IReadOnlyDictionary<string, string>> DebugLibrarySignatures(string? nameFilter) =>
         System.Array.Empty<IReadOnlyDictionary<string, string>>();
     public string DebugItemXml(string name) => "";
+    public string DebugReflect(string target) => "";
+
+    public event Action? ProjectChanged;
+    /// <summary>Test hook: raise a change as if the IDE fired one (no debounce — that's DriverBase's job).</summary>
+    public void FireProjectChanged() => ProjectChanged?.Invoke();
 }

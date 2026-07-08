@@ -22,8 +22,11 @@ namespace Volt.Bridge.Core.Sync;
 /// </summary>
 public static class DebugService
 {
-    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null, string? xmlOf = null)
+    public static Dictionary<string, object?> Handle(IIdeDriver ide, string? name, bool includeBodies, string? libSig = null, string? xmlOf = null, string? reflect = null)
     {
+        // `?reflect=TARGET` (project|objmgr|object) → the change-detection surface of that object-model member.
+        if (!string.IsNullOrEmpty(reflect))
+            return new Dictionary<string, object?> { ["reflect"] = ide.DebugReflect(reflect!) };
         // `?xmlof=NAME` → the raw item-metadata XML (e.g. to inspect how a property lists its accessors).
         if (!string.IsNullOrEmpty(xmlOf))
             return new Dictionary<string, object?> { ["xml"] = ide.DebugItemXml(xmlOf) };

@@ -141,6 +141,16 @@ public static class ItemKind
         kind is "function_block" or "function" or "program" or "interface" or "gvl"
              or "structure" or "enumeration" or "union" or "alias";
 
+    /// <summary>A "manager" node that is a PURE CONTAINER — a library / recipe / visualization manager. It only
+    /// GROUPS its children (library references, recipes, visualizations) and has no content of its own (a bare
+    /// stub manifest), so it is represented by a FOLDER holding those children, NEVER a file. Both drivers treat
+    /// it exactly like a plain <see cref="PlcFolder"/>: recurse into it, emit no item for the manager itself.
+    /// This is why a library manager materializes as `…/Library Manager/&lt;lib&gt;/&lt;lib&gt;.library` with no
+    /// `Library Manager.library_manager` stub beside the folder — a stub that also name-collided with a second
+    /// same-named manager elsewhere in the tree.</summary>
+    public static bool IsContainerManager(int code) =>
+        code is PlcLibMan or PlcVisMan or PlcRecipeMan or PlcRecipes;
+
     /// <summary>Items that live INSIDE a parent POU (collected by SourceAssembler, not top-level).</summary>
     public static bool IsInlinedInPou(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp
