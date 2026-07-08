@@ -8,7 +8,7 @@
  *   - **reference names** the unresolved-identifier check must SKIP (they resolve OUTSIDE the project):
  *       - `.library` files carry a `NAMESPACE <name>` line — the root of a qualified library reference.
  *       - `.device` files are named after a device-tree instance the source reads bare.
- *   - **task roots** — the `.task` `Calls:` PROGRAM names dead-code reachability seeds from.
+ *   - **task roots** — the `.task` `Calls:` PROGRAM names (comma-separated) dead-code reachability seeds from.
  *
  * Library namespaces stay skips while devices may one day gain real types, so the two ref sets stay
  * separate. Names are lowercased (PLC identifiers are case-insensitive). Unreadable files/dirs are
@@ -58,7 +58,13 @@ function walkFiles(root: string): string[] {
 const libraryNamespaceOf = (file: string): string | undefined =>
   readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
 const deviceInstanceOf = (file: string): string => basename(file, extname(file))
-const taskRootOf = (file: string): string | undefined => readFileSync(file, "utf8").match(/^Calls:\s+(\S+)/m)?.[1]
+/** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
+ *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
+const taskRootsOf = (file: string): string[] =>
+  (readFileSync(file, "utf8").match(/^Calls:\s+(.+)/m)?.[1] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
 
 /** Scan `<root>` for files with `ext`, map each to a name (undefined ⇒ skip), collect them lowercased. */
 function collect(root: string, ext: string, nameOf: (path: string) => string | undefined): Set<string> {
@@ -87,13 +93,23 @@ export function loadDeviceInstances(root: string): Set<string> {
 }
 
 /**
- * Task-entry PROGRAM names (lowercased), from each `.task` file's `Calls:` line — the PROGRAMs CODESYS
+ * Task-entry PROGRAM names (lowercased), from each `.task` file's `Calls:` line (comma-separated when a
+ * task runs several) — the PROGRAMs CODESYS
  * actually runs. Dead-code reachability seeds its roots from THESE (not every PROGRAM), so a PROGRAM that
  * is not assigned to a task (its only call commented out, "moved elsewhere") is correctly dead. Empty when
  * there is no task configuration ⇒ the reachability falls back to treating all PROGRAMs as roots (safe).
  */
 export function loadTaskRoots(root: string): Set<string> {
-  return collect(root, ".task", taskRootOf)
+  const out = new Set<string>()
+  for (const file of walkFiles(root)) {
+    if (extname(file).toLowerCase() !== ".task") continue
+    try {
+      for (const p of taskRootsOf(file)) out.add(p.toLowerCase())
+    } catch {
+      continue // unreadable .task file — skip
+    }
+  }
+  return out
 }
 
 /** Both reference-file catalogs for a workspace root — the input the unresolved-identifier check skips. */
@@ -129,8 +145,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
       } else if (ext === ".device") {
         deviceInstances.add(deviceInstanceOf(file).toLowerCase())
       } else if (ext === ".task") {
-        const p = taskRootOf(file)
-        if (p) taskRoots.add(p.toLowerCase())
+        for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
       } else if (SOURCE_EXTENSIONS.has(ext)) {
         sources.push({ path: file, source: readFileSync(file, "utf8") })
       }

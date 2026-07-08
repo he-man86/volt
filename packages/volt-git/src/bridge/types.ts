@@ -11,10 +11,31 @@
  */
 import { z } from "zod";
 
+// ─── Wire-protocol version ──────────────────────────────────────────────────
+// The HTTP wire-contract version this client speaks. Bump ONLY on an incompatible wire change, and bump the C#
+// `WireProtocol.Version` in `Volt.Bridge.Core/Wire/HealthResponse.cs` to the SAME number — the two are kept in
+// lockstep by `volt-scripts/check-volt-integration.ts`. Distinct from a bridge's display `version` string.
+export const WIRE_VERSION = 1;
+
+// ─── Progress (streamed on a long op's own response, NDJSON) ─────────────────
+// When the client sends `Accept: application/x-ndjson`, /fetch·/push·/build stream `{progress}` frames then one
+// terminal `{result}` (or `{error}`). `total` is absent for an indeterminate op (a build).
+export const ProgressFrameSchema = z.object({
+	operation: z.string(),
+	done: z.number().int(),
+	total: z.number().int().nullish(),
+	phase: z.string().nullish(),
+});
+export type ProgressFrame = z.infer<typeof ProgressFrameSchema>;
+export type ProgressHandler = (p: ProgressFrame) => void;
+
 // ─── Health ───────────────────────────────────────────────────────────────
 export const HealthResponseSchema = z
 	.object({
 		status: z.enum(["healthy", "degraded", "unavailable"]),
+		// Optional so a pre-`wireVersion` bridge still parses; the client then treats "absent" as a mismatch
+		// (PROTOCOL_MISMATCH) rather than a schema error.
+		wireVersion: z.number().int().optional(),
 		platform: z.string(),
 		platformVariant: z.string().nullish(),
 		connected: z.boolean(),
@@ -170,7 +191,8 @@ export type Remote = {
 	readonly port: number;
 	getHealth(): Promise<HealthResponse>;
 	getRefs(): Promise<RefsResponse>;
-	fetchChanges(req: FetchRequest): Promise<FetchResponse>;
-	pushBatch(req: PushRequest): Promise<PushResponse>;
-	build(req: BuildRequest): Promise<BuildResponse>;
+	// onProgress (optional) opts into streamed progress; without it the call is the plain buffered request.
+	fetchChanges(req: FetchRequest, onProgress?: ProgressHandler): Promise<FetchResponse>;
+	pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse>;
+	build(req: BuildRequest, onProgress?: ProgressHandler): Promise<BuildResponse>;
 };

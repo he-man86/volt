@@ -6,6 +6,7 @@ import { readBridgePort, probeHealth, type HealthState } from "@opencode-ai/volt
 import { fetchStatus } from "@opencode-ai/volt-control"
 import { isMutationInFlight } from "@opencode-ai/volt-control"
 import { isPouFile, readStateMtime } from "@opencode-ai/volt-control"
+import { subscribeChanges } from "@opencode-ai/volt-control"
 
 const HEALTH_MS = 30_000
 const MTIME_MS = 3_000
@@ -21,6 +22,7 @@ export class VoltStatus {
 
 	private heartbeat: ReturnType<typeof setInterval> | null = null
 	private mtimePoll: ReturnType<typeof setInterval> | null = null
+	private unsubChanges: (() => void) | null = null
 	private lastMtime = 0
 	private lastRefreshMs = 0
 	private bridgePort: number | undefined
@@ -33,6 +35,9 @@ export class VoltStatus {
 		this.bridgePort = readBridgePort(this.workspaceRoot)
 		this.heartbeat = setInterval(() => this.probeHealth(), HEALTH_MS)
 		this.mtimePoll = setInterval(() => this.pollMtime(), MTIME_MS)
+		// Reactive IDE-change detection: the bridge pushes a `change` event when the engineer edits, so the drift
+		// view refreshes on its own — no manual "refresh" needed for IDE-side edits, and no bridge polling.
+		if (this.bridgePort !== undefined) this.unsubChanges = subscribeChanges(this.bridgePort, () => void this.refresh())
 		this.probeHealth()
 		await this.refresh()
 	}
@@ -40,6 +45,7 @@ export class VoltStatus {
 	dispose(): void {
 		if (this.heartbeat !== null) clearInterval(this.heartbeat)
 		if (this.mtimePoll !== null) clearInterval(this.mtimePoll)
+		this.unsubChanges?.()
 		this.onDidChange.dispose()
 	}
 

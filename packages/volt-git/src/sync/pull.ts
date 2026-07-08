@@ -8,7 +8,7 @@
  * On conflict the sidecar baseline is intentionally NOT advanced: resolve via `git merge --continue`/
  * `--abort`, then run `volt-git pull` again to finalize.
  */
-import type { Remote } from "../bridge/types.js";
+import type { ProgressHandler, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
 import {
 	autoCommitSrc,
@@ -28,6 +28,8 @@ import type { PullResult } from "./types.js";
 
 export interface PullOptions {
 	dryRun?: boolean;
+	/** Opt into streamed progress from the bridge's `/fetch` (the CLI passes a stderr reporter). */
+	onProgress?: ProgressHandler;
 }
 
 export async function pull(root: string, bridge: Remote, opts: PullOptions = {}): Promise<PullResult> {
@@ -56,7 +58,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	// Simple flow (auto-commit-on-pull): commit any local edits, then merge — git won't merge a dirty tree.
 	autoCommitSrc(root);
 
-	const fetched = await bridge.fetchChanges({ knownItems: {} });
+	const fetched = await bridge.fetchChanges({ knownItems: {} }, opts.onProgress);
 	// The bridge only returns items with compiler ground truth — excluded-from-build and dead/uncompiled
 	// objects are omitted at the source, so there is nothing to mark here.
 	const ideFiles = fetched.changed.flatMap(materializeItem);

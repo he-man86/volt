@@ -24,6 +24,7 @@ The live IDE is a git **remote-tracking branch `refs/remotes/volt/ide`** (shown 
 - **One declarative push wire.** Each diff row (add / modify / delete / rename / move, in any combination) becomes exactly one `set` or `deleteItem` op, each carrying an `ifVersion` optimistic-concurrency guard; the bridge applies them atomically. Read-only items (`.cfc`/`.sfc`/…) are refused.
 - **The `.git/volt/` sidecar.** Volt's machine-local state lives *inside* `.git/` (so git never tracks it): `config.json` (the bridge binding — platform + project names) and `ide-refs.json` (the optimistic-concurrency baseline: what the IDE last had). There is no visible `.volt/` directory.
 - **Port resolution.** The bridge port resolves from `--port`, then `VOLT_BRIDGE_PORT`, then the workspace binding (`.git/volt/config.json`, recorded at `init`), defaulting to `8555`. Per-vendor convention: CODESYS `8556`, Beckhoff `8555`.
+- **Wire-version guard.** `/health` carries an integer `wireVersion`; the client refuses a bridge whose version it doesn't recognize (`PROTOCOL_MISMATCH`) instead of interpreting a mismatched shape. The constant lives in `src/bridge/types.ts` (`WIRE_VERSION`) and MUST be bumped together with the C# `WireProtocol.Version` in `Volt.Bridge.Core` — only on an *incompatible* wire change; `volt-scripts/check-volt-integration.ts` fails if they drift.
 
 ## Commands
 

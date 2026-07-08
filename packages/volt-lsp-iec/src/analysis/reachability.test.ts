@@ -94,6 +94,22 @@ test("a PROGRAM the task entry actually CALLS stays live under task-root seeding
   expect(dead.has("subprogram")).toBe(false) // reached via the live call edge
 })
 
+test("every PROGRAM on a multi-call task stays live; one not on any task is dead", () => {
+  // Mirrors `Calls: Simulation, General, ...` — several independent task-root programs, none calling
+  // the others. All named roots are live; an unlisted PROGRAM (Orphan) is dead.
+  const files = [
+    PRG("Simulation", "x := 1;"),
+    PRG("General", "y := 1;"),
+    PRG("Mach1_MotionControl", "z := 1;"),
+    PRG("Orphan", "w := 1;"),
+  ]
+  const dead = deadPous(files, new Set(["simulation", "general", "mach1_motioncontrol"]))
+  expect(dead.has("simulation")).toBe(false)
+  expect(dead.has("general")).toBe(false)
+  expect(dead.has("mach1_motioncontrol")).toBe(false)
+  expect(dead.has("orphan")).toBe(true)
+})
+
 test("task roots that match no PROGRAM fall back to all-programs (safety, never over-kill)", () => {
   const files = [PRG("Main", "x := 1;"), PRG("Other", "y := 1;")]
   const dead = deadPous(files, new Set(["nonexistent_task"]))

@@ -10,13 +10,16 @@ import {
 	BuildResponseSchema,
 	FetchResponseSchema,
 	HealthResponseSchema,
+	ProgressFrameSchema,
 	PushResponseSchema,
 	RefsResponseSchema,
+	WIRE_VERSION,
 	type BuildRequest,
 	type BuildResponse,
 	type FetchRequest,
 	type FetchResponse,
 	type HealthResponse,
+	type ProgressHandler,
 	type PushRequest,
 	type PushResponse,
 	type RefsResponse,
@@ -43,20 +46,61 @@ export class BridgeError extends Error {
 export class BridgeClient implements Remote {
 	private readonly baseUrl: string;
 	private readonly timeoutMs: number;
+	/** Per-endpoint timeouts — /health must fail fast, a build can run for minutes. */
+	private readonly timeouts: { health: number; refs: number; build: number };
 	readonly port: number;
+
+	/** Wire-version preflight runs once; the result (ok or the mismatch error) is cached. */
+	private wireChecked = false;
+	private wireError?: BridgeError;
 
 	constructor(opts: BridgeClientOptions = {}) {
 		this.port = opts.port ?? 8555;
 		this.baseUrl = opts.baseUrl ?? `http://127.0.0.1:${this.port}`;
 		this.timeoutMs = opts.timeoutMs ?? 60_000;
+		// /health is a pure cache read (fast); /refs and /fetch do a full tree walk + per-item materialize, so
+		// /refs keeps the general budget (a 15s cap here spuriously reported a slow-but-healthy bridge offline);
+		// a build can run for minutes.
+		this.timeouts = { health: 3_000, refs: Math.max(this.timeoutMs, 60_000), build: Math.max(this.timeoutMs, 180_000) };
 	}
 
 	async getHealth(): Promise<HealthResponse> {
-		return this.request("GET", "/health", HealthResponseSchema);
+		const health = await this.request("GET", "/health", HealthResponseSchema, undefined, this.timeouts.health);
+		this.assertWireCompatible(health);
+		return health;
+	}
+
+	/** Refuse to interpret a bridge whose wire version we don't recognize — runs once, then cached.
+	 *  An absent `wireVersion` (a pre-guard bridge) is treated as a mismatch, not a schema error. */
+	private assertWireCompatible(health: HealthResponse): void {
+		if (this.wireChecked) {
+			if (this.wireError) throw this.wireError;
+			return;
+		}
+		const got = health.wireVersion;
+		if (got !== WIRE_VERSION) {
+			this.wireError = new BridgeError(
+				"PROTOCOL_MISMATCH",
+				`bridge speaks wire v${got ?? "unknown"}, this Volt needs wire v${WIRE_VERSION} — update the bridge so they match (restart CODESYS / reinstall Volt)`,
+				426,
+			);
+		}
+		this.wireChecked = true;
+		if (this.wireError) throw this.wireError;
+	}
+
+	/** Ensure the wire version was checked before any data endpoint relies on the bridge. */
+	private async preflight(): Promise<void> {
+		if (this.wireChecked) {
+			if (this.wireError) throw this.wireError;
+			return;
+		}
+		await this.getHealth(); // sets wireChecked, throws PROTOCOL_MISMATCH on a mismatch
 	}
 
 	async getRefs(): Promise<RefsResponse> {
-		const refs = await this.request("GET", "/refs", RefsResponseSchema);
+		await this.preflight();
+		const refs = await this.request("GET", "/refs", RefsResponseSchema, undefined, this.timeouts.refs);
 		// Defense: a bridge can return 200 with an empty items map when the IDE handle has gone stale.
 		// Treating that as truth risks a destructive pull ("engineer deleted every POU"). Cross-check
 		// /health; if no IDE is attached, throw the same disconnected error every consumer already routes.
@@ -76,16 +120,88 @@ export class BridgeClient implements Remote {
 		return refs;
 	}
 
-	async fetchChanges(req: FetchRequest): Promise<FetchResponse> {
-		return this.request("POST", "/fetch", FetchResponseSchema, req);
+	async fetchChanges(req: FetchRequest, onProgress?: ProgressHandler): Promise<FetchResponse> {
+		await this.preflight();
+		return onProgress
+			? this.requestStream("POST", "/fetch", FetchResponseSchema, req, onProgress, this.timeoutMs)
+			: this.request("POST", "/fetch", FetchResponseSchema, req);
 	}
 
-	async pushBatch(req: PushRequest): Promise<PushResponse> {
-		return this.request("POST", "/push", PushResponseSchema, req);
+	async pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse> {
+		await this.preflight();
+		return onProgress
+			? this.requestStream("POST", "/push", PushResponseSchema, req, onProgress, this.timeoutMs)
+			: this.request("POST", "/push", PushResponseSchema, req);
 	}
 
-	async build(req: BuildRequest): Promise<BuildResponse> {
-		return this.request("POST", "/build", BuildResponseSchema, req);
+	async build(req: BuildRequest, onProgress?: ProgressHandler): Promise<BuildResponse> {
+		await this.preflight();
+		return onProgress
+			? this.requestStream("POST", "/build", BuildResponseSchema, req, onProgress, this.timeouts.build)
+			: this.request("POST", "/build", BuildResponseSchema, req, this.timeouts.build);
+	}
+
+	/** Block until the bridge reports one IDE change (an SSE `change` event on `/events`), or reject on timeout.
+	 *  Powers `volt wait-change` — a script or the AI can react to an IDE edit without polling. */
+	async waitForChange(timeoutMs?: number): Promise<void> {
+		await this.preflight();
+		const url = new URL(`${this.baseUrl}/events`);
+		return new Promise<void>((resolve, reject) => {
+			let settled = false;
+			let deadline: ReturnType<typeof setTimeout> | undefined;
+			const finish = (fn: () => void): void => {
+				if (settled) return;
+				settled = true;
+				if (deadline !== undefined) clearTimeout(deadline);
+				try {
+					req.destroy();
+				} catch {
+					/* already gone */
+				}
+				fn();
+			};
+			const req = httpRequest(
+				{
+					method: "GET",
+					protocol: url.protocol,
+					hostname: url.hostname,
+					port: url.port || (url.protocol === "https:" ? 443 : 80),
+					path: "/events",
+					headers: { connection: "keep-alive", accept: "text/event-stream" },
+				},
+				(res) => {
+					const status = res.statusCode ?? 0;
+					if (status < 200 || status >= 300) {
+						res.resume();
+						finish(() => reject(new BridgeError(`HTTP_${status}`, `bridge /events → ${status}`, status)));
+						return;
+					}
+					res.setEncoding("utf-8");
+					let buf = "";
+					res.on("data", (chunk: string) => {
+						// Consume complete lines (so `buf` stays bounded across a long wait full of keep-alives)
+						// and match the whole `event: change` line, not a loose substring.
+						buf += chunk;
+						let nl: number;
+						while ((nl = buf.indexOf("\n")) >= 0) {
+							const line = buf.slice(0, nl).trim();
+							buf = buf.slice(nl + 1);
+							if (line === "event: change") {
+								finish(resolve);
+								return;
+							}
+						}
+					});
+					res.on("end", () => finish(() => reject(new BridgeError("STREAM_CLOSED", "bridge /events closed before a change"))));
+					res.on("error", (err) => finish(() => reject(err)));
+				},
+			);
+			req.on("error", (err) => finish(() => reject(err)));
+			if (timeoutMs !== undefined) {
+				deadline = setTimeout(() => finish(() => reject(new BridgeError("CHANGE_TIMEOUT", `no IDE change within ${timeoutMs}ms`))), timeoutMs);
+			}
+			req.end();
+		});
 	}
 
 	private async request<T>(
@@ -93,8 +209,9 @@ export class BridgeClient implements Remote {
 		path: string,
 		schema: z.ZodType<T>,
 		body?: unknown,
+		timeoutMs?: number,
 	): Promise<T> {
-		const raw = await this.transport(method, path, body);
+		const raw = await this.transport(method, path, body, timeoutMs);
 		try {
 			return schema.parse(raw);
 		} catch (err) {
@@ -105,9 +222,166 @@ export class BridgeClient implements Remote {
 		}
 	}
 
-	private async transport(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
+	/** Streamed variant: request NDJSON, forward each `progress` frame to `onProgress`, and resolve with the
+	 *  terminal `result` (validated) — or reject on an `error` frame. Falls back to a single buffered body if the
+	 *  bridge answered `application/json` anyway (an opted-in client hitting a non-streaming response). */
+	private async requestStream<T>(
+		method: "GET" | "POST",
+		path: string,
+		schema: z.ZodType<T>,
+		body: unknown,
+		onProgress: ProgressHandler,
+		timeoutMs?: number,
+	): Promise<T> {
+		let result: unknown;
+		let bufferedBody: unknown; // set when the bridge returned a single JSON object, not NDJSON frames
+		let streamError: { code?: string; message?: string } | undefined;
+
+		await this.transportStream(method, path, body, timeoutMs, (frame, wasSingleBody) => {
+			if (wasSingleBody) {
+				bufferedBody = frame;
+				return;
+			}
+			if (!frame || typeof frame !== "object") return;
+			const f = frame as Record<string, unknown>;
+			if (f.progress !== undefined) {
+				const p = ProgressFrameSchema.safeParse(f.progress);
+				if (p.success) onProgress(p.data);
+			} else if (f.result !== undefined) {
+				result = f.result;
+			} else if (f.error !== undefined) {
+				const e = f.error as { code?: unknown; message?: unknown };
+				streamError = {
+					code: typeof e.code === "string" ? e.code : undefined,
+					message: typeof e.message === "string" ? e.message : undefined,
+				};
+			}
+		});
+
+		if (streamError !== undefined) throw new BridgeError(streamError.code ?? "BRIDGE_ERROR", streamError.message ?? `bridge ${path} streamed an error`);
+		const payload = result !== undefined ? result : bufferedBody;
+		if (payload === undefined) throw new BridgeError("MALFORMED_RESPONSE", `bridge ${path} stream ended without a result`);
+		try {
+			return schema.parse(payload);
+		} catch (err) {
+			if (isZodError(err)) throw new BridgeError("MALFORMED_RESPONSE", `bridge ${path} returned malformed payload: ${formatZodError(err)}`);
+			throw err;
+		}
+	}
+
+	/** Read an NDJSON response line by line (or, if the bridge sent `application/json`, the single body) and hand
+	 *  each parsed value to `onValue`. `wasSingleBody` is true only for the non-streamed fallback. */
+	private async transportStream(
+		method: "GET" | "POST",
+		path: string,
+		body: unknown,
+		timeoutMs: number | undefined,
+		onValue: (value: unknown, wasSingleBody: boolean) => void,
+	): Promise<void> {
 		const url = new URL(`${this.baseUrl}${path}`);
 		const payload = body !== undefined ? Buffer.from(JSON.stringify(body), "utf-8") : undefined;
+		const timeout = timeoutMs ?? this.timeoutMs;
+		const headers: Record<string, string> = { connection: "close", accept: "application/x-ndjson" };
+		if (payload !== undefined) {
+			headers["content-type"] = "application/json";
+			headers["content-length"] = String(payload.byteLength);
+		}
+
+		return new Promise<void>((resolve, reject) => {
+			const req = httpRequest(
+				{
+					method,
+					protocol: url.protocol,
+					hostname: url.hostname,
+					port: url.port || (url.protocol === "https:" ? 443 : 80),
+					path: url.pathname + url.search,
+					headers,
+					timeout,
+				},
+				(res) => {
+					const status = res.statusCode ?? 0;
+					const isNdjson = (res.headers["content-type"] ?? "").includes("application/x-ndjson");
+					const chunks: string[] = [];
+					let pending = "";
+					res.setEncoding("utf-8");
+
+					if (status < 200 || status >= 300) {
+						res.on("data", (c: string) => chunks.push(c));
+						res.on("end", () => {
+							const raw = chunks.join("");
+							let parsed: unknown;
+							try {
+								parsed = raw.length > 0 ? JSON.parse(raw) : undefined;
+							} catch {
+								parsed = undefined;
+							}
+							const info = extractBridgeError(parsed);
+							reject(new BridgeError(info?.code ?? `HTTP_${status}`, info?.message ?? `bridge ${path} → ${status} ${res.statusMessage ?? ""}`.trim(), status));
+						});
+						return;
+					}
+
+					if (!isNdjson) {
+						// Fallback: a non-streaming bridge answered a single JSON object — collect and hand it back.
+						res.on("data", (c: string) => chunks.push(c));
+						res.on("end", () => {
+							const raw = chunks.join("").trim();
+							if (raw.length > 0) {
+								try {
+									onValue(JSON.parse(raw), true);
+								} catch {
+									/* ignore — requestStream reports "no result" */
+								}
+							}
+							resolve();
+						});
+						res.on("error", (err) => reject(err));
+						return;
+					}
+
+					res.on("data", (chunk: string) => {
+						pending += chunk;
+						let nl: number;
+						while ((nl = pending.indexOf("\n")) >= 0) {
+							const line = pending.slice(0, nl).trim();
+							pending = pending.slice(nl + 1);
+							if (line.length === 0) continue;
+							try {
+								onValue(JSON.parse(line), false);
+							} catch {
+								/* skip a partial/garbage line */
+							}
+						}
+					});
+					res.on("end", () => {
+						const rest = pending.trim();
+						if (rest.length > 0) {
+							try {
+								onValue(JSON.parse(rest), false);
+							} catch {
+								/* ignore trailing garbage */
+							}
+						}
+						resolve();
+					});
+					res.on("error", (err) => reject(err));
+				},
+			);
+			req.on("error", (err) => reject(err));
+			req.on("timeout", () => {
+				const err = new Error(`bridge ${path} timed out after ${timeout}ms`) as NodeJS.ErrnoException;
+				err.code = "ETIMEDOUT";
+				req.destroy(err);
+			});
+			if (payload !== undefined) req.write(payload);
+			req.end();
+		});
+	}
+
+	private async transport(method: "GET" | "POST", path: string, body?: unknown, timeoutMs?: number): Promise<unknown> {
+		const url = new URL(`${this.baseUrl}${path}`);
+		const payload = body !== undefined ? Buffer.from(JSON.stringify(body), "utf-8") : undefined;
+		const timeout = timeoutMs ?? this.timeoutMs;
 		const headers: Record<string, string> = { connection: "close" };
 		if (payload !== undefined) {
 			headers["content-type"] = "application/json";
@@ -123,7 +397,7 @@ export class BridgeClient implements Remote {
 					port: url.port || (url.protocol === "https:" ? 443 : 80),
 					path: url.pathname + url.search,
 					headers,
-					timeout: this.timeoutMs,
+					timeout,
 				},
 				(res) => {
 					const chunks: Buffer[] = [];
@@ -154,19 +428,36 @@ export class BridgeClient implements Remote {
 				},
 			);
 			req.on("error", (err) => reject(err));
-			req.on("timeout", () => req.destroy(new Error(`bridge ${path} timed out after ${this.timeoutMs}ms`)));
+			req.on("timeout", () => {
+				const err = new Error(`bridge ${path} timed out after ${timeout}ms`) as NodeJS.ErrnoException;
+				err.code = "ETIMEDOUT";
+				req.destroy(err);
+			});
 			if (payload !== undefined) req.write(payload);
 			req.end();
 		});
 	}
 }
 
-/** Detect "bridge isn't running" so callers can hint usefully. */
+/** Node socket-level codes that mean "the bridge isn't reachable" (vs a BridgeError, which is the bridge
+ *  answering). node:http surfaces these on `err.code` — match those, not brittle message substrings. */
+const OFFLINE_CODES = new Set([
+	"ECONNREFUSED",
+	"ETIMEDOUT",
+	"ENOTFOUND",
+	"ECONNRESET",
+	"EHOSTUNREACH",
+	"ENETUNREACH",
+	"EPIPE",
+]);
+
+/** Detect "bridge isn't running/reachable" so callers can hint usefully. A BridgeError means the bridge DID
+ *  respond (just with an error), so that is never "offline". */
 export function isBridgeOfflineError(err: unknown): boolean {
 	if (err instanceof BridgeError) return false;
 	if (!(err instanceof Error)) return false;
-	const msg = err.message.toLowerCase();
-	return msg.includes("econnrefused") || msg.includes("fetch failed") || msg.includes("abort") || msg.includes("network");
+	const code = (err as NodeJS.ErrnoException).code;
+	return code !== undefined && OFFLINE_CODES.has(code);
 }
 
 function extractBridgeError(body: unknown): { code?: string; message?: string } | undefined {

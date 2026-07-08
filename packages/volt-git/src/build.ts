@@ -1,5 +1,5 @@
 /** volt-git build — delegate to the bridge's build endpoint + return normalized diagnostics. */
-import type { Remote } from "./bridge/types.js";
+import type { ProgressHandler, Remote } from "./bridge/types.js";
 import { diffWorktree, resolveGitDir } from "./git/plumbing.js";
 import { RANGE, voltIdeHead } from "./sync/refs.js";
 
@@ -14,8 +14,8 @@ export interface BuildResult {
 	diagnostics: BuildDiagnostic[];
 }
 
-export async function build(bridge: Remote, full: boolean): Promise<BuildResult> {
-	const r = await bridge.build({ buildType: full ? "full" : "incremental" });
+export async function build(bridge: Remote, full: boolean, onProgress?: ProgressHandler): Promise<BuildResult> {
+	const r = await bridge.build({ buildType: full ? "full" : "incremental" }, onProgress);
 	return { success: r.success, duration: r.duration, diagnostics: r.diagnostics.map((d) => ({ severity: d.severity, message: d.message, object: d.object ?? null })) };
 }
 

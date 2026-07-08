@@ -7,7 +7,7 @@
  * see `isMutationInFlight`) and release it before returning, so the caller's outcome
  * dialogs never hold the lock.
  */
-import { spawnVolt, spawnVoltBuffer } from "./cli.js"
+import { spawnVolt, spawnVoltBuffer, spawnVoltProgress, type ProgressUpdate } from "./cli.js"
 import { withGate } from "./gate.js"
 import { probeHealth, isBridgeOnline, readBridgePort, type HealthState } from "./health.js"
 import type { StatusJson } from "./types.js"
@@ -68,25 +68,31 @@ export async function fetchStatus(workspaceRoot: string, port?: number): Promise
   }
 }
 
+/** onProgress opts into streamed progress from the CLI (drives a real progress bar in the GUI). */
+type ProgressOpt = { onProgress?: (p: ProgressUpdate) => void }
+
+const runCli = (workspaceRoot: string, args: string[], onProgress?: (p: ProgressUpdate) => void) =>
+  onProgress ? spawnVoltProgress(workspaceRoot, args, onProgress) : spawnVolt(workspaceRoot, args)
+
 /** `volt pull [--force]`. Takes the mutation gate; returns the parsed outcome. */
-export function pull(workspaceRoot: string, opts: { force?: boolean } = {}): Promise<PullOutcome> {
+export function pull(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PullOutcome> {
   return withGate(workspaceRoot, async () => {
-    const r = await spawnVolt(workspaceRoot, ["pull", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
+    const r = await runCli(workspaceRoot, ["pull", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot], opts.onProgress)
     return parseJson<PullOutcome>(r.stdout) ?? { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
   })
 }
 
 /** `volt push [--force]`. Takes the mutation gate; returns the parsed outcome. */
-export function push(workspaceRoot: string, opts: { force?: boolean } = {}): Promise<PushOutcome> {
+export function push(workspaceRoot: string, opts: { force?: boolean } & ProgressOpt = {}): Promise<PushOutcome> {
   return withGate(workspaceRoot, async () => {
-    const r = await spawnVolt(workspaceRoot, ["push", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot])
+    const r = await runCli(workspaceRoot, ["push", ...(opts.force ? ["--force"] : []), "--json", "--workspace", workspaceRoot], opts.onProgress)
     return parseJson<PushOutcome>(r.stdout) ?? { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
   })
 }
 
 /** `volt build`. Returns the raw CLI result (the caller renders stdout/stderr). */
-export function build(workspaceRoot: string): Promise<CliResult> {
-  return spawnVolt(workspaceRoot, ["build", "--workspace", workspaceRoot])
+export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<CliResult> {
+  return runCli(workspaceRoot, ["build", "--workspace", workspaceRoot], opts.onProgress)
 }
 
 /** `volt init --port <port> [--force]`. Takes the mutation gate. */

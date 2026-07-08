@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { BridgeClient, isBridgeOfflineError } from "./bridge/client.js";
 import { build, unpushedCount } from "./build.js";
+import { createReporter } from "./reporter.js";
 import { configuredBridgePort } from "./config/workspace.js";
 import { diff } from "./diff.js";
 import { init } from "./init.js";
@@ -60,6 +61,7 @@ const USAGE = `volt <command> [args] — git-native Volt CLI
   push     workspace → IDE → fast-forward refs/remotes/volt/ide      [--force] [--dry-run] [--force-with-lease=<v>]
   status   incoming / outgoing / merge state                [--json]
   build    build via the IDE; returns diagnostics            [--full] [--json]
+  wait-change  block until the IDE is edited (SSE), then exit [--timeout <s>] [--json]
   log      the IDE-sync history                              [--json] [--limit N]
   show     a file at a ref:  <ref> <path>   (HEAD / MERGE_OURS|THEIRS|BASE / BRIDGE)
   merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]
@@ -87,7 +89,9 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "pull": {
-			const r = await pull(root, bridge, { dryRun: args.has("--dry-run") });
+			const rep = createReporter();
+			const r = await pull(root, bridge, { dryRun: args.has("--dry-run"), onProgress: rep.onProgress });
+			rep.finish();
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
 				return r.kind === "ok" ? 0 : 2;
@@ -105,7 +109,9 @@ async function main(): Promise<number> {
 			return 0;
 		}
 		case "push": {
-			const r = await push(root, bridge, { force: args.has("--force"), forceWithLease: args.value("--force-with-lease"), dryRun: args.has("--dry-run") });
+			const rep = createReporter();
+			const r = await push(root, bridge, { force: args.has("--force"), forceWithLease: args.value("--force-with-lease"), dryRun: args.has("--dry-run"), onProgress: rep.onProgress });
+			rep.finish();
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
 				return r.kind === "ok" ? 0 : 2;
@@ -121,7 +127,9 @@ async function main(): Promise<number> {
 			const pending = unpushedCount(root);
 			if (pending > 0 && !args.has("--json"))
 				console.log(`note: ${pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run \`volt-git push\` first.`);
-			const r = await build(bridge, args.has("--full"));
+			const rep = createReporter();
+			const r = await build(bridge, args.has("--full"), rep.onProgress);
+			rep.finish();
 			if (args.has("--json")) {
 				process.stdout.write(`${JSON.stringify(r)}\n`);
 				return r.success ? 0 : 2;
@@ -129,6 +137,31 @@ async function main(): Promise<number> {
 			console.log(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`);
 			for (const d of r.diagnostics) console.log(`  [${d.severity}] ${d.object ?? "(project)"}: ${d.message}`);
 			return r.success ? 0 : 2;
+		}
+		case "wait-change": {
+			// Block until the IDE is edited (one SSE change event), or time out. Lets a script / the AI react to
+			// an IDE-side change without polling — then it typically runs `volt pull`.
+			const secs = args.value("--timeout");
+			let ms: number | undefined;
+			if (secs !== undefined) {
+				const n = Number(secs);
+				if (!Number.isFinite(n) || n <= 0) {
+					console.error(`invalid --timeout '${secs}' — expected a positive number of seconds`);
+					return 1;
+				}
+				ms = n * 1000;
+			}
+			try {
+				await bridge.waitForChange(ms);
+				if (args.has("--json")) process.stdout.write(`${JSON.stringify({ kind: "changed" })}\n`);
+				else console.log("IDE changed — run `volt-git pull` to sync.");
+				return 0;
+			} catch (e) {
+				const message = e instanceof Error ? e.message : String(e);
+				if (args.has("--json")) process.stdout.write(`${JSON.stringify({ kind: "timeout", message })}\n`);
+				else console.error(message);
+				return 1;
+			}
 		}
 		case "status": {
 			const s = await status(root, bridge);

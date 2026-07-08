@@ -152,6 +152,21 @@ check("CODESYS reference corpus index", () =>
 		|| "corpus missing in packages/volt-lsp-iec/docs/"
 );
 
+console.log("\nWire-protocol version parity");
+// The bridge (C#) and the client (TS) each carry a wire-version constant; they MUST be bumped together on an
+// incompatible wire change. If they drift, a client would refuse a freshly-built bridge (or vice versa).
+check("bridge WireProtocol.Version (C#) == client WIRE_VERSION (TS)", () => {
+	const csPath = join(REPO_ROOT, "packages/volt-bridge/src/Volt.Bridge.Core/Wire/HealthResponse.cs");
+	const tsPath = join(REPO_ROOT, "packages/volt-git/src/bridge/types.ts");
+	if (!existsSync(csPath)) return "HealthResponse.cs missing";
+	if (!existsSync(tsPath)) return "types.ts missing";
+	const cs = readFileSync(csPath, "utf-8").match(/public const int Version\s*=\s*(\d+)/);
+	const ts = readFileSync(tsPath, "utf-8").match(/WIRE_VERSION\s*=\s*(\d+)/);
+	if (!cs) return "C# WireProtocol.Version constant not found";
+	if (!ts) return "TS WIRE_VERSION constant not found";
+	return cs[1] === ts[1] || `mismatch: C#=${cs[1]} TS=${ts[1]} — bump BOTH together on an incompatible wire change`;
+});
+
 console.log("\nVS Code extension");
 check("volt-vscode extension entry compiled", () =>
 	existsSync(join(REPO_ROOT, "packages/volt-vscode/dist/extension.js"))

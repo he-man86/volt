@@ -24,11 +24,60 @@ export function cliScript(workspaceRoot: string): string {
 /** Run the CLI as a Node script via the editor's own runtime. ELECTRON_RUN_AS_NODE
  *  makes process.execPath behave as plain node, so this works whether the host is
  *  VS Code, Windsurf, or Cursor — no external node required. */
-function spawnCli(workspaceRoot: string, args: string[]) {
+function spawnCli(workspaceRoot: string, args: string[], extraEnv?: Record<string, string>) {
 	const script = cliScript(workspaceRoot)
 	return spawn(process.execPath, [script, ...args], {
 		cwd: workspaceRoot,
-		env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+		env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", ...extraEnv },
+	})
+}
+
+/** One streamed progress frame the CLI emits on stderr (as `VOLT_PROGRESS <json>`) under VOLT_PROGRESS_JSON=1. */
+export interface ProgressUpdate {
+	operation: string
+	done: number
+	total?: number | null
+	phase?: string | null
+}
+
+const PROGRESS_PREFIX = "VOLT_PROGRESS " // contract with volt-git's reporter (PROGRESS_JSON_PREFIX)
+
+/** Like {@link spawnVolt}, but sets VOLT_PROGRESS_JSON=1 so the CLI emits machine-readable progress frames on
+ *  stderr, parses them out to `onProgress`, and keeps the rest of stderr in the buffered result. Lets a GUI
+ *  drive a real progress bar from the same op the CLI runs — no separate bridge polling. */
+export function spawnVoltProgress(
+	workspaceRoot: string,
+	args: string[],
+	onProgress: (p: ProgressUpdate) => void,
+): Promise<{ stdout: string; stderr: string; code: number }> {
+	return new Promise((resolve) => {
+		const child = spawnCli(workspaceRoot, args, { VOLT_PROGRESS_JSON: "1" })
+		let stdout = ""
+		let stderr = ""
+		let pending = ""
+		child.stdout.on("data", (d: Buffer) => (stdout += d.toString("utf-8")))
+		child.stderr.on("data", (d: Buffer) => {
+			pending += d.toString("utf-8")
+			let nl: number
+			while ((nl = pending.indexOf("\n")) >= 0) {
+				const line = pending.slice(0, nl)
+				pending = pending.slice(nl + 1)
+				if (line.startsWith(PROGRESS_PREFIX)) {
+					try {
+						onProgress(JSON.parse(line.slice(PROGRESS_PREFIX.length)) as ProgressUpdate)
+					} catch {
+						/* ignore a malformed frame */
+					}
+				} else {
+					stderr += line + "\n"
+				}
+			}
+		})
+		child.on("close", (code) => {
+			if (pending.length > 0) stderr += pending
+			resolve({ stdout, stderr, code: code ?? 255 })
+		})
+		child.on("error", (err) => resolve({ stdout: "", stderr: err.message, code: 255 }))
 	})
 }
 

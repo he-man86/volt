@@ -17,7 +17,6 @@ export interface ConnectorBridge {
 	displayName: string
 	port: number
 	archetype: "ExternalAttach" | "InIdeLoad" | string
-	enabled: boolean
 	status: string
 	workerRunning: boolean
 }

@@ -19,6 +19,13 @@ beforeAll(() => {
   writeFileSync(join(sub, "LogicTask.task"), "Type:      Cyclic\nInterval:  T#15ms\nCalls:     CyclicTask\n")
   writeFileSync(join(sub, "MotionTask.task"), "Type:      Cyclic\nCalls:     Program_Motion\n")
   writeFileSync(join(sub, "NoCallsTask.task"), "Type:      Freewheeling\nPriority:  5\n") // no Calls → skipped
+  // A task can run SEVERAL programs — the comma list must fully split (regression: old parser grabbed
+  // only "Simulation," incl. the trailing comma and dropped the rest). Params around it are ignored.
+  writeFileSync(
+    join(sub, "MultiTask.task"),
+    "Type:      Cyclic\nInterval:  t#4ms\nPriority:  1\nWatchdog:  3200 µs (sensitivity 2)\n" +
+      "Calls:     Simulation, General, Mach1_MotionControl, MachineStateSetting, FirstErrorCapture\n",
+  )
   // .library — a NAMESPACE line is the qualified root.
   const lib = join(root, "Library Manager")
   mkdirSync(lib, { recursive: true })
@@ -30,8 +37,19 @@ beforeAll(() => {
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-test("loadTaskRoots: `Calls:` PROGRAM names, lowercased, recursive; no-Calls files skipped", () => {
-  expect(loadTaskRoots(root)).toEqual(new Set(["cyclictask", "program_motion"]))
+test("loadTaskRoots: `Calls:` PROGRAM names, lowercased, recursive; comma lists split; no-Calls skipped", () => {
+  expect(loadTaskRoots(root)).toEqual(
+    new Set([
+      "cyclictask",
+      "program_motion",
+      // every program on the multi-call line, not just the first
+      "simulation",
+      "general",
+      "mach1_motioncontrol",
+      "machinestatesetting",
+      "firsterrorcapture",
+    ]),
+  )
 })
 
 test("loadLibraryNamespaces: `NAMESPACE` line, lowercased; no-NAMESPACE files skipped", () => {

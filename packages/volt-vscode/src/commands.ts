@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { join } from "node:path"
-import { pull, push, build, init as voltInit, readBridgePort, probeVendors, isBridgeOnline, healthLabel } from "@opencode-ai/volt-control"
+import { pull, push, build, init as voltInit, readBridgePort, probeVendors, isBridgeOnline, healthLabel, type ProgressUpdate } from "@opencode-ai/volt-control"
 import { VoltStatus } from "./state/status.js"
 import { startBridgeByPort, ensureConnectorRunning } from "./connector.js"
 
@@ -45,13 +45,29 @@ function onDiskPath(workspaceRoot: string, rel: string): string {
 	return join(workspaceRoot, "src", treePath)
 }
 
+// Map the CLI's streamed progress frames to VS Code's notification bar (increment is a delta 0-100).
+type VsProgress = vscode.Progress<{ increment?: number; message?: string }>
+function progressBridge(progress: VsProgress): (p: ProgressUpdate) => void {
+	let lastPct = 0
+	return (p) => {
+		const pct = p.total && p.total > 0 ? Math.floor((p.done / p.total) * 100) : undefined
+		const message = p.phase ?? (pct !== undefined ? `${p.done}/${p.total}` : undefined)
+		if (pct !== undefined) {
+			progress.report({ increment: Math.max(0, pct - lastPct), message })
+			lastPct = pct
+		} else {
+			progress.report({ message })
+		}
+	}
+}
+
 // ── pull / push with outcome-aware UX ───────────────────────────────────
 async function doPull(statuses: Map<string, VoltStatus>, workspaceRoot: string, force: boolean): Promise<void> {
 	// volt-control.pull takes the gate + parses the outcome; the spinner wraps only
 	// the CLI run, and the outcome dialogs run after (so they never hold the gate).
 	const outcome = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: force ? "volt pull --force" : "volt pull" },
-		() => pull(workspaceRoot, { force }),
+		(progress) => pull(workspaceRoot, { force, onProgress: progressBridge(progress) }),
 	)
 	await refreshFor(statuses, workspaceRoot)
 	if (outcome.kind === "error") {
@@ -80,7 +96,7 @@ async function doPush(statuses: Map<string, VoltStatus>, workspaceRoot: string, 
 	// leaves the spinner stuck or holds the mutation gate (which would wedge the next push).
 	const outcome = await vscode.window.withProgress(
 		{ location: vscode.ProgressLocation.Notification, title: force ? "volt push --force" : "volt push" },
-		() => push(workspaceRoot, { force }),
+		(progress) => push(workspaceRoot, { force, onProgress: progressBridge(progress) }),
 	)
 	await refreshFor(statuses, workspaceRoot)
 	if (outcome.kind === "error") {
@@ -206,7 +222,10 @@ async function doInit(
 }
 
 async function doBuild(workspaceRoot: string): Promise<void> {
-	const r = await build(workspaceRoot)
+	const r = await vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: "volt build" },
+		(progress) => build(workspaceRoot, { onProgress: progressBridge(progress) }),
+	)
 	output().appendLine(r.stdout)
 	if (r.stderr.length > 0) output().appendLine(r.stderr)
 	output().show()

@@ -10,14 +10,26 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { BridgeClient } from "../bridge/client.js"
+import { WIRE_VERSION } from "../bridge/types.js"
 import { init } from "../init.js"
 
 export const PORT = Number.parseInt(process.env.VOLT_TC_PORT ?? "8556", 10)
 export const BASE = `http://127.0.0.1:${PORT}`
 export const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" }
 
-// Skip cleanly when no bridge is up (CI / dev without a running IDE) instead of hard-failing.
-export const bridgeUp = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) }).then((r) => r.ok).catch(() => false)
+// Skip cleanly when no COMPATIBLE bridge is up — CI / dev without a running IDE, OR a stale bridge build whose
+// wire version doesn't match (the CLI would refuse it with PROTOCOL_MISMATCH; live tests can't run against it).
+// Skipping-with-a-hint keeps the dev suite green while pointing at the real fix, instead of a wall of failures.
+const liveHealth = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) })
+	.then((r) => (r.ok ? (r.json() as Promise<{ wireVersion?: number }>) : null))
+	.catch(() => null)
+export const bridgeUp = liveHealth !== null && liveHealth.wireVersion === WIRE_VERSION
+if (liveHealth !== null && liveHealth.wireVersion !== WIRE_VERSION) {
+	console.warn(
+		`[live-harness] bridge on ${BASE} speaks wire v${liveHealth.wireVersion ?? "unknown"}, tests need v${WIRE_VERSION} — ` +
+			`rebuild + restart the bridge to run the live suite. Skipping.`,
+	)
+}
 export const suite = bridgeUp ? describe : describe.skip
 
 // ── raw bridge = "the engineer editing in the IDE" ──────────────────────────

@@ -4,7 +4,7 @@
  * to HEAD's tree. Like `git push`, it operates on your COMMITTED history — a dirty src/ tree is refused
  * so uncommitted edits are never silently skipped. The worktree is the editing surface, git is the truth.
  */
-import type { PushOp, Remote } from "../bridge/types.js";
+import type { ProgressHandler, PushOp, Remote } from "../bridge/types.js";
 import { loadConfig, verifyBinding } from "../config/workspace.js";
 import { autoCommitSrc, diffRefs, diffWorktree, gitShowBytes, headCommit, resolveGitDir, updateRef } from "../git/plumbing.js";
 import { isPushable, isReadOnly, isTrackedPath } from "../registry/extensions.js";
@@ -19,6 +19,8 @@ export interface PushOptions {
 	/** Lease version: force only if the bridge is still at this projectVersion (atomic force). */
 	forceWithLease?: string;
 	dryRun?: boolean;
+	/** Opt into streamed progress from the bridge's `/push` (the CLI passes a stderr reporter). */
+	onProgress?: ProgressHandler;
 }
 
 export async function push(root: string, bridge: Remote, opts: PushOptions = {}): Promise<PushResult> {
@@ -143,7 +145,7 @@ export async function push(root: string, bridge: Remote, opts: PushOptions = {})
 	if (ops.length === 0) return { kind: "ok", items: [], message: "nothing to push — the IDE already matches your workspace" };
 	if (opts.dryRun === true) return { kind: "ok", items: ops.map((o) => o.name), message: "dry run — would push these item(s)" };
 
-	const resp = await bridge.pushBatch({ ops, expectedProjectVersion: guardProjectVersion });
+	const resp = await bridge.pushBatch({ ops, expectedProjectVersion: guardProjectVersion }, opts.onProgress);
 	if (!resp.accepted) {
 		const lines = resp.conflicts.map((c) => `  ${c.name}: ${c.reason}`).join("\n");
 		return { kind: "rejected", reason: `the bridge rejected the push:\n${lines}` };
