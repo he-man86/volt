@@ -5,7 +5,7 @@ toolchain. (VOLT-PLAN phase **D**.)
 
 ## What Changes
 
-- Decide: a standalone `volt-docs` (Astro) package vs. a docs section folded into `volt-web`.
+- Decide: a standalone `volt-docs` (Astro) package vs. a docs section folded into `volt-landing`.
 - Author the initial docs.
 
 ## Capabilities
@@ -15,4 +15,4 @@ toolchain. (VOLT-PLAN phase **D**.)
 
 ## Impact
 
-New `packages/volt-docs` (fork-owned) or a section of `volt-web`. Inputs needed: docs content.
+New `packages/volt-docs` (fork-owned) or a section of `volt-landing`. Inputs needed: docs content.
