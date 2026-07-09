@@ -165,7 +165,7 @@ function dataTypeEntry(name: string): ReferenceEntry {
 }
 
 const CATALOG: ReadonlyMap<string, ReferenceEntry> = new Map(
-  [...[...ELEMENTARY_TYPES.keys()].map((n) => dataTypeEntry(n)), ...OPERATORS, ...STANDARD_FUNCTIONS].map((e) => [
+  [...[...ELEMENTARY_TYPES.keys()].map((n) => dataTypeEntry(n)), ...OPERATORS, ...STANDARD_FUNCTIONS, ...STANDARD_FBS].map((e) => [
     e.name.toUpperCase(),
     e,
   ]),

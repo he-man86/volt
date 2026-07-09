@@ -27,6 +27,8 @@ export interface Messages {
   duplicateDeclaration(name: string, scope: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
+  /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
+  unknownType(name: string): string
   /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
   dereferenceRequiresPointer(): string
   /** Member access `base.member` where `member` is not declared on the base's (project) type. PROVISIONAL —
@@ -85,6 +87,8 @@ export function messagesFor(vendor: Vendor): Messages {
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
+    // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
+    unknownType: (name) => `Unknown type: '${name}'`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     // Confirmed via live /build (:8556 + :8555): both say "is no component of"; TwinCAT uppercases the type name.
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,

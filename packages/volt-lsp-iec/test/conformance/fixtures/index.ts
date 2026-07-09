@@ -29,6 +29,7 @@ import { SHADOWING_TESTS } from "./shadowing.js"
 import { USAGE_PATTERN_TESTS } from "./usage-pattern.js"
 import { VARIABLE_SECTION_TESTS } from "./variable-section.js"
 import { CHECK_COVERAGE_TESTS } from "./check-coverage.js"
+import { ERROR_CATALOG_TESTS } from "./error-catalog.js"
 
 export interface CategoryGroup {
   name: string
@@ -60,6 +61,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "overflow", tests: OVERFLOW_TESTS },
   // ── deliberate per-check coverage + FP-bait (compiler-accepted near-miss code) ──
   { name: "check-coverage", tests: CHECK_COVERAGE_TESTS },
+  // ── CODESYS error-catalog codes (Cnnnn) — awaiting live recording, see error-catalog.ts ──
+  { name: "error-catalog", tests: ERROR_CATALOG_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

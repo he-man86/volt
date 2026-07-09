@@ -1,0 +1,4600 @@
+[
+  {
+    "code": "C0001",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0001.html",
+    "kind": "error",
+    "category": "constant overflow",
+    "cause": "A literal constant's value exceeds the representable range of its assigned or inferred data type.",
+    "message": "Constant '<constant value>' too large for type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    test1: INT;\n    test2: INT;\n    test3: LREAL;\nEND_VAR\n\ntest1 := 12345678912345566991923939292939911;\ntest2 := INT#123456;\ntest3 := 10E500;",
+    "expect": [
+      "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
+      "Constant 'INT#123456' too large for type 'INT'",
+      "Constant '10E500' too large for type 'ANY_REAL'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0002",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0002.html",
+    "kind": "error",
+    "category": "syntax token mismatch",
+    "cause": "The parser expected one of two specific tokens (e.g. comma or closing paren) but found a different token in the source.",
+    "message": "'<operator 1>' or '<operator 2>' expected instead of '<tag>'",
+    "repro": "PROGRAM PLC_PRG\nFun(1;",
+    "expect": [
+      "',' or ')' expected instead of ';'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0003",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0003.html",
+    "kind": "error",
+    "category": "invalid bit index",
+    "cause": "Code accesses a bit position (via dot-bit-access) that exceeds the bit width of the variable's data type.",
+    "message": "'<value>' is not a valid bit number for '<variable>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    test1: WORD;\n    test2: BOOL;\nEND_VAR\n\ntest1 := test2.17;",
+    "expect": [
+      "'17' is not a valid bit number for 'w'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0004",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0004.html",
+    "kind": "error",
+    "category": "invalid struct member access",
+    "cause": "Code references a struct field via dot notation that is not declared in the struct's type definition.",
+    "message": "'<variable>' is not a component of '<structure>'",
+    "repro": "TYPE DUT:\nSTRUCT\n    x, y : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    test1 : DUT;\n    test2 : INT;\nEND_VAR\n\ntest2 := test1.z;",
+    "expect": [
+      "Type 'unknown type: 'test1.z' can not be converted to type 'INT'"
+    ],
+    "status": "checkable",
+    "ourCheck": "unknown-member",
+    "ourCode": "unknown-member",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0005",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0005.html",
+    "kind": "error",
+    "category": "address literal overflow",
+    "cause": "A hard-coded IEC I/O address's numeric component exceeds the compiler's representable range.",
+    "message": "Constant overflow in address '<address>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    X: BYTE;\nEND_VAR\n\nX := %QB5555555555;",
+    "expect": [
+      "Constant overflow in address '%??'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0006",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0006.html",
+    "kind": "error",
+    "category": "missing keyword",
+    "cause": "A required keyword (such as THEN) is omitted from a control-flow statement, so the parser encounters the following token instead.",
+    "message": "'<operator>' expected instead of '<token>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest\n    x := 9;\nEND_IF",
+    "expect": [
+      "'THEN' expected instead of 'x'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0007",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0007.html",
+    "kind": "error",
+    "category": "missing condition expression",
+    "cause": "A conditional statement omits its boolean expression, so the parser encounters the following keyword where an expression was expected.",
+    "message": "Expression expected instead of '<token>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF THEN\n    x := 9;\nEND_IF",
+    "expect": [
+      "Expression expected instead of 'THEN'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0008",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0008.html",
+    "kind": "error",
+    "category": "unterminated block",
+    "cause": "A control-structure block (e.g. IF) is left unclosed before the source file ends.",
+    "message": "Unexpected end-of-file found: '<operator>', '<operator>', or '<operator>' expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest THEN\n    x := 9;",
+    "expect": [
+      "Unexpected end-of-file found: 'ELSIF', 'ELSE', or 'END_IF' expected"
+    ],
+    "fix": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    }
+  },
+  {
+    "code": "C0009",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0009.html",
+    "kind": "error",
+    "category": "stray block-closing keyword",
+    "cause": "A block-closing keyword like END_FOR appears with no matching opening block.",
+    "message": "Unexpected token '<token>' found",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nEND_FOR;",
+    "expect": [
+      "Unexpected token 'END_FOR' found"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0010",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0010.html",
+    "kind": "error",
+    "category": "unterminated block",
+    "cause": "A block (e.g. a FOR loop) is left open with no closing keyword before the source file ends.",
+    "message": "Unexpected end-of-file found: '<token>' expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i := 0 TO 2 DO\n;",
+    "expect": [
+      "Unexpected end-of-file found: 'END_FOR' expected"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0011",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0011.html",
+    "kind": "error",
+    "category": "missing case label",
+    "cause": "A statement inside a CASE block is not preceded by a case-value label.",
+    "message": "No 'CASE' label found",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\n    x: INT;\nEND_VAR\n\nCASE i OF\n    x := 9;\nEND_CASE",
+    "expect": [
+      "No 'CASE' label found"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE"
+  },
+  {
+    "code": "C0013",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0013.html",
+    "kind": "error",
+    "category": "empty statement block",
+    "cause": "A control-structure clause (such as an IF...THEN body) contains no statements at all, not even a semicolon.",
+    "message": "At least one statement is expected.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    bTest: BOOL;\nEND_VAR\n\nIF bTest THEN\nEND_IF",
+    "expect": [
+      "At least one statement is expected."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0015",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0015.html",
+    "kind": "error",
+    "category": "missing for-loop initializer",
+    "cause": "A FOR loop's counter variable is not given an initial value with := before the TO keyword.",
+    "message": "Counter initialization expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i TO 10 DO\n    ;\nEND_FOR",
+    "expect": [
+      "Counter initialization expected"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR"
+  },
+  {
+    "code": "C0018",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0018.html",
+    "kind": "error",
+    "category": "invalid assignment target",
+    "cause": "Code attempts to assign a value to an expression without write permission, such as a VAR CONSTANT.",
+    "message": "<expression> is not a valid assignment target",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\nVAR CONSTANT\n    j: INT := 0;\nEND_VAR\n\nj := i;",
+    "expect": [
+      "'j' is no valid assignment target"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0020",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0020.html",
+    "kind": "error",
+    "category": "invalid assignment syntax",
+    "cause": "Using '=' instead of ':=' for a statement/assignment makes the statement unparseable.",
+    "message": "'<statement>' is no valid statement",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    x : INT;\nEND_VAR\n\nx = 2;",
+    "expect": [
+      "'(x = 2); ' is no valid statement"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "x := 2;"
+  },
+  {
+    "code": "C0022",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0022.html",
+    "kind": "error",
+    "category": "wrong operand count",
+    "cause": "A built-in operator/function is called with more operands than it is defined to accept.",
+    "message": "'<operator>' needs exactly '<number of operands>' operands",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    pt: POINTER TO INT;\nEND_VAR\n\npt := ADR(i,1);",
+    "expect": [
+      "'ADR' needs exactly '1' operands"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "pt := ADR(i);"
+  },
+  {
+    "code": "C0023",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0023.html",
+    "kind": "error",
+    "category": "too few operands",
+    "cause": "A variadic built-in operator/function is called with fewer operands than its minimum requirement.",
+    "message": "'<operator>' needs at least '<number of operands>' operands",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni := MUX(30,40);",
+    "expect": [
+      "'MUX' needs at least '3' operands"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := MUX(30,40,50);"
+  },
+  {
+    "code": "C0026",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0026.html",
+    "kind": "error",
+    "category": "invalid identifier",
+    "cause": "A declaration uses a token (e.g. a bare number) where a valid identifier name is required.",
+    "message": "Identifier expected instead of '<invalid identifier>'",
+    "repro": "METHOD 123\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "The name used in the signature is not identical to the object name",
+      "Identifier expected instead of '123'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "METHOD METH123"
+  },
+  {
+    "code": "C0027",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0027.html",
+    "kind": "error",
+    "category": "missing string size",
+    "cause": "A STRING type declaration opens a size specifier with '(' but does not supply the numeric length.",
+    "message": "size of string expected after '('",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     str : STRING();\nEND_VAR",
+    "expect": [
+      "Size of string expected after '('",
+      "';' :=, REF=, ( or '[' expected instead of ')'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "str : STRING(100);"
+  },
+  {
+    "code": "C0030",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0030.html",
+    "kind": "error",
+    "category": "invalid AT address",
+    "cause": "An 'AT' variable location declaration is followed by a plain identifier instead of a valid direct address (e.g. %IW0).",
+    "message": "Direct Address expected after 'AT' instead of '<identifier>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i AT ABC : INT;\nEND_VAR",
+    "expect": [
+      "Direct Address expected after 'AT' instead of 'ABC'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i AT %IW0 : INT;"
+  },
+  {
+    "code": "C0031",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0031.html",
+    "kind": "error",
+    "category": "missing type definition",
+    "cause": "A variable declaration's type position contains something that is not a valid data type (e.g. a numeric literal).",
+    "message": "Type definition expected instead of '<no data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : 0;\nEND_VAR",
+    "expect": [
+      "Type definition expected instead of '0'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i : INT;"
+  },
+  {
+    "code": "C0032",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0032.html",
+    "kind": "error",
+    "category": "type-conversion",
+    "cause": "an implicit conversion between incompatible types",
+    "message": "Cannot convert type '<from>' to type '<to>'",
+    "repro": "FUNCTION_BLOCK F\nVAR b : BOOL; i : INT; END_VAR\ni := b;\nEND_FUNCTION_BLOCK",
+    "expect": [
+      "Cannot convert type 'BOOL' to type 'INT'"
+    ],
+    "status": "implemented",
+    "ourCheck": "assignment",
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": true,
+      "twincat": false
+    },
+    "fix": "test1 := TO_INT(test2);"
+  },
+  {
+    "code": "C0033",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0033.html",
+    "kind": "error",
+    "category": "unsafe pointer conversion warning",
+    "cause": "A pointer value is implicitly assigned to a non-pointer data type, which may not be portable/safe across platforms.",
+    "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    dw : DWORD;\nEND_VAR\n    dw := ptr;",
+    "expect": [
+      "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0035",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0035.html",
+    "kind": "error",
+    "category": "invalid call target",
+    "cause": "A call expression targets something (e.g. a nonexistent method resolved via a bad member access) that is not a callable program/function/FB instance.",
+    "message": "Program name, function or function block instance expected instead of '<invalid function>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPLC_PRG.METH1();\n\nMETHOD METH\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "'METH1' is not a component of 'PLC_PRG'",
+      "Program name, function or function block instance expected instead of 'PLC_PRG.METH1'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PLC_PRG.METH();"
+  },
+  {
+    "code": "C0036",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0036.html",
+    "kind": "error",
+    "category": "non-callable object call",
+    "cause": "Call syntax '()' is applied to an object (e.g. a global variable list) that is not a function/FB/program and thus cannot be invoked.",
+    "message": "Cannot call object of type <type>",
+    "repro": "VAR_GLOBAL GVL\n    value : INT;\nEND_VAR\nPROGRAM PLC_PRG\nGVL();",
+    "expect": [
+      "Cannot call object of type 'VAR_GLOBAL'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0037",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0037.html",
+    "kind": "error",
+    "category": "invalid named input parameter",
+    "cause": "A call uses named-parameter syntax for an input that is not declared in the callee's VAR_INPUT section.",
+    "message": "'<invalid input>' is no input of '<function name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := TEST(iVar := 1);\n\nFUNCTION TEST : INT\nVAR\n    iVar : INT;\nEND_VAR",
+    "expect": [
+      "'iVar' is no input of 'TEST'"
+    ],
+    "status": "checkable",
+    "ourCheck": "external-write",
+    "ourCode": "external-write",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR_INPUT\n    iVar : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0038",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0038.html",
+    "kind": "error",
+    "category": "invalid named output parameter",
+    "cause": "A call uses named-parameter output syntax ('=>') for a name that is not declared in the callee's VAR_OUTPUT section.",
+    "message": "'<invalid output>' is no output of '<function name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\n     x : INT;\nEND_VAR\ni := TEST(iVar => x);\n\nFUNCTION TEST : INT\nVAR\n    iVar : INT;\nEND_VAR",
+    "expect": [
+      "'iVar' is no output of 'TEST'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR_OUTPUT\n    iVar : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0039",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0039.html",
+    "kind": "error",
+    "category": "missing VAR_IN_OUT argument",
+    "cause": "A function block call omits an argument for a parameter declared in the FB's VAR_IN_OUT section, which is mandatory since it is passed by reference.",
+    "message": "VAR_IN_OUT '<invalid variable>' must be assigned in call of '<function block name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst();\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    inout : INT;\nEND_VAR",
+    "expect": [
+      "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "inst(inout := i);"
+  },
+  {
+    "code": "C0040",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0040.html",
+    "kind": "error",
+    "category": "wrong argument count",
+    "cause": "A function is called with more or fewer positional arguments than the number of inputs it declares.",
+    "message": "Function '<function name>' requires exactly '<number of inputs>' inputs",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := TEST(1,2);\n\n\nFUNCTION TEST : INT\nVAR_INPUT\n    IN: INT;\nEND_VAR",
+    "expect": [
+      "Function 'TEST' requires exactly '1' inputs"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := Test(1);"
+  },
+  {
+    "code": "C0041",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0041.html",
+    "kind": "error",
+    "category": "in-out needs writable variable",
+    "cause": "A VAR_IN_OUT parameter is passed a literal/constant instead of a variable that can be written to.",
+    "message": "VAR_IN_OUT parameter '<parameter name>' of '<function name>' needs variable with write access as input",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\n     x : INT;\nEND_VAR\ni := Test(31415);\n\nFUNCTION TEST : INT\nVAR_IN_OUT\n    in_out: INT;\nEND_VAR",
+    "expect": [
+      "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := Test(x);"
+  },
+  {
+    "code": "C0042",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0042.html",
+    "kind": "error",
+    "category": "mixed named/positional args",
+    "cause": "A function call mixes named (formal) parameter assignment with plain positional arguments instead of using one style consistently.",
+    "message": "Either all or none formal parameter have to be denoted in function call",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\n i := Test(iPar1:=2, 5);\n\nFUNCTION Test : INT\nVAR_INPUT\n    iPar1 : INT;\n    iPar2 : INT;\nEND_VAR",
+    "expect": [
+      "Either all or none formal parameter have to be denoted in function call"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0043",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0043.html",
+    "kind": "error",
+    "category": "formal parameter order mismatch",
+    "cause": "In a function call mixing named and positional arguments, a positional argument appears where a differently-named formal parameter was expected.",
+    "message": "Wrong formal parameter: '<parameter name>' expected in this place",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := Test(iPar2 := 2, 5);\n\n\nFUNCTION Test : INT\nVAR_INPUT\n    iPar1 : INT;\n    iPar2 : INT;\nEND_VAR",
+    "expect": [
+      "Wrong formal parameter: 'iPar1' expected in this place",
+      "Multiple input assignments for parameter ''"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := Test(5, iPar2 := 2);"
+  },
+  {
+    "code": "C0044",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0044.html",
+    "kind": "error",
+    "category": "missing input declaration",
+    "cause": "A function block instance is called with a positional argument but the function block's VAR_INPUT section does not declare that input.",
+    "message": "Assignment to input missing for parameter '<input variable name>' in call of '<function block name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst(1);\n\n\nFUNCTION_BLOCK FB\nVAR_INPUT\n\nEND_VAR",
+    "expect": [
+      "Assignment to input missing for parameter '1' in call of 'FB'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR_INPUT\n    in : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0045",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0045.html",
+    "kind": "error",
+    "category": "invalid THIS usage",
+    "cause": "The THIS pointer is dereferenced/used in a POU type (e.g. a PROGRAM) where THIS is not a valid reference.",
+    "message": "Use of 'THIS' is not allowed in this context",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    test1: INT;\nEND_VAR\n\nTHIS^.test1 := 19;",
+    "expect": [
+      "'THIS^.test1' is no valid assignment target",
+      "'THIS^' is no structure variable",
+      "Use of 'THIS' is not allowed in this context"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0046",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0046.html",
+    "kind": "error",
+    "category": "undeclared identifier",
+    "cause": "Code references an identifier that has not been declared in any accessible VAR block.",
+    "message": "Identifier '<identifier name>' not defined",
+    "repro": "PROGRAM PLC_PRG\nVAR\n\nEND_VAR\n\ni := 1;",
+    "expect": [
+      "'i' is no valid assignment target",
+      "Identifier 'i' not defined"
+    ],
+    "status": "checkable",
+    "ourCheck": "unresolved-identifier",
+    "ourCode": "unresolved-identifier",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR\n    i : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0047",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0047.html",
+    "kind": "error",
+    "category": "indexing non-array type",
+    "cause": "Array-index syntax '[]' is applied to a variable whose type is not an array.",
+    "message": "Cannot apply indexing with '[]' to an expression of type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni[1];",
+    "expect": [
+      "Cannot apply indexing with '[]' to an expression of type 'INT'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0048",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0048.html",
+    "kind": "error",
+    "category": "wrong array dimension count",
+    "cause": "A multi-dimensional array is indexed with fewer index values than its declared number of dimensions.",
+    "message": "Array requires exactly '<number>' indexes",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..2,1..3] OF INT;\nEND_VAR\narr1[1] := 5;",
+    "expect": [
+      "Array requires exactly 2 indexes"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1[1,2] := 5;"
+  },
+  {
+    "code": "C0049",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0049.html",
+    "kind": "error",
+    "category": "array index out of bounds",
+    "cause": "A compile-time-constant array index falls outside the array's declared lower and upper bounds.",
+    "message": "The constant index '<index value>' is not within the range from '<start index>' to '<end index>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..2] OF INT;\nEND_VAR\narr1[3] := 1;",
+    "expect": [
+      "The constant index '3' is not within the range from '1' to '2'"
+    ],
+    "status": "checkable",
+    "ourCheck": "array-bounds",
+    "ourCode": "array-index-out-of-bounds",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1[2] := 1;"
+  },
+  {
+    "code": "C0050",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0050.html",
+    "kind": "error",
+    "category": "invalid bit access index",
+    "cause": "Dot-notation bit access on a variable is given a non-constant (variable) bit index instead of a literal or symbolic integer constant.",
+    "message": "Bitaccess requires literal or symbolic integer constant",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    x : INT;\nEND_VAR\n\ni.x := FALSE;",
+    "expect": [
+      "'i.x' is no valid assignment target",
+      "Bitaccess requires literal or symbolic integer constant"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := Test(x);"
+  },
+  {
+    "code": "C0051",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0051.html",
+    "kind": "error",
+    "category": "unquoted attribute value",
+    "cause": "A pragma function argument (e.g. hasattribute) is given a bare identifier where a quoted single-byte string literal is required.",
+    "message": "Single byte string expected for an attribute value instead of '<value>'.",
+    "repro": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, MyAttribute)}\n{END_IF}",
+    "expect": [
+      "Single byte string expected for an attribute value instead of MyAttribute."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}"
+  },
+  {
+    "code": "C0053",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0053.html",
+    "kind": "error",
+    "category": "withdrawn compiler version",
+    "cause": "The project/POU targets a specific compiler version that has been withdrawn/deprecated by CODESYS.",
+    "message": "Compiler version <version> has been withdrawn. Please use a higher compiler version instead.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0061",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0061.html",
+    "kind": "error",
+    "category": "bit access on function result",
+    "cause": "Dot-notation bit access is applied directly to the return value of a function call instead of to a variable.",
+    "message": "Bitaccess on function call is not allowed",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nTest().2;\n\nFUNCTION Test : INT\nVAR_INPUT\n\nEND_VAR",
+    "expect": [
+      "Bitaccess on function call is not allowed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0062",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0062.html",
+    "kind": "error",
+    "category": "structure member access",
+    "cause": "Code uses dot notation to access a member of a variable whose declared type is not a structure, so the compiler cannot resolve the member.",
+    "message": "'<variable name>' is no structure variable",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    pt : PUNKT;\n    i : INT;\nEND_VAR\n\ni.x := 1024;\n\nTYPE Punkt :\nSTRUCT\n    x : REAL;\n    y : REAL;\nEND_STRUCT\nEND_TYPE",
+    "expect": [
+      "'i.x' is no valid assignment target",
+      "'Variable' is no structure variable"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "pt.x := 1024;"
+  },
+  {
+    "code": "C0064",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0064.html",
+    "kind": "error",
+    "category": "pointer dereference",
+    "cause": "The ^ dereference operator is applied to a variable that is not declared as POINTER TO type.",
+    "message": "Dereferencing requires a pointer",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    pi : POINTER TO INT;\nEND_VAR\ni^:=1;",
+    "expect": [
+      "'i^' is no valid assignment target",
+      "Dereferencing requires a pointer"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "pi := ADR(i);\npi^ := 1;"
+  },
+  {
+    "code": "C0065",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0065.html",
+    "kind": "error",
+    "category": "undeclared global reference",
+    "cause": "Code references an identifier via global-scope dot syntax (.name) but no VAR_GLOBAL declaration exists for that name.",
+    "message": "There is no global definition for '<name>'.",
+    "repro": "PROGRAM PLC_PRG\n.someValue := 5;",
+    "expect": [
+      "There is no global definition for 'someValue'."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR_GLOBAL\n    someValue : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0066",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0066.html",
+    "kind": "error",
+    "category": "incompatible comparison",
+    "cause": "A relational operator is used between two operands of incompatible scalar types that cannot be implicitly converted for comparison.",
+    "message": "Cannot compare type '<data type>' with type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    re : REAL;\n    str: STRING;\n    b : BOOL;\nEND_VAR\n\nb := i > str;",
+    "expect": [
+      "Cannot compare type 'INT' with type 'STRING'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "b := i > re;"
+  },
+  {
+    "code": "C0068",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0068.html",
+    "kind": "error",
+    "category": "unsupported comparison type",
+    "cause": "A relational operator is applied to a composite/array type that does not support comparison operations at all.",
+    "message": "Compare not possible on objects of type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    arr1 : ARRAY [1..2] OF INT;\n    arr2 : ARRAY [1..2] OF INT;\nEND_VAR\n\nb := arr1 > arr2;",
+    "expect": [
+      "Compare not possible on objects of type 'ARRAY [1..2]'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0069",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0069.html",
+    "kind": "error",
+    "category": "mismatched array comparison",
+    "cause": "Two arrays with different bounds/types are compared with a relational operator, which is unsupported for array operands.",
+    "message": "Compare not possible on objects of type '<data type>' or '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    arr1 : ARRAY [1..2] OF INT;\n    arr2 : ARRAY [1..3] OF INT;\nEND_VAR\n\nb := arr1 > arr2;",
+    "expect": [
+      "Compare not possible on objects of type 'ARRAY [1..2]' or 'ARRAY [1..3]'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0070",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0070.html",
+    "kind": "error",
+    "category": "INI operator misuse",
+    "cause": "The INI operator's first argument is not a function block or DUT instance as required.",
+    "message": "'INI' operator needs function block instance or data unit type instance",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    inst : FB;\nEND_VAR\n\nb := INI(b, TRUE);\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR",
+    "expect": [
+      "'INI' operator needs function block instance or data unit type instance"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "b := INI(inst, TRUE);"
+  },
+  {
+    "code": "C0072",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0072.html",
+    "kind": "error",
+    "category": "operator type mismatch",
+    "cause": "A built-in operator/function is called with an operand type it does not support (e.g. ABS on STRING).",
+    "message": "Operator '<operator name>' is not possible on type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    str : STRING;\nEND_VAR\n\nstr := ABS(str);",
+    "expect": [
+      "Operator 'Abs' is not possible on type 'STRING'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "i := ABS(i);"
+  },
+  {
+    "code": "C0074",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0074.html",
+    "kind": "error",
+    "category": "array initializer on scalar",
+    "cause": "An array-literal initializer ([...]) is applied to a variable declared with a scalar (non-array) type.",
+    "message": "Unexpected array initialisation",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : INT := [1,2,3,4,5,6];\nEND_VAR",
+    "expect": [
+      "Unexpected array initialisation",
+      "Type 'unknown type: '[1,2,3,4,5,6]' can not be converted to type 'INT'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];"
+  },
+  {
+    "code": "C0075",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0075.html",
+    "kind": "error",
+    "category": "array initializer count mismatch",
+    "cause": "The number of values supplied in an array initializer exceeds the number of elements declared by the array's bounds.",
+    "message": "Unexpected array initialisation",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..5] OF INT := [1,2,3,4,5,6];\nEND_VAR",
+    "expect": [
+      "Unexpected array initialisation"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];"
+  },
+  {
+    "code": "C0076",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0076.html",
+    "kind": "error",
+    "category": "structure initializer on scalar",
+    "cause": "A struct-literal initializer ((field := value)) is applied to a variable declared with a non-structure (scalar) type.",
+    "message": "Unexpected structure initialisation",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    st1 : INT := (p1 := 1);\nEND_VAR",
+    "expect": [
+      "Unexpected structure initialisation",
+      "Type 'STRUCT(p1:=1)' can not be converted to type 'INT'",
+      "Identifier 'p1' not defined",
+      "'p1' is no valid assignment target"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "st1 : STRUCT1 := (p1:=1,p2:=10);"
+  },
+  {
+    "code": "C0077",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0077.html",
+    "kind": "error",
+    "category": "name-resolution",
+    "cause": "a declared type name resolves to no known type",
+    "message": "Unknown type: '<type>'",
+    "repro": "FUNCTION_BLOCK F\nVAR a : USNT; END_VAR\nEND_FUNCTION_BLOCK",
+    "expect": [
+      "Unknown type: 'USNT'"
+    ],
+    "status": "implemented",
+    "ourCheck": "unknown-type",
+    "ourCode": "unknown-type",
+    "lint": "unknownType",
+    "verified": {
+      "codesys": true,
+      "twincat": false
+    },
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
+  },
+  {
+    "code": "C0078",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0078.html",
+    "kind": "error",
+    "category": "unsupported target type",
+    "cause": "A variable is declared with a type that is valid IEC syntax but not supported on the selected device/target platform.",
+    "message": "Unsupported type: '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    value : LREAL;\nEND_VAR",
+    "expect": [
+      "Unsupported type: 'LREAL'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR"
+  },
+  {
+    "code": "C0080",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0080.html",
+    "kind": "error",
+    "category": "missing FB instance",
+    "cause": "A function block type is invoked directly by its type name instead of through a declared instance variable.",
+    "message": "Function block '<function block name>' must be instantiated to be accessed",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nFB();\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR",
+    "expect": [
+      "Function block 'FB' must be instantiated to be accessed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "VAR\n    inst : FB;\nEND_VAR\ninst();"
+  },
+  {
+    "code": "C0081",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0081.html",
+    "kind": "error",
+    "category": "pragma syntax error",
+    "cause": "An {END_IF} pragma appears without a preceding matching {IF <expression>} pragma.",
+    "message": "Unexpected Pragma: '<pragma name>' found without matching 'if'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni := 5;\n{END_IF}",
+    "expect": [
+      "Unexpected Pragma: 'END_IF' found without matching 'if'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "{IF <expression>}\ni := 5;\n{END_IF}"
+  },
+  {
+    "code": "C0082",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0082.html",
+    "kind": "error",
+    "category": "pragma condition error",
+    "cause": "The expression used inside an {IF ...} pragma is not a valid pragma condition.",
+    "message": "'<invalid pragma>' is no valid condition for pragma",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\n{IF abc}\ni := 5;\n{END_IF}",
+    "expect": [
+      "'!!!ERROR!!!' is no valid condition for pragma"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "{IF defined (abc)}"
+  },
+  {
+    "code": "C0084",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0084.html",
+    "kind": "error",
+    "category": "pragma operand error",
+    "cause": "The defined() pragma function is given a non-identifier (e.g. numeric literal) operand instead of a valid identifier.",
+    "message": "'<pragma operand>' is no valid operand for pragma",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\n{IF defined(0)}\n{END_IF}",
+    "expect": [
+      "'defined(null)' is no valid operand for pragma"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "{IF defined (abc)}"
+  },
+  {
+    "code": "C0085",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0085.html",
+    "kind": "error",
+    "category": "pragma value type error",
+    "cause": "A pragma directive requires a string literal define value but an unquoted identifier/variable name is supplied instead.",
+    "message": "Define value expected instead of '<value>'.",
+    "repro": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, defineValue)}\n{END_IF}",
+    "expect": [
+      "Define value expected instead of 'defineValue'."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, '120')}\n{END_IF}"
+  },
+  {
+    "code": "C0086",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0086.html",
+    "kind": "error",
+    "category": "missing interface definition",
+    "cause": "A function block declares IMPLEMENTS on an interface name that has never been declared with INTERFACE.",
+    "message": "No definition found for interface '<interface name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR",
+    "expect": [
+      "No definition found for interface 'XY'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "INTERFACE XY"
+  },
+  {
+    "code": "C0087",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0087.html",
+    "kind": "error",
+    "category": "missing interface method implementation",
+    "cause": "A function block implements an interface but omits an implementation for one of the methods the interface declares.",
+    "message": "There is no implementation for method '<method name>' defined in interface '<interface name>'.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nINTERFACE XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR\nMETHOD METH2\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "There is no implementation for method 'METH1' defined in interface 'XY'"
+    ],
+    "status": "checkable",
+    "ourCheck": "interface-implementation",
+    "ourCode": "missing-interface-impl",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0089",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0089.html",
+    "kind": "error",
+    "category": "interface method signature mismatch",
+    "cause": "The parameter list of a method implementing an interface method does not match the signature declared in the interface.",
+    "message": "Interface of overridden method '{0}' of interface '{1}' does not match declaration",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nINTERFACE XY\nMETHOD METH1\nVAR_INPUT\n    iPar : INT;\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR\nMETHOD METH1\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "Interface of overridden method 'METH1' of interface 'XY' does not match declaration"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0090",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0090.html",
+    "kind": "error",
+    "category": "invalid base class in EXTENDS",
+    "cause": "A function block's EXTENDS clause names an identifier that is not itself declared as a function block (e.g. it's a FUNCTION).",
+    "message": "No definition found for base class '<function name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS POU\nVAR\nEND_VAR\n\nFUNCTION POU\nVAR\nEND_VAR",
+    "expect": [
+      "No definition found for base class 'POU'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0091",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0091.html",
+    "kind": "error",
+    "category": "circular inheritance",
+    "cause": "A function block's EXTENDS clause names itself, creating a self-referential inheritance cycle.",
+    "message": "Recursion in base function block list: <function name>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB\nVAR\nEND_VAR",
+    "expect": [
+      "Recursion in base function block list: FB -> FB"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0094",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0094.html",
+    "kind": "error",
+    "category": "inherited method signature mismatch",
+    "cause": "A method overridden in a derived function block has a parameter list that differs from the same method declared in the base function block.",
+    "message": "Interface of overridden method '<method name>' of interface '<function block name>' doesn't match declaration",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     xyz : XY2;\nEND_VAR\n\nFUNCTION_BLOCK XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR",
+    "expect": [
+      "Interface of the overridden method 'METH1' of base 'XY' doesn't match declaration"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0096",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0096.html",
+    "kind": "error",
+    "category": "multiple inheritance not allowed",
+    "cause": "A function block's EXTENDS clause lists more than one base function block, but CODESYS only supports single inheritance.",
+    "message": "Only one base function block may be defined in EXTENDS-list.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    fb : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB2, FB3\nVAR\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\nEND_VAR\n\nFUNCTION_BLOCK FB3\nVAR\nEND_VAR",
+    "expect": [
+      "Only one base function block may be defined in EXTENDS list."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0097",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0097.html",
+    "kind": "error",
+    "category": "duplicate inherited variable",
+    "cause": "A derived function block declares a variable with the same name as a variable already declared in its base function block.",
+    "message": "Duplicate definition of variable '<variable name>' in function block '<function block name>' and in base '<base function block name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    fb : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB2\nVAR\n    i : INT;\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\n    i : INT;\nEND_VAR",
+    "expect": [
+      "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0098",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0098.html",
+    "kind": "error",
+    "category": "deprecated keyword",
+    "cause": "The obsolete keyword FUNCTIONBLOCK (without underscore) is used instead of FUNCTION_BLOCK.",
+    "message": "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTIONBLOCK FB\nVAR\nEND_VAR",
+    "expect": [
+      "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0099",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0099.html",
+    "kind": "error",
+    "category": "deprecated local enumeration",
+    "cause": "An enumeration type is declared inline on a local variable declaration instead of as a separate DUT, which older compiler versions no longer support.",
+    "message": "Local defined enumeration are no longer supported. Use a DUT definition instead.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    localEnumVar : (RED, GREEN, BLUE) := RED;\nEND_VAR",
+    "expect": [
+      "Local defined enumeration are no longer supported. Use a DUT definition instead."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0101",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0101.html",
+    "kind": "error",
+    "category": "data type recursion",
+    "cause": "A function block or struct contains, directly or indirectly, an instance of itself as a member, creating infinite/circular data nesting.",
+    "message": "Data Recursion: '<recursion>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst0 : FB1;\nEND_VAR\n\nFUNCTION_BLOCK FB1\nVAR\n    inst1 : FB2;\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\n    inst2 : FB1;\nEND_VAR",
+    "expect": [
+      "Data Recursion: FB1->FB2->FB1"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0102",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0102.html",
+    "kind": "error",
+    "category": "retain memory exhaustion",
+    "cause": "The declared RETAIN variables no longer fit into the available retain memory region of the target device.",
+    "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0103",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0103.html",
+    "kind": "error",
+    "category": "retain memory fragmentation",
+    "cause": "A RETAIN variable does not fit because the remaining free retain memory is fragmented into gaps smaller than the variable, even though total free space might suffice.",
+    "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap {2})",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0104",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0104.html",
+    "kind": "error",
+    "category": "global data memory exhaustion",
+    "cause": "The declared global (non-retain) variables no longer fit into the available global data memory region of the target device.",
+    "message": "Out of global data memory: Variable '<variable name>', <byte size> bytes.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0106",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0106.html",
+    "kind": "error",
+    "category": "retain memory fragmentation",
+    "cause": "A RETAIN variable cannot be placed because no single free contiguous block of retain memory is large enough to hold it.",
+    "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap <byte size> bytes)",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0114",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0114.html",
+    "kind": "error",
+    "category": "invalid jump target",
+    "cause": "A JMP statement targets something that is not a valid declared label (e.g. a numeric literal) in the current scope.",
+    "message": "Invalid destination <jump label> for 'JMP'",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP 0;",
+    "expect": [
+      "Invalid destination 0 for 'JMP'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0115",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0115.html",
+    "kind": "error",
+    "category": "invalid conditional call parameter",
+    "cause": "The second argument passed to a conditional call construct (e.g. CAL/CALC) is an expression rather than a valid call to a function or function block.",
+    "message": "The second parameter of a conditional call (CAL...ALWAYS CALC... ) has to be a valid call statement.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    condition : BOOL;\nEND_VAR\nCALC(condition, 1+2);",
+    "expect": [
+      "The second parameter of a conditional call has to be a valid call statement."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "CALC(condition, MyFunction(1,2))"
+  },
+  {
+    "code": "C0116",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0116.html",
+    "kind": "error",
+    "category": "duplicate jump label",
+    "cause": "The same label name is declared more than once within the same scope.",
+    "message": "The label '<jump label>' is a duplicate",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP label;\nlabel:\n\nlabel:",
+    "expect": [
+      "The label 'LABEL' is a duplicate"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0117",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0117.html",
+    "kind": "error",
+    "category": "undefined jump label",
+    "cause": "A JMP statement references a label name that is not declared anywhere within its scope.",
+    "message": "No such label '<jump label>' within the scope of the 'JMP' statement",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nJMP A;",
+    "expect": [
+      "No such label 'A' within the scope of the 'JMP' statement."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0118",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0118.html",
+    "kind": "error",
+    "category": "unused jump label",
+    "cause": "A label is declared but no JMP statement ever jumps to it, making it dead/unreferenced code.",
+    "message": "The label '<jump label>' has not been referenced.",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nLABEL:",
+    "expect": [
+      "The label 'LABEL' has not been referenced"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0119",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0119.html",
+    "kind": "error",
+    "category": "malformed FB_init signature",
+    "cause": "A user-defined FB_init method is missing the two mandatory BOOL input parameters bInitRetains and bInCopyCode that the runtime requires to call it.",
+    "message": "An 'FB_init'-Method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\n\nFUNCTION_BLOCK FB\nMETHOD FB_init\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "An 'FB_init'-Method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
+    ],
+    "status": "checkable",
+    "ourCheck": "lifecycle",
+    "ourCode": "fb-lifecycle-signature",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "METHOD FB_init\nVAR_INPUT\n    bInitRetains : BOOL;\n    bInCopyCode : BOOL;\nEND_VAR"
+  },
+  {
+    "code": "C0120",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0120.html",
+    "kind": "error",
+    "category": "malformed FB_exit signature",
+    "cause": "A user-defined FB_exit method is missing the mandatory BOOL input parameter bInCopyCode that the runtime requires to call it.",
+    "message": "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\n\nFUNCTION_BLOCK FB\nMETHOD FB_exit\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL."
+    ],
+    "status": "checkable",
+    "ourCheck": "lifecycle",
+    "ourCode": "fb-lifecycle-signature",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "METHOD FB_exit\nVAR_INPUT\n    bInCopyCode : BOOL;\nEND_VAR"
+  },
+  {
+    "code": "C0122",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0122.html",
+    "kind": "error",
+    "category": "invalid SUPER usage",
+    "cause": "The SUPER pointer/keyword is used outside of a valid context (e.g. at the top level of a program rather than inside a method of a derived function block).",
+    "message": "Expression 'SUPER' is not allowed in this context",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nSUPER^.METH(TRUE, TRUE);",
+    "expect": [
+      "Expression 'SUPER' is not allowed in this context"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0124",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0124.html",
+    "kind": "error",
+    "category": "invalid enum initializer",
+    "cause": "An enumeration member is initialized with a value whose type (e.g. a real/floating literal) cannot be implicitly converted to the enumeration's declared base type.",
+    "message": "'Initialization' is no valid initialization for an enumeration",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\n\nTYPE DUT :\n(\n  enum_member := 1.5\n) DWORD;\nEND_TYPE",
+    "expect": [
+      "Type 'LREAL' can not be converted to type 'DUT'",
+      "'Initialization' is no valid initialization for an enumeration"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0125",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0125.html",
+    "kind": "error",
+    "category": "duplicate enum value",
+    "cause": "Two enumeration members in the same enum type are initialized with the same underlying constant value.",
+    "message": "The constant <constant value> is assigned to more than one enumeration.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\n\nTYPE DUT :\n(\n    enum_member := 0,\n    enum_member2 := 0\n);\nEND_TYPE",
+    "expect": [
+      "The constant 0 is assigned to more than one enumeration."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0126",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0126.html",
+    "kind": "error",
+    "category": "pointer indexing arity",
+    "cause": "A pointer variable is dereferenced with array-style bracket indexing using more than one index, but pointers only accept exactly one index.",
+    "message": "Variable of type '<data type>' requires exactly 1 Index",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    pi : POINTER TO INT;\nEND_VAR\npi[0,1] := 0;",
+    "expect": [
+      "Variable of type 'POINTER TO INT' requires exactly 1 Index"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "pi[0] := 0;"
+  },
+  {
+    "code": "C0130",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0130.html",
+    "kind": "error",
+    "category": "missing method call parens",
+    "cause": "A method of an instance is referenced by name without the trailing '()' call parentheses.",
+    "message": "object '<object name>' referenced without parentheses '()'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst.METH1",
+    "expect": [
+      "METHOD 'METH1' referenced without parentheses '()'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "inst.METH1();"
+  },
+  {
+    "code": "C0131",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0131.html",
+    "kind": "error",
+    "category": "invalid ADR operand",
+    "cause": "ADR() is called on a literal constant instead of an addressable variable, and constants have no memory address.",
+    "message": "'<value>' is not allowed as operand for 'ADR'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    pt : POINTER TO INT;\nEND_VAR\n\npt := ADR(1);",
+    "expect": [
+      "'1' is not allowed as operand for 'ADR'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "pt := ADR(i);"
+  },
+  {
+    "code": "C0132",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0132.html",
+    "kind": "error",
+    "category": "EXIT outside loop",
+    "cause": "An EXIT statement appears outside of any FOR/WHILE/REPEAT loop body, so there is no loop for it to break out of.",
+    "message": "No enclosing loop of which to EXIT",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nEXIT\n;",
+    "expect": [
+      "No enclosing loop of which to EXIT"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0136",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0136.html",
+    "kind": "error",
+    "category": "ambiguous global name",
+    "cause": "The same global variable name is declared in more than one global variable list, so an unqualified reference to it is ambiguous.",
+    "message": "ambiguous use of name '<variable name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    j : INT := g_i;\nEND_VAR\n\nGVL1:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR\n\nGVL2:\nVAR_GLOBAL\n    g_i : INT;\nEND_VAR",
+    "expect": [
+      "nicht eindeutige Verwendung des Namens 'g_i'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "j : INT := GVL1.g_i;"
+  },
+  {
+    "code": "C0138",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0138.html",
+    "kind": "error",
+    "category": "FB_Init signature mismatch",
+    "cause": "A function block instance is declared with initialization arguments that don't match any FB_Init method overload on that function block.",
+    "message": "No matching 'FB_Init' method found for instantiation of POU.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    myPOU : POU(arg1 := 1, arg2 := 2);\nEND_VAR",
+    "expect": [
+      "No matching 'FB_Init' method found for instantiation of POU."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0139",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0139.html",
+    "kind": "error",
+    "category": "no-op statement warning",
+    "cause": "A standalone expression statement (e.g. bare variable reference) is written that produces no side effect.",
+    "message": "The code <code> has no effect. Is this the intent?",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni;",
+    "expect": [
+      "The code 'i' has no effect. Is this the intent?"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0140",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0140.html",
+    "kind": "error",
+    "category": "REF= to non-reference",
+    "cause": "The REF= reference-assignment operator is used to target a variable that is not declared as a REFERENCE TO type.",
+    "message": "Reference assign is only allowed to variables of Reference type",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : INT;\nEND_VAR\n\nI_r REF= i;",
+    "expect": [
+      "Reference assign is only allowed to variables of Reference type"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "I_r : REFERENCE TO INT;"
+  },
+  {
+    "code": "C0141",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0141.html",
+    "kind": "error",
+    "category": "REF= to non-writable target",
+    "cause": "The REF= operator's right-hand side is a literal constant rather than a writable variable, so no valid reference can be taken.",
+    "message": "Reference assign needs variable with write access",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : REFERENCE TO INT;\nEND_VAR\n\nI_r REF= 314;",
+    "expect": [
+      "Reference assign needs variable with write access"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "I_r REF= i;"
+  },
+  {
+    "code": "C0142",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0142.html",
+    "kind": "error",
+    "category": "duplicate local variable",
+    "cause": "The same variable name is declared twice within the local variable declarations of one POU.",
+    "message": "A local variable named '<variable name>' is already defined in '<pou name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    i : INT;\nEND_VAR",
+    "expect": [
+      "A local variable named 'i' is already defined in 'PLC_PRG"
+    ],
+    "status": "checkable",
+    "ourCheck": "duplicate-declaration",
+    "ourCode": "duplicate-declaration",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0143",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0143.html",
+    "kind": "error",
+    "category": "missing property getter",
+    "cause": "A property is read (used on the right side of an assignment) but the property only defines a Set accessor, not a Get accessor.",
+    "message": "The property '<property name>' cannot be used in this context because it lacks the get accessor",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    inst: FB;\nEND_VAR\n\ni := inst.Prop;\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR\n\nPROPERTY Prop : INT\nSet;",
+    "expect": [
+      "The property 'Prop' cannot be used in this context because it lacks the get accessor"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0144",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0144.html",
+    "kind": "error",
+    "category": "invalid EXTENDS target",
+    "cause": "EXTENDS is used on a POU type (here an enumeration TYPE) that is not a function block, interface, or structure, none of which support inheritance.",
+    "message": "Inheritance only allowed in function blocks, Interfaces and Structures",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT_1;\nEND_VAR\n\nTYPE DUT:\n(\n    enum_member := 0\n);\nEND_TYPE\n\nTYPE DUT_1 EXTENDS DUT:\n(\n    enum_memberX := 0\n);\nEND_TYPE",
+    "expect": [
+      "Inheritance only allowed in function blocks, Interfaces and Structures"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0145",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0145.html",
+    "kind": "error",
+    "category": "invalid IMPLEMENTS target",
+    "cause": "IMPLEMENTS is used on a FUNCTION POU, but only function blocks are allowed to implement interfaces.",
+    "message": "Interfaces can only be implemented by function blocks",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU();\n\nFUNCTION POU IMPLEMENTS ITF\nVAR\nEND_VAR",
+    "expect": [
+      "Interfaces can only be implemented by function blocks"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0149",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0149.html",
+    "kind": "error",
+    "category": "invalid interface declaration",
+    "cause": "A VAR block containing variable declarations is placed inside an INTERFACE, which is not permitted since interfaces may only declare method signatures.",
+    "message": "Variable declarations are not allowed in interfaces",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : ITF;\nEND_VAR\n\nINTERFACE ITF\nVAR_INPUT\n    i : INT;\nEND_VAR",
+    "expect": [
+      "Variable declarations are not allowed in interfaces"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0161",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0161.html",
+    "kind": "error",
+    "category": "non-constant array bound",
+    "cause": "An array declaration uses a variable instead of a constant literal/constant expression as one of its bounds.",
+    "message": "Border <array bound> of array is no constant value",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT := 3;\n    arr1 : ARRAY[1..i] OF INT;\nEND_VAR",
+    "expect": [
+      "Border 'i' of array is no constant value"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1 : ARRAY[1..3] OF INT;"
+  },
+  {
+    "code": "C0162",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0162.html",
+    "kind": "error",
+    "category": "non-constant array initializer count",
+    "cause": "The repetition count in an array initializer's repeat syntax (n(value)) is a variable rather than a constant.",
+    "message": "Number <number of array values> of array initialisation is no constant value",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT := 3;\n    arr1 : ARRAY[1..4] OF INT := [1,i(7)];\nEND_VAR",
+    "expect": [
+      "Number 'i' of array initialisation is no constant value"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "arr1 : ARRAY[1..4] OF INT := [1,3(7)];"
+  },
+  {
+    "code": "C0164",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0164.html",
+    "kind": "error",
+    "category": "output written from multiple tasks",
+    "cause": "A POU that writes to a physical output (%Q) is called from more than one task, risking a race condition on that output.",
+    "message": "POU <name> writes to output <name> and is called in several tasks.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    Output AT %QB7 : BYTE\nEND_VAR\n\nOutput := 0;",
+    "expect": [
+      "POU PLC_PRG writes to output QB7 and is called in several tasks."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0165",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0165.html",
+    "kind": "error",
+    "category": "shared address written by multiple tasks",
+    "cause": "Two different variables mapped to the same physical address are each written from different programs/tasks, creating a write conflict on that address.",
+    "message": "Variable '<variable name>', which is mapped on address '<address>' is written in different tasks.",
+    "repro": "PROGRAM PLC_PRG_1\nVAR\n    Output AT %QB7 : BYTE;\nEND_VAR\nOutput := 0;\n\nPROGRAM PLC_PRG_2\nVAR\n    Output AT %QB7 : BYTE;\nEND_VAR\nOutput := 1;",
+    "expect": [
+      "Variable Output, which is mapped on address QB7 is written in different tasks."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0168",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0168.html",
+    "kind": "error",
+    "category": "misplaced VAR_CONFIG block",
+    "cause": "A VAR_CONFIG variable block is declared inside a POU instead of in the dedicated VAR_CONFIG list object.",
+    "message": "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list",
+    "repro": "PROGRAM PLC_PRG\nVAR_CONFIG\n    i : INT;\nEND_VAR",
+    "expect": [
+      "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0169",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0169.html",
+    "kind": "error",
+    "category": "misplaced VAR_GLOBAL block",
+    "cause": "A VAR_GLOBAL variable block is declared inside a POU instead of in a global variable list (GVL) object.",
+    "message": "'VAR_GLOBAL' declaration only allowed in global variable list",
+    "repro": "PROGRAM PLC_PRG\nVAR_GLOBAL\n    i : INT;\nEND_VAR",
+    "expect": [
+      "'VAR_GLOBAL' declaration only allowed in global variable list"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0173",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0173.html",
+    "kind": "error",
+    "category": "invalid keyword inside struct",
+    "cause": "A variable-block keyword such as VAR_INPUT is used inside a STRUCT declaration, where only plain member declarations are allowed.",
+    "message": "'<keyword>' not allowed in this place",
+    "repro": "TYPE DUT :\nSTRUCT\n    VAR_INPUT\n            member : INT;\n    END_VAR\nEND_STRUCT\nEND_TYPE",
+    "expect": [
+      "'VAR_INPUT' not allowed in this place"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE"
+  },
+  {
+    "code": "C0174",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0174.html",
+    "kind": "error",
+    "category": "misplaced VAR_TEMP block",
+    "cause": "A VAR_TEMP block is declared in a POU type (like FUNCTION) where temporary variables of that kind aren't permitted, or otherwise outside a program/function block.",
+    "message": "'VAR_TEMP' declaration not allowed in this place",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nFUN();\n\nFUNCTION FUN\nVAR_TEMP\nEND_VAR",
+    "expect": [
+      "'VAR_TEMP' declaration not allowed in this place"
+    ],
+    "status": "checkable",
+    "ourCheck": "var-section-placement",
+    "ourCode": "var-section-placement",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0175",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0175.html",
+    "kind": "error",
+    "category": "misplaced RETAIN/PERSISTENT qualifier",
+    "cause": "A VAR block is qualified RETAIN (or PERSISTENT) inside a POU type such as FUNCTION, where retain semantics are not supported.",
+    "message": "'RETAIN' or 'PERSISTENT' not allowed in this place",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU_1();\n\nFUNCTION POU_1\nVAR RETAIN\nEND_VAR",
+    "expect": [
+      "'RETAIN' or 'PERSISTENT' not allowed in this place"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0177",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0177.html",
+    "kind": "error",
+    "category": "instantiating a non-instantiable POU",
+    "cause": "A variable is declared with the type of a POU kind (e.g. FUNCTION) that cannot be instantiated as a variable, only function blocks/classes can.",
+    "message": "'<object>' is of type '<type>' and cannot be instantiated",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : POU;\nEND_VAR\n\nFUNCTION POU\nVAR\nEND_VAR",
+    "expect": [
+      "'POU' is of type 'FUNCTION' and cannot be instantiated"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0178",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0178.html",
+    "kind": "error",
+    "category": "external access to VAR_IN_OUT parameter",
+    "cause": "Code outside a function block tries to read/write one of its VAR_IN_OUT parameters directly via instance-dot access, which is not allowed since VAR_IN_OUT is only valid during the call.",
+    "message": "No external access to 'VAR_IN_OUT' parameter '<parameter name>' of '<object name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\n    i : INT;\nEND_VAR\ni := inst.in_out;\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR",
+    "expect": [
+      "No external access to 'VAR_IN_OUT' parameter 'in_out' of 'FB'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0179",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0179.html",
+    "kind": "error",
+    "category": "invalid FB-instance initializer target",
+    "cause": "A function block instance's inline initializer assigns a value to a VAR_IN_OUT parameter, but instance initialization may only assign inputs, not VAR_IN_OUT or output parameters.",
+    "message": "'<identifier>' is no output of 'Function block'",
+    "repro": "FUNCTION_BLOCK MyFB\nVAR_IN_OUT\n    inOut : INT;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n    iValue : INT;\n    fb : MyFB := (inOut := iValue);\nEND_VAR",
+    "expect": [
+      "'inOut' is no output of 'MyFB'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0180",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0180.html",
+    "kind": "error",
+    "category": "ambiguous library namespace",
+    "cause": "Two referenced libraries define the same namespace, so an unqualified identifier from that namespace is ambiguous.",
+    "message": "Ambiguous namespace '<library 1>' defined by library '<library 2>'",
+    "repro": null,
+    "expect": [
+      "Ambiguous namespace 'STANDARD' defined by library 'Standard, 3.5.15.0 (System)'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0182",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0182.html",
+    "kind": "error",
+    "category": "return type misuse",
+    "cause": "A return type was declared on a POU kind that is not a FUNCTION or METHOD (e.g. a PROGRAM), which is not allowed.",
+    "message": "Return type is only possible for POUs of Type FUNCTION and METHOD",
+    "repro": "PROGRAM PLC_PRG : BOOL\nVAR\nEND_VAR",
+    "expect": [
+      "Return type is only possible for POUs of Type FUNCTION and METHOD"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0183",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0183.html",
+    "kind": "error",
+    "category": "invalid global-scope access",
+    "cause": "The leading global-scope operator '.' was applied to an expression that is not a valid global symbol reference.",
+    "message": "Global scope operation '.' is not valid on expression '<expression>'",
+    "repro": "PROGRAM PLC_PRG\n...\n\niVar := .FUNCTION;\nstrVar := .TO_STRING;",
+    "expect": [
+      "Global scope operation '.' is not valid on expression '<expression>'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\niVar := .globalValue;"
+  },
+  {
+    "code": "C0185",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0185.html",
+    "kind": "error",
+    "category": "chained access on call result",
+    "cause": "Component access, index access, or a call was chained directly onto the result of a function call instead of first assigning that result to a variable.",
+    "message": "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    it : ITF;\nEND_VAR\n\nPOU_1()[0].METH1();\n\nFUNCTION POU_1 : ARRAY[0..0] OF ITF\n\nINTERFACE ITF\n\nMETHOD METH1",
+    "expect": [
+      "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0186",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0186.html",
+    "kind": "error",
+    "category": "interface call comparison",
+    "cause": "A function call returning an interface reference was used directly in a comparison instead of first being assigned to a variable.",
+    "message": "It is not possible to compare interface that is return value of call. Assign to variable first.",
+    "repro": "INTERFACE MyInterface\n\nFUNCTION GetInterface : MyInterface\n\nPROGRAM PLC_PRG\nIF GetInterface() <> 0 THEN\n    // ...\nEND_IF",
+    "expect": [
+      "It is not possible to compare interface that is return value of call. Assign to variable first."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR_TEMP\n    tempInterface : MyInterface;\nEND_VAR\ntempInterface := GetInterface();\nIF tempInterface <> 0 THEN\n    // ...\nEND_IF"
+  },
+  {
+    "code": "C0187",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0187.html",
+    "kind": "error",
+    "category": "external reference on program",
+    "cause": "The 'external implementation' build option was enabled on a PROGRAM POU, but external references are only valid on function blocks, methods, functions, and constant global variable lists.",
+    "message": "External references are only possible for function blocks, methods, functions and constant global variable lists. External reference for PROGRAM '<program name>' is ignored.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0188",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0188.html",
+    "kind": "error",
+    "category": "missing device installation",
+    "cause": "Code generation was attempted for a target device that is not installed in the CODESYS system, so no code can be generated for it.",
+    "message": "Device not installed to the system. No code generation possible.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0189",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0189.html",
+    "kind": "error",
+    "category": "missing semicolon",
+    "cause": "A statement is missing its terminating semicolon, so the parser reaches an unexpected token where ';' was required.",
+    "message": "';' expected instead of '<token>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    INT\nEND_VAR",
+    "expect": [
+      "Unexpected token '<Token>' found",
+      "';' expected instead of 'INT'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0190",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0190.html",
+    "kind": "error",
+    "category": "missing semicolon at end of POU",
+    "cause": "The final statement in a POU is missing its terminating semicolon before the POU body ends.",
+    "message": "';' expected instead of end of POU",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni := 5",
+    "expect": [
+      "';' expected instead of end of POU"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0191",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0191.html",
+    "kind": "error",
+    "category": "deprecated operator",
+    "cause": "The obsolete INDEXOF operator was used in code; it has been removed and ADR must be used instead.",
+    "message": "The operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0195",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0195.html",
+    "kind": "error",
+    "category": "signed-to-unsigned conversion",
+    "cause": "A signed-type value is implicitly assigned to an unsigned-type variable, which can silently change its sign/value.",
+    "message": "Implicit conversion from signed Type '<data type 1>' to unsigned Type '<data type 2>' : possible change of sign",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    b : UINT;\nEND_VAR\n\nb := i;",
+    "expect": [
+      "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : possible change of sign"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0196",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0196.html",
+    "kind": "error",
+    "category": "unsigned-to-signed conversion",
+    "cause": "An unsigned-type value is implicitly assigned to a signed-type variable, which can silently change its sign/value.",
+    "message": "Implicit conversion from unsigned Type '<data type 1>' to signed type '<data type 2>' : possible change of sign",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    b : UINT;\nEND_VAR\n\ni := b;",
+    "expect": [
+      "Implicit conversion from unsigned Type 'UINT' to signed type 'INT' : possible change of sign"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0197",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0197.html",
+    "kind": "error",
+    "category": "lossy implicit conversion",
+    "cause": "A value is implicitly converted between two data types where precision or range can be lost (e.g. integer to floating-point).",
+    "message": "Implicit conversion from '<data type 1>' to '<data type 2>': possible loss of information",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : DINT;\n    b : REAL;\nEND_VAR\nb := i;",
+    "expect": [
+      "Implicit conversion from 'DINT' to 'REAL': possible loss of information"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0198",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0198.html",
+    "kind": "error",
+    "category": "string constant too long",
+    "cause": "A string literal used as an initializer or assignment exceeds the declared maximum length of its destination STRING type.",
+    "message": "String constant '<string value>' too long for destination type '<data type>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    str : STRING(4) := '12345';\nEND_VAR",
+    "expect": [
+      "String constant '12345' too long for destination type 'STRING(4)'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0199",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0199.html",
+    "kind": "error",
+    "category": "uninstantiated interface access",
+    "cause": "An interface type name was referenced directly to call a method instead of going through an instantiated variable of that interface.",
+    "message": "Interface '<interface name>' must be instantiated to be accessed",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nITF.METH();\n\nINTERFACE ITF\n\nMETHOD METH\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "Interface 'ITF' must be instantiated to be accessed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "itest: ITF;"
+  },
+  {
+    "code": "C0201",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0201.html",
+    "kind": "error",
+    "category": "VAR_IN_OUT type mismatch",
+    "cause": "A call passes an actual variable whose data type does not match the declared type of the callee's VAR_IN_OUT parameter.",
+    "message": "Type '<data type 1>' is not equal to type '<data type 2>' of VAR_IN_OUT 'Variable'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    Inst: POU;\n    b : BOOL;\nEND_VAR\n\ninst(in_out := b);\n\nFUNCTION_BLOCK POU\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR",
+    "expect": [
+      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0203",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0203.html",
+    "kind": "error",
+    "category": "BIT variable scope",
+    "cause": "A BIT-typed variable is declared directly in a PROGRAM instead of inside a structure or function block.",
+    "message": "Only Structures and Function Blocks can contain variables of type BIT.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BIT;\nEND_VAR",
+    "expect": [
+      "Only Structures and Function Blocks can contain variables of type BIT."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0204",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0204.html",
+    "kind": "error",
+    "category": "BIT variable declaration block",
+    "cause": "A BIT-typed variable is declared in a block kind that does not allow BIT, such as VAR_IN_OUT.",
+    "message": "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    b : BIT;\nEND_VAR",
+    "expect": [
+      "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0205",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0205.html",
+    "kind": "error",
+    "category": "Pointer to BIT disallowed",
+    "cause": "Code declares a POINTER TO BIT, which the compiler does not permit since BIT has no addressable storage.",
+    "message": "POINTER TO BIT is not allowed",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    pt : POINTER TO BIT;\nEND_VAR",
+    "expect": [
+      "POINTER TO BIT is not allowed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0206",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0206.html",
+    "kind": "error",
+    "category": "BIT array base type disallowed",
+    "cause": "An ARRAY declaration uses BIT as its element type, which is not a valid array base type.",
+    "message": "BIT is not allowed as base type of an array",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr : ARRAY[1..2] OF BIT;\nEND_VAR",
+    "expect": [
+      "BIT is not allowed as base type of an array"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0207",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0207.html",
+    "kind": "error",
+    "category": "Unknown __SYSTEM member",
+    "cause": "Code references a member of the implicit __SYSTEM variable that does not exist in the system definition.",
+    "message": "There is no system definition for '<identifier>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    Value : INT;\nEND_VAR\nValue := __SYSTEM.UnknownVariable;",
+    "expect": [
+      "There is no system definition for 'UnkownVariable'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0208",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0208.html",
+    "kind": "error",
+    "category": "MOD on non-integer type",
+    "cause": "The MOD operator is applied to a REAL operand, but MOD is only defined for ANY_INT types.",
+    "message": "'MOD' is not defined for 'REAL'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    r1 : REAL;\nEND_VAR\nr1 := r1 MOD 2;",
+    "expect": [
+      "'MOD' is not defined for 'REAL'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0209",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0209.html",
+    "kind": "error",
+    "category": "Too many applications for device",
+    "cause": "The project defines more applications for a device than that device's specification allows to be downloaded.",
+    "message": "You have defined '<number>' applications for device '<device name>'. The maximum number is '<number>'. So you will not be able to download all applications.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0211",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0211.html",
+    "kind": "error",
+    "category": "Malformed variable declaration",
+    "cause": "The compiler expects a variable declaration inside a VAR block but finds invalid/nested syntax instead.",
+    "message": "Variable declaration expected instead of <expression>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n\n   END_VAR\nEND_VAR",
+    "expect": [
+      "Variable declaration expected instead of VAR END_VAR"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0212",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0212.html",
+    "kind": "error",
+    "category": "Missing VAR block keyword",
+    "cause": "A variable declaration appears directly in a POU body without being wrapped in a VAR/VAR_INPUT/VAR_OUTPUT/VAR_INOUT block.",
+    "message": "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of <expression>",
+    "repro": "PROGRAM PLC_PRG\ni : INT;",
+    "expect": [
+      "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of i : INT;"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR"
+  },
+  {
+    "code": "C0213",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0213.html",
+    "kind": "error",
+    "category": "Missing global var block keyword",
+    "cause": "A variable declaration in a global variable list appears outside of a VAR_GLOBAL or VAR_CONFIG block.",
+    "message": "VAR_GLOBAL or VAR_CONFIG expected instead of <declaration>",
+    "repro": "VAR_GLOBAL\nEND_VAR\ni : INT;",
+    "expect": [
+      "VAR_GLOBAL or VAR_CONFIG expected instead of i:INT"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0215",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0215.html",
+    "kind": "error",
+    "category": "Direct address in persistent list",
+    "cause": "A variable in a VAR_GLOBAL PERSISTENT block is given a direct AT address, which persistent lists do not permit.",
+    "message": "Direct address declaration is not possible in persistent list",
+    "repro": "VAR_GLOBAL PERSISTENT RETAIN\n    directAddressVar AT %QB7 : BYTE;\nEND_VAR",
+    "expect": [
+      "Direct address declaration is not possible in persistent list"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0216",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0216.html",
+    "kind": "error",
+    "category": "Duplicate CASE label",
+    "cause": "A CASE statement declares the same label value more than once.",
+    "message": "Case label duplicate",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\nCASE i OF\n  1: i := i+1;\n  1: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
+    "expect": [
+      "Case label duplicate"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0217",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0217.html",
+    "kind": "error",
+    "category": "CASE label overlaps range",
+    "cause": "A CASE statement has a single label value that falls inside a range already covered by another label of that same CASE statement.",
+    "message": "Case label <case label> also contained in range <case range begin> .. <case range end>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\nCASE i OF\n  3..5: i := i+2;\n  4: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
+    "expect": [
+      "Case label 4 also contained in range 3 .. 5"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0218",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0218.html",
+    "kind": "error",
+    "category": "CASE label type",
+    "cause": "A CASE statement label references a variable instead of a literal or symbolic integer constant.",
+    "message": "'CASE' label requires literal or symbolic integer constant",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    a : INT := 2;\nEND_VAR\n\nCASE i OF\n  1: i := i+1;\n  a: i := i+2;\nELSE\n  i := i+10;\nEND_CASE",
+    "expect": [
+      "'CASE' label requires literal or symbolic integer constant"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0219",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0219.html",
+    "kind": "error",
+    "category": "CASE overlapping ranges",
+    "cause": "Two CASE branches specify ranges of values that overlap, making the branch selection ambiguous.",
+    "message": "Case contains overlapping range <case range 1 begin> .. <case range 1 end> and <case range 2 begin> .. <case range 2 end>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\nCASE i OF\n  3..5: i := i+2;\n  1..4: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
+    "expect": [
+      "'CASE' contains overlapping ranges 1 .. 4 and 3 .. 5"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0221",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0221.html",
+    "kind": "error",
+    "category": "malformed direct address",
+    "cause": "A direct I/O address is written incompletely or with invalid syntax, e.g. missing the bit/byte selector.",
+    "message": "Direct Address '<address>' malformed",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    xVar : BOOL;\nEND_VAR;\nxVar := %IX0;",
+    "expect": [
+      "Direct address '%IX0' malformed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "xVar := %IX0.2;"
+  },
+  {
+    "code": "C0222",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0222.html",
+    "kind": "error",
+    "category": "REFERENCE TO output param",
+    "cause": "A function block declares a VAR_OUTPUT of type REFERENCE TO, which is not permitted for outputs.",
+    "message": "Outputs can't be of type 'REFERENCE TO'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB\nVAR_OUTPUT\n    re : REFERENCE TO INT;\nEND_VAR",
+    "expect": [
+      "Outputs can't be of type 'REFERENCE TO'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0224",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0224.html",
+    "kind": "error",
+    "category": "recursive call",
+    "cause": "A POU (function or program) calls itself directly or indirectly, causing infinite recursion.",
+    "message": "Call Recursion: <recursion>",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU();\n\nFUNCTION POU\nVAR\nEND_VAR\n\nPOU();",
+    "expect": [
+      "Call Recursion: POU -> POU"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0225",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0225.html",
+    "kind": "error",
+    "category": "FB instance type mismatch",
+    "cause": "In a graphical language a function block call is explicitly typed to a function block type that doesn't match the instance's declared type.",
+    "message": "'<name>' is not an instance of '<name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    fbVar : MyFB;\nEND_VAR",
+    "expect": [
+      "'fbVar' is not an instance of 'MyFB2'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0227",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0227.html",
+    "kind": "error",
+    "category": "non-constant initializer",
+    "cause": "A VAR CONSTANT variable is initialized using a non-constant (variable) expression.",
+    "message": "Initialisation of constant variable <constant name> not constant",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\nVAR CONSTANT\n    k : INT := i;\nEND_VAR",
+    "expect": [
+      "Initialisation of constant variable 'k' not constant"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0228",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0228.html",
+    "kind": "error",
+    "category": "missing constant initializer",
+    "cause": "A VAR CONSTANT variable is declared without an initial value.",
+    "message": "No initial value for constant variable '<constant name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nVAR CONSTANT\n    k : INT;\nEND_VAR",
+    "expect": [
+      "No initial value for constant variable 'k'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "k : INT := 1;"
+  },
+  {
+    "code": "C0230",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0230.html",
+    "kind": "error",
+    "category": "enum type misuse",
+    "cause": "An enumeration type name is used directly as a value instead of qualifying it with one of its member names.",
+    "message": "Type name '<data type>' not expected in this place",
+    "repro": "TYPE MyEnum :\n(\n    enum_member := 0\n);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    value : INT;\nEND_VAR\nvalue := MyEnum;\nMyEnum := value;",
+    "expect": [
+      "Type name 'MyEnum' not expected in this place",
+      "Type name 'MyEnum' not expected in this place"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "value := MyEnum.enum_member;\nMyEnum.enum_member := value;"
+  },
+  {
+    "code": "C0232",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0232.html",
+    "kind": "error",
+    "category": "array init structure mismatch",
+    "cause": "A multi-dimensional array is initialized with a flat list instead of nested array literals matching each dimension.",
+    "message": "Array initialisation expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    value : ARRAY[0..2] OF ARRAY[0..2]  OF INT := [1,2,3];\nEND_VAR",
+    "expect": [
+      "Array initialisation expected"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "value : ARRAY[0..2] OF ARRAY[0..2]  OF INT := [\n[1,2,3],\n[4,5,6],\n[7,8,9]];"
+  },
+  {
+    "code": "C0233",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0233.html",
+    "kind": "error",
+    "category": "struct array init mismatch",
+    "cause": "An array of a structured (non-scalar) type is initialized with plain scalar values instead of structure initializer lists.",
+    "message": "Initialisation list for <data type> expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    values : ARRAY[0..2] OF COLOR := [1,2,3];\nEND_VAR",
+    "expect": [
+      "Initialisation list for COLOR expected"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\n      colorVariable : COLOR := (red:=0, green:=0, blue:=255);\n      value : ARRAY[0..2] OF COLOR := [\n            colorVariable,\n            (red:=255, green:=0, blue:=0),\n            (red:=0, green:=255, blue:=0)];\nEND_VAR"
+  },
+  {
+    "code": "C0234",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0234.html",
+    "kind": "error",
+    "category": "__QueryInterface first operand",
+    "cause": "The first argument passed to __QueryInterface is not an interface reference or function block instance.",
+    "message": "First Operand of __QueryInterface must be an interface reference or the instance of a function block",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(a ,ITFref);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "expect": [
+      "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "__QueryInterface(ITFref2, ITFref);"
+  },
+  {
+    "code": "C0235",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0235.html",
+    "kind": "error",
+    "category": "__QueryInterface second operand",
+    "cause": "The second argument passed to __QueryInterface is not an interface reference.",
+    "message": "Second Operand of __QueryInterface must be an interface reference",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(ITFref2, a);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "expect": [
+      "Second Operand of __QueryInterface must be an interface reference"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "__QueryInterface(ITFref2, ITFref);"
+  },
+  {
+    "code": "C0236",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0236.html",
+    "kind": "error",
+    "category": "VAR_EXTERNAL type mismatch",
+    "cause": "A variable's type in a VAR_EXTERNAL declaration doesn't match its type in the corresponding VAR_GLOBAL declaration.",
+    "message": "Wrong type definition for VAR_EXTERNAL <variable name>",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : STRING;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "expect": [
+      "Wrong type definition for VAR_EXTERNAL ig"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0237",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0237.html",
+    "kind": "error",
+    "category": "missing global definition",
+    "cause": "A VAR_EXTERNAL declares a variable that has no matching VAR_GLOBAL declaration anywhere in the project.",
+    "message": "No global definition found for VAR_EXTERNAL '<variable name>'",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    i : INT;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "expect": [
+      "No global definition found for VAR_EXTERNAL 'i'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0238",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0238.html",
+    "kind": "error",
+    "category": "illegal external initializer",
+    "cause": "A VAR_EXTERNAL declaration supplies an initial value, but external variables must take their initial value only from the matching VAR_GLOBAL declaration.",
+    "message": "No initial value allowed for VAR_EXTERNAL <variable name>",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : INT := 2;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "expect": [
+      "No initial value allowed for VAR_EXTERNAL ig"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0239",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0239.html",
+    "kind": "error",
+    "category": "interface extension mismatch",
+    "cause": "__QueryInterface is used to cast to an interface that does not extend __System.IQueryInterface, which is required for the query operator to work.",
+    "message": "Interface <interface name 1> does not extend <interface name 2>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    ITFref : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(ITFref2,ITFref);\n\nINTERFACE ITF\nINTERFACE ITF2 EXTENDS ITF",
+    "expect": [
+      "Interface ITF does not extend __System.IQueryInterface"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+  },
+  {
+    "code": "C0240",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0240.html",
+    "kind": "error",
+    "category": "invalid QueryPointer operand",
+    "cause": "The first argument passed to __QueryPointer is a plain variable instead of an interface reference or function block instance.",
+    "message": "First Operand of __QueryPointer must be an interface reference or the instance of a function block",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(a,pt);",
+    "expect": [
+      "First Operand of __QueryPointer must be an interface reference or the instance of a function block"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "__QueryPointer (ITFref, pt);"
+  },
+  {
+    "code": "C0241",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0241.html",
+    "kind": "error",
+    "category": "invalid QueryPointer operand",
+    "cause": "The second argument passed to __QueryPointer is not a pointer-typed variable as required.",
+    "message": "Second Operand of __QueryPointer must be pointer",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    b : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(ITFref,b);\n\nINTERFACE ITF EXTENDS __System.IQueryInterface",
+    "expect": [
+      "Second Operand of __QueryPointer must be pointer"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "__QueryPointer (ITFref, pt);"
+  },
+  {
+    "code": "C0242",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0242.html",
+    "kind": "error",
+    "category": "invalid DELETE operand",
+    "cause": "__DELETE is called with an argument that is not a pointer-typed variable.",
+    "message": "Operand of __DELETE must be pointer",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    pt : POINTER TO INT;\nEND_VAR\n\n__DELETE(a);",
+    "expect": [
+      "Operand of __DELETE must be pointer"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "__DELETE (pt);"
+  },
+  {
+    "code": "C0243",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0243.html",
+    "kind": "error",
+    "category": "signature name mismatch",
+    "cause": "The name referenced inside a method/property/action signature does not match the actual object name it belongs to.",
+    "message": "The name used in the signature is not identical to the object name",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0266",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0266.html",
+    "kind": "error",
+    "category": "constant-false loop condition",
+    "cause": "A FOR loop's computed exit condition can never become TRUE for the declared iteration variable's type/range, so the loop cannot terminate normally.",
+    "message": "Loop exit condition '<condition>' is constant FALSE. Possible endless loop.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n      b : BYTE;\n      i : INT;\nEND_VAR\nFOR b := 0 TO 255 BY 1 DO\n      i := i + 1;\nEND_FOR;",
+    "expect": [
+      "Loop exit condition 'b > 255' is constant FALSE. Endless loop possible."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0269",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0269.html",
+    "kind": "error",
+    "category": "pointer reinit virtual dispatch risk",
+    "cause": "Assigning through a dereferenced base-type pointer reinitializes the target's virtual function table, which is unsafe if the underlying instance is actually a derived type.",
+    "message": "The instance <pointer dereferencing> points to will be reinitialized for virtual function calls. Make sure <pointer dereferencing> doesn't point to a type derived from <base FB>.",
+    "repro": "FUNCTION_BLOCK FBBase\n...\n\nFUNCTION_BLOCK FBDerived EXTENDS FBBase\n...\n\nFUNCTION_BLOCK FB EXTENDS Base_FB\n...\nPROGRAM PLC_PRG\nVAR\n      pinst : POINTER TO FBBase;\n      inst2_2 : FBDerived;\nEND_VAR\npinst := ADR(inst2_2);\npinst^ := inst2_2;",
+    "expect": [
+      "The instance pinst^ points to will be reinitialized for virtual function calls. Make sure pinst^ doesn't point to a type derived from FBBase."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0298",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0298.html",
+    "kind": "error",
+    "category": "stack usage undecidable",
+    "cause": "The compiler cannot statically compute worst-case stack usage because a method calls itself (directly or indirectly), so recursion breaks the static analysis.",
+    "message": "Calculation of stack usage incomplete because of recursive calls, starting at '<recursive method name>'.",
+    "repro": "METHOD PUBLIC m_Recursive : UDINT\n    VAR_INPUT\n            uiN : UINT;\n    END_VAR\n    VAR\n    END_VAR\n    m_Recursive := 1;\n    IF      uiN > 1 THEN\n            m_Recursive := uiN * THIS^.m_Recursive(uiN := (uiN - 1) );\n            RETURN;\n    ELSE\n            RETURN;\n    END_IF;",
+    "expect": [
+      "Calculation of stack usage incomplete because of recursive calls, starting at 'm_Recursive'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "{attribute 'estimated-stack-usage' := '99'}"
+  },
+  {
+    "code": "C0316",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0316.html",
+    "kind": "error",
+    "category": "redundant implicit lifecycle call",
+    "cause": "User code explicitly calls SUPER^.FB_Exit (or similar lifecycle method) that the runtime already invokes implicitly, causing a duplicate call.",
+    "message": "Method '<method name>' is already called implicitly",
+    "repro": "FUNCTION_BLOCK Base_FB...\nMETHOD FB_Exit: BOOL\nVAR_INPUT\n      bInCopyCode : BOOL;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS Base_FB\n...\nMETHOD FB_Exit : BOOL\nVAR_INPUT\n      bInCopyCode : BOOL;\nEND_VAR\nSUPER^.FB_Exit(bInCopyCode);",
+    "expect": [
+      "Method 'FB_Exit' is already called implicitly"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0319",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0319.html",
+    "kind": "error",
+    "category": "interface library rule violation",
+    "cause": "A construct that is disallowed inside an interface-library POU (per the Interface Libraries documentation rules) is used.",
+    "message": "<> not allowed in interface library",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0344",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0344.html",
+    "kind": "error",
+    "category": "unsupported monitoring attribute value",
+    "cause": "A property carries the 'monitoring' := 'call' attribute, but call-style monitoring is not supported for properties, so it is silently ignored.",
+    "message": "The monitoring attribute is not supported for property '<property name>' and will be ignored",
+    "repro": "TYPE ST_Test :STRUCT\n      a,b : INT;  \nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_Test\n...\n\n{attribute 'monitoring' := 'call'}\nPROPERTY TestProp : ST_Test",
+    "expect": [
+      "The monitoring attribute is not supported for property 'TestProp' and will be ignored."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0351",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0351.html",
+    "kind": "error",
+    "category": "unknown attribute pragma",
+    "cause": "An {attribute '...'} pragma uses a name the compiler does not recognize, typically from a typo of a valid attribute name.",
+    "message": "The attribute <attribute name> is unknown and will be ignored by the compiler",
+    "repro": "{attribute 'call_after_ini'}\nPROGRAM PLC_PRG\nVAR\nEND_VAR",
+    "expect": [
+      "The attribute call_after_ini is unknown and will be ignored by the compiler"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0354",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0354.html",
+    "kind": "error",
+    "category": "enum comparison",
+    "cause": "Two variables of different enumeration types are compared with a relational operator (>, <, etc.).",
+    "message": "Comparison of one enumeration type (<type name 1>) with another (<type name 2>)",
+    "repro": "TYPE ENUM1:\n(\n      enum_member1 := 0,\n      enum_member2 := 1\n);\nEND_TYPE\n\nTYPE ENUM2:\n(\n      enum_member := 0\n);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n      enum1 : ENUM1;\n      enum2 : ENUM2;\n      i:INT;\nEND_VAR\nenum1 := 0;\nenum2 := 0;\nIF enum1 > enum2 THEN\n      i := 1;\nEND_IF;",
+    "expect": [
+      "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0355",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0355.html",
+    "kind": "error",
+    "category": "bit addressing",
+    "cause": "ADR() is applied to a single BIT variable, which cannot be individually addressed so the byte address is stored instead.",
+    "message": "A single bit cannot be referenced. A reference to the complete byte will be stored.",
+    "repro": "FUNCTION_BLOCK FBVAR\n      pt : POINTER TO BOOL;\n      b : BIT;\nEND_VAR\npt := ADR(b);",
+    "expect": [
+      "A single bit cannot be referenced. A reference to the complete byte will be stored."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0357",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0357.html",
+    "kind": "error",
+    "category": "obsolete POU usage",
+    "cause": "A POU decorated with the 'obsolete' attribute is still instantiated/used elsewhere in the program.",
+    "message": "POU '<POU name>' has been marked as obsolete: <message text>",
+    "repro": "{attribute 'obsolete':= 'datatype fb not valid!'}\nFUNCTION_BLOCK FB_Test\n\nPROGRAM PLC_PRG\nVAR\n      inst : FB_Test;\nEND_VAR",
+    "expect": [
+      "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0371",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0371.html",
+    "kind": "error",
+    "category": "VAR_IN_OUT scoping",
+    "cause": "A method of a function block accesses that function block's own VAR_IN_OUT parameter, which is not guaranteed valid from the method's external context.",
+    "message": "Access to VAR_IN_OUT '<variable name>' declared in '<function block name>' from external context '<POU name>'",
+    "repro": "FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n      bInOut : BOOL;\nEND_VAR\n\nMETHOD METH: BOOL\nVAR\n      bBool : BOOL;\nEND_VAR\nbInOut := bBool;",
+    "expect": [
+      "Access to VAR_IN_OUT 'bInOut' declared in 'FB_Test' from external context 'METH'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0373",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0373.html",
+    "kind": "error",
+    "category": "user-defined pragma warning",
+    "cause": "Source code contains an explicit {warning 'text'} pragma, which the compiler echoes back verbatim as a warning.",
+    "message": "<custom message text defined by the 'warning' pragma>",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n{warning 'This is a warning'}",
+    "expect": [
+      "This is a warning"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0380",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0380.html",
+    "kind": "error",
+    "category": "array-bound operator misuse",
+    "cause": "LOWER_BOUND/UPPER_BOUND is called on a fixed-size array instead of a variable-length array parameter (ARRAY [*]).",
+    "message": "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length.",
+    "repro": "FUNCTION_BLOCK POU\nVAR_IN_OUT\n    arrin : ARRAY [*] OF INT;\nEND_VAR\nVAR\n    arrtest : ARRAY [0..5] OF INT;\n    test1: DINT;\n    test2: DINT;\nEND_VAR\n\ntest1 := UPPER_BOUND(arrin, 1);\ntest2 := UPPER_BOUND(arrtest, 1);",
+    "expect": [
+      "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0398",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0398.html",
+    "kind": "error",
+    "category": "online-change out of memory",
+    "cause": "The development PC lacks sufficient free memory for the compiler to compute and apply an online change.",
+    "message": "The development system has not enough memory to process the online change. Please restart the application before continuing development.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0406",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0406.html",
+    "kind": "error",
+    "category": "check-function name collision",
+    "cause": "A POU declares a method/variable with the same name as an implicitly-generated bounds/range check function, hiding it so the check no longer runs.",
+    "message": "The implicit check function '<name of check function>' is hidden by another variable or function. Checks will not be performed!",
+    "repro": "FUNCTION CheckBounds: DINT\nVAR_INPUT\n      index, lower, upper:DINT;\nEND_VAR\n\nFUNCTION_BLOCK TestFB\nVAR\n      a:ARRAY [0..1] OF INT;\n      i : INT;\nEND_VAR\na[i] := i;\n\nMETHOD CheckBounds:DINT\nVAR_INPUT\n      index, lower, upper : DINT;\nEND_VAR",
+    "expect": [
+      "The implicit check function 'CHECKBOUNDS' is hidden by another variable or function."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0415",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0415.html",
+    "kind": "error",
+    "category": "persistent memory fragmentation",
+    "cause": "Repeated edits to persistent variable lists fragment persistent memory until no contiguous gap is large enough for a new/changed variable.",
+    "message": "Out of persistent memory. Variable '<variable name>', <count> bytes (Largest contiguous memory gap <size>). Editing persistent variable lists may produce fragmented memory. Perform \"Declarations, Reorder List and Clear Gaps\" command to compact persistent variable lists.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0421",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0421.html",
+    "kind": "error",
+    "category": "interface inheritance keyword",
+    "cause": "An interface declaration uses IMPLEMENTS to derive from another interface instead of the correct EXTENDS keyword.",
+    "message": "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS",
+    "repro": "INTERFACE ITF\n\nINTERFACE ITF_1 IMPLEMENTS ITF",
+    "expect": [
+      "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0426",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0426.html",
+    "kind": "error",
+    "category": "empty CASE label",
+    "cause": "A CASE statement has a label with no statements between it and the next label.",
+    "message": "At least one statement is expected",
+    "repro": "PROGRAM PLC_PRG\nVAR\n      nVar:INT;\nEND_VAR\n\nCASE nVar OF\n      1:\n      2:\n         nVar := nVar + 1;\nEND_CASE",
+    "expect": [
+      "At least one statement is expected"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0441",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0441.html",
+    "kind": "error",
+    "category": "VAR_IN_OUT default-value misuse",
+    "cause": "A VAR_IN_OUT variable is referenced in the default-value initializer of another variable declaration, before it is actually bound at call time.",
+    "message": "Access to uninitialized VAR_IN_OUT variable",
+    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\n      i:INT;\nEND_VAR\nVAR_OUTPUT\n      b:BOOL := a[i];\nEND_VAR\nVAR_IN_OUT\n      a:ARRAY [1..5] OF BOOL;\nEND_VAR",
+    "expect": [
+      "Access to uninitialized VAR_IN_OUT variable"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0454",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0008-2040066.html",
+    "kind": "error",
+    "category": "invalid __NEW expression usage",
+    "cause": "Code embeds a __NEW pointer-assignment expression directly inside another expression (e.g. a comparison), which the compiler disallows.",
+    "message": "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\nIF (pSt := __NEW(ST_Data)) = 0 THEN\n      RETURN;\nEND_IF",
+    "expect": [
+      "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF"
+  },
+  {
+    "code": "C0456",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0456.html",
+    "kind": "error",
+    "category": "check-function collision across libraries",
+    "cause": "Two different referenced libraries each provide an implicit check function of the same name, so one hides the other and its checks are skipped.",
+    "message": "The implicit check function <name of the check function> is hidden by another implicit check function <name of the check function>. Checks will not be performed!",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0508",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0508.html",
+    "kind": "error",
+    "category": "variable/action name collision",
+    "cause": "A local variable in a program shares its name with an action defined on that same program, making bare references to the name ambiguous.",
+    "message": "Ambiguous use of name '<identifier>'",
+    "repro": "FUNCTION_BLOCK FBRead_Var\nVAR_INPUT\nEND_VAR\n...\n\nPROGRAM PLC_PRG\nVAR\n    read_input : FBRead_Var;\nEND_VAR\nread_input(); // Call of the action read_input",
+    "expect": [
+      "Ambiguous use of name 'READ_INPUT'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0509",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0509.html",
+    "kind": "error",
+    "category": "invalid multiple assignment",
+    "cause": "The code chains multiple assignment targets in one statement where one target receives the result of the __NEW allocation operator, which CODESYS forbids.",
+    "message": "Multiple assignments for operator '__New' not allowed",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Typed pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Typed pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbBeta := pbAlpha := __NEW(BYTE); // Incorrect code for memory allocation\nEND_IF\n\npbBeta := pbAlpha := 16#01;\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
+    "expect": [
+      "Multiple assignments for operator '__NEW' not allowed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF"
+  },
+  {
+    "code": "C0511",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0511.html",
+    "kind": "error",
+    "category": "abstract FB assignment",
+    "cause": "Code directly assigns one abstract function block variable/reference to another by value, which is disallowed because abstract function blocks have no concrete implementation to copy; a reference assignment (REF=) must be used instead.",
+    "message": "The function block '<function block name>' is ABSTRACT and cannot be used as a target for an assignment.",
+    "repro": "PROGRAM PLC_PRG\nVAR\nrefAbstract1 : REFERENCE TO AbstractPOU;\nrefAbstract2 : REFERENCE TO AbstractPOU;\nEND_VAR\n\nrefAbstract1 := refAbstract2;",
+    "expect": [
+      "The function block 'refAbstract1' is ABSTRACT and cannot be used as a target for an assignment."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0513",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0513.html",
+    "kind": "error",
+    "category": "private property access",
+    "cause": "Code outside the declaring POU accesses a property declared PRIVATE, which restricts visibility to the POU itself.",
+    "message": "Should not access private property <POU name> <property name>",
+    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\nEND_VAR\n...\n\nPROPERTY PRIVATE Prop : UDINT\n\nPROGRAM\nPLC_PRG\nVAR\n      p:POU := STRUCT(Prop := 7);\nEND_VAR",
+    "expect": [
+      "Should not access private property POU Prop"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0514",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0514.html",
+    "kind": "error",
+    "category": "internal property access",
+    "cause": "Code accesses a property marked INTERNAL that belongs to a different library, which restricts that property's visibility to callers within that same library only.",
+    "message": "Should not access internal property <POU name>.<property name> of library <library name>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n      p1: MyLib.POU;\n      somevar1 :INT := p1.Prop;\nEND_VAR",
+    "expect": [
+      "Should not access internal property POU.Prop of library MyLib, 1.0.0.0 (MyCompany)"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0515",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0515.html",
+    "kind": "error",
+    "category": "protected property access",
+    "cause": "Code outside the POU's inheritance hierarchy accesses a property declared PROTECTED, which restricts visibility to the POU and its descendants.",
+    "message": "Should not access protected property <POU name>.<property name>",
+    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\nEND_VAR\n...\n\nPROPERTY PROTECTED Prop : UDINT\n\nPROGRAM PLC_PRG\nVAR\n      p:POU := STRUCT(Prop := 7);\nEND_VAR",
+    "expect": [
+      "Should not access protected property POU.Prop"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0516",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0516.html",
+    "kind": "error",
+    "category": "internal variable access",
+    "cause": "Code accesses a variable belonging to a POU marked INTERNAL in another library, which restricts that variable's visibility to callers within that same library only.",
+    "message": "Should not access internal variable <POU name> of library <library name>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    somevar1 : INT := MyLib.GVL.p.varIn;\nEND_VAR",
+    "expect": [
+      "Should not access internal variable InternalPOU.varIn of library MyLib, 1.0.0.0 (MyCompany)"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0517",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0517.html",
+    "kind": "error",
+    "category": "internal object access via SIZEOF",
+    "cause": "The SIZEOF operator is applied to a POU marked INTERNAL in another library, which restricts that POU's visibility to callers within that same library only.",
+    "message": "Should not access internal object <object name> of library <library name>",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    somevar1 : INT := SIZEOF(MyLib.POU);\nEND_VAR",
+    "expect": [
+      "Should not access internal object POU of library MyLib, 1.0.0.0 (MyCompany)"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0525",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0525.html",
+    "kind": "error",
+    "category": "invalid default on input parameter",
+    "cause": "A VAR_INPUT parameter of a complex/array type is given a literal initializer in the function declaration, which CODESYS does not permit in that context.",
+    "message": "The type <type> cannot have a default value in this context",
+    "repro": "FUNCTION Fun: INT\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\n      aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n     aInt:ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun(1, TRUE, aInt);",
+    "expect": [
+      "The type ARRAY [0..1] OF INT cannot have a default value in this context"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0526",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0526.html",
+    "kind": "error",
+    "category": "non-constant default value",
+    "cause": "A VAR_INPUT variable's default/initial value is set to the result of a function call rather than a compile-time constant expression.",
+    "message": "Default value is not constant",
+    "repro": "FUNCTION F2: INT\n\nFUNCTION F1: INT\nVAR_INPUT\n      iPar : INT := F2();\n      xPar : BOOL;\nEND_VAR",
+    "expect": [
+      "Default value is not constant"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0533",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0533.html",
+    "kind": "error",
+    "category": "unused output default in abstract method",
+    "cause": "A VAR_OUTPUT variable inside an abstract (or interface) method declaration is given an initial value, but that default can never take effect since abstract/interface methods have no executable body.",
+    "message": "The default value for a VAR_OUTPUT is not used in abstract or interface methods",
+    "repro": "FUNCTION_BLOCK ABSTRACT POU\n\nMETHOD METH: BOOL\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\nEND_VAR\nVAR_OUTPUT\n      iOut : INT;\n      xOut : BOOL := TRUE;\nEND_VAR",
+    "expect": [
+      "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0540",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0540.html",
+    "kind": "error",
+    "category": "missing no_assign attribute propagation",
+    "cause": "A POU declares a member variable whose type is attributed 'no_assign', but the containing POU itself is not attributed 'no_assign', leaving its own instance-copy semantics inconsistent.",
+    "message": "Attribute 'no_assign' missing for POU '<POU>'. The type of the variable '<variable>' is attributed with 'no_assign'.",
+    "repro": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_NotAssignable\nVAR\n      pBool : POINTER TO BOOL;\nEND_VAR\n\nFUNCTION_BLOCK FB_WrapperOfNotAssignable\nVAR\n      fbNotAssingable : FB_NotAssignable;\nEND_VAR",
+    "expect": [
+      "Attribute 'no_assign' missing for POU 'FB_WrapperOfNotAssignable'. The type of the variable 'fbNotAssingable' is attributed with 'no_assign'."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable"
+  },
+  {
+    "code": "C0541",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0541.html",
+    "kind": "error",
+    "category": "missing device AddOn",
+    "cause": "Code generation for a target device requires a vendor-provided AddOn component that is not installed in the CODESYS installation.",
+    "message": "Creating the memory allocator failed: The required AddOn '{0}' is not installed",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0542",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0542.html",
+    "kind": "error",
+    "category": "invalid UNION inheritance",
+    "cause": "A structured data type (DUT) is derived from a UNION via EXTENDS, or a UNION is derived from a DUT, which CODESYS treats as invalid inheritance but only downgrades to a warning for backward compatibility.",
+    "message": "Inheritance is not intended for the data type \"UNION\" <data type name>.",
+    "repro": "TYPE U_StringExt EXTENDS U_StringBase :\nUNION\n    str10 : STRING(10);\nEND_UNION\nEND_TYPE\n\nTYPE U_StringBase :\nUNION\n    str20 : STRING(20);\nEND_UNION\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    uStringExt : U_StringExt;\nEND_VAR\n\nuStringExt.str20 := 'a234567890b234567890'; -> C0542",
+    "expect": [
+      "C0542"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0543",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0543.html",
+    "kind": "error",
+    "category": "reserved keyword used as identifier",
+    "cause": "A variable or identifier is named using a word reserved by the IEC 61131-3 standard (e.g. CHAR), which still compiles today but will become a hard error in a future CODESYS version.",
+    "message": "The name <keyword> is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    char : BYTE;\nEND_VAR",
+    "expect": [
+      "The name 'char' is a reserved keyword in the IEC 1131-3 standard. An error will be issued in future versions."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0549",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0549.html",
+    "kind": "error",
+    "category": "static var init constant",
+    "cause": "A VAR_STAT variable is initialized with an expression referencing a constant while the 'Replace constants' compile option is disabled, so the initializer is not actually resolved to a constant at compile time.",
+    "message": "Initialization of the static variable '<variable name>' is not constant, or replaced constants is disabled.",
+    "repro": "VAR CONSTANT\n        iMaxInst : INT := 2;\nEND_VAR\nVAR_STAT\n        iIDs : INT := iMaxInst - 1;\nEND_VAR",
+    "expect": [
+      "Initialization of the static variable 'iIDs' is not constant, or replaced constants is disabled."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0550",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0550.html",
+    "kind": "error",
+    "category": "pragma attribute misuse",
+    "cause": "The pack_mode attribute pragma is applied to a FUNCTION or METHOD declaration, but pack_mode is only valid on data structures.",
+    "message": "Attribute 'pack_mode' for 'FUNCTION' ( 'METHOD' ) not allowed",
+    "repro": "{attribute 'pack_mode' := '2'}\nMETHOD METH : INT\nVAR_INPUT\nEND_VAR\n\n{attribute 'pack_mode' := '1'}\nFUNCTION FunPacked : DINT\nVAR_INPUT\n        by1: BYTE;\nEND_VAR\nVAR\n        by2: BYTE;\nEND_VAR",
+    "expect": [
+      "Attribute 'pack_mode' for 'METHOD' not allowed",
+      "Attribute 'pack_mode' for 'FUNCTION' not allowed"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0554",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0554.html",
+    "kind": "error",
+    "category": "restricted FB call",
+    "cause": "A function block instance marked with the no_explicit_call attribute is invoked directly in code, which the attribute forbids.",
+    "message": "No explicit calls of '<FB name>' allowed. <value of attribute 'no_explicit_call'>",
+    "repro": "{attribute 'no_explicit_call' := 'Call of this FB is not allowed'}\nFUNCTION_BLOCK FB1\nVAR_INPUT\nEND_VAR\nVAR_OUTPUT\nEND_VAR\nVAR\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n    myFB: FB1;\nEND_VAR\n\nmyFB();",
+    "expect": [
+      "No explicit calls of 'FB1' allowed. Call of this FB is not allowed."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0555",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0555.html",
+    "kind": "error",
+    "category": "string literal encoding",
+    "cause": "A string literal contains characters outside the Latin-1 character set that cannot be represented unless the 'UTF-8 Encoding for STRING' project compile option is enabled.",
+    "message": "The string literal <literal> contains characters that cannot be displayed. The project option 'UTF-8 encoding for STRING' could be used.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n\tstr1: STRING(200);\n\tstr2: STRING := '1 €';\n\tstr3: STRING(200) := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';\nEND_VAR\n\nstr1 := '你好,世界';\nstr1 := 'ABC abc 123 äöü ß#~=\" §% /(!)[]{}\\ ´`^*~°€µ  *_-.;  中文字 Ω �';\nstr1 := '1 £';\nstr1 := '1 €';\nstr1 := ' !$\"#$$%&$'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~';",
+    "expect": [
+      "The string literal '你好,世界' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0561",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0561.html",
+    "kind": "error",
+    "category": "recursive call warning",
+    "cause": "A POU (program or method) calls itself, directly or indirectly, creating a recursive call chain that the compiler flags.",
+    "message": "Call recursion: <POU> -> <POU>",
+    "repro": "METHOD METH: BOOL\nVAR_INPUT\nEND_VAR\nRecursive();\n\nPROGRAM Recursive\nVAR\nEND_VAR\nRecursive();",
+    "expect": [
+      "Call recursion: RECURSIVE -> RECURSIVE"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0564",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0564.html",
+    "kind": "error",
+    "category": "initialization order",
+    "cause": "A variable's initializer references another variable declared later in the same VAR block, so that other variable is not yet initialized at the point of use.",
+    "message": "A reference to uninitialized variable <variable1> is used for initialization of <variable2>. Accessing the uninitialized variable may result in unexpected behavior.",
+    "repro": "PROGRAM PLC_PRG\nVAR\n      inst : FB := STRUCT(ii := inst2);\n      inst2 : FBI;\nEND_VAR",
+    "expect": [
+      "A reference to uninitialized variable inst2 is used for initialization of inst. Accessing the uninitialized variable may result in unexpected behavior."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR"
+  },
+  {
+    "code": "C0565",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0565.html",
+    "kind": "error",
+    "category": "FB_Exit signature",
+    "cause": "An FB_exit method is declared without the mandatory bInCopyCode : BOOL input parameter.",
+    "message": "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL.",
+    "repro": "FUNCTION_BLOCK FB\nMETHOD FB_exit\nVAR_INPUT\nEND_VAR",
+    "expect": [
+      "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL."
+    ],
+    "status": "checkable",
+    "ourCheck": "lifecycle",
+    "ourCode": "fb-lifecycle-signature",
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "METHOD FB_exit\nVAR_INPUT\n    bInCopyCode : BOOL;\nEND_VAR"
+  },
+  {
+    "code": "C0566",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0566.html",
+    "kind": "error",
+    "category": "FB_ReInit signature",
+    "cause": "An FB_ReInit method is declared with input parameters or a non-BOOL output instead of the required no-input, BOOL-returning signature.",
+    "message": "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically.",
+    "repro": "METHOD FB_ReInit : BOOL\nVAR_INPUT    \n    input_var : INT; //C0566: unexpected input for FB_ReInit\nEND_VAR\nVAR_OUTPUT\n    output_var : INT; //C0566: wrong type for output of FB_ReInit\nEND_VAR",
+    "expect": [
+      "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically."
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "METHOD FB_ReInit : BOOL\n// correction: inputs have been removed\nVAR_OUTPUT\n    output_var: BOOL; // correction: output has the correct type\nEND_VAR"
+  },
+  {
+    "code": "C0567",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0567.html",
+    "kind": "error",
+    "category": "interface hierarchy",
+    "cause": "An interface used in the project does not (directly or transitively) extend the required base interface __System.IQueryInterface.",
+    "message": "Interface <interface name 1> does not extend __System.IQueryInterface",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    ITFref : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\nINTERFACE ITF\nINTERFACE ITF2 EXTENDS ITF",
+    "expect": [
+      "Interface ITF does not extend __System.IQueryInterface"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+  },
+  {
+    "code": "C0568",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0568.html",
+    "kind": "error",
+    "category": "method override mismatch",
+    "cause": "A derived function block overrides a base method but declares it with a different parameter list than the base method, violating override signature matching.",
+    "message": "Interface of overridden method '<method name>' of interface '<function block name>' doesn't match declaration",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     xyz : XY2;\nEND_VAR\n\nFUNCTION_BLOCK XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR",
+    "expect": [
+      "Interface of the overridden method 'METH1' of base 'XY' doesn't match declaration"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0569",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0569.html",
+    "kind": "error",
+    "category": "persistent variable registration",
+    "cause": "A persistent variable exists outside the VAR_PERSISTENT list and has not been registered into it via the 'Add All Instance Paths' command.",
+    "message": "No matching instance path in VAR_PERSISTENT list found for variable {0}. Use the command \"Add All Instance Paths\" to add all instance paths to the VAR_PERSISTENT list.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0571",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0571.html",
+    "kind": "error",
+    "category": "retain FB_EXIT mismatch",
+    "cause": "A function block instance that defines an FB_Exit method is declared in VAR_RETAIN, so FB_Exit runs on warm reset while FB_Init does not, creating an inconsistent lifecycle.",
+    "message": "FB_EXIT of instances in VAR_RETAIN is also called during Reset warm, but not FB_INIT. Avoid retain declaration of function blocks with FB_EXIT!",
+    "repro": "FUNCTION_BLOCK POU\n...\nMETHOD FB_Exit: BOOL\nVAR_INPUT\n      bInCopyCode : BOOL;\nEND_VAR\n...\nFUNCTION_BLOCK POU_1\nVAR\n      inst2 : POU;\nEND_VAR\n...\nPROGRAM PLC_PRG\nVAR\n      myFB : POU_1;\nEND_VAR\nmyFB();",
+    "expect": [
+      "FB_EXIT of instances in VAR_RETAIN is also called during Reset warm, but not FB_INIT. Avoid retain declaration of function blocks with FB_EXIT!"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0572",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0572.html",
+    "kind": "error",
+    "category": "nested struct init order",
+    "cause": "In a nested struct, an inner member that is itself uninitialized is referenced by an outer member's initializer, which triggers this warning instead of the stricter C0268 error.",
+    "message": "The uninitialized variable <variable1> is used for initialization of <variable2>. Use the 'global_init_slot' attribute to change the order of initialisation.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0573",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0573.html",
+    "kind": "error",
+    "category": "abstract keyword removed",
+    "cause": "A method originally declared with the abstract option had its ABSTRACT keyword manually deleted in the editor, leaving the abstract flag out of sync with the source text.",
+    "message": "The ABSTRACT keyword is missing",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0576",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0576.html",
+    "kind": "error",
+    "category": "method-scoped variable access",
+    "cause": "Code outside a method tries to reference one of that method's VAR_INST variables, which are scoped only to the declaring method.",
+    "message": "Cannot access VAR_INST '<variable name>' of '<method name>' from outside the declaring method",
+    "repro": "FUNCTION_BLOCK FB_Test\n...\nMETHOD TestMethod: BOOL\nVAR_INST\n      bInst:BOOL;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n      fbTest:FB_Test;\n      bTest:BOOL;\nEND_VAR\nbTest := fbTest.TestMethod.bInst;",
+    "expect": [
+      "Cannot access VAR_INST 'bInst' of 'TestMethod' from outside the declaring method"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0579",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0579.html",
+    "kind": "error",
+    "category": "compiler feature version gate",
+    "cause": "A library with 'Enforce project compatibility' enabled uses a compiler feature that isn't available in the compiler version the library targets.",
+    "message": "The compiler feature <name or compiler feature> is only supported with compiler version <version> or newer",
+    "repro": null,
+    "expect": [
+      "The compiler feature 'Generic constant variable' is only supported with compiler version 3.5.18.0 or newer"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0581",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0581.html",
+    "kind": "error",
+    "category": "overload resolution failure",
+    "cause": "An overloaded method is called with an argument list whose count or types don't match any declared overload signature.",
+    "message": "No Matching Overload found for method '{0}'",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0582",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0582.html",
+    "kind": "error",
+    "category": "duplicate method name",
+    "cause": "A function block declares two methods with the same name without marking them as intentional overloads via the 'overloaded' attribute or OVERLOAD keyword.",
+    "message": "There is another method with the name '{0}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0583",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0583.html",
+    "kind": "error",
+    "category": "duplicate overload signature",
+    "cause": "Two overloads of the same method declare identical input parameter types, making the overload set ambiguous.",
+    "message": "There is another overload for '{0}' with the same input-types.",
+    "repro": null,
+    "expect": null,
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0584",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_warning_c0584.html",
+    "kind": "warning",
+    "category": "excessive nesting depth",
+    "cause": "A sequence of nested conditional/loop constructs (e.g. a long ELSIF chain) exceeds the compiler's maximum supported nesting depth.",
+    "message": "Maximum nesting depth exceeded",
+    "repro": "IF CASE_INPUT = 1 THEN\n    Local_ULINT := Local_ULINT+1;\nELSIF CASE_INPUT = 3 \n    THEN Local_BOOL := NOT Local_BOOL;\nELSIF CASE_INPUT = 4 \n    THEN Local_ULINT := 4;\nELSIF CASE_INPUT = 5 \n    THEN Local_ULINT := 5;\n( . . . )\nELSIF CASE_INPUT = 9999 \n    THEN Local_ULINT := 9999;\nELSIF CASE_INPUT = 10000 \n    THEN Local_ULINT := 10000;\nEND_IF",
+    "expect": [
+      "Maximum nesting depth exceeded"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": null
+  },
+  {
+    "code": "C0585",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0585.html",
+    "kind": "error",
+    "category": "generic constant mixed assignment",
+    "cause": "A generic function block instantiation mixes explicitly-named generic constant assignments with positional (implicit) ones instead of using one style consistently.",
+    "message": "Either all generic variables need to be explicitly assigned or none",
+    "repro": "inst := POU<(const_1 := 12), 12>;",
+    "expect": [
+      "Either all generic variables need to be explicitly assigned or none"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;"
+  },
+  {
+    "code": "C0586",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0586.html",
+    "kind": "error",
+    "category": "missing generic constant init",
+    "cause": "A generic function block instance is declared without supplying values for all of the function block's declared generic constants.",
+    "message": "Missing initialization for generic variable '{0}'",
+    "repro": "inst : POU2<(const_1 := 12)>;",
+    "expect": [
+      "Missing initialization for generic variable 'inst'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments"
+  },
+  {
+    "code": "C0587",
+    "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0587.html",
+    "kind": "error",
+    "category": "unknown generic constant name",
+    "cause": "A generic function block instantiation references a generic constant name (often via typo) that isn't declared on that function block.",
+    "message": "'{0}' is no declared generic constant of function block '{1}'",
+    "repro": "inst : POU<(consst := 12)>; // Typo",
+    "expect": [
+      "'const' is no declared generic constant of function block 'POU'"
+    ],
+    "status": "checkable",
+    "ourCheck": null,
+    "ourCode": null,
+    "lint": null,
+    "verified": {
+      "codesys": false,
+      "twincat": false
+    },
+    "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared"
+  }
+]

@@ -32,6 +32,7 @@ import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.
 import { checkInterfaceImplementations } from "./checks/oop/interface-implementation.js"
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
+import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
 
@@ -66,6 +67,7 @@ const CHECKS: readonly Check[] = [
   // names/
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
+  checkUnknownTypes,
   // declarations/
   checkVarSectionPlacement,
   // oop/

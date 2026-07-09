@@ -35,6 +35,13 @@ export interface LintConfig {
    * check is only as complete as the catalog, so it is opt-in (a missing catalog entry would false-positive).
    */
   unknownAttribute: boolean
+  /**
+   * A declared type name that resolves nowhere (`x : BOL`). The compilers reject this, but the check is only
+   * as complete as the LOADED type universe — types defined inside referenced libraries have no offline
+   * definition ("library floor"), so on a workspace without full signatures it false-positives. Opt-in until
+   * the library floor is solved (signatures loaded into the symbol table). See `checks/names/unknown-type`.
+   */
+  unknownType: boolean
 }
 
 export interface AnalysisInitOptions {
@@ -54,6 +61,7 @@ export interface ResolvedConfig {
 const DEFAULT_LINTS: LintConfig = {
   shadowing: false,
   unknownAttribute: false,
+  unknownType: false,
 }
 
 /** Resolve user init options to a concrete config. `auto`/unset vendor defaults to CODESYS. */
