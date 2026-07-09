@@ -17,10 +17,12 @@ namespace Volt.Bridge.Core.Graphical
         // network it belongs to). We split on that so the VG mirrors the editor's networks 1:1.
         private const long NetworkStride = 10_000_000_000L;   // 10^10
 
-        public static GraphBody ReadBody(XElement fbdOrLd)
+        /// <param name="language">Override the language read from the element name — TwinCAT wraps LD in an FBD
+        /// wrapper, so the COM body-language is more trustworthy than the wrapper element name.</param>
+        public static GraphBody ReadBody(XElement fbdOrLd, string? language = null)
         {
             var ns = fbdOrLd.Name.Namespace;
-            var lang = fbdOrLd.Name.LocalName.ToUpperInvariant();          // FBD | LD
+            var lang = (language ?? fbdOrLd.Name.LocalName).ToUpperInvariant();
             var networks = new List<GraphNetwork>();
 
             // Split into networks. FBD strides localIds (network index = localId / 10^10); TwinCAT's LD export

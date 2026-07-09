@@ -21,7 +21,9 @@ public static class GraphicalCode
 {
     /// <summary>Read a POU's graphical body, or null if it is textual (ST/IL). FBD/LD → editable VG;
     /// CFC/SFC → an empty body (the Materializer wraps it in an `@volt-graphical` informational marker). A
-    /// body the gate calls graphical but the export can't yield as FBD/LD is a loud failure, never silent.</summary>
+    /// body the gate calls graphical but the export can't yield as FBD/LD is a loud failure, never silent.
+    /// Production code now uses <see cref="RenderBody"/> through the Materializer's XML path; this method
+    /// remains for test coverage of the full read pipeline.</summary>
     public static GraphicalBody? Read(ICodeStore code, ItemRef item)
     {
         var lang = code.BodyLanguage(item);
@@ -36,11 +38,16 @@ public static class GraphicalCode
         var fbd = PlcOpenDocument.FindFbdLdBody(xml)
             ?? throw new InvalidOperationException(
                 $"graphical body language is {lang} but the PLCopen export has no FBD/LD body element");
-        var body = PlcOpenReader.ReadBody(fbd) with { Language = lang };
-        // The body — including any Execute box (the standard CODESYS ST-in-FBD/LD element) — renders as
-        // readable VG; VgWriter emits an Execute box's inline ST as `EXECUTE … END_EXECUTE`, and Write
-        // reconstructs the box from that on push (full round-trip), so it needs no special-casing here.
-        return new GraphicalBody(lang, VgWriter.Write(body), decl);
+        return new GraphicalBody(lang, RenderBody(fbd, lang), decl);
+    }
+
+    /// <summary>Render an FBD/LD body element to canonical VG text. The shared single-source-of-truth used by
+    /// both <see cref="Read"/> (old COM path) and <see cref="Materializer.BuildPouFromXml"/> (new XML path),
+    /// guaranteeing identical output for the same body element regardless of which path produced it.</summary>
+    public static string RenderBody(System.Xml.Linq.XElement bodyElement, string language)
+    {
+        var graph = PlcOpenReader.ReadBody(bodyElement, language);
+        return VgWriter.Write(graph);
     }
 
     /// <summary>Write an editable VG body back through the PLCopen transport: splice the new FBD/LD body

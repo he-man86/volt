@@ -1,5 +1,6 @@
 using Volt.Bridge.Core.Graphical;
 using Volt.Bridge.Core.Ide;
+using Volt.Bridge.Core.Workspace;
 
 namespace Volt.Bridge.Codesys;
 
@@ -17,7 +18,12 @@ public sealed partial class CodesysDriver
     public string? BodyLanguage(ItemRef item) =>
         item.Native is LibRefNode ? null : PlcOpenDocument.GraphicalBodyLang(_om.ExportXmlString(item.Native));
 
-    public string ReadXml(ItemRef item) => _om.ExportXmlString(item.Native);
+    public string ReadXml(ItemRef item)
+    {
+        if (item.Native is LibRefNode) return _om.ExportXmlString(item.Native);
+        if (KindCodeOf(item.Native) == ItemKind.PlcItf) return _om.ExportInterfaceXml(item.Native);
+        return _om.ExportXmlWithChildren(item.Native);
+    }
 
     /// <summary>Import a full PLCopen POU in place: delete the existing object and re-import INTO the
     /// original parent (PLCopenXML carries no folder membership, so a project-level import would relocate

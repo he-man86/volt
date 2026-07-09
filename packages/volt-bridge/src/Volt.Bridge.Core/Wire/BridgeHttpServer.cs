@@ -19,7 +19,7 @@ namespace Volt.Bridge.Core.Wire;
 /// thread via <see cref="IIdeSession.RunOnStaThread{T}"/>, and THIS class is the single error boundary —
 /// services and the driver throw; here is where a throw becomes an HTTP error.
 ///
-/// Endpoints: GET /health, GET /instances, GET /refs, POST /fetch, POST /push, POST /build,
+/// Endpoints: GET /health, GET /refs, POST /fetch, POST /push, POST /build,
 /// POST /shutdown, GET /debug (diagnostic), GET /openapi.yaml + GET /swagger (contract + UI).
 /// </summary>
 public sealed class BridgeHttpServer
@@ -37,16 +37,10 @@ public sealed class BridgeHttpServer
     private HttpListener? _listener;
     private volatile bool _running;
 
-    // SSE (/events): open response streams we push project-change pings + keep-alives to.
-    private readonly List<System.IO.StreamWriter> _sse = new();
-    private readonly object _sseGate = new();
-    private Timer? _keepAlive;
-
     public BridgeHttpServer(IIdeDriver ide, int port)
     {
         _ide = ide;
         _port = port;
-        _ide.ProjectChanged += OnProjectChanged; // fan IDE changes out to SSE subscribers
     }
 
     public bool IsRunning => _running;
@@ -60,9 +54,6 @@ public sealed class BridgeHttpServer
         _listener.Start();
         _running = true;
         _stopped.Reset();
-        // Keep-alive doubles as the client's liveness signal (so a client can drop its health poll) and prunes
-        // dead SSE connections (a failed write removes them).
-        _keepAlive = new Timer(_ => Broadcast(": keep-alive\n\n"), null, 15_000, 15_000);
         ArmNext();
     }
 
@@ -70,14 +61,11 @@ public sealed class BridgeHttpServer
     {
         if (!_running) return;
         _running = false;
-        _ide.ProjectChanged -= OnProjectChanged;
-        try { _keepAlive?.Dispose(); } catch { }
-        _keepAlive = null;
-        lock (_sseGate) { foreach (var w in _sse) { try { w.Dispose(); } catch { } } _sse.Clear(); }
         try { _listener?.Stop(); } catch { /* listener already torn down */ }
         try { _listener?.Close(); } catch { /* listener already torn down */ }
         _listener = null;
         _stopped.Set();
+        VoltLog.Info("bridge stopped");
     }
 
     /// <summary>Start and block until stopped — for standalone console hosts.</summary>
@@ -113,9 +101,9 @@ public sealed class BridgeHttpServer
         if (!_running) return;
         HttpListenerContext ctx;
         try { ctx = _listener!.EndGetContext(ar); }
-        catch { if (_running) ArmNext(); return; }   // transient accept error (not shutdown) → keep listening
+        catch (Exception ex) { if (_running) { ArmNext(); VoltLog.Error("listener accept error", ex); } return; }
         ArmNext();
-        try { Handle(ctx); } catch { /* never let a handler kill the accept loop */ }
+        try { Handle(ctx); } catch (Exception ex) { VoltLog.Error("unhandled handler exception", ex); }
     }
 
     private void Handle(HttpListenerContext ctx)
@@ -137,19 +125,10 @@ public sealed class BridgeHttpServer
 
             // Health is cache-only (off the marshalled thread) and reports degraded state, never gated by it.
             if (path == "/health" && method == "GET") { Write(ctx, 200, _ide.BuildHealthResponse()); return; }
-            // The SSE change stream — kept open, off the marshalled thread, served even when degraded.
-            if (path == "/events" && method == "GET") { HandleSse(ctx); return; }
             if (path == "/shutdown" && method == "POST") { Write(ctx, 200, new { stopped = true }); ThreadPool.QueueUserWorkItem(_ => Stop()); return; }
             // The OpenAPI contract (single source of truth) + a static Swagger UI.
             if (path == "/openapi.yaml" && method == "GET") { WriteText(ctx, 200, "application/yaml; charset=utf-8", OpenApiYaml.Value); return; }
             if ((path == "/swagger" || path == "/swagger/" || path == "/swagger/index.html") && method == "GET") { WriteText(ctx, 200, "text/html; charset=utf-8", SwaggerHtml); return; }
-            // Attachable instances — works even when degraded so the user can re-pick a target.
-            if (path == "/instances" && method == "GET")
-            {
-                var instances = _ide is IInstanceProvider ip ? _ide.RunOnStaThread(ip.ListInstances) : (object)Array.Empty<object>();
-                Write(ctx, 200, new { instances });
-                return;
-            }
 
             if (_ide.IsDegraded) { WriteError(ctx, 503, "PLC_DEGRADED", _ide.DegradedReason ?? "IDE channel degraded — retry"); return; }
 
@@ -171,7 +150,7 @@ public sealed class BridgeHttpServer
             var stream = AcceptsNdjson(ctx.Request);
             switch ($"{method} {path}")
             {
-                case "GET /refs": Write(ctx, 200, _ide.RunOnStaThread(() => (object)RefsService.Handle(_ide))); return;
+                case "GET /refs": RunOp(ctx, stream, onP => RefsService.Handle(_ide, onP)); return;
                 case "POST /fetch":
                 {
                     var req = ReadBody<FetchRequest>(ctx) ?? new FetchRequest();
@@ -208,53 +187,19 @@ public sealed class BridgeHttpServer
         }
     }
 
-    /// <summary>A request is a browser cross-origin call iff it carries an `Origin` header — first-party
-    /// clients (node:http/LSP/HttpClient) never set one. The connector's control plane enforces the same rule.</summary>
-    private static bool IsBrowserOriginRequest(HttpListenerRequest req) => req.Headers["Origin"] != null;
+    /// <summary>A request is a cross-origin browser call iff it carries an `Origin` header that does NOT match
+    /// this bridge's own origin — so the Swagger UI (loaded from the same bridge) can POST, but a web page from
+    /// a different origin cannot. First-party clients (node:http/LSP/HttpClient) never send Origin at all.</summary>
+    private bool IsBrowserOriginRequest(HttpListenerRequest req)
+    {
+        var origin = req.Headers["Origin"];
+        if (origin == null) return false;                                     // first-party client — allow
+        if (string.Equals(origin, $"http://127.0.0.1:{_port}", StringComparison.OrdinalIgnoreCase)) return false; // Swagger UI — allow
+        return true;                                                          // cross-origin browser — reject
+    }
 
     private static bool AcceptsNdjson(HttpListenerRequest req) =>
         req.Headers["Accept"]?.IndexOf("application/x-ndjson", StringComparison.OrdinalIgnoreCase) >= 0;
-
-    // ── SSE change stream (/events) ───────────────────────────────────────
-    /// <summary>Register an SSE subscriber: hold the response open and add its writer to the fan-out set. We do
-    /// NOT close it — a project change (or the keep-alive detecting a dead peer) drives it. The accept loop has
-    /// already re-armed, so an open stream never blocks other requests.</summary>
-    private void HandleSse(HttpListenerContext ctx)
-    {
-        ctx.Response.StatusCode = 200;
-        ctx.Response.ContentType = "text/event-stream";
-        ctx.Response.Headers["Cache-Control"] = "no-cache";
-        ctx.Response.SendChunked = true;
-        var writer = new System.IO.StreamWriter(ctx.Response.OutputStream, new UTF8Encoding(false)) { AutoFlush = true };
-        // Greet BEFORE publishing to _sse: the writer isn't visible to Broadcast yet, so this can't race with a
-        // concurrent write to the same StreamWriter (which is not thread-safe).
-        try { writer.Write(": connected\n\n"); }
-        catch { try { writer.Dispose(); } catch { } return; }
-        lock (_sseGate) _sse.Add(writer);
-    }
-
-    /// <summary>Debounced IDE change → one `change` event to every subscriber.</summary>
-    private void OnProjectChanged() => Broadcast("event: change\ndata: {}\n\n");
-
-    private void Broadcast(string message)
-    {
-        // Snapshot under the gate (fast), then write OUTSIDE it so one slow/half-open client never stalls event
-        // delivery to the others, new subscriptions, or Stop(). Per-writer `lock (w)` serializes the two
-        // Broadcast sources (keep-alive Timer + change) on the same StreamWriter without a global stall.
-        System.IO.StreamWriter[] snapshot;
-        lock (_sseGate) snapshot = _sse.ToArray();
-        foreach (var w in snapshot)
-        {
-            try { lock (w) w.Write(message); }
-            catch { RemoveSse(w); } // dead peer → prune
-        }
-    }
-
-    private void RemoveSse(System.IO.StreamWriter w)
-    {
-        lock (_sseGate) { _sse.Remove(w); }
-        try { w.Dispose(); } catch { }
-    }
 
     /// <summary>Run a long op either BUFFERED (one JSON body) or STREAMED (NDJSON: progress frames then one
     /// terminal result/error frame), chosen by the Accept header. The op runs on the marshalled IDE thread; when

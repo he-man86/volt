@@ -1,4 +1,4 @@
-/** /health, /build, /instances, /openapi.yaml, /swagger, 404 — the contract endpoints. */
+/** /health, /build, /openapi.yaml, /swagger, 404 — the contract endpoints. */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { bridge, get, requireHealthy, BASE } from "../harness"
 
@@ -27,13 +27,6 @@ describe(`endpoints / health+build+contract (${BASE})`, () => {
 			expect(typeof r.success).toBe("boolean")
 			expect(typeof r.duration).toBe("number")
 			expect(Array.isArray(r.diagnostics)).toBe(true)
-		})
-	})
-
-	describe("/instances", () => {
-		it("returns an instances array (works even when degraded)", async () => {
-			const r = await bridge.instances()
-			expect(Array.isArray(r.instances)).toBe(true)
 		})
 	})
 

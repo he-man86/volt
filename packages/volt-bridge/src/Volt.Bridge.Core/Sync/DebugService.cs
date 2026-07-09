@@ -113,4 +113,5 @@ public static class DebugService
     // Surface the read failure inline (rather than null) so "this node rejects DeclarationText" is visible
     // in the dump — that rejection is itself a key fact about how the kind must be created.
     private static string SafeText(Func<string> read) { try { return read(); } catch (Exception ex) { return $"<unreadable: {ex.Message}>"; } }
+
 }

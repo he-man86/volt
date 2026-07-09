@@ -132,53 +132,6 @@ namespace Volt.Bridge.Codesys
             return set;
         }
 
-        // ── project-change events (→ the driver's debounced ProjectChanged → SSE) ──
-        private Action? _onChange;
-        private bool _changeSubscribed;
-        private readonly List<(System.Reflection.EventInfo Ev, Delegate Del)> _changeHandlers = new();
-
-        /// <summary>Subscribe once to the IObjectManager's change events so a live IDE edit signals the driver
-        /// (which debounces → SSE /events). The ObjectManager is a process singleton, so one subscription lasts
-        /// the session. The handler shapes vary (ObjectModifiedEventHandler, ObjectEventHandler, …); we bind our
-        /// generic <see cref="OnIdeChange"/> to each via delegate variance, skipping any that won't bind.</summary>
-        public void SubscribeChanges(Action onChange)
-        {
-            _onChange = onChange;
-            if (_changeSubscribed || _objMgr == null) return;
-            _changeSubscribed = true;
-            var t = _objMgr.GetType();
-            var handler = typeof(CodesysObjectModel).GetMethod(nameof(OnIdeChange),
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            foreach (var name in new[] { "ObjectModified", "ObjectAdded", "ObjectRemoved", "ObjectRenamed", "ObjectMoved", "ObjectPropertyModified" })
-            {
-                var ev = t.GetEvent(name);
-                if (ev?.EventHandlerType == null || handler == null) continue;
-                try
-                {
-                    var del = Delegate.CreateDelegate(ev.EventHandlerType, this, handler);
-                    ev.AddEventHandler(_objMgr, del);
-                    _changeHandlers.Add((ev, del)); // keep the delegate so we can remove it on teardown
-                }
-                catch { /* this handler shape won't bind to our generic method — skip it */ }
-            }
-        }
-
-        /// <summary>Remove the change-event handlers from the (process-singleton) ObjectManager. Call on teardown
-        /// so a restarted / replacement driver does not leak stale handlers that fire on the dead instance
-        /// forever (and keep it alive).</summary>
-        public void UnsubscribeChanges()
-        {
-            if (_objMgr != null)
-                foreach (var (ev, del) in _changeHandlers)
-                    try { ev.RemoveEventHandler(_objMgr, del); } catch { /* already gone */ }
-            _changeHandlers.Clear();
-            _onChange = null;
-            _changeSubscribed = false;
-        }
-
-        // Bound (via variance) to every subscribed change event; ignores the args, just pings the driver.
-        private void OnIdeChange(object sender, object args) => _onChange?.Invoke();
-
         // ── DEBUG: reflect the change-detection surface (read-only investigation) ──
         /// <summary>Dump the type / interfaces / change-related members of a target object-model member, to see
         /// what "changed" signal CODESYS exposes (a modification stamp, a version, a change event). READ-ONLY.</summary>
@@ -842,9 +795,84 @@ namespace Volt.Bridge.Codesys
         public string ExportXmlString(object node)
         {
             var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
-            // Each reflection pick below is a VERSION-SHAPE assumption (the object-model API has no
-            // compile-time reference here). Resolve loudly with a named error rather than a cryptic
-            // "Sequence contains no matching element" if a CODESYS version changes the shape.
+            return ExportNodes(proj, new[] { Unwrap(node)! });
+        }
+
+        /// <summary>Export the parent POU + its children in ONE call so the returned PLCopen XML contains
+        /// child <c>&lt;pou&gt;</c> elements. The Materializer parses everything from this single document,
+        /// replacing the per-child COM reads. CODESYS <c>export_xml</c> only works for <c>IPOUObject</c>,
+        /// not <c>IInterfaceObject</c> — callers must use <see cref="ExportInterfaceXml"/> for interfaces.</summary>
+        public string ExportXmlWithChildren(object parentNode)
+        {
+            var proj = PrimaryProject ?? throw new InvalidOperationException("CODESYS: no primary project to export");
+            var nodes = new List<object> { Unwrap(parentNode)! };
+            CollectPouChildren(parentNode, nodes);
+            return ExportNodes(proj, nodes);
+        }
+
+        /// <summary>Build PLCopen XML for an interface from COM data. CODESYS <c>export_xml</c> rejects
+        /// <c>IInterfaceObject</c> — it only accepts <c>IPOUObject</c> — so the XML document the
+        /// <see cref="Volt.Bridge.Core.Graphical.PlcOpenPouParser"/> expects is constructed here from the
+        /// declaration and child elements read through the object model.</summary>
+        public string ExportInterfaceXml(object node)
+        {
+            var unwrapped = Unwrap(node)!;
+            var name = GetName(node);
+            var declaration = ReadDeclaration(node);
+            var ns = "http://www.plcopen.org/xml/tc6_0200";
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<pou name=\"")
+              .Append(System.Net.WebUtility.HtmlEncode(name))
+              .Append("\" pouType=\"interface\" xmlns=\"")
+              .Append(ns).Append("\">");
+            sb.Append("<InterfaceAsPlainText><xhtml>")
+              .Append(System.Net.WebUtility.HtmlEncode(declaration))
+              .Append("</xhtml></InterfaceAsPlainText>");
+            sb.Append("<body/>");
+            foreach (var child in GetChildren(unwrapped))
+            {
+                if (IsFolder(child)) continue;
+                var childName = GetName(child);
+                var iobj = ReadObject(child);
+                var ifaces = ObjectInterfaceNames(iobj);
+                if (ifaces.Contains("IInterfaceMethodObject"))
+                {
+                    sb.Append("<Method name=\"").Append(System.Net.WebUtility.HtmlEncode(childName)).Append("\">");
+                    sb.Append("<InterfaceAsPlainText><xhtml>")
+                      .Append(System.Net.WebUtility.HtmlEncode(ReadDeclaration(child)))
+                      .Append("</xhtml></InterfaceAsPlainText>");
+                    var impl = ReadImplementation(child);
+                    sb.Append("<body><ST>").Append(System.Net.WebUtility.HtmlEncode(impl)).Append("</ST></body>");
+                    sb.Append("</Method>");
+                }
+                else if (ifaces.Contains("IInterfacePropertyObject"))
+                {
+                    sb.Append("<Property name=\"").Append(System.Net.WebUtility.HtmlEncode(childName)).Append("\">");
+                    sb.Append("<InterfaceAsPlainText><xhtml>")
+                      .Append(System.Net.WebUtility.HtmlEncode(ReadDeclaration(child)))
+                      .Append("</xhtml></InterfaceAsPlainText>");
+                    sb.Append("</Property>");
+                }
+            }
+            sb.Append("</pou>");
+            return sb.ToString();
+        }
+
+        private void CollectPouChildren(object parentNode, List<object> nodes)
+        {
+            foreach (var child in GetChildren(parentNode))
+            {
+                if (IsFolder(child))
+                {
+                    CollectPouChildren(child, nodes);
+                    continue;
+                }
+                nodes.Add(child);
+            }
+        }
+
+        private string ExportNodes(object proj, ICollection<object> nodes)
+        {
             var export = proj.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "export_xml" && x.GetParameters().Length == 5
                 && typeof(IEnumerable).IsAssignableFrom(x.GetParameters()[0].ParameterType)
                 && x.GetParameters()[1].ParameterType == typeof(string))
@@ -859,12 +887,14 @@ namespace Volt.Bridge.Codesys
             var createExt = se.GetType().GetMethods(BF).FirstOrDefault(x => x.Name == "CreateExtendedObject"
                 && x.IsGenericMethodDefinition && x.GetParameters().Length == 1)
                 ?? throw new InvalidOperationException("CODESYS ScriptEngine.CreateExtendedObject not found — object-model version mismatch");
-            var wrapped = createExt.MakeGenericMethod(baseType).Invoke(se, new[] { Unwrap(node) });
 
-            var objects = Array.CreateInstance(elemType, 1);
-            objects.SetValue(wrapped, 0);
-            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;   // empty file path → returns the XML string in-memory
-            return xml.TrimStart('﻿');   // export_xml's UTF8.GetString prepends a BOM that XDocument.Parse rejects
+            var objects = Array.CreateInstance(elemType, nodes.Count);
+            int i = 0;
+            foreach (var n in nodes)
+                objects.SetValue(createExt.MakeGenericMethod(baseType).Invoke(se, new[] { n }), i++);
+
+            var xml = (string)export.Invoke(proj, new object?[] { objects, "", false, false, true })!;
+            return xml.TrimStart('\uFEFF');
         }
 
         /// <summary>Import a PLCopenXML <b>string</b> <paramref name="data"/> (NOT a file path) IN-MEMORY,

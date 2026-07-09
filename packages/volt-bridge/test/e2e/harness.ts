@@ -30,7 +30,6 @@ export async function post(path: string, body?: unknown): Promise<any> {
 // ── typed endpoint client (every route the bridge serves) ─────────────────────
 export const bridge = {
 	health: (): Promise<any> => get("/health"),
-	instances: (): Promise<any> => get("/instances"),
 	refs: (): Promise<any> => get("/refs"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => post("/fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => post("/push", req),
