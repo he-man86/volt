@@ -157,15 +157,30 @@ export interface AssignExpr {
 export type Initializer = Expr | AggregateInit
 
 /**
- * A struct/FB/array aggregate initializer, retained as its raw token span.
- * ponytail: opaque body, not a parsed field list. No check reads per-field init values
- * yet; upgrade to a structured field/element list when one does.
+ * A struct/FB/array aggregate initializer, parsed into a structured element list. `tokens` is retained for
+ * round-trip formatting (`print.ts` joins them); `form` + `elements` are the analyzable structure. Parsing is
+ * total and error-tolerant: anything it can't classify becomes an `unparsed` element (checks skip it → 0-FP),
+ * and a shape it doesn't recognize yields `form: "unknown"` with no elements.
  */
 export interface AggregateInit {
   kind: "aggregate_init"
+  /** `[…]` array literal · `(…)`/`STRUCT(…)` struct/FB · `unknown` (unrecognized shape). */
+  form: AggregateForm
+  /** Top-level elements in source order (nested aggregates recurse into their own `AggregateInit`). */
+  elements: readonly AggregateElement[]
   tokens: Token[]
   span: Span
 }
+
+export type AggregateForm = "array" | "struct" | "unknown"
+
+/** One element of an aggregate initializer. `field`/`repeat` wrap another element as their value. */
+export type AggregateElement =
+  | { kind: "value"; expr: Expr; span: Span } // a scalar value — `1`, `foo`, `1 + 2`
+  | { kind: "nested"; init: AggregateInit; span: Span } // a nested `[…]` / `(…)` / `STRUCT(…)`
+  | { kind: "field"; name: string; value: AggregateElement; span: Span } // `name := <value>`
+  | { kind: "repeat"; count: Expr; value: AggregateElement; span: Span } // `n(<value>)` — value repeated n times
+  | { kind: "unparsed"; span: Span } // could not classify — a conservative skip signal
 
 // ─── statement tree ──────────────────────────────────────────────────────────
 

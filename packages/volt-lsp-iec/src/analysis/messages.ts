@@ -23,12 +23,16 @@ export interface Messages {
   lifecycle(method: LifecycleMethod): string
   /** `MOD` on a non-integer: TwinCAT quotes both operator and type, CODESYS quotes neither. */
   modNotDefined(type: string): string
+  /** A math operator (`ABS`, `SQRT`, …) applied to a non-numeric type (C0072). PROVISIONAL (bridge-gated). */
+  operatorNotPossible(op: string, type: string): string
   /** Same name declared twice in one scope — identical wording on both vendors. */
   duplicateDeclaration(name: string, scope: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   undefinedIdentifier(name: string): string
   /** A declared type name that resolves nowhere (`x : BOL`). PROVISIONAL — no bridge recording yet (bridge-gated). */
   unknownType(name: string): string
+  /** A type name used where a value is expected — `value := MyEnum` (C0230). PROVISIONAL (bridge-gated). */
+  typeNameNotExpected(name: string): string
   /** `x^` where `x` is not a pointer: CODESYS "a pointer" (lowercase article), TwinCAT "Pointer" (no article). */
   dereferenceRequiresPointer(): string
   /** Member access `base.member` where `member` is not declared on the base's (project) type. PROVISIONAL —
@@ -52,10 +56,130 @@ export interface Messages {
   unknownAttribute(name: string): string
   /** A constant array index outside the dimension's `lo..hi` bounds. PROVISIONAL (bridge-gated). */
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
-  /** More positional arguments than the callee declares inputs. PROVISIONAL (no bridge recording yet). */
-  tooManyArguments(callee: string, max: number): string
-  /** A `name := value` naming no declared parameter of the callee. PROVISIONAL (no bridge recording yet). */
+  /** A FUNCTION/METHOD called with the wrong number of inputs (C0040). PROVISIONAL (no bridge recording yet). */
+  functionRequiresInputs(callee: string, count: number): string
+  /** An FB call with a positional argument past its last input — no input to assign it to (C0044). PROVISIONAL. */
+  inputAssignmentMissing(param: string, callee: string): string
+  /** A `name := value` naming no input of the callee (C0037). PROVISIONAL (no bridge recording yet). */
   unknownNamedArgument(name: string, callee: string): string
+  /** A `name => target` binding naming no output of the callee (C0038). PROVISIONAL (no bridge recording yet). */
+  unknownNamedOutput(name: string, callee: string): string
+  /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). PROVISIONAL. */
+  inOutNeedsWritable(param: string, callee: string): string
+  /** A VAR_IN_OUT parameter left unassigned in a call (C0039). PROVISIONAL. */
+  inOutMustBeAssigned(param: string, callee: string): string
+  /** A VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201). PROVISIONAL. */
+  inOutTypeMismatch(argType: string, paramType: string, param: string): string
+  /** A property read in a context where it has no get accessor (C0143). PROVISIONAL (bridge-gated). */
+  propertyLacksGetter(name: string): string
+  /** A method referenced as a value without a call `()` (C0130). PROVISIONAL (bridge-gated). */
+  methodReferencedWithoutParens(name: string): string
+  /** A literal constant whose value can't be represented by its own/inferred type (C0001). PROVISIONAL (bridge-gated). */
+  constantTooLarge(value: string, type: string): string
+  /** A dot-bit-access index past the accessed variable's bit width (C0003). PROVISIONAL (bridge-gated). */
+  invalidBitNumber(value: string, variable: string): string
+  /** `[]` indexing applied to a non-array, non-pointer scalar (C0047). PROVISIONAL (bridge-gated). */
+  indexingNonArray(type: string): string
+  /** A relational operator between two mutually-incompatible scalar types (C0066). PROVISIONAL (bridge-gated). */
+  cannotCompare(left: string, right: string): string
+  /** An array-literal `[…]` initializer on a non-array declared type (C0074). PROVISIONAL (bridge-gated). */
+  unexpectedArrayInit(): string
+  /** A struct-literal `(field := …)` initializer on an elementary declared type (C0076). PROVISIONAL (bridge-gated). */
+  unexpectedStructInit(): string
+  /** A flat scalar where a nested array literal is expected — array-of-array init (C0232). PROVISIONAL (bridge-gated). */
+  arrayInitExpected(): string
+  /** A scalar where a struct-initializer list is expected — array-of-struct init (C0233). PROVISIONAL (bridge-gated). */
+  initListExpected(type: string): string
+  /** Two identical single CASE labels (C0216). PROVISIONAL (bridge-gated). */
+  caseLabelDuplicate(): string
+  /** A single CASE label that also falls inside a CASE range (C0217). PROVISIONAL (bridge-gated). */
+  caseLabelInRange(label: string, lo: string, hi: string): string
+  /** A CASE label that is a non-constant variable (C0218). PROVISIONAL (bridge-gated). */
+  caseLabelNonConst(): string
+  /** An array-initializer repeat count `n(v)` where `n` is a non-constant variable (C0162). PROVISIONAL (bridge-gated). */
+  arrayInitCountNonConst(count: string): string
+  /** A non-constant array dimension bound (C0161). PROVISIONAL (bridge-gated). */
+  arrayBoundNonConst(bound: string): string
+  /** A `VAR CONSTANT` variable initialized with a non-constant value (C0227). PROVISIONAL (bridge-gated). */
+  constInitNonConst(name: string): string
+  /** A `VAR_INPUT` default value that is not a constant (C0526). PROVISIONAL (bridge-gated). */
+  defaultNotConstant(): string
+  /** `ADR(<literal>)` — a literal has no address (C0131). PROVISIONAL (bridge-gated). */
+  invalidAdrOperand(value: string): string
+  /** `__DELETE(x)` where `x` is not a pointer (C0242). PROVISIONAL (bridge-gated). */
+  deleteOperandNotPointer(): string
+  /** A pointer value implicitly assigned to a non-pointer type — a WARNING (C0033). PROVISIONAL (bridge-gated). */
+  pointerNotConvertible(from: string, to: string): string
+  /** An assignment whose target cannot be written (e.g. a `VAR CONSTANT`) (C0018). PROVISIONAL (bridge-gated). */
+  notAssignmentTarget(target: string): string
+  /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). PROVISIONAL (bridge-gated). */
+  referenceAssignTarget(): string
+  /** An `EXIT` statement outside any loop (C0132). PROVISIONAL (bridge-gated). */
+  noEnclosingLoop(): string
+  /** `__NEW` used in a chained (multiple) assignment (C0509). PROVISIONAL (bridge-gated). */
+  multipleAssignmentNew(): string
+  /** A string literal longer than its declared `STRING(n)` destination (C0198). PROVISIONAL (bridge-gated). */
+  stringConstantTooLong(value: string, type: string): string
+  /** A relational operator applied to a composite (array) type (C0068). PROVISIONAL (bridge-gated). */
+  compareNotPossible(type: string): string
+  /** A relational operator between two differently-typed arrays (C0069). PROVISIONAL (bridge-gated). */
+  compareNotPossibleTwo(left: string, right: string): string
+  /** A BIT variable in a POU other than a struct/FB (C0203). PROVISIONAL (bridge-gated). */
+  bitInWrongContainer(): string
+  /** A BIT variable in a disallowed VAR block (C0204). PROVISIONAL (bridge-gated). */
+  bitInWrongBlock(): string
+  /** `POINTER TO BIT` (C0205). PROVISIONAL (bridge-gated). */
+  pointerToBit(): string
+  /** `ARRAY OF BIT` (C0206). PROVISIONAL (bridge-gated). */
+  bitArrayBase(): string
+  /** `ADR` of a BIT variable — a WARNING (C0355). PROVISIONAL (bridge-gated). */
+  adrOnBit(): string
+  /** A statement expression with no side effect — a WARNING (C0139). PROVISIONAL (bridge-gated). */
+  codeHasNoEffect(code: string): string
+  /** A `VAR_CONFIG` block outside a config list (C0168). PROVISIONAL (bridge-gated). */
+  varConfigOnlyInList(): string
+  /** A function block invoked by its type name instead of an instance (C0080). PROVISIONAL (bridge-gated). */
+  fbMustBeInstantiated(name: string): string
+  /** An interface invoked by its type name instead of an instance (C0199). PROVISIONAL (bridge-gated). */
+  interfaceMustBeInstantiated(name: string): string
+  /** Bit access on a function-call result (C0061). PROVISIONAL (bridge-gated). */
+  bitAccessOnCall(): string
+  /** A pointer indexed with a count other than 1 (C0126). PROVISIONAL (bridge-gated). */
+  pointerIndexArity(type: string): string
+  /** An array indexed with the wrong number of indices (C0048). PROVISIONAL (bridge-gated). */
+  arrayIndexCount(dims: number): string
+  /** `RETAIN`/`PERSISTENT` on a VAR block in a POU that doesn't allow it (C0175). PROVISIONAL (bridge-gated). */
+  retainNotAllowedHere(): string
+  /** `THIS` used in a POU where it is not valid (C0045). PROVISIONAL (bridge-gated). */
+  thisNotAllowed(): string
+  /** `SUPER` used in a POU where it is not valid (C0122). PROVISIONAL (bridge-gated). */
+  superNotAllowed(): string
+  /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). PROVISIONAL (bridge-gated). */
+  outputCantBeReference(): string
+  /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). PROVISIONAL (bridge-gated). */
+  notInstantiable(typeName: string): string
+  /** A function block that EXTENDS itself (C0091). PROVISIONAL (bridge-gated). */
+  circularInheritance(chain: string): string
+  /** An `EXTENDS` base class that resolves to no definition (C0090). PROVISIONAL (bridge-gated). */
+  baseClassNotFound(name: string): string
+  /** An `IMPLEMENTS` interface that resolves to no definition (C0086). PROVISIONAL (bridge-gated). */
+  interfaceNotFound(name: string): string
+  /** A derived FB redeclares a variable already declared in a base FB (C0097). PROVISIONAL (bridge-gated). */
+  duplicateInheritedVariable(name: string, fb: string, base: string): string
+  /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). PROVISIONAL. */
+  dataRecursion(path: string): string
+  /** A FUNCTION that calls itself (recursion, without the `recursive` attribute) (C0224). PROVISIONAL. */
+  callRecursion(path: string): string
+  /** An enum member initialized with a value whose type can't convert to the enum's (integer) base (C0124). PROVISIONAL. */
+  enumInitNotConvertible(fromType: string, enumName: string): string
+  /** A `CONSTANT` variable declared without an initial value (C0228). PROVISIONAL (bridge-gated). */
+  constantNoInitialValue(name: string): string
+  /** A comparison between two different enumeration types (C0354). PROVISIONAL (bridge-gated). */
+  enumComparison(left: string, right: string): string
+  /** `INI` whose first operand is not an FB / DUT instance (C0070). PROVISIONAL (bridge-gated). */
+  iniNeedsInstance(): string
+  /** Two overlapping CASE ranges, rendered lowest-first (C0219). PROVISIONAL (bridge-gated). */
+  caseOverlappingRanges(lo1: string, hi1: string, lo2: string, hi2: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -85,10 +209,12 @@ export function messagesFor(vendor: Vendor): Messages {
       return tc ? `An '${method}'-Method has an invalid signature.` : `The ${method} method has an invalid signature.`
     },
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
+    operatorNotPossible: (op, type) => `Operator '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
     unknownType: (name) => `Unknown type: '${name}'`,
+    typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     // Confirmed via live /build (:8556 + :8555): both say "is no component of"; TwinCAT uppercases the type name.
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
@@ -110,7 +236,71 @@ export function messagesFor(vendor: Vendor): Messages {
     arrayIndexOutOfBounds: (index, lo, hi) =>
       `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
     // Call-argument wording is PROVISIONAL — no live-bridge recording yet (like arrayIndexOutOfBounds was).
-    tooManyArguments: (callee, max) => `Too many arguments for '${callee}' (expected at most ${max})`,
-    unknownNamedArgument: (name, callee) => `'${name}' is not a parameter of '${callee}'`,
+    functionRequiresInputs: (callee, count) => `Function '${callee}' requires exactly '${count}' inputs`,
+    inputAssignmentMissing: (param, callee) => `Assignment to input missing for parameter '${param}' in call of '${callee}'`,
+    unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
+    unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
+    inOutNeedsWritable: (param, callee) =>
+      `VAR_IN_OUT parameter '${param}' of '${callee}' needs variable with write access as input`,
+    inOutMustBeAssigned: (param, callee) => `VAR_IN_OUT '${param}' must be assigned in call of '${callee}'`,
+    inOutTypeMismatch: (argType, paramType, param) =>
+      `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT '${param}'`,
+    propertyLacksGetter: (name) => `The property '${name}' cannot be used in this context because it lacks the get accessor`,
+    methodReferencedWithoutParens: (name) => `METHOD '${name}' referenced without parentheses '()'`,
+    // Docs wording (13-error-messages #C0001); byte-identical on both vendors until a live recording locks it.
+    constantTooLarge: (value, type) => `Constant '${value}' too large for type '${type}'`,
+    invalidBitNumber: (value, variable) => `'${value}' is not a valid bit number for '${variable}'`,
+    indexingNonArray: (type) => `Cannot apply indexing with '[]' to an expression of type '${type}'`,
+    cannotCompare: (left, right) => `Cannot compare type '${left}' with type '${right}'`,
+    unexpectedArrayInit: () => `Unexpected array initialisation`,
+    unexpectedStructInit: () => `Unexpected structure initialisation`,
+    arrayInitExpected: () => `Array initialisation expected`,
+    initListExpected: (type) => `Initialisation list for ${type} expected`,
+    caseLabelDuplicate: () => `Case label duplicate`,
+    caseLabelInRange: (label, lo, hi) => `Case label ${label} also contained in range ${lo} .. ${hi}`,
+    caseLabelNonConst: () => `'CASE' label requires literal or symbolic integer constant`,
+    arrayInitCountNonConst: (count) => `Number '${count}' of array initialisation is no constant value`,
+    arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
+    constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
+    defaultNotConstant: () => `Default value is not constant`,
+    invalidAdrOperand: (value) => `'${value}' is not allowed as operand for 'ADR'`,
+    deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
+    pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
+    notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
+    referenceAssignTarget: () => `Reference assign is only allowed to variables of Reference type`,
+    noEnclosingLoop: () => `No enclosing loop of which to EXIT`,
+    multipleAssignmentNew: () => `Multiple assignments for operator '__NEW' not allowed`,
+    stringConstantTooLong: (value, type) => `String constant '${value}' too long for destination type '${type}'`,
+    compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
+    compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
+    bitInWrongContainer: () => `Only Structures and Function Blocks can contain variables of type BIT.`,
+    bitInWrongBlock: () => `Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block`,
+    pointerToBit: () => `POINTER TO BIT is not allowed`,
+    bitArrayBase: () => `BIT is not allowed as base type of an array`,
+    adrOnBit: () => `A single bit cannot be referenced. A reference to the complete byte will be stored.`,
+    codeHasNoEffect: (code) => `The code '${code}' has no effect. Is this the intent?`,
+    varConfigOnlyInList: () => `'VAR_CONFIG' declaration only allowed in VAR_CONFIG list`,
+    fbMustBeInstantiated: (name) => `Function block '${name}' must be instantiated to be accessed`,
+    interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,
+    bitAccessOnCall: () => `Bitaccess on function call is not allowed`,
+    pointerIndexArity: (type) => `Variable of type '${type}' requires exactly 1 Index`,
+    arrayIndexCount: (dims) => `Array requires exactly ${dims} indexes`,
+    retainNotAllowedHere: () => `'RETAIN' or 'PERSISTENT' not allowed in this place`,
+    thisNotAllowed: () => `Use of 'THIS' is not allowed in this context`,
+    superNotAllowed: () => `Expression 'SUPER' is not allowed in this context`,
+    outputCantBeReference: () => `Outputs can't be of type 'REFERENCE TO'`,
+    notInstantiable: (typeName) => `'${typeName}' is of type 'FUNCTION' and cannot be instantiated`,
+    circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
+    baseClassNotFound: (name) => `No definition found for base class '${name}'`,
+    interfaceNotFound: (name) => `No definition found for interface '${name}'`,
+    duplicateInheritedVariable: (name, fb, base) =>
+      `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,
+    dataRecursion: (path) => `Data Recursion: ${path}`,
+    callRecursion: (path) => `Call Recursion: ${path}`,
+    enumInitNotConvertible: (fromType, enumName) => `Type '${fromType}' can not be converted to type '${enumName}'`,
+    constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
+    enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
+    iniNeedsInstance: () => `'INI' operator needs function block instance or data unit type instance`,
+    caseOverlappingRanges: (lo1, hi1, lo2, hi2) => `'CASE' contains overlapping ranges ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`,
   }
 }

@@ -31,28 +31,90 @@ test("4.1 a wrong argument type is flagged (INT input called with STRING)", () =
 })
 
 test("4.2 too many positional arguments is flagged", () => {
-  expect(codes(FB_ONE_INPUT, caller(`fb(1, 2);`))).toContain("call-argument-count")
+  expect(codes(FB_ONE_INPUT, caller(`fb(1, 2);`))).toContain("input-assignment-missing")
+})
+
+test("4.2b too-many wording is vendor-mirrored per callee kind: C0040 (function) vs C0044 (FB)", () => {
+  const msgs = (...s: string[]) => {
+    const files = s.map((source, i) => ({ uri: `u${i}.fb`, source, parseResult: parseSource(source) }))
+    const project = buildSymbolTable(files)
+    return files.flatMap((f) =>
+      computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
+    )
+  }
+  const fn = `FUNCTION TEST : INT\nVAR_INPUT a : INT; END_VAR\nTEST := a;\nEND_FUNCTION`
+  expect(msgs(fn, `PROGRAM P\nVAR y : INT; END_VAR\ny := TEST(1, 2);\nEND_PROGRAM`)).toContain(
+    "Function 'TEST' requires exactly '1' inputs",
+  )
+  const fb = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`
+  expect(msgs(fb, `PROGRAM P\nVAR inst : FB; END_VAR\ninst(1);\nEND_PROGRAM`)).toContain(
+    "Assignment to input missing for parameter '1' in call of 'FB'",
+  )
 })
 
 test("4.3 an unknown named argument is flagged", () => {
   expect(codes(FB_ONE_INPUT, caller(`fb(zzz := 1);`))).toContain("unknown-named-argument")
 })
 
+test("4.3b C0038: a `name => target` binding naming no output → unknown-named-output (not -argument)", () => {
+  const fbOut = `FUNCTION_BLOCK FB_T\nVAR_OUTPUT o : INT; END_VAR\nEND_FUNCTION_BLOCK`
+  const call = `PROGRAM P\nVAR fb : FB_T; y : INT; END_VAR\nfb(bad => y);\nEND_PROGRAM`
+  const c = codes(fbOut, call)
+  expect(c).toContain("unknown-named-output")
+  expect(c).not.toContain("unknown-named-argument")
+  // ...and a valid output binding is clean.
+  expect(codes(fbOut, `PROGRAM P\nVAR fb : FB_T; y : INT; END_VAR\nfb(o => y);\nEND_PROGRAM`)).toEqual([])
+})
+
+test("4.3c C0041: a VAR_IN_OUT parameter passed a literal/constant is flagged; a variable is not", () => {
+  const fn = `FUNCTION TEST : INT\nVAR_IN_OUT in_out : INT; END_VAR\nTEST := in_out;\nEND_FUNCTION`
+  const call = (b: string) => `PROGRAM P\nVAR i : INT; x : INT; END_VAR\n${b}\nEND_PROGRAM`
+  expect(codes(fn, call(`i := TEST(31415);`))).toContain("in-out-needs-writable") // positional literal
+  expect(codes(fn, call(`i := TEST(in_out := 99);`))).toContain("in-out-needs-writable") // named literal
+  expect(codes(fn, call(`i := TEST(x);`))).not.toContain("in-out-needs-writable") // positional variable — ok
+  expect(codes(fn, call(`i := TEST(in_out := x);`))).not.toContain("in-out-needs-writable") // named variable — ok
+})
+
+test("4.3d C0039: a VAR_IN_OUT left unbound in a call is flagged; a bound one is not", () => {
+  const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT inout : INT; END_VAR\nVAR_INPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK`
+  const call = (b: string) => `PROGRAM P\nVAR inst : FB; x : INT; END_VAR\n${b}\nEND_PROGRAM`
+  expect(codes(fb, call(`inst();`))).toContain("in-out-not-assigned")
+  expect(codes(fb, call(`inst(n := 1);`))).toContain("in-out-not-assigned") // inout still unbound
+  expect(codes(fb, call(`inst(inout := x);`))).not.toContain("in-out-not-assigned") // bound by name
+  expect(codes(fb, call(`inst(x, 1);`))).not.toContain("in-out-not-assigned") // bound by position (slot 0 = inout)
+})
+
+test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the same type is not", () => {
+  const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT; END_VAR\nEND_FUNCTION_BLOCK`
+  const call = (b: string) => `PROGRAM P\nVAR inst : FB; i : INT; bo : BOOL; END_VAR\n${b}\nEND_PROGRAM`
+  const msgs = (...s: string[]) => {
+    const files = s.map((source, k) => ({ uri: `u${k}.fb`, source, parseResult: parseSource(source) }))
+    const project = buildSymbolTable(files)
+    return files.flatMap((f) =>
+      computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+        .filter((d) => d.code === "in-out-type-mismatch")
+        .map((d) => d.message),
+    )
+  }
+  expect(msgs(fb, call(`inst(Variable := bo);`))).toEqual(["Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"])
+  expect(msgs(fb, call(`inst(Variable := i);`))).toEqual([])
+})
+
 test("4.4 a mixed named+positional call does not type-check the trailing positional", () => {
   // `s` (STRING) would mismatch `b : INT` IF bound by index — but a mixed call must not bind positionally.
   const c = codes(FB_TWO_INPUTS, caller(`fb(a := 1, s);`))
   expect(c).not.toContain("call-argument-type")
-  expect(c).not.toContain("call-argument-count")
+  expect(c).not.toContain("input-assignment-missing")
   expect(c).not.toContain("unknown-named-argument")
 })
 
 test("4.5 omitting optional FB inputs is not flagged", () => {
-  expect(codes(FB_THREE_INPUTS, caller(`fb(a := 1);`))).not.toContain("call-argument-count")
+  expect(codes(FB_THREE_INPUTS, caller(`fb(a := 1);`))).not.toContain("input-assignment-missing")
 })
 
 test("4.6 an unresolved callee yields no call-argument diagnostic (zero-FP)", () => {
   const c = codes(caller(`unknownThing(1, 2, 3);`))
-  expect(c).not.toContain("call-argument-count")
+  expect(c).not.toContain("input-assignment-missing")
   expect(c).not.toContain("call-argument-type")
   expect(c).not.toContain("unknown-named-argument")
 })
@@ -101,10 +163,10 @@ test("gap: too-many is flagged on an INHERITING FB (params walk the EXTENDS chai
   const base = `FUNCTION_BLOCK FB_B\nVAR_INPUT b : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const derived = `FUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR_INPUT d : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const call = `PROGRAM P\nVAR fb : FB_D; END_VAR\nfb(1, 2, 3);\nEND_PROGRAM`
-  expect(codes(base, derived, call)).toContain("call-argument-count")
+  expect(codes(base, derived, call)).toContain("input-assignment-missing")
   // ...and the legal 2-arg call is clean (inherited `b` is a real slot).
   const ok = `PROGRAM P\nVAR fb : FB_D; END_VAR\nfb(1, 2);\nEND_PROGRAM`
-  expect(codes(base, derived, ok)).not.toContain("call-argument-count")
+  expect(codes(base, derived, ok)).not.toContain("input-assignment-missing")
 })
 
 test("gap: a VAR_OUTPUT is not counted as a positional slot (FB call)", () => {
@@ -112,7 +174,7 @@ test("gap: a VAR_OUTPUT is not counted as a positional slot (FB call)", () => {
   // previously VAR_OUTPUT inflated positionalArity and this slipped through.
   const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT n : INT; END_VAR\nVAR_OUTPUT e : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
   const call = `PROGRAM P\nVAR fb : FB_T; END_VAR\nfb(1, 2);\nEND_PROGRAM`
-  expect(codes(fb, call)).toContain("call-argument-count")
+  expect(codes(fb, call)).toContain("input-assignment-missing")
 })
 
 test("regression: a PROPERTY is a valid named-argument target (not flagged unknown)", () => {

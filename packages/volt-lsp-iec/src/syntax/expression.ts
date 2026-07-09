@@ -17,7 +17,18 @@
 import type { Span } from "./span.js"
 import type { Token } from "./tokens.js"
 import { Cursor } from "./cursor.js"
-import type { AggregateInit, CallArg, CallExpr, Expr, IdentExpr, Initializer, Literal, LiteralKind } from "./ast.js"
+import type {
+  AggregateElement,
+  AggregateForm,
+  AggregateInit,
+  CallArg,
+  CallExpr,
+  Expr,
+  IdentExpr,
+  Initializer,
+  Literal,
+  LiteralKind,
+} from "./ast.js"
 import { parseLiteralValue } from "./literal-value.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
@@ -353,8 +364,86 @@ export function initializerFromTokens(tokens: Token[]): Initializer | undefined 
   if (expr !== undefined) return expr
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
-  const agg: AggregateInit = { kind: "aggregate_init", tokens, span: merge(first.span, last.span) }
+  const { form, elements } = parseAggregate(tokens)
+  const agg: AggregateInit = { kind: "aggregate_init", form, elements, tokens, span: merge(first.span, last.span) }
   return agg
+}
+
+// ─── aggregate-initializer element parser ────────────────────────────────────
+// Turns the raw aggregate tokens (`[…]` / `(…)` / `STRUCT(…)`) into a structured element list. Total and
+// error-tolerant: an element it can't classify becomes `unparsed`; an unrecognized outer shape → `unknown`.
+
+/** Parse aggregate `tokens` (including the outer delimiters) into a form + top-level elements. */
+export function parseAggregate(tokens: Token[]): { form: AggregateForm; elements: AggregateElement[] } {
+  const peeled = peelAggregate(tokens)
+  if (peeled === undefined) return { form: "unknown", elements: [] }
+  return { form: peeled.form, elements: splitTopLevel(peeled.inner).map(parseElement) }
+}
+
+/** Strip the outer delimiter, returning the form and the inner token slice, or undefined for an unknown shape. */
+function peelAggregate(t: Token[]): { form: AggregateForm; inner: Token[] } | undefined {
+  const last = t[t.length - 1]?.text
+  if (t[0]?.text === "[" && last === "]") return { form: "array", inner: t.slice(1, -1) }
+  if (t[0]?.text === "STRUCT" && t[1]?.text === "(" && last === ")") return { form: "struct", inner: t.slice(2, -1) }
+  if (t[0]?.text === "(" && last === ")") return { form: "struct", inner: t.slice(1, -1) }
+  return undefined
+}
+
+/** Split tokens on commas at bracket-depth 0 (so nested `[…]`/`(…)` stay intact). */
+function splitTopLevel(toks: Token[]): Token[][] {
+  const groups: Token[][] = []
+  let cur: Token[] = []
+  let depth = 0
+  for (const tok of toks) {
+    if (tok.text === "[" || tok.text === "(") depth++
+    else if (tok.text === "]" || tok.text === ")") depth--
+    if (tok.text === "," && depth === 0) {
+      groups.push(cur)
+      cur = []
+    } else cur.push(tok)
+  }
+  if (cur.length > 0) groups.push(cur)
+  return groups
+}
+
+function parseElement(g: Token[]): AggregateElement {
+  if (g.length === 0) return { kind: "unparsed", span: { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }
+  const span = merge(g[0].span, g[g.length - 1].span)
+  if (g.length >= 2 && g[1].text === ":=") return { kind: "field", name: g[0].text, value: parseValue(g.slice(2)), span }
+  return parseValue(g)
+}
+
+function parseValue(g: Token[]): AggregateElement {
+  if (g.length === 0) return { kind: "unparsed", span: { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }
+  const span = merge(g[0].span, g[g.length - 1].span)
+  const lead = g[0].text
+  // Nested aggregate: `[…]`, `(…)`, or `STRUCT(…)` spanning the whole group.
+  if ((lead === "[" || lead === "(" || (lead === "STRUCT" && g[1]?.text === "(")) && isBalancedAggregate(g)) {
+    const sub = parseAggregate(g)
+    const init: AggregateInit = { kind: "aggregate_init", form: sub.form, elements: sub.elements, tokens: g, span }
+    return { kind: "nested", init, span }
+  }
+  // Repeat: `<count>(<value>)` — count is a single leading token, not a delimiter.
+  if (g.length >= 4 && g[1]?.text === "(" && g[g.length - 1].text === ")" && lead !== "[" && lead !== "(" && lead !== "STRUCT") {
+    const count = parseExprFromTokens([g[0]])
+    if (count !== undefined) return { kind: "repeat", count, value: parseValue(g.slice(2, -1)), span }
+  }
+  const expr = parseExprFromTokens(g)
+  return expr !== undefined ? { kind: "value", expr, span } : { kind: "unparsed", span }
+}
+
+/** True when the first bracket opened in `g` closes exactly at the last token (a single balanced aggregate). */
+function isBalancedAggregate(g: Token[]): boolean {
+  let depth = 0
+  for (let i = 0; i < g.length; i++) {
+    const t = g[i].text
+    if (t === "[" || t === "(") depth++
+    else if (t === "]" || t === ")") {
+      depth--
+      if (depth === 0) return i === g.length - 1
+    }
+  }
+  return false
 }
 
 export { merge as mergeSpans }

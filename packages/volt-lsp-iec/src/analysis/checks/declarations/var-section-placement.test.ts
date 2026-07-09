@@ -30,3 +30,27 @@ test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
     "VAR_GLOBAL declaration not allowed in this place",
   ])
 })
+
+test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", () => {
+  const run = (src: string) => {
+    const parseResult = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "retain-not-allowed")
+      .map((d) => d.message)
+  }
+  expect(run(`FUNCTION FN : INT\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION`)).toEqual([
+    "'RETAIN' or 'PERSISTENT' not allowed in this place",
+  ])
+  expect(run(`FUNCTION_BLOCK F\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+})
+
+test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () => {
+  const src = `PROGRAM P\nVAR_CONFIG i : INT; END_VAR\nEND_PROGRAM`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "misplaced-var-config")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"])
+})

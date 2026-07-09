@@ -25,7 +25,34 @@ import { checkConversionCalls } from "./checks/types/conversion.js"
 import { checkDeref } from "./checks/types/deref.js"
 import { checkSubrange } from "./checks/types/subrange.js"
 import { checkArrayBounds } from "./checks/types/array-bounds.js"
+import { checkConstantOverflow } from "./checks/types/constant-overflow.js"
+import { checkBitNumber } from "./checks/types/bit-number.js"
+import { checkIndexing } from "./checks/types/indexing.js"
+import { checkComparison } from "./checks/types/comparison.js"
+import { checkArrayInit } from "./checks/types/array-init.js"
+import { checkStructInit } from "./checks/types/struct-init.js"
+import { checkPointerConversion } from "./checks/types/pointer-conversion.js"
+import { checkStringConstant } from "./checks/types/string-constant.js"
+import { checkReferenceAssign } from "./checks/types/reference-assign.js"
+import { checkDataRecursion } from "./checks/types/data-recursion.js"
+import { checkEnumInit } from "./checks/types/enum-init.js"
+import { checkCaseLabels } from "./checks/flow/case-labels.js"
+import { checkStatementRules } from "./checks/flow/statement-rules.js"
+import { checkNoOpStatement } from "./checks/flow/no-op-statement.js"
+import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
+import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
+import { checkConstantContext } from "./checks/declarations/const-context.js"
+import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
+import { checkBitUsage } from "./checks/declarations/bit-usage.js"
+import { checkOutputRules } from "./checks/declarations/output-rules.js"
+import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
+import { checkInheritance } from "./checks/oop/inheritance.js"
+import { checkPropertyAccess } from "./checks/oop/property-access.js"
+import { checkMethodReference } from "./checks/oop/method-reference.js"
+import { checkInheritedVariable } from "./checks/oop/inherited-variable.js"
+import { checkIntrinsicOperands } from "./checks/calls/intrinsic-operands.js"
 import { checkCallArguments } from "./checks/calls/call-arguments.js"
+import { checkRecursiveCall } from "./checks/calls/recursive-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
@@ -33,6 +60,7 @@ import { checkInterfaceImplementations } from "./checks/oop/interface-implementa
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
 import { checkUnknownTypes } from "./checks/names/unknown-type.js"
+import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
 
@@ -62,12 +90,43 @@ const CHECKS: readonly Check[] = [
   checkDeref,
   checkSubrange,
   checkArrayBounds,
+  checkConstantOverflow,
+  checkBitNumber,
+  checkIndexing,
+  checkComparison,
+  checkArrayInit,
+  checkStructInit,
+  checkPointerConversion,
+  checkStringConstant,
+  checkReferenceAssign,
+  checkDataRecursion,
+  checkEnumInit,
+  // flow/
+  checkCaseLabels,
+  checkStatementRules,
+  checkNoOpStatement,
+  checkThisSuperContext,
+  // declarations/
+  checkConstantContext,
+  checkConstantInitializer,
+  checkBitUsage,
+  checkOutputRules,
+  checkNonInstantiable,
+  // oop/
+  checkInheritance,
+  checkPropertyAccess,
+  checkMethodReference,
+  checkInheritedVariable,
   // calls/
   checkCallArguments,
+  checkRecursiveCall,
+  checkIntrinsicOperands,
+  checkFbInstantiation,
   // names/
   checkDuplicateDeclarations,
   checkUnresolvedIdentifiers,
   checkUnknownTypes,
+  checkTypeAsValue,
   // declarations/
   checkVarSectionPlacement,
   // oop/

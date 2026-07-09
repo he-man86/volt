@@ -64,8 +64,11 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   codesys: new Set<string>(),
 }
 
-// Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs are visible to the others
-// (so `IMPLEMENTS X` resolves), without leaking FBs/methods that collide on common names.
+// Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs and FBs (with their standalone
+// method/property/action member units) are visible to the others, so `EXTENDS X` / `IMPLEMENTS X` / type refs
+// AND inherited members resolve across fixtures. Each fixture is its own file, so a standalone method binds to
+// the FB in its OWN fixture (no cross-fixture leak); fixture pouNames are unique (`FB_LANG_<name>`) so FBs
+// don't collide. Only PROGRAM units are excluded (PLC_PRG is synthesized per fixture separately).
 const PARSED = ALL_TESTS.map((t) => ({
   uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`,
   source: t.source,
@@ -75,9 +78,7 @@ const CROSS_DECLS = PARSED.map((p) => ({
   uri: p.uri,
   source: p.source,
   parseResult: {
-    units: p.parseResult.units.filter(
-      (u) => u.kind === "interface" || u.kind === "type_decl" || u.kind === "global_var_list",
-    ),
+    units: p.parseResult.units.filter((u) => u.kind !== "program"),
     errors: [],
   },
 }))

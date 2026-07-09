@@ -24,11 +24,11 @@ export const ERROR_CATALOG_TESTS: readonly LanguageTest[] = [
     plcPrgBody: "fb_c0001();",
     source: `FUNCTION_BLOCK FB_LANG_c0001_const_too_large
 VAR
-	x : USINT;
+	x : INT;
 END_VAR
-x := 999;
+x := INT#123456;
 END_FUNCTION_BLOCK`,
-    note: "USINT range is 0..255; 999 overflows → Constant '999' too large for type 'USINT'.",
+    note: "A typed literal past its OWN prefix type is a provable C0001 → Constant 'INT#123456' too large for type 'INT'. (999 fits INT, so CODESYS would report it as C0032, not C0001.)",
   },
 
   // C0003 — a bit index past the width of the accessed variable's type.

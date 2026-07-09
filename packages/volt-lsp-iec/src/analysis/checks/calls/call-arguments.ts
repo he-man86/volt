@@ -1,9 +1,14 @@
 /**
  * call-argument checks (D.2 · calls/). Validates a call against its resolved callee's declared parameters:
- *   - `call-argument-count` — more POSITIONAL arguments than the callee declares inputs.
+ *   - too-many positional args — `function-argument-count` (C0040, function/method) or `input-assignment-missing`
+ *     (C0044, FB), split by callee kind for vendor-mirrored wording.
  *   - `call-argument-type`  — an argument whose type can't feed its parameter (reuses `cannotConvert`,
  *                             the same wording + `isAssignable` engine as `assignment.ts`).
- *   - `unknown-named-argument` — a `name := value` naming no declared parameter of the callee.
+ *   - `unknown-named-argument` — a `name := value` naming no input of the callee (C0037).
+ *   - `unknown-named-output`   — a `name => target` binding naming no output of the callee (C0038).
+ *   - `in-out-needs-writable`  — a VAR_IN_OUT parameter passed a literal/constant argument (C0041).
+ *   - `in-out-type-mismatch`   — a VAR_IN_OUT parameter bound to an argument of a non-identical type (C0201).
+ *   - `in-out-not-assigned`    — a VAR_IN_OUT parameter left unbound in a call (C0039).
  *
  * Conservative (zero-FP): skips whenever the callee can't be resolved to a callable, and only type-checks
  * a side that is a checkable category (elementary or enum — a struct/FB/array/library type never fires).
@@ -12,9 +17,10 @@
  * optional (retained between calls) and function optional/EN-ENO inputs would false-positive.
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
-import { walkAllExprs, type CallArg, type Expr } from "../../../syntax/index.js"
+import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies, lookup, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
 import {
+  constancyOf,
   inferExprType,
   isAssignable,
   renderType,
@@ -35,13 +41,14 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
       if (callee === undefined) return // unresolved callee → skip (zero-FP)
       // Library signatures flatten var sections (inputs may vanish), so any arg check on them is unreliable.
       if (isLibrarySymbol(callee.sym)) return
-      checkCall(e.args, callee, scope, ctx, out)
+      checkCall(e.args, e.callee.span, callee, scope, ctx, out)
     })
   }
 }
 
 function checkCall(
   args: readonly CallArg[],
+  callSpan: Span,
   callee: CalleeInfo,
   scope: Scope,
   ctx: CheckContext,
@@ -55,14 +62,19 @@ function checkCall(
   // (they only fire on a param we DID resolve).
 
   // (1) too many positional arguments vs positionally-bindable parameters — flag the first excess argument.
+  // Vendor-mirrored wording: a FUNCTION/METHOD reports the exact input count it requires (C0040); an FB reports
+  // the 1-based position of the arg that has no input to bind to (C0044).
   if (callee.complete && positional.length > callee.positionalArity) {
     const excess = positional[callee.positionalArity]
+    const isFb = callee.sym.kind === "function_block"
     out.push({
       severity: "error",
       span: excess.span,
       source: SOURCE,
-      code: "call-argument-count",
-      message: ctx.messages.tooManyArguments(callee.sym.name, callee.positionalArity),
+      code: isFb ? "input-assignment-missing" : "function-argument-count",
+      message: isFb
+        ? ctx.messages.inputAssignmentMissing(String(callee.positionalArity + 1), callee.sym.name)
+        : ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
     })
   }
 
@@ -86,12 +98,15 @@ function checkCall(
     const known =
       callee.paramNames.has(name) || (callee.scope !== undefined && lookupMember(callee.scope, name) !== undefined)
     if (callee.complete && !known) {
+      // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
       out.push({
         severity: "error",
         span: arg.param!.span,
         source: SOURCE,
-        code: "unknown-named-argument",
-        message: ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name),
+        code: arg.output ? "unknown-named-output" : "unknown-named-argument",
+        message: arg.output
+          ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name)
+          : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name),
       })
       continue
     }
@@ -99,6 +114,80 @@ function checkCall(
       const param = callee.params.find((p) => p.name.text.toLowerCase() === name)
       if (param !== undefined) argTypeError(arg.value, param.type, scope, ctx, out)
     }
+  }
+
+  // (4) VAR_IN_OUT writability (C0041): a VAR_IN_OUT parameter must receive a writable variable, not a
+  // literal/constant. Positional args bind by index (all-positional, complete chains only — a mixed or
+  // incomplete call can't align indices); named args bind by name. Only a PROVABLY constant argument
+  // (literal / CONSTANT var / enum value) fires — a member/index/deref lvalue is "unknown" and skips (zero-FP).
+  if (callee.complete && named.length === 0) {
+    positional.forEach((arg, i) => {
+      const param = callee.positional[i]
+      if (param?.inOut && arg.value !== undefined) inOutChecks(arg.value, param, callee.sym.name, scope, ctx, out)
+    })
+  }
+  for (const arg of named) {
+    if (arg.output || arg.value === undefined) continue
+    const lname = arg.param!.name.toLowerCase()
+    const param = callee.positional.find((p) => p.inOut && p.name.text.toLowerCase() === lname)
+    if (param !== undefined) inOutChecks(arg.value, param, callee.sym.name, scope, ctx, out)
+  }
+
+  // (5) missing VAR_IN_OUT (C0039): a VAR_IN_OUT has no storage, so it MUST be bound at every call. Compute
+  // which params the args cover — positional args cover `positional[i]` by index (all-positional only), named
+  // args cover by name — and flag any VAR_IN_OUT left uncovered. Complete chains only; a MIXED named+positional
+  // call can't map coverage unambiguously, so it skips (zero-FP).
+  if (callee.complete && !(positional.length > 0 && named.length > 0)) {
+    const covered = new Set<string>()
+    positional.forEach((_, i) => {
+      const p = callee.positional[i]
+      if (p !== undefined) covered.add(p.name.text.toLowerCase())
+    })
+    for (const arg of named) covered.add(arg.param!.name.toLowerCase())
+    for (const p of callee.positional) {
+      if (p.inOut && !covered.has(p.name.text.toLowerCase()))
+        out.push({
+          severity: "error",
+          span: callSpan,
+          source: SOURCE,
+          code: "in-out-not-assigned",
+          message: ctx.messages.inOutMustBeAssigned(p.name.text, callee.sym.name),
+        })
+    }
+  }
+}
+
+/** Both VAR_IN_OUT operand rules for one bound argument: writability (C0041) and exact-type identity (C0201). */
+function inOutChecks(
+  value: Expr,
+  param: { name: { text: string }; type: Parameters<typeof resolveTypeExpr>[0] },
+  callee: string,
+  scope: Scope,
+  ctx: CheckContext,
+  out: DiagnosticItem[],
+): void {
+  // C0041 — a VAR_IN_OUT needs a writable variable, not a literal/constant.
+  if (constancyOf(value, scope) === "constant") {
+    out.push({
+      severity: "error",
+      span: value.span,
+      source: SOURCE,
+      code: "in-out-needs-writable",
+      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
+    })
+  }
+  // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
+  // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
+  const pt = resolveTypeExpr(param.type, ctx.project)
+  const at = inferExprType(value, scope, ctx.project)
+  if (pt.kind === "elementary" && at.kind === "elementary" && pt.name !== at.name) {
+    out.push({
+      severity: "error",
+      span: value.span,
+      source: SOURCE,
+      code: "in-out-type-mismatch",
+      message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
+    })
   }
 }
 

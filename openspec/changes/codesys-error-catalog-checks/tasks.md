@@ -1,3 +1,160 @@
+## 0. Status matrix (updated 2026-07-09)
+
+**84 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+`computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
+per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
+
+**Audit (2026-07-09) — no mess, everything mirrors CODESYS.** A full sweep of `src/analysis` found: 0 dead/
+unregistered checks (all 32 registered), 0 colliding codes (no two checks share a diagnostic `code`), 0 double-
+firing on overlapping inputs (subrange / constant-overflow / binary-op / narrowing each fire alone), 0 unused
+message builders (55/55 used). Every check emits a genuine CODESYS message — none invents a "stricter than
+CODESYS" diagnostic (the product mirrors CODESYS+TC, it is not a better checker). The pre-catalog checks are
+distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **reconciliation, not removal**:
+- Flipped 6 pre-existing checks to their codes with our live-calibrated wording: **C0081** (pragmas, lowercase
+  "pragma"), **C0195/C0196/C0197** (narrowing/sign, "Possible"), **C0208** (binary-op MOD, two-var repro),
+  **C0351** (unknown-attribute, opt-in lint, double-space quirk).
+- `conversion` + `subrange` emit the **C0032** message (already mapped) — additional "Cannot convert"
+  contributors, no separate code.
+- Remaining unmapped (real CODESYS behaviour, per-case reconciliation pending, **NOT removable**):
+  `call-arguments` (fires on FB *and* function calls — C0040 wording is function-only, FB over-args is a
+  different code), `abstract-instantiation` (→ C0511/C0573, needs a triggering repro), and the
+  unterminated-`{IF}`-pragma message (live-calibrated but CODESYS assigns it no distinct `Cnnnn`). None of these
+  invents a non-CODESYS diagnostic — so the mirror principle holds; only the code-linking is incomplete.
+
+| Code | Check module | Our code | Notes |
+|------|--------------|----------|-------|
+| C0001 | types/constant-overflow | constant-too-large | zero-FP provable-overflow subset |
+| C0003 | types/bit-number | invalid-bit-number | int/bit-string base only |
+| C0032 | types/assignment | (cannotConvert) | pre-existing |
+| C0018 | flow/statement-rules | not-assignment-target | write to a `VAR CONSTANT` — via `constancyOf` |
+| C0004 | names/unresolved-identifier | unknown-member | member not a component of a struct (reconcile) |
+| C0033 | types/pointer-conversion | pointer-not-convertible | pointer → non-pointer (WARNING) |
+| C0037 | calls/call-arguments | unknown-named-argument | `name := value` naming no input of the callee (reconcile; wording aligned to CODESYS) |
+| C0038 | calls/call-arguments | unknown-named-output | `name => target` binding naming no output of the callee (split by `arg.output`) |
+| C0041 | calls/call-arguments | in-out-needs-writable | VAR_IN_OUT bound to a provably-constant arg (needed `CalleeInfo.positional`, inOut-tagged) |
+| C0039 | calls/call-arguments | in-out-not-assigned | a VAR_IN_OUT left unbound in a call (coverage: positional-by-index / named-by-name; non-mixed, complete) |
+| C0201 | calls/call-arguments | in-out-type-mismatch | a VAR_IN_OUT bound to a non-identical type (exact match required; both-elementary subset) |
+| C0224 | calls/recursive-call | call-recursion | a FUNCTION that calls itself (direct self-recursion; `recursive` attr not on AST but corpus has none) |
+| C0040 | calls/call-arguments | function-argument-count | function/method too-many-positional (reconcile — split the shared arity check by callee kind) |
+| C0044 | calls/call-arguments | input-assignment-missing | FB too-many-positional (reconcile — replaced the unmapped `tooManyArguments` message) |
+| C0045 | flow/this-super-context | this-not-allowed | `THIS` in a PROGRAM/FUNCTION |
+| C0061 | types/bit-number | bit-access-on-call | bit access on a function-call result |
+| C0068 | types/comparison | compare-array | relational op on an array (same-type) |
+| C0069 | types/comparison | compare-array-mismatch | relational op on two different arrays |
+| C0046 | names/unresolved-identifier | unresolved-identifier | cascade trimmed to primary msg |
+| C0048 | types/indexing | array-index-count | array indexed with wrong number of indices |
+| C0140 | types/reference-assign | reference-assign-target | `REF=` to a non-reference target |
+| C0142 | names/duplicate-declaration | duplicate-declaration | duplicate local variable (reconcile; docs expect was truncated) |
+| C0070 | calls/intrinsic-operands | ini-needs-instance | `INI(x,…)` where x isn't an FB/DUT instance |
+| C0072 | calls/intrinsic-operands | operator-not-possible | math op (`ABS`/`SQRT`/…) on a non-numeric type — unshadowed, KNOWN-non-ANY_NUM only |
+| C0143 | oop/property-access | property-lacks-getter | reading a set-only property (member access; read = not-the-assign-target) |
+| C0130 | oop/method-reference | method-referenced-without-parens | method member used as a value (member access; called = not-a-call-callee) |
+| C0087 | oop/interface-implementation | missing-interface-implementation | FB missing an implemented interface method (reconcile) |
+| C0091 | oop/inheritance | circular-inheritance | FB that EXTENDS itself |
+| C0090 | oop/inheritance | base-class-not-found | `EXTENDS <name>` resolving nowhere (reuses `nameResolves`; library FBs skipped) |
+| C0086 | oop/inheritance | interface-not-found | `IMPLEMENTS <name>` resolving nowhere (reuses `nameResolves`; library FBs skipped) |
+| C0097 | oop/inherited-variable | duplicate-inherited-variable | derived FB var name colliding with a base FB var (walks EXTENDS chain; project bases only) |
+| C0101 | types/data-recursion | data-recursion | FB/struct transitively containing an instance of itself (composition graph; arrays nest, pointers break) |
+| C0124 | types/enum-init | enum-init-not-convertible | enum member with a real initializer (constEval: real→number, int→bigint) |
+| C0228 | declarations/constant-initializer | constant-no-initial-value | elementary `VAR`/`VAR_GLOBAL CONSTANT` with no init (VAR_INPUT + composite excluded — both default-init) |
+| C0354 | types/comparison | enum-comparison | comparison of two different enum-typed operands (preempts generic C0066) |
+| C0047 | types/indexing | indexing-non-array | strings/pointers excluded |
+| C0049 | types/array-bounds | array-index-out-of-bounds | exact flip |
+| C0064 | types/deref | deref-non-pointer | ⚠ docs "Dereferencing" vs ours "Dereference" — settle at §4 |
+| C0066 | types/comparison | incompatible-comparison | reuses `classifyConversion` |
+| C0074 | types/array-init | unexpected-array-init | `[…]` on non-array (parser `form==="array"`) |
+| C0075 | types/array-init | array-init-count | too many values (single-dim, repeats expand) — via the aggregate parser |
+| C0076 | types/struct-init | unexpected-struct-init | `(field:=…)` on elementary |
+| C0077 | names/unknown-type | unknown-type | pre-existing (opt-in lint) |
+| C0080 | calls/fb-instantiation | fb-not-instantiated | FB called by type name (project FBs only) |
+| C0122 | flow/this-super-context | super-not-allowed | `SUPER` in a PROGRAM/FUNCTION |
+| C0126 | types/indexing | pointer-index-arity | pointer indexed with a count ≠ 1 |
+| C0131 | calls/intrinsic-operands | invalid-adr-operand | `ADR(<literal>)` — a literal has no address |
+| C0139 | flow/no-op-statement | no-op-statement | statement expression with no effect (WARNING) |
+| C0119 | oop/lifecycle | fb-lifecycle-signature | malformed `FB_Init` signature (reconcile; docs = TC form) |
+| C0120 | oop/lifecycle | fb-lifecycle-signature | malformed `FB_Exit` signature (reconcile; docs = TC form) |
+| C0132 | flow/statement-rules | exit-outside-loop | `EXIT` with no enclosing loop |
+| C0161 | declarations/const-context | array-bound-non-const | non-constant array bound — via `constancyOf` |
+| C0162 | types/array-init | array-init-count-non-const | repeat count `n(v)` is a variable — via `constancyOf` |
+| C0168 | declarations/var-section-placement | misplaced-var-config | `VAR_CONFIG` block in a POU |
+| C0169 | declarations/var-section-placement | var-section-placement | `VAR_GLOBAL` outside a GVL (reconciled to our wording) |
+| C0174 | declarations/var-section-placement | var-section-placement | `VAR_TEMP` in a METHOD (reconciled; FUNCTION is allowed) |
+| C0175 | declarations/var-section-placement | retain-not-allowed | `VAR RETAIN`/`PERSISTENT` in a FUNCTION/METHOD |
+| C0177 | declarations/non-instantiable | not-instantiable | variable declared with a FUNCTION type |
+| C0198 | types/string-constant | string-constant-too-long | string literal longer than `STRING(n)` (`$`-escape aware) |
+| C0199 | calls/fb-instantiation | interface-not-instantiated | interface called by type name |
+| C0565 | oop/lifecycle | fb-lifecycle-signature | malformed `FB_Exit` signature (reconcile; same rule as C0120) |
+| C0509 | flow/statement-rules | multiple-assignment-new | `__NEW` in a chained assignment |
+| C0203 | declarations/bit-usage | bit-wrong-container | `BIT` var in a PROGRAM/FUNCTION/METHOD |
+| C0204 | declarations/bit-usage | bit-wrong-block | `BIT` var in a disallowed VAR block |
+| C0205 | declarations/bit-usage | pointer-to-bit | `POINTER TO BIT` |
+| C0206 | declarations/bit-usage | bit-array-base | `ARRAY OF BIT` |
+| C0355 | calls/intrinsic-operands | adr-on-bit | `ADR` of a BIT var (WARNING) |
+| C0227 | declarations/const-context | const-init-non-const | `VAR CONSTANT` init is a variable — via `constancyOf` |
+| C0526 | declarations/const-context | default-not-constant | `VAR_INPUT` default is a mutable variable (zero-FP slice; call defaults skipped) |
+| C0242 | calls/intrinsic-operands | delete-non-pointer | `__DELETE(x)` where `x` is not a pointer |
+| C0216 | flow/case-labels | case-label-duplicate | const-eval |
+| C0217 | flow/case-labels | case-label-in-range | const-eval |
+| C0218 | flow/case-labels | case-label-non-const | non-constant variable label — via `constancyOf` (enums/consts quiet) |
+| C0219 | flow/case-labels | case-overlapping-ranges | const-eval |
+| C0222 | declarations/output-rules | output-reference-type | `VAR_OUTPUT` of `REFERENCE TO` |
+| C0230 | names/type-as-value | type-name-as-value | DUT type name used as an assignment value/target |
+| C0232 | types/array-init | array-init-nesting | flat scalar where a nested array is expected — via the aggregate parser |
+| C0233 | types/array-init | array-init-element | scalar where a struct-init list is expected (enums excepted) — via the aggregate parser |
+
+**Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
+`A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`
+(parser's job, separate track) · `D · ide-only 22` (record-only, no offline check).
+
+**Clean-code batch complete (84/220, 38.2%).** The offline-checkable, AST-present, single-message codes are
+implemented. The remaining tranche is systematically gated — probing confirmed each wall:
+- **Parser-track** (separate effort): syntax-error codes (C0002–C0031), jump labels (C0114/116/117/118 — no
+  JMP/label AST node), leading-dot global access (C0065 — `.name` parses to nothing), reserved-word-as-ident
+  (C0543 — needs the parser to accept them + a curated IEC reserved list), interface VAR (C0149 — parser
+  already emits its own error).
+- **Missing infra — attributes on the AST**: C0096, C0182, C0421, C0149, C0533, C0540, C0550 (the parser drops
+  POU/section pragmas, so `{attribute 'recursive'}`, return-type context, etc. aren't visible).
+- **Missing infra — method-signature comparison**: C0089, C0094, C0138, C0243, C0566, C0568 (override/FB_Init
+  signature equality — needs a signature model).
+- **Graphical-only** (not ST): C0225 (FBD explicit FB-call typing).
+- **Task/memory config** (not offline): C0102/104/164/165/398/415.
+- **Unverified message / library-floor**: C0035, C0582 (no verified `expect`), C0513–517 (library access rules).
+
+Next unlocks, in impact order: (1) **attributes on the AST** → ~7 codes; (2) **signature model** → ~6 codes;
+(3) **parser syntax-error track** → ~15 codes. Each is a scoped infra unit, not a per-code batch — resume the
+loop after landing one.
+
+**Deferred with recorded reason** (corpus-gate demotions + infra blockers, each carries a `note` in the catalog):
+
+| Code(s) | Why deferred | Unblocked by |
+|---------|--------------|--------------|
+| C0062 | `int.name` is symbolic bit access vs struct access — needs the member resolved as a bit-alias constant | ✅ resolver landed — re-attemptable on `constancyOf` (apply to the member) |
+| C0426 | CODESYS accepts empty fall-through CASE arms — not an error offline | (won't fix — reclassify) |
+
+**Infra unlock #1 — aggregate initializer-list parser: LANDED, and its whole family shipped.** `AggregateInit`
+now carries `form` (array/struct/unknown) + a parsed `elements` list (scalar / nested / field / repeat);
+`tokens` retained for the formatter's round-trip. Total & error-tolerant (unparsable → `unparsed`/`unknown`,
+checks skip → 0-FP). It unblocked and landed **C0075, C0232, C0233** (and migrated C0074/C0076 off token-poking
+onto `form`) — the entire aggregate-init cluster is now done. C0162 (repeat-count const) is reachable next.
+See design D7 / task §7.4.
+
+**Infra unlock #2 — symbol-constancy / enum-member resolver: LANDED.** `constancyOf(expr, scope)` in
+`const-eval.ts` answers what `constEval` can't — it returns `constant | variable | unknown`, keyed on the symbol
+**kind** (`enum_value` → constant) and the `CONSTANT` flag, with library/unresolved → `unknown`. Checks flag only
+`variable`. This is the missing signal the earlier `constEval`-only C0218 lacked (it checked the `constant` flag
+but not the `enum_value` kind → 207 FPs). Implemented **C0162** (repeat count) and re-enabled **C0218** (CASE
+label) on it — corpus zero-FP. C0062 (bit-access disambiguation) is now re-attemptable (apply `constancyOf` to
+the member name — a constant member is a bit-alias, not a struct access).
+
+**Architecture integration (verified first-class, not bolted on):**
+- Checks run in the real LSP path (`server/diagnostics.ts` → both transports), config-aware (vendor / dead-code /
+  references), wording centralized per-vendor. ✅
+- **Parse-once fix landed:** `parseStatements` is now memoized on `BodySpan` — the ~15 checks that iterate
+  `bodies()` no longer re-parse each POU body per check (was O(checks) re-parses per file). ✅
+- **Quick-fixes:** `code-actions.ts` `FIXABLE` currently covers only `assignment-type-mismatch` /
+  `narrowing-conversion`; the new codes are diagnose-only. Add fixes only where a mechanical correction exists
+  (e.g. C0074/C0076 → suggest the correct aggregate/scalar form) — tracked, not a gap.
+
 ## 1. Catalog scaffold (data model) — DONE
 
 - [x] 1.1 Catalog entry shape + typed accessor `src/reference/error-codes.ts` over `docs/codesys-reference/error-catalog.json`. Shape: `{ code, url, kind, category, cause, message: string|string[], repro, expect: string[], fix, status: "implemented"|"checkable"|"ide-only"|"pending", ourCheck, ourCode, lint, verified: { codesys, twincat } }` + `errorCatalog()` / `lookupErrorCode()`.
@@ -12,12 +169,12 @@
 - [ ] 2.3 **Fidelity pass (gap found):** the bulk harvest is reliable for MESSAGES but lossy for MULTI-OBJECT code examples (e.g. C0565 dropped the `PROGRAM PLC_PRG` unit + `END_` keywords). Repros are DRAFTS. Do not trust a harvested repro wholesale — finalize a well-formed repro per code at implementation time (§5). Single-unit repros are usually fine as-is.
 - [ ] 2.4 Rewrite the stance section of `13-error-messages.md`: catalog is the coverage checklist; our diagnostics map to `Cnnnn` as metadata (own `source`/`code` unchanged).
 
-## 3. Triage (EXECUTE NOW)
+## 3. Triage — DONE (`docs/codesys-reference/TRIAGE.md`)
 
-- [ ] 3.1 Assign each code exactly one status. Rubric: `implemented` (a check emits it AND its automated test passes with our wording + a faithful repro) · `checkable` (offline-analyzable, to build) · `ide-only` (needs a live build / library resolution — record the reason). A `covered` code whose wording/repro is not yet reconciled stays `checkable` with `ourCheck` set (a tracked reconciliation), NOT `implemented`.
-- [ ] 3.2 Map each existing check to its code(s) by MESSAGE correspondence (not guesswork): set `ourCheck`/`ourCode`. Known: C0032→assignment/binary/conversion (`cannotConvert`), C0077→unknown-type, C0004→unknown-member (`notAMember`), C0037→external-write (`noInput`), C0565/C0564/C0566→lifecycle, plus duplicate-declaration, var-section-placement, deref, abstract-instantiation, interface-impl, array-bounds, subrange, call-arguments.
-- [ ] 3.3 For every mapped code, decide flip-to-`implemented` per code: it flips ONLY when `expect` is set to OUR live-confirmed wording AND a faithful repro makes the automated test pass. Where our wording ≠ the docs wording (**docs-vs-live drift is systemic** — C0004 "is no component" vs docs "is not a component"; C0008/C0565 differ), keep `expect`=our wording, record the docs value for the live-build reconciliation, and leave `verified.codesys=false` until §4.
-- [ ] 3.4 Honesty test: fail if an `implemented` code has no faithful repro/expect, or if a code claims `ourCheck` that isn't a registered check.
+- [x] 3.1 Every code assigned a status; the `checkable` bucket further split into honest tiers (A clean-ast / B resolution-dependent / C parse / D ide-only) because "checkable" hid ≥4 different kinds of work — see TRIAGE.md.
+- [x] 3.2 Mapped existing checks to codes **empirically, not by guess**: ran every `checkable` repro through the live engine. Key finding — the seeded `ourCheck` tags were aspirational; only C0049 matched exactly, C0046 matched its primary msg. Everywhere else our wording ≠ docs, so "reconcile" ≠ "free flip".
+- [x] 3.3 Flip-to-`implemented` decided per code with `expect`=our wording, `verified.codesys=false`, docs-drift recorded (e.g. C0064 Dereference/Dereferencing) for §4. **Corpus gate is the arbiter** — it demoted C0062/C0218/C0426 mid-flip.
+- [x] 3.4 Honesty test = the data-driven burn-in (`error-catalog.test.ts`): an `implemented` code with no faithful repro/expect, or wrong wording, fails the suite.
 
 ## 4. Conformance (live-build oracle — deferred until IDEs available)
 
@@ -25,15 +182,25 @@
 - [ ] 4.2 Recorder writes captured wording into `expect` + `verified` flags + `messages.ts`; unrecorded stays `PROVISIONAL`. Record CODESYS-only vs shared vs divergent-wording. **This is where every docs-vs-live drift is settled authoritatively.**
 - [ ] 4.3 Flip `verified.codesys` for codes already witnessed in a live build log (C0077 unknown-type, C0032 cannot-convert).
 
-## 5. Implementation loop (easy → hard, one code per unit)
+## 5. Implementation loop (easy → hard, one code per unit) — IN PROGRESS (14 landed)
 
-- [ ] 5.1 Per code: finalize a well-formed `repro` (mirror the docs example, add missing `END_`/units), set `expect` to our wording, add the check + register + route wording through `messages.ts`, flip `status`→`implemented`; the data-driven harness then runs it BOTH ways (error example ⇒ message; correction ⇒ silent).
-- [ ] 5.2 First easy batch (zero-FP, no existing check): C0001 constant-too-large (reuse `types/elementary` + `const-eval`), C0116 duplicate-label, then the parser/syntax codes our error-tolerant parser already surfaces.
-- [ ] 5.3 Reconcile the `covered` codes (C0004, C0037, C0565…): flip to `implemented` with our wording + a faithful repro; any that reveal a real behavior gap (e.g. C0565's FB_Exit return-value question) become a bug to fix or a live-build question.
-- [ ] 5.4 FP-prone codes → opt-in `LintConfig` lint (default off), like `unknownType`.
+- [x] 5.1 The per-code loop is proven and repeatable: finalize repro → check under `checks/<group>/` → register → route wording through `messages.ts` → flip `status` → burn-in runs it both ways → corpus gate. Shared traversal extracted to `_shared.forEachExpr` so expr-checks don't each re-hand-roll `bodies()→walkAllExprs`.
+- [x] 5.2 Landed by cluster (reuse-driven, not one-at-a-time): constant/literal (C0001), type-shape (C0003/C0047/C0066), init-shape (C0074/C0076), CASE-labels (C0216/C0217/C0219), plus flips (C0046/C0049/C0064). Clustering lands several codes per shared mechanism.
+- [ ] 5.3 Reconcile `covered` codes (C0004/C0037/C0565…): still open — the empirical pass (3.2) showed these emit OUR wording, not the docs', so each is a per-code provisional flip, not free. Backlog.
+- [x] 5.4 **Refined:** FP-prone-AND-lintable → opt-in `LintConfig` (like `unknownType`). But some FP-prone codes are NOT lintable — they need resolution the LSP lacks (C0062/C0218 enum-constancy, C0426 fall-through). Those revert to `checkable` with a `note`, not a lint. The corpus gate makes the demotion automatic.
 
 ## 6. Guardrails
 
-- [ ] 6.1 Corpus zero-FP gate green after each implemented code; a new FP ⇒ make that code an opt-in lint, never weaken the gate.
-- [ ] 6.2 `bun typecheck` + full `bun test` green in `packages/volt-lsp-iec`.
-- [ ] 6.3 Point `src/analysis` check docs at the catalog as the coverage source of truth; remaining `checkable` codes are tracked follow-on units.
+- [x] 6.1 Corpus zero-FP gate green after every implemented code — and it earned it: it rejected 46 (init cluster) + 208 (CASE cluster) false positives before they shipped, forcing the demotions above. Committed `scripts/corpus-fp.ts` tallies FPs by code for fast diagnosis. Gate is never weakened.
+- [x] 6.1c **Cross-fixture resolution in the conformance harness.** C0090 (unknown base class) exposed that `replay.test.ts`'s `CROSS_DECLS` excluded FBs, so a subclass fixture couldn't see its base FB → false C0090. Fixed by including all non-`program` units (FBs + their standalone method/property/action units) in the cross-fixture context: each fixture is its own file so members bind to their own FB (no leak), and unique `FB_LANG_<name>` pouNames prevent collisions. Also skip library-provided FBs in `checkInheritance` (their base may be library-internal, unseeable). Corpus + conformance both green with C0090/C0086 active.
+- [x] 6.1b **TWO FP oracles, both mandatory per batch.** `scripts/corpus-fp.ts` (real project source) and `test/conformance/replay.test.ts` (recorded live-IDE messages) are DIFFERENT fixture sets — the corpus lacks conditional-compilation pragmas, so it missed a C0139 `no-op-statement` FP that fired on code inside stripped `{IF defined(…)}` branches; the conformance replay caught it. Fix: C0139 now requires the expr to RESOLVE (an unresolved bare name isn't a "no effect" case — the IDE strips it or reports it undefined). Run BOTH `bun scripts/corpus-fp.ts` AND `bun test test/conformance/replay.test.ts` after every batch, not just the corpus.
+- [x] 6.2 `bun typecheck` + `bun test src/analysis src/reference` green after each batch (currently 161+ pass / 0 fail); oxlint clean on touched files.
+- [ ] 6.3 Point `src/analysis` check docs at the catalog + TRIAGE.md as the coverage source of truth; remaining `checkable` codes are tracked follow-on units. (TRIAGE.md is now that map; the `13-error-messages.md` stance rewrite in 2.4 is still open.)
+
+## 7. Core-integration & performance (added 2026-07-09)
+
+- [x] 7.1 Verified the checks are first-class: registered → `computeSemanticDiagnostics` → `server/diagnostics.ts` `documentDiagnostics` → both LSP transports; config-aware; central per-vendor wording. Not a second-class side-channel.
+- [x] 7.2 **Parse-once:** memoized `parseStatements` on `BodySpan` — the ~15 checks iterating `bodies()` no longer re-parse each POU body per check. Corpus green + full suite green after the change.
+- [ ] 7.3 Quick-fix coverage: extend `code-actions.ts` `FIXABLE` where a mechanical correction exists (C0074/C0076 aggregate-vs-scalar, C0064 add `ADR`/pointer). Optional per code — diagnose-only is acceptable.
+- [x] 7.4 (Infra unlock) aggregate initializer-list parser — **DONE**. Added `form` + parsed `elements` to `AggregateInit` (additive: `tokens` kept for the formatter's round-trip). `parseAggregate` in `expression.ts` handles array/struct/STRUCT forms, nesting, `name:=value` fields, and `n(v)` repeats; total & error-tolerant. Migrated C0074/C0076 consumers onto `form`; implemented C0075 on it. Colocated parser test + corpus green. C0232/C0233 now trivially buildable (§5 follow-on).
+- [x] 7.5 (Infra unlock) symbol-constancy / enum-member resolver — **DONE**. `constancyOf` in `const-eval.ts` (constant/variable/unknown, keyed on symbol kind incl. `enum_value`). Implemented C0162 + re-enabled C0218 on it; colocated `constancy.test.ts`; corpus zero-FP (fixed the 207 C0218 FPs). C0062 now re-attemptable.

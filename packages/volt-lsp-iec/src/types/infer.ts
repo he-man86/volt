@@ -94,6 +94,9 @@ export interface CalleeInfo {
   sym: Symbol
   /** VAR_INPUT parameters in declared order, base-first through the EXTENDS chain (name + declared type). */
   params: { name: Identifier; type: TypeExpr }[]
+  /** Positionally-bindable parameters (VAR_INPUT + VAR_IN_OUT) in binding order, base-first, each tagged with
+   *  whether it is a VAR_IN_OUT (which must receive a writable variable). `positional.length` === `positionalArity`. */
+  positional: { name: Identifier; type: TypeExpr; inOut: boolean }[]
   /** Count of positionally-bindable parameters (VAR_INPUT + VAR_IN_OUT; VAR_OUTPUT is never bound by
    *  position) across the whole chain — the upper bound for the too-many-arguments check. */
   positionalArity: number
@@ -182,17 +185,18 @@ function calleeInfo(
 ): CalleeInfo {
   const paramNames = new Set<string>()
   const params: { name: Identifier; type: TypeExpr }[] = []
-  let positionalArity = 0
+  const positional: { name: Identifier; type: TypeExpr; inOut: boolean }[] = []
   for (const sec of sections) {
     if (!PARAM_SECTIONS.has(sec.sectionKind)) continue // VAR/VAR_TEMP/VAR_STAT locals aren't parameters
     for (const d of sec.decls)
       for (const id of d.names) {
         paramNames.add(id.text.toLowerCase())
-        if (POSITIONAL_SECTIONS.has(sec.sectionKind)) positionalArity++
+        if (POSITIONAL_SECTIONS.has(sec.sectionKind))
+          positional.push({ name: id, type: d.type, inOut: sec.sectionKind === "VAR_IN_OUT" })
         if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type })
       }
   }
-  return { sym, params, positionalArity, paramNames, scope, complete }
+  return { sym, params, positional, positionalArity: positional.length, paramNames, scope, complete }
 }
 
 /** The member scope of a scoped type (enum/struct/FB), or undefined. */

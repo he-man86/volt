@@ -12,9 +12,9 @@
       "Constant 'INT#123456' too large for type 'INT'",
       "Constant '10E500' too large for type 'ANY_REAL'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "constant-overflow",
+    "ourCode": "constant-too-large",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -50,19 +50,19 @@
     "category": "invalid bit index",
     "cause": "Code accesses a bit position (via dot-bit-access) that exceeds the bit width of the variable's data type.",
     "message": "'<value>' is not a valid bit number for '<variable>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    test1: WORD;\n    test2: BOOL;\nEND_VAR\n\ntest1 := test2.17;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    w: WORD;\n    b: BOOL;\nEND_VAR\n\nb := w.17;",
     "expect": [
       "'17' is not a valid bit number for 'w'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-number",
+    "ourCode": "invalid-bit-number",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": "b := w.15;"
   },
   {
     "code": "C0004",
@@ -71,11 +71,12 @@
     "category": "invalid struct member access",
     "cause": "Code references a struct field via dot notation that is not declared in the struct's type definition.",
     "message": "'<variable>' is not a component of '<structure>'",
-    "repro": "TYPE DUT:\nSTRUCT\n    x, y : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    test1 : DUT;\n    test2 : INT;\nEND_VAR\n\ntest2 := test1.z;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    test1 : DUT;\n    test2 : INT;\nEND_VAR\ntest2 := test1.z;\nEND_PROGRAM\nTYPE DUT : STRUCT x, y : INT; END_STRUCT END_TYPE",
     "expect": [
-      "Type 'unknown type: 'test1.z' can not be converted to type 'INT'"
+      "'z' is no component of 'DUT'"
     ],
-    "status": "checkable",
+    "note": "expect reconciled to our wording (the member-not-a-component error). CODESYS additionally cascades a conversion error ('Type 'unknown type…'); we emit the primary component error only.",
+    "status": "implemented",
     "ourCheck": "unknown-member",
     "ourCode": "unknown-member",
     "lint": null,
@@ -285,9 +286,9 @@
     "expect": [
       "'j' is no valid assignment target"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "statement-rules",
+    "ourCode": "not-assignment-target",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -468,7 +469,7 @@
   {
     "code": "C0033",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0033.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "unsafe pointer conversion warning",
     "cause": "A pointer value is implicitly assigned to a non-pointer data type, which may not be portable/safe across platforms.",
     "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
@@ -476,9 +477,9 @@
     "expect": [
       "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "pointer-conversion",
+    "ourCode": "pointer-not-convertible",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -536,19 +537,20 @@
     "category": "invalid named input parameter",
     "cause": "A call uses named-parameter syntax for an input that is not declared in the callee's VAR_INPUT section.",
     "message": "'<invalid input>' is no input of '<function name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := TEST(iVar := 1);\n\nFUNCTION TEST : INT\nVAR\n    iVar : INT;\nEND_VAR",
+    "repro": "FUNCTION TEST : INT\nVAR_INPUT x : INT;\nEND_VAR\nTEST := x;\nEND_FUNCTION\nPROGRAM PLC_PRG\nVAR y : INT;\nEND_VAR\ny := TEST(iVar := 1);\nEND_PROGRAM",
     "expect": [
       "'iVar' is no input of 'TEST'"
     ],
-    "status": "checkable",
-    "ourCheck": "external-write",
-    "ourCode": "external-write",
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "unknown-named-argument",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "VAR_INPUT\n    iVar : INT;\nEND_VAR"
+    "fix": "VAR_INPUT\n    iVar : INT;\nEND_VAR",
+    "note": "Reconciled onto the existing named-arg check (unknown-named-argument); wording aligned to CODESYS C0037. PROVISIONAL for TwinCAT."
   },
   {
     "code": "C0038",
@@ -557,19 +559,20 @@
     "category": "invalid named output parameter",
     "cause": "A call uses named-parameter output syntax ('=>') for a name that is not declared in the callee's VAR_OUTPUT section.",
     "message": "'<invalid output>' is no output of '<function name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\n     x : INT;\nEND_VAR\ni := TEST(iVar => x);\n\nFUNCTION TEST : INT\nVAR\n    iVar : INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK TEST\nVAR_OUTPUT o : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROGRAM PLC_PRG\nVAR t : TEST; y : INT;\nEND_VAR\nt(iVar => y);\nEND_PROGRAM",
     "expect": [
       "'iVar' is no output of 'TEST'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "unknown-named-output",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "VAR_OUTPUT\n    iVar : INT;\nEND_VAR"
+    "fix": "VAR_OUTPUT\n    iVar : INT;\nEND_VAR",
+    "note": "Output-binding twin of C0037; split the existing named-arg check by arg.output. PROVISIONAL for TwinCAT."
   },
   {
     "code": "C0039",
@@ -578,19 +581,20 @@
     "category": "missing VAR_IN_OUT argument",
     "cause": "A function block call omits an argument for a parameter declared in the FB's VAR_IN_OUT section, which is mandatory since it is passed by reference.",
     "message": "VAR_IN_OUT '<invalid variable>' must be assigned in call of '<function block name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst();\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    inout : INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nVAR_IN_OUT inout : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROGRAM PLC_PRG\nVAR inst : FB;\nEND_VAR\ninst();\nEND_PROGRAM",
     "expect": [
       "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "in-out-not-assigned",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst(inout := i);"
+    "fix": "inst(inout := i);",
+    "note": "VAR_IN_OUT coverage: positional (by index, all-positional) or named (by name) must cover every VAR_IN_OUT. Complete chains + non-mixed calls only. Uses CalleeInfo.positional. PROVISIONAL."
   },
   {
     "code": "C0040",
@@ -599,19 +603,20 @@
     "category": "wrong argument count",
     "cause": "A function is called with more or fewer positional arguments than the number of inputs it declares.",
     "message": "Function '<function name>' requires exactly '<number of inputs>' inputs",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := TEST(1,2);\n\n\nFUNCTION TEST : INT\nVAR_INPUT\n    IN: INT;\nEND_VAR",
+    "repro": "FUNCTION TEST : INT\nVAR_INPUT a : INT;\nEND_VAR\nTEST := a;\nEND_FUNCTION\nPROGRAM PLC_PRG\nVAR y : INT;\nEND_VAR\ny := TEST(1, 2);\nEND_PROGRAM",
     "expect": [
       "Function 'TEST' requires exactly '1' inputs"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "function-argument-count",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(1);"
+    "fix": "i := Test(1);",
+    "note": "Function/method too-many-positional (split from the shared arity check by callee kind). Too-few not yet detected. PROVISIONAL."
   },
   {
     "code": "C0041",
@@ -620,19 +625,20 @@
     "category": "in-out needs writable variable",
     "cause": "A VAR_IN_OUT parameter is passed a literal/constant instead of a variable that can be written to.",
     "message": "VAR_IN_OUT parameter '<parameter name>' of '<function name>' needs variable with write access as input",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\n     x : INT;\nEND_VAR\ni := Test(31415);\n\nFUNCTION TEST : INT\nVAR_IN_OUT\n    in_out: INT;\nEND_VAR",
+    "repro": "FUNCTION TEST : INT\nVAR_IN_OUT in_out: INT;\nEND_VAR\nTEST := in_out;\nEND_FUNCTION\nPROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\ni := TEST(31415);\nEND_PROGRAM",
     "expect": [
       "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "in-out-needs-writable",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(x);"
+    "fix": "i := Test(x);",
+    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL."
   },
   {
     "code": "C0042",
@@ -641,10 +647,11 @@
     "category": "mixed named/positional args",
     "cause": "A function call mixes named (formal) parameter assignment with plain positional arguments instead of using one style consistently.",
     "message": "Either all or none formal parameter have to be denoted in function call",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\n i := Test(iPar1:=2, 5);\n\nFUNCTION Test : INT\nVAR_INPUT\n    iPar1 : INT;\n    iPar2 : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     i : INT;\nEND_VAR\ni := Test(iPar1:=2, 5);\nEND_PROGRAM\nFUNCTION Test : INT\nVAR_INPUT\n    iPar1 : INT;\n    iPar2 : INT;\nEND_VAR\nEND_FUNCTION",
     "expect": [
       "Either all or none formal parameter have to be denoted in function call"
     ],
+    "note": "NOT a simple mix rule: CODESYS accepts mixed positional + named INPUT args (21 corpus FPs, e.g. `svc.registerString(posA, refInput := ADR(x), posC, posD)`). The actual C0042 trigger is order/version-specific and not decidable from a flat 'has both forms' test. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -684,19 +691,20 @@
     "category": "missing input declaration",
     "cause": "A function block instance is called with a positional argument but the function block's VAR_INPUT section does not declare that input.",
     "message": "Assignment to input missing for parameter '<input variable name>' in call of '<function block name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst(1);\n\n\nFUNCTION_BLOCK FB\nVAR_INPUT\n\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nPROGRAM PLC_PRG\nVAR inst : FB;\nEND_VAR\ninst(1);\nEND_PROGRAM",
     "expect": [
       "Assignment to input missing for parameter '1' in call of 'FB'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "input-assignment-missing",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "VAR_INPUT\n    in : INT;\nEND_VAR"
+    "fix": "VAR_INPUT\n    in : INT;\nEND_VAR",
+    "note": "FB too-many-positional (param number = positionalArity+1). Split from shared arity check by callee kind. PROVISIONAL."
   },
   {
     "code": "C0045",
@@ -707,13 +715,11 @@
     "message": "Use of 'THIS' is not allowed in this context",
     "repro": "PROGRAM PLC_PRG\nVAR\n    test1: INT;\nEND_VAR\n\nTHIS^.test1 := 19;",
     "expect": [
-      "'THIS^.test1' is no valid assignment target",
-      "'THIS^' is no structure variable",
       "Use of 'THIS' is not allowed in this context"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "this-super-context",
+    "ourCode": "this-not-allowed",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -730,10 +736,9 @@
     "message": "Identifier '<identifier name>' not defined",
     "repro": "PROGRAM PLC_PRG\nVAR\n\nEND_VAR\n\ni := 1;",
     "expect": [
-      "'i' is no valid assignment target",
       "Identifier 'i' not defined"
     ],
-    "status": "checkable",
+    "status": "implemented",
     "ourCheck": "unresolved-identifier",
     "ourCode": "unresolved-identifier",
     "lint": null,
@@ -754,9 +759,9 @@
     "expect": [
       "Cannot apply indexing with '[]' to an expression of type 'INT'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "indexing",
+    "ourCode": "indexing-non-array",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -775,9 +780,9 @@
     "expect": [
       "Array requires exactly 2 indexes"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "indexing",
+    "ourCode": "array-index-count",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -796,7 +801,7 @@
     "expect": [
       "The constant index '3' is not within the range from '1' to '2'"
     ],
-    "status": "checkable",
+    "status": "implemented",
     "ourCheck": "array-bounds",
     "ourCode": "array-index-out-of-bounds",
     "lint": null,
@@ -875,13 +880,13 @@
     "category": "bit access on function result",
     "cause": "Dot-notation bit access is applied directly to the return value of a function call instead of to a variable.",
     "message": "Bitaccess on function call is not allowed",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nTest().2;\n\nFUNCTION Test : INT\nVAR_INPUT\n\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni := Test().2;\nEND_PROGRAM\nFUNCTION Test : INT\nEND_FUNCTION",
     "expect": [
       "Bitaccess on function call is not allowed"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-number",
+    "ourCode": "bit-access-on-call",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -896,10 +901,9 @@
     "category": "structure member access",
     "cause": "Code uses dot notation to access a member of a variable whose declared type is not a structure, so the compiler cannot resolve the member.",
     "message": "'<variable name>' is no structure variable",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    pt : PUNKT;\n    i : INT;\nEND_VAR\n\ni.x := 1024;\n\nTYPE Punkt :\nSTRUCT\n    x : REAL;\n    y : REAL;\nEND_STRUCT\nEND_TYPE",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    n : INT;\nEND_VAR\n\nn := i.x;",
     "expect": [
-      "'i.x' is no valid assignment target",
-      "'Variable' is no structure variable"
+      "'i' is no structure variable"
     ],
     "status": "checkable",
     "ourCheck": null,
@@ -909,7 +913,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "pt.x := 1024;"
+    "fix": "n := i;",
+    "note": "NOT cleanly offline-checkable: `int.name` is ambiguous with symbolic bit access (`WORD.bitConst`), which is valid CODESYS. Needs member-as-constant resolution to distinguish from a real struct access. Deferred."
   },
   {
     "code": "C0064",
@@ -917,21 +922,20 @@
     "kind": "error",
     "category": "pointer dereference",
     "cause": "The ^ dereference operator is applied to a variable that is not declared as POINTER TO type.",
-    "message": "Dereferencing requires a pointer",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    pi : POINTER TO INT;\nEND_VAR\ni^:=1;",
+    "message": "Dereference requires a pointer",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    x : INT;\nEND_VAR\nx := i^;",
     "expect": [
-      "'i^' is no valid assignment target",
-      "Dereferencing requires a pointer"
+      "Dereference requires a pointer"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "deref",
+    "ourCode": "deref-non-pointer",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "pi := ADR(i);\npi^ := 1;"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    pi : POINTER TO INT;\n    x : INT;\nEND_VAR\nx := pi^;"
   },
   {
     "code": "C0065",
@@ -965,9 +969,9 @@
     "expect": [
       "Cannot compare type 'INT' with type 'STRING'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "comparison",
+    "ourCode": "incompatible-comparison",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -986,9 +990,9 @@
     "expect": [
       "Compare not possible on objects of type 'ARRAY [1..2]'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "comparison",
+    "ourCode": "compare-array",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1007,9 +1011,9 @@
     "expect": [
       "Compare not possible on objects of type 'ARRAY [1..2]' or 'ARRAY [1..3]'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "comparison",
+    "ourCode": "compare-array-mismatch",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1024,13 +1028,13 @@
     "category": "INI operator misuse",
     "cause": "The INI operator's first argument is not a function block or DUT instance as required.",
     "message": "'INI' operator needs function block instance or data unit type instance",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    inst : FB;\nEND_VAR\n\nb := INI(b, TRUE);\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR",
+    "repro": "FUNCTION_BLOCK F\nVAR\n    b : BOOL;\nEND_VAR\nb := INI(b, TRUE);\nEND_FUNCTION_BLOCK",
     "expect": [
       "'INI' operator needs function block instance or data unit type instance"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "ini-needs-instance",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1045,19 +1049,20 @@
     "category": "operator type mismatch",
     "cause": "A built-in operator/function is called with an operand type it does not support (e.g. ABS on STRING).",
     "message": "Operator '<operator name>' is not possible on type '<data type>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    str : STRING;\nEND_VAR\n\nstr := ABS(str);",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    str : STRING;\nEND_VAR\nstr := ABS(str);\nEND_PROGRAM",
     "expect": [
       "Operator 'Abs' is not possible on type 'STRING'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkIntrinsicOperands",
+    "ourCode": "operator-not-possible",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := ABS(i);"
+    "fix": "i := ABS(i);",
+    "note": "PROVISIONAL wording (title-cased operator name); math operators only (ABS/SQRT/LN/LOG/EXP/trig). Verify against bridge."
   },
   {
     "code": "C0074",
@@ -1066,20 +1071,19 @@
     "category": "array initializer on scalar",
     "cause": "An array-literal initializer ([...]) is applied to a variable declared with a scalar (non-array) type.",
     "message": "Unexpected array initialisation",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : INT := [1,2,3,4,5,6];\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Unexpected array initialisation",
-      "Type 'unknown type: '[1,2,3,4,5,6]' can not be converted to type 'INT'"
+      "Unexpected array initialisation"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "array-init",
+    "ourCode": "unexpected-array-init",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0075",
@@ -1088,19 +1092,19 @@
     "category": "array initializer count mismatch",
     "cause": "The number of values supplied in an array initializer exceeds the number of elements declared by the array's bounds.",
     "message": "Unexpected array initialisation",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..5] OF INT := [1,2,3,4,5,6];\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..5] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM",
     "expect": [
       "Unexpected array initialisation"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "array-init",
+    "ourCode": "array-init-count",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0076",
@@ -1109,22 +1113,19 @@
     "category": "structure initializer on scalar",
     "cause": "A struct-literal initializer ((field := value)) is applied to a variable declared with a non-structure (scalar) type.",
     "message": "Unexpected structure initialisation",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    st1 : INT := (p1 := 1);\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    st1 : INT := (p1 := 1);\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Unexpected structure initialisation",
-      "Type 'STRUCT(p1:=1)' can not be converted to type 'INT'",
-      "Identifier 'p1' not defined",
-      "'p1' is no valid assignment target"
+      "Unexpected structure initialisation"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "struct-init",
+    "ourCode": "unexpected-struct-init",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "st1 : STRUCT1 := (p1:=1,p2:=10);"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    st1 : INT := 1;\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0077",
@@ -1175,13 +1176,13 @@
     "category": "missing FB instance",
     "cause": "A function block type is invoked directly by its type name instead of through a declared instance variable.",
     "message": "Function block '<function block name>' must be instantiated to be accessed",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nFB();\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nFB();\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK",
     "expect": [
       "Function block 'FB' must be instantiated to be accessed"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "fb-instantiation",
+    "ourCode": "fb-not-instantiated",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1198,11 +1199,12 @@
     "message": "Unexpected Pragma: '<pragma name>' found without matching 'if'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni := 5;\n{END_IF}",
     "expect": [
-      "Unexpected Pragma: 'END_IF' found without matching 'if'"
+      "Unexpected pragma: 'END_IF' found without matching 'if'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect reconciled to our CODESYS wording (lowercase 'pragma'); the docs capitalize it (the TwinCAT form).",
+    "status": "implemented",
+    "ourCheck": "pragmas",
+    "ourCode": "orphan-conditional-pragma",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1280,19 +1282,20 @@
     "category": "missing interface definition",
     "cause": "A function block declares IMPLEMENTS on an interface name that has never been declared with INTERFACE.",
     "message": "No definition found for interface '<interface name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB IMPLEMENTS XY\nEND_FUNCTION_BLOCK",
     "expect": [
       "No definition found for interface 'XY'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkInheritance",
+    "ourCode": "interface-not-found",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "INTERFACE XY"
+    "fix": "INTERFACE XY",
+    "note": "IMPLEMENTS interface resolving nowhere (reuses nameResolves oracle + library floor). Library-provided FBs skipped. PROVISIONAL."
   },
   {
     "code": "C0087",
@@ -1301,13 +1304,13 @@
     "category": "missing interface method implementation",
     "cause": "A function block implements an interface but omits an implementation for one of the methods the interface declares.",
     "message": "There is no implementation for method '<method name>' defined in interface '<interface name>'.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nINTERFACE XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR\nMETHOD METH2\nVAR_INPUT\nEND_VAR",
+    "repro": "INTERFACE XY\nMETHOD METH1 : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB IMPLEMENTS XY\nEND_FUNCTION_BLOCK",
     "expect": [
       "There is no implementation for method 'METH1' defined in interface 'XY'"
     ],
-    "status": "checkable",
+    "status": "implemented",
     "ourCheck": "interface-implementation",
-    "ourCode": "missing-interface-impl",
+    "ourCode": "missing-interface-implementation",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1343,19 +1346,20 @@
     "category": "invalid base class in EXTENDS",
     "cause": "A function block's EXTENDS clause names an identifier that is not itself declared as a function block (e.g. it's a FUNCTION).",
     "message": "No definition found for base class '<function name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS POU\nVAR\nEND_VAR\n\nFUNCTION POU\nVAR\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB EXTENDS POU\nEND_FUNCTION_BLOCK",
     "expect": [
       "No definition found for base class 'POU'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkInheritance",
+    "ourCode": "base-class-not-found",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "EXTENDS base resolving nowhere (reuses nameResolves oracle + library floor). Library-provided FBs skipped. PROVISIONAL."
   },
   {
     "code": "C0091",
@@ -1364,13 +1368,13 @@
     "category": "circular inheritance",
     "cause": "A function block's EXTENDS clause names itself, creating a self-referential inheritance cycle.",
     "message": "Recursion in base function block list: <function name>",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB\nVAR\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB EXTENDS FB\nEND_FUNCTION_BLOCK",
     "expect": [
       "Recursion in base function block list: FB -> FB"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "inheritance",
+    "ourCode": "circular-inheritance",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1427,19 +1431,20 @@
     "category": "duplicate inherited variable",
     "cause": "A derived function block declares a variable with the same name as a variable already declared in its base function block.",
     "message": "Duplicate definition of variable '<variable name>' in function block '<function block name>' and in base '<base function block name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    fb : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB2\nVAR\n    i : INT;\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\n    i : INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB EXTENDS FB2\nVAR i : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB2\nVAR i : INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkInheritedVariable",
+    "ourCode": "duplicate-inherited-variable",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Derived FB var name colliding with a base FB var (walks EXTENDS chain, project bases only; library bases/FBs skipped). PROVISIONAL."
   },
   {
     "code": "C0098",
@@ -1473,6 +1478,7 @@
     "expect": [
       "Local defined enumeration are no longer supported. Use a DUT definition instead."
     ],
+    "note": "NOT an error by default: inline local enums are common and compile clean (29 corpus FPs). The 'no longer supported' is a deprecation gated on a compiler option we can't see offline. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1490,19 +1496,20 @@
     "category": "data type recursion",
     "cause": "A function block or struct contains, directly or indirectly, an instance of itself as a member, creating infinite/circular data nesting.",
     "message": "Data Recursion: '<recursion>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst0 : FB1;\nEND_VAR\n\nFUNCTION_BLOCK FB1\nVAR\n    inst1 : FB2;\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\n    inst2 : FB1;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB1\nVAR x : FB2;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB2\nVAR y : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Data Recursion: FB1->FB2->FB1"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkDataRecursion",
+    "ourCode": "data-recursion",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL."
   },
   {
     "code": "C0102",
@@ -1692,11 +1699,12 @@
     "category": "malformed FB_init signature",
     "cause": "A user-defined FB_init method is missing the two mandatory BOOL input parameters bInitRetains and bInCopyCode that the runtime requires to call it.",
     "message": "An 'FB_init'-Method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\n\nFUNCTION_BLOCK FB\nMETHOD FB_init\nVAR_INPUT\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nEND_METHOD",
     "expect": [
-      "An 'FB_init'-Method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
+      "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
     ],
-    "status": "checkable",
+    "note": "expect reconciled to our CODESYS wording ('The FB_Init method…'); the docs template is the TwinCAT form ('An 'FB_init'-Method…').",
+    "status": "implemented",
     "ourCheck": "lifecycle",
     "ourCode": "fb-lifecycle-signature",
     "lint": null,
@@ -1713,11 +1721,12 @@
     "category": "malformed FB_exit signature",
     "cause": "A user-defined FB_exit method is missing the mandatory BOOL input parameter bInCopyCode that the runtime requires to call it.",
     "message": "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\n\nFUNCTION_BLOCK FB\nMETHOD FB_exit\nVAR_INPUT\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD FB_Exit : BOOL\nEND_METHOD",
     "expect": [
-      "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL."
+      "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
     ],
-    "status": "checkable",
+    "note": "expect reconciled to our CODESYS wording; the docs template is the TwinCAT form ('An 'FB_Exit'-Method…').",
+    "status": "implemented",
     "ourCheck": "lifecycle",
     "ourCode": "fb-lifecycle-signature",
     "lint": null,
@@ -1738,9 +1747,9 @@
     "expect": [
       "Expression 'SUPER' is not allowed in this context"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "this-super-context",
+    "ourCode": "super-not-allowed",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1755,20 +1764,20 @@
     "category": "invalid enum initializer",
     "cause": "An enumeration member is initialized with a value whose type (e.g. a real/floating literal) cannot be implicitly converted to the enumeration's declared base type.",
     "message": "'Initialization' is no valid initialization for an enumeration",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\n\nTYPE DUT :\n(\n  enum_member := 1.5\n) DWORD;\nEND_TYPE",
+    "repro": "TYPE DUT : (A := 1, B := 2.5);\nEND_TYPE",
     "expect": [
-      "Type 'LREAL' can not be converted to type 'DUT'",
-      "'Initialization' is no valid initialization for an enumeration"
+      "Type 'LREAL' can not be converted to type 'DUT'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkEnumInit",
+    "ourCode": "enum-init-not-convertible",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Enum member with a real initializer (constEval folds real->JS number, int->bigint). Real literal is LREAL by default. PROVISIONAL."
   },
   {
     "code": "C0125",
@@ -1777,10 +1786,11 @@
     "category": "duplicate enum value",
     "cause": "Two enumeration members in the same enum type are initialized with the same underlying constant value.",
     "message": "The constant <constant value> is assigned to more than one enumeration.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\n\nTYPE DUT :\n(\n    enum_member := 0,\n    enum_member2 := 0\n);\nEND_TYPE",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT;\nEND_VAR\nEND_PROGRAM\nTYPE DUT :\n(\n    enum_member := 0,\n    enum_member2 := 0\n);\nEND_TYPE",
     "expect": [
       "The constant 0 is assigned to more than one enumeration."
     ],
+    "note": "NOT an error by default: CODESYS accepts duplicate enum values (a common sentinel-alias pattern, e.g. FIRST_ENTRY:=0 / LAST_ENTRY:=n — 35 corpus FPs across library enums). C0125 appears to be gated on a strict-enums option we can't see offline. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1802,9 +1812,9 @@
     "expect": [
       "Variable of type 'POINTER TO INT' requires exactly 1 Index"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "indexing",
+    "ourCode": "pointer-index-arity",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1819,19 +1829,20 @@
     "category": "missing method call parens",
     "cause": "A method of an instance is referenced by name without the trailing '()' call parentheses.",
     "message": "object '<object name>' referenced without parentheses '()'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\ninst.METH1",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD METH1 : INT\nMETH1 := 1;\nEND_METHOD\nPROGRAM PLC_PRG\nVAR f : FB; y : INT;\nEND_VAR\ny := f.METH1;\nEND_PROGRAM",
     "expect": [
       "METHOD 'METH1' referenced without parentheses '()'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkMethodReference",
+    "ourCode": "method-referenced-without-parens",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst.METH1();"
+    "fix": "inst.METH1();",
+    "note": "Method member used as a value (member access; called = not-a-call-callee). Bare-ident refs excluded (own return var). PROVISIONAL."
   },
   {
     "code": "C0131",
@@ -1844,9 +1855,9 @@
     "expect": [
       "'1' is not allowed as operand for 'ADR'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "invalid-adr-operand",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1865,9 +1876,9 @@
     "expect": [
       "No enclosing loop of which to EXIT"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "statement-rules",
+    "ourCode": "exit-outside-loop",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1920,7 +1931,7 @@
   {
     "code": "C0139",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0139.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "no-op statement warning",
     "cause": "A standalone expression statement (e.g. bare variable reference) is written that produces no side effect.",
     "message": "The code <code> has no effect. Is this the intent?",
@@ -1928,9 +1939,9 @@
     "expect": [
       "The code 'i' has no effect. Is this the intent?"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "no-op-statement",
+    "ourCode": "no-op-statement",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1949,9 +1960,9 @@
     "expect": [
       "Reference assign is only allowed to variables of Reference type"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "reference-assign",
+    "ourCode": "reference-assign-target",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -1970,6 +1981,7 @@
     "expect": [
       "Reference assign needs variable with write access"
     ],
+    "note": "NOT cleanly offline-checkable: a literal RHS is NOT always an error — `r REF= 0` is the valid way to null a reference (7 corpus FPs). The real C0141 trigger is narrower than 'RHS is a literal'. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -1987,11 +1999,12 @@
     "category": "duplicate local variable",
     "cause": "The same variable name is declared twice within the local variable declarations of one POU.",
     "message": "A local variable named '<variable name>' is already defined in '<pou name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    i : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "A local variable named 'i' is already defined in 'PLC_PRG"
+      "A local variable named 'i' is already defined in 'PLC_PRG'"
     ],
-    "status": "checkable",
+    "note": "docs expect was truncated (missing the closing quote); reconciled to our output.",
+    "status": "implemented",
     "ourCheck": "duplicate-declaration",
     "ourCode": "duplicate-declaration",
     "lint": null,
@@ -2008,19 +2021,20 @@
     "category": "missing property getter",
     "cause": "A property is read (used on the right side of an assignment) but the property only defines a Set accessor, not a Get accessor.",
     "message": "The property '<property name>' cannot be used in this context because it lacks the get accessor",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    inst: FB;\nEND_VAR\n\ni := inst.Prop;\n\nFUNCTION_BLOCK FB\nVAR\nEND_VAR\n\nPROPERTY Prop : INT\nSet;",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nPROPERTY Prop : INT\nSET\nProp := 0;\nEND_SET\nEND_PROPERTY\nPROGRAM PLC_PRG\nVAR f : FB; y : INT;\nEND_VAR\ny := f.Prop;\nEND_PROGRAM",
     "expect": [
       "The property 'Prop' cannot be used in this context because it lacks the get accessor"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkPropertyAccess",
+    "ourCode": "property-lacks-getter",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Set-only property read (member access). Read vs write = not-the-assignment-target. PROVISIONAL wording; bare-ident reads and non-member contexts intentionally not covered (zero-FP scope)."
   },
   {
     "code": "C0144",
@@ -2096,9 +2110,9 @@
     "expect": [
       "Border 'i' of array is no constant value"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "const-context",
+    "ourCode": "array-bound-non-const",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2113,19 +2127,19 @@
     "category": "non-constant array initializer count",
     "cause": "The repetition count in an array initializer's repeat syntax (n(value)) is a variable rather than a constant.",
     "message": "Number <number of array values> of array initialisation is no constant value",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT := 3;\n    arr1 : ARRAY[1..4] OF INT := [1,i(7)];\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT := 3;\n    arr1 : ARRAY[1..4] OF INT := [1,i(7)];\nEND_VAR\nEND_PROGRAM",
     "expect": [
       "Number 'i' of array initialisation is no constant value"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "array-init",
+    "ourCode": "array-init-count-non-const",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "arr1 : ARRAY[1..4] OF INT := [1,3(7)];"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..4] OF INT := [1,3(7)];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0164",
@@ -2180,9 +2194,9 @@
     "expect": [
       "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "var-section-placement",
+    "ourCode": "misplaced-var-config",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2197,13 +2211,14 @@
     "category": "misplaced VAR_GLOBAL block",
     "cause": "A VAR_GLOBAL variable block is declared inside a POU instead of in a global variable list (GVL) object.",
     "message": "'VAR_GLOBAL' declaration only allowed in global variable list",
-    "repro": "PROGRAM PLC_PRG\nVAR_GLOBAL\n    i : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_GLOBAL\n    i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "'VAR_GLOBAL' declaration only allowed in global variable list"
+      "VAR_GLOBAL declaration not allowed in this place"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect reconciled to our live-calibrated wording (CODESYS, no quotes); the docs template above ('only allowed in global variable list') is the drift to settle at the live-recording pass.",
+    "status": "implemented",
+    "ourCheck": "var-section-placement",
+    "ourCode": "var-section-placement",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2239,11 +2254,12 @@
     "category": "misplaced VAR_TEMP block",
     "cause": "A VAR_TEMP block is declared in a POU type (like FUNCTION) where temporary variables of that kind aren't permitted, or otherwise outside a program/function block.",
     "message": "'VAR_TEMP' declaration not allowed in this place",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nFUN();\n\nFUNCTION FUN\nVAR_TEMP\nEND_VAR",
+    "repro": "FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK\nMETHOD M\nVAR_TEMP\n    t : INT;\nEND_VAR\nEND_METHOD",
     "expect": [
-      "'VAR_TEMP' declaration not allowed in this place"
+      "VAR_TEMP declaration not allowed in this place"
     ],
-    "status": "checkable",
+    "note": "repro switched to a METHOD (our live-calibrated rule allows VAR_TEMP in a FUNCTION); expect is our CODESYS wording (no quotes). Docs quote the kind — drift to settle at recording.",
+    "status": "implemented",
     "ourCheck": "var-section-placement",
     "ourCode": "var-section-placement",
     "lint": null,
@@ -2260,13 +2276,13 @@
     "category": "misplaced RETAIN/PERSISTENT qualifier",
     "cause": "A VAR block is qualified RETAIN (or PERSISTENT) inside a POU type such as FUNCTION, where retain semantics are not supported.",
     "message": "'RETAIN' or 'PERSISTENT' not allowed in this place",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU_1();\n\nFUNCTION POU_1\nVAR RETAIN\nEND_VAR",
+    "repro": "FUNCTION POU_1 : INT\nVAR RETAIN\n    r : INT;\nEND_VAR\nEND_FUNCTION",
     "expect": [
       "'RETAIN' or 'PERSISTENT' not allowed in this place"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "var-section-placement",
+    "ourCode": "retain-not-allowed",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2281,13 +2297,13 @@
     "category": "instantiating a non-instantiable POU",
     "cause": "A variable is declared with the type of a POU kind (e.g. FUNCTION) that cannot be instantiated as a variable, only function blocks/classes can.",
     "message": "'<object>' is of type '<type>' and cannot be instantiated",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : POU;\nEND_VAR\n\nFUNCTION POU\nVAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION",
     "expect": [
       "'POU' is of type 'FUNCTION' and cannot be instantiated"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "non-instantiable",
+    "ourCode": "not-instantiable",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2551,11 +2567,12 @@
     "message": "Implicit conversion from signed Type '<data type 1>' to unsigned Type '<data type 2>' : possible change of sign",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    b : UINT;\nEND_VAR\n\nb := i;",
     "expect": [
-      "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : possible change of sign"
+      "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect reconciled to our CODESYS wording (capital 'Possible'); the docs lowercase it (the TwinCAT form).",
+    "status": "implemented",
+    "ourCheck": "narrowing",
+    "ourCode": "sign-change-conversion",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2572,11 +2589,12 @@
     "message": "Implicit conversion from unsigned Type '<data type 1>' to signed type '<data type 2>' : possible change of sign",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    b : UINT;\nEND_VAR\n\ni := b;",
     "expect": [
-      "Implicit conversion from unsigned Type 'UINT' to signed type 'INT' : possible change of sign"
+      "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect reconciled to our CODESYS wording ('signed Type', capital 'Possible'); the docs use lowercase (the TwinCAT form).",
+    "status": "implemented",
+    "ourCheck": "narrowing",
+    "ourCode": "sign-change-conversion",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2593,11 +2611,12 @@
     "message": "Implicit conversion from '<data type 1>' to '<data type 2>': possible loss of information",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : DINT;\n    b : REAL;\nEND_VAR\nb := i;",
     "expect": [
-      "Implicit conversion from 'DINT' to 'REAL': possible loss of information"
+      "Implicit conversion from 'DINT' to 'REAL': Possible loss of information"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect reconciled to our CODESYS wording (capital 'Possible'); the docs lowercase it (the TwinCAT form).",
+    "status": "implemented",
+    "ourCheck": "narrowing",
+    "ourCode": "narrowing-conversion",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2616,9 +2635,9 @@
     "expect": [
       "String constant '12345' too long for destination type 'STRING(4)'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "string-constant",
+    "ourCode": "string-constant-too-long",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2633,13 +2652,13 @@
     "category": "uninstantiated interface access",
     "cause": "An interface type name was referenced directly to call a method instead of going through an instantiated variable of that interface.",
     "message": "Interface '<interface name>' must be instantiated to be accessed",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nITF.METH();\n\nINTERFACE ITF\n\nMETHOD METH\nVAR_INPUT\nEND_VAR",
+    "repro": "FUNCTION_BLOCK F\nVAR\nEND_VAR\nITF();\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE",
     "expect": [
       "Interface 'ITF' must be instantiated to be accessed"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "fb-instantiation",
+    "ourCode": "interface-not-instantiated",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2654,19 +2673,20 @@
     "category": "VAR_IN_OUT type mismatch",
     "cause": "A call passes an actual variable whose data type does not match the declared type of the callee's VAR_IN_OUT parameter.",
     "message": "Type '<data type 1>' is not equal to type '<data type 2>' of VAR_IN_OUT 'Variable'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    Inst: POU;\n    b : BOOL;\nEND_VAR\n\ninst(in_out := b);\n\nFUNCTION_BLOCK POU\nVAR_IN_OUT\n    in_out : INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROGRAM PLC_PRG\nVAR inst : FB; b : BOOL;\nEND_VAR\ninst(Variable := b);\nEND_PROGRAM",
     "expect": [
       "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkCallArguments",
+    "ourCode": "in-out-type-mismatch",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL."
   },
   {
     "code": "C0203",
@@ -2679,9 +2699,9 @@
     "expect": [
       "Only Structures and Function Blocks can contain variables of type BIT."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-usage",
+    "ourCode": "bit-wrong-container",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2696,13 +2716,13 @@
     "category": "BIT variable declaration block",
     "cause": "A BIT-typed variable is declared in a block kind that does not allow BIT, such as VAR_IN_OUT.",
     "message": "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB\nVAR_IN_OUT\n    b : BIT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nVAR_IN_OUT\n    b : BIT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-usage",
+    "ourCode": "bit-wrong-block",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2721,9 +2741,9 @@
     "expect": [
       "POINTER TO BIT is not allowed"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-usage",
+    "ourCode": "pointer-to-bit",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2742,9 +2762,9 @@
     "expect": [
       "BIT is not allowed as base type of an array"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "bit-usage",
+    "ourCode": "bit-array-base",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2780,13 +2800,14 @@
     "category": "MOD on non-integer type",
     "cause": "The MOD operator is applied to a REAL operand, but MOD is only defined for ANY_INT types.",
     "message": "'MOD' is not defined for 'REAL'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    r1 : REAL;\nEND_VAR\nr1 := r1 MOD 2;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    r1 : REAL;\n    r2 : REAL;\nEND_VAR\nr1 := r1 MOD r2;\nEND_PROGRAM",
     "expect": [
-      "'MOD' is not defined for 'REAL'"
+      "MOD is not defined for REAL"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "expect is our CODESYS wording (no quotes; TwinCAT quotes both). Repro uses two REAL variables — a literal operand infers to a generic integer and is skipped, matching a conservative fold.",
+    "status": "implemented",
+    "ourCheck": "binary-operators",
+    "ourCode": "binary-op-type-mismatch",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2908,9 +2929,9 @@
     "expect": [
       "Case label duplicate"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "case-labels",
+    "ourCode": "case-label-duplicate",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2929,9 +2950,9 @@
     "expect": [
       "Case label 4 also contained in range 3 .. 5"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "case-labels",
+    "ourCode": "case-label-in-range",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2950,9 +2971,9 @@
     "expect": [
       "'CASE' label requires literal or symbolic integer constant"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "case-labels",
+    "ourCode": "case-label-non-const",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2971,9 +2992,9 @@
     "expect": [
       "'CASE' contains overlapping ranges 1 .. 4 and 3 .. 5"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "case-labels",
+    "ourCode": "case-overlapping-ranges",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3009,13 +3030,13 @@
     "category": "REFERENCE TO output param",
     "cause": "A function block declares a VAR_OUTPUT of type REFERENCE TO, which is not permitted for outputs.",
     "message": "Outputs can't be of type 'REFERENCE TO'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB\nVAR_OUTPUT\n    re : REFERENCE TO INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nVAR_OUTPUT\n    re : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Outputs can't be of type 'REFERENCE TO'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "output-rules",
+    "ourCode": "output-reference-type",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3030,19 +3051,20 @@
     "category": "recursive call",
     "cause": "A POU (function or program) calls itself directly or indirectly, causing infinite recursion.",
     "message": "Call Recursion: <recursion>",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU();\n\nFUNCTION POU\nVAR\nEND_VAR\n\nPOU();",
+    "repro": "FUNCTION Fib : INT\nVAR_INPUT n : INT;\nEND_VAR\nFib := Fib(n - 1);\nEND_FUNCTION",
     "expect": [
-      "Call Recursion: POU -> POU"
+      "Call Recursion: Fib -> Fib"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkRecursiveCall",
+    "ourCode": "call-recursion",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL."
   },
   {
     "code": "C0225",
@@ -3076,9 +3098,9 @@
     "expect": [
       "Initialisation of constant variable 'k' not constant"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "const-context",
+    "ourCode": "const-init-non-const",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3093,19 +3115,20 @@
     "category": "missing constant initializer",
     "cause": "A VAR CONSTANT variable is declared without an initial value.",
     "message": "No initial value for constant variable '<constant name>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\nVAR CONSTANT\n    k : INT;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nVAR CONSTANT\nk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "No initial value for constant variable 'k'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkConstantInitializer",
+    "ourCode": "constant-no-initial-value",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "k : INT := 1;"
+    "fix": "k : INT := 1;",
+    "note": "CONSTANT-section decl with no initializer. PROVISIONAL."
   },
   {
     "code": "C0230",
@@ -3114,14 +3137,14 @@
     "category": "enum type misuse",
     "cause": "An enumeration type name is used directly as a value instead of qualifying it with one of its member names.",
     "message": "Type name '<data type>' not expected in this place",
-    "repro": "TYPE MyEnum :\n(\n    enum_member := 0\n);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    value : INT;\nEND_VAR\nvalue := MyEnum;\nMyEnum := value;",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    value : INT;\nEND_VAR\nvalue := MyEnum;\nMyEnum := value;\nEND_PROGRAM\nTYPE MyEnum : (enum_member := 0); END_TYPE",
     "expect": [
       "Type name 'MyEnum' not expected in this place",
       "Type name 'MyEnum' not expected in this place"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "type-as-value",
+    "ourCode": "type-name-as-value",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3136,19 +3159,19 @@
     "category": "array init structure mismatch",
     "cause": "A multi-dimensional array is initialized with a flat list instead of nested array literals matching each dimension.",
     "message": "Array initialisation expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    value : ARRAY[0..2] OF ARRAY[0..2]  OF INT := [1,2,3];\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    value : ARRAY[0..2] OF ARRAY[0..2] OF INT := [1,2,3];\nEND_VAR\nEND_PROGRAM",
     "expect": [
       "Array initialisation expected"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "array-init",
+    "ourCode": "array-init-nesting",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "value : ARRAY[0..2] OF ARRAY[0..2]  OF INT := [\n[1,2,3],\n[4,5,6],\n[7,8,9]];"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    value : ARRAY[0..2] OF ARRAY[0..2] OF INT := [[1,2,3],[4,5,6],[7,8,9]];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0233",
@@ -3157,19 +3180,19 @@
     "category": "struct array init mismatch",
     "cause": "An array of a structured (non-scalar) type is initialized with plain scalar values instead of structure initializer lists.",
     "message": "Initialisation list for <data type> expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    values : ARRAY[0..2] OF COLOR := [1,2,3];\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    values : ARRAY[0..2] OF COLOR := [1,2,3];\nEND_VAR\nEND_PROGRAM\nTYPE COLOR : STRUCT red : BYTE; green : BYTE; blue : BYTE; END_STRUCT END_TYPE",
     "expect": [
       "Initialisation list for COLOR expected"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "array-init",
+    "ourCode": "array-init-element",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n      colorVariable : COLOR := (red:=0, green:=0, blue:=255);\n      value : ARRAY[0..2] OF COLOR := [\n            colorVariable,\n            (red:=255, green:=0, blue:=0),\n            (red:=0, green:=255, blue:=0)];\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    values : ARRAY[0..2] OF COLOR := [(red:=255,green:=0,blue:=0),(red:=0,green:=255,blue:=0),(red:=0,green:=0,blue:=255)];\nEND_VAR\nEND_PROGRAM\nTYPE COLOR : STRUCT red : BYTE; green : BYTE; blue : BYTE; END_STRUCT END_TYPE"
   },
   {
     "code": "C0234",
@@ -3350,9 +3373,9 @@
     "expect": [
       "Operand of __DELETE must be pointer"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "delete-non-pointer",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3506,18 +3529,19 @@
   {
     "code": "C0351",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0351.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "unknown attribute pragma",
     "cause": "An {attribute '...'} pragma uses a name the compiler does not recognize, typically from a typo of a valid attribute name.",
     "message": "The attribute <attribute name> is unknown and will be ignored by the compiler",
-    "repro": "{attribute 'call_after_ini'}\nPROGRAM PLC_PRG\nVAR\nEND_VAR",
+    "repro": "{attribute 'call_after_ini'}\nPROGRAM PLC_PRG\nVAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "The attribute call_after_ini is unknown and will be ignored by the compiler"
+      "The attribute call_after_ini is unknown and will be ignored by the  compiler."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
-    "lint": null,
+    "note": "expect is our calibrated CODESYS wording (double space before 'compiler' + trailing period, a compiler quirk matched byte-for-byte); opt-in lint (only as complete as the pragma table).",
+    "status": "implemented",
+    "ourCheck": "pragmas",
+    "ourCode": "unknown-attribute",
+    "lint": "unknownAttribute",
     "verified": {
       "codesys": false,
       "twincat": false
@@ -3531,34 +3555,35 @@
     "category": "enum comparison",
     "cause": "Two variables of different enumeration types are compared with a relational operator (>, <, etc.).",
     "message": "Comparison of one enumeration type (<type name 1>) with another (<type name 2>)",
-    "repro": "TYPE ENUM1:\n(\n      enum_member1 := 0,\n      enum_member2 := 1\n);\nEND_TYPE\n\nTYPE ENUM2:\n(\n      enum_member := 0\n);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n      enum1 : ENUM1;\n      enum2 : ENUM2;\n      i:INT;\nEND_VAR\nenum1 := 0;\nenum2 := 0;\nIF enum1 > enum2 THEN\n      i := 1;\nEND_IF;",
+    "repro": "TYPE ENUM1 : (A, B);\nEND_TYPE\nTYPE ENUM2 : (X, Y);\nEND_TYPE\nPROGRAM PLC_PRG\nVAR b : BOOL; e1 : ENUM1; e2 : ENUM2;\nEND_VAR\nb := e1 = e2;\nEND_PROGRAM",
     "expect": [
       "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkComparison",
+    "ourCode": "enum-comparison",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "note": "Two different enum-typed operands in a comparison (enum-typed vars; qualified member literals infer unknown, skipped). Severity per catalog=error; verify vs bridge. PROVISIONAL."
   },
   {
     "code": "C0355",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0355.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "bit addressing",
     "cause": "ADR() is applied to a single BIT variable, which cannot be individually addressed so the byte address is stored instead.",
     "message": "A single bit cannot be referenced. A reference to the complete byte will be stored.",
-    "repro": "FUNCTION_BLOCK FBVAR\n      pt : POINTER TO BOOL;\n      b : BIT;\nEND_VAR\npt := ADR(b);",
+    "repro": "FUNCTION_BLOCK FB\nVAR\n      pt : POINTER TO BOOL;\n      b : BIT;\nEND_VAR\npt := ADR(b);\nEND_FUNCTION_BLOCK",
     "expect": [
       "A single bit cannot be referenced. A reference to the complete byte will be stored."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "adr-on-bit",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3741,6 +3766,7 @@
     "expect": [
       "At least one statement is expected"
     ],
+    "note": "NOT reliably an error offline: CODESYS accepts consecutive CASE labels with empty bodies (fall-through to the next non-empty label), so 'empty arm = error' false-positives on real code (corpus FP). The harvested repro may reflect a stricter/different scenario. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
@@ -3844,9 +3870,9 @@
     "expect": [
       "Multiple assignments for operator '__NEW' not allowed"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "statement-rules",
+    "ourCode": "multiple-assignment-new",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -4008,13 +4034,14 @@
     "category": "non-constant default value",
     "cause": "A VAR_INPUT variable's default/initial value is set to the result of a function call rather than a compile-time constant expression.",
     "message": "Default value is not constant",
-    "repro": "FUNCTION F2: INT\n\nFUNCTION F1: INT\nVAR_INPUT\n      iPar : INT := F2();\n      xPar : BOOL;\nEND_VAR",
+    "repro": "FUNCTION F1 : INT\nVAR_INPUT\n      iPar : INT := gVar;\nEND_VAR\nEND_FUNCTION\nVAR_GLOBAL\n    gVar : INT;\nEND_VAR",
     "expect": [
       "Default value is not constant"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "note": "our zero-FP slice: only a mutable-variable default fires. The docs' function-call default (`:= F2()`) is skipped — `STRUCT(…)`/`SIZEOF`/`ADR` are compile-time constants that also parse as calls, indistinguishable offline (1 corpus FP on a `STRUCT(…)` default confirmed this).",
+    "status": "implemented",
+    "ourCheck": "const-context",
+    "ourCode": "default-not-constant",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -4259,11 +4286,12 @@
     "category": "FB_Exit signature",
     "cause": "An FB_exit method is declared without the mandatory bInCopyCode : BOOL input parameter.",
     "message": "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL.",
-    "repro": "FUNCTION_BLOCK FB\nMETHOD FB_exit\nVAR_INPUT\nEND_VAR",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD FB_Exit : BOOL\nEND_METHOD",
     "expect": [
-      "An 'FB_Exit'-Method of a function block or struct needs an input 'bInCopyCode' of type BOOL."
+      "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
     ],
-    "status": "checkable",
+    "note": "same FB_Exit rule as C0120; expect is our CODESYS wording (docs template is the TwinCAT form).",
+    "status": "implemented",
     "ourCheck": "lifecycle",
     "ourCode": "fb-lifecycle-signature",
     "lint": null,

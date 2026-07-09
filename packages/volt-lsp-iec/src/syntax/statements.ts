@@ -27,7 +27,15 @@ export interface BodyParse {
   firstError?: string
 }
 
+// A BodySpan is immutable and parsed identically every time, but the ~15 semantic checks each iterate
+// `bodies()` → `parseStatements(body)`, so without this a POU body is re-parsed once per check per run.
+// Keyed on BodySpan identity: same parse → cache hit; a document re-parse yields fresh BodySpans (old
+// entries GC'd), so edits are never stale. Parse-once is what makes the multi-check registry actually cheap.
+const parseCache = new WeakMap<BodySpan, BodyParse>()
+
 export function parseStatements(body: BodySpan): BodyParse {
+  const cached = parseCache.get(body)
+  if (cached !== undefined) return cached
   // BodySpan.tokens is a slice with no EOF sentinel; append one so the
   // cursor's peek()/atEof() terminate correctly at the body's end.
   const toks = body.tokens
@@ -50,7 +58,9 @@ export function parseStatements(body: BodySpan): BodyParse {
   const firstError = ok
     ? undefined
     : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
-  return { statements, ok, firstError }
+  const result: BodyParse = { statements, ok, firstError }
+  parseCache.set(body, result)
+  return result
 }
 
 function atKeyword(cur: Cursor, ...kws: Keyword[]): boolean {

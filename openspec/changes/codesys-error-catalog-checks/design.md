@@ -48,6 +48,39 @@ The docs already provide the exact repro (the "Example of the error:" block) and
 ### D6 — `Cnnnn` as diagnostic metadata
 Attach the mirrored code via the LSP diagnostic's `data`/`codeDescription` (href to the CODESYS doc URL), keeping our own `code` in the `volt-lsp-iec` namespace. Enables a future hover/code-action that links the canonical explanation without over-promising 1:1 parity.
 
+### D7 — Checks are core-path, parse-once; two infra unlocks gate the rest (added 2026-07-09)
+
+Verified during implementation that each catalog check is **first-class**, not a side-channel: it is registered
+in the `CHECKS` array, runs inside `computeSemanticDiagnostics`, and is consumed by `server/diagnostics.ts`
+`documentDiagnostics` — the ONE function feeding both the push (`publishDiagnostics`) and pull
+(`textDocument/diagnostic`) transports. So a catalog check reaches the editor exactly like every other
+diagnostic, config-aware (vendor / dead-code / references) with wording centralized per-vendor in `messages.ts`.
+
+**Parse-once.** The multi-check registry means ~15 checks each iterate `bodies()` → `parseStatements(body)`.
+`parseStatements` is now memoized on `BodySpan` identity (immutable per parse; a document re-parse yields fresh
+spans, old entries GC'd), so a POU body is parsed once per diagnostic run, not once per check. This is what
+keeps "add another check" cheap and makes the registry model actually optimal rather than O(checks) re-parses.
+
+**Two infra unlocks, justified by the triage's own bar.** Three clusters (C0062, CASE-non-const, aggregate-init)
+hit the same wall: a slice of the nominally-"clean-ast" tier is actually blocked on missing infrastructure. Per
+"build the resolver when the family is ≥3–5 codes," two pieces are now warranted and scheduled as their own
+units (tasks §7.4/§7.5), NOT worked around with fragile token-peeking (which the corpus gate rejects anyway):
+
+1. **Aggregate initializer-list parser — LANDED.** `AggregateInit` was deliberately opaque tokens (`ast.ts`:
+   "per-field grammar is deferred"). Rather than replace `.tokens` (the formatter round-trips them), we ADDED
+   `form` (array/struct/unknown) + a parsed `elements` list (scalar / nested / field / repeat), keeping `tokens`.
+   `parseAggregate` (in `expression.ts`) is total and error-tolerant — an unclassifiable element degrades to
+   `unparsed` and an unknown outer shape to `form: "unknown"`, so checks skip rather than false-positive. C0074
+   and C0076 migrated off token-poking onto `form`; **C0075 (count) is implemented** on it; **C0232 (nesting) /
+   C0233 (per-element type)** are now cheap follow-ons. Pure syntax, corpus-verified zero-FP.
+2. **Symbol-constancy / enum-member resolver** — an enum member and a `VAR CONSTANT` are valid where a constant
+   is expected but don't uniformly read as "constant" in the symbol model, so "folds to a constant?" ≠ "is a
+   constant". Unblocks C0062, C0218, and the const-context codes. This is a genuine gap the fragile heuristics
+   only papered over (207 corpus FPs on C0218).
+
+The discipline that keeps this honest: build a cluster, let the corpus gate demote the members that need infra,
+ship the solid subset, and record the blocker in the deferred code's `note` + `TRIAGE.md`.
+
 ## Risks / Trade-offs
 
 - **Harvest volume (220 pages) / rate-limits** → batch fetches, cache, and make the harvest resumable (skip codes already in the catalog); it is a one-time cost.

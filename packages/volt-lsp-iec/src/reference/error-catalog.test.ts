@@ -19,7 +19,8 @@ import { computeSemanticDiagnostics, resolveConfig, type LintConfig } from "../a
 
 const catalog = errorCatalog()
 
-/** Error messages the LSP emits for a repro (a full ST source), optionally enabling one opt-in lint. */
+/** Diagnostic messages the LSP emits for a repro (a full ST source), optionally enabling one opt-in lint.
+ *  Includes warnings as well as errors — some codes (e.g. C0033 unsafe pointer conversion) are warnings. */
 function lspMessages(repro: string, lint: string | null): string[] {
   const parseResult = parseSource(repro)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: repro }])
@@ -30,7 +31,7 @@ function lspMessages(repro: string, lint: string | null): string[] {
     project,
     config: resolveConfig({ vendor: "codesys", lints }),
   })
-    .filter((d) => d.severity === "error")
+    .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
 }
 
