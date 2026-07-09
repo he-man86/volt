@@ -1,7 +1,0 @@
-[package]
-name = "twincat-project12"
-version = "0.1.0"
-edition = "2021"
-
-# Add crates that help your project here, then `cargo build`.
-[dependencies]
