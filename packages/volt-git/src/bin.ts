@@ -76,7 +76,7 @@ async function main(): Promise<number> {
 
 	switch (args.verb) {
 		case "init": {
-			const r = await init(args.workspace, bridge);
+			const r = await init(args.operands[0] ?? args.workspace, bridge);
 			if (r.kind === "error") {
 				console.error(r.reason);
 				return 1;
