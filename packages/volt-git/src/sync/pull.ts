@@ -70,7 +70,7 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	const head = headCommit(root);
 
 	// Steady state: commit the IDE tree onto the volt/ide chain, then merge into the branch.
-	const tree = buildVoltIdeTree(gitDir, head, ideFiles);
+	const tree = buildVoltIdeTree(gitDir, head, ideFiles, fetched.removed);
 	const parent = voltIdeHead(gitDir) ?? head;
 	const commit = commitVoltIde(gitDir, tree, parent, `volt: IDE @ ${fetched.projectVersion}`);
 	updateRef(gitDir, RANGE, commit);

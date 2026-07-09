@@ -21,19 +21,26 @@ export function voltIdeHead(gitDir: string): string | undefined {
 
 /**
  * Build the volt/ide tree: the IDE's materialized `src/` files, plus the user's scaffold and any
- * non-tracked `src/` files kept verbatim from HEAD. Tracked HEAD `src/` files absent from the IDE set
- * are dropped (so IDE deletions propagate through the merge).
+ * non-tracked `src/` files kept verbatim from HEAD. Tracked `src/` files from HEAD are preserved
+ * unless ideFiles replaces them or the IDE explicitly deleted them — unchanged tracked files (not in
+ * `changed` because their version matched knownItems) stay from HEAD.
  */
-export function buildVoltIdeTree(gitDir: string, headCommit: string | undefined, ideFiles: readonly MaterializedFile[]): string {
+export function buildVoltIdeTree(
+	gitDir: string,
+	headCommit: string | undefined,
+	ideFiles: readonly MaterializedFile[],
+	removedNames: readonly string[],
+): string {
 	const entries: IndexEntry[] = [];
+	const replaced = new Set(ideFiles.map((f) => f.path));
+	const removed = new Set(removedNames);
 	for (const f of ideFiles) {
 		entries.push({ mode: "100644", sha: writeBlob(gitDir, f.content), path: `${SRC_DIR}/${f.path}` });
 	}
 	if (headCommit !== undefined) {
 		for (const e of listTree(gitDir, headCommit)) {
-			// IDE-owned src/ files are replaced by ideFiles (or deleted); the scaffold + any foreign src/ file is kept verbatim.
 			const rel = e.path.startsWith(`${SRC_DIR}/`) ? e.path.slice(SRC_DIR.length + 1) : null;
-			if (rel !== null && isTrackedPath(rel)) continue;
+			if (rel !== null && isTrackedPath(rel) && (replaced.has(rel) || removed.has(rel))) continue;
 			entries.push({ mode: e.mode, sha: e.sha, path: e.path });
 		}
 	}
