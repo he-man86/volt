@@ -36,14 +36,12 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override string? IdeName => "CODESYS";
     public override string? IdeVersion => "3.5";
 
-    /// <summary>Snapshot the project name/dirty/open flags on the primary thread (we are on it at startup), and
-    /// subscribe (once) to the IDE's change events so a live edit pushes an SSE /events change.</summary>
+    /// <summary>Snapshot the project name/dirty/open flags on the primary thread (we are on it at startup).</summary>
     public override void Connect()
     {
-        _om.SubscribeChanges(RaiseProjectChanged);
         lock (_cacheLock) { _projectName = _om.ProjectName; _projectDirty = _om.ProjectDirty; _hasProject = _om.HasPrimaryProject; }
     }
-    public override void Disconnect() { _om.UnsubscribeChanges(); ClearDegraded(); }
+    public override void Disconnect() { ClearDegraded(); }
 
     public override T RunOnStaThread<T>(Func<T> fn) => _dispatcher == null ? fn() : _dispatcher.Run(fn);
 

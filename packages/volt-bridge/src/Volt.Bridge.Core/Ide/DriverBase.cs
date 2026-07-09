@@ -18,9 +18,6 @@ public abstract class DriverBase : IIdeSession
     private readonly object _probeGate = new();
     private bool _probeInFlight;
 
-    private readonly object _changeGate = new();
-    private Timer? _changeDebounce;
-
     public bool IsDegraded => _isDegraded;
     public string? DegradedReason => _degradedReason;
 
@@ -39,24 +36,6 @@ public abstract class DriverBase : IIdeSession
     }
 
     public virtual string Version => "1.0.0";
-
-    // ── project-change notification (→ SSE /events) ──────────────────
-    public event Action? ProjectChanged;
-
-    /// <summary>Signal an IDE change, COALESCED (trailing-edge, ~300 ms): a paste or a multi-object edit fires
-    /// many native events but only ONE <see cref="ProjectChanged"/> — so a client refreshes once, not per object.
-    /// Drivers call this from their IDE event handlers.</summary>
-    protected void RaiseProjectChanged()
-    {
-        lock (_changeGate)
-        {
-            _changeDebounce ??= new Timer(_ =>
-            {
-                try { ProjectChanged?.Invoke(); } catch { /* a subscriber throw must not kill the timer */ }
-            }, null, Timeout.Infinite, Timeout.Infinite);
-            _changeDebounce.Change(300, Timeout.Infinite); // (re)start the trailing-edge window
-        }
-    }
 
     // ── abstract — vendor must implement ──
     public abstract bool IsConnected { get; }
