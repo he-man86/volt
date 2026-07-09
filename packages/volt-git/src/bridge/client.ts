@@ -127,6 +127,13 @@ export class BridgeClient implements Remote {
 			: this.request("POST", "/fetch", FetchResponseSchema, req);
 	}
 
+	async init(onProgress?: ProgressHandler): Promise<FetchResponse> {
+		await this.preflight();
+		return onProgress
+			? this.requestStream("POST", "/init", FetchResponseSchema, {}, onProgress, this.timeoutMs)
+			: this.request("POST", "/init", FetchResponseSchema, {});
+	}
+
 	async pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse> {
 		await this.preflight();
 		return onProgress
@@ -141,67 +148,31 @@ export class BridgeClient implements Remote {
 			: this.request("POST", "/build", BuildResponseSchema, req, this.timeouts.build);
 	}
 
-	/** Block until the bridge reports one IDE change (an SSE `change` event on `/events`), or reject on timeout.
-	 *  Powers `volt wait-change` — a script or the AI can react to an IDE edit without polling. */
+	/** Poll `GET /refs` until the project version differs from the baseline, or reject on timeout.
+	 *  Powers `volt wait-change` — a script or the AI can react to an IDE edit without blocking a connection. */
 	async waitForChange(timeoutMs?: number): Promise<void> {
-		await this.preflight();
-		const url = new URL(`${this.baseUrl}/events`);
+		const initial = await this.request("GET", "/refs", RefsResponseSchema)
+		const deadline = timeoutMs !== undefined ? Date.now() + timeoutMs : undefined
+
 		return new Promise<void>((resolve, reject) => {
-			let settled = false;
-			let deadline: ReturnType<typeof setTimeout> | undefined;
-			const finish = (fn: () => void): void => {
-				if (settled) return;
-				settled = true;
-				if (deadline !== undefined) clearTimeout(deadline);
-				try {
-					req.destroy();
-				} catch {
-					/* already gone */
+			const poll = async () => {
+				if (deadline !== undefined && Date.now() >= deadline) {
+					reject(new BridgeError("CHANGE_TIMEOUT", `no IDE change within ${timeoutMs}ms`))
+					return
 				}
-				fn();
-			};
-			const req = httpRequest(
-				{
-					method: "GET",
-					protocol: url.protocol,
-					hostname: url.hostname,
-					port: url.port || (url.protocol === "https:" ? 443 : 80),
-					path: "/events",
-					headers: { connection: "keep-alive", accept: "text/event-stream" },
-				},
-				(res) => {
-					const status = res.statusCode ?? 0;
-					if (status < 200 || status >= 300) {
-						res.resume();
-						finish(() => reject(new BridgeError(`HTTP_${status}`, `bridge /events → ${status}`, status)));
-						return;
+				try {
+					const current = await this.request("GET", "/refs", RefsResponseSchema)
+					if (current.projectVersion !== initial.projectVersion) {
+						resolve()
+						return
 					}
-					res.setEncoding("utf-8");
-					let buf = "";
-					res.on("data", (chunk: string) => {
-						// Consume complete lines (so `buf` stays bounded across a long wait full of keep-alives)
-						// and match the whole `event: change` line, not a loose substring.
-						buf += chunk;
-						let nl: number;
-						while ((nl = buf.indexOf("\n")) >= 0) {
-							const line = buf.slice(0, nl).trim();
-							buf = buf.slice(nl + 1);
-							if (line === "event: change") {
-								finish(resolve);
-								return;
-							}
-						}
-					});
-					res.on("end", () => finish(() => reject(new BridgeError("STREAM_CLOSED", "bridge /events closed before a change"))));
-					res.on("error", (err) => finish(() => reject(err)));
-				},
-			);
-			req.on("error", (err) => finish(() => reject(err)));
-			if (timeoutMs !== undefined) {
-				deadline = setTimeout(() => finish(() => reject(new BridgeError("CHANGE_TIMEOUT", `no IDE change within ${timeoutMs}ms`))), timeoutMs);
+				} catch {
+					/* bridge not reachable — retry */
+				}
+				setTimeout(poll, 2000)
 			}
-			req.end();
-		});
+			poll()
+		})
 	}
 
 	private async request<T>(

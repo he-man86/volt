@@ -114,7 +114,7 @@ async function serveStream(healthObj: Record<string, unknown>, fetchFrames: unkn
 	return { port, close: () => server.close() };
 }
 
-const FETCH_RESULT = { projectVersion: "p", structureVersion: "s", changed: [], removed: [], items: {} };
+const FETCH_RESULT = { projectVersion: "p", structureVersion: "s", changed: [], removed: [], items: {}, folders: {} };
 
 describe("BridgeClient streamed fetch (onProgress)", () => {
 	test("forwards progress frames then returns the terminal result", async () => {

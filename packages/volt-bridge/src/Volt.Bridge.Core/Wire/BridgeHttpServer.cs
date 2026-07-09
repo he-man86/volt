@@ -151,6 +151,11 @@ public sealed class BridgeHttpServer
             switch ($"{method} {path}")
             {
                 case "GET /refs": RunOp(ctx, stream, onP => RefsService.Handle(_ide, onP)); return;
+                case "POST /init":
+                {
+                    RunOp(ctx, stream, onP => FetchService.Handle(_ide, new FetchRequest { Init = true, Verbose = true }, onP));
+                    return;
+                }
                 case "POST /fetch":
                 {
                     var req = ReadBody<FetchRequest>(ctx) ?? new FetchRequest();

@@ -87,7 +87,11 @@ export class MockBridge implements Remote {
 			.map((it) => ({ name: it.name, folder: it.folder, sourceText: it.sourceText, version: ver(it.sourceText) }));
 		const live = new Set(this.live().map((it) => it.name));
 		const removed = Object.keys(known).filter((n) => !live.has(n));
-		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions() };
+		return { projectVersion: this.projectVersion(), structureVersion: this.structureVersion(), changed, removed, items: this.versions(), folders: this.folderMap() };
+	}
+
+	async init(): Promise<FetchResponse> {
+		return this.fetchChanges({});
 	}
 
 	async pushBatch(req: PushRequest): Promise<PushResponse> {

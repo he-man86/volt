@@ -8,9 +8,11 @@ import { resolve } from "node:path";
 import { installCorpus, type DetectedVendor } from "@opencode-ai/volt-lsp-iec";
 import type { Remote } from "./bridge/types.js";
 import { configExists, saveConfig, type WorkspaceConfig } from "./config/workspace.js";
-import { gitInit, isInsideRepo, commitAll } from "./git/plumbing.js";
+import { gitInit, isInsideRepo, commitAll, headCommit, currentBranch, readTreeToIndex, resolveGitDir, updateRef } from "./git/plumbing.js";
+import { materializeItem } from "./translate/materialize.js";
+import { writeSrcFiles } from "./workspace/files.js";
 import { writeWorkspaceScaffold } from "./scaffold.js";
-import { pull } from "./sync/pull.js";
+import { buildVoltIdeTree, commitVoltIde, RANGE, saveIdeRefs } from "./sync/refs.js";
 import { ensureGitignore } from "./workspace/files.js";
 
 export type InitResult =
@@ -21,8 +23,6 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	const root = resolve(workspace);
 	mkdirSync(root, { recursive: true });
 
-	// Already bound? Refuse rather than silently re-pull+merge. A second `init` on a live workspace used to
-	// stack `volt: IDE @` / `merge IDE @` commits (confusing history for no gain) — sync is `pull`'s job.
 	if (configExists(root)) {
 		return { kind: "error", reason: "this workspace is already initialized — run `volt-git pull` to sync with the IDE (to re-bind from scratch, delete .git/volt/config.json first)" };
 	}
@@ -32,7 +32,6 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 		return { kind: "error", reason: "the bridge has no PLC project loaded — open a project in the IDE before `volt-git init`" };
 	}
 
-	// git-init the project root (skip if already inside a repo, e.g. a clone or monorepo).
 	const gitCreated = !isInsideRepo(root);
 	if (gitCreated) gitInit(root);
 	ensureGitignore(root);
@@ -46,22 +45,25 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 
 	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName);
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
-
-	// The agent toolchain (LSP + `volt` tool + agent + theme + permissions) ships globally via
-	// OPENCODE_CONFIG_DIR — set by the desktop and the `volt` binary at launch — so init no longer writes a
-	// per-project `.opencode/`. It only binds the IDE project (above) + installs the vendor skills.
-
 	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
 
-	// Baseline commit: when we created the repo, commit the scaffold + corpus so init leaves a clean
-	// repo with a real HEAD, and the first pull merges the IDE's src onto it. Never auto-commit into a
-	// repo the user already manages.
 	if (gitCreated) commitAll(root, `volt init: ${health.plcProjectName}`);
 
-	const pulled = await pull(root, bridge);
-	const base = { project, gitCreated, scaffold: scaffold.created.length, corpus };
-	if (pulled.kind === "ok") return { kind: "ok", ...base, pulled: pulled.synced.length };
-	return { kind: "ok", ...base, pulled: 0, note: pulled.kind === "refused" ? pulled.reason : "first pull hit a conflict — resolve and re-run" };
+	const fetched = await bridge.init();
+	const ideFiles = fetched.changed.flatMap(materializeItem);
+	const gitDir = resolveGitDir(root);
+	const head = headCommit(root);
+
+	// Seed the workspace with the IDE's files.
+	const tree = buildVoltIdeTree(gitDir, head ?? undefined, ideFiles);
+	const commit = commitVoltIde(gitDir, tree, head ?? undefined, `volt: IDE @ ${fetched.projectVersion}`);
+	updateRef(gitDir, RANGE, commit);
+	writeSrcFiles(root, ideFiles);
+	readTreeToIndex(root, commit);
+	updateRef(gitDir, `refs/heads/${currentBranch(root) ?? "main"}`, commit);
+
+	saveIdeRefs(root, { projectVersion: fetched.projectVersion, items: fetched.items, folders: fetched.folders });
+	return { kind: "ok", project, gitCreated, pulled: ideFiles.length, scaffold: scaffold.created.length, corpus };
 }
 
 function vendorFor(platform: string): DetectedVendor {

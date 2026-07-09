@@ -120,6 +120,7 @@ export const FetchResponseSchema = z
 		changed: z.array(FetchedItemSchema),
 		removed: z.array(z.string()),
 		items: z.record(z.string(), z.string()),
+		folders: z.record(z.string(), z.string()),
 	})
 	.strict();
 export type FetchResponse = z.infer<typeof FetchResponseSchema>;
@@ -195,4 +196,6 @@ export type Remote = {
 	fetchChanges(req: FetchRequest, onProgress?: ProgressHandler): Promise<FetchResponse>;
 	pushBatch(req: PushRequest, onProgress?: ProgressHandler): Promise<PushResponse>;
 	build(req: BuildRequest, onProgress?: ProgressHandler): Promise<BuildResponse>;
+	/** Bootstrap: fetch every item with source text — equivalent to POST /init on the bridge. */
+	init(onProgress?: ProgressHandler): Promise<FetchResponse>;
 };

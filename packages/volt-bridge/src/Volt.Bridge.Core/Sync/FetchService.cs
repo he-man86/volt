@@ -25,12 +25,20 @@ public static class FetchService
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
+        var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
         var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
             ? new HashSet<string>(request.OnlyItems) : null;
 
-        var versions = new Dictionary<string, string>();          // bare-name keys for aggregate hashing
-        var fullVersions = new Dictionary<string, string>();       // full-name keys for wire Items
+        // Normal /fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
+        // did it forget to supply a sidecar? The /init endpoint should be used for the first pull instead.
+        // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
+        if (!isInit && request.KnownItems == null && request.OnlyItems == null)
+            throw new BridgeException(400, "NO_SIDECAR", "supply knownItems to diff against, or use POST /init for the first pull");
+
+        var versions = new Dictionary<string, string>();
+        var fullVersions = new Dictionary<string, string>();
+        var folders = new Dictionary<string, string>();
         var changed = new List<FetchedItem>();
 
         // For the verbose fold: normalized library RESOLUTION → the .library ref's (folder, bare name), captured
@@ -72,6 +80,7 @@ public static class FetchService
 
             versions[it.Name] = version;
             fullVersions[fullName] = version;
+            folders[fullName] = it.Folder ?? "";
 
             if (request.Verbose)
             {
@@ -85,7 +94,7 @@ public static class FetchService
                 }
             }
 
-            if (knownItems.TryGetValue(fullName, out var known) && known == version) continue;
+            if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version) continue;
 
             changed.Add(new FetchedItem
             {
@@ -116,7 +125,7 @@ public static class FetchService
             AppendLibrarySignatures(ide, libByResolution, changed);
         }
 
-        var removed = knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
+        var removed = isInit ? new List<string>() : knownItems.Keys.Where(k => !fullVersions.ContainsKey(k)).ToList();
 
         return new FetchResponse
         {
@@ -125,6 +134,7 @@ public static class FetchService
             Changed = changed,
             Removed = removed,
             Items = fullVersions,
+            Folders = folders,
         };
     }
 

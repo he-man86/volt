@@ -33,7 +33,7 @@ public class ContainerManagerTests
             FakeIde.Item.TextualPou("Good", "PROGRAM Good\nVAR\nEND_VAR", "x := 1;"),
             new FakeIde.Item("Library Manager", ItemKind.PlcLibMan, "App", false, "library_manager", null, null, null));
 
-        var fetch = FetchService.Handle(ide, new FetchRequest());
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
         Assert.DoesNotContain(fetch.Items.Keys, k => k.Contains("library_manager"));
         Assert.DoesNotContain(fetch.Changed, c => c.Name.Contains("library_manager"));
@@ -63,7 +63,7 @@ public class ContainerManagerTests
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "A", false, "text_list", null, null, null),
             new FakeIde.Item("Dup", ItemKind.PlcTextList, "B", false, "text_list", null, null, null));
 
-        var fetch = FetchService.Handle(ide, new FetchRequest());
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
         Assert.Single(fetch.Items);                                    // name-keyed → one entry
         Assert.Single(fetch.Changed, c => c.Name == "Dup.text_list");  // changed agrees → one file

@@ -58,28 +58,16 @@ export async function pull(root: string, bridge: Remote, opts: PullOptions = {})
 	// Simple flow (auto-commit-on-pull): commit any local edits, then merge — git won't merge a dirty tree.
 	autoCommitSrc(root);
 
-	const fetched = await bridge.fetchChanges({ knownItems: {} }, opts.onProgress);
+	const fetched = await bridge.fetchChanges({ knownItems: sidecar?.items ?? {} }, opts.onProgress);
 	// The bridge only returns items with compiler ground truth — excluded-from-build and dead/uncompiled
 	// objects are omitted at the source, so there is nothing to mark here.
 	const ideFiles = fetched.changed.flatMap(materializeItem);
 	const newSidecar: IdeRefs = {
 		projectVersion: fetched.projectVersion,
 		items: fetched.items,
-		folders: refs.folders,
+		folders: fetched.folders,
 	};
 	const head = headCommit(root);
-
-	// Bootstrap: unborn HEAD — no merge target. Seed both refs + materialize files + sync the index.
-	if (head === undefined) {
-		const tree = buildVoltIdeTree(gitDir, undefined, ideFiles);
-		const commit = commitVoltIde(gitDir, tree, undefined, `volt: IDE @ ${fetched.projectVersion}`);
-		updateRef(gitDir, RANGE, commit);
-		updateRef(gitDir, `refs/heads/${currentBranch(root) ?? "main"}`, commit);
-		writeSrcFiles(root, ideFiles);
-		readTreeToIndex(root, commit);
-		saveIdeRefs(root, newSidecar);
-		return { kind: "ok", synced: ideFiles.map((f) => f.path), message: "initialized workspace from the IDE" };
-	}
 
 	// Steady state: commit the IDE tree onto the volt/ide chain, then merge into the branch.
 	const tree = buildVoltIdeTree(gitDir, head, ideFiles);

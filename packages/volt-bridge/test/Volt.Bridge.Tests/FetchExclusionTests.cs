@@ -18,7 +18,7 @@ public class FetchExclusionTests
     public void Fetch_omits_excluded_from_build_items()
     {
         var ide = new FakeIde(Pou("Good"), Pou("Bad", excluded: true));
-        var resp = FetchService.Handle(ide, new FetchRequest());
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Good"));
         Assert.DoesNotContain(resp.Changed, c => c.Name.StartsWith("Bad"));
@@ -32,7 +32,7 @@ public class FetchExclusionTests
     {
         var ide = new FakeIde(Pou("Live"), Pou("Dead"));
 
-        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true });
+        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true, KnownItems = new() });
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Live"));
         Assert.Contains(resp.Changed, c => c.Name.StartsWith("Dead"));
     }
@@ -55,7 +55,7 @@ public class FetchExclusionTests
         var manifest = "LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, 3.5.18.0 (System)\nPLACEHOLDER true\nSYSTEM false\n";
         var ide = new FakeIde(FakeIde.Item.Library("Standard", manifest));
 
-        var resp = FetchService.Handle(ide, new FetchRequest());
+        var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
         var stub = resp.Changed.Single(c => c.Name == "Standard.library");
         Assert.Equal("Library Manager/Standard", stub.Folder);
@@ -75,7 +75,7 @@ public class FetchExclusionTests
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { handle } };
 
-        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true });
+        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true, KnownItems = new() });
 
         var handles = resp.Changed.Where(c => c.Name == "HANDLE.alias").Select(c => c.Folder).ToList();
         Assert.Equal(new[] { "Library Manager/CAA Types" }, handles); // once, beside its stub
@@ -96,7 +96,7 @@ public class FetchExclusionTests
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { orphan } };
 
-        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true });
+        var resp = FetchService.Handle(ide, new FetchRequest { Verbose = true, KnownItems = new() });
 
         var placed = resp.Changed.Where(c => c.Name == "SOMEFB.fb").Select(c => c.Folder).ToList();
         Assert.Single(placed);

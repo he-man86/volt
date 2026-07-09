@@ -20,11 +20,18 @@ public class RefsResponse
 
 public class FetchRequest
 {
+    /// <summary>Client's currently-known {name → version} map. Omit/empty or unset on the wire = fetch all.
+    /// When <see cref="Init"/> is true this field is ignored — init always returns everything.</summary>
     [JsonPropertyName("knownItems")]
     public Dictionary<string, string>? KnownItems { get; set; }
 
     [JsonPropertyName("onlyItems")]
     public List<string>? OnlyItems { get; set; }
+
+    /// <summary>Bootstrap mode: return every item regardless of knownItems. Used by <c>volt-git init</c> to
+    /// seed the first workspace. A normal /fetch without knownItems AND without init=true is an error.</summary>
+    [JsonPropertyName("init")]
+    public bool Init { get; set; }
 
     /// <summary>Opt-in: also return referenced-library element SIGNATURES (declaration-only), materialized under
     /// each library's folder in the Library Manager. Off by default — a normal pull stays lightweight; the harvest
@@ -67,4 +74,9 @@ public class FetchResponse
 
     [JsonPropertyName("items")]
     public Dictionary<string, string> Items { get; set; } = new();
+
+    /// <summary>Full name → folder path map. Populated by /init and /fetch so the client
+    /// can reconstruct the tree without a separate /refs call.</summary>
+    [JsonPropertyName("folders")]
+    public Dictionary<string, string> Folders { get; set; } = new();
 }
