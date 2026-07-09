@@ -23,7 +23,7 @@ export function VoltOnboard(props: { workspaceRoot: string; onInitialized?: () =
   const labelOf = (p: VendorProbe): string => {
     const h = "health" in p.state ? p.state.health : undefined
     const ide = h?.ideName ?? (p.vendor === "twincat" ? "TwinCAT" : "CODESYS")
-    return `${ide} — ${h?.plcProjectName ?? h?.projectName ?? "(no project)"}`
+    return `${ide} — ${h?.projectName ?? "(no project)"}`
   }
 
   async function init(port: number) {
