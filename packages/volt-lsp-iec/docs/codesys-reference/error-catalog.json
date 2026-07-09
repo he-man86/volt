@@ -17,7 +17,7 @@
     "ourCode": "constant-too-large",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -62,7 +62,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "b := w.15;"
+    "fix": "b := w.15;",
+    "codesysActual": [
+      "'17' is no valid bit number for 'w'"
+    ]
   },
   {
     "code": "C0004",
@@ -81,7 +84,7 @@
     "ourCode": "unknown-member",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -291,7 +294,7 @@
     "ourCode": "not-assignment-target",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -461,10 +464,13 @@
     "ourCode": null,
     "lint": null,
     "verified": {
-      "codesys": true,
+      "codesys": false,
       "twincat": false
     },
-    "fix": "test1 := TO_INT(test2);"
+    "fix": "test1 := TO_INT(test2);",
+    "codesysActual": [
+      "Unexpected statement"
+    ]
   },
   {
     "code": "C0033",
@@ -485,7 +491,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+    ]
   },
   {
     "code": "C0035",
@@ -546,7 +555,7 @@
     "ourCode": "unknown-named-argument",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR_INPUT\n    iVar : INT;\nEND_VAR",
@@ -568,7 +577,7 @@
     "ourCode": "unknown-named-output",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR_OUTPUT\n    iVar : INT;\nEND_VAR",
@@ -590,7 +599,7 @@
     "ourCode": "in-out-not-assigned",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "inst(inout := i);",
@@ -612,7 +621,7 @@
     "ourCode": "function-argument-count",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "i := Test(1);",
@@ -638,7 +647,10 @@
       "twincat": false
     },
     "fix": "i := Test(x);",
-    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL."
+    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL.",
+    "codesysActual": [
+      "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
+    ]
   },
   {
     "code": "C0042",
@@ -700,7 +712,7 @@
     "ourCode": "input-assignment-missing",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR_INPUT\n    in : INT;\nEND_VAR",
@@ -725,7 +737,12 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "'THIS^.test1' is no valid assignment target",
+      "'THIS^' is no structured variable",
+      "Expression THIS is not allowed in this context"
+    ]
   },
   {
     "code": "C0046",
@@ -743,7 +760,7 @@
     "ourCode": "unresolved-identifier",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR\n    i : INT;\nEND_VAR"
@@ -767,7 +784,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "The code 'i[1];\r\n' has no effect. Is this the intent?",
+      "Cannot apply indexing with [] to an expression of type 'INT'"
+    ]
   },
   {
     "code": "C0048",
@@ -785,7 +806,7 @@
     "ourCode": "array-index-count",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "arr1[1,2] := 5;"
@@ -806,7 +827,7 @@
     "ourCode": "array-index-out-of-bounds",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "arr1[2] := 1;"
@@ -892,7 +913,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Cannot convert type 'BIT' to type 'INT'",
+      "Bit access on function call is not allowed"
+    ]
   },
   {
     "code": "C0062",
@@ -932,7 +957,7 @@
     "ourCode": "deref-non-pointer",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    pi : POINTER TO INT;\n    x : INT;\nEND_VAR\nx := pi^;"
@@ -974,7 +999,7 @@
     "ourCode": "incompatible-comparison",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "b := i > re;"
@@ -998,7 +1023,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
+    ]
   },
   {
     "code": "C0069",
@@ -1019,7 +1047,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
+    ]
   },
   {
     "code": "C0070",
@@ -1040,7 +1071,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "b := INI(inst, TRUE);"
+    "fix": "b := INI(inst, TRUE);",
+    "codesysActual": [
+      "INI operator needs function block instance or data unit type instance"
+    ]
   },
   {
     "code": "C0072",
@@ -1062,7 +1096,10 @@
       "twincat": false
     },
     "fix": "i := ABS(i);",
-    "note": "PROVISIONAL wording (title-cased operator name); math operators only (ABS/SQRT/LN/LOG/EXP/trig). Verify against bridge."
+    "note": "PROVISIONAL wording (title-cased operator name); math operators only (ABS/SQRT/LN/LOG/EXP/trig). Verify against bridge.",
+    "codesysActual": [
+      "Operation 'Abs' is not possible on type 'STRING'"
+    ]
   },
   {
     "code": "C0074",
@@ -1080,7 +1117,7 @@
     "ourCode": "unexpected-array-init",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM"
@@ -1104,7 +1141,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM",
+    "codesysActual": [
+      "Too many initializers for array"
+    ]
   },
   {
     "code": "C0076",
@@ -1122,7 +1162,7 @@
     "ourCode": "unexpected-struct-init",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    st1 : INT := 1;\nEND_VAR\nEND_PROGRAM"
@@ -1143,10 +1183,13 @@
     "ourCode": "unknown-type",
     "lint": "unknownType",
     "verified": {
-      "codesys": true,
+      "codesys": false,
       "twincat": false
     },
-    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
+    "codesysActual": [
+      "Unexpected statement"
+    ]
   },
   {
     "code": "C0078",
@@ -1185,7 +1228,7 @@
     "ourCode": "fb-not-instantiated",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "VAR\n    inst : FB;\nEND_VAR\ninst();"
@@ -1207,7 +1250,7 @@
     "ourCode": "orphan-conditional-pragma",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "{IF <expression>}\ni := 5;\n{END_IF}"
@@ -1291,7 +1334,7 @@
     "ourCode": "interface-not-found",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "INTERFACE XY",
@@ -1313,7 +1356,7 @@
     "ourCode": "missing-interface-implementation",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -1355,7 +1398,7 @@
     "ourCode": "base-class-not-found",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -1377,7 +1420,7 @@
     "ourCode": "circular-inheritance",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -1440,7 +1483,7 @@
     "ourCode": "duplicate-inherited-variable",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -1509,7 +1552,10 @@
       "twincat": false
     },
     "fix": null,
-    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL."
+    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL.",
+    "codesysActual": [
+      "Data recursion: FB1 -> FB2 -> FB1"
+    ]
   },
   {
     "code": "C0102",
@@ -1709,7 +1755,7 @@
     "ourCode": "fb-lifecycle-signature",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "METHOD FB_init\nVAR_INPUT\n    bInitRetains : BOOL;\n    bInCopyCode : BOOL;\nEND_VAR"
@@ -1731,7 +1777,7 @@
     "ourCode": "fb-lifecycle-signature",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "METHOD FB_exit\nVAR_INPUT\n    bInCopyCode : BOOL;\nEND_VAR"
@@ -1755,7 +1801,12 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Program name, function or function block instance expected instead of 'SUPER^.METH'",
+      "'SUPER^' is no structured variable",
+      "Expression SUPER is not allowed in this context"
+    ]
   },
   {
     "code": "C0124",
@@ -1777,7 +1828,11 @@
       "twincat": false
     },
     "fix": null,
-    "note": "Enum member with a real initializer (constEval folds real->JS number, int->bigint). Real literal is LREAL by default. PROVISIONAL."
+    "note": "Enum member with a real initializer (constEval folds real->JS number, int->bigint). Real literal is LREAL by default. PROVISIONAL.",
+    "codesysActual": [
+      "Cannot convert type 'LREAL' to type 'DUT'",
+      "2.5 is no valid initialisation for an enumeration"
+    ]
   },
   {
     "code": "C0125",
@@ -1817,7 +1872,7 @@
     "ourCode": "pointer-index-arity",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "pi[0] := 0;"
@@ -1842,7 +1897,10 @@
       "twincat": false
     },
     "fix": "inst.METH1();",
-    "note": "Method member used as a value (member access; called = not-a-call-callee). Bare-ident refs excluded (own return var). PROVISIONAL."
+    "note": "Method member used as a value (member access; called = not-a-call-callee). Bare-ident refs excluded (own return var). PROVISIONAL.",
+    "codesysActual": [
+      "Cannot convert type 'METH1' to type 'INT'"
+    ]
   },
   {
     "code": "C0131",
@@ -1863,7 +1921,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "pt := ADR(i);"
+    "fix": "pt := ADR(i);",
+    "codesysActual": [
+      "'1' is not allowed as operand for ADR"
+    ]
   },
   {
     "code": "C0132",
@@ -1884,7 +1945,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "No enclosing loop of which to exit"
+    ]
   },
   {
     "code": "C0136",
@@ -1947,7 +2011,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "The code 'i;\r\n' has no effect. Is this the intent?"
+    ]
   },
   {
     "code": "C0140",
@@ -1968,7 +2035,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "I_r : REFERENCE TO INT;"
+    "fix": "I_r : REFERENCE TO INT;",
+    "codesysActual": [
+      "Reference assign is only allowed to variables of reference type"
+    ]
   },
   {
     "code": "C0141",
@@ -2009,7 +2079,7 @@
     "ourCode": "duplicate-declaration",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2030,7 +2100,7 @@
     "ourCode": "property-lacks-getter",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -2115,7 +2185,7 @@
     "ourCode": "array-bound-non-const",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "arr1 : ARRAY[1..3] OF INT;"
@@ -2139,7 +2209,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..4] OF INT := [1,3(7)];\nEND_VAR\nEND_PROGRAM"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..4] OF INT := [1,3(7)];\nEND_VAR\nEND_PROGRAM",
+    "codesysActual": [
+      "Number 'i' of array initialisations is no constant value"
+    ]
   },
   {
     "code": "C0164",
@@ -2202,7 +2275,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
+    ]
   },
   {
     "code": "C0169",
@@ -2224,7 +2300,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "VAR_GLOBAL declaration only allowed in global variable list"
+    ]
   },
   {
     "code": "C0173",
@@ -2264,7 +2343,7 @@
     "ourCode": "var-section-placement",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2288,7 +2367,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0177",
@@ -2309,7 +2389,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "'POU' is of type FUNCTION and cannot be instantiated"
+    ]
   },
   {
     "code": "C0178",
@@ -2575,7 +2658,7 @@
     "ourCode": "sign-change-conversion",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2597,7 +2680,7 @@
     "ourCode": "sign-change-conversion",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2619,7 +2702,7 @@
     "ourCode": "narrowing-conversion",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2643,7 +2726,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "String constant ''...' too long for destination type 'STRING(4)'"
+    ]
   },
   {
     "code": "C0199",
@@ -2661,7 +2747,7 @@
     "ourCode": "interface-not-instantiated",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "itest: ITF;"
@@ -2686,7 +2772,10 @@
       "twincat": false
     },
     "fix": null,
-    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL."
+    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL.",
+    "codesysActual": [
+      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
+    ]
   },
   {
     "code": "C0203",
@@ -2707,7 +2796,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Only structures and function blocks can contain variables of type BIT"
+    ]
   },
   {
     "code": "C0204",
@@ -2728,7 +2820,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
+      "References to bits are not possible"
+    ]
   },
   {
     "code": "C0205",
@@ -2746,7 +2842,7 @@
     "ourCode": "pointer-to-bit",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2767,7 +2863,7 @@
     "ourCode": "bit-array-base",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2810,7 +2906,7 @@
     "ourCode": "binary-op-type-mismatch",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2937,7 +3033,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "CASE label duplicate"
+    ]
   },
   {
     "code": "C0217",
@@ -2958,7 +3057,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "CASE label 4 also contained in range 3 .. 5"
+    ]
   },
   {
     "code": "C0218",
@@ -2979,7 +3081,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "CASE label requires literal or symbolic integer constant"
+    ]
   },
   {
     "code": "C0219",
@@ -3000,7 +3105,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "CASE contains overlapping range 1 .. 4 and 3 .. 5"
+    ]
   },
   {
     "code": "C0221",
@@ -3042,7 +3150,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Outputs can't be of type REFERENCE TO"
+    ]
   },
   {
     "code": "C0224",
@@ -3064,7 +3175,8 @@
       "twincat": false
     },
     "fix": null,
-    "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL."
+    "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL.",
+    "codesysActual": []
   },
   {
     "code": "C0225",
@@ -3103,7 +3215,7 @@
     "ourCode": "const-init-non-const",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -3124,7 +3236,7 @@
     "ourCode": "constant-no-initial-value",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "k : INT := 1;",
@@ -3147,7 +3259,7 @@
     "ourCode": "type-name-as-value",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "value := MyEnum.enum_member;\nMyEnum.enum_member := value;"
@@ -3168,7 +3280,7 @@
     "ourCode": "array-init-nesting",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    value : ARRAY[0..2] OF ARRAY[0..2] OF INT := [[1,2,3],[4,5,6],[7,8,9]];\nEND_VAR\nEND_PROGRAM"
@@ -3189,7 +3301,7 @@
     "ourCode": "array-init-element",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    values : ARRAY[0..2] OF COLOR := [(red:=255,green:=0,blue:=0),(red:=0,green:=255,blue:=0),(red:=0,green:=0,blue:=255)];\nEND_VAR\nEND_PROGRAM\nTYPE COLOR : STRUCT red : BYTE; green : BYTE; blue : BYTE; END_STRUCT END_TYPE"
@@ -3378,7 +3490,7 @@
     "ourCode": "delete-non-pointer",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "__DELETE (pt);"
@@ -3546,7 +3658,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0354",
@@ -3564,7 +3677,7 @@
     "ourCode": "enum-comparison",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
@@ -3586,7 +3699,7 @@
     "ourCode": "adr-on-bit",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -3878,7 +3991,12 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
+    "codesysActual": [
+      "Multiple assignments are not allowed for operator '__New'.",
+      "No memory for dynamic object creation defined for application 'Device.Application'",
+      "No memory for dynamic object creation defined for application 'Device.Application'"
+    ]
   },
   {
     "code": "C0511",
@@ -4047,7 +4165,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0533",
@@ -4296,7 +4415,7 @@
     "ourCode": "fb-lifecycle-signature",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "METHOD FB_exit\nVAR_INPUT\n    bInCopyCode : BOOL;\nEND_VAR"
