@@ -15,7 +15,7 @@ namespace Volt.Bridge.Beckhoff;
 /// facade + object-model + dispatcher split. Split across partial files by interface facet: this file is
 /// the session (connect / health / build / degraded policy); <c>.Tree</c> and <c>.Code</c> are the others.
 /// </summary>
-public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstanceProvider
+public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 {
     private readonly TcObjectModel _om = new();
     private readonly StaDispatcher _dispatcher = new();
@@ -23,11 +23,8 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     private readonly object _cacheLock = new();
     private bool _cachedIdeAlive;
     private string? _cachedProjectName;
-    private string? _cachedPlcProjectName;
     private bool? _cachedProjectDirty;
     private long _cachedAtMs;
-    private bool _everProbed;
-    private long _lastChangeRaisedMs;
 
     public override bool IsConnected => _om.IsConnected;
 
@@ -38,9 +35,6 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     public override void Connect() => _om.Connect();
     public override void Disconnect() { _om.Disconnect(); ClearDegraded(); }
 
-    /// <summary>All running TwinCAT instances + projects (for the connector's picker).</summary>
-    public object ListInstances() => _om.ListInstances();
-
     // ── STA thread ──────────────────────────────────────────────────
     /// <summary>The STA message loop the bridge's dedicated thread runs (started from <c>Program.cs</c>).</summary>
     public void RunStaMessageLoop(CancellationToken cancel) => _dispatcher.RunMessageLoop(cancel);
@@ -50,17 +44,16 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
     // ── health ──────────────────────────────────────────────────────
     public override HealthResponse BuildHealthResponse()
     {
-        bool ideAlive; string? projectName, plcProjectName; bool? projectDirty; long? ageMs;
+        bool ideAlive; string? projectName; bool? projectDirty; long? ageMs;
         lock (_cacheLock)
         {
             ideAlive = _cachedIdeAlive;
             projectName = _cachedProjectName;
-            plcProjectName = _cachedPlcProjectName;
             projectDirty = _cachedProjectDirty;
             ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
         }
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion, projectName, plcProjectName, projectDirty ?? false);
+        return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion, projectName, _om.PlcProjectName, projectDirty ?? false);
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>
@@ -101,29 +94,15 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver, IInstancePr
                 if (_om.IsConnected && IsDegraded) ClearDegraded();
             }
 
-            return (alive: ideAlive, project: _om.ProjectName, plc: _om.PlcProjectName, dirty: _om.ProjectDirty());
+            return (alive: ideAlive, project: _om.ProjectName, dirty: _om.ProjectDirty());
         });
-        bool raise;
         lock (_cacheLock)
         {
-            // TwinCAT has no cheaply-bindable DTE change event via our late-bound COM, so the probe IS the change
-            // source. Raise on any dirty/project-identity TRANSITION immediately; ALSO raise while the project
-            // stays dirty (at most every 30s) — `dirty` is a level, so a second unsaved edit doesn't re-transition
-            // it, and this catches those consecutive edits without a per-probe refresh storm. Coarser than
-            // CODESYS's per-edit events, but behind the identical wire.
-            var now = Environment.TickCount64;
-            raise = _everProbed && r.alive && (
-                _cachedProjectDirty != r.dirty || _cachedProjectName != r.project || _cachedPlcProjectName != r.plc
-                || (r.dirty == true && now - _lastChangeRaisedMs > 30_000));
-            if (raise) _lastChangeRaisedMs = now;
-            _everProbed = true;
             _cachedIdeAlive = r.alive;
             _cachedProjectName = r.project;
-            _cachedPlcProjectName = r.plc;
             _cachedProjectDirty = r.dirty;
             _cachedAtMs = Environment.TickCount64;
         }
-        if (raise) RaiseProjectChanged();
     });
 
     // A dead/disconnected TwinCAT COM channel surfaces as specific RPC HRESULTs; those (and only those)
