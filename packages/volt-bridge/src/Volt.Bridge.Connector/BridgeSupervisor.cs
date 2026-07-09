@@ -34,7 +34,8 @@ namespace Volt.Bridge.Connector
                 if (_workers.TryGetValue(p.Id, out var existing))
                 {
                     if (!existing.HasExited) return;
-                    existing.Dispose();          // crashed worker — dispose before respawning
+                    Log.Warn($"worker {p.Id} crashed (exit {existing.ExitCode}) — restarting");
+                    existing.Dispose();
                     _workers.Remove(p.Id);
                 }
 
@@ -84,6 +85,7 @@ namespace Volt.Bridge.Connector
                     KillTree(proc);
                     proc.Dispose();
                     _workers.Remove(id);
+                    Log.Info($"stopped worker {id}");
                 }
             }
         }
@@ -105,9 +107,10 @@ namespace Volt.Bridge.Connector
                     Arguments = args,
                     UseShellExecute = true,
                 });
+                Log.Info($"launched IDE {Path.GetFileName(exePath)}");
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex) { Log.Error($"launch IDE {Path.GetFileName(exePath)} failed: {ex.Message}"); return false; }
         }
 
         public void Dispose()

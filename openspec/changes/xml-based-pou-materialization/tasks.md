@@ -57,3 +57,13 @@
 - [x] FBD/LD body round-trip: refactored into single source of truth — `GraphicalCode.RenderBody()` shared by both old COM path (`GraphicalCode.Read`) and new XML path (`Materializer.BuildPouFromXml`). `PlcOpenReader.ReadBody` now accepts optional language param (eliminates `with { Language = lang }` override at call sites). 247 tests pass, 272 FBD/LD POUs in 854-item project produce identical VG through either path.
 - [x] Interface properties: COM path preserved, verify on real project — verified on TwinCAT Project12: interface `ITF` with method `METH` and property `Prop` (getter/setter) materialized correctly. Push cycle works (no-op accepted).
 - [x] TwinCAT: BeckhoffDriver.ReadXml returns valid PLCopen XML — verified on Project12 (TcXaeShell 15.0): debug?xml=1 returns valid 1920-char PLCopen XML. 180 CODESYS POUs with `<Method>` children correctly parsed.
+
+## Additional work beyond plan
+
+- [x] CODESYS interface export: CODESYS `export_xml` rejects `IInterfaceObject`. Added `ExportInterfaceXml()` to `CodesysObjectModel` that builds valid PLCopen XML from COM data. 96 interfaces now visible in refs/fetch on 854-item project.
+- [x] `POST /init` endpoint: one-call bootstrap for `volt-git init`. Reuses `FetchService` with `init:true` flag. Returns all items in `changed` + `folders` map. Removes duplicate `/refs` call on first pull.
+- [x] `/fetch` guard: normal `/fetch` without `knownItems` → `NO_SIDECAR` error. Must use `POST /init` for first pull.
+- [x] `buildVoltIdeTree` fix: preserved unchanged tracked files from HEAD (was dropping them all). Exposed by incremental `knownItems` optimization.
+- [x] Remove legacy `plcProjectName` from HealthResponse, DriverBase, BeckhoffDriver, TcObjectModel, volt-git schemas, init, scaffold, config, status, mock-bridge, volt-control types/health/display.
+- [x] Remove `/instances` test from E2E harness (endpoint removed).
+- [x] Refactor: `GraphicalCode.RenderBody()` as single source of truth for FBD/LD → VG. `PlcOpenReader.ReadBody` optional language param.

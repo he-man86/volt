@@ -1,64 +1,53 @@
 import { request } from "node:http"
 
 /**
- * Subscribe to the bridge's SSE change stream (`GET /events`). Calls `onChange` each time the IDE is edited
- * (the bridge debounces bursts into one event), auto-reconnecting if the stream drops. Returns an unsubscribe.
- *
- * This replaces manual "refresh" for IDE-side changes: the extension calls its normal `refresh()` on each event,
- * so the drift view updates the moment the engineer edits — no polling. First-party call (Node http, no Origin),
- * so the bridge's CSRF guard passes.
+ * Watch the bridge for IDE-side changes by polling `GET /refs` every 4 seconds and comparing
+ * `projectVersion`. Calls `onChange` each time the version differs from the last seen value.
+ * Returns an unsubscribe function. No persistent connection — one lightweight HTTP request per poll.
  */
 export function subscribeChanges(port: number, onChange: () => void): () => void {
 	let closed = false
-	let current: ReturnType<typeof request> | undefined
-	let retry: ReturnType<typeof setTimeout> | undefined
+	let timer: ReturnType<typeof setInterval> | undefined
+	let lastVersion = ""
 
-	const reconnect = (): void => {
-		if (closed || retry) return
-		retry = setTimeout(() => {
-			retry = undefined
-			connect()
-		}, 2000)
-	}
-
-	const connect = (): void => {
+	const poll = (): void => {
 		if (closed) return
 		const req = request(
-			{ host: "127.0.0.1", port, path: "/events", headers: { accept: "text/event-stream" } },
+			{ host: "127.0.0.1", port, path: "/refs", headers: { accept: "application/json" } },
 			(res) => {
 				if (res.statusCode !== 200) {
 					res.resume()
-					reconnect()
 					return
 				}
+				let body = ""
 				res.setEncoding("utf-8")
-				let buf = ""
 				res.on("data", (chunk: string) => {
-					buf += chunk
-					let nl: number
-					while ((nl = buf.indexOf("\n")) >= 0) {
-						const line = buf.slice(0, nl).trim()
-						buf = buf.slice(nl + 1)
-						if (line === "event: change") onChange() // ": keep-alive" and "data:" lines are ignored
+					body += chunk
+				})
+				res.on("end", () => {
+					try {
+						const data = JSON.parse(body) as { projectVersion?: string }
+						if (data.projectVersion && data.projectVersion !== lastVersion) {
+							lastVersion = data.projectVersion
+							onChange()
+						}
+					} catch {
+						/* skip malformed responses */
 					}
 				})
-				res.on("end", reconnect)
-				res.on("error", reconnect)
 			},
 		)
-		req.on("error", reconnect)
+		req.on("error", () => {
+			/* bridge not reachable — will retry next poll */
+		})
 		req.end()
-		current = req
 	}
 
-	connect()
+	poll()
+	timer = setInterval(poll, 4000)
+
 	return () => {
 		closed = true
-		if (retry) clearTimeout(retry)
-		try {
-			current?.destroy()
-		} catch {
-			/* already gone */
-		}
+		if (timer) clearInterval(timer)
 	}
 }

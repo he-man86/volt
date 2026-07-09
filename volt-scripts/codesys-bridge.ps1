@@ -32,7 +32,7 @@
 .EXAMPLE  pwsh volt-scripts/codesys-bridge.ps1 down
 #>
 param(
-    [ValidateSet("up", "test", "down", "restart", "status", "logs")]
+    [ValidateSet("start", "wait", "up", "test", "down", "restart", "status", "logs")]
     [string]$Action = "up",
     [ValidateSet("18", "21")]
     [string]$Version = "21",
@@ -103,6 +103,11 @@ function Invoke-Down {
 }
 
 function Invoke-Up {
+    Invoke-Start
+    if ($LASTEXITCODE -eq 0) { Invoke-Wait }
+}
+
+function Invoke-Start {
     if (-not (Test-Path $exe)) { throw "CODESYS.exe not found: $exe" }
     if (-not (Test-Path $Project)) { throw "Fixture project not found: $Project" }
     if (-not (Test-Path $scriptPy)) { throw "Headless launcher not found: $scriptPy" }
@@ -134,18 +139,21 @@ function Invoke-Up {
     # gets truncated at the first space.
     $argline = '--profile="{0}" --runscript="{1}" --noUI' -f $profileName, $scriptPy
     Write-Host "Launching headless CODESYS ..."
-    $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Hidden `
-        -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+    $proc = Start-Process -FilePath $exe -ArgumentList $argline -PassThru -WindowStyle Hidden
     Set-Content -Path $pidFile -Value $proc.Id
-    Write-Host "  PID $($proc.Id); logs -> $work"
+    Write-Host "  PID $($proc.Id)"
+}
 
+function Invoke-Wait {
     Write-Host -NoNewline "Waiting for bridge to come up"
     $deadline = (Get-Date).AddSeconds(120)
     $health = $null
+    $trackedId = if (Test-Path $pidFile) { (Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1) -as [int] } else { 0 }
     while ((Get-Date) -lt $deadline) {
-        if ($proc.HasExited) {
+        $p = Get-Process -Id $trackedId -ErrorAction SilentlyContinue
+        if (-not $p) {
             Write-Host ""
-            Write-Warning "CODESYS exited early (code $($proc.ExitCode)). Last log lines:"
+            Write-Warning "CODESYS exited early. Last log lines:"
             if (Test-Path $logOut) { Get-Content $logOut -Tail 20 }
             return
         }
@@ -179,6 +187,8 @@ function Invoke-Test {
 }
 
 switch ($Action) {
+    "start"   { Invoke-Start }
+    "wait"    { Invoke-Wait }
     "up"      { Invoke-Up }
     "test"    { Invoke-Test }
     "down"    { Invoke-Down }

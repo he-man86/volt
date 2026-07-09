@@ -38,3 +38,7 @@ tsconfig.tsbuildinfo
 
 # Scratch .st written by volt-scripts/verify-lsp.ts (cleaned up on exit; ignored in case a run is killed)
 /.volt-lsp-verify.st
+
+/rust/target/
+.opencode/opencode.json
+.opencode/tool/volt.ts

@@ -85,7 +85,75 @@ public sealed class FakeIde : IIdeDriver
     public string ReadImplementation(ItemRef item) => Find(item).Implementation ?? "";
     public void WriteText(ItemRef item, string? declaration, string implementation) => Recorded.Add($"write:{(string)item.Native}");
     public string? BodyLanguage(ItemRef item) => Find(item).BodyLang;
-    public string ReadXml(ItemRef item) => Find(item).Xml ?? throw new InvalidOperationException("no XML for " + Find(item).Name);
+    public string ReadXml(ItemRef item)
+    {
+        var it = Find(item);
+        if (it.Xml != null) return it.Xml;
+        // Auto-generate valid PLCopen XML for POU items — like the real IDE does.
+        // Non-POU items should never reach here (Materializer only calls ReadXml for POUs).
+        var ns = "http://www.plcopen.org/xml/tc6_0200";
+        var pouType = it.KindCode switch
+        {
+            ItemKind.PlcPouProg => "program",
+            ItemKind.PlcPouFb => "functionBlock",
+            ItemKind.PlcPouFunc => "function",
+            ItemKind.PlcItf => "interface",
+            _ => "functionBlock",
+        };
+        var xml = $"<pou name=\"{it.Name}\" pouType=\"{pouType}\" xmlns=\"{ns}\">";
+        if (!string.IsNullOrEmpty(it.Declaration))
+            xml += $"<addData><data><InterfaceAsPlainText><xhtml>{Escape(it.Declaration)}</xhtml></InterfaceAsPlainText></data></addData>";
+        xml += "<body>";
+        if (!string.IsNullOrEmpty(it.Implementation))
+        {
+            var lang = it.BodyLang ?? "ST";
+            xml += $"<{lang}>{Escape(it.Implementation)}</{lang}>";
+        }
+        else if (!string.IsNullOrEmpty(it.BodyLang))
+        {
+            xml += $"<{it.BodyLang}/>";
+        }
+        xml += "</body>";
+        if (it.Children is { Length: > 0 })
+        {
+            foreach (var childName in it.Children)
+            {
+                var child = _items.FirstOrDefault(i => i.Name == childName);
+                if (child == null) continue;
+                xml += BuildChildXml(child, ns);
+            }
+        }
+        xml += "</pou>";
+        return xml;
+    }
+
+    private static string BuildChildXml(Item child, string ns)
+    {
+        var type = child.KindCode switch
+        {
+            ItemKind.PlcMethod or ItemKind.PlcItfMeth => "method",
+            ItemKind.PlcAction or ItemKind.PlcTrans => "action",
+            _ => "method",
+        };
+        var xml = $"<pou name=\"{child.Name}\" pouType=\"{type}\">";
+        if (!string.IsNullOrEmpty(child.Declaration))
+            xml += $"<addData><data><InterfaceAsPlainText><xhtml>{Escape(child.Declaration)}</xhtml></InterfaceAsPlainText></data></addData>";
+        xml += "<body>";
+        if (!string.IsNullOrEmpty(child.Implementation))
+        {
+            var lang = child.BodyLang ?? "ST";
+            xml += $"<{lang}>{Escape(child.Implementation)}</{lang}>";
+        }
+        else if (!string.IsNullOrEmpty(child.BodyLang))
+        {
+            // Graphical body with empty text — CFC/SFC marker
+            xml += $"<{child.BodyLang}/>";
+        }
+        xml += "</body></pou>";
+        return xml;
+    }
+
+    private static string Escape(string s) => System.Net.WebUtility.HtmlEncode(s);
     public void WriteXml(ItemRef item, string xml) { }
     public string ReadManifest(ItemRef item, string kind) => Find(item).Declaration ?? "";
 
@@ -116,8 +184,4 @@ public sealed class FakeIde : IIdeDriver
         System.Array.Empty<IReadOnlyDictionary<string, string>>();
     public string DebugItemXml(string name) => "";
     public string DebugReflect(string target) => "";
-
-    public event Action? ProjectChanged;
-    /// <summary>Test hook: raise a change as if the IDE fired one (no debounce — that's DriverBase's job).</summary>
-    public void FireProjectChanged() => ProjectChanged?.Invoke();
 }

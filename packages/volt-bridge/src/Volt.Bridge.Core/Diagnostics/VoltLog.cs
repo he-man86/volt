@@ -22,10 +22,18 @@ public static class VoltLog
     private static string _dir = DefaultDir();
     private static string _source = "volt";
     private static bool _enabled;
+    private static VoltLogLevel _level = VoltLogLevel.Info;
     private const int RetentionDays = 14;
 
     /// <summary>The durable log directory (<c>%LOCALAPPDATA%\Volt\logs</c>), the one place every component writes.</summary>
     public static string Dir { get { lock (Gate) return _dir; } }
+
+    /// <summary>Minimum level emitted. Default <c>Info</c> — Debug lines are silent unless opted in.</summary>
+    public static VoltLogLevel Level
+    {
+        get { lock (Gate) return _level; }
+        set { lock (Gate) _level = value; }
+    }
 
     /// <summary>Enable logging for this process under <paramref name="source"/> (e.g. "codesys", "twincat",
     /// "connector"). <paramref name="dir"/> overrides the default location (used by tests).</summary>
@@ -54,8 +62,11 @@ public static class VoltLog
         WriteLine(source, $"[{Timestamp()}][{source}] {line}");
     }
 
-    private static void Write(VoltLogLevel level, string source, string message) =>
+    private static void Write(VoltLogLevel level, string source, string message)
+    {
+        if (level < _level) return;
         WriteLine(source, $"[{Timestamp()}][{source}][{level.ToString().ToLowerInvariant()}] {message}");
+    }
 
     private static void WriteLine(string source, string line)
     {

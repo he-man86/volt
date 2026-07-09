@@ -14,5 +14,5 @@ export * from "./cli.js" // setBundledCli, cliScript, spawnVolt, spawnVoltBuffer
 export * from "./health.js" // BridgeHealth, HealthState, isBridgeOnline, readBridgePort, readExtensionAccess, probeHealth, probeVendors
 export * from "./display.js" // healthLabel, healthDisplay, aggregate, VoltDisplay, VoltSeverity, WorkspaceState (Node-free; also /display subpath)
 export * from "./actions.js" // fetchStatus, pull, push, build, init, showFile, detect + outcome types
-export * from "./events.js" // subscribeChanges (SSE /events → reactive refresh)
+export * from "./events.js" // subscribeChanges (polls /refs to detect IDE edits)
 export * from "./ipc.js" // registerVoltIpcHandlers (desktop main process) + IpcMainLike

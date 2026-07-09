@@ -17,38 +17,59 @@ namespace Volt.Bridge.Connector
         Unreachable,  // nothing listening on the port
     }
 
+    public sealed class BridgeHealth
+    {
+        public BridgeStatus Status { get; init; }
+        public string? ProjectName { get; init; }
+        public bool ProjectDirty { get; init; }
+    }
+
     public static class HealthProbe
     {
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(2) };
 
-        public static async Task<BridgeStatus> ProbeAsync(int port)
+        public static async Task<BridgeHealth> ProbeAsync(int port)
         {
             try
             {
                 var json = await Http.GetStringAsync($"http://127.0.0.1:{port}/health").ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
-                var status = doc.RootElement.TryGetProperty("status", out var s) ? s.GetString() : null;
-                return status switch
+                var root = doc.RootElement;
+                return new BridgeHealth
                 {
-                    "healthy" => BridgeStatus.Connected,
-                    "degraded" => BridgeStatus.Degraded,
-                    "unavailable" => BridgeStatus.Unavailable,
-                    _ => BridgeStatus.Unknown,
+                    Status = root.TryGetProperty("status", out var s) ? s.GetString() switch
+                    {
+                        "healthy" => BridgeStatus.Connected,
+                        "degraded" => BridgeStatus.Degraded,
+                        "unavailable" => BridgeStatus.Unavailable,
+                        _ => BridgeStatus.Unknown,
+                    } : BridgeStatus.Unknown,
+                    ProjectName = TryString(root, "projectName"),
+                    ProjectDirty = root.TryGetProperty("projectDirty", out var d) && d.GetBoolean(),
                 };
             }
             catch
             {
-                return BridgeStatus.Unreachable;
+                return new BridgeHealth { Status = BridgeStatus.Unreachable };
             }
         }
 
-        public static string Describe(BridgeStatus s) => s switch
+        private static string? TryString(JsonElement el, string name) =>
+            el.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;
+
+        public static string Describe(BridgeHealth h)
         {
-            BridgeStatus.Connected => "connected",
-            BridgeStatus.Degraded => "degraded",
-            BridgeStatus.Unavailable => "no project loaded",
-            BridgeStatus.Unreachable => "not running",
-            _ => "unknown",
-        };
+            var proj = h.ProjectName != null
+                ? $" — {h.ProjectName}{(h.ProjectDirty ? " *" : "")}"
+                : "";
+            return h.Status switch
+            {
+                BridgeStatus.Connected => $"connected{proj}",
+                BridgeStatus.Degraded => $"degraded{proj}",
+                BridgeStatus.Unavailable => "no project loaded",
+                BridgeStatus.Unreachable => "not running",
+                _ => "unknown",
+            };
+        }
     }
 }

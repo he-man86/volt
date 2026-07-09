@@ -56,10 +56,4 @@ public interface IIdeSession
     /// "project", "objmgr") — its type, interfaces, and change/version/event-named members — to investigate what
     /// signal the IDE exposes. Empty when unsupported. Surfaced at <c>GET /debug?reflect=TARGET</c>.</summary>
     string DebugReflect(string target);
-
-    /// <summary>Raised (debounced) when the loaded project changes in the IDE — an object edited / added /
-    /// removed / renamed. The HTTP host fans this out to <c>GET /events</c> (SSE) subscribers so a client
-    /// refreshes reactively, no polling. Each driver wires it to the IDE's own change events (CODESYS
-    /// <c>IObjectManager</c>, TwinCAT DTE); a driver with no source simply never raises it.</summary>
-    event Action ProjectChanged;
 }

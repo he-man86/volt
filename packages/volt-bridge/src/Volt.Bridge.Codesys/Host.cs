@@ -37,7 +37,7 @@ public static class Host
 
             _server = new BridgeHttpServer(_driver, Port);
             try { _server.Start(); }
-            catch (Exception ex) { _server = null; _driver = null; return "Volt bridge FAILED to start: " + ex.Message; }
+            catch (Exception ex) { VoltLog.Error($"in-proc bridge start failed: {ex.Message}"); _server = null; _driver = null; return "Volt bridge FAILED to start: " + ex.Message; }
 
             var where = _driver.IsConnected ? "connected to IDE" : "no IDE engine";
             return $"Volt bridge started on http://127.0.0.1:{Port} ({where})";

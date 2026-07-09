@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
@@ -5,15 +6,9 @@ using Volt.Bridge.Core.Workspace;
 
 namespace Volt.Bridge.Core.Sync;
 
-/// <summary><c>/refs</c>: every item's content version (no source bodies) + the aggregate
-/// project/structure versions, for cheap change detection on the client.
-///
-/// The aggregate versions (projectVersion, structureVersion) are computed from BARE-name keys
-/// (it.Name) — the same keys PushService uses for conflict detection. The wire Items map uses
-/// FULL-name keys (mat.FullName) so the client can derive the file extension from the key alone.</summary>
 public static class RefsService
 {
-    public static RefsResponse Handle(IIdeDriver ide)
+    public static RefsResponse Handle(IIdeDriver ide, Action<ProgressFrame>? onProgress = null)
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
@@ -21,20 +16,22 @@ public static class RefsService
         var fullVersions = new Dictionary<string, string>();
         var folders = new Dictionary<string, string>();
 
-        foreach (var it in ide.WalkItems())
+        var walked = ide.WalkItems();
+        var total = walked.Count;
+        var done = 0;
+        onProgress?.Invoke(new ProgressFrame { Operation = "refs", Done = 0, Total = total, Phase = "reading" });
+
+        foreach (var it in walked)
         {
+            done++;
+            if (onProgress != null && (done % 25 == 0 || done == total))
+                onProgress(new ProgressFrame { Operation = "refs", Done = done, Total = total });
+
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
-            // A container-manager is a folder, never a tracked item (matches /fetch + both driver walks) — the
-            // Core backstop that keeps the "a pure container is a folder" invariant vendor-agnostic.
             if (ItemKind.IsContainerManager(it.KindCode)) continue;
-            // Excluded-from-build objects have no compiler ground truth — omit them (matches /fetch), so the
-            // client never tracks a file the LSP would false-positive on.
             if (it.ExcludeFromBuild) continue;
 
-            // Per-item resilience: a malformed item (e.g. an LD POU whose PLCopen export has no body) must not
-            // brick all of /refs. Isolate it with the sentinel; it stays in the project hash but, being
-            // unreadable, is omitted from the Items map (nothing to materialize) — and remains deletable.
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             versions[it.Name] = version;
             if (mat != null)

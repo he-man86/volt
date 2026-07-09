@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -21,8 +20,7 @@ namespace Volt.Bridge.Connector
         private readonly System.Windows.Forms.Timer _timer;
         private readonly BridgeSupervisor _supervisor = new();
         private readonly List<VendorProvider> _providers;
-        private readonly Dictionary<string, BridgeStatus> _status = new();
-        private readonly Dictionary<string, List<TcInstanceDto>> _instances = new();
+        private readonly Dictionary<string, BridgeHealth> _health = new();
         private readonly Dictionary<string, ToolStripMenuItem> _vendorItems = new();
         private readonly ControlServer _control;
         private volatile BridgeView[] _snapshot = Array.Empty<BridgeView>();
@@ -30,7 +28,7 @@ namespace Volt.Bridge.Connector
         public TrayContext()
         {
             _providers = ConnectorConfig.DefaultProviders();
-            foreach (var p in _providers) _status[p.Id] = BridgeStatus.Unknown;
+            foreach (var p in _providers) _health[p.Id] = new BridgeHealth { Status = BridgeStatus.Unknown };
 
             _icon = new NotifyIcon
             {
@@ -77,14 +75,10 @@ namespace Volt.Bridge.Connector
             {
                 if (p.Archetype == Archetype.ExternalAttach) _supervisor.EnsureWorker(p); // respawn if it died
 
-                var prev = _status[p.Id];
+                var prev = _health[p.Id];
                 var now = await HealthProbe.ProbeAsync(p.Port);
-                _status[p.Id] = now;
-                if (now != prev) OnStatusChanged(p, prev, now);
-
-                // Cache the attachable instances so the "Connect to" submenu opens instantly.
-                if (p.Archetype == Archetype.ExternalAttach)
-                    _instances[p.Id] = await InstanceProbe.FetchAsync(p.Port);
+                _health[p.Id] = now;
+                if (now.Status != prev.Status) OnStatusChanged(p, prev, now);
             }
             UpdateIcon();
             RefreshMenuLabels();
@@ -92,21 +86,21 @@ namespace Volt.Bridge.Connector
             // Publish the immutable snapshot the control plane serves on :8550.
             _snapshot = _providers.Select(p => new BridgeView(
                 p.Id, p.DisplayName, p.Port, p.Archetype.ToString(),
-                HealthProbe.Describe(_status[p.Id]),
+                HealthProbe.Describe(_health[p.Id]),
                 p.Archetype == Archetype.ExternalAttach && _supervisor.IsWorkerRunning(p.Id),
                 p.Installs.Count > 0 ? p.Installs : null,
-                _instances.TryGetValue(p.Id, out var insts) ? insts : null,
+                null,
                 p.Target)).ToArray();
         }
 
         private VendorProvider? Find(string id) => _providers.FirstOrDefault(p => p.Id == id);
 
-        private void OnStatusChanged(VendorProvider p, BridgeStatus prev, BridgeStatus now)
+        private void OnStatusChanged(VendorProvider p, BridgeHealth prev, BridgeHealth now)
         {
             // Toast only meaningful transitions: a vendor going down, or coming back.
-            if (now == BridgeStatus.Connected && prev != BridgeStatus.Connected)
+            if (now.Status == BridgeStatus.Connected && prev.Status != BridgeStatus.Connected)
                 _icon.ShowBalloonTip(4000, "Volt", $"{p.DisplayName} bridge connected.", ToolTipIcon.Info);
-            else if (now is BridgeStatus.Unreachable or BridgeStatus.Unavailable && prev == BridgeStatus.Connected)
+            else if (now.Status is BridgeStatus.Unreachable or BridgeStatus.Unavailable && prev.Status == BridgeStatus.Connected)
                 _icon.ShowBalloonTip(6000, "Volt", $"{p.DisplayName} bridge {HealthProbe.Describe(now)}.", ToolTipIcon.Warning);
         }
 
@@ -115,7 +109,7 @@ namespace Volt.Bridge.Connector
         {
             _icon.Icon = StatusIcons.For(Aggregate());
             _icon.Text = "Volt Bridge Connector — " + string.Join(", ",
-                _providers.Select(p => $"{p.DisplayName}: {HealthProbe.Describe(_status[p.Id])}"));
+                _providers.Select(p => $"{p.DisplayName}: {HealthProbe.Describe(_health[p.Id])}"));
             if (_icon.Text.Length > 63) _icon.Text = _icon.Text.Substring(0, 60) + "…"; // NotifyIcon.Text limit
         }
 
@@ -126,7 +120,7 @@ namespace Volt.Bridge.Connector
         /// really for; deriving it from state removes the toggle.</summary>
         private BridgeStatus Aggregate()
         {
-            var statuses = _providers.Select(p => _status[p.Id]).ToList();
+            var statuses = _providers.Select(p => _health[p.Id].Status).ToList();
             if (statuses.Contains(BridgeStatus.Connected)) return BridgeStatus.Connected;   // green
             if (statuses.Contains(BridgeStatus.Degraded)) return BridgeStatus.Degraded;     // amber
             if (statuses.Contains(BridgeStatus.Unavailable)) return BridgeStatus.Unavailable; // orange: waiting for a project
@@ -145,18 +139,13 @@ namespace Volt.Bridge.Connector
                 var item = new ToolStripMenuItem(p.DisplayName);
                 if (p.Archetype == Archetype.ExternalAttach)
                 {
-                    var connect = new ToolStripMenuItem("Connect to");
-                    connect.DropDownOpening += (_, _) => PopulateInstances(p, connect);
-                    item.DropDownItems.Add(connect);
-                    item.DropDownItems.Add("Restart bridge", null, (_, _) => { _supervisor.StopWorker(p.Id); _supervisor.EnsureWorker(p); });
-                    item.DropDownItems.Add("Stop bridge", null, (_, _) => _supervisor.StopWorker(p.Id));
+                    item.DropDownOpening += (_, _) => PopulateInstances(p, item);
+                    item.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
                 }
-                else // InIdeLoad — a submenu of discovered installs, repopulated on open
+                else // InIdeLoad — discovered installs, repopulated on open
                 {
-                    var open = new ToolStripMenuItem($"Open {p.DisplayName} (Volt)");
-                    open.DropDownOpening += (_, _) => PopulateInstalls(p, open);
-                    open.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
-                    item.DropDownItems.Add(open);
+                    item.DropDownOpening += (_, _) => PopulateInstalls(p, item);
+                    item.DropDownItems.Add(new ToolStripMenuItem("…") { Enabled = false }); // placeholder so the arrow shows
                 }
 
                 _vendorItems[p.Id] = item;
@@ -165,7 +154,6 @@ namespace Volt.Bridge.Connector
 
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Show logs", null, (_, _) => ShowLogs());
-            menu.Items.Add("Collect diagnostics", null, async (_, _) => await CollectDiagnostics());
             menu.Items.Add("Exit", null, (_, _) => ExitThreadCore());
             return menu;
         }
@@ -210,32 +198,11 @@ namespace Volt.Bridge.Connector
         // ── TwinCAT instance/project picker ──
         private void PopulateInstances(VendorProvider p, ToolStripMenuItem connect)
         {
-            // No "Default (first active)" entry: that was the silent auto-attach — it bound whatever the ROT
-            // listed first, so a second open solution could be the wrong project. The user must pick explicitly;
-            // until then the worker stays unattached (health = "no project loaded").
             connect.DropDownItems.Clear();
-
-            var list = _instances.TryGetValue(p.Id, out var inst) ? inst : new List<TcInstanceDto>();
-            if (list.Count == 0)
-            {
-                connect.DropDownItems.Add(new ToolStripMenuItem("(no running instances detected)") { Enabled = false });
-                return;
-            }
-            foreach (var i in list)
-            {
-                foreach (var proj in i.Projects)
-                {
-                    var plcs = proj.PlcProjects.Count > 0 ? proj.PlcProjects : new List<string> { "" };
-                    foreach (var plc in plcs)
-                    {
-                        var label = $"{i.IdeName ?? "IDE"} — {proj.Project}" + (string.IsNullOrEmpty(plc) ? "" : $" / {plc}");
-                        var target = new TcTarget(i.InstanceId, proj.Project, string.IsNullOrEmpty(plc) ? null : plc);
-                        var current = p.Target != null && p.Target.Instance == target.Instance
-                            && p.Target.Project == target.Project && p.Target.PlcProject == target.PlcProject;
-                        connect.DropDownItems.Add(new ToolStripMenuItem(label, null, (_, _) => SelectTarget(p, target)) { Checked = current });
-                    }
-                }
-            }
+            if (p.Target != null)
+                connect.DropDownItems.Add(new ToolStripMenuItem($"{p.Target.Project}{(p.Target.PlcProject != null ? " / " + p.Target.PlcProject : "")}") { Checked = true });
+            else
+                connect.DropDownItems.Add(new ToolStripMenuItem("(no project selected)") { Enabled = false });
         }
 
         private void SelectTarget(VendorProvider p, TcTarget? target)
@@ -249,25 +216,16 @@ namespace Volt.Bridge.Connector
                 ToolTipIcon.Info);
         }
 
-        // ── logs + diagnostics ────────────────────────────────────────────
+        // ── logs ──
         private LogWindow? _logWindow;
 
         private void ShowLogs()
         {
-            if (_logWindow == null || _logWindow.IsDisposed) _logWindow = new LogWindow(() => _providers);
+            if (_logWindow == null || _logWindow.IsDisposed) _logWindow = new LogWindow();
             _logWindow.Show();
             _logWindow.WindowState = FormWindowState.Normal;
             _logWindow.BringToFront();
             _logWindow.Activate();
-        }
-
-        private async Task CollectDiagnostics()
-        {
-            var path = await Diagnostics.CollectAsync(_providers);
-            _icon.ShowBalloonTip(6000, "Volt",
-                path != null ? $"Diagnostics saved to the Desktop ({System.IO.Path.GetFileName(path)}) — send me this file." : "Couldn't collect diagnostics (see logs).",
-                path != null ? ToolTipIcon.Info : ToolTipIcon.Warning);
-            if (path != null) { try { Process.Start(new ProcessStartInfo { FileName = System.IO.Path.GetDirectoryName(path), UseShellExecute = true }); } catch { } }
         }
 
         private void RefreshMenuLabels()
@@ -275,7 +233,7 @@ namespace Volt.Bridge.Connector
             foreach (var p in _providers)
             {
                 if (!_vendorItems.TryGetValue(p.Id, out var item)) continue;
-                item.Text = $"{p.DisplayName} — {HealthProbe.Describe(_status[p.Id])}";
+                item.Text = $"{p.DisplayName} — {HealthProbe.Describe(_health[p.Id])}";
             }
         }
 
@@ -318,7 +276,7 @@ namespace Volt.Bridge.Connector
             using var bmp = new Bitmap(size, size);
             using (var g = Graphics.FromImage(bmp))
             {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.SmoothingMode = SmoothingMode.HighQuality;
                 g.Clear(Color.Transparent);
                 var k = size / 24f;
                 var pts = new PointF[Bolt.Length];

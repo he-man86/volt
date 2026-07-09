@@ -61,7 +61,7 @@ namespace Volt.Bridge.Connector
                 _running = true;
                 _listener.BeginGetContext(OnContext, null);
             }
-            catch { /* port busy / ACL — the control plane is just unavailable, tray still works */ }
+            catch (Exception ex) { Log.Error($"control plane :{ControlPort} failed: {ex.Message}"); }
         }
 
         private void OnContext(IAsyncResult ar)
@@ -72,15 +72,16 @@ namespace Volt.Bridge.Connector
             catch { return; }
             try { _listener.BeginGetContext(OnContext, null); } catch { /* listener stopped */ }
             try { Handle(ctx); }
-            catch { try { ctx.Response.StatusCode = 500; ctx.Response.Close(); } catch { } }
+            catch (Exception ex) { Log.Error($"control plane handler error: {ex.Message}"); try { ctx.Response.StatusCode = 500; ctx.Response.Close(); } catch { } }
         }
 
         private void Handle(HttpListenerContext ctx)
         {
-            // CSRF guard (same rule as the bridge data plane): first-party callers — the VS Code extension's
-            // Node fetch, the desktop app — never send an `Origin` header; only a browser does. Reject those so
-            // a web page cannot POST /bridges/{id}/launch or /restart against this loopback control plane.
-            if (ctx.Request.Headers["Origin"] != null)
+            // CSRF guard (same rule as the bridge data plane): reject cross-origin browser requests. First-party
+            // callers — the VS Code extension's Node fetch, the desktop app — never send an `Origin` header.
+            // Same-origin requests (e.g. from a control-plane Swagger page) are allowed.
+            var origin = ctx.Request.Headers["Origin"];
+            if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{ControlPort}", StringComparison.OrdinalIgnoreCase))
             {
                 WriteJson(ctx, 403, new { error = "cross-origin browser requests are not allowed" });
                 return;

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Graphical;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
@@ -19,12 +21,14 @@ public static class PushService
     {
         if (!ide.IsConnected) throw BridgeException.PlcDisconnected();
 
+        var sw = Stopwatch.StartNew();
         ide.FlushPendingWrites();
 
         // Pre-apply snapshot: keyed by BARE IDE name because these maps mirror the IDE (which is
         // extension-less). The WIRE carries FULL names on every endpoint; op.Name is converted to bare at
         // the apply boundary via Materializer.Bare. Responses use FULL names (mat.FullName) — like /refs/fetch.
         var currentVersions = new Dictionary<string, string>();
+        var currentFullNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
         foreach (var it in ide.WalkItems())
         {
@@ -32,15 +36,19 @@ public static class PushService
             if (kind == null) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
-            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out _);
+            var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
             currentVersions[it.Name] = version;
+            if (mat != null) currentFullNames[it.Name] = mat.FullName;
             if (it.IsTopLevelCrud) itemCache[it.Name] = (it.Item, it.Folder);
         }
 
         var currentProjectVersion = Hasher.ComputeProjectVersion(currentVersions);
         var conflicts = DetectConflicts(request.Ops, request.ExpectedProjectVersion, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
+        {
+            VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
             return PushResponse.RejectedResult(conflicts, currentProjectVersion);
+        }
 
         var parent = ide.GetPlcProjectRoot();
         var applied = 0;
@@ -54,6 +62,7 @@ public static class PushService
                 // A structured VG diagnostic (parser / round-trip gate) carries a stable code + source line;
                 // any other throw is reason-only.
                 var vg = ex as Graphical.Vg.VgParseException;
+                VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({op.Name}: {ex.Message}) ({sw.ElapsedMilliseconds}ms)");
                 return PushResponse.RejectedResult(
                     new List<PushConflict> { new() { Name = op.Name, Reason = ex.Message, Code = vg?.Code, Line = vg?.Line } },
                     currentProjectVersion);
@@ -65,11 +74,24 @@ public static class PushService
         ide.FlushPendingWrites();
 
         // Cold re-walk for the receipt — bare-name keys for aggregate version (matches /refs),
-        // full-name keys for the wire Items map.
+        // full-name keys for the wire Items map. Reuse pre-apply versions for unchanged items;
+        // only the operated-on items need fresh materialization.
+        var operatedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var op in request.Ops)
+        {
+            operatedNames.Add(Materializer.Bare(op.Name));
+            if (op is SetItemOp { ToName: not null } s) operatedNames.Add(Materializer.Bare(s.ToName));
+        }
         var receiptVersions = new Dictionary<string, string>();
         var receiptFullVersions = new Dictionary<string, string>();
         foreach (var it in ide.WalkItems())
         {
+            if (currentVersions.TryGetValue(it.Name, out var preVersion) && !operatedNames.Contains(it.Name))
+            {
+                receiptVersions[it.Name] = preVersion;
+                if (currentFullNames.TryGetValue(it.Name, out var fn)) receiptFullVersions[fn] = preVersion;
+                continue;
+            }
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
@@ -77,6 +99,7 @@ public static class PushService
             if (mat != null) receiptFullVersions[mat.FullName] = version;
         }
 
+        VoltLog.Info($"push {request.Ops.Count} ops — accepted ({receiptFullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         return PushResponse.AcceptedResult(Hasher.ComputeProjectVersion(receiptVersions), receiptFullVersions);
     }
 

@@ -10,9 +10,8 @@ using System.Windows.Forms;
 namespace Volt.Bridge.Connector
 {
     /// <summary>The connector's log window — a live tail of the shared Volt log store, filterable by source and
-    /// level, searchable, with the collect-diagnostics action right in the toolbar. No separate renderer or
-    /// process: the one tray app owns its own logs surface. Closing hides it (reopening from the tray is
-    /// instant); the app disposes it on exit.</summary>
+    /// level, searchable. No separate renderer or process: the one tray app owns its own logs surface.
+    /// Closing hides it (reopening from the tray is instant); the app disposes it on exit.</summary>
     internal sealed class LogWindow : Form
     {
         private readonly ComboBox _source = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };
@@ -20,19 +19,18 @@ namespace Volt.Bridge.Connector
         private readonly TextBox _search = new TextBox { Width = 220, PlaceholderText = "filter…" };
         private readonly ListView _list = new ListView { View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill };
         private readonly System.Windows.Forms.Timer _timer = new System.Windows.Forms.Timer { Interval = 1500 };
-        private readonly Func<IReadOnlyList<VendorProvider>> _providers;
+        private string _lastRepaintHash = "";
 
         // [ts][source][level] message   (level optional — worker Raw lines have none)
         private static readonly Regex LineRe = new Regex(
             @"^\[(?<ts>[^\]]+)\]\[(?<src>[^\]]+)\](?:\[(?<lvl>[^\]]+)\])?\s?(?<msg>.*)$", RegexOptions.Compiled);
         private const int MaxLines = 2000;
 
-        public LogWindow(Func<IReadOnlyList<VendorProvider>> providers)
+        public LogWindow()
         {
-            _providers = providers;
             Text = "Volt — Logs";
-            Width = 940;
-            Height = 520;
+            Width = 1100;
+            Height = 620;
             StartPosition = FormStartPosition.CenterScreen;
             try { Icon = StatusIcons.For(BridgeStatus.Connected); } catch { /* icon is cosmetic */ }
 
@@ -44,27 +42,33 @@ namespace Volt.Bridge.Connector
             var openFolder = new Button { Text = "Open folder", AutoSize = true };
             openFolder.Click += (_, _) => TryOpen(Log.Dir);
 
-            var collect = new Button { Text = "Collect diagnostics", AutoSize = true };
-            collect.Click += async (_, _) =>
-            {
-                collect.Enabled = false;
-                var path = await Diagnostics.CollectAsync(_providers());
-                collect.Enabled = true;
-                if (path != null) TryOpen(Path.GetDirectoryName(path)!);
-            };
-
-            var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(6, 5, 6, 5) };
-            top.Controls.AddRange(new Control[] { _source, _level, _search, openFolder, collect });
+            var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(6, 8, 6, 8) };
+            top.Controls.AddRange(new Control[] { _source, _level, _search, openFolder });
 
             _list.Columns.Add("Time", 155);
-            _list.Columns.Add("Source", 90);
-            _list.Columns.Add("Level", 60);
-            _list.Columns.Add("Message", 590);
-            _list.Font = new Font(FontFamily.GenericMonospace, 8.5f);
+            _list.Columns.Add("Source", 130);
+            _list.Columns.Add("Level", 80);
+            _list.Columns.Add("Message", 690);
+            _list.Font = new Font(FontFamily.GenericMonospace, 9f);
 
-            _source.SelectedIndexChanged += (_, _) => Repaint();
-            _level.SelectedIndexChanged += (_, _) => Repaint();
-            _search.TextChanged += (_, _) => Repaint();
+            _source.SelectedIndexChanged += (_, _) => { _lastRepaintHash = ""; Repaint(); };
+            _level.SelectedIndexChanged += (_, _) => { _lastRepaintHash = ""; Repaint(); };
+            _search.TextChanged += (_, _) => { _lastRepaintHash = ""; Repaint(); };
+
+            _list.KeyDown += (_, e) =>
+            {
+                if (e.Control && e.KeyCode == Keys.A)
+                {
+                    foreach (ListViewItem item in _list.Items) item.Selected = true;
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.C)
+                {
+                    CopySelectedToClipboard();
+                    e.Handled = true;
+                }
+            };
 
             Controls.Add(_list);
             Controls.Add(top);
@@ -96,7 +100,11 @@ namespace Volt.Bridge.Connector
                 (srcFilter is null or "all sources" || r.Src == srcFilter) &&
                 (lvlFilter is null or "all levels" || string.Equals(r.Lvl, lvlFilter, StringComparison.OrdinalIgnoreCase)) &&
                 (q.Length == 0 || r.Msg.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0
-                               || r.Src.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0));
+                               || r.Src.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
+
+            var hash = filtered.Count == 0 ? "" : $"{filtered.Count}|{filtered[0].Ts}¦{filtered[0].Msg}|{filtered[filtered.Count - 1].Ts}¦{filtered[filtered.Count - 1].Msg}";
+            if (hash == _lastRepaintHash) return;
+            _lastRepaintHash = hash;
 
             _list.BeginUpdate();
             _list.Items.Clear();
@@ -130,16 +138,31 @@ namespace Volt.Bridge.Connector
             _source.SelectedIndex = idx >= 0 ? idx : 0;
         }
 
+        private void CopySelectedToClipboard()
+        {
+            var selected = _list.SelectedItems;
+            if (selected.Count == 0) return;
+            var lines = new List<string>(selected.Count);
+            foreach (ListViewItem item in selected)
+                lines.Add(string.Join("\t", item.SubItems.Cast<ListViewItem.ListViewSubItem>().Select(s => s.Text)));
+            Clipboard.SetText(string.Join(Environment.NewLine, lines));
+        }
+
         private static List<Row> ReadRows()
         {
             var rows = new List<Row>();
             try
             {
                 if (!Directory.Exists(Log.Dir)) return rows;
-                foreach (var f in Directory.GetFiles(Log.Dir, "*.log"))
+                var files = Directory.GetFiles(Log.Dir, "*.log");
+                // Give each log file a fair share of the total budget so a chatty source
+                // (e.g. TwinCAT with thousands of lines) doesn't crowd out quieter ones
+                // (e.g. CODESYS) when the combined list is truncated after sorting.
+                var perFile = files.Length == 0 ? MaxLines : Math.Max(300, MaxLines / files.Length);
+                foreach (var f in files)
                 {
                     string[] lines;
-                    try { lines = ReadTail(f, MaxLines); } catch { continue; }
+                    try { lines = ReadTail(f, perFile); } catch { continue; }
                     foreach (var l in lines)
                     {
                         if (l.Length == 0) continue;
@@ -151,7 +174,7 @@ namespace Volt.Bridge.Connector
                 }
             }
             catch { /* best effort tail */ }
-            rows.Sort((a, b) => string.CompareOrdinal(a.Ts, b.Ts)); // ISO-ish timestamps → lexical order is chronological
+            rows.Sort((a, b) => string.CompareOrdinal(a.Ts, b.Ts));
             return rows.Count > MaxLines ? rows.GetRange(rows.Count - MaxLines, MaxLines) : rows;
         }
 

@@ -23,35 +23,6 @@ servers:
     description: CODESYS bridge
 
 paths:
-  # ── /events ───────────────────────────────────────────────────────────────
-  /events:
-    get:
-      operationId: subscribeEvents
-      summary: SSE stream of project-change events (reactive, no polling)
-      description: |
-        A Server-Sent Events stream the client opens ONCE. The bridge pushes a
-        `change` event whenever the loaded project is edited in the IDE — debounced,
-        so a burst of edits is one event — plus periodic `: keep-alive` comments (which
-        also serve as the client's liveness signal). On a `change` the client re-runs its
-        normal status refresh (`/refs` + diff); the event itself carries no payload.
-
-        Detection is centralized in the bridge (CODESYS `IObjectManager` events;
-        TwinCAT probe) and never leaks to the wire — the stream is identical per vendor.
-      responses:
-        "200":
-          description: An event stream (stays open).
-          content:
-            text/event-stream:
-              schema:
-                type: string
-              example: |
-                : connected
-
-                event: change
-                data: {}
-
-                : keep-alive
-
   # ── /health ───────────────────────────────────────────────────────────────
   /health:
     get:
@@ -105,50 +76,6 @@ paths:
                     plcProjectName: null
 
   # ── /refs ─────────────────────────────────────────────────────────────────
-  /instances:
-    get:
-      operationId: listInstances
-      summary: Attachable IDE instances/projects (for the connector's picker)
-      description: |
-        Lists the IDE instances + projects this bridge could attach to. TwinCAT
-        enumerates the COM Running Object Table (every running TcXaeShell / VS
-        instance and its PLC projects); adapters without multi-instance support
-        return an empty list. Works even when the bridge is degraded so a target
-        can be re-picked. The connector reads this over HTTP — it does no COM.
-      responses:
-        "200":
-          description: Running instances
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  instances:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        instanceId: { type: string, description: ROT moniker (incl. pid) — the target id }
-                        ideName: { type: string, nullable: true }
-                        ideVersion: { type: string, nullable: true }
-                        solution: { type: string, nullable: true }
-                        projects:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              project: { type: string }
-                              plcProjects: { type: array, items: { type: string } }
-              example:
-                instances:
-                  - instanceId: "!TcXaeShell.DTE.15.0:12345"
-                    ideName: "TcXaeShell"
-                    ideVersion: "15.0"
-                    solution: "C:\\proj\\MachineA.sln"
-                    projects:
-                      - project: "MachineA"
-                        plcProjects: ["PLC1", "PLC2"]
-
   /refs:
     get:
       operationId: getRefs
@@ -161,10 +88,30 @@ paths:
         - structureVersion: SHA1 of sorted names only — stable across content edits
         - items: name → content fingerprint map
         - folders: name → slash-joined folder path
+
+        **Streaming (progress):** send `Accept: application/x-ndjson` to receive the
+        operation as a newline-delimited JSON stream — zero or more
+        `{"progress":{operation,done,total,phase}}` frames followed by exactly one
+        terminal `{"result": <RefsResponse>}` (or `{"error":{code,message}}`). Without
+        that header the response is the single JSON body below (backward-compatible).
+      parameters:
+        - in: header
+          name: Accept
+          required: false
+          schema:
+            type: string
+            enum: ["application/json", "application/x-ndjson"]
+          description: application/x-ndjson opts into streamed progress frames.
       responses:
         "200":
-          description: Current project reference map
+          description: |
+            Current project reference map. `application/json` = the single body;
+            `application/x-ndjson` = progress frames then a terminal result frame
+            (see the streaming note above).
           content:
+            application/x-ndjson:
+              schema:
+                $ref: "#/components/schemas/NdjsonStream"
             application/json:
               schema:
                 $ref: "#/components/schemas/RefsResponse"
@@ -404,7 +351,7 @@ components:
       type: object
       required: [operation, done]
       properties:
-        operation: { type: string, enum: [fetch, push, build] }
+        operation: { type: string, enum: [refs, fetch, push, build] }
         done: { type: integer, description: units completed }
         total: { type: [integer, "null"], description: total units; null when indeterminate (build) }
         phase: { type: [string, "null"], description: coarse phase label, e.g. reading / rendering libraries / building }

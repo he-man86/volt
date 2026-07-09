@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
 
@@ -23,16 +24,21 @@ public static class BuildService
             ide.FlushPendingWrites();
             var success = ide.Build();
             sw.Stop();
+            var diagnostics = ide.GetBuildDiagnostics().ToList();
+            var errors = diagnostics.Count(d => d.Severity == "error");
+            var warnings = diagnostics.Count(d => d.Severity == "warning");
+            VoltLog.Info($"build {request.BuildType} {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
             return new BuildResponse
             {
                 Success = success,
                 Duration = sw.ElapsedMilliseconds,
-                Diagnostics = ide.GetBuildDiagnostics().ToList(),
+                Diagnostics = diagnostics,
             };
         }
         catch (Exception ex)
         {
             sw.Stop();
+            VoltLog.Error($"build {request.BuildType} failed ({sw.ElapsedMilliseconds}ms): {ex.Message}");
             return new BuildResponse
             {
                 Success = false,
