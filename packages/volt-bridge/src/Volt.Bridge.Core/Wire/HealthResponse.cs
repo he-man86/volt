@@ -55,9 +55,6 @@ public class HealthResponse
     [JsonPropertyName("projectName")]
     public string? ProjectName { get; set; }
 
-    [JsonPropertyName("plcProjectName")]
-    public string? PlcProjectName { get; set; }
-
     [JsonPropertyName("projectDirty")]
     public bool? ProjectDirty { get; set; }
 }

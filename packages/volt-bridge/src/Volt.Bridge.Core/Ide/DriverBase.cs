@@ -78,7 +78,7 @@ public abstract class DriverBase : IIdeSession
 
     /// <summary>Build the uniform health response; the vendor supplies its snapshot values.</summary>
     protected HealthResponse BuildHealth(string platform, bool connected, bool ideAlive,
-        string? ideName, string? ideVersion, string? projectName, string? plcProjectName, bool projectDirty) =>
+        string? ideName, string? ideVersion, string? projectName, bool projectDirty) =>
         new()
         {
             Status = connected ? (_isDegraded ? "degraded" : "healthy") : "unavailable",
@@ -92,7 +92,6 @@ public abstract class DriverBase : IIdeSession
             IdeVersion = ideVersion,
             Version = Version,
             ProjectName = projectName,
-            PlcProjectName = plcProjectName,
             ProjectDirty = projectDirty,
         };
 }

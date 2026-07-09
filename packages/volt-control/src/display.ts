@@ -24,7 +24,7 @@ export function healthLabel(state: HealthState): string {
     case "unknown":
       return "Probing IDE..."
     case "connected":
-      return `${state.health.ideName ?? "IDE"} — ${state.health.plcProjectName ?? state.health.projectName ?? "(no project)"}`
+      return `${state.health.ideName ?? "IDE"} — ${state.health.projectName ?? "(no project)"}`
     case "degraded":
       return `Degraded: ${state.health.degradedReason ?? "previous call failed"}`
     case "disconnected":

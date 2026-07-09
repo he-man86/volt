@@ -3,7 +3,7 @@
  * Protocol: git-inspired refs + atomic batched push. Schemas are the source of truth and are
  * `.parse()`-validated at the client boundary.
  *
- *   GET  /health  → liveness + stable identifiers (platform, projectName, plcProjectName)
+ *   GET  /health  → liveness + stable identifiers (platform, projectName)
  *   GET  /refs    → project + per-item content versions (cheap, no payload)
  *   POST /fetch   → only items changed since the client's known versions
  *   POST /push    → atomic batch with per-item ifVersion guards (optimistic concurrency)
@@ -46,7 +46,6 @@ export const HealthResponseSchema = z
 		ideVersion: z.string().nullish(),
 		version: z.string(),
 		projectName: z.string().nullish(),
-		plcProjectName: z.string().nullish(),
 		projectDirty: z.boolean().optional(),
 	})
 	.strict();

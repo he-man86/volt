@@ -10,7 +10,6 @@ export interface BridgeHealth {
 	ideName?: string | null
 	ideVersion?: string | null
 	projectName?: string | null
-	plcProjectName?: string | null
 	projectDirty?: boolean
 }
 

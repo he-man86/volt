@@ -30,7 +30,7 @@ export function workspacePaths(root: string): WorkspacePaths {
 
 export interface WorkspaceConfig {
 	bridge: { port: number };
-	project: { platform: string; projectName: string; plcProjectName: string };
+	project: { platform: string; projectName: string };
 	linkedAt: string;
 }
 
@@ -47,8 +47,7 @@ export function loadConfig(root: string): WorkspaceConfig {
 	if (
 		cfg.bridge?.port === undefined ||
 		cfg.project?.platform === undefined ||
-		cfg.project?.projectName === undefined ||
-		cfg.project?.plcProjectName === undefined
+		cfg.project?.projectName === undefined
 	) {
 		throw new Error(".git/volt/config.json is malformed — re-run `volt-git init`");
 	}
@@ -64,9 +63,8 @@ export function saveConfig(root: string, cfg: WorkspaceConfig): void {
 /** undefined when the bridge's loaded project matches this workspace's binding; else an error string. */
 export function verifyBinding(cfg: WorkspaceConfig, health: HealthResponse): string | undefined {
 	const proj = health.projectName ?? "";
-	const plc = health.plcProjectName ?? "";
-	if (proj !== cfg.project.projectName || plc !== cfg.project.plcProjectName) {
-		return `bridge is on ${health.platform}/${proj}/${plc}, but this workspace is bound to ${cfg.project.platform}/${cfg.project.projectName}/${cfg.project.plcProjectName} — open the bound project in the IDE`;
+	if (proj !== cfg.project.projectName) {
+		return `bridge is on ${health.platform}/${proj}, but this workspace is bound to ${cfg.project.platform}/${cfg.project.projectName} — open the bound project in the IDE`;
 	}
 	return undefined;
 }

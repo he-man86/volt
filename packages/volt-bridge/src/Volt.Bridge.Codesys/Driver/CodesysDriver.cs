@@ -53,7 +53,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         string? name; bool dirty;
         lock (_cacheLock) { name = _projectName; dirty = _projectDirty; }
         TriggerAsyncProbe();
-        return BuildHealth("codesys", IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, name, dirty);
+        return BuildHealth("codesys", IsConnected, ideAlive: _dispatcher != null, IdeName, IdeVersion, name, dirty);
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>

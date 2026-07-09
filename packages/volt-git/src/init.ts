@@ -28,7 +28,7 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 	}
 
 	const health = await bridge.getHealth();
-	if (health.projectName === undefined || health.projectName === null || health.projectName === "" || health.plcProjectName === undefined || health.plcProjectName === null || health.plcProjectName === "") {
+	if (health.projectName === undefined || health.projectName === null || health.projectName === "") {
 		return { kind: "error", reason: "the bridge has no PLC project loaded — open a project in the IDE before `volt-git init`" };
 	}
 
@@ -38,16 +38,16 @@ export async function init(workspace: string, bridge: Remote): Promise<InitResul
 
 	const cfg: WorkspaceConfig = {
 		bridge: { port: bridge.port },
-		project: { platform: health.platform, projectName: health.projectName, plcProjectName: health.plcProjectName },
+		project: { platform: health.platform, projectName: health.projectName },
 		linkedAt: new Date().toISOString(),
 	};
 	saveConfig(root, cfg);
 
-	const scaffold = writeWorkspaceScaffold(root, health.plcProjectName);
+	const scaffold = writeWorkspaceScaffold(root, health.projectName ?? "");
 	const corpus = await tryInstallCorpus(root, vendorFor(health.platform));
-	const project = `${health.platform}/${health.projectName}/${health.plcProjectName}`;
+	const project = `${health.platform}/${health.projectName}`;
 
-	if (gitCreated) commitAll(root, `volt init: ${health.plcProjectName}`);
+	if (gitCreated) commitAll(root, `volt init: ${health.projectName}`);
 
 	const fetched = await bridge.init();
 	const ideFiles = fetched.changed.flatMap(materializeItem);

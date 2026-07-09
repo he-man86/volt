@@ -10,8 +10,8 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const FALLBACK = "plc_workspace";
-function toCrateName(plcProjectName: string): string {
-	let s = plcProjectName.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+function toCrateName(projectName: string): string {
+	let s = projectName.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
 	// A Cargo library name can't start with a digit (it becomes a Rust identifier); prefix if so.
 	if (/^[0-9]/.test(s)) s = `plc-${s}`;
 	return s.length > 0 ? s : FALLBACK;
@@ -22,13 +22,13 @@ export interface ScaffoldReport {
 	skipped: string[];
 }
 
-export function writeWorkspaceScaffold(root: string, plcProjectName: string, force = false): ScaffoldReport {
-	const name = toCrateName(plcProjectName);
+export function writeWorkspaceScaffold(root: string, projectName: string, force = false): ScaffoldReport {
+	const name = toCrateName(projectName);
 	const files: Array<{ path: string; content: string }> = [
 		{ path: ".vscode/settings.json", content: vscodeSettings() },
-		{ path: "README.md", content: readme(plcProjectName) },
+		{ path: "README.md", content: readme(projectName) },
 		{ path: "rust/Cargo.toml", content: cargoToml(name) },
-		{ path: "rust/src/lib.rs", content: libRs(plcProjectName) },
+		{ path: "rust/src/lib.rs", content: libRs(projectName) },
 		{ path: "rust/tests/smoke.rs", content: smokeTest() },
 	];
 	const created: string[] = [];
@@ -59,9 +59,9 @@ function cargoToml(name: string): string {
 	].join("\n");
 }
 
-function libRs(plcProjectName: string): string {
+function libRs(projectName: string): string {
 	return [
-		`//! Rust for the "${plcProjectName}" PLC project.`,
+		`//! Rust for the "${projectName}" PLC project.`,
 		"//!",
 		"//! The Volt language server transpiles this project's Structured Text into Rust modules here.",
 		"//! Add your own code and pull in crates via `Cargo.toml`, then run `cargo test`.",
@@ -109,9 +109,9 @@ function vscodeSettings(): string {
 	);
 }
 
-function readme(plcProjectName: string): string {
+function readme(projectName: string): string {
 	return [
-		`# ${plcProjectName} (Volt workspace)`,
+		`# ${projectName} (Volt workspace)`,
 		"",
 		"Bound to a running PLC IDE — Volt keeps its binding + IDE baseline in `.git/volt/` (managed for you).",
 		"",

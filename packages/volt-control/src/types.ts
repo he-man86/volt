@@ -1,9 +1,9 @@
 export interface ChangeSet { added: string[]; removed: string[]; modified: string[] }
 
 export interface ProjectMismatch {
-	configuredAs: { platform: string; projectName: string; plcProjectName: string }
-	bridgeReports: { platform: string; projectName: string; plcProjectName: string }
-	diffFields: ReadonlyArray<"platform" | "projectName" | "plcProjectName">
+	configuredAs: { platform: string; projectName: string }
+	bridgeReports: { platform: string; projectName: string }
+	diffFields: ReadonlyArray<"platform" | "projectName">
 }
 
 export interface StatusJson {

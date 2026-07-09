@@ -53,7 +53,7 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
             ageMs = _cachedAtMs == 0 ? null : Environment.TickCount64 - _cachedAtMs;
         }
         if (ageMs is null || ageMs > 5000) TriggerAsyncProbe();
-        return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion, projectName, _om.PlcProjectName, projectDirty ?? false);
+        return BuildHealth("beckhoff", IsConnected, ideAlive, IdeName, IdeVersion, projectName, projectDirty ?? false);
     }
 
     public override void TriggerAsyncProbe() => RunProbeOnce(() =>

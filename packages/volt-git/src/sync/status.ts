@@ -29,7 +29,7 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 	try {
 		const health = await bridge.getHealth();
 		online = health.connected === true;
-		detail = online ? `${health.platform}/${health.projectName ?? "?"}/${health.plcProjectName ?? "?"}` : (health.status ?? "offline");
+		detail = online ? `${health.platform}/${health.projectName ?? "?"}` : (health.status ?? "offline");
 		if (cfg !== undefined) projectMismatch = mismatch(cfg, health);
 		if (projectMismatch === null) {
 			const refs = await bridge.getRefs();
@@ -93,9 +93,9 @@ export async function status(root: string, bridge: Remote): Promise<StatusData> 
 const empty = (): ChangeSet => ({ added: [], removed: [], modified: [] });
 
 function mismatch(cfg: WorkspaceConfig, health: HealthResponse): ProjectMismatch | null {
-	const bridgeReports = { platform: health.platform, projectName: health.projectName ?? "", plcProjectName: health.plcProjectName ?? "" };
-	const configuredAs = { platform: cfg.project.platform, projectName: cfg.project.projectName, plcProjectName: cfg.project.plcProjectName };
-	const diffFields = (["platform", "projectName", "plcProjectName"] as const).filter((f) => configuredAs[f] !== bridgeReports[f]);
+	const bridgeReports = { platform: health.platform, projectName: health.projectName ?? "" };
+	const configuredAs = { platform: cfg.project.platform, projectName: cfg.project.projectName };
+	const diffFields = (["platform", "projectName"] as const).filter((f) => configuredAs[f] !== bridgeReports[f]);
 	return diffFields.length > 0 ? { configuredAs, bridgeReports, diffFields: [...diffFields] } : null;
 }
 

@@ -25,7 +25,7 @@ export class MockBridge implements Remote {
 	readonly port = 8555;
 	private items = new Map<string, MockItem>();
 	pushCalls: PushRequest[] = [];
-	project = { platform: "twincat", projectName: "Proj", plcProjectName: "Plc" };
+	project = { platform: "twincat", projectName: "Proj" };
 	connected = true;
 
 	constructor(initial: MockItem[] = []) {
@@ -72,7 +72,6 @@ export class MockBridge implements Remote {
 			degraded: false,
 			version: "test",
 			projectName: this.project.projectName,
-			plcProjectName: this.project.plcProjectName,
 		};
 	}
 

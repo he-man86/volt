@@ -51,7 +51,7 @@ test("worst-state-wins: merge beats offline beats drift", () => {
 
 test("mismatch retargets to acceptRename", () => {
   const ws: WorkspaceState = {
-    status: status({ projectMismatch: { configuredAs: { platform: "", projectName: "", plcProjectName: "" }, bridgeReports: { platform: "", projectName: "", plcProjectName: "" }, diffFields: [] } }),
+    status: status({ projectMismatch: { configuredAs: { platform: "", projectName: "" }, bridgeReports: { platform: "", projectName: "" }, diffFields: [] } }),
     health: connected,
   }
   const d = aggregate([ws])

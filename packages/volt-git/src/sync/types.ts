@@ -15,9 +15,9 @@ export type PullResult =
 export type PushResult = { kind: "ok"; items: string[]; message?: string } | { kind: "rejected"; reason: string };
 
 export interface ProjectMismatch {
-	configuredAs: { platform: string; projectName: string; plcProjectName: string };
-	bridgeReports: { platform: string; projectName: string; plcProjectName: string };
-	diffFields: Array<"platform" | "projectName" | "plcProjectName">;
+	configuredAs: { platform: string; projectName: string };
+	bridgeReports: { platform: string; projectName: string };
+	diffFields: Array<"platform" | "projectName">;
 }
 
 /** The contract volt-control's StatusJson declares — emitted by `status --json`. */

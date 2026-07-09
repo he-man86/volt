@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Wire;
 using Volt.Bridge.Core.Workspace;
@@ -45,10 +46,6 @@ internal sealed class TcObjectModel
     public string? IdeProgId => _ideProgId;
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
-    public string? PlcProjectName => _plcProjectPath;
-
-    /// <summary>All running TwinCAT instances + projects (for the connector's picker).</summary>
-    public object ListInstances() => RotInstances.Enumerate();
 
     // ── COM attach ──────────────────────────────────────────────────
     public void Connect()
@@ -56,21 +53,10 @@ internal sealed class TcObjectModel
         var targetInstance = Environment.GetEnvironmentVariable("VOLT_TC_INSTANCE");
         var targetProject = Environment.GetEnvironmentVariable("VOLT_TC_PROJECT");
 
-        // NO silent auto-attach: with nothing selected, do NOT bind whatever the ROT lists first — that would
-        // silently pick the wrong project when two solutions are open, and pull/push would then run against it.
-        // The user selects an instance/project from the Volt tray (or forces one via VOLT_TC_* env / the
-        // control-plane select route, e.g. for tests). Until then the worker stays unattached (health reports
-        // "no project loaded").
-        if (string.IsNullOrEmpty(targetInstance) && string.IsNullOrEmpty(targetProject))
-            throw new NoProjectSelectedException();
-
-        // Attach to the requested instance, else fall back to the first running one. BOTH paths go through
-        // the Running Object Table (RotInstances), which matches any "VisualStudio.DTE.*" / "TcXaeShell.DTE.*"
-        // moniker by substring — so a NEWER Visual Studio or TcXaeShell attaches with no code change. (The
-        // old fallback probed a hardcoded ProgID list and silently failed on any unlisted version.)
+        // Attach to the requested instance, else fall back to the first running one.
         string? instanceId = string.IsNullOrEmpty(targetInstance) ? null : targetInstance;
         if (instanceId != null) _dte = RotInstances.Bind(instanceId);
-        if (_dte == null)   // no target, or it vanished → first running instance
+        if (_dte == null)
         {
             var first = RotInstances.First();
             if (first != null) { _dte = first.Value.Dte; instanceId = first.Value.InstanceId; }
@@ -80,7 +66,19 @@ internal sealed class TcObjectModel
         _ideProgId = instanceId == null ? null : RotInstances.ProgId(instanceId);
         try { _ideVersion = (string?)_dte!.Version; } catch { /* version is cosmetic */ }
 
-        ResolveSelectedProject();
+        // Only resolve a specific project if a target was explicitly set. Without one, the DTE is attached
+        // (health shows "no project loaded") and the PLC project list is available for the picker.
+        if (!string.IsNullOrEmpty(targetProject))
+        {
+            ResolveSelectedProject();
+            VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — {_projectName} / {_plcProjectPath}");
+        }
+        else
+        {
+            // Soft attach: find the TwinCAT project so PLCs can be listed, but don't bind a specific one.
+            try { FindTwinCatProject(null); } catch { /* no project → will list nothing */ }
+            VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} — no project selected");
+        }
     }
 
     /// <summary>Resolve the selected project + PLC project under the current DTE (from the VOLT_TC_* target).
@@ -176,6 +174,7 @@ internal sealed class TcObjectModel
     {
         DropProject();
         if (_dte != null) { try { Marshal.ReleaseComObject(_dte); } catch { } _dte = null; }
+        VoltLog.Info("disconnected from TwinCAT");
     }
 
     /// <summary>Drop the project binding but KEEP the DTE — for a project close/switch while the IDE stays open,
