@@ -70,15 +70,19 @@ public static class FetchService
             // false-positives on code the IDE itself doesn't compile.
             if (it.ExcludeFromBuild) continue;
 
-            // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip it (it can't
-            // be materialized into a body), never throw for the whole batch.
+            // Resilient: a malformed item must not crash a fetch of OTHER items. Unreadable → skip its BODY (it
+            // can't be materialized), never throw for the whole batch.
             var version = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder, out var mat);
+            // The aggregate project/structure version must cover EVERY walked item — readable or not, and
+            // regardless of the onlyItems subset — so it matches /refs and the push receipt (an unreadable item
+            // still exists and is tracked with its sentinel version). Recorded here, before the body gates below;
+            // otherwise a single unreadable item makes /fetch's projectVersion diverge from /refs'.
+            versions[it.Name] = version;
             if (mat == null) continue;
             var fullName = mat.FullName;
 
             if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
 
-            versions[it.Name] = version;
             fullVersions[fullName] = version;
             folders[fullName] = it.Folder ?? "";
 
