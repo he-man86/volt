@@ -333,10 +333,10 @@
     "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "note": "PROVISIONAL — offline (bridges down); arity table ADR/SIZEOF/SEL/MUX corpus-validated, live-verify pending.",
+    "note": "Verified live CODESYS. Arity table ADR/SIZEOF/SEL/MUX (unshadowed only); corpus zero-FP.",
     "fix": "pt := ADR(i);"
   },
   {
@@ -355,10 +355,10 @@
     "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "note": "PROVISIONAL — offline (bridges down); arity table corpus-validated, live-verify pending.",
+    "note": "Verified live CODESYS. Same intrinsic-operands arity check as C0022; corpus zero-FP.",
     "fix": "i := MUX(30,40,50);"
   },
   {

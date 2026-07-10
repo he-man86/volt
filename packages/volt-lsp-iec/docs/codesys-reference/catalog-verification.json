@@ -1,48 +1,26 @@
 {
-  "at": "2026-07-10T11:12:32.587Z",
-  "base": "http://127.0.0.1:8555",
+  "at": "2026-07-10T13:21:20.855Z",
+  "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0096",
+      "code": "C0022",
       "outcome": "verified",
       "lsp": [
-        "Only one base function block may be defined in EXTENDS-list"
+        "'ADR' needs exactly '1' operands"
       ],
       "actual": [
-        "Only one base function block may be defined in EXTENDS-list"
+        "'ADR' needs exactly '1' operands"
       ]
     },
     {
-      "code": "C0182",
+      "code": "C0023",
       "outcome": "verified",
       "lsp": [
-        "Return type is only possible for POUs of Type FUNCTION and METHOD"
+        "'MUX' needs at least '3' operands"
       ],
       "actual": [
-        "Return type is only possible for POUs of Type FUNCTION and METHOD"
+        "'MUX' needs at least '3' operands"
       ]
-    },
-    {
-      "code": "C0421",
-      "outcome": "verified",
-      "lsp": [
-        "Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS."
-      ],
-      "actual": [
-        "Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS."
-      ]
-    },
-    {
-      "code": "C0533",
-      "outcome": "silent",
-      "lsp": [],
-      "actual": []
-    },
-    {
-      "code": "C0550",
-      "outcome": "silent",
-      "lsp": [],
-      "actual": []
     }
   ]
 }
