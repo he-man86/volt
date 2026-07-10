@@ -3731,10 +3731,11 @@
     "category": "array-bound operator misuse",
     "cause": "LOWER_BOUND/UPPER_BOUND is called on a fixed-size array instead of a variable-length array parameter (ARRAY [*]).",
     "message": "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length.",
-    "repro": "FUNCTION_BLOCK POU\nVAR_IN_OUT\n    arrin : ARRAY [*] OF INT;\nEND_VAR\nVAR\n    arrtest : ARRAY [0..5] OF INT;\n    test1: DINT;\n    test2: DINT;\nEND_VAR\n\ntest1 := UPPER_BOUND(arrin, 1);\ntest2 := UPPER_BOUND(arrtest, 1);",
+    "repro": "FUNCTION_BLOCK POU\nVAR_IN_OUT\n    arrin : ARRAY [*] OF INT;\nEND_VAR\nVAR\n    arrtest : ARRAY [0..5] OF INT;\n    test1: DINT;\n    test2: DINT;\nEND_VAR\ntest1 := UPPER_BOUND(arrin, 1);\ntest2 := UPPER_BOUND(arrtest, 1);\nEND_FUNCTION_BLOCK",
     "expect": [
       "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length."
     ],
+    "note": "NOT a flat 'fixed array' rule: CODESYS ACCEPTS UPPER_BOUND/LOWER_BOUND on a fixed array (returns the constant bound) — 11 corpus FPs, e.g. UPPER_BOUND(abyReadBuffer,1) on ARRAY[0..42] OF BYTE compiles clean. The docs-repro C0380 trigger is narrower/context-specific (possibly only when a variable-length param coexists) and not decidable from a flat non-`[*]` test. Deferred.",
     "status": "checkable",
     "ourCheck": null,
     "ourCode": null,
