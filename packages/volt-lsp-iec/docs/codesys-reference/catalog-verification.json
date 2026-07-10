@@ -1,16 +1,15 @@
 {
-  "at": "2026-07-10T13:57:21.982Z",
+  "at": "2026-07-10T14:14:44.099Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0454",
-      "outcome": "mismatch",
+      "code": "C0525",
+      "outcome": "verified",
       "lsp": [
-        "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
+        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
       ],
       "actual": [
-        "No memory for dynamic object creation defined for application 'Device.Application'",
-        "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
       ]
     }
   ]

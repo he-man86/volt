@@ -4089,16 +4089,16 @@
     "category": "invalid default on input parameter",
     "cause": "A VAR_INPUT parameter of a complex/array type is given a literal initializer in the function declaration, which CODESYS does not permit in that context.",
     "message": "The type <type> cannot have a default value in this context",
-    "repro": "FUNCTION Fun: INT\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\n      aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n     aInt:ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun(1, TRUE, aInt);",
+    "repro": "FUNCTION Fun : INT\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\n      aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun := 0;\nEND_FUNCTION\n\nPROGRAM PLC_PRG\nVAR\n     aInt : ARRAY [0..1] OF INT := [1, 2];\nEND_VAR\nFun(1, TRUE, aInt);\nEND_PROGRAM",
     "expect": [
       "The type ARRAY [0..1] OF INT cannot have a default value in this context"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "input-default",
+    "ourCode": "input-default-composite",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null

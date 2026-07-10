@@ -194,6 +194,8 @@ export interface Messages {
   constantNoInitialValue(name: string): string
   /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). PROVISIONAL. */
   noInitForExternal(name: string): string
+  /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). PROVISIONAL. */
+  noDefaultForType(typeName: string): string
   /** A comparison between two different enumeration types (C0354). PROVISIONAL (bridge-gated). */
   enumComparison(left: string, right: string): string
   /** `INI` whose first operand is not an FB / DUT instance (C0070). PROVISIONAL (bridge-gated). */
@@ -359,6 +361,7 @@ export function messagesFor(vendor: Vendor): Messages {
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
+    noDefaultForType: (typeName) => `The type ${typeName} cannot have a default value in this context`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
     iniNeedsInstance: () => (tc ? `'INI' operator needs function block instance or data unit type instance` : `INI operator needs function block instance or data unit type instance`),
     caseOverlappingRanges: (lo1, hi1, lo2, hi2) => (tc ? `Case contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}` : `CASE contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`),
