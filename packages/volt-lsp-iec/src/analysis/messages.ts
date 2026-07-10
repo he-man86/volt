@@ -223,8 +223,10 @@ export function messagesFor(vendor: Vendor): Messages {
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     sectionNotAllowed: (sectionKind) =>
-      sectionKind === "VAR_GLOBAL" && !tc
-        ? `VAR_GLOBAL declaration only allowed in global variable list` // C0169 (CODESYS-verified)
+      sectionKind === "VAR_GLOBAL" // C0169 — both vendors verified, different wording
+        ? tc
+          ? `'VAR_GLOBAL' declaration only allowed in Global variable list`
+          : `VAR_GLOBAL declaration only allowed in global variable list`
         : tc
           ? `'${sectionKind}' declaration not allowed in this place`
           : `${sectionKind} declaration not allowed in this place`,
@@ -245,10 +247,14 @@ export function messagesFor(vendor: Vendor): Messages {
     unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
     unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
     inOutNeedsWritable: (param, callee) =>
-      `VAR_IN_OUT respectively REFERENCE parameter '${param}' of '${callee}' needs variable with write access as input`,
+      tc
+        ? `VAR_IN_OUT parameter '${param}' of '${callee}' needs variable with write access as input`
+        : `VAR_IN_OUT respectively REFERENCE parameter '${param}' of '${callee}' needs variable with write access as input`,
     inOutMustBeAssigned: (param, callee) => `VAR_IN_OUT '${param}' must be assigned in call of '${callee}'`,
     inOutTypeMismatch: (argType, paramType, param) =>
-      `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT respectively REFERENCE '${param}'`,
+      tc
+        ? `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT '${param}'`
+        : `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT respectively REFERENCE '${param}'`,
     propertyLacksGetter: (name) => `The property '${name}' cannot be used in this context because it lacks the get accessor`,
     methodReferencedWithoutParens: (name) => `METHOD '${name}' referenced without parentheses '()'`,
     // Docs wording (13-error-messages #C0001); byte-identical on both vendors until a live recording locks it.
@@ -261,9 +267,9 @@ export function messagesFor(vendor: Vendor): Messages {
     unexpectedStructInit: () => `Unexpected structure initialisation`,
     arrayInitExpected: () => `Array initialisation expected`,
     initListExpected: (type) => `Initialisation list for ${type} expected`,
-    caseLabelDuplicate: () => `CASE label duplicate`,
-    caseLabelInRange: (label, lo, hi) => `CASE label ${label} also contained in range ${lo} .. ${hi}`,
-    caseLabelNonConst: () => `CASE label requires literal or symbolic integer constant`,
+    caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
+    caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
+    caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
@@ -272,20 +278,20 @@ export function messagesFor(vendor: Vendor): Messages {
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
     pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
-    referenceAssignTarget: () => `Reference assign is only allowed to variables of reference type`,
+    referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
     noEnclosingLoop: () => `No enclosing loop of which to exit`,
     multipleAssignmentNew: () => `Multiple assignments for operator '__NEW' not allowed`,
     stringConstantTooLong: (value, type) => `String constant '${value}' too long for destination type '${type}'`,
     compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
-    bitInWrongContainer: () => `Only structures and function blocks can contain variables of type BIT`,
-    bitInWrongBlock: () => `Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block`,
+    bitInWrongContainer: () => (tc ? `Only Structures and Function Blocks can contain variables of type BIT.` : `Only structures and function blocks can contain variables of type BIT`),
+    bitInWrongBlock: () => (tc ? `Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block` : `Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block`),
     pointerToBit: () => `POINTER TO BIT is not allowed`,
     bitArrayBase: () => `BIT is not allowed as base type of an array`,
     adrOnBit: () => `A single bit cannot be referenced. A reference to the complete byte will be stored.`,
     codeHasNoEffect: (code) => `The code '${code}' has no effect. Is this the intent?`,
-    varConfigOnlyInList: () => `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`,
-    fbMustBeInstantiated: (name) => `Function block '${name}' must be instantiated to be accessed`,
+    varConfigOnlyInList: () => (tc ? `'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list` : `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`),
+    fbMustBeInstantiated: (name) => (tc ? `Functionblock '${name}' must be instantiated to be accessed` : `Function block '${name}' must be instantiated to be accessed`),
     interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,
     bitAccessOnCall: () => `Bit access on function call is not allowed`,
     pointerIndexArity: (type) => `Variable of type '${type}' requires exactly 1 Index`,
@@ -293,7 +299,7 @@ export function messagesFor(vendor: Vendor): Messages {
     retainNotAllowedHere: () => `'RETAIN' or 'PERSISTENT' not allowed in this place`,
     thisNotAllowed: () => `Use of 'THIS' is not allowed in this context`,
     superNotAllowed: () => `Expression 'SUPER' is not allowed in this context`,
-    outputCantBeReference: () => `Outputs can't be of type REFERENCE TO`,
+    outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
@@ -305,7 +311,7 @@ export function messagesFor(vendor: Vendor): Messages {
     enumInitNotConvertible: (fromType, enumName) => `Type '${fromType}' can not be converted to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
-    iniNeedsInstance: () => `INI operator needs function block instance or data unit type instance`,
-    caseOverlappingRanges: (lo1, hi1, lo2, hi2) => `CASE contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`,
+    iniNeedsInstance: () => (tc ? `'INI' operator needs function block instance or data unit type instance` : `INI operator needs function block instance or data unit type instance`),
+    caseOverlappingRanges: (lo1, hi1, lo2, hi2) => (tc ? `Case contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}` : `CASE contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`),
   }
 }

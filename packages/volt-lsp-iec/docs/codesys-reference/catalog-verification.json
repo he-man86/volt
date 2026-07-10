@@ -1,5 +1,5 @@
 {
-  "at": "2026-07-10T07:51:06.102Z",
+  "at": "2026-07-10T07:57:52.961Z",
   "base": "http://127.0.0.1:8555",
   "results": [
     {
@@ -116,9 +116,9 @@
     },
     {
       "code": "C0041",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
+        "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
       ],
       "actual": [
         "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
@@ -242,9 +242,9 @@
     },
     {
       "code": "C0070",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "INI operator needs function block instance or data unit type instance"
+        "'INI' operator needs function block instance or data unit type instance"
       ],
       "actual": [
         "'INI' operator needs function block instance or data unit type instance"
@@ -311,9 +311,9 @@
     },
     {
       "code": "C0080",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Function block 'FB' must be instantiated to be accessed"
+        "Functionblock 'FB' must be instantiated to be accessed"
       ],
       "actual": [
         "Functionblock 'FB' must be instantiated to be accessed"
@@ -485,9 +485,9 @@
     },
     {
       "code": "C0140",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Reference assign is only allowed to variables of reference type"
+        "Reference assign is only allowed to variables of Reference type"
       ],
       "actual": [
         "Reference assign is only allowed to variables of Reference type"
@@ -535,9 +535,9 @@
     },
     {
       "code": "C0168",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
+        "'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list"
       ],
       "actual": [
         "'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list"
@@ -545,9 +545,9 @@
     },
     {
       "code": "C0169",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "'VAR_GLOBAL' declaration not allowed in this place"
+        "'VAR_GLOBAL' declaration only allowed in Global variable list"
       ],
       "actual": [
         "'VAR_GLOBAL' declaration only allowed in Global variable list"
@@ -635,9 +635,9 @@
     },
     {
       "code": "C0201",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
+        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
       ],
       "actual": [
         "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
@@ -645,9 +645,9 @@
     },
     {
       "code": "C0203",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Only structures and function blocks can contain variables of type BIT"
+        "Only Structures and Function Blocks can contain variables of type BIT."
       ],
       "actual": [
         "Only Structures and Function Blocks can contain variables of type BIT."
@@ -655,9 +655,9 @@
     },
     {
       "code": "C0204",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block"
+        "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block"
       ],
       "actual": [
         "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block"
@@ -695,9 +695,9 @@
     },
     {
       "code": "C0216",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "CASE label duplicate"
+        "Case label duplicate"
       ],
       "actual": [
         "Case label duplicate"
@@ -705,9 +705,9 @@
     },
     {
       "code": "C0217",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "CASE label 4 also contained in range 3 .. 5"
+        "Case label 4 also contained in range 3 .. 5"
       ],
       "actual": [
         "Case label 4 also contained in range 3 .. 5"
@@ -715,9 +715,9 @@
     },
     {
       "code": "C0218",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "CASE label requires literal or symbolic integer constant"
+        "Case label requires literal or symbolic integer constant"
       ],
       "actual": [
         "Case label requires literal or symbolic integer constant"
@@ -725,9 +725,9 @@
     },
     {
       "code": "C0219",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "CASE contains overlapping range 1 .. 4 and 3 .. 5"
+        "Case contains overlapping range 1 .. 4 and 3 .. 5"
       ],
       "actual": [
         "Case contains overlapping range 1 .. 4 and 3 .. 5"
@@ -735,9 +735,9 @@
     },
     {
       "code": "C0222",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "lsp": [
-        "Outputs can't be of type REFERENCE TO"
+        "Outputs can't be of type 'REFERENCE TO'"
       ],
       "actual": [
         "Outputs can't be of type 'REFERENCE TO'"

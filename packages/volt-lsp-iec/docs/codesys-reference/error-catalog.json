@@ -654,13 +654,10 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "i := Test(x);",
-    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL.",
-    "twincatActual": [
-      "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
-    ]
+    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL."
   },
   {
     "code": "C0042",
@@ -1074,12 +1071,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": "b := INI(inst, TRUE);",
-    "twincatActual": [
-      "'INI' operator needs function block instance or data unit type instance"
-    ]
+    "fix": "b := INI(inst, TRUE);"
   },
   {
     "code": "C0072",
@@ -1236,12 +1230,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": "VAR\n    inst : FB;\nEND_VAR\ninst();",
-    "twincatActual": [
-      "Functionblock 'FB' must be instantiated to be accessed"
-    ]
+    "fix": "VAR\n    inst : FB;\nEND_VAR\ninst();"
   },
   {
     "code": "C0081",
@@ -2050,12 +2041,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": "I_r : REFERENCE TO INT;",
-    "twincatActual": [
-      "Reference assign is only allowed to variables of Reference type"
-    ]
+    "fix": "I_r : REFERENCE TO INT;"
   },
   {
     "code": "C0141",
@@ -2287,12 +2275,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list"
-    ]
+    "fix": null
   },
   {
     "code": "C0169",
@@ -2312,12 +2297,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "'VAR_GLOBAL' declaration only allowed in Global variable list"
-    ]
+    "fix": null
   },
   {
     "code": "C0173",
@@ -2785,13 +2767,10 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
-    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL.",
-    "twincatActual": [
-      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
-    ]
+    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL."
   },
   {
     "code": "C0203",
@@ -2810,12 +2789,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Only Structures and Function Blocks can contain variables of type BIT."
-    ]
+    "fix": null
   },
   {
     "code": "C0204",
@@ -2834,15 +2810,12 @@
     "lint": null,
     "verified": {
       "codesys": false,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "codesysActual": [
       "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
       "References to bits are not possible"
-    ],
-    "twincatActual": [
-      "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block"
     ]
   },
   {
@@ -3050,12 +3023,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Case label duplicate"
-    ]
+    "fix": null
   },
   {
     "code": "C0217",
@@ -3074,12 +3044,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Case label 4 also contained in range 3 .. 5"
-    ]
+    "fix": null
   },
   {
     "code": "C0218",
@@ -3098,12 +3065,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Case label requires literal or symbolic integer constant"
-    ]
+    "fix": null
   },
   {
     "code": "C0219",
@@ -3122,12 +3086,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Case contains overlapping range 1 .. 4 and 3 .. 5"
-    ]
+    "fix": null
   },
   {
     "code": "C0221",
@@ -3167,12 +3128,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Outputs can't be of type 'REFERENCE TO'"
-    ]
+    "fix": null
   },
   {
     "code": "C0224",

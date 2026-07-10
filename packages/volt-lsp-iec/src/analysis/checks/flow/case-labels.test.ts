@@ -49,6 +49,7 @@ test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
   expect(msgs).toEqual([])
 })
 
-test("byte-identical on both vendors", () => {
-  expect(cs(`  1: i := 1;\n  1: i := 2;`, "twincat")).toEqual(cs(`  1: i := 1;\n  1: i := 2;`, "codesys"))
+test("CASE-label wording is per-vendor (verified live): CODESYS 'CASE', TwinCAT 'Case'", () => {
+  expect(cs(`  1: i := 1;\n  1: i := 2;`, "codesys")).toEqual(["CASE label duplicate"])
+  expect(cs(`  1: i := 1;\n  1: i := 2;`, "twincat")).toEqual(["Case label duplicate"])
 })
