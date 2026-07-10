@@ -41,7 +41,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0003",
@@ -105,7 +107,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0006",
@@ -126,7 +130,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0007",
@@ -147,7 +153,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0008",
@@ -168,7 +176,9 @@
     "verified": {
       "codesys": false,
       "twincat": false
-    }
+    },
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0009",
@@ -189,7 +199,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0010",
@@ -210,7 +222,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0011",
@@ -231,7 +245,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE"
+    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0013",
@@ -252,7 +268,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0015",
@@ -273,7 +291,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR"
+    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0018",
@@ -315,7 +335,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "x := 2;"
+    "fix": "x := 2;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0022",
@@ -381,7 +403,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "METHOD METH123"
+    "fix": "METHOD METH123",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0027",
@@ -403,7 +427,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "str : STRING(100);"
+    "fix": "str : STRING(100);",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0030",
@@ -424,7 +450,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i AT %IW0 : INT;"
+    "fix": "i AT %IW0 : INT;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0031",
@@ -445,7 +473,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i : INT;"
+    "fix": "i : INT;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0032",
@@ -528,7 +558,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PLC_PRG.METH();"
+    "fix": "PLC_PRG.METH();",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0036",
@@ -550,7 +582,8 @@
       "twincat": false
     },
     "note": "Check written (a call whose bare-name callee resolves to a gvl_block → 'Cannot call object of type VAR_GLOBAL') and correct for real multi-file use + live, but the offline BURN-IN can't represent it: a GVL is nameless in source, so a single-file repro names it after the URI, and `GVL()` never resolves. Deferred until the burn-in materializes units as separate files (or a GVL code is prioritized for live-only).",
-    "fix": null
+    "fix": null,
+    "triage": "resolution"
   },
   {
     "code": "C0037",
@@ -682,7 +715,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution"
   },
   {
     "code": "C0043",
@@ -704,7 +738,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(5, iPar2 := 2);"
+    "fix": "i := Test(5, iPar2 := 2);",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0044",
@@ -853,7 +889,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i := Test(x);"
+    "fix": "i := Test(x);",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0051",
@@ -874,7 +912,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}"
+    "fix": "PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation — needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0053",
@@ -885,7 +925,7 @@
     "message": "Compiler version <version> has been withdrawn. Please use a higher compiler version instead.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -893,7 +933,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0061",
@@ -936,7 +978,8 @@
       "twincat": false
     },
     "fix": "n := i;",
-    "note": "NOT cleanly offline-checkable: `int.name` is ambiguous with symbolic bit access (`WORD.bitConst`), which is valid CODESYS. Needs member-as-constant resolution to distinguish from a real struct access. Deferred."
+    "note": "NOT cleanly offline-checkable: `int.name` is ambiguous with symbolic bit access (`WORD.bitConst`), which is valid CODESYS. Needs member-as-constant resolution to distinguish from a real struct access. Deferred.",
+    "triage": "resolution"
   },
   {
     "code": "C0064",
@@ -978,7 +1021,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "VAR_GLOBAL\n    someValue : INT;\nEND_VAR"
+    "fix": "VAR_GLOBAL\n    someValue : INT;\nEND_VAR",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0066",
@@ -1192,7 +1237,7 @@
     "expect": [
       "Unsupported type: 'LREAL'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1200,7 +1245,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\n    value : REAL;\nEND_VAR",
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0080",
@@ -1264,7 +1311,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{IF defined (abc)}"
+    "fix": "{IF defined (abc)}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation — needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0084",
@@ -1285,7 +1334,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{IF defined (abc)}"
+    "fix": "{IF defined (abc)}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation — needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0085",
@@ -1306,7 +1357,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, '120')}\n{END_IF}"
+    "fix": "PROGRAM PLC_PRG\n\n{IF hasvalue(define, '120')}\n{END_IF}",
+    "triage": "pragma",
+    "note": "Pragma operand/value validation — needs the pragma known-attribute/operand model; FP-prone against vendor and library pragmas. Deferred."
   },
   {
     "code": "C0086",
@@ -1521,7 +1574,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0101",
@@ -1560,7 +1614,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1568,7 +1622,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0103",
@@ -1579,7 +1635,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap {2})",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1587,7 +1643,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0104",
@@ -1598,7 +1656,7 @@
     "message": "Out of global data memory: Variable '<variable name>', <byte size> bytes.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1606,7 +1664,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0106",
@@ -1617,7 +1677,7 @@
     "message": "Out of retain memory: Variable '<variable name>', <byte size> bytes. (largest contiguous memory gap <byte size> bytes)",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -1625,7 +1685,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0114",
@@ -1646,7 +1708,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0115",
@@ -1667,7 +1731,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "CALC(condition, MyFunction(1,2))"
+    "fix": "CALC(condition, MyFunction(1,2))",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0116",
@@ -1688,7 +1754,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0117",
@@ -1709,7 +1777,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0118",
@@ -1730,7 +1800,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0119",
@@ -1839,7 +1911,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0126",
@@ -1954,7 +2027,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "j : INT := GVL1.g_i;"
+    "fix": "j : INT := GVL1.g_i;",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0138",
@@ -1975,7 +2050,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0139",
@@ -2045,7 +2122,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "I_r REF= i;"
+    "fix": "I_r REF= i;",
+    "triage": "optionGated"
   },
   {
     "code": "C0142",
@@ -2207,7 +2285,7 @@
     "expect": [
       "POU PLC_PRG writes to output QB7 and is called in several tasks."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2215,7 +2293,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0165",
@@ -2228,7 +2308,7 @@
     "expect": [
       "Variable Output, which is mapped on address QB7 is written in different tasks."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2236,7 +2316,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0168",
@@ -2300,7 +2382,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE"
+    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0174",
@@ -2385,7 +2469,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0179",
@@ -2406,7 +2492,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0180",
@@ -2419,7 +2507,7 @@
     "expect": [
       "Ambiguous namespace 'STANDARD' defined by library 'Standard, 3.5.15.0 (System)'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2427,7 +2515,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0182",
@@ -2469,7 +2559,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\niVar := .globalValue;"
+    "fix": "PROGRAM PLC_PRG\niVar := .globalValue;",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0185",
@@ -2511,7 +2603,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR_TEMP\n    tempInterface : MyInterface;\nEND_VAR\ntempInterface := GetInterface();\nIF tempInterface <> 0 THEN\n    // ...\nEND_IF"
+    "fix": "PROGRAM PLC_PRG\nVAR_TEMP\n    tempInterface : MyInterface;\nEND_VAR\ntempInterface := GetInterface();\nIF tempInterface <> 0 THEN\n    // ...\nEND_IF",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0187",
@@ -2530,7 +2624,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0188",
@@ -2541,7 +2637,7 @@
     "message": "Device not installed to the system. No code generation possible.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2549,7 +2645,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0189",
@@ -2571,7 +2669,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0190",
@@ -2592,7 +2692,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0191",
@@ -2603,7 +2705,7 @@
     "message": "The operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2611,7 +2713,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0195",
@@ -2853,7 +2957,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0208",
@@ -2886,7 +2992,7 @@
     "message": "You have defined '<number>' applications for device '<device name>'. The maximum number is '<number>'. So you will not be able to download all applications.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -2894,7 +3000,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0211",
@@ -2915,7 +3023,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0212",
@@ -2936,7 +3046,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0213",
@@ -2957,7 +3069,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0215",
@@ -2978,7 +3092,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0216",
@@ -3083,7 +3199,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "xVar := %IX0.2;"
+    "fix": "xVar := %IX0.2;",
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0222",
@@ -3147,7 +3265,7 @@
     "expect": [
       "'fbVar' is not an instance of 'MyFB2'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3155,7 +3273,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0227",
@@ -3325,7 +3445,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0237",
@@ -3346,7 +3468,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0238",
@@ -3388,7 +3512,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0240",
@@ -3470,7 +3596,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip",
+    "note": "No offline ground truth / won't-fix (CODESYS accepts the construct, or there is no repro+oracle to build against). Reclassify if a real case appears."
   },
   {
     "code": "C0266",
@@ -3491,7 +3619,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0269",
@@ -3504,7 +3634,7 @@
     "expect": [
       "The instance pinst^ points to will be reinitialized for virtual function calls. Make sure pinst^ doesn't point to a type derived from FBBase."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3512,7 +3642,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0298",
@@ -3525,7 +3657,7 @@
     "expect": [
       "Calculation of stack usage incomplete because of recursive calls, starting at 'm_Recursive'"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3533,7 +3665,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{attribute 'estimated-stack-usage' := '99'}"
+    "fix": "{attribute 'estimated-stack-usage' := '99'}",
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0316",
@@ -3554,7 +3688,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0319",
@@ -3565,7 +3701,7 @@
     "message": "<> not allowed in interface library",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3573,7 +3709,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0344",
@@ -3586,7 +3724,7 @@
     "expect": [
       "The monitoring attribute is not supported for property 'TestProp' and will be ignored."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3594,7 +3732,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0351",
@@ -3673,7 +3813,7 @@
     "expect": [
       "POU 'FB_Test' has been marked as obsolete: datatype fb not valid!"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3681,7 +3821,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0371",
@@ -3702,7 +3844,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0373",
@@ -3746,7 +3890,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated"
   },
   {
     "code": "C0398",
@@ -3757,7 +3902,7 @@
     "message": "The development system has not enough memory to process the online change. Please restart the application before continuing development.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3765,7 +3910,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0406",
@@ -3778,7 +3925,7 @@
     "expect": [
       "The implicit check function 'CHECKBOUNDS' is hidden by another variable or function."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3786,7 +3933,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0415",
@@ -3797,7 +3946,7 @@
     "message": "Out of persistent memory. Variable '<variable name>', <count> bytes (Largest contiguous memory gap <size>). Editing persistent variable lists may produce fragmented memory. Perform \"Declarations, Reorder List and Clear Gaps\" command to compact persistent variable lists.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3805,7 +3954,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0421",
@@ -3848,7 +3999,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "skip"
   },
   {
     "code": "C0441",
@@ -3869,7 +4021,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0454",
@@ -3906,7 +4060,7 @@
     "message": "The implicit check function <name of the check function> is hidden by another implicit check function <name of the check function>. Checks will not be performed!",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3914,7 +4068,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0508",
@@ -3935,7 +4091,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0509",
@@ -3978,7 +4136,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0513",
@@ -3991,7 +4151,7 @@
     "expect": [
       "Should not access private property POU Prop"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -3999,7 +4159,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0514",
@@ -4012,7 +4174,7 @@
     "expect": [
       "Should not access internal property POU.Prop of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4020,7 +4182,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0515",
@@ -4033,7 +4197,7 @@
     "expect": [
       "Should not access protected property POU.Prop"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4041,7 +4205,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0516",
@@ -4054,7 +4220,7 @@
     "expect": [
       "Should not access internal variable InternalPOU.varIn of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4062,7 +4228,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0517",
@@ -4075,7 +4243,7 @@
     "expect": [
       "Should not access internal object POU of library MyLib, 1.0.0.0 (MyCompany)"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4083,7 +4251,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0525",
@@ -4170,7 +4340,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable"
+    "fix": "{attribute 'no_assign'}\nFUNCTION_BLOCK FB_WrapperOfNotAssignable",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0541",
@@ -4181,7 +4353,7 @@
     "message": "Creating the memory allocator failed: The required AddOn '{0}' is not installed",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4189,7 +4361,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0542",
@@ -4231,7 +4405,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "parser",
+    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
   },
   {
     "code": "C0549",
@@ -4252,7 +4428,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "optionGated",
+    "note": "Compile-option gated — the diagnostic flips on a compiler option the LSP cannot observe offline (e.g. 'Replace constants', strict enums); an always-on check would false-positive against clean project code. Deferred."
   },
   {
     "code": "C0550",
@@ -4287,7 +4465,7 @@
     "expect": [
       "No explicit calls of 'FB1' allowed. Call of this FB is not allowed."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4295,7 +4473,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0555",
@@ -4308,7 +4488,7 @@
     "expect": [
       "The string literal '你好,世界' contains characters that cannot be displayed. The project option 'UTF-8 Encoding for STRING' could be used."
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4316,7 +4496,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0561",
@@ -4329,7 +4511,7 @@
     "expect": [
       "Call recursion: RECURSIVE -> RECURSIVE"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4337,7 +4519,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0564",
@@ -4358,7 +4542,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\n      inst2 : FBI;\n      inst : FB := STRUCT(ii := inst2);\nEND_VAR",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0565",
@@ -4423,7 +4609,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface"
+    "fix": "INTERFACE ITF EXTENDS __System.IQueryInterface",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0568",
@@ -4455,7 +4643,7 @@
     "message": "No matching instance path in VAR_PERSISTENT list found for variable {0}. Use the command \"Add All Instance Paths\" to add all instance paths to the VAR_PERSISTENT list.",
     "repro": null,
     "expect": null,
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4463,7 +4651,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0571",
@@ -4476,7 +4666,7 @@
     "expect": [
       "FB_EXIT of instances in VAR_RETAIN is also called during Reset warm, but not FB_INIT. Avoid retain declaration of function blocks with FB_EXIT!"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4484,7 +4674,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0572",
@@ -4503,7 +4695,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0573",
@@ -4522,7 +4716,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0576",
@@ -4543,7 +4739,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0579",
@@ -4556,7 +4754,7 @@
     "expect": [
       "The compiler feature 'Generic constant variable' is only supported with compiler version 3.5.18.0 or newer"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4564,7 +4762,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0581",
@@ -4583,7 +4783,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0582",
@@ -4602,7 +4804,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0583",
@@ -4621,7 +4825,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0584",
@@ -4634,7 +4840,7 @@
     "expect": [
       "Maximum nesting depth exceeded"
     ],
-    "status": "checkable",
+    "status": "ide-only",
     "ourCheck": null,
     "ourCode": null,
     "lint": null,
@@ -4642,7 +4848,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "triage": "ideOnly",
+    "note": "IDE-only — needs a live build, memory layout, device tree, codegen, or library internals; not decidable from offline source. Out of LSP scope (the IDE build stays authoritative)."
   },
   {
     "code": "C0585",
@@ -4663,7 +4871,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;"
+    "fix": "inst : POU<(const_2 := 12), (const_1 := 12)>;",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0586",
@@ -4684,7 +4894,9 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments"
+    "fix": "inst : POU<12, 12>; //implicit assignments\ninst2 : POU2<(const_1 := 12), (const_2 := 12)>; //explicit assignments",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   },
   {
     "code": "C0587",
@@ -4705,6 +4917,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared"
+    "fix": "inst : POU<(const := 12)>; // Variable 'const' is declared",
+    "triage": "resolution",
+    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
   }
 ]
