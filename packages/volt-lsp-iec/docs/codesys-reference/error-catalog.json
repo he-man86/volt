@@ -3710,18 +3710,19 @@
     "category": "user-defined pragma warning",
     "cause": "Source code contains an explicit {warning 'text'} pragma, which the compiler echoes back verbatim as a warning.",
     "message": "<custom message text defined by the 'warning' pragma>",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n{warning 'This is a warning'}",
+    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n{warning 'This is a warning'}\nEND_PROGRAM",
     "expect": [
       "This is a warning"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "pragmas",
+    "ourCode": "message-pragma-warning",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
+    "note": "Reconcile — the pre-existing message-pragma check already echoes a {warning 'text'} pragma verbatim (C0081 family). Code-linked to C0373.",
     "fix": null
   },
   {

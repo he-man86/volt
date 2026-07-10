@@ -1,25 +1,15 @@
 {
-  "at": "2026-07-10T14:24:17.713Z",
+  "at": "2026-07-10T14:36:16.567Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0240",
+      "code": "C0373",
       "outcome": "verified",
       "lsp": [
-        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
+        "This is a warning"
       ],
       "actual": [
-        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
-      ]
-    },
-    {
-      "code": "C0241",
-      "outcome": "verified",
-      "lsp": [
-        "Second operand of __QueryInterface must be a pointer"
-      ],
-      "actual": [
-        "Second operand of __QueryInterface must be a pointer"
+        "This is a warning"
       ]
     }
   ]
