@@ -30,7 +30,13 @@ public static class PlcOpenPouParser
         var rootPou = doc.Root.Name.LocalName == "pou"
             ? doc.Root
             : doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "pou")
-              ?? throw new InvalidOperationException("PLCopen document has no <pou> element");
+              // TwinCAT exports an INTERFACE (and its method signatures) under <addData>/<Interface> with NO
+              // <pou> element. Treat that <Interface> node as the root: its own InterfaceAsPlainText
+              // ("INTERFACE X") is the declaration, and its <Methods>/<Method> children are picked up by the
+              // Method-descendant loop below. (CODESYS exports interfaces as <pou pouType="interface">, so this
+              // fallback is TC-only and never changes the CODESYS path.)
+              ?? doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Interface")
+              ?? throw new InvalidOperationException("PLCopen document has no <pou> or <Interface> element");
 
         var declaration = DeclFromElement(rootPou);
         var (bodyLang, bodyEl) = FindBody(rootPou, ns);
@@ -99,12 +105,20 @@ public static class PlcOpenPouParser
         return default;
     }
 
+    // A child member (method/action/property/accessor, or a nested pou) exports its OWN InterfaceAsPlainText —
+    // e.g. a TwinCAT FB's method sits under <addData>/<Method>/<InterfaceAsPlainText>. It must NOT be mistaken
+    // for the enclosing POU's declaration (a TC FB itself carries a structured <interface><localVars> with no
+    // own IAPT, so grabbing the method's IAPT made an FB materialize as kind "method" → ExtFor threw).
+    private static readonly HashSet<string> ChildDeclContainers =
+        new(StringComparer.OrdinalIgnoreCase) { "pou", "Method", "Action", "Property", "get", "set" };
+
     private static string? DeclFromElement(XElement element)
     {
-        var iapt = element.Elements()
-            .Where(e => e.Name.LocalName != "pou")
-            .SelectMany(e => e.DescendantsAndSelf())
-            .FirstOrDefault(e => e.Name.LocalName == "InterfaceAsPlainText");
+        // The POU's OWN declaration: the first InterfaceAsPlainText that is NOT nested inside a child member.
+        // Null when the POU has none (TC's structured decl) — the caller then falls back to the COM declaration.
+        var iapt = element.Descendants()
+            .Where(e => e.Name.LocalName == "InterfaceAsPlainText")
+            .FirstOrDefault(e => !e.Ancestors().TakeWhile(a => a != element).Any(a => ChildDeclContainers.Contains(a.Name.LocalName)));
         if (iapt == null) return null;
         var inner = iapt.Elements().FirstOrDefault(e => e.Name.LocalName == "xhtml") ?? iapt;
         var text = inner.Value;

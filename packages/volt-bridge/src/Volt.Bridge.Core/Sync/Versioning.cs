@@ -1,3 +1,4 @@
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Workspace;
 
@@ -26,7 +27,9 @@ public static class Versioning
     /// raw <see cref="Materialize"/> stays no-catch for single-item paths where the failure must surface.</summary>
     public static string SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string folder, out WorkspaceItem? mat)
     {
+        // Surface WHY an item was unreadable (at Debug, so legitimately-unreadable items don't spam) — the old
+        // bare catch hid a real materialize bug (FB-with-method / interface) for a long time.
         try { var (v, m) = Materialize(ide, name, kind, item, folder); mat = m; return v; }
-        catch { mat = null; return Unreadable; }
+        catch (System.Exception ex) { VoltLog.Debug($"SafeVersion materialize failed name='{name}' kind='{kind}': {ex.Message}"); mat = null; return Unreadable; }
     }
 }
