@@ -182,9 +182,20 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     references: args.references ?? EMPTY_WORKSPACE_REFS,
   }
   const out: DiagnosticItem[] = []
-  for (const check of CHECKS) check(ctx, out)
+  if (CHECK_TIMING !== undefined) {
+    for (const check of CHECKS) {
+      const t = Number(process.hrtime.bigint())
+      check(ctx, out)
+      CHECK_TIMING[check.name] = (CHECK_TIMING[check.name] ?? 0) + (Number(process.hrtime.bigint()) - t) / 1e6
+    }
+  } else {
+    for (const check of CHECKS) check(ctx, out)
+  }
   return out
 }
+
+/** Per-check wall-time accumulator (ms), for the offline profiler only. Enable by assigning `{}`. */
+export let CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
 
 function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
   return c !== undefined && "lints" in c && typeof (c as ResolvedConfig).vendor === "string"

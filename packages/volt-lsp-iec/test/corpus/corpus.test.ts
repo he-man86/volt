@@ -29,6 +29,14 @@ import { parseVgBody, computeVgDiagnostics } from "../../src/graphical/index.js"
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const ST_EXTS = new Set([".fb", ".prg", ".fun", ".itf", ".struct", ".enum", ".union", ".alias", ".gvl"])
 
+// Per-test budget for the full-corpus passes (O(files × checks)). Kept at 120s: this budget was adequate
+// until `checkDataRecursion` regressed to rebuilding the whole-project composition graph per file (O(files ×
+// project size) — it silently pushed the diagnostic passes past 120s and TIMED OUT, which read as a spurious
+// failure while `scripts/corpus-fp.ts` — no timeout — stayed green. Root-caused + fixed (the graph is now
+// memoized per project); a full pass is back to ~30s, so 120s holds with headroom. If it times out again,
+// suspect a new O(n²) — profile per check (PROFILE_CHECKS=1) rather than raising this.
+const CORPUS_TIMEOUT = 120_000
+
 function walk(dir: string): string[] {
   const out: string[] = []
   for (const name of readdirSync(dir)) {
@@ -76,7 +84,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       if (errs.length > 0) failures.push(`${f}: ${errs[0]?.message}`)
     }
     expect(failures).toEqual([])
-  }, 120_000)
+  }, CORPUS_TIMEOUT)
 
   test("every ST body materializes fully into the statement tree (100%)", () => {
     let bodies = 0
@@ -93,7 +101,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     expect(bodies).toBeGreaterThan(2000)
     expect(failures).toEqual([])
-  }, 120_000)
+  }, CORPUS_TIMEOUT)
 
   // Layer F (F.2): every graphical (VG) body in the corpus is valid IDE-exported FBD/LD, so the VG parser
   // must find its networks and emit ZERO structural errors (VG_PARSE / VG_NETWORK_NOT_CLOSED). Duplicate
@@ -116,7 +124,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     expect(vgBodies).toBeGreaterThan(0)
     expect(failures).toEqual([])
-  }, 120_000)
+  }, CORPUS_TIMEOUT)
 
   // Layer B: the binder must survive real workspace input at scale, per project (cross-indexed),
   // link EXTENDS bases, and never throw.
@@ -132,7 +140,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     }
     // Real PLC projects use inheritance — some EXTENDS must have resolved across files.
     expect(totalBases).toBeGreaterThan(0)
-  }, 120_000)
+  }, CORPUS_TIMEOUT)
 
   // Layer D (D.3): the analysis checks must produce ZERO error-severity diagnostics on the corpus.
   // The corpus compiles clean in the IDE, so every error-severity diagnostic here is a false positive.
@@ -176,7 +184,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(falsePositives).toEqual([])
-  }, 120_000) // heavy: all checks (incl. member-access inference) over every corpus file
+  }, CORPUS_TIMEOUT) // heavy: all checks (incl. member-access inference) over every corpus file
 
   // The opt-in unknown-attribute lint is only as complete as the pragma catalog. Enable it across the corpus
   // and require ZERO hits: every attribute real projects use must be catalogued, else it would false-positive.
@@ -197,7 +205,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(hits).toEqual([])
-  }, 120_000) // heavy: a second full-corpus diagnostic pass with the lint enabled
+  }, CORPUS_TIMEOUT) // heavy: a second full-corpus diagnostic pass with the lint enabled
 
   // A.3 format-roundtrip gate: `parse(format(x)) ≡ parse(x)` across the whole corpus. Formatting must
   // re-emit valid ST that re-parses to an EQUIVALENT AST (span/token-free, body statements embedded,
@@ -216,7 +224,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       }
     }
     expect(failures).toEqual([])
-  }, 120_000)
+  }, CORPUS_TIMEOUT)
 })
 
 /** A span/token-free, key-sorted, body-statement-embedded string key for AST equivalence. */
