@@ -71,8 +71,8 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
       .filter((d) => d.code === "query-interface-operand")
       .map((d) => d.message)
   }
-  expect(qi(`__QueryInterface(a, itf);`)).toEqual(["First Operand of __QueryInterface must be an interface reference or the instance of a function block"])
-  expect(qi(`__QueryInterface(itf, b);`)).toEqual(["Second Operand of __QueryInterface must be an interface reference"])
+  expect(qi(`__QueryInterface(a, itf);`)).toEqual(["First operand of __QueryInterface must be an interface reference or the instance of a function block"])
+  expect(qi(`__QueryInterface(itf, b);`)).toEqual(["Second operand of __QueryInterface must be an interface reference"])
   expect(qi(`__QueryInterface(itf, itf2);`)).toEqual([]) // valid
   expect(qi(`__QueryInterface(inst, itf);`)).toEqual([]) // valid FB instance
 })

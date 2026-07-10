@@ -1,14 +1,16 @@
 {
-  "at": "2026-07-10T14:46:27.419Z",
+  "at": "2026-07-10T19:39:39.502Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0098",
-      "outcome": "mismatch",
+      "code": "C0542",
+      "outcome": "verified",
       "lsp": [
-        "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
+        "Inheritance is not intended for data type \"UNION\": Base"
       ],
-      "actual": []
+      "actual": [
+        "Inheritance is not intended for data type \"UNION\": Base"
+      ]
     }
   ]
 }

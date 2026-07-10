@@ -57,7 +57,7 @@ test("C0144: EXTENDS on an enum/alias DUT is flagged; a struct EXTENDS is fine",
 
 test("C0542: EXTENDS on a UNION is flagged with its type name", () => {
   expect(msgs(`TYPE U EXTENDS Base :\nUNION\n  a : INT;\nEND_UNION\nEND_TYPE`, "union-inheritance")).toEqual([
-    `Inheritance is not intended for the data type "UNION" U.`,
+    `Inheritance is not intended for data type "UNION": Base`,
   ])
   expect(msgs(`TYPE U :\nUNION\n  a : INT;\nEND_UNION\nEND_TYPE`, "union-inheritance")).toEqual([])
 })

@@ -73,7 +73,7 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
         span: unit.extendsMisused.span,
         source: SOURCE,
         code: isUnion ? "union-inheritance" : "inheritance-not-allowed",
-        message: isUnion ? ctx.messages.unionInheritance(unit.name.text) : ctx.messages.inheritanceNotAllowed(),
+        message: isUnion ? ctx.messages.unionInheritance(unit.extendsMisused.text) : ctx.messages.inheritanceNotAllowed(),
       })
     }
   }

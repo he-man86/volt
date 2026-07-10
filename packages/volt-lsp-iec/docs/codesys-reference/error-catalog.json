@@ -41,7 +41,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0003",
@@ -128,7 +129,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "'THEN' expected instead of 'x'"
+    ]
   },
   {
     "code": "C0007",
@@ -172,7 +176,8 @@
     "verified": {
       "codesys": false,
       "twincat": false
-    }
+    },
+    "codesysActual": []
   },
   {
     "code": "C0009",
@@ -216,7 +221,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0011",
@@ -237,7 +243,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE"
+    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE",
+    "codesysActual": []
   },
   {
     "code": "C0013",
@@ -281,7 +288,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR"
+    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR",
+    "codesysActual": [
+      "Counter initialisation expected"
+    ]
   },
   {
     "code": "C0018",
@@ -414,7 +424,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "str : STRING(100);"
+    "fix": "str : STRING(100);",
+    "codesysActual": []
   },
   {
     "code": "C0030",
@@ -458,7 +469,12 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "i : INT;"
+    "fix": "i : INT;",
+    "codesysActual": [
+      "Type definition expected instead of ';'",
+      "':= or ;' expected instead of ''",
+      "'END_TYPE' expected instead of ''"
+    ]
   },
   {
     "code": "C0032",
@@ -1535,7 +1551,8 @@
       "twincat": false
     },
     "note": "Offline-correct (re-lex token-pair scan; burn-in + corpus + conformance clean). Live-verify is BLOCKED by the harness: `FUNCTIONBLOCK` lexes as an identifier so splitRepro can't identify the deprecated FB as a pushable unit, so the IDE builds nothing and stays silent. Would need the verifier to push the raw source as a typed FB item.",
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0099",
@@ -2159,7 +2176,7 @@
     "category": "invalid EXTENDS target",
     "cause": "EXTENDS is used on a POU type (here an enumeration TYPE) that is not a function block, interface, or structure, none of which support inheritance.",
     "message": "Inheritance only allowed in function blocks, Interfaces and Structures",
-    "repro": "TYPE E EXTENDS Base :\n(\n    A, B\n); END_TYPE",
+    "repro": "TYPE Base : STRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nTYPE E EXTENDS Base :\n(\n A, B\n); END_TYPE",
     "expect": [
       "Inheritance only allowed in function blocks, Interfaces and Structures"
     ],
@@ -2171,7 +2188,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "No definition found for base class 'Base'"
+    ]
   },
   {
     "code": "C0145",
@@ -2192,7 +2212,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Identifier 'POU' not defined",
+      "Program name, function or function block instance expected instead of 'POU'"
+    ]
   },
   {
     "code": "C0149",
@@ -2213,7 +2237,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Unknown type: 'ITF'"
+    ]
   },
   {
     "code": "C0161",
@@ -2365,7 +2392,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE"
+    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE",
+    "codesysActual": [
+      "'VarInput' not allowed in this place",
+      "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n"
+    ]
   },
   {
     "code": "C0174",
@@ -2649,7 +2680,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Unexpected token 'INT' found",
+      "';' expected instead of 'END_VAR'"
+    ]
   },
   {
     "code": "C0190",
@@ -2670,7 +2705,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "';' expected instead of end of POU"
+    ]
   },
   {
     "code": "C0191",
@@ -2999,7 +3037,10 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": [
+      "Variable declaration expected instead of VAR\r\nEND_VAR\r\n"
+    ]
   },
   {
     "code": "C0212",
@@ -3020,7 +3061,11 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR"
+    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
+    "codesysActual": [
+      "The label 'I' has not been referenced",
+      "Unexpected token 'INT' found"
+    ]
   },
   {
     "code": "C0213",
@@ -3041,7 +3086,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0215",
@@ -3062,7 +3108,8 @@
       "codesys": false,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "codesysActual": []
   },
   {
     "code": "C0216",
@@ -3361,14 +3408,14 @@
     "message": "First Operand of __QueryInterface must be an interface reference or the instance of a function block",
     "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(a, itf);\nEND_PROGRAM",
     "expect": [
-      "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
+      "First operand of __QueryInterface must be an interface reference or the instance of a function block"
     ],
     "status": "implemented",
     "ourCheck": "calls/intrinsic-operands",
     "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
@@ -3382,14 +3429,14 @@
     "message": "Second Operand of __QueryInterface must be an interface reference",
     "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(itf, a);\nEND_PROGRAM",
     "expect": [
-      "Second Operand of __QueryInterface must be an interface reference"
+      "Second operand of __QueryInterface must be an interface reference"
     ],
     "status": "implemented",
     "ourCheck": "calls/intrinsic-operands",
     "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
@@ -3986,7 +4033,7 @@
     "ourCode": "inout-in-initializer",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -4338,16 +4385,16 @@
     "category": "invalid UNION inheritance",
     "cause": "A structured data type (DUT) is derived from a UNION via EXTENDS, or a UNION is derived from a DUT, which CODESYS treats as invalid inheritance but only downgrades to a warning for backward compatibility.",
     "message": "Inheritance is not intended for the data type \"UNION\" <data type name>.",
-    "repro": "TYPE U EXTENDS Base :\nUNION\n    a : INT;\nEND_UNION\nEND_TYPE",
+    "repro": "TYPE Base : STRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nTYPE U EXTENDS Base :\nUNION\n a : INT;\nEND_UNION\nEND_TYPE",
     "expect": [
-      "Inheritance is not intended for the data type \"UNION\" U."
+      "Inheritance is not intended for data type \"UNION\": Base"
     ],
     "status": "implemented",
     "ourCheck": "declarations/header-rules",
     "ourCode": "union-inheritance",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
