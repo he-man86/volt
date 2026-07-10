@@ -234,7 +234,7 @@ function parseCase(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // CASE
   const selector = parseExpression(cur)
   if (selector === undefined) return undefined
-  if (cur.expectKeyword("OF", "in CASE") === undefined) return undefined
+  cur.expectKeyword("OF", "in CASE") // missing-token recovery — parse the arms regardless (see parseIfBranch)
   const arms: CaseArm[] = []
   while (!cur.atEof() && !atKeyword(cur, "ELSE", "END_CASE")) {
     if (!isArmStart(cur)) break // not a label header — let END_CASE expectation fail → fallback
@@ -337,7 +337,7 @@ function parseFor(cur: Cursor): Statement | undefined {
     by = parseExpression(cur)
     if (by === undefined) return undefined
   }
-  if (cur.expectKeyword("DO", "in FOR") === undefined) return undefined
+  cur.expectKeyword("DO", "in FOR") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_FOR"))
   const end = cur.expectKeyword("END_FOR", "closing FOR")
   if (end === undefined) return undefined
@@ -349,7 +349,7 @@ function parseWhile(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // WHILE
   const cond = parseAssignable(cur)
   if (cond === undefined) return undefined
-  if (cur.expectKeyword("DO", "in WHILE") === undefined) return undefined
+  cur.expectKeyword("DO", "in WHILE") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
   const end = cur.expectKeyword("END_WHILE", "closing WHILE")
   if (end === undefined) return undefined

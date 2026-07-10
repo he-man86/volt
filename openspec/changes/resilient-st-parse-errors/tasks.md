@@ -49,9 +49,11 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   `END_IF`: **one error in → one error out, no cascade**, AND subsequent errors in the same body now surface
   (multi-error). Verified: `IF b\n x:=9;\nEND_IF` → exactly `[expected THEN…]`; a 2nd error after the IF also
   surfaces; valid IF stays silent; corpus 100%-materialize + conformance + fuzz all green (valid code takes the
-  identical path). **Follow-on (mechanical, same pattern):** apply insertion to `CASE`'s `OF`, `FOR`'s
-  `TO`/`DO`, `WHILE`'s `DO`, `REPEAT`'s `UNTIL`, and the block closers (`END_IF`/`END_CASE`/… → record + return
-  the node), validating each against the gates. The *unexpected-tokens* error node (skip-and-wrap) is still open.
+  identical path). **Extended to the whole keyword-before-body family:** `CASE`'s `OF`, `FOR`'s `DO`, `WHILE`'s
+  `DO` now insert-and-continue too (each verified: clean single error, no cascade, valid code silent, gates
+  green). **Still open (finer-grained, each its own care + gate pass):** the mid-construct value keywords
+  (`FOR`'s `:=`/`TO`, `REPEAT`'s `UNTIL`) where the *following* parse also needs recovery; the block closers
+  (`END_IF`/`END_CASE`/… → record + return the node); and the *unexpected-tokens* error node (skip-and-wrap).
 - [ ] 2.3 Multi-error per body + a per-body diagnostic cap (match IDE). Extend the fuzz test to assert
   termination + bounded diagnostics (every recovery step consumes ≥1 token).
 - [x] 2.4 **Grammar completeness — DONE (2026-07-10); unblocked the ship.** Closed the two conformance-gate
