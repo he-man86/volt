@@ -29,21 +29,19 @@
     "category": "syntax token mismatch",
     "cause": "The parser expected one of two specific tokens (e.g. comma or closing paren) but found a different token in the source.",
     "message": "'<operator 1>' or '<operator 2>' expected instead of '<tag>'",
-    "repro": "PROGRAM PLC_PRG\nFun(1;",
+    "repro": "PROGRAM P\nVAR x:INT;\nEND_VAR\nx := foo(1;\nEND_PROGRAM",
     "expect": [
-      "',' or ')' expected instead of ';'"
+      "expected ')' closing call arguments, got ';'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0003",
@@ -206,21 +204,19 @@
     "category": "unterminated block",
     "cause": "A block (e.g. a FOR loop) is left open with no closing keyword before the source file ends.",
     "message": "Unexpected end-of-file found: '<token>' expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i := 0 TO 2 DO\n;",
+    "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nFOR i:=0 TO 10 DO\n i:=i;\nEND_PROGRAM",
     "expect": [
-      "Unexpected end-of-file found: 'END_FOR' expected"
+      "expected END_FOR closing FOR, got end of input"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0011",
@@ -2991,21 +2987,19 @@
     "category": "Malformed variable declaration",
     "cause": "The compiler expects a variable declaration inside a VAR block but finds invalid/nested syntax instead.",
     "message": "Variable declaration expected instead of <expression>",
-    "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n\n   END_VAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n   END_VAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Variable declaration expected instead of VAR END_VAR"
+      "unterminated VAR section: expected END_VAR"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/var-section",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0212",
