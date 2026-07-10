@@ -171,14 +171,30 @@ implemented. The remaining tranche is systematically gated — probing confirmed
 - **Task/memory config** (not offline): C0102/104/164/165/398/415.
 - **Unverified message / library-floor**: C0035, C0582 (no verified `expect`), C0513–517 (library access rules).
 
-Next unlocks, in impact order: (1) **POU-header structure** → **DONE** (C0096/C0182/C0421); (2) **pragma-attribute-
-on-unit** → **DONE** (C0550; C0540 deferred); (3) **method-signature model** → **DONE** (C0089/C0094/C0568/C0566;
-C0138 deferred, C0243 skipped); (4) **parser syntax-error track** → **assessed & NOT undertaken** (see the
-Parser-track note above — the diminishing-returns frontier: high-effort/FP-prone/low-value). Iteration 4 instead
-banked **C0533** (abstract/interface VAR_OUTPUT default) opportunistically. **The clean, high-confidence, zero-FP,
-live-verifiable wins are now exhausted** (93/220; the remaining ~127 are parser-recovery, task/memory config,
-graphical-only, library-floor, or no-ground-truth). Further codes should be picked deliberately per-code, not
-ground out on the autonomous loop.
+Next unlocks, in impact order: (1) **POU-header structure** → **DONE** (C0096/C0182/C0421/**C0149**); (2) **pragma-
+attribute-on-unit** → **DONE** (C0550; C0540 deferred); (3) **method-signature model** → **DONE** (C0089/C0094/
+C0568/C0566; C0138 deferred, C0243 skipped); (4) **parser syntax-error track** → **assessed & NOT undertaken** (see
+the Parser-track note above — the diminishing-returns frontier: high-effort/FP-prone/low-value). Iteration 4 banked
+**C0533** (abstract/interface VAR_OUTPUT default); iteration 5 (2026-07-10) banked **C0149** (VAR in interface),
+closing the header-capture bucket.
+
+> **AUTONOMOUS LOOP RETIRED (2026-07-10, iteration 5).** The zero-FP-by-construction structural track is now
+> **complete** — every "parser captures the illegal declaration shape → check reads it" code (C0096/C0182/C0421/
+> C0149) is landed. **104/220.** What remains is deliberately NOT loop-work, because it is one of four walls, none
+> of which is a presence-test:
+> - **Resolution-dependent (Tier B)** — e.g. **C0062** (`x.m` on a non-struct): needs the base expr's type
+>   resolved as elementary AND excluding integer bit-access + bit-alias constants. Real FP surface; a design call
+>   on the zero-FP slice. **Bring these to a human per-code**, don't grind.
+> - **Parser statement-body track (C0002–C0031, jump labels, C0065, C0543)** — reconstructing CODESYS's exact
+>   recovery wording requires parsing opaque bodies, which inverts the single-source design. **Do not.**
+> - **Out of offline scope** — task/memory config (C0102/104/164/165/398/415), graphical-only (C0225),
+>   library-floor (C0035/C0513–517/C0582).
+> - **Won't-fix / no-ground-truth** — C0426, C0243, C0138, C0540 (see the deferred table below).
+>
+> The spec is satisfied by this state: an unimplemented `checkable` code is a *visible, tracked* gap (TRIAGE.md),
+> not a shortfall — the proposal never required all 220. **This change is ready to archive** once the optional
+> follow-on tasks (2.3/2.4/5.3/6.3/7.3 — docs-stance rewrite, quick-fix coverage, `covered`-code reconciliation)
+> are either done or explicitly dropped.
 
 **Deferred with recorded reason** (corpus-gate demotions + infra blockers, each carries a `note` in the catalog):
 
