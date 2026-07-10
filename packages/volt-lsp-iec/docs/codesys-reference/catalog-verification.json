@@ -1,66 +1,15 @@
 {
-  "at": "2026-07-10T19:59:44.996Z",
+  "at": "2026-07-10T20:22:28.012Z",
   "base": "http://127.0.0.1:8555",
   "results": [
     {
-      "code": "C0022",
+      "code": "C0033",
       "outcome": "verified",
       "lsp": [
-        "'ADR' needs exactly '1' Operands"
+        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
       ],
       "actual": [
-        "'ADR' needs exactly '1' Operands"
-      ]
-    },
-    {
-      "code": "C0023",
-      "outcome": "verified",
-      "lsp": [
-        "'MUX' needs at least '3' Operands"
-      ],
-      "actual": [
-        "'MUX' needs at least '3' Operands"
-      ]
-    },
-    {
-      "code": "C0234",
-      "outcome": "verified",
-      "lsp": [
-        "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
-      ],
-      "actual": [
-        "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
-      ]
-    },
-    {
-      "code": "C0235",
-      "outcome": "verified",
-      "lsp": [
-        "Second Operand of __QueryInterface must be an interface reference"
-      ],
-      "actual": [
-        "Interface ITF__Union does not extend __System.IQueryInterface",
-        "Second Operand of __QueryInterface must be an interface reference"
-      ]
-    },
-    {
-      "code": "C0240",
-      "outcome": "verified",
-      "lsp": [
-        "First Operand of __QueryPointer must be an interface reference or the instance of a function block"
-      ],
-      "actual": [
-        "First Operand of __QueryPointer must be an interface reference or the instance of a function block"
-      ]
-    },
-    {
-      "code": "C0241",
-      "outcome": "verified",
-      "lsp": [
-        "Second Operand of __QueryInterface must be pointer"
-      ],
-      "actual": [
-        "Second Operand of __QueryInterface must be pointer"
+        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
       ]
     }
   ]

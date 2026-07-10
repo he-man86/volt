@@ -23,8 +23,9 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
         severity: "warning",
         span: s.expr.span,
         source: SOURCE,
+        // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression.
         code: "no-op-statement",
-        message: ctx.messages.codeHasNoEffect(ctx.source.slice(s.expr.span.start, s.expr.span.end)),
+        message: ctx.messages.codeHasNoEffect(ctx.source.slice(s.span.start, s.span.end)),
       })
     })
   }

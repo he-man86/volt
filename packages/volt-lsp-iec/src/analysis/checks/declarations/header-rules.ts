@@ -68,6 +68,8 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
       // union → C0542 (a WARNING, kept for backward compat; its message names the type);
       // enum/alias → C0144 (a hard error, the general rule).
       const isUnion = unit.body.kind === "union"
+      // C0542 is CODESYS-only: live /build shows TwinCAT silently accepts EXTENDS on a UNION.
+      if (isUnion && ctx.config.vendor !== "codesys") continue
       out.push({
         severity: isUnion ? "warning" : "error",
         span: unit.extendsMisused.span,

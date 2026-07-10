@@ -16,7 +16,7 @@ const noop = (body: string): string[] => {
 }
 
 test("a bare reference statement is warned; a call is not", () => {
-  expect(noop(`i;`)).toEqual(["The code 'i' has no effect. Is this the intent?"])
+  expect(noop(`i;`)).toEqual(["The code 'i;' has no effect. Is this the intent?"])
   expect(noop(`inst();`)).toEqual([]) // a call has effect
 })
 

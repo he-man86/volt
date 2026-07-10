@@ -353,12 +353,16 @@ export function messagesFor(vendor: Vendor): Messages {
     operatorNeedsExactly: (op, count) => (tc ? `'${op}' needs exactly '${count}' Operands` : `'${op}' needs exactly '${count}' operands`),
     operatorNeedsAtLeast: (op, count) => (tc ? `'${op}' needs at least '${count}' Operands` : `'${op}' needs at least '${count}' operands`),
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
-    pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
+    // Mirror the IDE: it reports a non-convertible pointer with the same "Cannot convert" wording as C0032
+    // (both vendors, live-verified) — not a distinct "possibly not convertible" phrasing.
+    pointerNotConvertible: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
     noEnclosingLoop: () => `No enclosing loop of which to exit`,
     multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,
-    stringConstantTooLong: (value, type) => `String constant '${value}' too long for destination type '${type}'`,
+    // Mirror the IDE: it elides the actual string content to `'...'` (both vendors), so we do too rather than
+    // echoing the value (the goal is byte-identical IDE parity, not a more-informative message).
+    stringConstantTooLong: (_value, type) => `String constant ''...' too long for destination type '${type}'`,
     compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
     bitInWrongContainer: () => (tc ? `Only Structures and Function Blocks can contain variables of type BIT.` : `Only structures and function blocks can contain variables of type BIT`),

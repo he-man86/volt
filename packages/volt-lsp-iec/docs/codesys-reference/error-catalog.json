@@ -535,23 +535,17 @@
     "message": "Type '<pointer type>' is possibly not convertible to type '<data type>'.",
     "repro": "PROGRAM PLC_PRG\nVAR\n    ptr : POINTER TO INT;\n    dw : DWORD;\nEND_VAR\n    dw := ptr;",
     "expect": [
-      "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'."
+      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
     ],
     "status": "implemented",
     "ourCheck": "pointer-conversion",
     "ourCode": "pointer-not-convertible",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
-    ],
-    "twincatActual": [
-      "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
-    ]
+    "fix": null
   },
   {
     "code": "C0035",
@@ -2080,20 +2074,17 @@
     "message": "The code <code> has no effect. Is this the intent?",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\ni;",
     "expect": [
-      "The code 'i' has no effect. Is this the intent?"
+      "The code 'i;' has no effect. Is this the intent?"
     ],
     "status": "implemented",
     "ourCheck": "no-op-statement",
     "ourCode": "no-op-statement",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "codesysActual": [
-      "The code 'i;\r\n' has no effect. Is this the intent?"
-    ],
     "twincatActual": [
       "The code 'i;"
     ]
@@ -2844,24 +2835,17 @@
     "message": "String constant '<string value>' too long for destination type '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    str : STRING(4) := '12345';\nEND_VAR",
     "expect": [
-      "String constant '12345' too long for destination type 'STRING(4)'"
+      "String constant ''...' too long for destination type 'STRING(4)'"
     ],
     "status": "implemented",
     "ourCheck": "string-constant",
     "ourCode": "string-constant-too-long",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "String constant ''...' too long for destination type 'STRING(4)'"
-    ],
-    "twincatActual": [
-      "String constant ''...' too long for destination type 'STRING(4)'",
-      "String constant ''...' too long for destination type 'STRING(4)'"
-    ]
+    "fix": null
   },
   {
     "code": "C0199",

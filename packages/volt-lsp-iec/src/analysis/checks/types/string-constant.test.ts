@@ -16,7 +16,7 @@ const sc = (decls: string): string[] => {
 }
 
 test("an over-length string literal is flagged", () => {
-  expect(sc(`  str : STRING(4) := '12345';`)).toEqual(["String constant '12345' too long for destination type 'STRING(4)'"])
+  expect(sc(`  str : STRING(4) := '12345';`)).toEqual(["String constant ''...' too long for destination type 'STRING(4)'"])
 })
 
 test("exact/short literals and sizeless STRING stay quiet (0-FP)", () => {
