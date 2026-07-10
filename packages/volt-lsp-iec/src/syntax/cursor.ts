@@ -150,6 +150,14 @@ export class Cursor {
     return undefined
   }
 
+  /** True if the next token can begin a name — an identifier, or a soft-name keyword (`SET`/`GET`/`OVERRIDE`
+   *  …) that is a legal variable/member name. Lets a declaration loop tell "another decl" from "a hard keyword
+   *  that ends the section" without choking `expectName` on the latter. */
+  atNameStart(): boolean {
+    const t = this.peek()
+    return t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))
+  }
+
   private static readonly SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
     "GET",
     "SET",
