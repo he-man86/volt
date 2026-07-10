@@ -3354,16 +3354,16 @@
     "category": "illegal external initializer",
     "cause": "A VAR_EXTERNAL declaration supplies an initial value, but external variables must take their initial value only from the matching VAR_GLOBAL declaration.",
     "message": "No initial value allowed for VAR_EXTERNAL <variable name>",
-    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : INT := 2;\nEND_VAR\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR_EXTERNAL\n    ig : INT := 2;\nEND_VAR\nEND_PROGRAM\n\nVAR_GLOBAL\n    ig : INT;\nEND_VAR",
     "expect": [
       "No initial value allowed for VAR_EXTERNAL ig"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "external-initializer",
+    "ourCode": "external-initializer",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null

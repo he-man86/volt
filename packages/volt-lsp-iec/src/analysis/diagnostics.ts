@@ -43,6 +43,7 @@ import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
 import { checkConstantContext } from "./checks/declarations/const-context.js"
 import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
+import { checkExternalInitializer } from "./checks/declarations/external-initializer.js"
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
 import { checkOutputRules } from "./checks/declarations/output-rules.js"
 import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
@@ -114,6 +115,7 @@ const CHECKS: readonly Check[] = [
   // declarations/
   checkConstantContext,
   checkConstantInitializer,
+  checkExternalInitializer,
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,

@@ -1,15 +1,15 @@
 {
-  "at": "2026-07-10T13:40:04.546Z",
+  "at": "2026-07-10T13:47:33.321Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0185",
+      "code": "C0238",
       "outcome": "verified",
       "lsp": [
-        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
+        "No initial value allowed for VAR_EXTERNAL ig"
       ],
       "actual": [
-        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
+        "No initial value allowed for VAR_EXTERNAL ig"
       ]
     }
   ]
