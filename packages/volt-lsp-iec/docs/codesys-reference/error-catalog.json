@@ -3977,21 +3977,19 @@
     "category": "VAR_IN_OUT default-value misuse",
     "cause": "A VAR_IN_OUT variable is referenced in the default-value initializer of another variable declaration, before it is actually bound at call time.",
     "message": "Access to uninitialized VAR_IN_OUT variable",
-    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\n      i:INT;\nEND_VAR\nVAR_OUTPUT\n      b:BOOL := a[i];\nEND_VAR\nVAR_IN_OUT\n      a:ARRAY [1..5] OF BOOL;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK POU\nVAR_INPUT\n i:INT;\nEND_VAR\nVAR_OUTPUT\n b:BOOL := a[i];\nEND_VAR\nVAR_IN_OUT\n a:ARRAY [1..5] OF BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Access to uninitialized VAR_IN_OUT variable"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/inout-initializer",
+    "ourCode": "inout-in-initializer",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "resolution",
-    "note": "Resolution-dependent — needs cross-symbol / type-graph resolution (callee signature, inheritance chain, global/external, generics) with real false-positive surface. A per-code design call, not autonomous loop-work. Deferred."
+    "fix": null
   },
   {
     "code": "C0454",

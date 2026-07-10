@@ -214,6 +214,8 @@ export interface Messages {
   deprecatedFunctionBlock(): string
   /** A direct-address (`AT %…`) binding in a PERSISTENT var list (C0215). PROVISIONAL. */
   persistentDirectAddress(): string
+  /** A VAR_IN_OUT variable referenced in another declaration's initializer (C0441). PROVISIONAL. */
+  inoutInInitializer(): string
   /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). PROVISIONAL. */
   noDefaultForType(typeName: string): string
   /** A comparison between two different enumeration types (C0354). PROVISIONAL (bridge-gated). */
@@ -391,6 +393,7 @@ export function messagesFor(vendor: Vendor): Messages {
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
     deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
     persistentDirectAddress: () => `Direct address declaration is not possible in persistent list`,
+    inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,
     noDefaultForType: (typeName) => `The type ${typeName} cannot have a default value in this context`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
     iniNeedsInstance: () => (tc ? `'INI' operator needs function block instance or data unit type instance` : `INI operator needs function block instance or data unit type instance`),

@@ -74,6 +74,7 @@ import { checkAttributePlacement } from "./checks/declarations/attribute-placeme
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
 import { checkParseErrors } from "./checks/syntax/parse-errors.js"
 import { checkPersistentAddress } from "./checks/declarations/persistent-address.js"
+import { checkInoutInitializer } from "./checks/declarations/inout-initializer.js"
 
 export type { DiagnosticItem }
 
@@ -148,6 +149,7 @@ const CHECKS: readonly Check[] = [
   // declarations/
   checkVarSectionPlacement,
   checkPersistentAddress,
+  checkInoutInitializer,
   // oop/
   checkExternalNonInputWrite,
   checkLifecycleSignatures,
