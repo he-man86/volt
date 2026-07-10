@@ -41,8 +41,8 @@ test("C0068/C0069: comparing arrays is flagged (same type → one, different →
       .filter((x) => x.code.startsWith("compare-array"))
       .map((x) => x.message)
   }
-  expect(run(`b := a1 > a2;`)).toEqual(["Compare not possible on objects of type 'ARRAY [1..2]'"])
-  expect(run(`b := a1 > a3;`)).toEqual(["Compare not possible on objects of type 'ARRAY [1..2]' or 'ARRAY [1..3]'"])
+  expect(run(`b := a1 > a2;`)).toEqual(["Compare not possible on objects of type 'ARRAY [1..2] OF INT'"])
+  expect(run(`b := a1 > a3;`)).toEqual(["Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"])
 })
 
 test("byte-identical on both vendors", () => {

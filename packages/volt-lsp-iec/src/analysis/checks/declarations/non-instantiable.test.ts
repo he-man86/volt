@@ -16,7 +16,7 @@ const ni = (src: string): string[] => {
 
 test("a variable of a FUNCTION type is flagged; FB / elementary types are fine", () => {
   expect(ni(`PROGRAM P\nVAR inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION`)).toEqual([
-    "'POU' is of type 'FUNCTION' and cannot be instantiated",
+    "'POU' is of type FUNCTION and cannot be instantiated",
   ])
   expect(ni(`PROGRAM P\nVAR inst : FB;\nEND_VAR\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`)).toEqual([])
   expect(ni(`PROGRAM P\nVAR i : INT;\nEND_VAR\nEND_PROGRAM`)).toEqual([])

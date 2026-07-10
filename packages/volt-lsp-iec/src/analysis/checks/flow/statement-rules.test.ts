@@ -25,7 +25,7 @@ test("C0018: writing to a VAR CONSTANT is flagged; reading it is fine", () => {
 })
 
 test("C0132: EXIT outside a loop is flagged; EXIT nested inside a loop is not", () => {
-  expect(exit(`EXIT;`)).toEqual(["No enclosing loop of which to EXIT"])
+  expect(exit(`EXIT;`)).toEqual(["No enclosing loop of which to exit"])
   expect(exit(`FOR ii:=0 TO 2 DO\n IF i>0 THEN EXIT; END_IF\nEND_FOR`)).toEqual([]) // loop context propagates into IF
 })
 

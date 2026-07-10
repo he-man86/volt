@@ -17,8 +17,8 @@ const idx = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] 
 }
 
 test("indexing a scalar names its type", () => {
-  expect(idx(`i[1];`)).toEqual(["Cannot apply indexing with '[]' to an expression of type 'INT'"])
-  expect(idx(`re[0];`)).toEqual(["Cannot apply indexing with '[]' to an expression of type 'REAL'"])
+  expect(idx(`i[1];`)).toEqual(["Cannot apply indexing with [] to an expression of type 'INT'"])
+  expect(idx(`re[0];`)).toEqual(["Cannot apply indexing with [] to an expression of type 'REAL'"])
 })
 
 test("indexable bases stay quiet (0-FP): arrays, pointers, strings", () => {

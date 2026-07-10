@@ -51,7 +51,7 @@ export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): vo
       span: name.span,
       source: SOURCE,
       code: "data-recursion",
-      message: ctx.messages.dataRecursion(cycle.map((k) => graph.get(k)!.display).join("->")),
+      message: ctx.messages.dataRecursion(cycle.map((k) => graph.get(k)!.display).join(" -> ")),
     })
   }
 }

@@ -1,162 +1,32 @@
 {
-  "at": "2026-07-09T22:20:36.512Z",
+  "at": "2026-07-10T07:18:38.453Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0001",
+      "code": "C0003",
       "outcome": "verified",
       "expect": [
-        "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
-        "Constant 'INT#123456' too large for type 'INT'",
-        "Constant '10E500' too large for type 'ANY_REAL'"
-      ],
-      "actual": [
-        "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
-        "Constant 'INT#123456' too large for type 'INT'",
-        "Constant '10E500' too large for type 'ANY_REAL'"
-      ]
-    },
-    {
-      "code": "C0003",
-      "outcome": "mismatch",
-      "expect": [
-        "'17' is not a valid bit number for 'w'"
+        "'17' is no valid bit number for 'w'"
       ],
       "actual": [
         "'17' is no valid bit number for 'w'"
       ]
     },
     {
-      "code": "C0004",
-      "outcome": "verified",
-      "expect": [
-        "'z' is no component of 'DUT'"
-      ],
-      "actual": [
-        "Cannot convert type 'Unknown type: 'test1.z'' to type 'INT'",
-        "'z' is no component of 'DUT'"
-      ]
-    },
-    {
-      "code": "C0018",
-      "outcome": "verified",
-      "expect": [
-        "'j' is no valid assignment target"
-      ],
-      "actual": [
-        "'j' is no valid assignment target"
-      ]
-    },
-    {
-      "code": "C0032",
-      "outcome": "mismatch",
-      "expect": [
-        "Cannot convert type 'BOOL' to type 'INT'"
-      ],
-      "actual": [
-        "Unexpected statement"
-      ]
-    },
-    {
-      "code": "C0033",
-      "outcome": "mismatch",
-      "expect": [
-        "Type 'POINTER TO INT' is possibly not convertible to type 'DWORD'."
-      ],
-      "actual": [
-        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
-      ]
-    },
-    {
-      "code": "C0037",
-      "outcome": "verified",
-      "expect": [
-        "'iVar' is no input of 'TEST'"
-      ],
-      "actual": [
-        "'iVar' is no input of 'TEST'",
-        "Identifier 'iVar' not defined"
-      ]
-    },
-    {
-      "code": "C0038",
-      "outcome": "verified",
-      "expect": [
-        "'iVar' is no output of 'TEST'"
-      ],
-      "actual": [
-        "'iVar' is no output of 'TEST'",
-        "Identifier 'iVar' not defined"
-      ]
-    },
-    {
-      "code": "C0039",
-      "outcome": "verified",
-      "expect": [
-        "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
-      ],
-      "actual": [
-        "VAR_IN_OUT 'inout' must be assigned in call of 'FB'"
-      ]
-    },
-    {
-      "code": "C0040",
-      "outcome": "verified",
-      "expect": [
-        "Function 'TEST' requires exactly '1' inputs"
-      ],
-      "actual": [
-        "Function 'TEST' requires exactly '1' inputs"
-      ]
-    },
-    {
       "code": "C0041",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
+        "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
       ],
       "actual": [
         "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
       ]
     },
     {
-      "code": "C0044",
-      "outcome": "verified",
-      "expect": [
-        "Assignment to input missing for parameter '1' in call of 'FB'"
-      ],
-      "actual": [
-        "Assignment to input missing for parameter '1' in call of 'FB'"
-      ]
-    },
-    {
-      "code": "C0045",
-      "outcome": "mismatch",
-      "expect": [
-        "Use of 'THIS' is not allowed in this context"
-      ],
-      "actual": [
-        "'THIS^.test1' is no valid assignment target",
-        "'THIS^' is no structured variable",
-        "Expression THIS is not allowed in this context"
-      ]
-    },
-    {
-      "code": "C0046",
-      "outcome": "verified",
-      "expect": [
-        "Identifier 'i' not defined"
-      ],
-      "actual": [
-        "Identifier 'i' not defined",
-        "'i' is no valid assignment target"
-      ]
-    },
-    {
       "code": "C0047",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Cannot apply indexing with '[]' to an expression of type 'INT'"
+        "Cannot apply indexing with [] to an expression of type 'INT'"
       ],
       "actual": [
         "The code 'i[1];\r\n' has no effect. Is this the intent?",
@@ -164,30 +34,10 @@
       ]
     },
     {
-      "code": "C0048",
-      "outcome": "verified",
-      "expect": [
-        "Array requires exactly 2 indexes"
-      ],
-      "actual": [
-        "Array requires exactly 2 indexes"
-      ]
-    },
-    {
-      "code": "C0049",
-      "outcome": "verified",
-      "expect": [
-        "The constant index '3' is not within the range from '1' to '2'"
-      ],
-      "actual": [
-        "The constant index '3' is not within the range from '1' to '2'"
-      ]
-    },
-    {
       "code": "C0061",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Bitaccess on function call is not allowed"
+        "Bit access on function call is not allowed"
       ],
       "actual": [
         "Cannot convert type 'BIT' to type 'INT'",
@@ -195,31 +45,10 @@
       ]
     },
     {
-      "code": "C0064",
-      "outcome": "verified",
-      "expect": [
-        "Dereference requires a pointer"
-      ],
-      "actual": [
-        "Cannot convert type 'Unknown type: 'i^'' to type 'INT'",
-        "Dereference requires a pointer"
-      ]
-    },
-    {
-      "code": "C0066",
-      "outcome": "verified",
-      "expect": [
-        "Cannot compare type 'INT' with type 'STRING'"
-      ],
-      "actual": [
-        "Cannot compare type 'INT' with type 'STRING'"
-      ]
-    },
-    {
       "code": "C0068",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Compare not possible on objects of type 'ARRAY [1..2]'"
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
       ],
       "actual": [
         "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
@@ -227,9 +56,9 @@
     },
     {
       "code": "C0069",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Compare not possible on objects of type 'ARRAY [1..2]' or 'ARRAY [1..3]'"
+        "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
       ],
       "actual": [
         "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
@@ -237,9 +66,9 @@
     },
     {
       "code": "C0070",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "'INI' operator needs function block instance or data unit type instance"
+        "INI operator needs function block instance or data unit type instance"
       ],
       "actual": [
         "INI operator needs function block instance or data unit type instance"
@@ -247,207 +76,39 @@
     },
     {
       "code": "C0072",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Operator 'Abs' is not possible on type 'STRING'"
+        "Operation 'Abs' is not possible on type 'STRING'"
       ],
       "actual": [
         "Operation 'Abs' is not possible on type 'STRING'"
       ]
     },
     {
-      "code": "C0074",
+      "code": "C0075",
       "outcome": "verified",
       "expect": [
-        "Unexpected array initialisation"
-      ],
-      "actual": [
-        "Unexpected array initialisation",
-        "Cannot convert type 'Unknown type: '[1, 2, 3, 4, 5, 6]'' to type 'INT'"
-      ]
-    },
-    {
-      "code": "C0075",
-      "outcome": "mismatch",
-      "expect": [
-        "Unexpected array initialisation"
+        "Too many initializers for array"
       ],
       "actual": [
         "Too many initializers for array"
       ]
     },
     {
-      "code": "C0076",
-      "outcome": "verified",
-      "expect": [
-        "Unexpected structure initialisation"
-      ],
-      "actual": [
-        "Unexpected structure initialisation",
-        "Cannot convert type 'Unknown type: 'STRUCT(p1 := 1)'' to type 'INT'",
-        "Identifier 'p1' not defined",
-        "'p1' is no valid assignment target"
-      ]
-    },
-    {
-      "code": "C0077",
-      "outcome": "mismatch",
-      "expect": [
-        "Unknown type: 'USNT'"
-      ],
-      "actual": [
-        "Unexpected statement"
-      ]
-    },
-    {
-      "code": "C0080",
-      "outcome": "verified",
-      "expect": [
-        "Function block 'FB' must be instantiated to be accessed"
-      ],
-      "actual": [
-        "Function block 'FB' must be instantiated to be accessed"
-      ]
-    },
-    {
-      "code": "C0081",
-      "outcome": "verified",
-      "expect": [
-        "Unexpected pragma: 'END_IF' found without matching 'if'"
-      ],
-      "actual": [
-        "Unexpected pragma: 'END_IF' found without matching 'if'"
-      ]
-    },
-    {
-      "code": "C0086",
-      "outcome": "verified",
-      "expect": [
-        "No definition found for interface 'XY'"
-      ],
-      "actual": [
-        "No definition found for interface 'XY'"
-      ]
-    },
-    {
-      "code": "C0087",
-      "outcome": "verified",
-      "expect": [
-        "There is no implementation for method 'METH1' defined in interface 'XY'"
-      ],
-      "actual": [
-        "There is no implementation for method 'METH1' defined in interface 'XY'"
-      ]
-    },
-    {
-      "code": "C0090",
-      "outcome": "verified",
-      "expect": [
-        "No definition found for base class 'POU'"
-      ],
-      "actual": [
-        "Unknown type: 'POU'",
-        "No definition found for base class 'POU'"
-      ]
-    },
-    {
-      "code": "C0091",
-      "outcome": "verified",
-      "expect": [
-        "Recursion in base function block list: FB -> FB"
-      ],
-      "actual": [
-        "Recursion in base function block list: FB -> FB"
-      ]
-    },
-    {
-      "code": "C0097",
-      "outcome": "verified",
-      "expect": [
-        "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
-      ],
-      "actual": [
-        "Duplicate definition of variable 'i' in function block 'FB' and in base 'FB2'"
-      ]
-    },
-    {
       "code": "C0101",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Data Recursion: FB1->FB2->FB1"
+        "Data recursion: FB1 -> FB2 -> FB1"
       ],
       "actual": [
         "Data recursion: FB1 -> FB2 -> FB1"
       ]
     },
     {
-      "code": "C0119",
-      "outcome": "verified",
-      "expect": [
-        "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
-      ],
-      "actual": [
-        "The FB_Init method of a function block or struct needs two inputs 'bInitRetains' and 'bInCopyCode' of type BOOL"
-      ]
-    },
-    {
-      "code": "C0120",
-      "outcome": "verified",
-      "expect": [
-        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
-      ],
-      "actual": [
-        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
-      ]
-    },
-    {
-      "code": "C0122",
-      "outcome": "mismatch",
-      "expect": [
-        "Expression 'SUPER' is not allowed in this context"
-      ],
-      "actual": [
-        "Program name, function or function block instance expected instead of 'SUPER^.METH'",
-        "'SUPER^' is no structured variable",
-        "Expression SUPER is not allowed in this context"
-      ]
-    },
-    {
-      "code": "C0124",
-      "outcome": "mismatch",
-      "expect": [
-        "Type 'LREAL' can not be converted to type 'DUT'"
-      ],
-      "actual": [
-        "Cannot convert type 'LREAL' to type 'DUT'",
-        "2.5 is no valid initialisation for an enumeration"
-      ]
-    },
-    {
-      "code": "C0126",
-      "outcome": "verified",
-      "expect": [
-        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
-      ],
-      "actual": [
-        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
-      ]
-    },
-    {
-      "code": "C0130",
-      "outcome": "mismatch",
-      "expect": [
-        "METHOD 'METH1' referenced without parentheses '()'"
-      ],
-      "actual": [
-        "Cannot convert type 'METH1' to type 'INT'"
-      ]
-    },
-    {
       "code": "C0131",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "'1' is not allowed as operand for 'ADR'"
+        "'1' is not allowed as operand for ADR"
       ],
       "actual": [
         "'1' is not allowed as operand for ADR"
@@ -455,69 +116,29 @@
     },
     {
       "code": "C0132",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "No enclosing loop of which to EXIT"
+        "No enclosing loop of which to exit"
       ],
       "actual": [
         "No enclosing loop of which to exit"
       ]
     },
     {
-      "code": "C0139",
-      "outcome": "mismatch",
-      "expect": [
-        "The code 'i' has no effect. Is this the intent?"
-      ],
-      "actual": [
-        "The code 'i;\r\n' has no effect. Is this the intent?"
-      ]
-    },
-    {
       "code": "C0140",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Reference assign is only allowed to variables of Reference type"
+        "Reference assign is only allowed to variables of reference type"
       ],
       "actual": [
         "Reference assign is only allowed to variables of reference type"
       ]
     },
     {
-      "code": "C0142",
-      "outcome": "verified",
-      "expect": [
-        "A local variable named 'i' is already defined in 'PLC_PRG'"
-      ],
-      "actual": [
-        "A local variable named 'i' is already defined in 'PLC_PRG'"
-      ]
-    },
-    {
-      "code": "C0143",
-      "outcome": "verified",
-      "expect": [
-        "The property 'Prop' cannot be used in this context because it lacks the get accessor"
-      ],
-      "actual": [
-        "The property 'Prop' cannot be used in this context because it lacks the get accessor"
-      ]
-    },
-    {
-      "code": "C0161",
-      "outcome": "verified",
-      "expect": [
-        "Border 'i' of array is no constant value"
-      ],
-      "actual": [
-        "Border 'i' of array is no constant value"
-      ]
-    },
-    {
       "code": "C0162",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Number 'i' of array initialisation is no constant value"
+        "Number 'i' of array initialisations is no constant value"
       ],
       "actual": [
         "Number 'i' of array initialisations is no constant value"
@@ -525,9 +146,9 @@
     },
     {
       "code": "C0168",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"
+        "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
       ],
       "actual": [
         "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
@@ -535,98 +156,29 @@
     },
     {
       "code": "C0169",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "VAR_GLOBAL declaration not allowed in this place"
+        "VAR_GLOBAL declaration only allowed in global variable list"
       ],
       "actual": [
         "VAR_GLOBAL declaration only allowed in global variable list"
       ]
     },
     {
-      "code": "C0174",
+      "code": "C0177",
       "outcome": "verified",
       "expect": [
-        "VAR_TEMP declaration not allowed in this place"
-      ],
-      "actual": [
-        "VAR_TEMP declaration not allowed in this place"
-      ]
-    },
-    {
-      "code": "C0175",
-      "outcome": "silent",
-      "expect": [
-        "'RETAIN' or 'PERSISTENT' not allowed in this place"
-      ],
-      "actual": []
-    },
-    {
-      "code": "C0177",
-      "outcome": "mismatch",
-      "expect": [
-        "'POU' is of type 'FUNCTION' and cannot be instantiated"
+        "'POU' is of type FUNCTION and cannot be instantiated"
       ],
       "actual": [
         "'POU' is of type FUNCTION and cannot be instantiated"
       ]
     },
     {
-      "code": "C0195",
-      "outcome": "verified",
-      "expect": [
-        "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
-      ],
-      "actual": [
-        "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign"
-      ]
-    },
-    {
-      "code": "C0196",
-      "outcome": "verified",
-      "expect": [
-        "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
-      ],
-      "actual": [
-        "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"
-      ]
-    },
-    {
-      "code": "C0197",
-      "outcome": "verified",
-      "expect": [
-        "Implicit conversion from 'DINT' to 'REAL': Possible loss of information"
-      ],
-      "actual": [
-        "Implicit conversion from 'DINT' to 'REAL': Possible loss of information"
-      ]
-    },
-    {
-      "code": "C0198",
-      "outcome": "mismatch",
-      "expect": [
-        "String constant '12345' too long for destination type 'STRING(4)'"
-      ],
-      "actual": [
-        "String constant ''...' too long for destination type 'STRING(4)'"
-      ]
-    },
-    {
-      "code": "C0199",
-      "outcome": "verified",
-      "expect": [
-        "Interface 'ITF' must be instantiated to be accessed"
-      ],
-      "actual": [
-        "Cannot call object of type 'INTERFACE'",
-        "Interface 'ITF' must be instantiated to be accessed"
-      ]
-    },
-    {
       "code": "C0201",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
+        "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
       ],
       "actual": [
         "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
@@ -634,60 +186,19 @@
     },
     {
       "code": "C0203",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Only Structures and Function Blocks can contain variables of type BIT."
+        "Only structures and function blocks can contain variables of type BIT"
       ],
       "actual": [
         "Only structures and function blocks can contain variables of type BIT"
       ]
     },
     {
-      "code": "C0204",
-      "outcome": "mismatch",
-      "expect": [
-        "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block"
-      ],
-      "actual": [
-        "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
-        "References to bits are not possible"
-      ]
-    },
-    {
-      "code": "C0205",
-      "outcome": "verified",
-      "expect": [
-        "POINTER TO BIT is not allowed"
-      ],
-      "actual": [
-        "POINTER TO BIT is not allowed"
-      ]
-    },
-    {
-      "code": "C0206",
-      "outcome": "verified",
-      "expect": [
-        "BIT is not allowed as base type of an array"
-      ],
-      "actual": [
-        "BIT is not allowed as base type of an array"
-      ]
-    },
-    {
-      "code": "C0208",
-      "outcome": "verified",
-      "expect": [
-        "MOD is not defined for REAL"
-      ],
-      "actual": [
-        "MOD is not defined for REAL"
-      ]
-    },
-    {
       "code": "C0216",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Case label duplicate"
+        "CASE label duplicate"
       ],
       "actual": [
         "CASE label duplicate"
@@ -695,9 +206,9 @@
     },
     {
       "code": "C0217",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Case label 4 also contained in range 3 .. 5"
+        "CASE label 4 also contained in range 3 .. 5"
       ],
       "actual": [
         "CASE label 4 also contained in range 3 .. 5"
@@ -705,9 +216,9 @@
     },
     {
       "code": "C0218",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "'CASE' label requires literal or symbolic integer constant"
+        "CASE label requires literal or symbolic integer constant"
       ],
       "actual": [
         "CASE label requires literal or symbolic integer constant"
@@ -715,9 +226,9 @@
     },
     {
       "code": "C0219",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "'CASE' contains overlapping ranges 1 .. 4 and 3 .. 5"
+        "CASE contains overlapping range 1 .. 4 and 3 .. 5"
       ],
       "actual": [
         "CASE contains overlapping range 1 .. 4 and 3 .. 5"
@@ -725,152 +236,12 @@
     },
     {
       "code": "C0222",
-      "outcome": "mismatch",
+      "outcome": "verified",
       "expect": [
-        "Outputs can't be of type 'REFERENCE TO'"
+        "Outputs can't be of type REFERENCE TO"
       ],
       "actual": [
         "Outputs can't be of type REFERENCE TO"
-      ]
-    },
-    {
-      "code": "C0224",
-      "outcome": "silent",
-      "expect": [
-        "Call Recursion: Fib -> Fib"
-      ],
-      "actual": []
-    },
-    {
-      "code": "C0227",
-      "outcome": "verified",
-      "expect": [
-        "Initialisation of constant variable 'k' not constant"
-      ],
-      "actual": [
-        "Initialisation of constant variable 'k' not constant"
-      ]
-    },
-    {
-      "code": "C0228",
-      "outcome": "verified",
-      "expect": [
-        "No initial value for constant variable 'k'"
-      ],
-      "actual": [
-        "No initial value for constant variable 'k'"
-      ]
-    },
-    {
-      "code": "C0230",
-      "outcome": "verified",
-      "expect": [
-        "Type name 'MyEnum' not expected in this place",
-        "Type name 'MyEnum' not expected in this place"
-      ],
-      "actual": [
-        "Type name 'MyEnum' not expected in this place",
-        "Type name 'MyEnum' not expected in this place",
-        "Implicit conversion from signed Type 'INT' to unsigned Type 'MYENUM' : Possible change of sign"
-      ]
-    },
-    {
-      "code": "C0232",
-      "outcome": "verified",
-      "expect": [
-        "Array initialisation expected"
-      ],
-      "actual": [
-        "Array initialisation expected",
-        "Cannot convert type 'BIT' to type 'ARRAY [0..2] OF INT'",
-        "Array initialisation expected",
-        "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'",
-        "Array initialisation expected",
-        "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'"
-      ]
-    },
-    {
-      "code": "C0233",
-      "outcome": "verified",
-      "expect": [
-        "Initialisation list for COLOR expected"
-      ],
-      "actual": [
-        "Initialisation list for COLOR expected",
-        "Cannot convert type 'BIT' to type 'COLOR'",
-        "Initialisation list for COLOR expected",
-        "Cannot convert type 'SINT' to type 'COLOR'",
-        "Initialisation list for COLOR expected",
-        "Cannot convert type 'SINT' to type 'COLOR'"
-      ]
-    },
-    {
-      "code": "C0242",
-      "outcome": "verified",
-      "expect": [
-        "Operand of __DELETE must be pointer"
-      ],
-      "actual": [
-        "No memory for dynamic object creation defined for application 'Device.Application'",
-        "Operand of __DELETE must be pointer"
-      ]
-    },
-    {
-      "code": "C0351",
-      "outcome": "silent",
-      "expect": [
-        "The attribute call_after_ini is unknown and will be ignored by the  compiler."
-      ],
-      "actual": []
-    },
-    {
-      "code": "C0354",
-      "outcome": "verified",
-      "expect": [
-        "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
-      ],
-      "actual": [
-        "Comparison of one enumeration type (ENUM1) with another (ENUM2)"
-      ]
-    },
-    {
-      "code": "C0355",
-      "outcome": "verified",
-      "expect": [
-        "A single bit cannot be referenced. A reference to the complete byte will be stored."
-      ],
-      "actual": [
-        "A single bit cannot be referenced. A reference to the complete byte will be stored."
-      ]
-    },
-    {
-      "code": "C0509",
-      "outcome": "mismatch",
-      "expect": [
-        "Multiple assignments for operator '__NEW' not allowed"
-      ],
-      "actual": [
-        "Multiple assignments are not allowed for operator '__New'.",
-        "No memory for dynamic object creation defined for application 'Device.Application'",
-        "No memory for dynamic object creation defined for application 'Device.Application'"
-      ]
-    },
-    {
-      "code": "C0526",
-      "outcome": "silent",
-      "expect": [
-        "Default value is not constant"
-      ],
-      "actual": []
-    },
-    {
-      "code": "C0565",
-      "outcome": "verified",
-      "expect": [
-        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
-      ],
-      "actual": [
-        "The FB_Exit method of a function block or struct must have a single input 'bInCopyCode' of type BOOL and a return value of type BOOL."
       ]
     }
   ]

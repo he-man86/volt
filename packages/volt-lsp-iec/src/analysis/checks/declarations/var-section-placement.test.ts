@@ -27,7 +27,7 @@ test("VAR_TEMP in a FUNCTION body (allowed) is not flagged", () => {
 
 test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
   expect(sections(`FUNCTION_BLOCK F\nVAR_GLOBAL g : INT; END_VAR\nEND_FUNCTION_BLOCK`, "codesys")).toEqual([
-    "VAR_GLOBAL declaration not allowed in this place",
+    "VAR_GLOBAL declaration only allowed in global variable list",
   ])
 })
 
@@ -52,5 +52,5 @@ test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () =>
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "misplaced-var-config")
     .map((d) => d.message)
-  expect(msgs).toEqual(["'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"])
+  expect(msgs).toEqual(["VAR_CONFIG declaration only allowed in VAR_CONFIG  list"])
 })

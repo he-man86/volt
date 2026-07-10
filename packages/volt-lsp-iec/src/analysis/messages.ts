@@ -84,6 +84,8 @@ export interface Messages {
   cannotCompare(left: string, right: string): string
   /** An array-literal `[…]` initializer on a non-array declared type (C0074). PROVISIONAL (bridge-gated). */
   unexpectedArrayInit(): string
+  /** Too many elements in an array initializer (C0075). CODESYS-verified. */
+  tooManyArrayInit(): string
   /** A struct-literal `(field := …)` initializer on an elementary declared type (C0076). PROVISIONAL (bridge-gated). */
   unexpectedStructInit(): string
   /** A flat scalar where a nested array literal is expected — array-of-array init (C0232). PROVISIONAL (bridge-gated). */
@@ -209,7 +211,7 @@ export function messagesFor(vendor: Vendor): Messages {
       return tc ? `An '${method}'-Method has an invalid signature.` : `The ${method} method has an invalid signature.`
     },
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
-    operatorNotPossible: (op, type) => `Operator '${op}' is not possible on type '${type}'`,
+    operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // PROVISIONAL — CODESYS emits `Unknown type: '<name>'`; TwinCAT wording unconfirmed (locked at the T.1 record pass).
@@ -221,9 +223,11 @@ export function messagesFor(vendor: Vendor): Messages {
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     sectionNotAllowed: (sectionKind) =>
-      tc
-        ? `'${sectionKind}' declaration not allowed in this place`
-        : `${sectionKind} declaration not allowed in this place`,
+      sectionKind === "VAR_GLOBAL" && !tc
+        ? `VAR_GLOBAL declaration only allowed in global variable list` // C0169 (CODESYS-verified)
+        : tc
+          ? `'${sectionKind}' declaration not allowed in this place`
+          : `${sectionKind} declaration not allowed in this place`,
     missingInterfaceImpl: (kind, member, iface) =>
       `There is no implementation for ${kind} '${member.toUpperCase()}' defined in interface '${iface.toUpperCase()}'`,
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
@@ -241,66 +245,67 @@ export function messagesFor(vendor: Vendor): Messages {
     unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
     unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
     inOutNeedsWritable: (param, callee) =>
-      `VAR_IN_OUT parameter '${param}' of '${callee}' needs variable with write access as input`,
+      `VAR_IN_OUT respectively REFERENCE parameter '${param}' of '${callee}' needs variable with write access as input`,
     inOutMustBeAssigned: (param, callee) => `VAR_IN_OUT '${param}' must be assigned in call of '${callee}'`,
     inOutTypeMismatch: (argType, paramType, param) =>
-      `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT '${param}'`,
+      `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT respectively REFERENCE '${param}'`,
     propertyLacksGetter: (name) => `The property '${name}' cannot be used in this context because it lacks the get accessor`,
     methodReferencedWithoutParens: (name) => `METHOD '${name}' referenced without parentheses '()'`,
     // Docs wording (13-error-messages #C0001); byte-identical on both vendors until a live recording locks it.
     constantTooLarge: (value, type) => `Constant '${value}' too large for type '${type}'`,
-    invalidBitNumber: (value, variable) => `'${value}' is not a valid bit number for '${variable}'`,
-    indexingNonArray: (type) => `Cannot apply indexing with '[]' to an expression of type '${type}'`,
+    invalidBitNumber: (value, variable) => `'${value}' is no valid bit number for '${variable}'`,
+    indexingNonArray: (type) => `Cannot apply indexing with [] to an expression of type '${type}'`,
     cannotCompare: (left, right) => `Cannot compare type '${left}' with type '${right}'`,
     unexpectedArrayInit: () => `Unexpected array initialisation`,
+    tooManyArrayInit: () => `Too many initializers for array`,
     unexpectedStructInit: () => `Unexpected structure initialisation`,
     arrayInitExpected: () => `Array initialisation expected`,
     initListExpected: (type) => `Initialisation list for ${type} expected`,
-    caseLabelDuplicate: () => `Case label duplicate`,
-    caseLabelInRange: (label, lo, hi) => `Case label ${label} also contained in range ${lo} .. ${hi}`,
-    caseLabelNonConst: () => `'CASE' label requires literal or symbolic integer constant`,
-    arrayInitCountNonConst: (count) => `Number '${count}' of array initialisation is no constant value`,
+    caseLabelDuplicate: () => `CASE label duplicate`,
+    caseLabelInRange: (label, lo, hi) => `CASE label ${label} also contained in range ${lo} .. ${hi}`,
+    caseLabelNonConst: () => `CASE label requires literal or symbolic integer constant`,
+    arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
     defaultNotConstant: () => `Default value is not constant`,
-    invalidAdrOperand: (value) => `'${value}' is not allowed as operand for 'ADR'`,
+    invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
     pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
-    referenceAssignTarget: () => `Reference assign is only allowed to variables of Reference type`,
-    noEnclosingLoop: () => `No enclosing loop of which to EXIT`,
+    referenceAssignTarget: () => `Reference assign is only allowed to variables of reference type`,
+    noEnclosingLoop: () => `No enclosing loop of which to exit`,
     multipleAssignmentNew: () => `Multiple assignments for operator '__NEW' not allowed`,
     stringConstantTooLong: (value, type) => `String constant '${value}' too long for destination type '${type}'`,
     compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
-    bitInWrongContainer: () => `Only Structures and Function Blocks can contain variables of type BIT.`,
+    bitInWrongContainer: () => `Only structures and function blocks can contain variables of type BIT`,
     bitInWrongBlock: () => `Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block`,
     pointerToBit: () => `POINTER TO BIT is not allowed`,
     bitArrayBase: () => `BIT is not allowed as base type of an array`,
     adrOnBit: () => `A single bit cannot be referenced. A reference to the complete byte will be stored.`,
     codeHasNoEffect: (code) => `The code '${code}' has no effect. Is this the intent?`,
-    varConfigOnlyInList: () => `'VAR_CONFIG' declaration only allowed in VAR_CONFIG list`,
+    varConfigOnlyInList: () => `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`,
     fbMustBeInstantiated: (name) => `Function block '${name}' must be instantiated to be accessed`,
     interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,
-    bitAccessOnCall: () => `Bitaccess on function call is not allowed`,
+    bitAccessOnCall: () => `Bit access on function call is not allowed`,
     pointerIndexArity: (type) => `Variable of type '${type}' requires exactly 1 Index`,
     arrayIndexCount: (dims) => `Array requires exactly ${dims} indexes`,
     retainNotAllowedHere: () => `'RETAIN' or 'PERSISTENT' not allowed in this place`,
     thisNotAllowed: () => `Use of 'THIS' is not allowed in this context`,
     superNotAllowed: () => `Expression 'SUPER' is not allowed in this context`,
-    outputCantBeReference: () => `Outputs can't be of type 'REFERENCE TO'`,
-    notInstantiable: (typeName) => `'${typeName}' is of type 'FUNCTION' and cannot be instantiated`,
+    outputCantBeReference: () => `Outputs can't be of type REFERENCE TO`,
+    notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,
-    dataRecursion: (path) => `Data Recursion: ${path}`,
+    dataRecursion: (path) => `Data recursion: ${path}`,
     callRecursion: (path) => `Call Recursion: ${path}`,
     enumInitNotConvertible: (fromType, enumName) => `Type '${fromType}' can not be converted to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
-    iniNeedsInstance: () => `'INI' operator needs function block instance or data unit type instance`,
-    caseOverlappingRanges: (lo1, hi1, lo2, hi2) => `'CASE' contains overlapping ranges ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`,
+    iniNeedsInstance: () => `INI operator needs function block instance or data unit type instance`,
+    caseOverlappingRanges: (lo1, hi1, lo2, hi2) => `CASE contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`,
   }
 }

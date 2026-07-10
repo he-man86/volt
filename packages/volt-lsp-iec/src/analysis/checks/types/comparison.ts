@@ -10,7 +10,7 @@
  * fire when either operand is an array, rendering the CODESYS-exact `ARRAY [lo..hi]` form; a non-foldable bound
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
-import { classifyConversion, constEval, inferExprType, type ArrayTypeInfo, type Type } from "../../../types/index.js"
+import { classifyConversion, constEval, inferExprType, renderType, type ArrayTypeInfo, type Type } from "../../../types/index.js"
 import type { Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
@@ -61,7 +61,7 @@ function namedType(t: Type): string | undefined {
   return t.kind === "elementary" || t.kind === "enum" ? t.name : undefined
 }
 
-/** The compiler-exact `ARRAY [lo..hi]` render (space, no element type), or undefined if a bound doesn't fold. */
+/** The compiler-exact `ARRAY [lo..hi] OF <elem>` render (CODESYS-verified), or undefined if a bound doesn't fold. */
 function renderArray(t: ArrayTypeInfo, scope: Scope): string | undefined {
   const parts: string[] = []
   for (const d of t.dims) {
@@ -71,5 +71,5 @@ function renderArray(t: ArrayTypeInfo, scope: Scope): string | undefined {
     if (typeof lo !== "bigint" || typeof hi !== "bigint") return undefined
     parts.push(`${lo}..${hi}`)
   }
-  return `ARRAY [${parts.join(",")}]`
+  return `ARRAY [${parts.join(",")}] OF ${renderType(t.element)}`
 }

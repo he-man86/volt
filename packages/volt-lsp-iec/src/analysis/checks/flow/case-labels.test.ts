@@ -21,19 +21,19 @@ const cs = (arms: string, vendor: "codesys" | "twincat" = "codesys"): string[] =
 }
 
 test("C0216 duplicate single label", () => {
-  expect(cs(`  1: i := 1;\n  1: i := 2;`)).toEqual(["Case label duplicate"])
+  expect(cs(`  1: i := 1;\n  1: i := 2;`)).toEqual(["CASE label duplicate"])
 })
 
 test("C0217 single label inside a range", () => {
-  expect(cs(`  3..5: i := 1;\n  4: i := 2;`)).toEqual(["Case label 4 also contained in range 3 .. 5"])
+  expect(cs(`  3..5: i := 1;\n  4: i := 2;`)).toEqual(["CASE label 4 also contained in range 3 .. 5"])
 })
 
 test("C0219 overlapping ranges, rendered lowest-first", () => {
-  expect(cs(`  3..5: i := 1;\n  1..4: i := 2;`)).toEqual(["'CASE' contains overlapping ranges 1 .. 4 and 3 .. 5"])
+  expect(cs(`  3..5: i := 1;\n  1..4: i := 2;`)).toEqual(["CASE contains overlapping range 1 .. 4 and 3 .. 5"])
 })
 
 test("C0218: a non-constant variable label is flagged; constants/enums/empty-arms are not", () => {
-  expect(cs(`  a: i := 1;`)).toEqual(["'CASE' label requires literal or symbolic integer constant"]) // `a` is a var
+  expect(cs(`  a: i := 1;`)).toEqual(["CASE label requires literal or symbolic integer constant"]) // `a` is a var
   expect(cs(`  K: i := 1;`)).toEqual([]) // VAR CONSTANT symbolic label — valid
   expect(cs(`  1:\n  2: i := 1;`)).toEqual([]) // empty fall-through arm (C0426, won't-fix)
   expect(cs(`  1: i := 1;\n  2..4: i := 2;\n  K: i := 3;\n  5,6: i := 4;`)).toEqual([]) // well-formed

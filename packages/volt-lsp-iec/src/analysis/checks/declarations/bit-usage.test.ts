@@ -17,7 +17,7 @@ const errs = (src: string): string[] => {
 
 test("C0203: a BIT var in a PROGRAM is flagged; in an FB VAR-block it is fine", () => {
   expect(errs(`PROGRAM P\nVAR b:BIT;\nEND_VAR\nEND_PROGRAM`)).toEqual([
-    "Only Structures and Function Blocks can contain variables of type BIT.",
+    "Only structures and function blocks can contain variables of type BIT",
   ])
   expect(errs(`FUNCTION_BLOCK F\nVAR b:BIT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })

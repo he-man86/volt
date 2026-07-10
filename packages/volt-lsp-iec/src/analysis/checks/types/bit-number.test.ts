@@ -17,8 +17,8 @@ const bits = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[]
 }
 
 test("a bit index past the type width names the index and the variable", () => {
-  expect(bits(`b := w.17;`)).toEqual(["'17' is not a valid bit number for 'w'"]) // WORD is 16-bit → .16 up is invalid
-  expect(bits(`b := d.32;`)).toEqual(["'32' is not a valid bit number for 'd'"]) // DWORD is 32-bit → .0..31
+  expect(bits(`b := w.17;`)).toEqual(["'17' is no valid bit number for 'w'"]) // WORD is 16-bit → .16 up is invalid
+  expect(bits(`b := d.32;`)).toEqual(["'32' is no valid bit number for 'd'"]) // DWORD is 32-bit → .0..31
 })
 
 test("an in-range bit index stays quiet (0-FP)", () => {
@@ -37,7 +37,7 @@ test("C0061: bit access on a function-call result is flagged (not treated as C00
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "bit-access-on-call")
     .map((d) => d.message)
-  expect(msgs).toEqual(["Bitaccess on function call is not allowed"])
+  expect(msgs).toEqual(["Bit access on function call is not allowed"])
 })
 
 test("byte-identical on both vendors", () => {

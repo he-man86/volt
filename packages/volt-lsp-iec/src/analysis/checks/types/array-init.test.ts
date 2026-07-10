@@ -45,8 +45,8 @@ test("an unresolved declared type is skipped (0-FP)", () => {
 })
 
 test("C0075: more values than a single-dim array holds is flagged (repeats expand)", () => {
-  expect(count(`  a : ARRAY[1..5] OF INT := [1,2,3,4,5,6];`)).toEqual(["Unexpected array initialisation"])
-  expect(count(`  a : ARRAY[1..3] OF INT := [4(0)];`)).toEqual(["Unexpected array initialisation"]) // 4 > 3
+  expect(count(`  a : ARRAY[1..5] OF INT := [1,2,3,4,5,6];`)).toEqual(["Too many initializers for array"])
+  expect(count(`  a : ARRAY[1..3] OF INT := [4(0)];`)).toEqual(["Too many initializers for array"]) // 4 > 3
 })
 
 test("C0075: exact, short, and nested-multidim counts stay quiet (0-FP)", () => {
@@ -70,7 +70,7 @@ test("C0233: a scalar where a struct-init list is expected (enums excepted)", ()
 
 test("C0162: a repeat count that is a non-constant variable is flagged (literals/constants are not)", () => {
   expect(nonConst(`  i : INT := 3; a : ARRAY[1..4] OF INT := [1,i(7)];`)).toEqual([
-    "Number 'i' of array initialisation is no constant value",
+    "Number 'i' of array initialisations is no constant value",
   ])
   expect(nonConst(`  a : ARRAY[1..4] OF INT := [1,3(7)];`)).toEqual([]) // literal count
 })

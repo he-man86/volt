@@ -55,7 +55,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
         if (typeof lo !== "bigint" || typeof hi !== "bigint") continue
         const count = elementCount(init.elements, scope)
         if (count === undefined || BigInt(count) <= hi - lo + 1n) continue // indeterminate or fits → skip
-        push(out, init.span, "array-init-count", ctx.messages.unexpectedArrayInit()) // C0075
+        push(out, init.span, "array-init-count", ctx.messages.tooManyArrayInit()) // C0075
       }
     }
   }

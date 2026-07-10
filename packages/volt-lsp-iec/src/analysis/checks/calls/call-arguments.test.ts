@@ -96,7 +96,7 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
         .map((d) => d.message),
     )
   }
-  expect(msgs(fb, call(`inst(Variable := bo);`))).toEqual(["Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"])
+  expect(msgs(fb, call(`inst(Variable := bo);`))).toEqual(["Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"])
   expect(msgs(fb, call(`inst(Variable := i);`))).toEqual([])
 })
 

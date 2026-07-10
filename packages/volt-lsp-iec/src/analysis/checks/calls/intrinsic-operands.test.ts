@@ -21,7 +21,7 @@ const del = run("delete-non-pointer")
 const adrBit = run("adr-on-bit")
 
 test("C0131: ADR of a literal is flagged; ADR of a variable is not", () => {
-  expect(adr(`pt := ADR(1);`)).toEqual(["'1' is not allowed as operand for 'ADR'"])
+  expect(adr(`pt := ADR(1);`)).toEqual(["'1' is not allowed as operand for ADR"])
   expect(adr(`pt := ADR(i);`)).toEqual([])
 })
 
@@ -37,12 +37,12 @@ test("C0355: ADR of a BIT variable is flagged (warning); ADR of a non-BIT is not
 
 test("C0070: INI of a non-instance is flagged; INI of an FB instance is not", () => {
   const ini = run("ini-needs-instance")
-  expect(ini(`i := INI(i, TRUE);`)).toEqual(["'INI' operator needs function block instance or data unit type instance"])
+  expect(ini(`i := INI(i, TRUE);`)).toEqual(["INI operator needs function block instance or data unit type instance"])
 })
 
 test("C0072: a math operator on a non-numeric type is flagged; on a numeric type is not", () => {
   const op = run("operator-not-possible")
-  expect(op(`r := ABS(s);`)).toEqual(["Operator 'Abs' is not possible on type 'STRING'"])
-  expect(op(`r := SQRT(s);`)).toEqual(["Operator 'Sqrt' is not possible on type 'STRING'"])
+  expect(op(`r := ABS(s);`)).toEqual(["Operation 'Abs' is not possible on type 'STRING'"])
+  expect(op(`r := SQRT(s);`)).toEqual(["Operation 'Sqrt' is not possible on type 'STRING'"])
   expect(op(`r := ABS(i);`)).toEqual([])
 })

@@ -17,7 +17,7 @@ const ref = (body: string): string[] => {
 }
 
 test("REF= to a non-reference target is flagged (C0140); a reference target is fine", () => {
-  expect(ref(`i REF= i;`)).toEqual(["Reference assign is only allowed to variables of Reference type"])
+  expect(ref(`i REF= i;`)).toEqual(["Reference assign is only allowed to variables of reference type"])
   expect(ref(`r REF= i;`)).toEqual([])
   expect(ref(`r REF= 0;`)).toEqual([]) // null-out a reference — valid
 })

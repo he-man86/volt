@@ -52,20 +52,17 @@
     "message": "'<value>' is not a valid bit number for '<variable>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    w: WORD;\n    b: BOOL;\nEND_VAR\n\nb := w.17;",
     "expect": [
-      "'17' is not a valid bit number for 'w'"
+      "'17' is no valid bit number for 'w'"
     ],
     "status": "implemented",
     "ourCheck": "bit-number",
     "ourCode": "invalid-bit-number",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "b := w.15;",
-    "codesysActual": [
-      "'17' is no valid bit number for 'w'"
-    ]
+    "fix": "b := w.15;"
   },
   {
     "code": "C0004",
@@ -636,21 +633,18 @@
     "message": "VAR_IN_OUT parameter '<parameter name>' of '<function name>' needs variable with write access as input",
     "repro": "FUNCTION TEST : INT\nVAR_IN_OUT in_out: INT;\nEND_VAR\nTEST := in_out;\nEND_FUNCTION\nPROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\ni := TEST(31415);\nEND_PROGRAM",
     "expect": [
-      "VAR_IN_OUT parameter 'in_out' of 'TEST' needs variable with write access as input"
+      "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
     ],
     "status": "implemented",
     "ourCheck": "checkCallArguments",
     "ourCode": "in-out-needs-writable",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "i := Test(x);",
-    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL.",
-    "codesysActual": [
-      "VAR_IN_OUT respectively REFERENCE parameter 'in_out' of 'TEST' needs variable with write access as input"
-    ]
+    "note": "VAR_IN_OUT bound to a provably-constant arg (literal/CONSTANT). Needed CalleeInfo.positional (ordered, inOut-tagged). Positional binding gated on complete+all-positional; named binds by name. PROVISIONAL."
   },
   {
     "code": "C0042",
@@ -774,21 +768,17 @@
     "message": "Cannot apply indexing with '[]' to an expression of type '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni[1];",
     "expect": [
-      "Cannot apply indexing with '[]' to an expression of type 'INT'"
+      "Cannot apply indexing with [] to an expression of type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "indexing",
     "ourCode": "indexing-non-array",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "The code 'i[1];\r\n' has no effect. Is this the intent?",
-      "Cannot apply indexing with [] to an expression of type 'INT'"
-    ]
+    "fix": null
   },
   {
     "code": "C0048",
@@ -903,21 +893,17 @@
     "message": "Bitaccess on function call is not allowed",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni := Test().2;\nEND_PROGRAM\nFUNCTION Test : INT\nEND_FUNCTION",
     "expect": [
-      "Bitaccess on function call is not allowed"
+      "Bit access on function call is not allowed"
     ],
     "status": "implemented",
     "ourCheck": "bit-number",
     "ourCode": "bit-access-on-call",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "Cannot convert type 'BIT' to type 'INT'",
-      "Bit access on function call is not allowed"
-    ]
+    "fix": null
   },
   {
     "code": "C0062",
@@ -1013,20 +999,17 @@
     "message": "Compare not possible on objects of type '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    arr1 : ARRAY [1..2] OF INT;\n    arr2 : ARRAY [1..2] OF INT;\nEND_VAR\n\nb := arr1 > arr2;",
     "expect": [
-      "Compare not possible on objects of type 'ARRAY [1..2]'"
+      "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
     ],
     "status": "implemented",
     "ourCheck": "comparison",
     "ourCode": "compare-array",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "Compare not possible on objects of type 'ARRAY [1..2] OF INT'"
-    ]
+    "fix": null
   },
   {
     "code": "C0069",
@@ -1037,20 +1020,17 @@
     "message": "Compare not possible on objects of type '<data type>' or '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    b : BOOL;\n    arr1 : ARRAY [1..2] OF INT;\n    arr2 : ARRAY [1..3] OF INT;\nEND_VAR\n\nb := arr1 > arr2;",
     "expect": [
-      "Compare not possible on objects of type 'ARRAY [1..2]' or 'ARRAY [1..3]'"
+      "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
     ],
     "status": "implemented",
     "ourCheck": "comparison",
     "ourCode": "compare-array-mismatch",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "Compare not possible on objects of type 'ARRAY [1..2] OF INT' or 'ARRAY [1..3] OF INT'"
-    ]
+    "fix": null
   },
   {
     "code": "C0070",
@@ -1061,20 +1041,17 @@
     "message": "'INI' operator needs function block instance or data unit type instance",
     "repro": "FUNCTION_BLOCK F\nVAR\n    b : BOOL;\nEND_VAR\nb := INI(b, TRUE);\nEND_FUNCTION_BLOCK",
     "expect": [
-      "'INI' operator needs function block instance or data unit type instance"
+      "INI operator needs function block instance or data unit type instance"
     ],
     "status": "implemented",
     "ourCheck": "intrinsic-operands",
     "ourCode": "ini-needs-instance",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "b := INI(inst, TRUE);",
-    "codesysActual": [
-      "INI operator needs function block instance or data unit type instance"
-    ]
+    "fix": "b := INI(inst, TRUE);"
   },
   {
     "code": "C0072",
@@ -1085,21 +1062,18 @@
     "message": "Operator '<operator name>' is not possible on type '<data type>'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    str : STRING;\nEND_VAR\nstr := ABS(str);\nEND_PROGRAM",
     "expect": [
-      "Operator 'Abs' is not possible on type 'STRING'"
+      "Operation 'Abs' is not possible on type 'STRING'"
     ],
     "status": "implemented",
     "ourCheck": "checkIntrinsicOperands",
     "ourCode": "operator-not-possible",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "i := ABS(i);",
-    "note": "PROVISIONAL wording (title-cased operator name); math operators only (ABS/SQRT/LN/LOG/EXP/trig). Verify against bridge.",
-    "codesysActual": [
-      "Operation 'Abs' is not possible on type 'STRING'"
-    ]
+    "note": "PROVISIONAL wording (title-cased operator name); math operators only (ABS/SQRT/LN/LOG/EXP/trig). Verify against bridge."
   },
   {
     "code": "C0074",
@@ -1131,20 +1105,17 @@
     "message": "Unexpected array initialisation",
     "repro": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..5] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Unexpected array initialisation"
+      "Too many initializers for array"
     ],
     "status": "implemented",
     "ourCheck": "array-init",
     "ourCode": "array-init-count",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM",
-    "codesysActual": [
-      "Too many initializers for array"
-    ]
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY [1..6] OF INT := [1,2,3,4,5,6];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0076",
@@ -1541,21 +1512,18 @@
     "message": "Data Recursion: '<recursion>'",
     "repro": "FUNCTION_BLOCK FB1\nVAR x : FB2;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB2\nVAR y : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Data Recursion: FB1->FB2->FB1"
+      "Data recursion: FB1 -> FB2 -> FB1"
     ],
     "status": "implemented",
     "ourCheck": "checkDataRecursion",
     "ourCode": "data-recursion",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL.",
-    "codesysActual": [
-      "Data recursion: FB1 -> FB2 -> FB1"
-    ]
+    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL."
   },
   {
     "code": "C0102",
@@ -1911,20 +1879,17 @@
     "message": "'<value>' is not allowed as operand for 'ADR'",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    pt : POINTER TO INT;\nEND_VAR\n\npt := ADR(1);",
     "expect": [
-      "'1' is not allowed as operand for 'ADR'"
+      "'1' is not allowed as operand for ADR"
     ],
     "status": "implemented",
     "ourCheck": "intrinsic-operands",
     "ourCode": "invalid-adr-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "pt := ADR(i);",
-    "codesysActual": [
-      "'1' is not allowed as operand for ADR"
-    ]
+    "fix": "pt := ADR(i);"
   },
   {
     "code": "C0132",
@@ -1935,20 +1900,17 @@
     "message": "No enclosing loop of which to EXIT",
     "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nEXIT\n;",
     "expect": [
-      "No enclosing loop of which to EXIT"
+      "No enclosing loop of which to exit"
     ],
     "status": "implemented",
     "ourCheck": "statement-rules",
     "ourCode": "exit-outside-loop",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "No enclosing loop of which to exit"
-    ]
+    "fix": null
   },
   {
     "code": "C0136",
@@ -2025,20 +1987,17 @@
     "message": "Reference assign is only allowed to variables of Reference type",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    I_r : INT;\nEND_VAR\n\nI_r REF= i;",
     "expect": [
-      "Reference assign is only allowed to variables of Reference type"
+      "Reference assign is only allowed to variables of reference type"
     ],
     "status": "implemented",
     "ourCheck": "reference-assign",
     "ourCode": "reference-assign-target",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "I_r : REFERENCE TO INT;",
-    "codesysActual": [
-      "Reference assign is only allowed to variables of reference type"
-    ]
+    "fix": "I_r : REFERENCE TO INT;"
   },
   {
     "code": "C0141",
@@ -2199,20 +2158,17 @@
     "message": "Number <number of array values> of array initialisation is no constant value",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT := 3;\n    arr1 : ARRAY[1..4] OF INT := [1,i(7)];\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Number 'i' of array initialisation is no constant value"
+      "Number 'i' of array initialisations is no constant value"
     ],
     "status": "implemented",
     "ourCheck": "array-init",
     "ourCode": "array-init-count-non-const",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..4] OF INT := [1,3(7)];\nEND_VAR\nEND_PROGRAM",
-    "codesysActual": [
-      "Number 'i' of array initialisations is no constant value"
-    ]
+    "fix": "PROGRAM PLC_PRG\nVAR\n    arr1 : ARRAY[1..4] OF INT := [1,3(7)];\nEND_VAR\nEND_PROGRAM"
   },
   {
     "code": "C0164",
@@ -2265,20 +2221,17 @@
     "message": "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list",
     "repro": "PROGRAM PLC_PRG\nVAR_CONFIG\n    i : INT;\nEND_VAR",
     "expect": [
-      "'VAR_CONFIG' declaration only allowed in VAR_CONFIG list"
+      "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
     ],
     "status": "implemented",
     "ourCheck": "var-section-placement",
     "ourCode": "misplaced-var-config",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "VAR_CONFIG declaration only allowed in VAR_CONFIG  list"
-    ]
+    "fix": null
   },
   {
     "code": "C0169",
@@ -2289,7 +2242,7 @@
     "message": "'VAR_GLOBAL' declaration only allowed in global variable list",
     "repro": "PROGRAM PLC_PRG\nVAR_GLOBAL\n    i : INT;\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "VAR_GLOBAL declaration not allowed in this place"
+      "VAR_GLOBAL declaration only allowed in global variable list"
     ],
     "note": "expect reconciled to our live-calibrated wording (CODESYS, no quotes); the docs template above ('only allowed in global variable list') is the drift to settle at the live-recording pass.",
     "status": "implemented",
@@ -2297,13 +2250,10 @@
     "ourCode": "var-section-placement",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "VAR_GLOBAL declaration only allowed in global variable list"
-    ]
+    "fix": null
   },
   {
     "code": "C0173",
@@ -2379,20 +2329,17 @@
     "message": "'<object>' is of type '<type>' and cannot be instantiated",
     "repro": "PROGRAM PLC_PRG\nVAR\n     inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION",
     "expect": [
-      "'POU' is of type 'FUNCTION' and cannot be instantiated"
+      "'POU' is of type FUNCTION and cannot be instantiated"
     ],
     "status": "implemented",
     "ourCheck": "non-instantiable",
     "ourCode": "not-instantiable",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "'POU' is of type FUNCTION and cannot be instantiated"
-    ]
+    "fix": null
   },
   {
     "code": "C0178",
@@ -2761,21 +2708,18 @@
     "message": "Type '<data type 1>' is not equal to type '<data type 2>' of VAR_IN_OUT 'Variable'",
     "repro": "FUNCTION_BLOCK FB\nVAR_IN_OUT Variable : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nPROGRAM PLC_PRG\nVAR inst : FB; b : BOOL;\nEND_VAR\ninst(Variable := b);\nEND_PROGRAM",
     "expect": [
-      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT 'Variable'"
+      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
     ],
     "status": "implemented",
     "ourCheck": "checkCallArguments",
     "ourCode": "in-out-type-mismatch",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL.",
-    "codesysActual": [
-      "Type 'BOOL' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'Variable'"
-    ]
+    "note": "VAR_IN_OUT requires identical (not merely assignable) type. Conservative: both KNOWN elementary + differently-named (aliases resolve). PROVISIONAL."
   },
   {
     "code": "C0203",
@@ -2786,20 +2730,17 @@
     "message": "Only Structures and Function Blocks can contain variables of type BIT.",
     "repro": "PROGRAM PLC_PRG\nVAR\n    b : BIT;\nEND_VAR",
     "expect": [
-      "Only Structures and Function Blocks can contain variables of type BIT."
+      "Only structures and function blocks can contain variables of type BIT"
     ],
     "status": "implemented",
     "ourCheck": "bit-usage",
     "ourCode": "bit-wrong-container",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "Only structures and function blocks can contain variables of type BIT"
-    ]
+    "fix": null
   },
   {
     "code": "C0204",
@@ -3023,20 +2964,17 @@
     "message": "Case label duplicate",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\n\nCASE i OF\n  1: i := i+1;\n  1: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
     "expect": [
-      "Case label duplicate"
+      "CASE label duplicate"
     ],
     "status": "implemented",
     "ourCheck": "case-labels",
     "ourCode": "case-label-duplicate",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "CASE label duplicate"
-    ]
+    "fix": null
   },
   {
     "code": "C0217",
@@ -3047,20 +2985,17 @@
     "message": "Case label <case label> also contained in range <case range begin> .. <case range end>",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\nCASE i OF\n  3..5: i := i+2;\n  4: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
     "expect": [
-      "Case label 4 also contained in range 3 .. 5"
+      "CASE label 4 also contained in range 3 .. 5"
     ],
     "status": "implemented",
     "ourCheck": "case-labels",
     "ourCode": "case-label-in-range",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "CASE label 4 also contained in range 3 .. 5"
-    ]
+    "fix": null
   },
   {
     "code": "C0218",
@@ -3071,20 +3006,17 @@
     "message": "'CASE' label requires literal or symbolic integer constant",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\n    a : INT := 2;\nEND_VAR\n\nCASE i OF\n  1: i := i+1;\n  a: i := i+2;\nELSE\n  i := i+10;\nEND_CASE",
     "expect": [
-      "'CASE' label requires literal or symbolic integer constant"
+      "CASE label requires literal or symbolic integer constant"
     ],
     "status": "implemented",
     "ourCheck": "case-labels",
     "ourCode": "case-label-non-const",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "CASE label requires literal or symbolic integer constant"
-    ]
+    "fix": null
   },
   {
     "code": "C0219",
@@ -3095,20 +3027,17 @@
     "message": "Case contains overlapping range <case range 1 begin> .. <case range 1 end> and <case range 2 begin> .. <case range 2 end>",
     "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\nCASE i OF\n  3..5: i := i+2;\n  1..4: i := i+2;\nELSE\n  i := i+10;\nEND_CASE;",
     "expect": [
-      "'CASE' contains overlapping ranges 1 .. 4 and 3 .. 5"
+      "CASE contains overlapping range 1 .. 4 and 3 .. 5"
     ],
     "status": "implemented",
     "ourCheck": "case-labels",
     "ourCode": "case-overlapping-ranges",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "CASE contains overlapping range 1 .. 4 and 3 .. 5"
-    ]
+    "fix": null
   },
   {
     "code": "C0221",
@@ -3140,20 +3069,17 @@
     "message": "Outputs can't be of type 'REFERENCE TO'",
     "repro": "FUNCTION_BLOCK FB\nVAR_OUTPUT\n    re : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Outputs can't be of type 'REFERENCE TO'"
+      "Outputs can't be of type REFERENCE TO"
     ],
     "status": "implemented",
     "ourCheck": "output-rules",
     "ourCode": "output-reference-type",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": null,
-    "codesysActual": [
-      "Outputs can't be of type REFERENCE TO"
-    ]
+    "fix": null
   },
   {
     "code": "C0224",
