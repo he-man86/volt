@@ -39,10 +39,19 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
 
 ## 2. Phase 2 — resilient statement recovery (IDE-quality)
 
-- [ ] 2.1 Per-construct synchronization sets (statement level, IF, CASE, FOR/WHILE/REPEAT, __TRY) — encode the
-  recovery anchors; `parseStatement*` diagnose + `recoverTo(sync)` + continue instead of `return undefined`.
-- [ ] 2.2 Two diagnostic kinds: *missing token* (zero-width span at insertion point) and *unexpected tokens*
-  (one diagnostic over the skipped span, wrapped as an error/partial node). Every parser returns a node.
+- [~] 2.1 **Finding: statement-LIST-level skip-recovery is the WRONG tool — it cascades.** Tried it first
+  (recover to a `;`/statement-starter/block-closer sync set + progress guard). It made the common case *worse*:
+  on a missing `THEN`, `parseIf` bails and dumps the IF body + `END_IF` back to the list, which mis-parses them
+  into a spurious 2nd error (`expected ';' … got end of input`). Reverted. The right technique is per-construct
+  **missing-token insertion** (2.2), not list-level token-skipping.
+- [~] 2.2 **Missing-token insertion — PROVEN on IF/THEN (the highest-value case).** `parseIfBranch` now records
+  an absent `THEN` (`cur.expectKeyword` without bailing) and parses the body anyway, so the IF consumes its
+  `END_IF`: **one error in → one error out, no cascade**, AND subsequent errors in the same body now surface
+  (multi-error). Verified: `IF b\n x:=9;\nEND_IF` → exactly `[expected THEN…]`; a 2nd error after the IF also
+  surfaces; valid IF stays silent; corpus 100%-materialize + conformance + fuzz all green (valid code takes the
+  identical path). **Follow-on (mechanical, same pattern):** apply insertion to `CASE`'s `OF`, `FOR`'s
+  `TO`/`DO`, `WHILE`'s `DO`, `REPEAT`'s `UNTIL`, and the block closers (`END_IF`/`END_CASE`/… → record + return
+  the node), validating each against the gates. The *unexpected-tokens* error node (skip-and-wrap) is still open.
 - [ ] 2.3 Multi-error per body + a per-body diagnostic cap (match IDE). Extend the fuzz test to assert
   termination + bounded diagnostics (every recovery step consumes ≥1 token).
 - [x] 2.4 **Grammar completeness — DONE (2026-07-10); unblocked the ship.** Closed the two conformance-gate

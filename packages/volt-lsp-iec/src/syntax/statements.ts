@@ -222,7 +222,10 @@ function parseIf(cur: Cursor): Statement | undefined {
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
   const cond = parseAssignable(cur) // `IF x := f() THEN` — inline assignment in the condition (CODESYS)
   if (cond === undefined) return undefined
-  if (cur.expectKeyword("THEN", "in IF") === undefined) return undefined
+  // Missing-token recovery (Roslyn-style): record the absent THEN but DON'T abandon the branch — parse the
+  // body anyway and let the IF consume its END_IF. Bailing here instead dumps the body + END_IF back to the
+  // statement list, which mis-parses them into a spurious cascade error. One error in → one error out.
+  cur.expectKeyword("THEN", "in IF")
   const body = parseStatementList(cur, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"))
   return { kind: "if_branch", cond, body, span: merge(cond.span, lastSpan(body, cond.span)) }
 }
