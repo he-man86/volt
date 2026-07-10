@@ -75,14 +75,34 @@ function lastSpan(list: ReadonlyArray<{ span: Span }>, fallback: Span): Span {
   return list.length > 0 ? (list[list.length - 1] as { span: Span }).span : fallback
 }
 
+// Recovery anchors for a garbage statement: a `;` (end of the bad statement) or a statement-starter /
+// block-structural keyword (start of the next real thing). Skipping to one of these lets a single unparsable
+// statement (a typo, a stray token) yield one diagnostic while the rest of the body still parses. Safe now
+// that the block constructs self-recover (missing-token insertion + closer recovery) — `parseStatement` returns
+// a node for a malformed IF/CASE/FOR/…, so anything that still fails to parse is genuinely a bad statement, not
+// a half-consumed construct dumping its tail here (which is what made an earlier list-level skip cascade).
+const STMT_SYNC: readonly Keyword[] = [
+  "IF", "CASE", "FOR", "WHILE", "REPEAT", "RETURN", "EXIT", "CONTINUE", "__TRY",
+  "END_IF", "ELSIF", "ELSE", "END_CASE", "END_FOR", "END_WHILE", "END_REPEAT", "UNTIL",
+  "__CATCH", "__FINALLY", "__ENDTRY",
+]
+
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
     // `%FOLDER <path>` is bridge folder metadata prepended to a child body — skip it like trivia.
     if (skipFolderDirective(cur)) continue
+    const before = cur.mark()
     const s = parseStatement(cur)
-    if (s === undefined) break // error recorded; stop so ok=false surfaces
-    out.push(s)
+    if (s !== undefined) {
+      out.push(s)
+      continue
+    }
+    // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
+    // trailing `consume()` guarantees ≥1 token of progress per iteration, so recovery can never loop forever.
+    cur.recoverTo({ puncts: [";"], keywords: STMT_SYNC })
+    cur.eatPunct(";")
+    if (cur.mark() === before) cur.consume()
   }
   return out
 }
