@@ -1,5 +1,10 @@
 # Tasks — resilient ST parse-error diagnostics
 
+**Status (2026-07-10): Phase 1 + Phase 2.4 SHIPPED — statement syntax errors now surface with precise spans.**
+Open: Phase 2.1–2.3 (resilient multi-error recovery — the parser currently reports the first error per body),
+Phase 3 (declaration-layer resilience — the "unterminated <unit>" class), Phase 4 (per-code CODESYS wording +
+`Cnnnn` mapping via the live recorder). All guardrails green (incl. a perf bug this validation surfaced — see §5.3).
+
 Grounding (measured 2026-07-10): statement parser produces `firstError:"expected THEN in IF, got identifier
 'x'"` for a missing `THEN` (discarded today); corpus completeness = **1938/1938 ST bodies parse with zero
 errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/measure-parse.ts`.
@@ -66,6 +71,15 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
 
 ## 5. Guardrails (every phase)
 
-- [ ] 5.1 `bun typecheck` + `bun test src/analysis src/reference src/syntax` green.
-- [ ] 5.2 Corpus zero-FP gate (checks AND parse errors) + conformance replay green after each phase.
-- [ ] 5.3 No performance regression (parseStatements already memoized; checks already parse every body).
+- [x] 5.1 `bun typecheck` + `bun test src/analysis src/reference src/syntax` green (Phase 1 + 2.4).
+- [x] 5.2 Corpus zero-FP gate (checks AND parse errors) + conformance replay green. Full `corpus.test.ts`
+  8/8 pass at its original 120s budget; `corpus-fp.ts` "No false positives"; conformance 253/283, zero
+  LSP-only FPs.
+- [x] 5.3 No performance regression — and, in fact, **fixed a pre-existing O(n²) one that validating this
+  change surfaced.** Running the full (rarely-run, 545s) `corpus.test.ts` showed 2 "failures" that were really
+  120s TIMEOUTS (the assertion never ran; `corpus-fp.ts` has no timeout so it stayed green — that divergence
+  was the tell). Per-check profiling (new env-gated `PROFILE_CHECKS=1` hook in `diagnostics.ts`) traced 84.8%
+  of all check time to `checkDataRecursion` rebuilding the whole-project composition graph **per file**. Fixed
+  by memoizing the graph on `Scope` identity (commit `6e905526`): checks 7.3x faster (47s→6.5s), full corpus
+  test 236s→76s, back under the original budget. Lesson recorded: a timeout is a bug, not a budget — root-cause
+  it, don't raise it. (Orthogonal to parse errors; committed as its own `perf(lsp)` fix.)
