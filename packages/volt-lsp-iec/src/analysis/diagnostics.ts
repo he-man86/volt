@@ -73,6 +73,7 @@ import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
 import { checkParseErrors } from "./checks/syntax/parse-errors.js"
+import { checkPersistentAddress } from "./checks/declarations/persistent-address.js"
 
 export type { DiagnosticItem }
 
@@ -146,6 +147,7 @@ const CHECKS: readonly Check[] = [
   checkTypeAsValue,
   // declarations/
   checkVarSectionPlacement,
+  checkPersistentAddress,
   // oop/
   checkExternalNonInputWrite,
   checkLifecycleSignatures,

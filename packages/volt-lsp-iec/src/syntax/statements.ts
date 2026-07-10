@@ -346,7 +346,7 @@ function parseFor(cur: Cursor): Statement | undefined {
   if (cur.expectPunct(":=", "in FOR") === undefined) return undefined
   const from = parseExpression(cur)
   if (from === undefined) return undefined
-  if (cur.expectKeyword("TO", "in FOR") === undefined) return undefined
+  cur.expectKeyword("TO", "in FOR") // missing-token recovery — the upper bound follows regardless (see parseIfBranch)
   const to = parseExpression(cur)
   if (to === undefined) return undefined
   let by: Expr | undefined

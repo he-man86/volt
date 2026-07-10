@@ -3084,17 +3084,15 @@
     "expect": [
       "Direct address declaration is not possible in persistent list"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/persistent-address",
+    "ourCode": "persistent-direct-address",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0216",
