@@ -1,16 +1,14 @@
 {
-  "at": "2026-07-10T14:36:16.567Z",
+  "at": "2026-07-10T14:46:27.419Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0373",
-      "outcome": "verified",
+      "code": "C0098",
+      "outcome": "mismatch",
       "lsp": [
-        "This is a warning"
+        "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
       ],
-      "actual": [
-        "This is a warning"
-      ]
+      "actual": []
     }
   ]
 }

@@ -46,6 +46,7 @@ import { checkConstantContext } from "./checks/declarations/const-context.js"
 import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
 import { checkExternalInitializer } from "./checks/declarations/external-initializer.js"
 import { checkInputDefault } from "./checks/declarations/input-default.js"
+import { checkDeprecatedKeyword } from "./checks/declarations/deprecated-keyword.js"
 import { checkBitUsage } from "./checks/declarations/bit-usage.js"
 import { checkOutputRules } from "./checks/declarations/output-rules.js"
 import { checkNonInstantiable } from "./checks/declarations/non-instantiable.js"
@@ -120,6 +121,7 @@ const CHECKS: readonly Check[] = [
   checkConstantInitializer,
   checkExternalInitializer,
   checkInputDefault,
+  checkDeprecatedKeyword,
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,

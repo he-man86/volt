@@ -1486,18 +1486,19 @@
     "category": "deprecated keyword",
     "cause": "The obsolete keyword FUNCTIONBLOCK (without underscore) is used instead of FUNCTION_BLOCK.",
     "message": "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nFUNCTIONBLOCK FB\nVAR\nEND_VAR",
+    "repro": "FUNCTIONBLOCK FB\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "deprecated-keyword",
+    "ourCode": "deprecated-functionblock",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
+    "note": "Offline-correct (re-lex token-pair scan; burn-in + corpus + conformance clean). Live-verify is BLOCKED by the harness: `FUNCTIONBLOCK` lexes as an identifier so splitRepro can't identify the deprecated FB as a pushable unit, so the IDE builds nothing and stays silent. Would need the verifier to push the raw source as a typed FB item.",
     "fix": null
   },
   {

@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-09)
 
-**102 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**103 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -119,6 +119,7 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0240 | calls/intrinsic-operands | query-pointer-operand | `__QueryPointer` first operand a known elementary (not interface-ref/FB); verified live CS (`First operand` lowercase) |
 | C0241 | calls/intrinsic-operands | query-pointer-operand | `__QueryPointer` second operand a known elementary (not pointer); verified live CS (real IDE says `Second operand of __QueryInterface must be a pointer` — CODESYS quirk) |
 | C0373 | pragmas/pragmas | message-pragma-warning | `{warning 'text'}` echoed verbatim — free reconcile (pre-existing message-pragma check code-linked); verified live CS |
+| C0098 | declarations/deprecated-keyword | deprecated-functionblock | deprecated `FUNCTIONBLOCK` spelling (re-lex token-pair scan, zero-FP); offline-correct + corpus/conformance clean, live-verify harness-blocked (lexed as identifier → not a pushable unit) |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`
