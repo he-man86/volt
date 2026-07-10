@@ -1,6 +1,7 @@
 /**
  * header-rules — C0096 (multiple EXTENDS bases on an FB), C0182 (return type on a PROGRAM), C0421 (an
- * INTERFACE using IMPLEMENTS). Each fires only in the illegal case; the legal forms stay silent.
+ * INTERFACE using IMPLEMENTS), C0149 (a VAR section inside an INTERFACE). Each fires only in the illegal
+ * case; the legal forms stay silent.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
@@ -34,4 +35,11 @@ test("C0421: an INTERFACE using IMPLEMENTS is flagged; EXTENDS is fine", () => {
     "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS",
   ])
   expect(msgs(`INTERFACE ITF_1 EXTENDS ITF\nEND_INTERFACE`, "interface-implements")).toEqual([])
+})
+
+test("C0149: a VAR section inside an INTERFACE is flagged; a method-only interface is fine", () => {
+  expect(msgs(`INTERFACE ITF\nVAR_INPUT\n  i : INT;\nEND_VAR\nEND_INTERFACE`, "var-in-interface")).toEqual([
+    "Variable declarations are not allowed in interfaces",
+  ])
+  expect(msgs(`INTERFACE ITF\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE`, "var-in-interface")).toEqual([])
 })

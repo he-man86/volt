@@ -184,6 +184,8 @@ export interface Messages {
   returnTypeNotAllowed(): string
   /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). PROVISIONAL. */
   interfaceImplementsMisused(): string
+  /** A VAR section declared directly in an INTERFACE body — signatures only (C0149). PROVISIONAL. */
+  varInInterface(): string
   /** A `{attribute 'pack_mode'}` pragma on a FUNCTION/METHOD (only valid on data structures) (C0550). PROVISIONAL. */
   packModeNotAllowed(kind: string): string
   /** A derived FB redeclares a variable already declared in a base FB (C0097). PROVISIONAL (bridge-gated). */
@@ -361,6 +363,7 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS.`
         : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
+    varInInterface: () => `Variable declarations are not allowed in interfaces`,
     packModeNotAllowed: (kind) => `Attribute 'pack_mode' not allowed for '${kind}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,

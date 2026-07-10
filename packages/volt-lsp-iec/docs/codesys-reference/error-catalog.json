@@ -2140,13 +2140,13 @@
     "category": "invalid interface declaration",
     "cause": "A VAR block containing variable declarations is placed inside an INTERFACE, which is not permitted since interfaces may only declare method signatures.",
     "message": "Variable declarations are not allowed in interfaces",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : ITF;\nEND_VAR\n\nINTERFACE ITF\nVAR_INPUT\n    i : INT;\nEND_VAR",
+    "repro": "INTERFACE ITF\nVAR_INPUT\n    i : INT;\nEND_VAR\nEND_INTERFACE",
     "expect": [
       "Variable declarations are not allowed in interfaces"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "var-in-interface",
     "lint": null,
     "verified": {
       "codesys": false,

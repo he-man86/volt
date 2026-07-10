@@ -1,6 +1,6 @@
-## 0. Status matrix (updated 2026-07-09)
+## 0. Status matrix (updated 2026-07-10)
 
-**103 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**104 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -120,6 +120,7 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0241 | calls/intrinsic-operands | query-pointer-operand | `__QueryPointer` second operand a known elementary (not pointer); verified live CS (real IDE says `Second operand of __QueryInterface must be a pointer` — CODESYS quirk) |
 | C0373 | pragmas/pragmas | message-pragma-warning | `{warning 'text'}` echoed verbatim — free reconcile (pre-existing message-pragma check code-linked); verified live CS |
 | C0098 | declarations/deprecated-keyword | deprecated-functionblock | deprecated `FUNCTIONBLOCK` spelling (re-lex token-pair scan, zero-FP); offline-correct + corpus/conformance clean, live-verify harness-blocked (lexed as identifier → not a pushable unit) |
+| C0149 | declarations/header-rules | var-in-interface | VAR section directly in an INTERFACE body (interfaces declare signatures only) — parser now captures `strayVarSections` instead of the generic recovery error; zero-FP presence test, corpus + conformance clean; wording PROVISIONAL (live-verify pending) |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`
@@ -142,8 +143,10 @@ implemented. The remaining tranche is systematically gated — probing confirmed
   header-shape facts the parser only needed to *capture in the illegal case*, not pragmas — **C0096** (`extendsExtra`),
   **C0182** (program `returnType`), **C0421** (`implementsMisused`), all in `declarations/header-rules.ts`, all
   verified live CS, zero-FP. The C0096 fix also repaired a real parse-corruption bug (`EXTENDS A, B` used to leak
-  `, B` into the following var-sections). Still open in this bucket: **C0149** (VAR in interface — the parser emits
-  its own recovery error; needs the interface parser to emit C0149 wording instead). **C0533 LANDED (iteration 4)**
+  `, B` into the following var-sections). **C0149 LANDED (2026-07-10)** — same pattern: the interface parser now
+  captures `strayVarSections` (a VAR block in an interface body) instead of the generic recovery error, and
+  `header-rules` flags each; zero-FP presence test, corpus + conformance clean; wording PROVISIONAL (live-verify
+  pending). This closes the header-capture bucket. **C0533 LANDED (iteration 4)**
   — `oop/abstract-output-default.ts`, interface + explicit-`ABSTRACT` methods, verified live CS; implicit-abstract-
   FB-method form deferred (FP-prone empty-body heuristic).
 - **Pragma-attribute-on-unit — LANDED (2026-07-10, iteration 2).** `checks/declarations/attribute-placement.ts`

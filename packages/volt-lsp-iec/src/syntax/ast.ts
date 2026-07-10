@@ -514,6 +514,8 @@ export interface Interface {
   extends?: Identifier[]
   /** An IMPLEMENTS list illegally used on an interface (should be EXTENDS) — drives C0421. */
   implementsMisused?: Identifier[]
+  /** VAR sections illegally placed directly in the interface body (interfaces declare signatures only) — drives C0149. */
+  strayVarSections?: VarSection[]
   methods: InterfaceMethod[]
   properties: InterfaceProperty[]
   span: Span
