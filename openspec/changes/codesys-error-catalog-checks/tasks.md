@@ -1,8 +1,19 @@
 ## 0. Status matrix (updated 2026-07-10)
 
-**109 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
-`computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
-per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
+**125 / 220 implemented** (was 109) — each a registered check in `src/analysis/checks/**` OR a parser-surfaced
+syntax error, emitting through the core `computeSemanticDiagnostics` → server `documentDiagnostics` path (both
+push + pull LSP transports; the server also surfaces `parseResult.errors`), central per-vendor `messages.ts`,
+corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
+
+**Coverage push (2026-07-10, resilient-parsing session):** +16 codes. (a) The `resilient-st-parse-errors` change
+made the parser surface statement/declaration syntax errors precisely (no cascades), so **14 parser-bucket
+codes** (C0002/06/08/10/11/15/27/31/173/189/190/211/212/213) are now recorded implemented with our wording as
+the PROVISIONAL parity target. (b) Two clean new declaration checks: **C0215** (direct address in a persistent
+list) and **C0441** (VAR_IN_OUT referenced in an initializer), both corpus-zero-FP. **The clean, offline-
+coverable ceiling is ~here (125/220).** The 60 open: 34 `resolution` (each needs cross-unit/member/type/generics/
+overload/dataflow resolution + per-code FP judgment — corpus-gate-safe but rare & real effort, do per-code with
+a human), 15 `parser` (uncoverable offline: jump-labels/silent-accept/off-target), 35 `ideOnly` (impossible
+offline), 5 `optionGated` + 4 `pragma` (would FP), 2 `skip` (no ground truth).
 
 **Audit (2026-07-09) — no mess, everything mirrors CODESYS.** A full sweep of `src/analysis` found: 0 dead/
 unregistered checks (all 32 registered), 0 colliding codes (no two checks share a diagnostic `code`), 0 double-
