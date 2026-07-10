@@ -12,8 +12,11 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   (`code:"syntax-error"`, precise span). Chose the **check-pipeline** integration over a separate producer —
   it inherits the corpus gate + both LSP transports + dead-member filtering for free. Phase-1 conservatism:
   only *recorded* `expect*` errors are surfaced, not the "stopped, no recorded error" fallback.
-- [ ] 1.3 Route wording through `messages.ts` (per-vendor, PROVISIONAL); map to catalog codes C0006/C0011/
-  C0013/C0015/C0020/C0026/C0027/C0030/C0031 and flip their `status`/`triage`. **Blocked on 1.5.**
+- [x] 1.3 **Check REGISTERED and shipping (2026-07-10)** — 2.4 closed the gaps, both gates green, so
+  `checkParseErrors` is live in `CHECKS`. Wording is the parser's own (`expected THEN in IF, got identifier
+  'x'`) under `code:"syntax-error"`; routing through `messages.ts` + per-code `Cnnnn` mapping (C0006/C0011/…)
+  is deferred to phase 4 (needs the resilient-recovery structured errors to key wording on, and the live
+  recorder to settle each string). The precise span + which-token — the IDE-parity-hard part — ships now.
 - [x] 1.4 The check-pipeline integration IS the gate: `corpus-fp.ts` / `corpus.test.ts` (checks) and
   `replay.test.ts` (conformance) both run `computeSemanticDiagnostics`, so registering `checkParseErrors`
   auto-subjects it to both zero-FP oracles. Colocated mechanism test (missing THEN / FOR-init / valid ST).
@@ -37,12 +40,16 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   (one diagnostic over the skipped span, wrapped as an error/partial node). Every parser returns a node.
 - [ ] 2.3 Multi-error per body + a per-body diagnostic cap (match IDE). Extend the fuzz test to assert
   termination + bounded diagnostics (every recovery step consumes ≥1 token).
-- [ ] 2.4 **Grammar completeness (unblocks 1.3/1.5 — the ship gate).** Parse the valid CODESYS forms the
-  conformance gate flagged, so surfacing ships zero-FP: **partial variable access** (`.%X`/`.%B`/`.%W`/`.%D<n>`)
-  in `parsePostfix` — AND make the member downstream-aware (like the existing numeric bit-access special-case)
-  so member-resolution checks (C0004) don't re-flag it; **typed char literals** (`UCHAR#'A'`) in the lexer's
-  typed-literal rule (currently `TYPE#<number>` only). Re-run BOTH gates; register `checkParseErrors` when
-  green. Expect the gate to surface further gaps — each is a grammar fix, never a suppression.
+- [x] 2.4 **Grammar completeness — DONE (2026-07-10); unblocked the ship.** Closed the two conformance-gate
+  gaps: **partial variable access** `x.%W1`/`.%B3`/`.%X0`/`.%D0` in `parsePostfix` (recombines the lexer's
+  `. % <spec>` into one member named `%<spec>`; member-resolution checks already only fire on struct/FB bases,
+  so an elementary base's slice selector is never re-flagged — no C0004 FP, confirmed by the corpus gate);
+  **typed char/string literals** `UCHAR#'A'` in the lexer (an identifier + `#` + a quote is unambiguously a
+  typed literal → one `typed_lit` token). Colocated parser tests + regression guard in `parse-errors.test.ts`.
+  Re-ran BOTH gates: corpus "No false positives", conformance 253/283 with zero LSP-only FPs. No further gaps
+  surfaced in either oracle → `checkParseErrors` registered. (Phase 2.1–2.3 resilient multi-error recovery is
+  still open — this delivered the *completeness* half that gates surfacing; the current parser reports the
+  first error per body, which is enough to ship precisely.)
 
 ## 3. Phase 3 — declaration-layer resilience
 

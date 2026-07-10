@@ -178,6 +178,21 @@ function parsePostfix(cur: Cursor): Expr | undefined {
         base = { kind: "member", base, member, span: merge(base.span, bitTok.span) }
         continue
       }
+      // CODESYS partial variable access `x.%X0` / `.%B3` / `.%W1` / `.%D0` — a sub-bit/byte/word/dword slice
+      // of an integer. The lexer yields `. % <spec>`; recombine into one member named `%<spec>` (like the
+      // numeric bit-access above, its "member" is a slice selector, not a struct component).
+      const pct = cur.peek()
+      if (pct.kind === "punct" && pct.text === "%") {
+        cur.consume() // %
+        const specTok = cur.eatIdent()
+        if (specTok === undefined) {
+          cur.pushError("expected partial-access specifier after '.%'", cur.peek().span)
+          return undefined
+        }
+        const member: IdentExpr = { kind: "ident_expr", name: `%${specTok.text}`, span: merge(pct.span, specTok.span) }
+        base = { kind: "member", base, member, span: merge(base.span, specTok.span) }
+        continue
+      }
       const nameTok = eatName(cur)
       if (nameTok === undefined) {
         cur.pushError("expected member name after '.'", cur.peek().span)

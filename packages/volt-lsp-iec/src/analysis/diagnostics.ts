@@ -72,6 +72,7 @@ import { checkVarSectionPlacement } from "./checks/declarations/var-section-plac
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
+import { checkParseErrors } from "./checks/syntax/parse-errors.js"
 
 export type { DiagnosticItem }
 
@@ -154,10 +155,9 @@ const CHECKS: readonly Check[] = [
   checkAbstractOutputDefault,
   // pragmas/
   checkPragmas,
-  // syntax/ — checkParseErrors (statement-level parse errors) is DELIBERATELY NOT registered yet: the corpus
-  // gate is clean but the conformance gate found 2 grammar gaps (partial access `x.%W1`, typed char literal
-  // `UCHAR#'A'`) that would false-positive. Grammar completion (change `resilient-st-parse-errors`, phase 2)
-  // is the prerequisite to flipping this on. The check + its exposed errors are ready; the gate blocks the ship.
+  // syntax/ — surfaces statement-level parse errors, held to the corpus + conformance zero-FP gate (a parse
+  // error on clean code is a grammar gap to fix, never a shipped FP). See change `resilient-st-parse-errors`.
+  checkParseErrors,
 ]
 
 export interface DiagnosticsArgs {

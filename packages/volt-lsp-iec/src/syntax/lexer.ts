@@ -225,6 +225,16 @@ export function lex(src: string): Token[] {
           emit("typed_lit", startPos, startLine, startCol)
           continue
         }
+        // Typed char/string literal `UCHAR#'A'` / `STRING#'x'` (CODESYS extension): the value is a QUOTED
+        // string, not the alnum run `lexTypedLiteralBody` accepts, so match it here regardless of prefix —
+        // an identifier followed by `#` then a quote is unambiguously a typed literal in ST.
+        const afterHash = peek(1)
+        if (afterHash === "'" || afterHash === '"') {
+          advance(1) // #
+          lexQuotedString(peek() as '"' | "'")
+          emit("typed_lit", startPos, startLine, startCol)
+          continue
+        }
         // Unrecognized prefix before `#`: fall through and let
         // the identifier stand; the `#` becomes an unknown token.
       }
