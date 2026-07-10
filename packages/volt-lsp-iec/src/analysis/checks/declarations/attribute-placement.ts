@@ -13,6 +13,7 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]): void {
+  if (ctx.config.vendor !== "codesys") return // live /build: TwinCAT silently accepts pack_mode on a FUNCTION/METHOD
   // Map each FUNCTION/METHOD unit's start offset → the POU-kind name the message uses.
   const kindAt = new Map<number, string>()
   for (const u of ctx.parseResult.units) {

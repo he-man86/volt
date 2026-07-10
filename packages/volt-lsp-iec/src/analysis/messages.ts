@@ -327,9 +327,14 @@ export function messagesFor(vendor: Vendor): Messages {
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
-    multipleInheritance: () => `Only one base function block may be defined in EXTENDS list`,
-    returnTypeNotAllowed: () => `Return type is only possible for POUs of type FUNCTION and METHOD`,
-    interfaceImplementsMisused: () => `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
+    multipleInheritance: () =>
+      tc ? `Only one base function block may be defined in EXTENDS-list` : `Only one base function block may be defined in EXTENDS list`,
+    returnTypeNotAllowed: () =>
+      tc ? `Return type is only possible for POUs of Type FUNCTION and METHOD` : `Return type is only possible for POUs of type FUNCTION and METHOD`,
+    interfaceImplementsMisused: () =>
+      tc
+        ? `Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS.`
+        : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
     packModeNotAllowed: (kind) => `Attribute 'pack_mode' not allowed for '${kind}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,

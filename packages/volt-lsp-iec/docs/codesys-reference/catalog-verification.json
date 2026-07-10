@@ -1,17 +1,48 @@
 {
-  "at": "2026-07-10T11:04:51.179Z",
-  "base": "http://127.0.0.1:8556",
+  "at": "2026-07-10T11:12:32.587Z",
+  "base": "http://127.0.0.1:8555",
   "results": [
     {
-      "code": "C0533",
+      "code": "C0096",
       "outcome": "verified",
       "lsp": [
-        "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
+        "Only one base function block may be defined in EXTENDS-list"
       ],
       "actual": [
-        "The default value for a VAR_OUTPUT is not used in abstract or interface methods",
-        "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
+        "Only one base function block may be defined in EXTENDS-list"
       ]
+    },
+    {
+      "code": "C0182",
+      "outcome": "verified",
+      "lsp": [
+        "Return type is only possible for POUs of Type FUNCTION and METHOD"
+      ],
+      "actual": [
+        "Return type is only possible for POUs of Type FUNCTION and METHOD"
+      ]
+    },
+    {
+      "code": "C0421",
+      "outcome": "verified",
+      "lsp": [
+        "Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS."
+      ],
+      "actual": [
+        "Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS."
+      ]
+    },
+    {
+      "code": "C0533",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": []
+    },
+    {
+      "code": "C0550",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": []
     }
   ]
 }

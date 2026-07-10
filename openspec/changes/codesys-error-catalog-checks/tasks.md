@@ -261,6 +261,12 @@ the member name — a constant member is a bit-alias, not a struct access).
   - **TC IDE quirk** — C0126 renders the pointer type as `'1'` (`Variable of type '1' requires exactly 1 Index`);
     unmatchable, left as-is.
   - `verified.twincat` + `twincatActual` stamped; `verified.codesys` preserved (`--write` is per-vendor).
+- [x] 4.5 **TwinCAT re-verify of the 9 iteration-1–4 codes (2026-07-10):** signature model **C0089/C0094/C0568
+  verified on TC** unchanged; **C0096/C0182/C0421 verified after tc-branches** (TC wording deltas: `EXTENDS-list`
+  hyphen, `of Type` cap-T, `Use Keyword … Interfaces … IMPLEMENTS.`); **C0533 + C0550 are CODESYS-only** — live TC
+  build emits nothing, so both were vendor-gated (`ctx.config.vendor !== "codesys" → return`), joining C0566 as
+  CS-only lifecycle/attribute checks. Full TC pass now 75/93 verified (the delta from CS is the CS-only trio +
+  the same TC-specific residuals from §4.4: C0509/C0526 silent, C0126 quirk, etc.).
 
 ## 5. Implementation loop (easy → hard, one code per unit) — IN PROGRESS (14 landed)
 
