@@ -216,6 +216,78 @@ public class PlcOpenPouParserTests
         Assert.Contains("ACTION Init", action.Declaration);
     }
 
+    // ── TwinCAT export shapes (regression: these once threw in Materialize, so the POU was silently dropped
+    //    from /refs and /fetch — see fix "TwinCAT drops FB-with-method + interfaces on read") ──
+
+    [Fact]
+    public void TwinCAT_FB_with_folded_method_does_not_steal_the_methods_declaration_as_the_POUs()
+    {
+        // A TwinCAT FB carries a STRUCTURED <interface><localVars> (no own InterfaceAsPlainText); the METHOD under
+        // <addData>/<Method> DOES carry one. DeclFromElement used to descend into <addData> and return the
+        // METHOD's decl → the FB materialized as kind "method" → ExtFor("method") threw. The POU decl must NOT be
+        // the method's (it's null here → the caller falls back to the COM declaration); the method is a child.
+        const string xml = $$"""
+        <pou name="FbM" pouType="functionBlock" xmlns="{{Ns}}">
+          <interface><localVars><variable name="x"><type><INT/></type></variable></localVars></interface>
+          <body><ST><xhtml>x:=x+1;</xhtml></ST></body>
+          <addData>
+            <data name="http://www.3s-software.com/plcopenxml/method">
+              <Method name="Compute">
+                <interface><returnType><INT/></returnType></interface>
+                <InterfaceAsPlainText><xhtml>METHOD Compute : INT</xhtml></InterfaceAsPlainText>
+                <body><ST><xhtml>Compute := 1;</xhtml></ST></body>
+              </Method>
+            </data>
+          </addData>
+        </pou>
+        """;
+
+        var result = PlcOpenPouParser.Parse(xml);
+
+        Assert.True(result.Declaration is null || !result.Declaration.Contains("METHOD"),
+            $"FB decl must not be the method's; was: {result.Declaration}");
+        Assert.Single(result.Children);
+        Assert.Equal("Compute", result.Children[0].Name);
+        Assert.Equal("method", result.Children[0].PouType);
+        Assert.Contains("METHOD Compute", result.Children[0].Declaration);
+    }
+
+    [Fact]
+    public void TwinCAT_interface_exported_under_addData_with_no_pou_element_parses()
+    {
+        // TwinCAT exports an INTERFACE under <addData>/<Interface> with an EMPTY <pous/> — no <pou> element at
+        // all. Parse used to throw "PLCopen document has no <pou> element". It must treat <Interface> as the
+        // root: its own InterfaceAsPlainText is the declaration and its <Methods>/<Method> are the children.
+        const string xml = $$"""
+        <project xmlns="{{Ns}}">
+          <types><dataTypes/><pous/></types>
+          <addData>
+            <data name="http://www.3s-software.com/plcopenxml/interface">
+              <Interface name="IFoo">
+                <Methods>
+                  <Method name="Go">
+                    <interface><returnType><INT/></returnType></interface>
+                    <InterfaceAsPlainText><xhtml>METHOD Go : INT</xhtml></InterfaceAsPlainText>
+                  </Method>
+                </Methods>
+                <InterfaceAsPlainText><xhtml>INTERFACE IFoo</xhtml></InterfaceAsPlainText>
+              </Interface>
+            </data>
+          </addData>
+        </project>
+        """;
+
+        var result = PlcOpenPouParser.Parse(xml);
+
+        Assert.NotNull(result.Declaration);
+        Assert.Contains("INTERFACE IFoo", result.Declaration);
+        Assert.DoesNotContain("METHOD", result.Declaration);   // the interface's own decl, not the method's
+        Assert.Single(result.Children);
+        Assert.Equal("Go", result.Children[0].Name);
+        Assert.Equal("method", result.Children[0].PouType);
+        Assert.Contains("METHOD Go", result.Children[0].Declaration);
+    }
+
     [Fact]
     public void BodyLanguage_is_null_when_body_has_no_recognized_child()
     {
