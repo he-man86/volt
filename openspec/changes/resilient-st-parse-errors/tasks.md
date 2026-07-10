@@ -81,9 +81,12 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   (new `Cursor.atNameStart()`), leaving the closer for the caller → **3 errors → 1**. (b) **C0173** — a
   VAR-section keyword inside a `STRUCT` now skips the whole misplaced `VAR_* … END_VAR` block with ONE error
   (exact catalog wording `'VAR_INPUT' not allowed in this place`), and struct fields before/after it still parse
-  → **2 errors → 1**. Corpus zero-declaration-errors + materialize + conformance all green. **Still open:**
-  C0189/C0190 (`;` expected), C0211/C0212/C0213 (malformed/`VAR`-less declaration — currently C0212 is silent,
-  the body-capture swallows it), C0215/C0221 (address), and the same closer-recovery for the unit parsers.
+  → **2 errors → 1**. (c) **struct/union missing closer** — a missing `END_STRUCT`/`END_UNION` was another
+  3-error cascade (field parser chokes on the outer `END_TYPE`, recovery eats it, TYPE parser can't find it);
+  the same `atNameStart()` break stops the field loop cleanly → **3 errors → 1**. Corpus zero-declaration-errors
+  + materialize + conformance all green throughout. **Still open:** C0189/C0190 (`;` expected), C0211/C0212/
+  C0213 (malformed/`VAR`-less declaration — C0212 is currently *silent*, the body-capture swallows it), C0215/
+  C0221 (address), and closer-recovery for the POU (function-block/program/…) parsers.
 - [ ] 3.2 The reported example (`IF` missing `THEN` *and* no `END_PROGRAM`) reports the precise `THEN` error,
   not the misleading `unterminated program`.
 
