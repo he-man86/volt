@@ -132,6 +132,10 @@ function parseStructBody(c: Cursor): StructBody | undefined {
       c.eatKeyword("END_VAR")
       continue
     }
+    // A non-name keyword here (e.g. the outer `END_TYPE` when `END_STRUCT` is missing) means the struct wasn't
+    // closed — stop with ONE "unterminated STRUCT" error and leave the token for the TYPE parser, instead of
+    // choking the field parser on it AND letting recovery eat the `END_TYPE` the outer parser needs.
+    if (!c.atNameStart()) break
     const decl = parseStructField(c)
     if (decl !== undefined) {
       fields.push(decl)
@@ -163,6 +167,7 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
         span: joinSpans(start.span, endUnion.span),
       }
     }
+    if (!c.atNameStart()) break // non-name keyword → unterminated union; leave it for the TYPE parser (see struct)
     const decl = parseStructField(c)
     if (decl !== undefined) {
       fields.push(decl)
