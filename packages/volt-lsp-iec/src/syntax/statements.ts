@@ -185,8 +185,7 @@ function parseTry(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("__FINALLY") !== undefined) {
     finallyBody = parseStatementList(cur, (c) => atKeyword(c, "__ENDTRY"))
   }
-  const end = cur.expectKeyword("__ENDTRY", "closing __TRY")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("__ENDTRY", "closing __TRY") // missing closer: record, keep the parsed bodies
   cur.eatPunct(";")
   return {
     kind: "try",
@@ -194,7 +193,7 @@ function parseTry(cur: Cursor): Statement | undefined {
     ...(catchVar ? { catchVar } : {}),
     ...(catchBody ? { catchBody } : {}),
     ...(finallyBody ? { finallyBody } : {}),
-    span: merge(kw.span, end.span),
+    span: merge(kw.span, end?.span ?? kw.span),
   }
 }
 
@@ -213,10 +212,9 @@ function parseIf(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_IF"))
   }
-  const end = cur.expectKeyword("END_IF", "closing IF")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_IF", "closing IF") // missing closer: record, but keep the parsed branches
   cur.eatPunct(";")
-  return { kind: "if", branches, elseBody, span: merge(kw.span, end.span) }
+  return { kind: "if", branches, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
@@ -246,10 +244,9 @@ function parseCase(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_CASE"))
   }
-  const end = cur.expectKeyword("END_CASE", "closing CASE")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_CASE", "closing CASE") // missing closer: record, but keep the parsed arms
   cur.eatPunct(";")
-  return { kind: "case", selector, arms, elseBody, span: merge(kw.span, end.span) }
+  return { kind: "case", selector, arms, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseCaseArm(cur: Cursor): CaseArm | undefined {
@@ -339,10 +336,9 @@ function parseFor(cur: Cursor): Statement | undefined {
   }
   cur.expectKeyword("DO", "in FOR") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_FOR"))
-  const end = cur.expectKeyword("END_FOR", "closing FOR")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_FOR", "closing FOR") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "for", controlVar, from, to, by, body, span: merge(kw.span, end.span) }
+  return { kind: "for", controlVar, from, to, by, body, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseWhile(cur: Cursor): Statement | undefined {
@@ -351,10 +347,9 @@ function parseWhile(cur: Cursor): Statement | undefined {
   if (cond === undefined) return undefined
   cur.expectKeyword("DO", "in WHILE") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
-  const end = cur.expectKeyword("END_WHILE", "closing WHILE")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_WHILE", "closing WHILE") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "while", cond, body, span: merge(kw.span, end.span) }
+  return { kind: "while", cond, body, span: merge(kw.span, end?.span ?? kw.span) }
 }
 
 function parseRepeat(cur: Cursor): Statement | undefined {
@@ -363,8 +358,7 @@ function parseRepeat(cur: Cursor): Statement | undefined {
   if (cur.expectKeyword("UNTIL", "in REPEAT") === undefined) return undefined
   const until = parseAssignable(cur)
   if (until === undefined) return undefined
-  const end = cur.expectKeyword("END_REPEAT", "closing REPEAT")
-  if (end === undefined) return undefined
+  const end = cur.expectKeyword("END_REPEAT", "closing REPEAT") // missing closer: record, keep the parsed body
   cur.eatPunct(";")
-  return { kind: "repeat", body, until, span: merge(kw.span, end.span) }
+  return { kind: "repeat", body, until, span: merge(kw.span, end?.span ?? kw.span) }
 }
