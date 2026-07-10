@@ -40,7 +40,7 @@ test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", 
       .map((d) => d.message)
   }
   expect(run(`FUNCTION FN : INT\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION`)).toEqual([
-    "'RETAIN' or 'PERSISTENT' not allowed in this place",
+    "RETAIN or PERSISTENT not allowed in this place",
   ])
   expect(run(`FUNCTION_BLOCK F\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })

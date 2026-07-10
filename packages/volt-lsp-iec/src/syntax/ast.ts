@@ -449,6 +449,8 @@ export interface FunctionBlock {
   name: Identifier
   accessModifier?: Keyword
   extends?: Identifier
+  /** The illegal 2nd+ bases when the EXTENDS list has more than one (single inheritance only) — drives C0096. */
+  extendsExtra?: Identifier[]
   implements?: Identifier[]
   abstract?: boolean
   final?: boolean
@@ -459,6 +461,8 @@ export interface FunctionBlock {
 export interface Program {
   kind: "program"
   name: Identifier
+  /** A return type illegally declared on a PROGRAM (`PROGRAM P : BOOL`) — drives C0182. */
+  returnType?: TypeExpr
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -508,6 +512,8 @@ export interface Interface {
   kind: "interface"
   name: Identifier
   extends?: Identifier[]
+  /** An IMPLEMENTS list illegally used on an interface (should be EXTENDS) — drives C0421. */
+  implementsMisused?: Identifier[]
   methods: InterfaceMethod[]
   properties: InterfaceProperty[]
   span: Span

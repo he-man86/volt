@@ -734,27 +734,17 @@
     "message": "Use of 'THIS' is not allowed in this context",
     "repro": "PROGRAM PLC_PRG\nVAR\n    test1: INT;\nEND_VAR\n\nTHIS^.test1 := 19;",
     "expect": [
-      "Use of 'THIS' is not allowed in this context"
+      "Expression THIS is not allowed in this context"
     ],
     "status": "implemented",
     "ourCheck": "this-super-context",
     "ourCode": "this-not-allowed",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "'THIS^.test1' is no valid assignment target",
-      "'THIS^' is no structured variable",
-      "Expression THIS is not allowed in this context"
-    ],
-    "twincatActual": [
-      "'THIS^.test1' is no valid assignment target",
-      "'THIS^' is no structured variable",
-      "Expression 'THIS' is not allowed in this context"
-    ]
+    "fix": null
   },
   {
     "code": "C0046",
@@ -919,13 +909,9 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
-    "fix": null,
-    "twincatActual": [
-      "Cannot convert type 'BIT' to type 'INT'",
-      "Bitaccess on function call is not allowed"
-    ]
+    "fix": null
   },
   {
     "code": "C0062",
@@ -1369,16 +1355,16 @@
     "category": "interface method signature mismatch",
     "cause": "The parameter list of a method implementing an interface method does not match the signature declared in the interface.",
     "message": "Interface of overridden method '{0}' of interface '{1}' does not match declaration",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     inst : FB;\nEND_VAR\n\nINTERFACE XY\nMETHOD METH1\nVAR_INPUT\n    iPar : INT;\nEND_VAR\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nVAR\nEND_VAR\nMETHOD METH1\nVAR_INPUT\nEND_VAR",
+    "repro": "INTERFACE XY\nMETHOD METH1\nVAR_INPUT\n    iPar : INT;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB IMPLEMENTS XY\nEND_FUNCTION_BLOCK\n\nMETHOD METH1\nVAR_INPUT\nEND_VAR\nEND_METHOD",
     "expect": [
-      "Interface of overridden method 'METH1' of interface 'XY' does not match declaration"
+      "Interface of overridden method 'METH1' of interface 'XY' doesn't match declaration"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "method-signature",
+    "ourCode": "override-mismatch-interface",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -1433,16 +1419,16 @@
     "category": "inherited method signature mismatch",
     "cause": "A method overridden in a derived function block has a parameter list that differs from the same method declared in the base function block.",
     "message": "Interface of overridden method '<method name>' of interface '<function block name>' doesn't match declaration",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     xyz : XY2;\nEND_VAR\n\nFUNCTION_BLOCK XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK XY\nEND_FUNCTION_BLOCK\n\nMETHOD METH1\nVAR_INPUT\nEND_VAR\nEND_METHOD\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nEND_FUNCTION_BLOCK\n\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR\nEND_METHOD",
     "expect": [
-      "Interface of the overridden method 'METH1' of base 'XY' doesn't match declaration"
+      "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "method-signature",
+    "ourCode": "override-mismatch-base",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -1454,16 +1440,16 @@
     "category": "multiple inheritance not allowed",
     "cause": "A function block's EXTENDS clause lists more than one base function block, but CODESYS only supports single inheritance.",
     "message": "Only one base function block may be defined in EXTENDS-list.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    fb : FB;\nEND_VAR\n\nFUNCTION_BLOCK FB EXTENDS FB2, FB3\nVAR\nEND_VAR\n\nFUNCTION_BLOCK FB2\nVAR\nEND_VAR\n\nFUNCTION_BLOCK FB3\nVAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    fb : FB;\nEND_VAR\nEND_PROGRAM\n\nFUNCTION_BLOCK FB EXTENDS FB2, FB3\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB2\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB3\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Only one base function block may be defined in EXTENDS list."
+      "Only one base function block may be defined in EXTENDS list"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "header-rules",
+    "ourCode": "multiple-inheritance",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -1549,13 +1535,16 @@
     "ourCode": "data-recursion",
     "lint": null,
     "verified": {
-      "codesys": true,
+      "codesys": false,
       "twincat": false
     },
     "fix": null,
     "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL.",
     "twincatActual": [
       "Data Recursion: FB1 -> FB2 -> FB1"
+    ],
+    "codesysActual": [
+      "Data recursion: FB1 -> FB2 -> FB1"
     ]
   },
   {
@@ -1792,22 +1781,17 @@
     "message": "Expression 'SUPER' is not allowed in this context",
     "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nSUPER^.METH(TRUE, TRUE);",
     "expect": [
-      "Expression 'SUPER' is not allowed in this context"
+      "Expression SUPER is not allowed in this context"
     ],
     "status": "implemented",
     "ourCheck": "this-super-context",
     "ourCode": "super-not-allowed",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "Program name, function or function block instance expected instead of 'SUPER^.METH'",
-      "'SUPER^' is no structured variable",
-      "Expression SUPER is not allowed in this context"
-    ]
+    "fix": null
   },
   {
     "code": "C0124",
@@ -1818,26 +1802,18 @@
     "message": "'Initialization' is no valid initialization for an enumeration",
     "repro": "TYPE DUT : (A := 1, B := 2.5);\nEND_TYPE",
     "expect": [
-      "Type 'LREAL' can not be converted to type 'DUT'"
+      "Cannot convert type 'LREAL' to type 'DUT'"
     ],
     "status": "implemented",
     "ourCheck": "checkEnumInit",
     "ourCode": "enum-init-not-convertible",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null,
-    "note": "Enum member with a real initializer (constEval folds real->JS number, int->bigint). Real literal is LREAL by default. PROVISIONAL.",
-    "codesysActual": [
-      "Cannot convert type 'LREAL' to type 'DUT'",
-      "2.5 is no valid initialisation for an enumeration"
-    ],
-    "twincatActual": [
-      "Cannot convert type 'LREAL' to type 'DUT'",
-      "2.5 is no valid initialisation for an enumeration"
-    ]
+    "note": "Enum member with a real initializer (constEval folds real->JS number, int->bigint). Real literal is LREAL by default. PROVISIONAL."
   },
   {
     "code": "C0125",
@@ -2353,19 +2329,17 @@
     "message": "'RETAIN' or 'PERSISTENT' not allowed in this place",
     "repro": "FUNCTION POU_1 : INT\nVAR RETAIN\n    r : INT;\nEND_VAR\nEND_FUNCTION",
     "expect": [
-      "'RETAIN' or 'PERSISTENT' not allowed in this place"
+      "RETAIN or PERSISTENT not allowed in this place"
     ],
     "status": "implemented",
     "ourCheck": "var-section-placement",
     "ourCode": "retain-not-allowed",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": null,
-    "codesysActual": [],
-    "twincatActual": []
+    "fix": null
   },
   {
     "code": "C0177",
@@ -2458,16 +2432,16 @@
     "category": "return type misuse",
     "cause": "A return type was declared on a POU kind that is not a FUNCTION or METHOD (e.g. a PROGRAM), which is not allowed.",
     "message": "Return type is only possible for POUs of Type FUNCTION and METHOD",
-    "repro": "PROGRAM PLC_PRG : BOOL\nVAR\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG : BOOL\nVAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Return type is only possible for POUs of Type FUNCTION and METHOD"
+      "Return type is only possible for POUs of type FUNCTION and METHOD"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "header-rules",
+    "ourCode": "return-type-not-allowed",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -2802,21 +2776,17 @@
     "message": "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block",
     "repro": "FUNCTION_BLOCK FB\nVAR_IN_OUT\n    b : BIT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block"
+      "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section"
     ],
     "status": "implemented",
     "ourCheck": "bit-usage",
     "ourCode": "bit-wrong-block",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": true
     },
-    "fix": null,
-    "codesysActual": [
-      "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
-      "References to bits are not possible"
-    ]
+    "fix": null
   },
   {
     "code": "C0205",
@@ -3153,8 +3123,14 @@
     },
     "fix": null,
     "note": "Direct FUNCTION self-call. recursive attribute not on AST (cant skip legal recursion) but corpus has none. Transitive/method recursion follow-on. PROVISIONAL.",
-    "codesysActual": [],
-    "twincatActual": []
+    "codesysActual": [
+      "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
+      "Program name, function or function block instance expected instead of 'Fib'"
+    ],
+    "twincatActual": [
+      "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
+      "Program name, function or function block instance expected instead of 'Fib'"
+    ]
   },
   {
     "code": "C0225",
@@ -3633,11 +3609,10 @@
     "ourCode": "unknown-attribute",
     "lint": "unknownAttribute",
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "codesysActual": [],
     "twincatActual": []
   },
   {
@@ -3833,16 +3808,16 @@
     "category": "interface inheritance keyword",
     "cause": "An interface declaration uses IMPLEMENTS to derive from another interface instead of the correct EXTENDS keyword.",
     "message": "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS",
-    "repro": "INTERFACE ITF\n\nINTERFACE ITF_1 IMPLEMENTS ITF",
+    "repro": "INTERFACE ITF\nEND_INTERFACE\n\nINTERFACE ITF_1 IMPLEMENTS ITF\nEND_INTERFACE",
     "expect": [
       "Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "header-rules",
+    "ourCode": "interface-implements",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -3960,22 +3935,17 @@
     "message": "Multiple assignments for operator '__New' not allowed",
     "repro": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Typed pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Typed pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbBeta := pbAlpha := __NEW(BYTE); // Incorrect code for memory allocation\nEND_IF\n\npbBeta := pbAlpha := 16#01;\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
     "expect": [
-      "Multiple assignments for operator '__NEW' not allowed"
+      "Multiple assignments are not allowed for operator '__New'."
     ],
     "status": "implemented",
     "ourCheck": "statement-rules",
     "ourCode": "multiple-assignment-new",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "PROGRAM PLC_PRG\nVAR\n    pbAlpha : POINTER TO BYTE; // Pointer to Alpha\n    pbBeta: POINTER TO BYTE;        // Pointer to Beta\n    xInit : BOOL := TRUE;\n    xDelete : BOOL;\nEND_VAR\n\nIF (xInit) THEN\n    pbAlpha := __NEW(BYTE); // Allocates memory for Alpha\n    pbBeta :=  __NEW(BYTE); // Allocates memory for Beta\nEND_IF\n\npbBeta := pbAlpha := 16#01; // Multiple assignment\n\nIF (xDelete) THEN\n    __DELETE(pbAlpha); // Frees memory of pointer\nEND_IF",
-    "codesysActual": [
-      "Multiple assignments are not allowed for operator '__New'.",
-      "No memory for dynamic object creation defined for application 'Device.Application'",
-      "No memory for dynamic object creation defined for application 'Device.Application'"
-    ],
     "twincatActual": []
   },
   {
@@ -4142,11 +4112,10 @@
     "ourCode": "default-not-constant",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null,
-    "codesysActual": [],
     "twincatActual": []
   },
   {
@@ -4156,16 +4125,16 @@
     "category": "unused output default in abstract method",
     "cause": "A VAR_OUTPUT variable inside an abstract (or interface) method declaration is given an initial value, but that default can never take effect since abstract/interface methods have no executable body.",
     "message": "The default value for a VAR_OUTPUT is not used in abstract or interface methods",
-    "repro": "FUNCTION_BLOCK ABSTRACT POU\n\nMETHOD METH: BOOL\nVAR_INPUT\n      iPar : INT;\n      xPar : BOOL;\nEND_VAR\nVAR_OUTPUT\n      iOut : INT;\n      xOut : BOOL := TRUE;\nEND_VAR",
+    "repro": "INTERFACE ITF\nMETHOD METH : BOOL\nVAR_OUTPUT\n    xOut : BOOL := TRUE;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_I IMPLEMENTS ITF\nEND_FUNCTION_BLOCK\n\nMETHOD METH : BOOL\nVAR_OUTPUT\n    xOut : BOOL;\nEND_VAR\nEND_METHOD",
     "expect": [
       "The default value for a VAR_OUTPUT is not used in abstract or interface methods"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "abstract-output-default",
+    "ourCode": "abstract-output-default",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -4280,17 +4249,16 @@
     "category": "pragma attribute misuse",
     "cause": "The pack_mode attribute pragma is applied to a FUNCTION or METHOD declaration, but pack_mode is only valid on data structures.",
     "message": "Attribute 'pack_mode' for 'FUNCTION' ( 'METHOD' ) not allowed",
-    "repro": "{attribute 'pack_mode' := '2'}\nMETHOD METH : INT\nVAR_INPUT\nEND_VAR\n\n{attribute 'pack_mode' := '1'}\nFUNCTION FunPacked : DINT\nVAR_INPUT\n        by1: BYTE;\nEND_VAR\nVAR\n        by2: BYTE;\nEND_VAR",
+    "repro": "{attribute 'pack_mode' := '1'}\nFUNCTION FunPacked : DINT\nVAR_INPUT\n        by1: BYTE;\nEND_VAR\nVAR\n        by2: BYTE;\nEND_VAR\nEND_FUNCTION",
     "expect": [
-      "Attribute 'pack_mode' for 'METHOD' not allowed",
-      "Attribute 'pack_mode' for 'FUNCTION' not allowed"
+      "Attribute 'pack_mode' not allowed for 'FUNCTION'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "attribute-placement",
+    "ourCode": "pack-mode-not-allowed",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null
@@ -4407,20 +4375,20 @@
     "kind": "error",
     "category": "FB_ReInit signature",
     "cause": "An FB_ReInit method is declared with input parameters or a non-BOOL output instead of the required no-input, BOOL-returning signature.",
-    "message": "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically.",
-    "repro": "METHOD FB_ReInit : BOOL\nVAR_INPUT    \n    input_var : INT; //C0566: unexpected input for FB_ReInit\nEND_VAR\nVAR_OUTPUT\n    output_var : INT; //C0566: wrong type for output of FB_ReInit\nEND_VAR",
+    "message": "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!",
+    "repro": "FUNCTION_BLOCK FB_Host\nEND_FUNCTION_BLOCK\n\nMETHOD FB_ReInit : BOOL\nVAR_INPUT\n    input_var : INT;\nEND_VAR\nEND_METHOD",
     "expect": [
-      "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically."
+      "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "lifecycle",
+    "ourCode": "fb-reinit-shape",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
-    "fix": "METHOD FB_ReInit : BOOL\n// correction: inputs have been removed\nVAR_OUTPUT\n    output_var: BOOL; // correction: output has the correct type\nEND_VAR"
+    "fix": "FUNCTION_BLOCK FB_Host\nEND_FUNCTION_BLOCK\n\nMETHOD FB_ReInit : BOOL\nEND_METHOD"
   },
   {
     "code": "C0567",
@@ -4450,16 +4418,16 @@
     "category": "method override mismatch",
     "cause": "A derived function block overrides a base method but declares it with a different parameter list than the base method, violating override signature matching.",
     "message": "Interface of overridden method '<method name>' of interface '<function block name>' doesn't match declaration",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     xyz : XY2;\nEND_VAR\n\nFUNCTION_BLOCK XY\nMETHOD METH1\nVAR_INPUT\nEND_VAR\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR",
+    "repro": "FUNCTION_BLOCK XY\nEND_FUNCTION_BLOCK\n\nMETHOD METH1\nVAR_INPUT\nEND_VAR\nEND_METHOD\n\nFUNCTION_BLOCK XY2 EXTENDS XY\nEND_FUNCTION_BLOCK\n\nMETHOD METH1\nVAR_INPUT\n    iPar : BOOL;\nEND_VAR\nEND_METHOD",
     "expect": [
-      "Interface of the overridden method 'METH1' of base 'XY' doesn't match declaration"
+      "Interface of overridden method 'METH1' of base 'XY' doesn't match declaration"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "method-signature",
+    "ourCode": "override-mismatch-base",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null

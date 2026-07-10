@@ -66,24 +66,56 @@ function complete(src: string, kind: string): string {
   const end = TERMINATOR[kind]
   return end === undefined || new RegExp(`\\b${end}\\b`, "i").test(src) ? src : `${src.trimEnd()}\n${end}\n`
 }
-/** Split a repro into { plcBody? (its own PROGRAM PLC_PRG source), items[] (every other unit), instTypes[] }. */
-function splitRepro(source: string): { plcBody?: string; items: { wire: string; src: string }[]; instTypes: string[] } {
+/** The VAR_INPUT parameter count of a function unit — for synthesizing a reachable call with dummy args. */
+function inputCount(u: any): number {
+  let n = 0
+  for (const sec of u.varSections ?? []) if (sec.sectionKind === "VAR_INPUT") for (const d of sec.decls) n += d.names.length
+  return n
+}
+/** Back up from a unit's start over immediately-preceding whitespace + `{…}` pragma blocks (its leading
+ *  attributes), so the slice includes attributes the parser dropped as trivia. Returns the earliest such offset. */
+function leadStart(source: string, start: number): number {
+  let s = start
+  for (;;) {
+    let j = s
+    while (j > 0 && /\s/.test(source[j - 1]!)) j--
+    if (j > 0 && source[j - 1] === "}") {
+      const open = source.lastIndexOf("{", j - 1)
+      if (open >= 0) {
+        s = open
+        continue
+      }
+    }
+    return s
+  }
+}
+
+/** Split a repro into { plcBody?, items[], instTypes[] (VAR-instantiable), calls[] (function calls) }. */
+function splitRepro(source: string): { plcBody?: string; items: { wire: string; src: string }[]; instTypes: string[]; calls: string[] } {
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
   const items: { wire: string; src: string }[] = []
   const instTypes: string[] = []
+  const calls: string[] = []
   let plcBody: string | undefined
   tops.forEach((u: any, i) => {
-    if (u.name?.text === undefined) return // nameless/malformed unit (e.g. a namespace wrapper) — skip
-    const src = complete(source.slice(u.span.start, i + 1 < tops.length ? tops[i + 1]!.span.start : source.length).trimEnd() + "\n", u.kind)
-    if (u.kind === "program" && /^(plc_prg|main)$/i.test(u.name.text)) { plcBody = src; return }
-    items.push({ wire: `${u.name.text}.${unitExt(u)}`, src })
-    if (INSTANTIABLE.has(u.kind)) instTypes.push(u.name.text)
+    // A VAR_GLOBAL list is often written without a name (`VAR_GLOBAL … END_VAR`) — give it one so its globals push.
+    const name: string | undefined = u.name?.text ?? (u.kind === "global_var_list" ? "GVL" : undefined)
+    if (name === undefined) return // nameless/malformed unit (e.g. a namespace wrapper) — skip
+    // Slice from the unit's LEADING attribute pragmas (`{attribute 'pack_mode'}` etc. — parser trivia, so not in
+    // the unit span) to the next unit's leading pragmas, so each pushed item carries its own attributes.
+    const end = i + 1 < tops.length ? leadStart(source, tops[i + 1]!.span.start) : source.length
+    const src = complete(source.slice(leadStart(source, u.span.start), end).trimEnd() + "\n", u.kind)
+    if (u.kind === "program" && /^(plc_prg|main)$/i.test(name)) { plcBody = src; return }
+    items.push({ wire: `${name}.${unitExt(u)}`, src })
+    if (INSTANTIABLE.has(u.kind)) instTypes.push(name)
+    // A FUNCTION is only compiled when CALLED — synth a statement call with dummy `0` args so its body/decl builds.
+    if (u.kind === "function") calls.push(`${name}(${Array(inputCount(u)).fill("0").join(", ")});`)
   })
-  return { plcBody, items, instTypes }
+  return { plcBody, items, instTypes, calls }
 }
-/** A PLC_PRG that instantiates each pushed instantiable unit, so an otherwise-untasked unit gets compiled. */
-const synthPlc = (types: string[]): string =>
-  `PROGRAM PLC_PRG\nVAR\n${types.map((t, i) => `  v${i} : ${t};`).join("\n")}\nEND_VAR\nEND_PROGRAM\n`
+/** A PLC_PRG that instantiates each VAR-instantiable unit and calls each function, so untasked units compile. */
+const synthPlc = (types: string[], calls: string[]): string =>
+  `PROGRAM PLC_PRG\nVAR\n${types.map((t, i) => `  v${i} : ${t};`).join("\n")}\nEND_VAR\n${calls.join("\n")}\nEND_PROGRAM\n`
 
 // ── robust item set: recovers from the UNREADABLE-but-exists state a malformed push can leave behind ─────
 async function robustSet(name: string, src: string): Promise<void> {
@@ -128,14 +160,14 @@ const results: { code: string; outcome: Outcome; lsp: string[]; actual: string[]
 const norm = (s: string): string => s.replace(/\r?\n/g, "").trim() // real messages sometimes embed the source line
 
 for (const c of targets) {
-  const { plcBody, items, instTypes } = splitRepro(c.repro)
+  const { plcBody, items, instTypes, calls } = splitRepro(c.repro)
   let actual: string[] = []
   let lsp: string[] = []
   let outcome: Outcome = "error"
   try {
     await resetProject()
     for (const it of items) { touched.add(it.wire); await robustSet(it.wire, it.src) }
-    await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes))
+    await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
     const r = await post("/build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
     lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode)

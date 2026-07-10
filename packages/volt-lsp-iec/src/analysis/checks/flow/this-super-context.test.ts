@@ -15,7 +15,7 @@ const errs = (src: string): string[] => {
 }
 
 test("THIS/SUPER in a PROGRAM are flagged; in a FUNCTION_BLOCK they are fine", () => {
-  expect(errs(`PROGRAM P\nVAR t:INT;\nEND_VAR\nTHIS^.t := 1;\nEND_PROGRAM`)).toEqual(["Use of 'THIS' is not allowed in this context"])
-  expect(errs(`PROGRAM P\nVAR t:INT;\nEND_VAR\nSUPER^.t := 1;\nEND_PROGRAM`)).toEqual(["Expression 'SUPER' is not allowed in this context"])
+  expect(errs(`PROGRAM P\nVAR t:INT;\nEND_VAR\nTHIS^.t := 1;\nEND_PROGRAM`)).toEqual(["Expression THIS is not allowed in this context"])
+  expect(errs(`PROGRAM P\nVAR t:INT;\nEND_VAR\nSUPER^.t := 1;\nEND_PROGRAM`)).toEqual(["Expression SUPER is not allowed in this context"])
   expect(errs(`FUNCTION_BLOCK F\nVAR t:INT;\nEND_VAR\nTHIS^.t := 1;\nEND_FUNCTION_BLOCK`)).toEqual([])
 })

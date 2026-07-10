@@ -37,6 +37,20 @@ export function parseInterface(c: Cursor): Interface | undefined {
     }
   }
 
+  // IMPLEMENTS on an interface is illegal — interfaces inherit via EXTENDS. Capture the misused list so a
+  // check can emit C0421 instead of the generic "unexpected keyword" recovery error.
+  let implementsMisused: Identifier[] | undefined
+  if (c.eatKeyword("IMPLEMENTS") !== undefined) {
+    implementsMisused = []
+    const first = parseQualifiedName(c, "after IMPLEMENTS")
+    if (first !== undefined) implementsMisused.push(first)
+    while (c.eatPunct(",") !== undefined) {
+      const more = parseQualifiedName(c, "in IMPLEMENTS list")
+      if (more === undefined) break
+      implementsMisused.push(more)
+    }
+  }
+
   const methods: InterfaceMethod[] = []
   const properties: InterfaceProperty[] = []
 
@@ -47,6 +61,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
         kind: "interface",
         name,
         ...(extendsList !== undefined ? { extends: extendsList } : {}),
+        ...(implementsMisused !== undefined ? { implementsMisused } : {}),
         methods,
         properties,
         span: joinSpans(start.span, endIface.span),

@@ -33,3 +33,19 @@ test("a correct FB_Init signature is not flagged", () => {
   expect(lifecycle(src, "codesys")).toEqual([])
   expect(lifecycle(src, "twincat")).toEqual([])
 })
+
+const reinit = (src: string): string[] => {
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "fb-reinit-shape")
+    .map((d) => d.message)
+}
+
+test("C0566: an FB_ReInit with an input or a non-BOOL return is flagged; no-input BOOL is fine", () => {
+  const msg =
+    "The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!"
+  expect(reinit(`METHOD FB_ReInit : BOOL\nVAR_INPUT\n input_var : INT;\nEND_VAR\nEND_METHOD`)).toEqual([msg])
+  expect(reinit(`METHOD FB_ReInit : INT\nEND_METHOD`)).toEqual([msg]) // wrong return type
+  expect(reinit(`METHOD FB_ReInit : BOOL\nEND_METHOD`)).toEqual([]) // correct shape
+})

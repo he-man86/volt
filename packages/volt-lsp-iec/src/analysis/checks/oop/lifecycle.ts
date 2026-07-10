@@ -30,8 +30,27 @@ export function checkLifecycleSignatures(ctx: CheckContext, out: DiagnosticItem[
     if (unit.kind !== "method") continue
     const method = lifecycleOf(unit.name.text)
     if (method === undefined) continue
+
+    // C0566 — FB_ReInit is the inverse of the others: it must have NO inputs and return BOOL (else it won't be
+    // auto-called). Flag when it has any VAR_INPUT param or a non-BOOL / missing return type. CODESYS-only:
+    // live /build + the recorded conformance oracle both confirm TwinCAT silently accepts a param'd FB_ReInit.
+    if (method === "FB_ReInit") {
+      if (ctx.config.vendor !== "codesys") continue
+      const rt = unit.returnType
+      const returnsBool = rt?.kind === "named_type" && rt.name.text.toUpperCase() === "BOOL"
+      if (varInputParams(unit.varSections).length > 0 || !returnsBool)
+        out.push({
+          severity: "warning",
+          span: unit.name.span,
+          source: SOURCE,
+          code: "fb-reinit-shape",
+          message: ctx.messages.fbReInitShape(),
+        })
+      continue
+    }
+
     const required = REQUIRED[method]
-    if (required.length === 0) continue // FB_ReInit — nothing required
+    if (required.length === 0) continue
 
     const inputs = varInputParams(unit.varSections).map((p) => p.name.text)
     const violated = required.some((name, i) => (inputs[i] ?? "").toLowerCase() !== name.toLowerCase())

@@ -24,7 +24,7 @@ test("C0203: a BIT var in a PROGRAM is flagged; in an FB VAR-block it is fine", 
 
 test("C0204: a BIT var in an FB VAR_IN_OUT block is flagged", () => {
   expect(errs(`FUNCTION_BLOCK F\nVAR_IN_OUT b:BIT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
-    "Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block",
+    "Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section",
   ])
 })
 

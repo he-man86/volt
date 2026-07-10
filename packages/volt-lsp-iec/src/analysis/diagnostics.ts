@@ -57,11 +57,15 @@ import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
 import { checkInterfaceImplementations } from "./checks/oop/interface-implementation.js"
+import { checkMethodSignatures } from "./checks/oop/method-signature.js"
+import { checkAbstractOutputDefault } from "./checks/oop/abstract-output-default.js"
 import { checkDuplicateDeclarations } from "./checks/names/duplicate-declaration.js"
 import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier.js"
 import { checkUnknownTypes } from "./checks/names/unknown-type.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
+import { checkHeaderRules } from "./checks/declarations/header-rules.js"
+import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
 import { checkPragmas } from "./checks/pragmas/pragmas.js"
 
 export type { DiagnosticItem }
@@ -112,6 +116,8 @@ const CHECKS: readonly Check[] = [
   checkBitUsage,
   checkOutputRules,
   checkNonInstantiable,
+  checkHeaderRules,
+  checkAttributePlacement,
   // oop/
   checkInheritance,
   checkPropertyAccess,
@@ -134,6 +140,8 @@ const CHECKS: readonly Check[] = [
   checkLifecycleSignatures,
   checkAbstractInstantiation,
   checkInterfaceImplementations,
+  checkMethodSignatures,
+  checkAbstractOutputDefault,
   // pragmas/
   checkPragmas,
 ]

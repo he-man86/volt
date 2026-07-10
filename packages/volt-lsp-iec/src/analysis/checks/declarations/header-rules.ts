@@ -1,0 +1,43 @@
+/**
+ * header-rules (declarations/) — POU-header shape rules that a single additive parser field makes visible:
+ *   C0096 multiple-inheritance      — an FB `EXTENDS A, B` names more than one base (single inheritance only).
+ *   C0182 return-type-not-allowed   — a return type on a POU that isn't a FUNCTION/METHOD (e.g. `PROGRAM P : BOOL`).
+ *   C0421 interface-implements       — an INTERFACE using `IMPLEMENTS` where interface inheritance needs `EXTENDS`.
+ *
+ * Each reads a field the parser only sets in the illegal case (`extendsExtra` / program `returnType` /
+ * `implementsMisused`), so the check is a pure presence test — zero-FP by construction (the corpus, which
+ * compiles clean, never sets them).
+ */
+import type { CheckContext } from "../../diagnostics.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
+
+export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
+  for (const unit of ctx.parseResult.units) {
+    if (unit.kind === "function_block" && unit.extendsExtra !== undefined && unit.extendsExtra.length > 0) {
+      // Anchor on the first illegal extra base (the point past the single allowed one).
+      out.push({
+        severity: "error",
+        span: unit.extendsExtra[0]!.span,
+        source: SOURCE,
+        code: "multiple-inheritance",
+        message: ctx.messages.multipleInheritance(),
+      })
+    } else if (unit.kind === "program" && unit.returnType !== undefined) {
+      out.push({
+        severity: "error",
+        span: unit.returnType.span,
+        source: SOURCE,
+        code: "return-type-not-allowed",
+        message: ctx.messages.returnTypeNotAllowed(),
+      })
+    } else if (unit.kind === "interface" && unit.implementsMisused !== undefined) {
+      out.push({
+        severity: "error",
+        span: unit.implementsMisused[0]?.span ?? unit.name.span,
+        source: SOURCE,
+        code: "interface-implements",
+        message: ctx.messages.interfaceImplementsMisused(),
+      })
+    }
+  }
+}

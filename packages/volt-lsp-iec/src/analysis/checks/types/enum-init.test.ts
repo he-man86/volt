@@ -16,7 +16,7 @@ const ei = (src: string): string[] => {
 }
 
 test("a real-valued enum initializer is flagged", () => {
-  expect(ei(`TYPE DUT : (A := 1, B := 2.5); END_TYPE`)).toEqual(["Type 'LREAL' can not be converted to type 'DUT'"])
+  expect(ei(`TYPE DUT : (A := 1, B := 2.5); END_TYPE`)).toEqual(["Cannot convert type 'LREAL' to type 'DUT'"])
 })
 
 test("integer inits, sibling references, and plain enums are not flagged", () => {

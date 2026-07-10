@@ -38,6 +38,6 @@ test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", (
       .filter((d) => d.code === "multiple-assignment-new")
       .map((d) => d.message)
   }
-  expect(nw(`pb := pa := __NEW(BYTE);`)).toEqual(["Multiple assignments for operator '__NEW' not allowed"])
+  expect(nw(`pb := pa := __NEW(BYTE);`)).toEqual(["Multiple assignments are not allowed for operator '__New'."])
   expect(nw(`pa := __NEW(BYTE);`)).toEqual([])
 })

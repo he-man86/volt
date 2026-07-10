@@ -166,6 +166,14 @@ export interface Messages {
   baseClassNotFound(name: string): string
   /** An `IMPLEMENTS` interface that resolves to no definition (C0086). PROVISIONAL (bridge-gated). */
   interfaceNotFound(name: string): string
+  /** An FB EXTENDS-list naming more than one base FB — single inheritance only (C0096). PROVISIONAL. */
+  multipleInheritance(): string
+  /** A return type declared on a POU that is not a FUNCTION/METHOD, e.g. a PROGRAM (C0182). PROVISIONAL. */
+  returnTypeNotAllowed(): string
+  /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). PROVISIONAL. */
+  interfaceImplementsMisused(): string
+  /** A `{attribute 'pack_mode'}` pragma on a FUNCTION/METHOD (only valid on data structures) (C0550). PROVISIONAL. */
+  packModeNotAllowed(kind: string): string
   /** A derived FB redeclares a variable already declared in a base FB (C0097). PROVISIONAL (bridge-gated). */
   duplicateInheritedVariable(name: string, fb: string, base: string): string
   /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). PROVISIONAL. */
@@ -182,6 +190,14 @@ export interface Messages {
   iniNeedsInstance(): string
   /** Two overlapping CASE ranges, rendered lowest-first (C0219). PROVISIONAL (bridge-gated). */
   caseOverlappingRanges(lo1: string, hi1: string, lo2: string, hi2: string): string
+  /** An FB_ReInit method with any input or a non-BOOL return — it must have neither (C0566). PROVISIONAL. */
+  fbReInitShape(): string
+  /** An FB method whose signature differs from the interface method it implements (C0089). PROVISIONAL. */
+  overrideMismatchInterface(method: string, iface: string): string
+  /** An overriding method whose signature differs from the base FB's method (C0094/C0568). PROVISIONAL. */
+  overrideMismatchBase(method: string, base: string): string
+  /** A VAR_OUTPUT with an initializer in an abstract/interface method — the default is never used (C0533). PROVISIONAL. */
+  defaultOutputUnused(): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -210,6 +226,13 @@ export function messagesFor(vendor: Vendor): Messages {
       }
       return tc ? `An '${method}'-Method has an invalid signature.` : `The ${method} method has an invalid signature.`
     },
+    fbReInitShape: () =>
+      `The FB_ReInit method of a function block or struct must have no inputs and a return value of type BOOL. The FB_ReInit will not be called automatically!`,
+    overrideMismatchInterface: (method, iface) =>
+      `Interface of overridden method '${method}' of interface '${iface}' doesn't match declaration`,
+    overrideMismatchBase: (method, base) =>
+      `Interface of overridden method '${method}' of base '${base}' doesn't match declaration`,
+    defaultOutputUnused: () => `The default value for a VAR_OUTPUT is not used in abstract or interface methods`,
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
@@ -280,12 +303,12 @@ export function messagesFor(vendor: Vendor): Messages {
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
     noEnclosingLoop: () => `No enclosing loop of which to exit`,
-    multipleAssignmentNew: () => `Multiple assignments for operator '__NEW' not allowed`,
+    multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,
     stringConstantTooLong: (value, type) => `String constant '${value}' too long for destination type '${type}'`,
     compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
     bitInWrongContainer: () => (tc ? `Only Structures and Function Blocks can contain variables of type BIT.` : `Only structures and function blocks can contain variables of type BIT`),
-    bitInWrongBlock: () => (tc ? `Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block` : `Variables of type BIT must be declared within a VAR_INPUT-, VAR_OUTPUT or VAR-block`),
+    bitInWrongBlock: () => (tc ? `Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT or VAR-block` : `Variables of type BIT must be declared within a VAR_INPUT, VAR_OUTPUT, or VAR section`),
     pointerToBit: () => `POINTER TO BIT is not allowed`,
     bitArrayBase: () => `BIT is not allowed as base type of an array`,
     adrOnBit: () => `A single bit cannot be referenced. A reference to the complete byte will be stored.`,
@@ -293,22 +316,26 @@ export function messagesFor(vendor: Vendor): Messages {
     varConfigOnlyInList: () => (tc ? `'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list` : `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`),
     fbMustBeInstantiated: (name) => (tc ? `Functionblock '${name}' must be instantiated to be accessed` : `Function block '${name}' must be instantiated to be accessed`),
     interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,
-    bitAccessOnCall: () => `Bit access on function call is not allowed`,
+    bitAccessOnCall: () => (tc ? `Bitaccess on function call is not allowed` : `Bit access on function call is not allowed`),
     pointerIndexArity: (type) => `Variable of type '${type}' requires exactly 1 Index`,
     arrayIndexCount: (dims) => `Array requires exactly ${dims} indexes`,
-    retainNotAllowedHere: () => `'RETAIN' or 'PERSISTENT' not allowed in this place`,
-    thisNotAllowed: () => `Use of 'THIS' is not allowed in this context`,
-    superNotAllowed: () => `Expression 'SUPER' is not allowed in this context`,
+    retainNotAllowedHere: () => (tc ? `'RETAIN' or 'PERSISTENT' not allowed in this place` : `RETAIN or PERSISTENT not allowed in this place`),
+    thisNotAllowed: () => (tc ? `Expression 'THIS' is not allowed in this context` : `Expression THIS is not allowed in this context`),
+    superNotAllowed: () => (tc ? `Expression 'SUPER' is not allowed in this context` : `Expression SUPER is not allowed in this context`),
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
+    multipleInheritance: () => `Only one base function block may be defined in EXTENDS list`,
+    returnTypeNotAllowed: () => `Return type is only possible for POUs of type FUNCTION and METHOD`,
+    interfaceImplementsMisused: () => `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
+    packModeNotAllowed: (kind) => `Attribute 'pack_mode' not allowed for '${kind}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,
-    dataRecursion: (path) => `Data recursion: ${path}`,
+    dataRecursion: (path) => (tc ? `Data Recursion: ${path}` : `Data recursion: ${path}`),
     callRecursion: (path) => `Call Recursion: ${path}`,
-    enumInitNotConvertible: (fromType, enumName) => `Type '${fromType}' can not be converted to type '${enumName}'`,
+    enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
     iniNeedsInstance: () => (tc ? `'INI' operator needs function block instance or data unit type instance` : `INI operator needs function block instance or data unit type instance`),

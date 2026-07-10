@@ -39,11 +39,19 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  // Optional EXTENDS X
+  // Optional EXTENDS X. FBs are single-inheritance, but a stray `EXTENDS A, B` appears in error cases —
+  // capture the illegal extra bases (rather than leaving `, B` to corrupt the following var-sections) so a
+  // check can emit C0096.
   let extendsName: Identifier | undefined
+  let extendsExtra: Identifier[] | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
     const t = c.expectIdent("after EXTENDS")
     if (t !== undefined) extendsName = identFromToken(t)
+    while (c.eatPunct(",") !== undefined) {
+      const more = c.expectIdent("in EXTENDS list")
+      if (more === undefined) break
+      ;(extendsExtra ??= []).push(identFromToken(more))
+    }
   }
 
   // Optional IMPLEMENTS X, Y, Z
@@ -78,6 +86,7 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
     name,
     ...(accessModifier !== undefined ? { accessModifier } : {}),
     ...(extendsName !== undefined ? { extends: extendsName } : {}),
+    ...(extendsExtra !== undefined ? { extendsExtra } : {}),
     ...(implementsList !== undefined ? { implements: implementsList } : {}),
     ...(isFinal ? { final: true } : {}),
     ...(isAbstract ? { abstract: true } : {}),
