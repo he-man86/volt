@@ -1580,17 +1580,11 @@
     "ourCode": "data-recursion",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
     "fix": null,
-    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL.",
-    "twincatActual": [
-      "Data Recursion: FB1 -> FB2 -> FB1"
-    ],
-    "codesysActual": [
-      "Data recursion: FB1 -> FB2 -> FB1"
-    ]
+    "note": "Composition-graph cycle over project FB/struct instance members (arrays nest, pointers/refs break). Cross-file graph, emits per current-doc unit. PROVISIONAL."
   },
   {
     "code": "C0102",
