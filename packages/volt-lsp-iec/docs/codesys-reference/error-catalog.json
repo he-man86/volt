@@ -328,14 +328,15 @@
     "expect": [
       "'ADR' needs exactly '1' operands"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
+    "note": "PROVISIONAL — offline (bridges down); arity table ADR/SIZEOF/SEL/MUX corpus-validated, live-verify pending.",
     "fix": "pt := ADR(i);"
   },
   {
@@ -349,14 +350,15 @@
     "expect": [
       "'MUX' needs at least '3' operands"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "operator-operand-count",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
+    "note": "PROVISIONAL — offline (bridges down); arity table corpus-validated, live-verify pending.",
     "fix": "i := MUX(30,40,50);"
   },
   {

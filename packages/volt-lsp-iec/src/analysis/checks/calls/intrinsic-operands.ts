@@ -20,6 +20,14 @@ import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
 const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+/** Intrinsic-operator operand-count rules (C0022 exact / C0023 at-least). Only IEC-standard operators with an
+ *  unambiguous arity — a real project's correct usage never fires (the corpus gate validates the table). */
+const OP_ARITY: Record<string, { exact?: number; atLeast?: number }> = {
+  ADR: { exact: 1 },
+  SIZEOF: { exact: 1 },
+  SEL: { exact: 3 },
+  MUX: { atLeast: 3 },
+}
 const NUMERIC_FAMILIES = new Set(["int", "bitstring", "real"])
 const titleCase = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase()
 
@@ -27,6 +35,18 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
     if (e.kind !== "call" || e.callee.kind !== "ident_expr") return
     const name = e.callee.name.toUpperCase()
+
+    // C0022 / C0023 — wrong operand count for an intrinsic operator. Unshadowed only (a project/library symbol
+    // of the same name is a user function, not the operator). Anchored on the callee.
+    const arity = OP_ARITY[name]
+    if (arity !== undefined && lookup(scope, e.callee.name) === undefined) {
+      const n = e.args.length
+      if (arity.exact !== undefined && n !== arity.exact)
+        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsExactly(name, arity.exact)) // C0022
+      else if (arity.atLeast !== undefined && n < arity.atLeast)
+        push(out, "error", e.callee.span, "operator-operand-count", ctx.messages.operatorNeedsAtLeast(name, arity.atLeast)) // C0023
+    }
+
     const arg = e.args[0]?.value
     if (arg === undefined) return
     if (MATH_OPS.has(name) && lookup(scope, e.callee.name) === undefined) {

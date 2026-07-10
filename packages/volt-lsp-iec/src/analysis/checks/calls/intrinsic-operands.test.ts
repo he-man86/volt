@@ -46,3 +46,12 @@ test("C0072: a math operator on a non-numeric type is flagged; on a numeric type
   expect(op(`r := SQRT(s);`)).toEqual(["Operation 'Sqrt' is not possible on type 'STRING'"])
   expect(op(`r := ABS(i);`)).toEqual([])
 })
+
+test("C0022/C0023: wrong intrinsic-operator operand count is flagged; correct arity is not", () => {
+  const arity = run("operator-operand-count")
+  expect(arity(`pt := ADR(i, 1);`)).toEqual(["'ADR' needs exactly '1' operands"]) // C0022 exact
+  expect(arity(`i := MUX(30, 40);`)).toEqual(["'MUX' needs at least '3' operands"]) // C0023 at-least
+  expect(arity(`pt := ADR(i);`)).toEqual([]) // correct
+  expect(arity(`i := SEL(i > 0, i, i);`)).toEqual([]) // SEL exactly 3
+  expect(arity(`i := MUX(i, i, i);`)).toEqual([]) // MUX >= 3
+})

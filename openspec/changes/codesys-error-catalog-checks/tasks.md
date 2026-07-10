@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-09)
 
-**93 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**95 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -110,6 +110,8 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0094 | oop/method-signature | override-mismatch-base | override's param count ≠ the base FB method; verified CS (`of overridden method … of base`) |
 | C0568 | oop/method-signature | override-mismatch-base | same rule/wording as C0094 (two codes, one diagnostic) — verified CS |
 | C0533 | oop/abstract-output-default | abstract-output-default | VAR_OUTPUT initializer in an interface/abstract method (warning); zero-FP subset = interface + explicit-`ABSTRACT` methods (implicit-abstract-FB case deferred); verified CS |
+| C0022 | calls/intrinsic-operands | operator-operand-count | intrinsic operator with wrong exact operand count (`ADR`/`SIZEOF`/`SEL`); PROVISIONAL — offline only, arity table corpus-validated, live-verify pending (bridges down) |
+| C0023 | calls/intrinsic-operands | operator-operand-count | intrinsic operator below its minimum operand count (`MUX`); same check/PROVISIONAL as C0022 |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`

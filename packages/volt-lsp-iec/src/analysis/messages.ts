@@ -108,6 +108,10 @@ export interface Messages {
   defaultNotConstant(): string
   /** `ADR(<literal>)` — a literal has no address (C0131). PROVISIONAL (bridge-gated). */
   invalidAdrOperand(value: string): string
+  /** An intrinsic operator called with the wrong exact number of operands (C0022). PROVISIONAL (bridge-gated). */
+  operatorNeedsExactly(op: string, count: number): string
+  /** An intrinsic operator called with fewer than its minimum operands (C0023). PROVISIONAL (bridge-gated). */
+  operatorNeedsAtLeast(op: string, count: number): string
   /** `__DELETE(x)` where `x` is not a pointer (C0242). PROVISIONAL (bridge-gated). */
   deleteOperandNotPointer(): string
   /** A pointer value implicitly assigned to a non-pointer type — a WARNING (C0033). PROVISIONAL (bridge-gated). */
@@ -298,6 +302,8 @@ export function messagesFor(vendor: Vendor): Messages {
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
     defaultNotConstant: () => `Default value is not constant`,
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
+    operatorNeedsExactly: (op, count) => `'${op}' needs exactly '${count}' operands`,
+    operatorNeedsAtLeast: (op, count) => `'${op}' needs at least '${count}' operands`,
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
     pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
