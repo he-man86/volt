@@ -549,6 +549,7 @@
       "codesys": false,
       "twincat": false
     },
+    "note": "Check written (a call whose bare-name callee resolves to a gvl_block → 'Cannot call object of type VAR_GLOBAL') and correct for real multi-file use + live, but the offline BURN-IN can't represent it: a GVL is nameless in source, so a single-file repro names it after the URI, and `GVL()` never resolves. Deferred until the burn-in materializes units as separate files (or a GVL code is prioritized for live-only).",
     "fix": null
   },
   {
