@@ -51,11 +51,17 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   surfaces; valid IF stays silent; corpus 100%-materialize + conformance + fuzz all green (valid code takes the
   identical path). **Extended to the whole keyword-before-body family:** `CASE`'s `OF`, `FOR`'s `DO`, `WHILE`'s
   `DO` now insert-and-continue too (each verified: clean single error, no cascade, valid code silent, gates
-  green). **Still open (finer-grained, each its own care + gate pass):** the mid-construct value keywords
-  (`FOR`'s `:=`/`TO`, `REPEAT`'s `UNTIL`) where the *following* parse also needs recovery; the block closers
-  (`END_IF`/`END_CASE`/… → record + return the node); and the *unexpected-tokens* error node (skip-and-wrap).
-- [ ] 2.3 Multi-error per body + a per-body diagnostic cap (match IDE). Extend the fuzz test to assert
-  termination + bounded diagnostics (every recovery step consumes ≥1 token).
+  green). **Block closers DONE** (`END_IF`/`END_CASE`/`END_FOR`/`END_WHILE`/`END_REPEAT`/`__ENDTRY`) — each
+  records an absent closer but returns the partial node so the parsed branches/arms/body aren't lost. **Still
+  open (finer-grained):** the mid-construct value keywords (`FOR`'s `:=`/`TO`, `REPEAT`'s `UNTIL`) where the
+  *following* expression parse also needs recovery.
+- [x] 2.3 **Multi-error via list-level recovery — DONE.** Re-added statement-list skip-recovery (skip an
+  unparsable statement to the next `;`/starter/closer, progress-guarded so it can't loop). Safe NOW that the
+  block constructs self-recover — `parseStatement` returns a node for a malformed IF/CASE/FOR/…, so only genuine
+  garbage reaches the skip (the earlier cascade is gone; re-verified missing-THEN → clean single error). A
+  garbage statement between good ones is skipped; two bad statements both surface. Corpus 100%-materialize +
+  corpus-fp "No false positives" + conformance + fuzz all green. (Per-body diagnostic *cap* deferred — not
+  needed; recovery already produces one error per real problem, not a spray.)
 - [x] 2.4 **Grammar completeness — DONE (2026-07-10); unblocked the ship.** Closed the two conformance-gate
   gaps: **partial variable access** `x.%W1`/`.%B3`/`.%X0`/`.%D0` in `parsePostfix` (recombines the lexer's
   `. % <spec>` into one member named `%<spec>`; member-resolution checks already only fire on struct/FB bases,
@@ -67,10 +73,17 @@ errors (100%)**, so surfacing is zero-FP on known-good code. Probe: `scratchpad/
   still open — this delivered the *completeness* half that gates surfacing; the current parser reports the
   first error per body, which is enough to ship precisely.)
 
-## 3. Phase 3 — declaration-layer resilience
+## 3. Phase 3 — declaration-layer resilience (IN PROGRESS)
 
-- [ ] 3.1 Apply the same recovery to the unit/VAR-section/type-decl parsers so "unterminated `<unit>`" fires
-  only for a genuinely unterminated unit. Land C0173/C0189/C0190/C0211/C0212/C0213/C0215/C0221.
+- [~] 3.1 Killing the declaration cascades, same technique as Phase 2. **DONE:** (a) **var-section** — a missing
+  `END_VAR` no longer choke-cascades into 3 errors (bogus "expected identifier" + a "unterminated <unit>" from
+  the unit parser eating the closer): the decl loop stops cleanly when the next token can't start a declaration
+  (new `Cursor.atNameStart()`), leaving the closer for the caller → **3 errors → 1**. (b) **C0173** — a
+  VAR-section keyword inside a `STRUCT` now skips the whole misplaced `VAR_* … END_VAR` block with ONE error
+  (exact catalog wording `'VAR_INPUT' not allowed in this place`), and struct fields before/after it still parse
+  → **2 errors → 1**. Corpus zero-declaration-errors + materialize + conformance all green. **Still open:**
+  C0189/C0190 (`;` expected), C0211/C0212/C0213 (malformed/`VAR`-less declaration — currently C0212 is silent,
+  the body-capture swallows it), C0215/C0221 (address), and the same closer-recovery for the unit parsers.
 - [ ] 3.2 The reported example (`IF` missing `THEN` *and* no `END_PROGRAM`) reports the precise `THEN` error,
   not the misleading `unterminated program`.
 
