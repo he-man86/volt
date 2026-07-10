@@ -116,6 +116,10 @@ export interface Messages {
   queryPointerFirst(): string
   /** `__QueryPointer`'s second operand is not a pointer (C0241). PROVISIONAL. */
   queryPointerSecond(): string
+  /** `__QueryInterface`'s first operand is not an interface reference / FB instance (C0234). PROVISIONAL. */
+  queryInterfaceFirst(): string
+  /** `__QueryInterface`'s second operand is not an interface reference (C0235). PROVISIONAL. */
+  queryInterfaceSecond(): string
   /** An intrinsic operator called with the wrong exact number of operands (C0022). PROVISIONAL (bridge-gated). */
   operatorNeedsExactly(op: string, count: number): string
   /** An intrinsic operator called with fewer than its minimum operands (C0023). PROVISIONAL (bridge-gated). */
@@ -186,6 +190,12 @@ export interface Messages {
   interfaceImplementsMisused(): string
   /** A VAR section declared directly in an INTERFACE body — signatures only (C0149). PROVISIONAL. */
   varInInterface(): string
+  /** `EXTENDS` on an enum/alias DUT — inheritance is only legal on FB/interface/struct (C0144). PROVISIONAL. */
+  inheritanceNotAllowed(): string
+  /** `EXTENDS` on a UNION DUT — unions cannot inherit (C0542). PROVISIONAL. */
+  unionInheritance(name: string): string
+  /** `IMPLEMENTS` on a FUNCTION — only FBs implement interfaces (C0145). PROVISIONAL. */
+  functionImplements(): string
   /** A `{attribute 'pack_mode'}` pragma on a FUNCTION/METHOD (only valid on data structures) (C0550). PROVISIONAL. */
   packModeNotAllowed(kind: string): string
   /** A derived FB redeclares a variable already declared in a base FB (C0097). PROVISIONAL (bridge-gated). */
@@ -324,6 +334,8 @@ export function messagesFor(vendor: Vendor): Messages {
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
     queryPointerFirst: () => `First operand of __QueryPointer must be an interface reference or the instance of a function block`,
     queryPointerSecond: () => `Second operand of __QueryInterface must be a pointer`,
+    queryInterfaceFirst: () => `First Operand of __QueryInterface must be an interface reference or the instance of a function block`,
+    queryInterfaceSecond: () => `Second Operand of __QueryInterface must be an interface reference`,
     operatorNeedsExactly: (op, count) => `'${op}' needs exactly '${count}' operands`,
     operatorNeedsAtLeast: (op, count) => `'${op}' needs at least '${count}' operands`,
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
@@ -364,6 +376,9 @@ export function messagesFor(vendor: Vendor): Messages {
         ? `Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS.`
         : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
     varInInterface: () => `Variable declarations are not allowed in interfaces`,
+    inheritanceNotAllowed: () => `Inheritance only allowed in function blocks, Interfaces and Structures`,
+    unionInheritance: (name) => `Inheritance is not intended for the data type "UNION" ${name}.`,
+    functionImplements: () => `Interfaces can only be implemented by function blocks`,
     packModeNotAllowed: (kind) => `Attribute 'pack_mode' not allowed for '${kind}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,

@@ -6,6 +6,9 @@
  * Zero-FP: two consecutive identifiers only occur in a declaration head, and `FUNCTIONBLOCK <ident>` is the
  * deprecated keyword form (a member access `FUNCTIONBLOCK.x` or a typed decl `x : FUNCTIONBLOCK;` puts a punct
  * after it, not an identifier).
+ *
+ * (C0099 — inline local enums — is intentionally NOT here: they are common and compile clean, so it is deferred
+ * as a corpus-gate demotion; see the catalog note.)
  */
 import { lex, isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"

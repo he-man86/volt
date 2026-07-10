@@ -471,6 +471,8 @@ export interface Function {
   kind: "function"
   name: Identifier
   returnType?: TypeExpr
+  /** An illegal `IMPLEMENTS` clause on a FUNCTION (only FBs implement interfaces) — drives C0145. */
+  implementsMisused?: Identifier[]
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -539,6 +541,9 @@ export interface TypeDecl {
   kind: "type_decl"
   name: Identifier
   body: DutBody
+  /** An `EXTENDS Base` clause on a non-STRUCT DUT (enum/alias → C0144, union → C0542) — inheritance is only
+   *  legal on structs (and FBs/interfaces). The parser sets this only in the illegal case. */
+  extendsMisused?: Identifier
   span: Span
 }
 export interface GlobalVarList {

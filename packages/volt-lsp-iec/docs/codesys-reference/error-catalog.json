@@ -2098,13 +2098,13 @@
     "category": "invalid EXTENDS target",
     "cause": "EXTENDS is used on a POU type (here an enumeration TYPE) that is not a function block, interface, or structure, none of which support inheritance.",
     "message": "Inheritance only allowed in function blocks, Interfaces and Structures",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    inst : DUT_1;\nEND_VAR\n\nTYPE DUT:\n(\n    enum_member := 0\n);\nEND_TYPE\n\nTYPE DUT_1 EXTENDS DUT:\n(\n    enum_memberX := 0\n);\nEND_TYPE",
+    "repro": "TYPE E EXTENDS Base :\n(\n    A, B\n); END_TYPE",
     "expect": [
       "Inheritance only allowed in function blocks, Interfaces and Structures"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "inheritance-not-allowed",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -2119,13 +2119,13 @@
     "category": "invalid IMPLEMENTS target",
     "cause": "IMPLEMENTS is used on a FUNCTION POU, but only function blocks are allowed to implement interfaces.",
     "message": "Interfaces can only be implemented by function blocks",
-    "repro": "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nPOU();\n\nFUNCTION POU IMPLEMENTS ITF\nVAR\nEND_VAR",
+    "repro": "FUNCTION POU IMPLEMENTS ITF\nVAR\nEND_VAR\nEND_FUNCTION",
     "expect": [
       "Interfaces can only be implemented by function blocks"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "function-implements",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3271,13 +3271,13 @@
     "category": "__QueryInterface first operand",
     "cause": "The first argument passed to __QueryInterface is not an interface reference or function block instance.",
     "message": "First Operand of __QueryInterface must be an interface reference or the instance of a function block",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(a ,ITFref);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(a, itf);\nEND_PROGRAM",
     "expect": [
       "First Operand of __QueryInterface must be an interface reference or the instance of a function block"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "calls/intrinsic-operands",
+    "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -3292,13 +3292,13 @@
     "category": "__QueryInterface second operand",
     "cause": "The second argument passed to __QueryInterface is not an interface reference.",
     "message": "Second Operand of __QueryInterface must be an interface reference",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref, ITFref2 : ITF;\n    ITFref2 : ITF2;\nEND_VAR\n\n__QueryInterface(ITFref2, a);\n\nINTERFACE ITF EXTENDS __SYSTEM.IQueryInterface\nINTERFACE ITF2 EXTENDS ITF",
+    "repro": "INTERFACE ITF\nEND_INTERFACE\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    itf : ITF;\nEND_VAR\n__QueryInterface(itf, a);\nEND_PROGRAM",
     "expect": [
       "Second Operand of __QueryInterface must be an interface reference"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "calls/intrinsic-operands",
+    "ourCode": "query-interface-operand",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -4198,13 +4198,13 @@
     "category": "invalid UNION inheritance",
     "cause": "A structured data type (DUT) is derived from a UNION via EXTENDS, or a UNION is derived from a DUT, which CODESYS treats as invalid inheritance but only downgrades to a warning for backward compatibility.",
     "message": "Inheritance is not intended for the data type \"UNION\" <data type name>.",
-    "repro": "TYPE U_StringExt EXTENDS U_StringBase :\nUNION\n    str10 : STRING(10);\nEND_UNION\nEND_TYPE\n\nTYPE U_StringBase :\nUNION\n    str20 : STRING(20);\nEND_UNION\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n    uStringExt : U_StringExt;\nEND_VAR\n\nuStringExt.str20 := 'a234567890b234567890'; -> C0542",
+    "repro": "TYPE U EXTENDS Base :\nUNION\n    a : INT;\nEND_UNION\nEND_TYPE",
     "expect": [
-      "C0542"
+      "Inheritance is not intended for the data type \"UNION\" U."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "declarations/header-rules",
+    "ourCode": "union-inheritance",
     "lint": null,
     "verified": {
       "codesys": false,

@@ -50,9 +50,12 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const colon = c.expectPunct(":", "after TYPE name")
   if (colon === undefined) return undefined
   const body = parseDutBody(c)
-  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there).
-  if (extendsName !== undefined && body !== undefined && body.kind === "struct" && body.extends === undefined) {
-    body.extends = extendsName
+  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there). EXTENDS on any other DUT kind
+  // (enum/alias → C0144, union → C0542) is illegal — capture it as `extendsMisused` for the check.
+  let extendsMisused: Identifier | undefined
+  if (extendsName !== undefined && body !== undefined) {
+    if (body.kind === "struct" && body.extends === undefined) body.extends = extendsName
+    else if (body.kind !== "struct") extendsMisused = extendsName
   }
   // TwinCAT-idiomatic optional `;` after the body (engineers C-style
   // terminate the enum/struct/alias before END_TYPE). Spec-permissive
@@ -76,6 +79,7 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
     kind: "type_decl",
     name,
     body,
+    ...(extendsMisused !== undefined ? { extendsMisused } : {}),
     span: joinSpans(start.span, endSpan),
   }
 }

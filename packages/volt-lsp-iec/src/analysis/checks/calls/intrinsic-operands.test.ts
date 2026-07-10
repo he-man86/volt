@@ -62,6 +62,21 @@ test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid 
   expect(qp(`__QueryPointer(inst, pt);`)).toEqual([]) // valid FB instance
 })
 
+test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; valid ones are not", () => {
+  const qi = (body: string) => {
+    const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; itf2:ITF; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
+    const pr = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "query-interface-operand")
+      .map((d) => d.message)
+  }
+  expect(qi(`__QueryInterface(a, itf);`)).toEqual(["First Operand of __QueryInterface must be an interface reference or the instance of a function block"])
+  expect(qi(`__QueryInterface(itf, b);`)).toEqual(["Second Operand of __QueryInterface must be an interface reference"])
+  expect(qi(`__QueryInterface(itf, itf2);`)).toEqual([]) // valid
+  expect(qi(`__QueryInterface(inst, itf);`)).toEqual([]) // valid FB instance
+})
+
 test("C0022/C0023: wrong intrinsic-operator operand count is flagged; correct arity is not", () => {
   const arity = run("operator-operand-count")
   expect(arity(`pt := ADR(i, 1);`)).toEqual(["'ADR' needs exactly '1' operands"]) // C0022 exact

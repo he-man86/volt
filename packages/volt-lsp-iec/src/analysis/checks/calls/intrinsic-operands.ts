@@ -5,6 +5,8 @@
  *   C0242 delete-non-pointer  — `__DELETE(x)` where `x` is not a pointer.
  *   C0070 ini-needs-instance  — `INI(x, …)` where `x` is not an FB / DUT (struct) instance.
  *   C0072 operator-not-possible — a math operator (`ABS`, `SQRT`, …) applied to a non-numeric type. PROVISIONAL.
+ *   C0240/C0241 query-pointer-operand   — `__QueryPointer` operands (interface-ref/FB, then pointer).
+ *   C0234/C0235 query-interface-operand — `__QueryInterface` operands (interface-ref/FB, then interface-ref).
  *
  * Zero-FP: C0131 fires only on a bare literal argument; C0355 only when the argument's type is KNOWN BIT; C0242
  * only when the argument's type is KNOWN and not a pointer; C0070 only when the first operand's type is KNOWN
@@ -81,6 +83,16 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const second = e.args[1]?.value
       if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
         push(out, "error", second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
+    }
+    if (name === "__QUERYINTERFACE") {
+      // Same conservative rule (twin of __QueryPointer), but the second operand must be an interface reference,
+      // not a pointer — a KNOWN ELEMENTARY is unambiguously wrong for either operand.
+      const first = e.args[0]?.value
+      if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
+        push(out, "error", first.span, "query-interface-operand", ctx.messages.queryInterfaceFirst()) // C0234
+      const second = e.args[1]?.value
+      if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
+        push(out, "error", second.span, "query-interface-operand", ctx.messages.queryInterfaceSecond()) // C0235
     }
   })
 }

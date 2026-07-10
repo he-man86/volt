@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-10)
 
-**104 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**109 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -121,6 +121,11 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0373 | pragmas/pragmas | message-pragma-warning | `{warning 'text'}` echoed verbatim — free reconcile (pre-existing message-pragma check code-linked); verified live CS |
 | C0098 | declarations/deprecated-keyword | deprecated-functionblock | deprecated `FUNCTIONBLOCK` spelling (re-lex token-pair scan, zero-FP); offline-correct + corpus/conformance clean, live-verify harness-blocked (lexed as identifier → not a pushable unit) |
 | C0149 | declarations/header-rules | var-in-interface | VAR section directly in an INTERFACE body (interfaces declare signatures only) — parser now captures `strayVarSections` instead of the generic recovery error; zero-FP presence test, corpus + conformance clean; wording PROVISIONAL (live-verify pending) |
+| C0234 | calls/intrinsic-operands | query-interface-operand | `__QueryInterface` first operand a known elementary (not interface-ref/FB) — twin of C0240; PROVISIONAL |
+| C0235 | calls/intrinsic-operands | query-interface-operand | `__QueryInterface` second operand a known elementary (must be an interface reference) — twin of C0241; PROVISIONAL |
+| C0144 | declarations/header-rules | inheritance-not-allowed | `EXTENDS` on an enum/alias DUT (inheritance is FB/interface/struct only) — parser captures the dropped `extendsMisused`; zero-FP presence test; PROVISIONAL |
+| C0542 | declarations/header-rules | union-inheritance | `EXTENDS` on a UNION DUT — a **warning** (kept for backward compat); same `extendsMisused` field; PROVISIONAL (harvested `expect` was corrupted, authored from message template) |
+| C0145 | declarations/header-rules | function-implements | `IMPLEMENTS` on a FUNCTION (only FBs implement interfaces) — function parser now captures `implementsMisused` instead of swallowing it into the opaque body; zero-FP; PROVISIONAL |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`
@@ -175,13 +180,20 @@ Next unlocks, in impact order: (1) **POU-header structure** → **DONE** (C0096/
 attribute-on-unit** → **DONE** (C0550; C0540 deferred); (3) **method-signature model** → **DONE** (C0089/C0094/
 C0568/C0566; C0138 deferred, C0243 skipped); (4) **parser syntax-error track** → **assessed & NOT undertaken** (see
 the Parser-track note above — the diminishing-returns frontier: high-effort/FP-prone/low-value). Iteration 4 banked
-**C0533** (abstract/interface VAR_OUTPUT default); iteration 5 (2026-07-10) banked **C0149** (VAR in interface),
-closing the header-capture bucket.
+**C0533** (abstract/interface VAR_OUTPUT default); iteration 5 (2026-07-10) banked **C0149** (VAR in interface).
+Iteration 6 (2026-07-10) extended the **header-shape capture** family further — the same pattern generalizes past
+the initial four: **C0144/C0542** (`EXTENDS` on enum/alias/union — the parser already *parsed* the clause then
+silently dropped it for non-structs; now captured as `extendsMisused`), **C0145** (`IMPLEMENTS` on a FUNCTION —
+was swallowed into the opaque body), and the intrinsic-operand twins **C0234/C0235** (`__QueryInterface`, cloned
+from C0240/C0241). **109/220.**
 
-> **AUTONOMOUS LOOP RETIRED (2026-07-10, iteration 5).** The zero-FP-by-construction structural track is now
-> **complete** — every "parser captures the illegal declaration shape → check reads it" code (C0096/C0182/C0421/
-> C0149) is landed. **104/220.** What remains is deliberately NOT loop-work, because it is one of four walls, none
-> of which is a presence-test:
+> **"WITHIN REASON" PARITY PUSH (2026-07-10, iteration 6).** The user asked to get the LSP as close to the IDE as
+> reasonable and to make the remaining gaps *clear*. The zero-FP-by-construction wins are being banked
+> opportunistically (header-shape capture + intrinsic twins). The honest classification of the ~111 still-open
+> codes — **what's open and why** — is:
+> - **Bucket 1 · reasonable offline wins** — the header-shape / intrinsic-twin / const-eval codes. Bank these on
+>   the loop **but read the catalog `note` first**: several look cheap yet are corpus-gate demotions (C0099 inline
+>   enums = 29 FPs, C0125 dup enum values = 35 FPs, C0141 `REF= 0` null = 7 FPs) — do NOT re-implement them.
 > - **Resolution-dependent (Tier B)** — e.g. **C0062** (`x.m` on a non-struct): needs the base expr's type
 >   resolved as elementary AND excluding integer bit-access + bit-alias constants. Real FP surface; a design call
 >   on the zero-FP slice. **Bring these to a human per-code**, don't grind.
@@ -191,10 +203,10 @@ closing the header-capture bucket.
 >   library-floor (C0035/C0513–517/C0582).
 > - **Won't-fix / no-ground-truth** — C0426, C0243, C0138, C0540 (see the deferred table below).
 >
-> The spec is satisfied by this state: an unimplemented `checkable` code is a *visible, tracked* gap (TRIAGE.md),
-> not a shortfall — the proposal never required all 220. **This change is ready to archive** once the optional
-> follow-on tasks (2.3/2.4/5.3/6.3/7.3 — docs-stance rewrite, quick-fix coverage, `covered`-code reconciliation)
-> are either done or explicitly dropped.
+> The spec is satisfied throughout: an unimplemented `checkable` code is a *visible, tracked* gap (TRIAGE.md +
+> per-code catalog `note`), not a shortfall — the proposal never required all 220. **A catalog re-triage** (honest
+> per-code `status`/`note` so the flat "116 checkable" stops overclaiming) is the durable way to keep "what's open
+> and why" clear, and is the remaining structural task before archive.
 
 **Deferred with recorded reason** (corpus-gate demotions + infra blockers, each carries a `note` in the catalog):
 
