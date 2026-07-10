@@ -18,6 +18,18 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../src/syntax/index.js"
+import { buildSymbolTable } from "../src/symbols/index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+
+/** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE. */
+function lspMessagesForCode(repro: string, vendor: "codesys" | "twincat", ourCode: string | undefined): string[] {
+  if (ourCode === undefined) return []
+  const pr = parseSource(repro)
+  const project = buildSymbolTable([{ uri: "R.fb", parseResult: pr, source: repro }])
+  return computeSemanticDiagnostics({ parseResult: pr, source: repro, project, config: resolveConfig({ vendor, lints: { unknownType: true, unknownAttribute: true } }) })
+    .filter((d) => d.code === ourCode)
+    .map((d) => d.message)
+}
 
 const PORT = process.env.VOLT_BRIDGE_PORT ?? "8556"
 const BASE = `http://127.0.0.1:${PORT}`
@@ -87,6 +99,9 @@ async function robustDelete(name: string): Promise<void> {
   await pushOps([{ op: "deleteItem", name, ifVersion: v }])
 }
 
+// Vendor (→ which catalog fields to stamp) auto-detected from the bridge's platform.
+const VENDOR: "codesys" | "twincat" = (await get("/health")).platform === "beckhoff" ? "twincat" : "codesys"
+const ACTUAL_FIELD = `${VENDOR}Actual`
 const refs0 = await get("/refs")
 const BASELINE = new Set(Object.keys(refs0.items)) // libs/device/task/PLC_PRG present before any fixture
 let touched = new Set<string>() // every item name a fixture created (so UNREADABLE ones still get cleaned)
@@ -103,14 +118,19 @@ const catalog = JSON.parse(readFileSync(CATALOG, "utf8"))
 const codes: any[] = Array.isArray(catalog) ? catalog : catalog.codes
 const targets = codes.filter((c) => c.status === "implemented" && (!ONLY || ONLY.has(c.code)) && c.repro)
 
-console.log(`Verifying ${targets.length} implemented codes against ${BASE} …\n`)
+console.log(`Verifying ${targets.length} implemented codes against ${BASE} (${VENDOR}) …\n`)
+// The true per-vendor mirror test: does the LSP's message (for `vendor`) appear among the IDE's messages?
+//   verified — every LSP message for this code is one the IDE also emits (LSP mirrors the IDE).
+//   mismatch — the LSP emits wording the IDE does NOT (a wording delta to adopt, or an FP if the IDE is silent).
+//   silent   — the LSP check doesn't fire on this repro (coverage gap / repro doesn't trigger it).
 type Outcome = "verified" | "mismatch" | "silent" | "error"
-const results: { code: string; outcome: Outcome; expect: string[]; actual: string[] }[] = []
+const results: { code: string; outcome: Outcome; lsp: string[]; actual: string[] }[] = []
 const norm = (s: string): string => s.replace(/\r?\n/g, "").trim() // real messages sometimes embed the source line
 
 for (const c of targets) {
   const { plcBody, items, instTypes } = splitRepro(c.repro)
   let actual: string[] = []
+  let lsp: string[] = []
   let outcome: Outcome = "error"
   try {
     await resetProject()
@@ -118,19 +138,19 @@ for (const c of targets) {
     await robustSet("PLC_PRG.prg", plcBody ?? synthPlc(instTypes))
     const r = await post("/build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
-    const expect: string[] = c.expect ?? []
+    lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode)
     const actualN = actual.map(norm)
-    outcome = expect.length && expect.every((e: string) => actualN.includes(norm(e))) ? "verified" : actual.length ? "mismatch" : "silent"
+    outcome = lsp.length === 0 ? "silent" : lsp.every((m) => actualN.includes(norm(m))) ? "verified" : "mismatch"
   } catch (e) {
     console.warn(`  ${c.code}: ERROR ${(e as Error).message}`)
   } finally {
     await resetProject()
   }
-  results.push({ code: c.code, outcome, expect: c.expect ?? [], actual })
+  results.push({ code: c.code, outcome, lsp, actual })
   console.log(`${{ verified: "✓", mismatch: "≠", silent: "∅", error: "✗" }[outcome]} ${c.code} ${outcome}`)
   if (outcome !== "verified") {
-    console.log(`    expect: ${JSON.stringify(c.expect)}`)
-    console.log(`    actual: ${JSON.stringify(actual)}`)
+    console.log(`    lsp(${VENDOR}): ${JSON.stringify(lsp)}`)
+    console.log(`    ide:          ${JSON.stringify(actual)}`)
   }
 }
 
@@ -148,10 +168,10 @@ if (WRITE) {
   for (const c of codes) {
     const r = byCode.get(c.code)
     if (r === undefined) continue
-    c.verified = { ...(c.verified ?? {}), codesys: r.outcome === "verified" }
-    if (r.outcome !== "verified") c.codesysActual = r.actual
-    else delete c.codesysActual
+    c.verified = { ...(c.verified ?? {}), [VENDOR]: r.outcome === "verified" }
+    if (r.outcome !== "verified") c[ACTUAL_FIELD] = r.actual
+    else delete c[ACTUAL_FIELD]
   }
   writeFileSync(CATALOG, JSON.stringify(catalog, null, 2) + "\n")
-  console.log(`\nadopted → verified flags + codesysActual written to error-catalog.json`)
+  console.log(`\nadopted → verified.${VENDOR} flags + ${ACTUAL_FIELD} written to error-catalog.json`)
 }
