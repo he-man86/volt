@@ -1,25 +1,15 @@
 {
-  "at": "2026-07-10T20:27:10.216Z",
+  "at": "2026-07-10T20:28:40.175Z",
   "base": "http://127.0.0.1:8555",
   "results": [
     {
-      "code": "C0032",
+      "code": "C0101",
       "outcome": "verified",
       "lsp": [
-        "Cannot convert type 'BOOL' to type 'INT'"
+        "Data Recursion: FB1 -> FB1"
       ],
       "actual": [
-        "Cannot convert type 'BOOL' to type 'INT'"
-      ]
-    },
-    {
-      "code": "C0077",
-      "outcome": "verified",
-      "lsp": [
-        "Unknown type: 'USNT'"
-      ],
-      "actual": [
-        "Unknown type: 'USNT'"
+        "Data Recursion: FB1 -> FB1"
       ]
     }
   ]

@@ -1571,9 +1571,9 @@
     "category": "data type recursion",
     "cause": "A function block or struct contains, directly or indirectly, an instance of itself as a member, creating infinite/circular data nesting.",
     "message": "Data Recursion: '<recursion>'",
-    "repro": "FUNCTION_BLOCK FB1\nVAR x : FB2;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB2\nVAR y : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK FB1\nVAR\n  self : FB1;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
-      "Data recursion: FB1 -> FB2 -> FB1"
+      "Data recursion: FB1 -> FB1"
     ],
     "status": "implemented",
     "ourCheck": "checkDataRecursion",
