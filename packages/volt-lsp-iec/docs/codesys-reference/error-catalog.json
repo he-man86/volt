@@ -2477,16 +2477,16 @@
     "category": "chained access on call result",
     "cause": "Component access, index access, or a call was chained directly onto the result of a function call instead of first assigning that result to a variable.",
     "message": "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    it : ITF;\nEND_VAR\n\nPOU_1()[0].METH1();\n\nFUNCTION POU_1 : ARRAY[0..0] OF ITF\n\nINTERFACE ITF\n\nMETHOD METH1",
+    "repro": "PROGRAM PLC_PRG\nVAR\n    it : ITF;\nEND_VAR\nPOU_1()[0].METH1();\nEND_PROGRAM\n\nFUNCTION POU_1 : ARRAY[0..0] OF ITF\nEND_FUNCTION\n\nINTERFACE ITF\nMETHOD METH1\nEND_METHOD\nEND_INTERFACE",
     "expect": [
       "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "call-result-access",
+    "ourCode": "call-result-access",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": null

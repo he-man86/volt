@@ -62,6 +62,8 @@ export interface Messages {
   inputAssignmentMissing(param: string, callee: string): string
   /** A `name := value` naming no input of the callee (C0037). PROVISIONAL (no bridge recording yet). */
   unknownNamedArgument(name: string, callee: string): string
+  /** Component/index/call access performed directly on a function-call result (C0185). PROVISIONAL. */
+  callResultAccess(): string
   /** A `name => target` binding naming no output of the callee (C0038). PROVISIONAL (no bridge recording yet). */
   unknownNamedOutput(name: string, callee: string): string
   /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). PROVISIONAL. */
@@ -272,6 +274,8 @@ export function messagesFor(vendor: Vendor): Messages {
     functionRequiresInputs: (callee, count) => `Function '${callee}' requires exactly '${count}' inputs`,
     inputAssignmentMissing: (param, callee) => `Assignment to input missing for parameter '${param}' in call of '${callee}'`,
     unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
+    callResultAccess: () =>
+      `It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first.`,
     unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
     inOutNeedsWritable: (param, callee) =>
       tc

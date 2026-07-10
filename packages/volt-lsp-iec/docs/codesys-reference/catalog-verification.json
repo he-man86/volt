@@ -1,25 +1,15 @@
 {
-  "at": "2026-07-10T13:21:20.855Z",
+  "at": "2026-07-10T13:40:04.546Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0022",
+      "code": "C0185",
       "outcome": "verified",
       "lsp": [
-        "'ADR' needs exactly '1' operands"
+        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
       ],
       "actual": [
-        "'ADR' needs exactly '1' operands"
-      ]
-    },
-    {
-      "code": "C0023",
-      "outcome": "verified",
-      "lsp": [
-        "'MUX' needs at least '3' operands"
-      ],
-      "actual": [
-        "'MUX' needs at least '3' operands"
+        "It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first."
       ]
     }
   ]

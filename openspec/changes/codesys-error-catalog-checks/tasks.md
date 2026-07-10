@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-09)
 
-**95 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**96 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -112,6 +112,7 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0533 | oop/abstract-output-default | abstract-output-default | VAR_OUTPUT initializer in an interface/abstract method (warning); zero-FP subset = interface + explicit-`ABSTRACT` methods (implicit-abstract-FB case deferred); verified CS |
 | C0022 | calls/intrinsic-operands | operator-operand-count | intrinsic operator with wrong exact operand count (`ADR`/`SIZEOF`/`SEL`); arity table corpus-validated + verified live CS |
 | C0023 | calls/intrinsic-operands | operator-operand-count | intrinsic operator below its minimum operand count (`MUX`); same check as C0022, verified live CS |
+| C0185 | calls/call-result-access | call-result-access | component/index/call access directly on a function-call result (`f().x`); excludes `__`-intrinsics (`__VARINFO(x).size` — conformance oracle caught the FP); verified live CS |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`

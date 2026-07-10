@@ -52,6 +52,7 @@ import { checkMethodReference } from "./checks/oop/method-reference.js"
 import { checkInheritedVariable } from "./checks/oop/inherited-variable.js"
 import { checkIntrinsicOperands } from "./checks/calls/intrinsic-operands.js"
 import { checkCallArguments } from "./checks/calls/call-arguments.js"
+import { checkCallResultAccess } from "./checks/calls/call-result-access.js"
 import { checkRecursiveCall } from "./checks/calls/recursive-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
@@ -125,6 +126,7 @@ const CHECKS: readonly Check[] = [
   checkInheritedVariable,
   // calls/
   checkCallArguments,
+  checkCallResultAccess,
   checkRecursiveCall,
   checkIntrinsicOperands,
   checkFbInstantiation,
