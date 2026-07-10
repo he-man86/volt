@@ -42,7 +42,8 @@
       "twincat": false
     },
     "fix": null,
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0003",
@@ -132,6 +133,9 @@
     "fix": null,
     "codesysActual": [
       "'THEN' expected instead of 'x'"
+    ],
+    "twincatActual": [
+      "'THEN' expected instead of 'x'"
     ]
   },
   {
@@ -177,7 +181,8 @@
       "codesys": false,
       "twincat": false
     },
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0009",
@@ -222,7 +227,8 @@
       "twincat": false
     },
     "fix": null,
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0011",
@@ -244,7 +250,8 @@
       "twincat": false
     },
     "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE",
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0013",
@@ -290,6 +297,9 @@
     },
     "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR",
     "codesysActual": [
+      "Counter initialisation expected"
+    ],
+    "twincatActual": [
       "Counter initialisation expected"
     ]
   },
@@ -354,7 +364,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "note": "Verified live CODESYS. Arity table ADR/SIZEOF/SEL/MUX (unshadowed only); corpus zero-FP.",
     "fix": "pt := ADR(i);"
@@ -376,7 +386,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "note": "Verified live CODESYS. Same intrinsic-operands arity check as C0022; corpus zero-FP.",
     "fix": "i := MUX(30,40,50);"
@@ -425,7 +435,8 @@
       "twincat": false
     },
     "fix": "str : STRING(100);",
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0030",
@@ -474,6 +485,11 @@
       "Type definition expected instead of ';'",
       "':= or ;' expected instead of ''",
       "'END_TYPE' expected instead of ''"
+    ],
+    "twincatActual": [
+      "':= or ;' expected instead of ''",
+      "'END_TYPE' expected instead of ''",
+      "Type definition expected instead of ';'"
     ]
   },
   {
@@ -1552,7 +1568,8 @@
     },
     "note": "Offline-correct (re-lex token-pair scan; burn-in + corpus + conformance clean). Live-verify is BLOCKED by the harness: `FUNCTIONBLOCK` lexes as an identifier so splitRepro can't identify the deprecated FB as a pushable unit, so the IDE builds nothing and stays silent. Would need the verifier to push the raw source as a typed FB item.",
     "fix": null,
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0099",
@@ -2191,6 +2208,9 @@
     "fix": null,
     "codesysActual": [
       "No definition found for base class 'Base'"
+    ],
+    "twincatActual": [
+      "No definition found for base class 'Base'"
     ]
   },
   {
@@ -2216,6 +2236,10 @@
     "codesysActual": [
       "Identifier 'POU' not defined",
       "Program name, function or function block instance expected instead of 'POU'"
+    ],
+    "twincatActual": [
+      "Identifier 'POU' not defined",
+      "Program name, function or function block instance expected instead of 'POU'"
     ]
   },
   {
@@ -2239,6 +2263,9 @@
     },
     "fix": null,
     "codesysActual": [
+      "Unknown type: 'ITF'"
+    ],
+    "twincatActual": [
       "Unknown type: 'ITF'"
     ]
   },
@@ -2396,6 +2423,10 @@
     "codesysActual": [
       "'VarInput' not allowed in this place",
       "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n"
+    ],
+    "twincatActual": [
+      "'VarInput' not allowed in this place",
+      "Variable declaration expected instead of VAR_INPUT"
     ]
   },
   {
@@ -2592,7 +2623,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null
   },
@@ -2684,6 +2715,10 @@
     "codesysActual": [
       "Unexpected token 'INT' found",
       "';' expected instead of 'END_VAR'"
+    ],
+    "twincatActual": [
+      "Unexpected Token 'INT' found",
+      "';' expected instead of 'END_VAR'"
     ]
   },
   {
@@ -2707,6 +2742,9 @@
     },
     "fix": null,
     "codesysActual": [
+      "';' expected instead of end of POU"
+    ],
+    "twincatActual": [
       "';' expected instead of end of POU"
     ]
   },
@@ -3040,6 +3078,9 @@
     "fix": null,
     "codesysActual": [
       "Variable declaration expected instead of VAR\r\nEND_VAR\r\n"
+    ],
+    "twincatActual": [
+      "Variable declaration expected instead of VAR"
     ]
   },
   {
@@ -3065,6 +3106,10 @@
     "codesysActual": [
       "The label 'I' has not been referenced",
       "Unexpected token 'INT' found"
+    ],
+    "twincatActual": [
+      "The label 'I' has not been referenced",
+      "Unexpected Token 'INT' found"
     ]
   },
   {
@@ -3087,7 +3132,10 @@
       "twincat": false
     },
     "fix": null,
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": [
+      "VAR_GLOBAL or VAR_CONFIG expected instead of i:INT;"
+    ]
   },
   {
     "code": "C0215",
@@ -3109,7 +3157,8 @@
       "twincat": false
     },
     "fix": null,
-    "codesysActual": []
+    "codesysActual": [],
+    "twincatActual": []
   },
   {
     "code": "C0216",
@@ -3416,7 +3465,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
   },
@@ -3437,7 +3486,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "__QueryInterface(ITFref2, ITFref);"
   },
@@ -3504,7 +3553,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null
   },
@@ -3548,7 +3597,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "__QueryPointer (ITFref, pt);"
   },
@@ -3569,7 +3618,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "__QueryPointer (ITFref, pt);"
   },
@@ -3880,7 +3929,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "note": "Reconcile — the pre-existing message-pragma check already echoes a {warning 'text'} pragma verbatim (C0081 family). Code-linked to C0373.",
     "fix": null
@@ -4034,7 +4083,7 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null
   },
@@ -4062,6 +4111,9 @@
     "codesysActual": [
       "No memory for dynamic object creation defined for application 'Device.Application'",
       "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+    ],
+    "twincatActual": [
+      "A Functionblock or Structure needs the attribute '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
     ]
   },
   {
@@ -4287,7 +4339,8 @@
       "codesys": true,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "twincatActual": []
   },
   {
     "code": "C0526",
@@ -4397,7 +4450,8 @@
       "codesys": true,
       "twincat": false
     },
-    "fix": null
+    "fix": null,
+    "twincatActual": []
   },
   {
     "code": "C0543",

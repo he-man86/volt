@@ -336,12 +336,22 @@ export function messagesFor(vendor: Vendor): Messages {
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
     defaultNotConstant: () => `Default value is not constant`,
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
-    queryPointerFirst: () => `First operand of __QueryPointer must be an interface reference or the instance of a function block`,
-    queryPointerSecond: () => `Second operand of __QueryInterface must be a pointer`,
-    queryInterfaceFirst: () => `First operand of __QueryInterface must be an interface reference or the instance of a function block`,
-    queryInterfaceSecond: () => `Second operand of __QueryInterface must be an interface reference`,
-    operatorNeedsExactly: (op, count) => `'${op}' needs exactly '${count}' operands`,
-    operatorNeedsAtLeast: (op, count) => `'${op}' needs at least '${count}' operands`,
+    // TwinCAT capitalizes "Operand"; CODESYS uses lowercase (both live-verified). C0241's TC form also drops
+    // the article ("must be pointer") and keeps CODESYS's __QueryInterface typo.
+    queryPointerFirst: () =>
+      tc
+        ? `First Operand of __QueryPointer must be an interface reference or the instance of a function block`
+        : `First operand of __QueryPointer must be an interface reference or the instance of a function block`,
+    queryPointerSecond: () =>
+      tc ? `Second Operand of __QueryInterface must be pointer` : `Second operand of __QueryInterface must be a pointer`,
+    queryInterfaceFirst: () =>
+      tc
+        ? `First Operand of __QueryInterface must be an interface reference or the instance of a function block`
+        : `First operand of __QueryInterface must be an interface reference or the instance of a function block`,
+    queryInterfaceSecond: () =>
+      tc ? `Second Operand of __QueryInterface must be an interface reference` : `Second operand of __QueryInterface must be an interface reference`,
+    operatorNeedsExactly: (op, count) => (tc ? `'${op}' needs exactly '${count}' Operands` : `'${op}' needs exactly '${count}' operands`),
+    operatorNeedsAtLeast: (op, count) => (tc ? `'${op}' needs at least '${count}' Operands` : `'${op}' needs at least '${count}' operands`),
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,
     pointerNotConvertible: (from, to) => `Type '${from}' is possibly not convertible to type '${to}'.`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
