@@ -18,13 +18,16 @@ import type { Keyword } from "./tokens.js"
 import { Cursor } from "./cursor.js"
 import { skipFolderDirective } from "./util.js"
 import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
-import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, Statement, StatementList } from "./ast.js"
+import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
 
 export interface BodyParse {
   statements: StatementList
   ok: boolean
   /** First recorded error (diagnostic-quality, for corpus triage only — never surfaced to the user). */
   firstError?: string
+  /** All recorded parse errors (an `expect*` mismatch = a definite syntax error at a precise span). Surfaced
+   *  as diagnostics by `checkParseErrors`; the resilient-recovery work (phase 2) grows this past one entry. */
+  errors: readonly ParseError[]
 }
 
 // A BodySpan is immutable and parsed identically every time, but the ~15 semantic checks each iterate
@@ -58,7 +61,7 @@ export function parseStatements(body: BodySpan): BodyParse {
   const firstError = ok
     ? undefined
     : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
-  const result: BodyParse = { statements, ok, firstError }
+  const result: BodyParse = { statements, ok, firstError, errors }
   parseCache.set(body, result)
   return result
 }

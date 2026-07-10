@@ -154,6 +154,10 @@ const CHECKS: readonly Check[] = [
   checkAbstractOutputDefault,
   // pragmas/
   checkPragmas,
+  // syntax/ — checkParseErrors (statement-level parse errors) is DELIBERATELY NOT registered yet: the corpus
+  // gate is clean but the conformance gate found 2 grammar gaps (partial access `x.%W1`, typed char literal
+  // `UCHAR#'A'`) that would false-positive. Grammar completion (change `resilient-st-parse-errors`, phase 2)
+  // is the prerequisite to flipping this on. The check + its exposed errors are ready; the gate blocks the ship.
 ]
 
 export interface DiagnosticsArgs {
