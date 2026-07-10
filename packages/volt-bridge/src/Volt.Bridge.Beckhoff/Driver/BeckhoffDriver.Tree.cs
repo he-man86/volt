@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Volt.Bridge.Core.Diagnostics;
 using Volt.Bridge.Core.Ide;
 using Volt.Bridge.Core.Workspace;
 using Volt.Bridge.Core.Workspace.SourceText;
@@ -28,14 +29,17 @@ public sealed partial class BeckhoffDriver
 
     private void WalkInner(object node, string folderPath, List<ProjectItem> items)
     {
+        // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
+        // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
+        // like this once hid a real read bug (FB-with-method / interface) for a long time.
         int count;
-        try { count = _om.ChildCount(node); } catch { return; }
+        try { count = _om.ChildCount(node); } catch (Exception ex) { VoltLog.Debug($"walk: ChildCount faulted at folder='{folderPath}': {ex.Message}"); return; }
         for (int i = 1; i <= count; i++)
         {
             object child;
-            try { child = _om.ChildAt(node, i); } catch { continue; }
+            try { child = _om.ChildAt(node, i); } catch (Exception ex) { VoltLog.Debug($"walk: ChildAt({i}) faulted at folder='{folderPath}': {ex.Message}"); continue; }
             string name;
-            try { name = _om.GetName(child); } catch { continue; }
+            try { name = _om.GetName(child); } catch (Exception ex) { VoltLog.Debug($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}"); continue; }
             int itemType = ClassifiedKind(child);
 
             // A plain folder OR a container-manager (library / recipe / visualization manager) is a FOLDER, not a
