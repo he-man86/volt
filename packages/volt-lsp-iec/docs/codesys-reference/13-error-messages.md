@@ -36,16 +36,33 @@ Don't rely on the ranges — each page is the authoritative source for its own c
 
 ## Why this matters for tooling
 
-We **do not own these codes**. The LSP's own diagnostics (`source: "volt-lsp-iec"`) use our own message text. We don't try to issue CODESYS codes from the LSP — that would be misleading, because:
+> **Stance updated 2026-07-10** (supersedes the earlier "we do not own these codes" position). The catalog is now
+> the LSP's **coverage checklist** and the live `/build` output is a **byte-exact conformance oracle**. See the
+> `codesys-error-catalog-checks` change and `TRIAGE.md`.
 
-1. CODESYS may upgrade or change a code's meaning across versions.
-2. The IDE will emit the *real* code on push; our diagnostic is a heads-up, not a substitute.
-3. Our checks are a subset of what CODESYS catches; mapping 1:1 would over-promise.
+We keep our **own diagnostic namespace** — the LSP's diagnostics carry `source: "volt-lsp-iec"` and our own `code`
+string, never a `Cnnnn` as the primary code. But each diagnostic that mirrors a catalog code now **maps to that
+`Cnnnn` as metadata**, and new checks are **sourced from the catalog** rather than from whatever we happened to
+notice. Concretely:
 
-What we **do** want from this catalog:
+1. **Catalog-driven coverage.** [`error-catalog.json`](./error-catalog.json) records every code with its exact
+   message template(s), category, a minimal repro, and a coverage status (`covered` / `checkable` / `ide-only`).
+   `src/reference/error-codes.ts` wraps it. A `checkable` code with no check yet is a *visible, tracked* gap
+   (TRIAGE.md), not a silent absence.
+2. **Conformance-verified wording.** Any message we share with the compilers is verified byte-identical against how
+   the live IDE actually builds (CODESYS `:8556` / TwinCAT `:8555` `/build`, which emits `Cnnnn: <message>`).
+   Unverified wording is marked `PROVISIONAL`; per-vendor differences live as data in the vendor-keyed message
+   builders, not as guesses.
+3. **`Cnnnn` stays metadata, not our code.** The IDE remains authoritative — it emits the *real* code on build;
+   our offline diagnostic is a fast heads-up, and our checks are a deliberate zero-FP subset (mapping 1:1 as our
+   own code would over-promise, since CODESYS may change a code's meaning across versions).
 
-- **Hover documentation for IDE diagnostics**: if a CODESYS push fails and surfaces `C0042` in the bridge response, we can link to the CODESYS doc URL for that code so the user/AI sees the canonical explanation.
-- **Diagnostic-code → fix-recipe lookup**: in future, an LSP code-action provider could suggest common fixes for specific CODESYS errors when they surface from the bridge.
+What we also want from the catalog (unchanged):
+
+- **Hover documentation**: attach the mirrored `Cnnnn`'s doc URL (via the diagnostic's `data`/`codeDescription`) so
+  the user/AI can reach the canonical CODESYS explanation.
+- **Diagnostic-code → fix-recipe lookup**: an LSP code-action provider could suggest common fixes for specific
+  codes (started for a few `checkable` codes; diagnose-only is acceptable for the rest).
 
 ## Sub-pages
 
@@ -60,11 +77,14 @@ Exception: `C0454` is at `_cds_error_c0008-2040066.html`. Treat the URL in `_toc
 
 ## Notes for tooling
 
-**Possible Stage 6 work:**
-- `src/reference/error-codes.ts` exporting `{ code: "C0042", title: "...", url: "https://..." }` for every known code, hydrated by scraping the per-code pages.
-- A bridge-response augmenter that detects `Cnnnn` in an IDE compile error and decorates it with our local catalog entry (title + URL) before surfacing to the user/AI.
+**Landed** (via the `codesys-error-catalog-checks` change):
+- `src/reference/error-codes.ts` + [`error-catalog.json`](./error-catalog.json) — the structured catalog for every code (message, category, repro, coverage status), consumed by checks and the offline completeness test.
+- ~104 catalog-sourced offline checks under `src/analysis/checks/**`, each conformance-verified (or `PROVISIONAL`) against the live IDE build.
+- [`TRIAGE.md`](./TRIAGE.md) — the per-code coverage map and the backlog of remaining `checkable` codes.
 
-**Not part of any current stage:**
-- Pre-emitting CODESYS-style codes from LSP diagnostics. We keep our own diagnostic source/code namespace.
+**Still open / optional:**
+- A bridge-response augmenter that detects `Cnnnn` in an IDE compile error and decorates it with the local catalog entry (title + URL) before surfacing to the user/AI.
+- Extending code-actions beyond the current few `FIXABLE` codes.
 
-**Stage 6 work is optional** — this section is the lowest-priority of the 13 because the codes describe IDE-side enforcement, not language quirks the AI must learn.
+**Deliberately not done:**
+- Pre-emitting CODESYS-style codes as our own diagnostic `code`. We keep our own `source`/`code` namespace and carry `Cnnnn` only as metadata.
