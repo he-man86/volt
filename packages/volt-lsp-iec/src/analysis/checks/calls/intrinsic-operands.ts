@@ -72,6 +72,16 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       if (t.kind !== "function_block" && t.kind !== "struct" && t.kind !== "unknown")
         push(out, "error", e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
     }
+    if (name === "__QUERYPOINTER") {
+      // Conservative: fire only when an operand is a KNOWN ELEMENTARY (unambiguously wrong) — an interface ref /
+      // FB instance reads as function_block, a valid pointer as pointer; a reference/struct/unknown is skipped.
+      const first = e.args[0]?.value
+      if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
+        push(out, "error", first.span, "query-pointer-operand", ctx.messages.queryPointerFirst()) // C0240
+      const second = e.args[1]?.value
+      if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
+        push(out, "error", second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
+    }
   })
 }
 

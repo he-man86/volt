@@ -3395,17 +3395,17 @@
     "kind": "error",
     "category": "invalid QueryPointer operand",
     "cause": "The first argument passed to __QueryPointer is a plain variable instead of an interface reference or function block instance.",
-    "message": "First Operand of __QueryPointer must be an interface reference or the instance of a function block",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    a : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(a,pt);",
+    "message": "First operand of __QueryPointer must be an interface reference or the instance of a function block",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n    a : INT;\n    pt : POINTER TO FB;\nEND_VAR\n__QueryPointer(a, pt);\nEND_PROGRAM",
     "expect": [
-      "First Operand of __QueryPointer must be an interface reference or the instance of a function block"
+      "First operand of __QueryPointer must be an interface reference or the instance of a function block"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "query-pointer-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "__QueryPointer (ITFref, pt);"
@@ -3416,17 +3416,17 @@
     "kind": "error",
     "category": "invalid QueryPointer operand",
     "cause": "The second argument passed to __QueryPointer is not a pointer-typed variable as required.",
-    "message": "Second Operand of __QueryPointer must be pointer",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    b : INT;\n    ITFref : ITF;\n    pt : POINTER TO FB;\nEND_VAR\n\n__QueryPointer(ITFref,b);\n\nINTERFACE ITF EXTENDS __System.IQueryInterface",
+    "message": "Second operand of __QueryInterface must be a pointer",
+    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\n\nINTERFACE ITF EXTENDS __System.IQueryInterface\nEND_INTERFACE\n\nPROGRAM PLC_PRG\nVAR\n    b : INT;\n    ITFref : ITF;\nEND_VAR\n__QueryPointer(ITFref, b);\nEND_PROGRAM",
     "expect": [
-      "Second Operand of __QueryPointer must be pointer"
+      "Second operand of __QueryInterface must be a pointer"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "intrinsic-operands",
+    "ourCode": "query-pointer-operand",
     "lint": null,
     "verified": {
-      "codesys": false,
+      "codesys": true,
       "twincat": false
     },
     "fix": "__QueryPointer (ITFref, pt);"

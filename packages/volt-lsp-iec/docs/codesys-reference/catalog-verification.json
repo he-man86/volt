@@ -1,15 +1,25 @@
 {
-  "at": "2026-07-10T14:14:44.099Z",
+  "at": "2026-07-10T14:24:17.713Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0525",
+      "code": "C0240",
       "outcome": "verified",
       "lsp": [
-        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
+        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
       ],
       "actual": [
-        "The type ARRAY [0..1] OF INT cannot have a default value in this context"
+        "First operand of __QueryPointer must be an interface reference or the instance of a function block"
+      ]
+    },
+    {
+      "code": "C0241",
+      "outcome": "verified",
+      "lsp": [
+        "Second operand of __QueryInterface must be a pointer"
+      ],
+      "actual": [
+        "Second operand of __QueryInterface must be a pointer"
       ]
     }
   ]

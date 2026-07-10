@@ -112,6 +112,10 @@ export interface Messages {
   defaultNotConstant(): string
   /** `ADR(<literal>)` — a literal has no address (C0131). PROVISIONAL (bridge-gated). */
   invalidAdrOperand(value: string): string
+  /** `__QueryPointer`'s first operand is not an interface reference / FB instance (C0240). PROVISIONAL. */
+  queryPointerFirst(): string
+  /** `__QueryPointer`'s second operand is not a pointer (C0241). PROVISIONAL. */
+  queryPointerSecond(): string
   /** An intrinsic operator called with the wrong exact number of operands (C0022). PROVISIONAL (bridge-gated). */
   operatorNeedsExactly(op: string, count: number): string
   /** An intrinsic operator called with fewer than its minimum operands (C0023). PROVISIONAL (bridge-gated). */
@@ -314,6 +318,8 @@ export function messagesFor(vendor: Vendor): Messages {
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
     defaultNotConstant: () => `Default value is not constant`,
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,
+    queryPointerFirst: () => `First operand of __QueryPointer must be an interface reference or the instance of a function block`,
+    queryPointerSecond: () => `Second operand of __QueryInterface must be a pointer`,
     operatorNeedsExactly: (op, count) => `'${op}' needs exactly '${count}' operands`,
     operatorNeedsAtLeast: (op, count) => `'${op}' needs at least '${count}' operands`,
     deleteOperandNotPointer: () => `Operand of __DELETE must be pointer`,

@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-09)
 
-**99 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**101 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -116,6 +116,8 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0238 | declarations/external-initializer | external-initializer | `VAR_EXTERNAL` decl with an inline initializer (value must come from the GVL); verified live CS |
 | C0454 | flow/new-in-expression | new-in-expression | `__NEW` assignment-expression inside another expr (`IF (p := __NEW(T)) = 0`); offline-correct + corpus/conformance clean, but live-verify env-blocked (test project has no `__NEW` memory pool → prerequisite errors preempt it) |
 | C0525 | declarations/input-default | input-default-composite | array-typed `VAR_INPUT` default — **FUNCTION-only** (corpus proved FBs/methods legitimately take array-input defaults, 64 cases; docs cause confirms "in the FUNCTION declaration"); type name from source text; verified live CS |
+| C0240 | calls/intrinsic-operands | query-pointer-operand | `__QueryPointer` first operand a known elementary (not interface-ref/FB); verified live CS (`First operand` lowercase) |
+| C0241 | calls/intrinsic-operands | query-pointer-operand | `__QueryPointer` second operand a known elementary (not pointer); verified live CS (real IDE says `Second operand of __QueryInterface must be a pointer` — CODESYS quirk) |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`
