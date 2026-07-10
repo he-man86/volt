@@ -25,7 +25,7 @@ function lspMessages(repro: string, lint: string | null): string[] {
   const parseResult = parseSource(repro)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: repro }])
   const lints = lint ? ({ [lint]: true } as Partial<LintConfig>) : undefined
-  return computeSemanticDiagnostics({
+  const semantic = computeSemanticDiagnostics({
     parseResult,
     source: repro,
     project,
@@ -33,6 +33,9 @@ function lspMessages(repro: string, lint: string | null): string[] {
   })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)
+  // The server surfaces unit/declaration parse errors too (`server/diagnostics.ts` pushes
+  // `parseResult.errors`), so the burn-in must see them — else declaration-syntax codes look unimplemented.
+  return [...parseResult.errors.map((e) => e.message), ...semantic]
 }
 
 // ── completeness: every documented code has an entry, and enriched entries are well-formed ──

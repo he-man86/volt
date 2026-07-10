@@ -118,21 +118,19 @@
     "category": "missing keyword",
     "cause": "A required keyword (such as THEN) is omitted from a control-flow statement, so the parser encounters the following token instead.",
     "message": "'<operator>' expected instead of '<token>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest\n    x := 9;\nEND_IF",
+    "repro": "PROGRAM PLC_PRG\nVAR bTest:BOOL; x:INT;\nEND_VAR\nIF bTest\n x := 9;\nEND_IF\nEND_PROGRAM",
     "expect": [
-      "'THEN' expected instead of 'x'"
+      "expected THEN in IF, got identifier 'x'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0007",
@@ -279,21 +277,19 @@
     "category": "missing for-loop initializer",
     "cause": "A FOR loop's counter variable is not given an initial value with := before the TO keyword.",
     "message": "Counter initialization expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\nEND_VAR\n\nFOR i TO 10 DO\n    ;\nEND_FOR",
+    "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\nFOR i TO 10 DO\n i:=i;\nEND_FOR\nEND_PROGRAM",
     "expect": [
-      "Counter initialization expected"
+      "expected ':=' in FOR, got keyword 'TO'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "FOR i := 0 TO 10 DO\n    ;\nEND_FOR"
   },
   {
     "code": "C0018",
@@ -461,21 +457,19 @@
     "category": "missing type definition",
     "cause": "A variable declaration's type position contains something that is not a valid data type (e.g. a numeric literal).",
     "message": "Type definition expected instead of '<no data type>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     i : 0;\nEND_VAR",
+    "repro": "TYPE T : ; END_TYPE",
     "expect": [
-      "Type definition expected instead of '0'"
+      "expected type, got ';'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "i : INT;",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "i : INT;"
   },
   {
     "code": "C0032",
@@ -2370,21 +2364,19 @@
     "category": "invalid keyword inside struct",
     "cause": "A variable-block keyword such as VAR_INPUT is used inside a STRUCT declaration, where only plain member declarations are allowed.",
     "message": "'<keyword>' not allowed in this place",
-    "repro": "TYPE DUT :\nSTRUCT\n    VAR_INPUT\n            member : INT;\n    END_VAR\nEND_STRUCT\nEND_TYPE",
+    "repro": "TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE",
     "expect": [
       "'VAR_INPUT' not allowed in this place"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "TYPE DUT :\nSTRUCT\n    member : INT;\nEND_STRUCT\nEND_TYPE"
   },
   {
     "code": "C0174",
@@ -2656,22 +2648,19 @@
     "category": "missing semicolon",
     "cause": "A statement is missing its terminating semicolon, so the parser reaches an unexpected token where ';' was required.",
     "message": "';' expected instead of '<token>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    INT\nEND_VAR",
+    "repro": "PROGRAM PLC_PRG\nVAR\n INT\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Unexpected token '<Token>' found",
-      "';' expected instead of 'INT'"
+      "expected ':' after var name(s), got keyword 'END_VAR'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/var-section",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0190",
@@ -2680,21 +2669,19 @@
     "category": "missing semicolon at end of POU",
     "cause": "The final statement in a POU is missing its terminating semicolon before the POU body ends.",
     "message": "';' expected instead of end of POU",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i : INT;\nEND_VAR\ni := 5",
+    "repro": "PROGRAM PLC_PRG\nVAR i:INT;\nEND_VAR\ni := 5\nEND_PROGRAM",
     "expect": [
-      "';' expected instead of end of POU"
+      "expected ';' after assignment, got end of input"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0191",
@@ -3034,21 +3021,19 @@
     "category": "Missing VAR block keyword",
     "cause": "A variable declaration appears directly in a POU body without being wrapped in a VAR/VAR_INPUT/VAR_OUTPUT/VAR_INOUT block.",
     "message": "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of <expression>",
-    "repro": "PROGRAM PLC_PRG\ni : INT;",
+    "repro": "PROGRAM PLC_PRG\ni : INT;\nEND_PROGRAM",
     "expect": [
-      "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of i : INT;"
+      "expected ';' after statement, got ':'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "PROGRAM PLC_PRG\nVAR\ni : INT;\nEND_VAR"
   },
   {
     "code": "C0213",
