@@ -162,21 +162,19 @@
     "category": "unterminated block",
     "cause": "A control-structure block (e.g. IF) is left unclosed before the source file ends.",
     "message": "Unexpected end-of-file found: '<operator>', '<operator>', or '<operator>' expected",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    x: INT;\n    bTest : BOOL;\nEND_VAR\n\nIF bTest THEN\n    x := 9;",
+    "repro": "PROGRAM P\nVAR b:BOOL;x:INT;\nEND_VAR\nIF b THEN\n x:=1;\nEND_PROGRAM",
     "expect": [
-      "Unexpected end-of-file found: 'ELSIF', 'ELSE', or 'END_IF' expected"
+      "expected END_IF closing IF, got end of input"
     ],
     "fix": null,
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
-    },
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    }
   },
   {
     "code": "C0009",
@@ -231,21 +229,19 @@
     "category": "missing case label",
     "cause": "A statement inside a CASE block is not preceded by a case-value label.",
     "message": "No 'CASE' label found",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    i: INT;\n    x: INT;\nEND_VAR\n\nCASE i OF\n    x := 9;\nEND_CASE",
+    "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nCASE i OF\n i := 9;\nEND_CASE\nEND_PROGRAM",
     "expect": [
-      "No 'CASE' label found"
+      "expected END_CASE closing CASE, got identifier 'i'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parse-errors",
+    "ourCode": "syntax-error",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "CASE i OF\n0:\n    x := 9;\nEND_CASE"
   },
   {
     "code": "C0013",
@@ -410,22 +406,19 @@
     "category": "missing string size",
     "cause": "A STRING type declaration opens a size specifier with '(' but does not supply the numeric length.",
     "message": "size of string expected after '('",
-    "repro": "PROGRAM PLC_PRG\nVAR\n     str : STRING();\nEND_VAR",
+    "repro": "PROGRAM P\nVAR s : STRING();\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "Size of string expected after '('",
-      "';' :=, REF=, ( or '[' expected instead of ')'"
+      "expected expression, got punct ')'"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/type-decl",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "str : STRING(100);",
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": "str : STRING(100);"
   },
   {
     "code": "C0030",
@@ -3044,19 +3037,17 @@
     "message": "VAR_GLOBAL or VAR_CONFIG expected instead of <declaration>",
     "repro": "VAR_GLOBAL\nEND_VAR\ni : INT;",
     "expect": [
-      "VAR_GLOBAL or VAR_CONFIG expected instead of i:INT"
+      "unexpected identifier 'i' at file scope"
     ],
-    "status": "checkable",
-    "ourCheck": null,
+    "status": "implemented",
+    "ourCheck": "syntax/parser",
     "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": null,
-    "triage": "parser",
-    "note": "Parser/decl-structure error — the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "fix": null
   },
   {
     "code": "C0215",
