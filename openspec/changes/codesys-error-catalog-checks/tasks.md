@@ -1,6 +1,6 @@
 ## 0. Status matrix (updated 2026-07-09)
 
-**97 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
+**98 / 220 implemented** — each a registered check in `src/analysis/checks/**`, emitting through the core
 `computeSemanticDiagnostics` → server `documentDiagnostics` path (both push + pull LSP transports), central
 per-vendor `messages.ts`, corpus zero-FP gate green. All wording `PROVISIONAL` until the §4 live recording.
 
@@ -114,6 +114,7 @@ distinct, corpus-validated coverage, NOT duplicates — so the cleanup was **rec
 | C0023 | calls/intrinsic-operands | operator-operand-count | intrinsic operator below its minimum operand count (`MUX`); same check as C0022, verified live CS |
 | C0185 | calls/call-result-access | call-result-access | component/index/call access directly on a function-call result (`f().x`); excludes `__`-intrinsics (`__VARINFO(x).size` — conformance oracle caught the FP); verified live CS |
 | C0238 | declarations/external-initializer | external-initializer | `VAR_EXTERNAL` decl with an inline initializer (value must come from the GVL); verified live CS |
+| C0454 | flow/new-in-expression | new-in-expression | `__NEW` assignment-expression inside another expr (`IF (p := __NEW(T)) = 0`); offline-correct + corpus/conformance clean, but live-verify env-blocked (test project has no `__NEW` memory pool → prerequisite errors preempt it) |
 
 **Tier map of the remaining 136** (full lists + reuse-clusters in `docs/codesys-reference/TRIAGE.md`):
 `A · clean-ast` (cheap, no new infra) · `B · resolution-dependent` · `C · parse/decl-structure`

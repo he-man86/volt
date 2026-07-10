@@ -1,15 +1,16 @@
 {
-  "at": "2026-07-10T13:47:33.321Z",
+  "at": "2026-07-10T13:57:21.982Z",
   "base": "http://127.0.0.1:8556",
   "results": [
     {
-      "code": "C0238",
-      "outcome": "verified",
+      "code": "C0454",
+      "outcome": "mismatch",
       "lsp": [
-        "No initial value allowed for VAR_EXTERNAL ig"
+        "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
       ],
       "actual": [
-        "No initial value allowed for VAR_EXTERNAL ig"
+        "No memory for dynamic object creation defined for application 'Device.Application'",
+        "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
       ]
     }
   ]

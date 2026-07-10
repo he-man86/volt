@@ -3875,19 +3875,24 @@
     "category": "invalid __NEW expression usage",
     "cause": "Code embeds a __NEW pointer-assignment expression directly inside another expression (e.g. a comparison), which the compiler disallows.",
     "message": "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead.",
-    "repro": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\nIF (pSt := __NEW(ST_Data)) = 0 THEN\n      RETURN;\nEND_IF",
+    "repro": "TYPE ST_Data :\nSTRUCT\n    x : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\nIF (pSt := __NEW(ST_Data)) = 0 THEN\n      RETURN;\nEND_IF\nEND_PROGRAM",
     "expect": [
       "It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead."
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "new-in-expression",
+    "ourCode": "new-in-expression",
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF"
+    "fix": "PROGRAM PLC_PRG\nVAR\n      pSt: POINTER TO ST_Data;\nEND_VAR\n\npSt := __NEW(ST_Data);\nIF pSt = 0 THEN\n      RETURN;\nEND_IF",
+    "note": "Check is offline-correct (structural: an assign_expr whose value is a __NEW call; corpus + conformance clean, burn-in passes). Live-verify is BLOCKED by the test project's environment — it has no __NEW memory pool configured, so the build reports the __NEW prerequisites ('No memory for dynamic object creation', 'needs {attribute enable_dynamic_creation}') BEFORE reaching C0454. C0454 fires only once __NEW is otherwise valid. verified.codesys stays false until a project with dynamic-creation memory is available.",
+    "codesysActual": [
+      "No memory for dynamic object creation defined for application 'Device.Application'",
+      "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+    ]
   },
   {
     "code": "C0456",

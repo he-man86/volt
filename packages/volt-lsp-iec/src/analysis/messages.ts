@@ -64,6 +64,8 @@ export interface Messages {
   unknownNamedArgument(name: string, callee: string): string
   /** Component/index/call access performed directly on a function-call result (C0185). PROVISIONAL. */
   callResultAccess(): string
+  /** A `__NEW` assignment-expression used inside another expression (C0454). PROVISIONAL. */
+  newInExpression(): string
   /** A `name => target` binding naming no output of the callee (C0038). PROVISIONAL (no bridge recording yet). */
   unknownNamedOutput(name: string, callee: string): string
   /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). PROVISIONAL. */
@@ -278,6 +280,8 @@ export function messagesFor(vendor: Vendor): Messages {
     unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
     callResultAccess: () =>
       `It is not possible to perform component access '.', index access '[]' or call '()' on result of function call. Assign result to help variable first.`,
+    newInExpression: () =>
+      `It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead.`,
     unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
     inOutNeedsWritable: (param, callee) =>
       tc
