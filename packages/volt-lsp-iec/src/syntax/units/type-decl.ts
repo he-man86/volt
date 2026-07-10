@@ -32,6 +32,7 @@ import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { collectInitTokens, initializerFromTokens, parseExpression } from "../expression.js"
 import { identFromToken, joinSpans } from "../util.js"
+import { atVarSection } from "../var-section.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const start = c.expectKeyword("TYPE", "at start of TYPE block")
@@ -121,6 +122,15 @@ function parseStructBody(c: Cursor): StructBody | undefined {
         fields,
         span: joinSpans(start.span, endStruct.span),
       }
+    }
+    // A VAR-section keyword inside a STRUCT is illegal (C0173) — skip the whole misplaced `VAR_* … END_VAR`
+    // block with ONE error, instead of choking `parseStructField` on `VAR_INPUT` and then again on `END_VAR`.
+    if (atVarSection(c)) {
+      const kw = c.consume()
+      c.pushError(`'${kw.text}' not allowed in this place`, kw.span)
+      c.recoverTo({ keywords: ["END_VAR", "END_STRUCT"] })
+      c.eatKeyword("END_VAR")
+      continue
     }
     const decl = parseStructField(c)
     if (decl !== undefined) {
