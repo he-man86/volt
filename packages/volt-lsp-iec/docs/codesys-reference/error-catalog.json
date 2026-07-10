@@ -499,32 +499,19 @@
     "category": "type-conversion",
     "cause": "an implicit conversion between incompatible types",
     "message": "Cannot convert type '<from>' to type '<to>'",
-    "repro": "FUNCTION_BLOCK F\nVAR b : BOOL; i : INT; END_VAR\ni := b;\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK F\nVAR\n  b : BOOL;\n  i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK",
     "expect": [
       "Cannot convert type 'BOOL' to type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "assignment",
-    "ourCode": null,
+    "ourCode": "assignment-type-mismatch",
     "lint": null,
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "test1 := TO_INT(test2);",
-    "codesysActual": [
-      "Unexpected statement"
-    ],
-    "twincatActual": [
-      "Unexpected Token 'VAR' found",
-      "';' expected instead of 'b'",
-      "The label 'B' has not been referenced",
-      "Unexpected Token 'BOOL' found",
-      "The label 'I' has not been referenced",
-      "Unexpected Token 'INT' found",
-      "Unexpected Token 'END_VAR' found",
-      "';' expected instead of 'i'"
-    ]
+    "fix": "test1 := TO_INT(test2);"
   },
   {
     "code": "C0033",
@@ -1210,7 +1197,7 @@
     "category": "name-resolution",
     "cause": "a declared type name resolves to no known type",
     "message": "Unknown type: '<type>'",
-    "repro": "FUNCTION_BLOCK F\nVAR a : USNT; END_VAR\nEND_FUNCTION_BLOCK",
+    "repro": "FUNCTION_BLOCK F\nVAR\n  a : USNT;\nEND_VAR\nEND_FUNCTION_BLOCK",
     "expect": [
       "Unknown type: 'USNT'"
     ],
@@ -1219,21 +1206,10 @@
     "ourCode": "unknown-type",
     "lint": "unknownType",
     "verified": {
-      "codesys": false,
-      "twincat": false
+      "codesys": true,
+      "twincat": true
     },
-    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);",
-    "codesysActual": [
-      "Unexpected statement"
-    ],
-    "twincatActual": [
-      "Unexpected Token 'VAR' found",
-      "';' expected instead of 'a'",
-      "The label 'A' has not been referenced",
-      "The code 'USNT;",
-      "Unexpected Token 'END_VAR' found",
-      "';' expected instead of end of POU"
-    ]
+    "fix": "arr1 : ARRAY[1..2] OF STRUCT1 := (p1:=1,p2:=10);"
   },
   {
     "code": "C0078",

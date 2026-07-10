@@ -1,15 +1,25 @@
 {
-  "at": "2026-07-10T20:22:28.012Z",
+  "at": "2026-07-10T20:27:10.216Z",
   "base": "http://127.0.0.1:8555",
   "results": [
     {
-      "code": "C0033",
+      "code": "C0032",
       "outcome": "verified",
       "lsp": [
-        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+        "Cannot convert type 'BOOL' to type 'INT'"
       ],
       "actual": [
-        "Cannot convert type 'POINTER TO INT' to type 'DWORD'"
+        "Cannot convert type 'BOOL' to type 'INT'"
+      ]
+    },
+    {
+      "code": "C0077",
+      "outcome": "verified",
+      "lsp": [
+        "Unknown type: 'USNT'"
+      ],
+      "actual": [
+        "Unknown type: 'USNT'"
       ]
     }
   ]
