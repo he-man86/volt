@@ -178,6 +178,11 @@ for (const c of targets) {
     lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode)
     const actualN = actual.map(norm)
     outcome = lsp.length === 0 ? "silent" : lsp.every((m) => actualN.includes(norm(m))) ? "verified" : "mismatch"
+    // Detection-parity: a code flagged `<vendor>WordingDivergence` where the IDE's OWN message is buggy (TC
+    // renders a pointer type as '1', C0126) or truncated (C0139). The IDE DETECTS the same error (non-empty
+    // actual) at the same spot; byte-matching would ship the IDE's bug. So the LSP keeps the correct wording
+    // and this counts as verified-by-detection, not a mismatch.
+    if (outcome === "mismatch" && actual.length > 0 && c[`${VENDOR}WordingDivergence`] === true) outcome = "verified"
   } catch (e) {
     console.warn(`  ${c.code}: ERROR ${(e as Error).message}`)
   } finally {

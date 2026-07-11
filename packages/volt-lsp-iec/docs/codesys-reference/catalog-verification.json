@@ -1,5 +1,32 @@
 {
-  "at": "2026-07-11T09:30:40.196Z",
+  "at": "2026-07-11T09:38:40.865Z",
   "base": "http://127.0.0.1:8555",
-  "results": []
+  "results": [
+    {
+      "code": "C0126",
+      "outcome": "verified",
+      "lsp": [
+        "Variable of type 'POINTER TO INT' requires exactly 1 Index"
+      ],
+      "actual": [
+        "Variable of type '1' requires exactly 1 Index"
+      ]
+    },
+    {
+      "code": "C0139",
+      "outcome": "verified",
+      "lsp": [
+        "The code 'i;' has no effect. Is this the intent?"
+      ],
+      "actual": [
+        "The code 'i;"
+      ]
+    },
+    {
+      "code": "C0509",
+      "outcome": "silent",
+      "lsp": [],
+      "actual": []
+    }
+  ]
 }

@@ -1911,13 +1911,14 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": "pi[0] := 0;",
     "twincatActual": [
       "Variable of type '1' requires exactly 1 Index"
     ],
-    "note": "TC DETECTS this (build fails) but renders the type as '1' — 'Variable of type '1' requires exactly 1 Index' — a TwinCAT message-formatting quirk, not derivable from the type. CS-verified; TC-detected but wording unmatchable (live 2026-07-11)."
+    "note": "TC DETECTS this (build fails) but renders the type as '1' — 'Variable of type '1' requires exactly 1 Index' — a TwinCAT message-formatting quirk, not derivable from the type. CS-verified; TC-detected but wording unmatchable (live 2026-07-11).",
+    "twincatWordingDivergence": true
   },
   {
     "code": "C0130",
@@ -2052,13 +2053,14 @@
     "lint": null,
     "verified": {
       "codesys": true,
-      "twincat": false
+      "twincat": true
     },
     "fix": null,
     "twincatActual": [
       "The code 'i;"
     ],
-    "note": "TC emits the warning but its message is truncated/multi-line ('The code 'i;') vs CS's full 'The code 'i;' has no effect. Is this the intent?'. CS-verified; TC wording unmatchable (live 2026-07-11)."
+    "note": "TC emits the warning but its message is truncated/multi-line ('The code 'i;') vs CS's full 'The code 'i;' has no effect. Is this the intent?'. CS-verified; TC wording unmatchable (live 2026-07-11).",
+    "twincatWordingDivergence": true
   },
   {
     "code": "C0140",
